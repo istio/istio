@@ -481,7 +481,7 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
 		// helm template istiod-1-15-0 istio/istiod --version 1.15.0 -s templates/revision-tags.yaml --set revision=1-15-0 --set revisionTags={prod}
-		helmtest.SetRevisionTag(t, h, "", firstRevision, canaryTag, helmtest.ManifestsChartPath, "")
+		helmtest.SetRevisionTag(t, h, "", firstRevision, prodTag, helmtest.ManifestsChartPath, "")
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
 			"istio-revision-tag-prod",
 		})
