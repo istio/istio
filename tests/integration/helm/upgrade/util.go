@@ -426,7 +426,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string, ambient, checkGatewa
 
 		// make sure the restarted pods in default-1 namespace do not use
 		// the previous version (check for the previousVersion in the image string)
-		err = checkVersion(t, oldNs.Name(), previousVersion)
+		err = checkVersionNot(t, oldNs.Name(), previousVersion)
 		if err != nil {
 			t.Fatalf("found a pod in namespace (%s) with the previous version: %v", oldNs.Name(), err)
 		}
@@ -436,7 +436,126 @@ func performRevisionTagsUpgradeFunc(previousVersion string, ambient, checkGatewa
 	}
 }
 
-func checkVersion(t framework.TestContext, namespace, version string) error {
+// runMultipleTagsFunc returns the provided function necessary to run inside an integration test
+// for multi-tag capability with stable label revisions
+func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestContext) {
+	return func(t framework.TestContext) {
+		firstRevision := "first"
+		cs := t.Clusters().Default().(*kubecluster.Cluster)
+		h := helm.New(cs.Filename())
+		t.CleanupConditionally(func() {
+			err := deleteIstioRevision(h, latestRevisionTag)
+			if err != nil {
+				t.Fatalf("could not delete istio revision (%v): %v", latestRevisionTag, err)
+			}
+			err = deleteIstioRevision(h, firstRevision)
+			if err != nil {
+				t.Fatalf("could not delete istio revision (%v): %v", firstRevision, err)
+			}
+
+			err = cleanupIstio(cs, h)
+			if err != nil {
+				t.Fatalf("could not cleanup istio: %v", err)
+			}
+		})
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				namespace.Dump(t, helmtest.IstioNamespace)
+			}
+		})
+		var setupTrafficTest func(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance)
+		if ambient {
+			setupTrafficTest = func(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+				ns, client, server, _ := sanitycheck.SetupTrafficTestAmbient(t, revision)
+				return ns, client, server
+			}
+		} else {
+			setupTrafficTest = sanitycheck.SetupTrafficTest
+		}
+		s := t.Settings()
+		overrideValuesFile := helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, false)
+		helmtest.InstallIstioWithRevision(t, cs, h, "", firstRevision, overrideValuesFile, false, false)
+		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
+
+		// helm template istiod-1-15-0 istio/istiod --version 1.15.0 -s templates/revision-tags.yaml --set revision=1-15-0 --set revisionTags={prod}
+		helmtest.SetRevisionTagWithVersion(t, h, firstRevision, prodTag, "")
+		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
+			"istio-revision-tag-prod",
+			fmt.Sprintf("istio-sidecar-injector-%s", firstRevision),
+		})
+
+		// setup istio.io/rev=1-15-0 for the default-1 namespace
+		oldNs, oldClient, oldServer := setupTrafficTest(t, firstRevision)
+		if checkGatewayStatus {
+			deployWaypointsAndWaitForReady(t, cs, echo.Instances{oldServer})
+		}
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
+
+		// install the charts from this branch with revision set to "latest"
+		// helm upgrade istio-base ../manifests/charts/base --namespace istio-system -f values.yaml
+		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
+		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, false)
+
+		helmtest.AdoptPre123CRDResourcesIfNeeded()
+
+		helmtest.InstallIstioWithRevision(t, cs, h, "", latestRevisionTag, overrideValuesFile, true, false)
+		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
+
+		// helm template istiod-latest ../manifests/charts/istio-control/istio-discovery --namespace istio-system
+		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={canary}
+		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, canaryTag, helmtest.ManifestsChartPath, "")
+		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
+			"istio-revision-tag-prod",
+			fmt.Sprintf("istio-sidecar-injector-%v", firstRevision),
+			"istio-revision-tag-canary",
+			"istio-sidecar-injector-latest",
+		})
+
+		// setup istio.io/rev=latest for the default-2 namespace
+		_, newClient, newServer := setupTrafficTest(t, latestRevisionTag)
+		if checkGatewayStatus {
+			deployWaypointsAndWaitForReady(t, cs, echo.Instances{newServer})
+		}
+		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
+
+		// now check that we are compatible with N-1 proxy with N proxy between a client
+		// in default-1 namespace and a server in the default-2 namespace, respectively
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+
+		// change the mutating webhook configuration to use the latest revision (istiod-latest service in istio-system)
+		// helm template istiod-latest ../manifests/charts/istio-control/istio-discovery --namespace istio-system
+		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={prod}
+		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, prodTag, helmtest.ManifestsChartPath, "")
+
+		// change the old namespace that was pointing to the old prod (1-15-0) to point to the
+		// 'latest' revision by setting the `istio.io/rev=prod` label on the namespace
+		err := oldNs.SetLabel(label.IoIstioRev.Name, prodTag)
+		if err != nil {
+			t.Fatal("could not remove istio.io/rev from old namespace")
+		}
+
+		err = oldClient.Restart()
+		if err != nil {
+			t.Fatal("could not restart old client")
+		}
+		err = oldServer.Restart()
+		if err != nil {
+			t.Fatal("could not restart old server")
+		}
+
+		if checkGatewayStatus {
+			deployWaypointsAndWaitForReady(t, cs, echo.Instances{newServer})
+		}
+
+		// now check traffic still works between the proxies
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+	}
+}
+
+func checkVersionNot(t framework.TestContext, namespace, version string) error {
 	// func NewPodFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
 	fetch := kubetest.NewPodFetch(t.Clusters().Default(), namespace)
 	pods, err := kubetest.CheckPodsAreReady(fetch)
