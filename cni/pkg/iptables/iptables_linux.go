@@ -25,7 +25,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/common/config"
 )
 
 func AddInpodMarkIPRule(cfg *IptablesConfig) error {

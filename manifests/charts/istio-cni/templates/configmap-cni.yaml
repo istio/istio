@@ -34,6 +34,7 @@ data:
   REPAIR_INIT_CONTAINER_NAME: {{ .Values.repair.initContainerName | quote }}
   REPAIR_BROKEN_POD_LABEL_KEY: {{ .Values.repair.brokenPodLabelKey | quote }}
   REPAIR_BROKEN_POD_LABEL_VALUE: {{ .Values.repair.brokenPodLabelValue | quote }}
+  NATIVE_NFTABLES: {{ .Values.global.nativeNftables | quote }}
   {{- with .Values.env }}
   {{- range $key, $val := . }}
   {{ $key }}: "{{ $val }}"

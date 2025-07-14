@@ -47,6 +47,8 @@ const (
 	AmbientDisableSafeUpgrade         = "ambient-disable-safe-upgrade"
 	AmbientReconcilePodRulesOnStartup = "ambient-reconcile-pod-rules-on-startup"
 
+	NativeNftables = "native-nftables"
+
 	// Repair
 	RepairEnabled            = "repair-enabled"
 	RepairDeletePods         = "repair-delete-pods"
