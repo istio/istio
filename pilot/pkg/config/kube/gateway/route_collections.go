@@ -17,6 +17,7 @@ package gateway
 import (
 	"fmt"
 	"iter"
+	"strconv"
 	"strings"
 
 	"go.uber.org/atomic"
@@ -105,7 +106,7 @@ func HTTPRouteCollection(
 				routeKey = obj.Namespace
 				if parent.OriginalReference.Port != nil {
 					routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
-					routeKey += fmt.Sprintf("/%d", *parent.OriginalReference.Port)
+					routeKey += "/" + strconv.Itoa(int(*parent.OriginalReference.Port))
 				}
 				ref := types.NamespacedName{
 					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),
@@ -120,8 +121,7 @@ func HTTPRouteCollection(
 						vsHosts = []string{}
 					}
 				} else {
-					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-						parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace)), ctx.DomainSuffix)}
+					vsHosts = []string{string(parent.OriginalReference.Name) + "." + string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))) + ".svc." + ctx.DomainSuffix}
 				}
 			}
 			if len(routes) == 0 {
@@ -134,7 +134,7 @@ func HTTPRouteCollection(
 					// TODO: standardize a status message for this upstream and report
 					continue
 				}
-				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
+				name := obj.Name + "-" + strconv.Itoa(count) + "-" + constants.KubernetesGatewayName
 				sortHTTPRoutes(routes)
 
 				// Populate Extra field for inference pool configs
@@ -248,7 +248,7 @@ func GRPCRouteCollection(
 				routeKey = obj.Namespace
 				if parent.OriginalReference.Port != nil {
 					routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
-					routeKey += fmt.Sprintf("/%d", *parent.OriginalReference.Port)
+					routeKey += "/" + strconv.Itoa(int(*parent.OriginalReference.Port))
 				}
 				ref := types.NamespacedName{
 					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),

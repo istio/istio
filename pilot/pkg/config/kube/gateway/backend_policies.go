@@ -130,7 +130,7 @@ func DestinationRuleCollection(
 			lbSet := false
 			rbSet := false
 			spec := &networking.DestinationRule{
-				Host:          fmt.Sprintf("%s.%s.svc.%v", svc.Name, svc.Namespace, domainSuffix),
+				Host:          svc.Name + "." + svc.Namespace + ".svc." + domainSuffix, // "%s.%s.svc.%v"
 				TrafficPolicy: &networking.TrafficPolicy{},
 			}
 			parents := make([]string, 0, len(pols))
@@ -159,12 +159,12 @@ func DestinationRuleCollection(
 					rbSet = true
 					spec.TrafficPolicy.RetryBudget = pol.RetryBudget
 				}
-				parents = append(parents, fmt.Sprintf("%s/%s.%s", pol.Source.Kind, pol.Source.Namespace, pol.Source.Name))
+				parents = append(parents, pol.Source.Kind.String()+"/"+pol.Source.Namespace+"."+pol.Source.Name)
 			}
 			cfg := &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
-					Name:             fmt.Sprintf("%s-%s", svc.Name, constants.KubernetesGatewayName),
+					Name:             svc.Name + "-" + constants.KubernetesGatewayName,
 					Namespace:        svc.Namespace,
 					Annotations: map[string]string{
 						constants.InternalParentNames: strings.Join(parents, ","),
@@ -223,7 +223,7 @@ func BackendTLSPolicyCollection(
 			if err != nil {
 				conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
 					Reason:  string(gatewayalpha2.PolicyReasonTargetNotFound),
-					Message: fmt.Sprintf("targetRefs invalid: %v", err),
+					Message: "targetRefs invalid: " + err.Error(),
 				}
 			} else {
 				// Only create an object if we can resolve the target
@@ -301,7 +301,7 @@ func getBackendTLSCredentialName(
 	if err != nil {
 		conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
 			Reason:  string(gatewayalpha2.PolicyReasonInvalid),
-			Message: fmt.Sprintf("Certificate reference invalid: %v", err),
+			Message: "Certificate reference invalid: " + err.Error(),
 		}
 		// Generate an invalid reference. This ensures traffic is blocked.
 		// See https://github.com/kubernetes-sigs/gateway-api/issues/3516 for upstream clarification on desired behavior here.
@@ -367,7 +367,7 @@ func BackendTrafficPolicyCollection(
 			if err != nil {
 				conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
 					Reason:  string(gatewayalpha2.PolicyReasonTargetNotFound),
-					Message: fmt.Sprintf("targetRefs invalid: %v", err),
+					Message: "targetRefs invalid: " + err.Error(),
 				}
 			} else {
 				// Only create an object if we can resolve the target
