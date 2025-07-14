@@ -1,0 +1,181 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ztunnel-windows
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: ztunnel-windows
+    {{- include "istio.labels" . | nindent 4}}
+    {{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
+  annotations:
+{{- if .Values.revision }}
+  {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+  {{- toYaml $annos | nindent 4}}
+{{- else }}
+    {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
+spec:
+  {{- with .Values.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: ztunnel-windows
+  template:
+    metadata:
+      labels:
+        sidecar.istio.io/inject: "false"
+        istio.io/dataplane-mode: none
+        app: ztunnel-windows
+        app.kubernetes.io/name: ztunnel-windows
+        {{- include "istio.labels" . | nindent 8}}
+{{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+{{- if .Values.revision }}
+        istio.io/rev: {{ .Values.revision }}
+{{- end }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: windows
+{{- if .Values.nodeSelector }}
+{{ toYaml .Values.nodeSelector | indent 8 }}
+{{- end }}
+{{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | trim | indent 8 }}
+{{- end }}
+      serviceAccountName: {{ include "ztunnel-windows.release-name" . }}
+{{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | trim | indent 8 }}
+{{- end }}
+      containers:
+      - name: istio-proxy
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
+        image: "{{ .Values.hub }}/{{ .Values.image | default "ztunnel-windows" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
+{{- end }}
+        resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | trim | indent 10 }}
+{{- end }}
+{{- with .Values.imagePullPolicy }}
+        imagePullPolicy: {{ . }}
+{{- end }}
+        securityContext:
+          windowsOptions:
+            hostProcess: true
+            runAsUserName: "NT AUTHORITY\\SYSTEM"
+        readinessProbe:
+          httpGet:
+            port: 15021
+            path: /healthz/ready            
+        command: [ "powershell", "-Command" ] 
+        args:
+        - proxy
+        - ztunnel
+        env:
+        - name: ISTIOD_1_25_0_SERVICE_HOST
+          value: "istiod.istio-system.svc.cluster.local"
+        - name: ALT_XDS_HOSTNAME
+          value: "istiod.istio-system.svc"
+        - name: ALT_CA_HOSTNAME
+          value: "istiod.istio-system.svc"
+        - name: USE_ENV_FOR_DEFAULT_ISTIOD_ADDR
+          value: "true"
+        - name: REVISION
+          value: "1-25-0"
+        - name: RUST_LOG
+          value: {{ .Values.logLevel | quote }}
+        - name: RUST_BACKTRACE
+          value: "1"
+        - name: ISTIO_META_CLUSTER_ID
+          value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
+        - name: INPOD_ENABLED
+          value: "true"
+        - name: INPOD_UDS
+          value: \\.\pipe\istio-zds
+        - name: INPOD_PORT_REUSE
+          value: "false"
+        - name: TERMINATION_GRACE_PERIOD_SECONDS
+          value: "30"
+        - name: IPV6_ENABLED
+          value: "false"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        {{- if .Values.meshConfig.defaultConfig.proxyMetadata }}
+        {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata}}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
+        {{- with .Values.env }}
+        {{- range $key, $val := . }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        - mountPath: /var/run/ztunnel
+          name: cni-ztunnel-sock-dir
+        - mountPath: /tmp
+          name: tmp
+        {{- with .Values.volumeMounts }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      priorityClassName: system-node-critical
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      volumes:
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: istio-ca
+      - name: istiod-ca-cert
+        {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+              path: root-cert.pem
+        {{- else }}
+        configMap:
+          name: {{ .Values.trustBundleName | default "istio-ca-root-cert" }}
+        {{- end }}
+      - name: cni-ztunnel-sock-dir
+        hostPath:
+          path: /var/run/ztunnel
+          type: DirectoryOrCreate # ideally this would be a socket, but ztunnel may not have started yet.
+      # pprof needs a writable /tmp, and we don't have that thanks to `readOnlyRootFilesystem: true`, so mount one
+      - name: tmp
+        emptyDir: {}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 6}}
+      {{- end }}

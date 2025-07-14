@@ -323,7 +323,7 @@ gen: \
 
 gen-check: gen check-clean-repo
 
-CHARTS = gateway default ztunnel base "gateways/istio-ingress" "gateways/istio-egress" "istio-control/istio-discovery" istio-cni
+CHARTS = gateway default ztunnel ztunnel-windows base "gateways/istio-ingress" "gateways/istio-egress" "istio-control/istio-discovery" istio-cni istio-cni-windows
 copy-templates:
 	rm manifests/charts/gateways/istio-egress/templates/*
 

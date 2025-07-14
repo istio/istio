@@ -1,0 +1,80 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "name" . }}
+  labels:
+    app: {{ template "name" . }}
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["pods","nodes","namespaces"]
+  verbs: ["get", "list", "watch"]
+{{- if (eq ((coalesce .Values.platform .Values.global.platform) | default "") "openshift") }}
+- apiGroups: ["security.openshift.io"]
+  resources: ["securitycontextconstraints"]
+  resourceNames: ["privileged"]
+  verbs: ["use"]
+{{- end }}
+---
+{{- if .Values.repair.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "name" . }}-repair-role
+  labels:
+    app: {{ template "name" . }}
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["watch", "get", "list"]
+{{- if .Values.repair.repairPods }}
+{{- /*  No privileges needed*/}}
+{{- else if .Values.repair.deletePods }}
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+{{- else if .Values.repair.labelPods }}
+  - apiGroups: [""]
+    {{- /* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
+    resources: ["pods/status"]
+    verbs: ["patch", "update"]
+{{- end }}
+{{- end }}
+---
+{{- if .Values.ambient.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "name" . }}-ambient
+  labels:
+    app: {{ template "name" . }}
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  {{- /* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
+  resources: ["pods/status"]
+  verbs: ["patch", "update"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets"]
+  resourceNames: ["{{ template "name" . }}-node"]
+  verbs: ["get"]
+{{- end }}
