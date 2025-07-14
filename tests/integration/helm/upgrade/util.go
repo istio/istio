@@ -476,12 +476,12 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 			setupTrafficTest = sanitycheck.SetupTrafficTest
 		}
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, false)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, firstRevision, false)
 		helmtest.InstallIstioWithRevision(t, cs, h, "", firstRevision, overrideValuesFile, false, false)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
 		// helm template istiod-1-15-0 istio/istiod --version 1.15.0 -s templates/revision-tags.yaml --set revision=1-15-0 --set revisionTags={prod}
-		helmtest.SetRevisionTagWithVersion(t, h, firstRevision, prodTag, "")
+		helmtest.SetRevisionTag(t, h, "", firstRevision, canaryTag, helmtest.ManifestsChartPath, "")
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
 			"istio-revision-tag-prod",
 			fmt.Sprintf("istio-sidecar-injector-%s", firstRevision),
