@@ -990,7 +990,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			kube.SetObjectFilter(client, discoveryNamespaceFilter)
 			client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
 
-			tw := revisions.NewTagWatcher(client, "")
+			tw := revisions.NewTagWatcher(client, "", "istio-system")
 			env := model.NewEnvironment()
 			go tw.Run(stop)
 
