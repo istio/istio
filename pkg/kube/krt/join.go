@@ -254,10 +254,6 @@ func handleInnerCollectionEvent[T any](
 		// operate on the key and not the event itself.
 		for _, i := range events {
 			key := GetKey(i.Latest())
-			if _, ok := changedKeys[key]; ok {
-				continue
-			}
-			changedKeys[key] = struct{}{}
 		}
 		// Loop through all of the keys that changed and create an event based on the currente state
 		// and our cached entries.
@@ -272,12 +268,8 @@ func handleInnerCollectionEvent[T any](
 				log.Warnf(msg, key, handlerID)
 				continue
 			// No current entry in our cache for this handler. This key was deleted across all our collections
-			case entry.current == nil:
 				e = Event[T]{
 					Event: controllers.EventDelete,
-					Old:   entry.prev,
-				}
-			// No previous entry in our cache for this handler.
 			// This key was added for the first time across all our collections.
 			case entry.prev == nil:
 				e = Event[T]{
