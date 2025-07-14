@@ -121,7 +121,11 @@ func HTTPRouteCollection(
 						vsHosts = []string{}
 					}
 				} else {
-					vsHosts = []string{string(parent.OriginalReference.Name) + "." + string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))) + ".svc." + ctx.DomainSuffix}
+					vsHosts = []string{
+						string(parent.OriginalReference.Name) +
+							"." +
+							string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))) +
+							".svc." + ctx.DomainSuffix}
 				}
 			}
 			if len(routes) == 0 {
