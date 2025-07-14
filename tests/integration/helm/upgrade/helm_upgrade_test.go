@@ -131,5 +131,5 @@ func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
 func TestAmbientStableRevisionLabelsGatewayStatus(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc("", true, true))
+		Run(runMultipleTagsFunc(true, true))
 }
