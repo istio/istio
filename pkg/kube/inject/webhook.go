@@ -218,7 +218,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	if features.EnableNativeSidecars != features.NativeSidecarModeDisabled {
-		wh.nodes = multicluster.BuildMultiClusterKclientComponent[*corev1.Node](p.MultiCluster, kubetypes.Filter{})
+		wh.nodes = multicluster.BuildMultiClusterKclientComponent[*corev1.Node](p.MultiCluster, kubetypes.Filter{
+			ObjectTransform: kube.StripNodeUnusedFields,
+		})
 	}
 
 	mc := NewMulticast(p.Watcher, wh.GetConfig)
