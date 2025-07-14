@@ -764,6 +764,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			Labels: map[string]string{label.TopologyNetwork.Name: remoteNetwork},
 		},
 	})
+	// TODO: Flakes potentially due to remote system namespace networks always being recreated
 	assert.EventuallyEqual(t, func() int {
 		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
 		return len(ais)
