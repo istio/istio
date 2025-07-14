@@ -567,7 +567,7 @@ func referenceAllowed(
 		if svcEntry == nil {
 			return &ParentError{
 					Reason:  ParentErrorNotAccepted,
-					Message: "parent service entry: " + parentRef.Name + " not found",
+					Message: fmt.Sprintf("parent service entry: %q not found", parentRef.Name),
 				}, &WaypointError{
 					Reason:  WaypointErrorReasonNoMatchingParent,
 					Message: WaypointErrorMsgNoMatchingParent,
