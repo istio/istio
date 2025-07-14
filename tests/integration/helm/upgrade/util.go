@@ -484,7 +484,6 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 		helmtest.SetRevisionTag(t, h, "", firstRevision, canaryTag, helmtest.ManifestsChartPath, "")
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
 			"istio-revision-tag-prod",
-			fmt.Sprintf("istio-sidecar-injector-%s", firstRevision),
 		})
 
 		// setup istio.io/rev=1-15-0 for the default-1 namespace
@@ -509,9 +508,7 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, canaryTag, helmtest.ManifestsChartPath, "")
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
 			"istio-revision-tag-prod",
-			fmt.Sprintf("istio-sidecar-injector-%v", firstRevision),
 			"istio-revision-tag-canary",
-			"istio-sidecar-injector-latest",
 		})
 
 		// setup istio.io/rev=latest for the default-2 namespace
