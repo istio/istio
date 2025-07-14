@@ -140,6 +140,9 @@ func TestGatewayConformance(t *testing.T) {
 					"istio-injection": "enabled",
 				}
 			}
+			if ctx.Settings().GatewayConformanceAllowCRDsMismatch {
+				opts.AllowCRDsMismatch = true
+			}
 			ctx.Cleanup(func() {
 				if !ctx.Failed() {
 					return
