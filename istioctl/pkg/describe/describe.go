@@ -81,6 +81,8 @@ type myProtoValue struct {
 }
 
 const (
+	defaultProxyAdminPort = 15000
+
 	k8sSuffix = ".svc." + constants.DefaultClusterLocalDomain
 
 	printLevel0 = 0
@@ -97,6 +99,8 @@ var (
 	ignoreUnmeshed = false
 
 	describeNamespace string
+
+	proxyAdminPort int
 )
 
 func podDescribeCmd(ctx cli.Context) *cobra.Command {
@@ -107,7 +111,7 @@ func podDescribeCmd(ctx cli.Context) *cobra.Command {
 		Short:   "Describe pods and their Istio configuration [kube-only]",
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that pod.`,
-		Example: `  #Pod query with inferred namespace (current context's namespace)
+		Example: `  # Pod query with inferred namespace (current context's namespace)
   istioctl experimental describe pod helloworld-v1-676yyy3y5r-d8hdl
 
   # Pod query with explicit namespace 
@@ -170,7 +174,7 @@ the configuration objects that affect that pod.`,
 
 			podsLabels := []klabels.Set{klabels.Set(pod.ObjectMeta.Labels)}
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels)
+			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels, proxyAdminPort)
 			if err != nil {
 				return err
 			}
@@ -192,6 +196,7 @@ the configuration objects that affect that pod.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
 	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }
@@ -1208,7 +1213,7 @@ func svcDescribeCmd(ctx cli.Context) *cobra.Command {
 		Short:   "Describe services and their Istio configuration [kube-only]",
 		Long: `Analyzes service, pods, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that service.`,
-		Example: `  #Service query with inferred namespace (current context's namespace)
+		Example: `  # Service query with inferred namespace (current context's namespace)
   istioctl experimental describe service productpage
 
   # Service query with explicit namespace
@@ -1301,7 +1306,7 @@ the configuration objects that affect that service.`,
 			// Only consider the service invoked with this command, not other services that might select the pod
 			svcs := []corev1.Service{*svc}
 
-			err = describePodServices(writer, kubeClient, configClient, &pod, svcs, podsLabels)
+			err = describePodServices(writer, kubeClient, configClient, &pod, svcs, podsLabels, proxyAdminPort)
 			if err != nil {
 				return err
 			}
@@ -1316,12 +1321,13 @@ the configuration objects that affect that service.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
 	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *corev1.Pod, matchingServices []corev1.Service, podsLabels []klabels.Set) error { // nolint: lll
-	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
+func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *corev1.Pod, matchingServices []corev1.Service, podsLabels []klabels.Set, proxyAdminPort int) error { // nolint: lll
+	byConfigDump, err := kubeClient.EnvoyDoWithPort(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump", proxyAdminPort)
 	if err != nil {
 		if ignoreUnmeshed {
 			return nil

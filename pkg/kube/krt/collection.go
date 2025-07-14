@@ -795,8 +795,11 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 ) {
 	i.d = append(i.d, d)
 
+	i.mu.Lock()
+	existed := i.dependencyState.collectionDependencies.InsertContains(d.id)
+	i.mu.Unlock()
 	// For any new collections we depend on, start watching them if its the first time we have watched them.
-	if !i.dependencyState.collectionDependencies.InsertContains(d.id) {
+	if !existed {
 		i.log.WithLabels("collection", d.collectionName).Debugf("register new dependency")
 		syncer.WaitUntilSynced(i.stop)
 		register(func(o []Event[any]) {

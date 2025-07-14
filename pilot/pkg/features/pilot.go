@@ -163,6 +163,18 @@ var (
 		"If enabled, pilot will start a controller that assigns IP addresses to ServiceEntry which do not have a user-supplied IP. "+
 			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.").Get()
 
+	IPAutoallocateIPv4Prefix = env.Register(
+		"PILOT_IP_AUTOALLOCATE_IPV4_PREFIX",
+		"240.240.0.0/16",
+		"The CIDR range/prefix to use for auto-allocated IPv4 addresses. "+
+			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
+
+	IPAutoallocateIPv6Prefix = env.Register(
+		"PILOT_IP_AUTOALLOCATE_IPV6_PREFIX",
+		"2001:2::/48",
+		"The CIDR range/prefix to use for auto-allocated IPv6 addresses. "+
+			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
+
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
 	EnableUnsafeAssertions = env.Register(

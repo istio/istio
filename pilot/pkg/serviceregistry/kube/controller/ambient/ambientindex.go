@@ -57,6 +57,7 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
+	AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	Run(stop <-chan struct{})
@@ -302,7 +303,7 @@ func New(options Options) Index {
 		opts,
 	)
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, opts)
+	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
@@ -581,13 +582,19 @@ func translateKubernetesCondition(conds []metav1.Condition) map[string]model.Con
 	return res
 }
 
-// Lookup finds all addresses associated with a given key. Many different key formats are supported; see inline comments.
+// Try lookup of endpoints by:
+//  1. workload UID
+//  2. workload IP
+//  3. Service (key: network/IP or namespace/hostname)
+//
+// When using Lookup for ns/hostname we will filter by scope determined from service or namespace label
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
 	if w := a.workloads.GetKey(key); w != nil {
 		return []model.AddressInfo{w.AsAddress}
 	}
 
+	// 2. Workload by IP
 	network, ip, found := strings.Cut(key, "/")
 	if !found {
 		log.Warnf(`key (%v) did not contain the expected "/" character`, key)
@@ -595,14 +602,15 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 	}
 	networkAddr := networkAddress{network: network, ip: ip}
 
-	// 2. Workload by IP
 	if wls := a.workloads.ByAddress.Lookup(networkAddr); len(wls) > 0 {
 		return slices.Map(wls, modelWorkloadToAddressInfo)
 	}
 
 	// 3. Service
+	// Service and workload lookup by Service key
 	if svc := a.lookupService(key); svc != nil {
 		res := []model.AddressInfo{svc.AsAddress}
+		// grab all workloads that reference this service
 		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
 			res = append(res, w.AsAddress)
 		}
@@ -636,11 +644,64 @@ func (a *index) inRevision(obj any) bool {
 	return result
 }
 
-// All return all known workloads. Result is un-ordered
+// All return all known workloads and services. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
-	res := slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
+	// Add all workloads
+	res := make([]model.AddressInfo, 0, len(a.workloads.List())+len(a.services.List()))
+	for _, wl := range a.workloads.List() {
+		res = append(res, wl.AsAddress)
+	}
+	// Add all services
 	for _, s := range a.services.List() {
 		res = append(res, s.AsAddress)
+	}
+	return res
+}
+
+// AllLocalNetworkGlobalServices returns all known globally scoped services and local
+// waypoints containing global services. Result is un-ordered
+func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo {
+	var res []model.ServiceInfo
+	// TODO(jaellio): Improve this to use a more efficient lookup/index since this is in the
+	// hot path for east west gateway updates/configuration.
+	for _, svc := range a.services.List() {
+		workloads := a.workloads.ByServiceKey.Lookup(svc.ResourceName())
+		// All workloads for a service should belong in the same network
+		// Don't add a service if it is in a different network
+		if len(workloads) != 0 && workloads[0].Workload.Network != key.Network {
+			log.Debugf("Skipping service %s/%s in network %s, as it is not in the network %s"+
+				" of the network gateway", svc.Service.Namespace, svc.Service.Name, key.Network)
+			continue
+		}
+		if svc.Scope != model.Global {
+			// Check if the service is a waypoint. If the service is not a waypoint
+			// or it's a waypoint containing no services then the Lookup will return
+			// an empty list
+			wpSvcs := a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
+				Namespace: svc.Service.Namespace,
+				Hostname:  svc.Service.Hostname,
+			})
+			if len(wpSvcs) == 0 {
+				log.Debugf("Skipping non global service %s/%s in network %s for the network gateway",
+					svc.Service.Namespace, svc.Service.Name, key.Network)
+				continue
+			}
+			for _, resp := range wpSvcs {
+				// Check is the any of the services owned by the waypoint are global
+				// If they are global, then the waypoint should be considered global
+				if resp.Scope == model.Global {
+					res = append(res, svc)
+					log.Debugf("Adding non global waypoint service %s/%s in network %s for the network"+
+						"gateway, as it is a waypoint containing global services", svc.Service.Namespace,
+						svc.Service.Name, key.Network)
+					break
+				}
+			}
+		} else {
+			res = append(res, svc)
+			log.Debugf("Adding global service %s/%s in network %s for the network gateway",
+				svc.Service.Namespace, svc.Service.Name, key.Network)
+		}
 	}
 	return res
 }
@@ -671,7 +732,14 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if key.IsNetworkGateway && features.EnableAmbientMultiNetwork {
+		// If this is a network gateway waypoint, we only return the global services
+		// that are local to this network and waypoints with global services
+		return a.AllLocalNetworkGlobalServices(key)
+	}
+
 	out := map[string]model.ServiceInfo{}
+
 	for _, host := range key.Hostnames {
 		for _, res := range a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
 			Namespace: key.Namespace,
@@ -700,6 +768,10 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+	if key.IsNetworkGateway {
+		// TODO(jaellio): Support workloads for gateway waypoint
+		return nil
+	}
 	out := map[string]model.WorkloadInfo{}
 	for _, host := range key.Hostnames {
 		for _, res := range a.workloads.ByOwningWaypointHostname.Lookup(NamespaceHostname{

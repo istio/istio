@@ -422,7 +422,7 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+						nwPtr := krt.FetchOne(hc, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nwPtr == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
 							hc.DiscardResult()
@@ -1507,6 +1507,7 @@ func gatewayUID(gw model.NetworkGateway) string {
 func convertGateway(gw NetworkGateway) model.WorkloadInfo {
 	wl := &workloadapi.Workload{
 		Uid:            gatewayUID(gw.NetworkGateway),
+		Name:           gatewayUID(gw.NetworkGateway),
 		ServiceAccount: gw.ServiceAccount.Name,
 		Namespace:      gw.ServiceAccount.Namespace,
 		Network:        gw.Network.String(),

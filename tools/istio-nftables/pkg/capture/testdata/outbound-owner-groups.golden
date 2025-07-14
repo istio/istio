@@ -1,0 +1,20 @@
+add table inet istio-proxy-nat
+flush table inet istio-proxy-nat
+add chain inet istio-proxy-nat output { type nat hook output priority -100 ; }
+add chain inet istio-proxy-nat istio-inbound
+add chain inet istio-proxy-nat istio-redirect
+add chain inet istio-proxy-nat istio-in-redirect
+add chain inet istio-proxy-nat istio-output
+add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 15008 return
+add rule inet istio-proxy-nat istio-redirect meta l4proto tcp redirect to :15001
+add rule inet istio-proxy-nat istio-in-redirect meta l4proto tcp redirect to :15006
+add rule inet istio-proxy-nat output jump istio-output
+add rule inet istio-proxy-nat istio-output oifname lo ip saddr 127.0.0.6/32 return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skuid 1337 jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo skuid != 1337 return
+add rule inet istio-proxy-nat istio-output skuid 1337 return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 1337 jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo skgid != 1337 return
+add rule inet istio-proxy-nat istio-output skgid 1337 return
+add rule inet istio-proxy-nat istio-output skgid != java skgid != 202 return
+add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 return

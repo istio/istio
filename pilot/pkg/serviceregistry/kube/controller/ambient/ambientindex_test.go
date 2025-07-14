@@ -31,6 +31,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
@@ -335,6 +336,8 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 			s.assertAddresses(t, "", "pod1", "pod2", "pod3")
 			s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
 			s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "pod2")
+
+			// TODO(jaellio): Add test to lookup by service key
 			for _, key := range []string{s.podXdsName("pod3"), s.addrXdsName("127.0.0.3")} {
 				assert.Equal(t, s.lookup(key), []model.AddressInfo{
 					{
@@ -826,74 +829,6 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		}, svc1Host)
 	})
 	t.Run("mixed", func(t *testing.T) {
-		s := newAmbientTestServer(t, testC, testNW, "")
-		s.addService(t, "svc1",
-			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		s.addWaypointSpecificAddress(t, "10.0.0.1", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
-		s.addService(t, "wp",
-			map[string]string{},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
-		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
-			return s.ServicesForWaypoint(wpKey)
-		}, svc1Host)
-	})
-
-	t.Run("hostname (multicluster but unused)", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-		s := newAmbientTestServer(t, testC, testNW, "")
-		s.addService(t, "svc1",
-			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
-		s.addService(t, "wp",
-			map[string]string{},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
-		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
-			return s.ServicesForWaypoint(wpKey)
-		}, svc1Host)
-	})
-	t.Run("ip (multicluster but unused)", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-		s := newAmbientTestServer(t, testC, testNW, "")
-
-		s.addService(t, "svc1",
-			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		s.addWaypointSpecificAddress(t, "10.0.0.1", "", "wp", constants.AllTraffic, true)
-		s.addService(t, "wp",
-			map[string]string{},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
-		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
-			return s.ServicesForWaypoint(wpKey)
-		}, svc1Host)
-	})
-	t.Run("mixed (multicluster but unused)", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 		s := newAmbientTestServer(t, testC, testNW, "")
 		s.addService(t, "svc1",
 			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
@@ -2114,7 +2049,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	}
 
 	if options.ClientBuilder == nil && features.EnableAmbientMultiNetwork {
-		options.ClientBuilder = testingBuildClientsFromConfig
+		options.ClientBuilder = testingBuildClientsFromConfig(t)
 	}
 
 	// The index is always for the config cluster
@@ -2152,6 +2087,14 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 			ControllerName: constants.ManagedGatewayMeshController,
 		},
 	})
+	a.gwcls.Create(&k8sbeta.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.EastWestGatewayClassName,
+		},
+		Spec: k8sv1.GatewayClassSpec{
+			ControllerName: constants.ManagedGatewayMeshController,
+		},
+	})
 
 	// ns is more important now that we want to be able to annotate ns for svc, wl waypoint selection
 	// always create the testNS enabled for ambient
@@ -2182,9 +2125,6 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	cl := kubeclient.NewFakeClient()
 	t.Cleanup(cl.Shutdown)
 	var clientBuilder multicluster.ClientBuilder
-	if features.EnableAmbientMultiNetwork {
-		clientBuilder = testingBuildClientsFromConfig
-	}
 
 	debugger := krt.GlobalDebugHandler
 	o := Options{
@@ -2201,6 +2141,34 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		ClientBuilder:   clientBuilder,
 	}
 
+	if features.EnableAmbientMultiNetwork {
+		o.ClientBuilder = testingBuildClientsFromConfig(t)
+		o.MeshConfig.Mesh().ServiceScopeConfigs = []*v1alpha1.MeshConfig_ServiceScopeConfigs{
+			{
+				ServicesSelector: &v1alpha1.LabelSelector{
+					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
+						{
+							Key:      "istio.io/global",
+							Operator: "Exists",
+						},
+					},
+				},
+				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
+			},
+			{
+				NamespaceSelector: &v1alpha1.LabelSelector{
+					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
+						{
+							Key:      "istio.io/global",
+							Operator: "Exists",
+						},
+					},
+				},
+				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
+			},
+		}
+	}
+
 	return newAmbientTestServerFromOptions(t, networkID, o, true)
 }
 
@@ -2211,6 +2179,71 @@ func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 			t.Log(string(b))
 		}
 	})
+}
+
+func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+	t.Helper()
+	grc.Delete(name, testNS)
+}
+
+func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, network string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+	s.addNetworkGatewaySpecificAddressForClient(t, ip, "", "east-west", network, true, grc)
+}
+
+func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
+	t *testing.T,
+	ip, hostname, name, network string,
+	ready bool,
+	grc clienttest.TestWriter[*k8sbeta.Gateway],
+) {
+	t.Helper()
+	gatewaySpec := k8sbeta.GatewaySpec{
+		GatewayClassName: constants.EastWestGatewayClassName,
+		Listeners: []k8sbeta.Listener{
+			{
+				Name:     "mesh",
+				Port:     15008,
+				Protocol: "HBONE",
+				TLS: &k8sbeta.GatewayTLSConfig{
+					Mode: ptr.Of(k8sv1.TLSModeTerminate),
+					Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
+						"gateway.istio.io/tls-terminate-mode": "ISTIO_MUTUAL",
+					},
+				},
+			},
+		},
+	}
+
+	gateway := k8sbeta.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       gvk.KubernetesGateway.Kind,
+			APIVersion: gvk.KubernetesGateway.GroupVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testNS,
+			Labels: map[string]string{
+				"topology.istio.io/network": network,
+			},
+		},
+		Spec:   gatewaySpec,
+		Status: k8sbeta.GatewayStatus{},
+	}
+
+	if ready {
+		addr := []k8sv1.GatewayStatusAddress{}
+		if ip != "" {
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.IPAddressType), Value: ip})
+		}
+		if hostname != "" {
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.HostnameAddressType), Value: hostname})
+		}
+		gateway.Status = k8sbeta.GatewayStatus{
+			Addresses: addr,
+		}
+	}
+
+	grc.CreateOrUpdate(&gateway)
 }
 
 func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType string, ready bool) {
@@ -2623,6 +2656,11 @@ func (s *ambientTestServer) assertUnorderedEvent(t *testing.T, ip ...string) {
 		ev = append(ev, xdsfake.Event{Type: "xds", ID: i})
 	}
 	s.fx.MatchOrFail(t, ev...)
+}
+
+func (s *ambientTestServer) assertNoMatchingEvent(t *testing.T, ip string) {
+	t.Helper()
+	s.fx.AssertNoMatch(t, time.Millisecond*10, xdsfake.EventMatcher{Type: "xds", IDPrefix: ip})
 }
 
 func (s *ambientTestServer) assertNoEvent(t *testing.T) {

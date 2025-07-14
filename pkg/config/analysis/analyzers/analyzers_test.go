@@ -1019,6 +1019,13 @@ var testGrid = []testCase{
 			{msg.DestinationRuleSubsetNotSelectPods, "DestinationRule default/subsets-not-select-pods"},
 		},
 	},
+	{
+		name:           "ServiceEntry Addresses Allocated",
+		inputFiles:     []string{"testdata/serviceentry-address-allocated.yaml"},
+		meshConfigFile: "testdata/serviceentry-address-allocated-mesh-cfg.yaml",
+		analyzer:       &serviceentry.ProtocolAddressesAnalyzer{},
+		expected:       []message{},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing

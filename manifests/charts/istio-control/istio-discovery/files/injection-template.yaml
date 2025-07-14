@@ -141,6 +141,9 @@ spec:
     {{ else if .Values.global.proxy_init.forceApplyIptables -}}
     - "--force-apply"
     {{ end -}}
+    {{ if .Values.global.nativeNftables -}}
+    - "--native-nftables"
+    {{ end -}}
     {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
   {{- if .ProxyConfig.ProxyMetadata }}
     env:

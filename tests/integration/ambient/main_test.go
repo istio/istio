@@ -137,6 +137,8 @@ func TestMain(m *testing.M) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ambientControlPlaneValues
 			if ctx.Settings().AmbientMultiNetwork {
+				cfg.DeployEastWestGW = true
+				cfg.DeployGatewayAPI = true
 				cfg.ControlPlaneValues = ambientMultiNetworkControlPlaneValues
 				// TODO: Remove once we're actually ready to test the multi-cluster
 				// features
@@ -172,6 +174,9 @@ const (
 	Captured                  = "captured"
 	Uncaptured                = "uncaptured"
 	Sidecar                   = "sidecar"
+	Global                    = "global"
+	Local                     = "local"
+	EastWestGateway           = "eastwest-gateway"
 )
 
 var inMesh = match.Matcher(func(instance echo.Instance) bool {

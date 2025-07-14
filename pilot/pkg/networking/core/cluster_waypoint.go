@@ -107,7 +107,8 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 
 	// Upstream of the "encap" listener.
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
-		clusters = append(clusters, cb.buildWaypointForwardInnerConnect())
+		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
+		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
 	} else {
 		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 	}

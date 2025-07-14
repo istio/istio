@@ -98,6 +98,8 @@ func Test_chooseClientFlag(t *testing.T) {
 	type args struct {
 		ctrzClient      *ControlzClient
 		reset           bool
+		logReset        bool
+		stackTraceReset bool
 		outputLogLevel  string
 		stackTraceLevel string
 		outputFormat    string
@@ -112,6 +114,53 @@ func Test_chooseClientFlag(t *testing.T) {
 			args: args{
 				ctrzClient:      ctrzClient,
 				reset:           true,
+				logReset:        false,
+				stackTraceReset: false,
+				outputLogLevel:  "",
+				stackTraceLevel: "",
+				outputFormat:    "",
+			},
+			want: &istiodConfigLog{state: &resetState{
+				client: ctrzClient,
+			}},
+		},
+		{
+			name: "given --log-reset flag return log reset command",
+			args: args{
+				ctrzClient:      ctrzClient,
+				reset:           false,
+				logReset:        true,
+				stackTraceReset: false,
+				outputLogLevel:  "",
+				stackTraceLevel: "",
+				outputFormat:    "",
+			},
+			want: &istiodConfigLog{state: &logResetState{
+				client: ctrzClient,
+			}},
+		},
+		{
+			name: "given --stack-trace-reset flag return stackTraceReset command",
+			args: args{
+				ctrzClient:      ctrzClient,
+				reset:           false,
+				logReset:        false,
+				stackTraceReset: true,
+				outputLogLevel:  "",
+				stackTraceLevel: "",
+				outputFormat:    "",
+			},
+			want: &istiodConfigLog{state: &stackTraceResetState{
+				client: ctrzClient,
+			}},
+		},
+		{
+			name: "given --log-reset and --stack-trace-reset flag return reset command",
+			args: args{
+				ctrzClient:      ctrzClient,
+				reset:           false,
+				logReset:        true,
+				stackTraceReset: true,
 				outputLogLevel:  "",
 				stackTraceLevel: "",
 				outputFormat:    "",
@@ -125,6 +174,8 @@ func Test_chooseClientFlag(t *testing.T) {
 			args: args{
 				ctrzClient:      ctrzClient,
 				reset:           false,
+				logReset:        false,
+				stackTraceReset: false,
 				outputLogLevel:  "resource:info",
 				stackTraceLevel: "",
 				outputFormat:    "",
@@ -139,6 +190,8 @@ func Test_chooseClientFlag(t *testing.T) {
 			args: args{
 				ctrzClient:      ctrzClient,
 				reset:           false,
+				logReset:        false,
+				stackTraceReset: false,
 				outputLogLevel:  "resource-foo:none",
 				stackTraceLevel: "",
 				outputFormat:    "",
@@ -153,6 +206,8 @@ func Test_chooseClientFlag(t *testing.T) {
 			args: args{
 				ctrzClient:      ctrzClient,
 				reset:           false,
+				logReset:        false,
+				stackTraceReset: false,
 				outputLogLevel:  "",
 				stackTraceLevel: "resource:info",
 				outputFormat:    "",
@@ -167,7 +222,7 @@ func Test_chooseClientFlag(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := chooseClientFlag(tt.args.ctrzClient, tt.args.reset, tt.args.outputLogLevel,
+			if got := chooseClientFlag(tt.args.ctrzClient, tt.args.logReset, tt.args.stackTraceReset, tt.args.reset, tt.args.outputLogLevel,
 				tt.args.stackTraceLevel, tt.args.outputFormat); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("chooseClientFlag() = %v, want %v", got, tt.want)
 			}

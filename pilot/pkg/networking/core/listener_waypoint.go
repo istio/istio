@@ -81,19 +81,20 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// 3. One of two options based on the type of waypoint:
 	//    a. East-West Gateway: Forward the inner CONNECT to the backend ztunnel or waypoint.
 	//    b. Regular Waypoint: Encapsulate the inner CONNECT and forward to the ztunnel.
-	var wls []model.WorkloadInfo
-	var wps *waypointServices
 	var forwarder *listener.Listener
+	var orderedWPS []*model.Service
+	wls, wps := findWaypointResources(lb.node, lb.push)
+	if wps != nil {
+		orderedWPS = wps.orderedServices
+	}
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
-		wps = nil // TODO: implement service export functionality
 		forwarder = buildWaypointForwardInnerConnectListener(lb.push, lb.node)
 	} else {
-		wls, wps = findWaypointResources(lb.node, lb.push)
 		forwarder = buildWaypointConnectOriginateListener(lb.push, lb.node)
 	}
 	listeners = append(listeners,
 		lb.buildWaypointInboundConnectTerminate(),
-		lb.buildWaypointInternal(wls, wps.orderedServices),
+		lb.buildWaypointInternal(wls, orderedWPS),
 		forwarder)
 
 	return listeners
@@ -538,6 +539,23 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	if tlsInspector != nil {
 		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
 	}
+
+	if features.EnableAmbientMultiNetwork && isEastWestGateway {
+		// If there are no filter chains, populate a dummy one that never matches
+		if len(l.FilterChains) == 0 {
+			l.FilterChains = []*listener.FilterChain{{
+				Name: model.VirtualInboundBlackholeFilterChainName,
+				Filters: []*listener.Filter{{
+					Name: wellknown.TCPProxy,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+						StatPrefix:       util.BlackHoleCluster,
+						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+					})},
+				}},
+			}}
+		}
+	}
+
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	return l
 }

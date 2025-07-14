@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -32,9 +31,8 @@ import (
 
 func TestTagWatcher(t *testing.T) {
 	c := kube.NewFakeClient()
-	tw := NewTagWatcher(c, "revision", "istio-system").(*tagWatcher)
+	tw := NewTagWatcher(c, "revision").(*tagWatcher)
 	whs := clienttest.Wrap(t, tw.webhooks)
-	svcs := clienttest.Wrap(t, tw.services)
 	stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	track := assert.NewTracker[string](t)
@@ -66,27 +64,6 @@ func TestTagWatcher(t *testing.T) {
 	whs.Create(makeTag("revision", "tag-foo"))
 	track.WaitOrdered("revision,tag-foo")
 	assert.Equal(t, tw.GetMyTags(), sets.New("revision", "tag-foo"))
-
-	// TagWatcher should get all tag names from all services and mutatingwebhooks using the same revision
-	whs.Delete(makeTag("revision", "tag-foo").Name, "")
-	track.WaitOrdered("revision")
-	svcs.Create(makeServiceTag("revision", "tag-svc-foo"))
-	track.WaitOrdered("revision,tag-svc-foo")
-	whs.Create(makeTag("revision", "tag-mwc-foo"))
-	track.WaitOrdered("revision,tag-mwc-foo,tag-svc-foo")
-	assert.Equal(t, tw.GetMyTags(), sets.New("revision", "tag-mwc-foo", "tag-svc-foo"))
-
-	// If a svc and a mwc have the same tag but different revisions, svc should have more priority
-	svcs.Create(makeServiceTag("revision", "shared-tag"))
-	track.WaitOrdered("revision,shared-tag,tag-mwc-foo,tag-svc-foo")
-	whs.Create(makeTag("not-revision", "shared-tag"))
-	track.WaitOrdered("revision,shared-tag,tag-mwc-foo,tag-svc-foo")
-	assert.Equal(t, tw.GetMyTags(), sets.New("revision", "tag-mwc-foo", "tag-svc-foo", "shared-tag"))
-
-	// If a svc and mwc have same tag and revisions, there should not be duplicates
-	whs.Update(makeTag("revision", "shared-tag"))
-	track.WaitOrdered("revision,shared-tag,tag-mwc-foo,tag-svc-foo")
-	assert.Equal(t, tw.GetMyTags(), sets.New("revision", "tag-mwc-foo", "tag-svc-foo", "shared-tag"))
 }
 
 func makeTag(revision string, tg string) *admissionregistrationv1.MutatingWebhookConfiguration {
@@ -98,20 +75,6 @@ func makeTag(revision string, tg string) *admissionregistrationv1.MutatingWebhoo
 				label.IoIstioRev.Name: revision,
 				label.IoIstioTag.Name: tg,
 			},
-		},
-	}
-}
-
-func makeServiceTag(revision string, tg string) *corev1.Service {
-	return &corev1.Service{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: tg,
-			Labels: map[string]string{
-				label.IoIstioRev.Name: revision,
-				label.IoIstioTag.Name: tg,
-			},
-			Namespace: "istio-system",
 		},
 	}
 }
