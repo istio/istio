@@ -388,8 +388,11 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 	)
 	tt := assert.NewTracker[string](t)
 	AllServices.RegisterBatch(BatchedTrackerHandler[SimpleService](tt), true)
+	events := []string{}
+
 	c.RunAndWait(opts.Stop())
-	tt.WaitOrdered("add/namespace/svc")
+	events = append(events, "add/namespace/svc")
+	// tt.WaitOrdered("add/namespace/svc")
 
 	assert.EventuallyEqual(t, func() bool {
 		return AllServices.WaitUntilSynced(opts.Stop())
@@ -431,12 +434,14 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 	// Have to wait a bit for the events to propagate due to client syncing
 	// But what we want is the original add and then an update because the
 	// merged value changed
-	tt.WaitOrdered("update/namespace/svc")
+	events = append(events, "update/namespace/svc")
+	// tt.WaitOrdered("update/namespace/svc")
 
 	// Now delete one of the collections
 	MultiServices.DeleteObject(krt.GetKey(SimpleServices2))
 	// This should be another update event, not a delete event
-	tt.WaitOrdered("update/namespace/svc")
+	// tt.WaitOrdered("update/namespace/svc")
+	events = append(events, "update/namespace/svc")
 	assert.EventuallyEqual(t, func() *SimpleService {
 		return AllServices.GetKey("namespace/svc")
 	},
@@ -448,7 +453,8 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 
 	// Now delete the other collection; this should be a delete event
 	MultiServices.DeleteObject(krt.GetKey(SimpleServices))
-	tt.WaitOrdered("delete/namespace/svc")
+	// tt.WaitOrdered("delete/namespace/svc")
+	events = append(events, "delete/namespace/svc")
 	assert.EventuallyEqual(t, func() *SimpleService {
 		return AllServices.GetKey("namespace/svc")
 	}, nil)
@@ -456,11 +462,13 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 	// Now add the two collections back
 	MultiServices.UpdateObject(SimpleServices)
 	MultiServices.UpdateObject(SimpleServices2)
-	tt.WaitOrdered("add/namespace/svc", "update/namespace/svc")
+	events = append(events, "add/namespace/svc", "update/namespace/svc")
+	// tt.WaitOrdered("add/namespace/svc", "update/namespace/svc")
 	assert.EventuallyEqual(t, func() *SimpleService {
 		return AllServices.GetKey("namespace/svc")
 	}, &SimpleService{
 		Named:    Named{"namespace", "svc"},
 		Selector: map[string]string{"app": "foo", "version": "v1"},
 	})
+	tt.WaitOrdered(events...)
 }

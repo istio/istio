@@ -205,6 +205,7 @@ func (j *nestedjoin[T]) handleCollectionChangeEvent(
 
 	switch e.eventType {
 	case collectionMembershipEventAdd:
+		log.Infof("NestedJoinCollection: Adding collection %s with uid %s in handler %s", e.collectionValue.name(), e.collectionValue.uid(), handlerID)
 		// We always want to send events for existing state when a new collection is added
 		reg := e.collectionValue.RegisterBatch(j.handleInnerCollectionEvent(func(o []Event[T]) {
 			djhr.RLock()
@@ -221,12 +222,10 @@ func (j *nestedjoin[T]) handleCollectionChangeEvent(
 		// Unregister the handler for this collection
 		remover := djhr.removes[e.collectionValue.uid()]
 		syncer := djhr.syncers[e.collectionValue.uid()]
-		if remover == nil {
+		if remover == nil || syncer == nil {
 			return
 		}
-		if syncer == nil {
-			return
-		}
+
 		// krt schedules a callback to notify the event handler machinery that a collection is synced
 		// if a handler is registered before then. If the collection is removed before the callback
 		// is called, we can get a panic for trying to send on a closed channel, so wait for the collection
@@ -271,12 +270,14 @@ func (j *nestedjoin[T]) handleCollectionChangeEvent(
 				// Send a delete event for the merged version of this key
 				// Use the merge of the old items as the old value
 				events = append(events, Event[T]{Old: entry.prev, Event: controllers.EventDelete})
+				log.Infof("Merged event %s due to collection delete for key %s in collection %s", controllers.EventDelete, keyString, j.collectionName)
 				continue
 			}
 			// There are some versions of this key still in the overall collection
 			// send an update with the new merged version and the old version from
 			// the cache
 			events = append(events, Event[T]{Old: entry.prev, New: res, Event: controllers.EventUpdate})
+			log.Infof("Merged event %s due to collection delete for key %s in collection %s", controllers.EventUpdate, keyString, j.collectionName)
 		}
 		handler(events)
 	case collectionMembershipEventUpdate:
@@ -385,6 +386,11 @@ func (j *nestedjoin[T]) calculateMerged(k string) *T {
 	return j.merge(found)
 }
 
+// Only call this when the caller has the lock
+func (j *nestedjoin[T]) updateMergedCacheLocked(key, handlerID string, merged *T) mergedCacheEntry[T] {
+	return updateMergeCacheLocked(j.mergedCache, merged, key, handlerID)
+}
+
 func (j *nestedjoin[T]) updateMergedCache(key, handlerID string, merged *T) mergedCacheEntry[T] {
 	j.Lock()
 	defer j.Unlock()
@@ -392,7 +398,11 @@ func (j *nestedjoin[T]) updateMergedCache(key, handlerID string, merged *T) merg
 }
 
 func (j *nestedjoin[T]) handleInnerCollectionEvent(handler func(o []Event[T]), handlerID string) func(o []Event[T]) {
-	return handleInnerCollectionEvent(handler, handlerID, j.calculateMerged, j.updateMergedCache)
+	return func(o []Event[T]) {
+		j.Lock()
+		defer j.Unlock()
+		handleInnerCollectionEvent(handler, handlerID, j.calculateMerged, j.updateMergedCacheLocked)(o)
+	}
 }
 
 func (j *nestedjoin[T]) registerBatchUnmerged(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
@@ -524,8 +534,6 @@ func (j *nestedjoin[T]) dump() CollectionDump {
 	}
 }
 
-// The passed in handler is executed while holding the lock, so
-// it MUST NOT take the lock itself.
 func (j *nestedjoin[T]) registerCollectionChangeHandler(h func(e collectionChangeEvent[T])) {
 	j.collectionChangeHandlers.Lock()
 	j.collectionChangeHandlers.handlers = append(j.collectionChangeHandlers.handlers, h)
@@ -582,6 +590,7 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 		defer j.collectionChangeHandlers.RUnlock()
 
 		// Each event goes to all handlers first to preserve ordering
+		log.Infof("Received %d collection change events for collection %s", len(o), j.collectionName)
 		for _, e := range o {
 			for _, h := range j.collectionChangeHandlers.handlers {
 				switch e.Event {
