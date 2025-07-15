@@ -17,6 +17,9 @@ package krt
 import (
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube/controllers"
@@ -249,6 +252,8 @@ func (i indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) Hand
 func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]), runExistingState bool) HandlerRegistration {
 	return i.idx.c.RegisterBatch(func(o []Event[O]) {
 		allKeys := sets.New[K]()
+		diffs := []string{}
+		events := []controllers.EventType{}
 		for _, ev := range o {
 			if ev.Old != nil {
 				allKeys.InsertAll(i.idx.extractKeys(*ev.Old)...)
@@ -256,7 +261,10 @@ func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]
 			if ev.New != nil {
 				allKeys.InsertAll(i.idx.extractKeys(*ev.New)...)
 			}
+			diffs = append(diffs, cmp.Diff(ev.Old, ev.New, protocmp.Transform()))
+			events = append(events, ev.Event)
 		}
+		log.Infof("Index of type %T has %s events %s that results in keys %s", i, spew.Sprint(events), diffs, allKeys)
 		downstream := make([]Event[IndexObject[K, O]], 0, len(allKeys))
 		for key := range allKeys {
 			v := i.GetKey(toString(key))

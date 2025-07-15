@@ -16,7 +16,6 @@ package krt
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 
 	"istio.io/istio/pkg/kube/controllers"
@@ -26,29 +25,32 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+type collectionLister[T any] interface {
+	getCollections() []Collection[T]
+}
+
 // Note: there's a goroutine per event handler, so we can't put state relevant
 // to any keys in the collection itself (otherwise, different handlers will
 // read/mutate the same state and see a different view of the world).
 type nestedjoin[T any] struct {
 	collectionName           string
-	id                       collectionUID
 	collections              internalCollection[Collection[T]]
 	synced                   <-chan struct{}
 	syncer                   Syncer
 	collectionChangeHandlers *collectionChangeHandlers[T]
-	merge                    func(ts []T) *T
 	metadata                 Metadata
-
-	// mergedCache is a cache of the merged results for each key
-	// This is used to ensure we have accurate eventing when dealing
-	// with merged collections (e.g. that event.Old is set correctly).
-	// This will prevent unnecessary xDS pushes; without it, we'd
-	// Old != New (merged) would always be true and we'd push.
-	mergedCache  map[mergedCacheKey]mergedCacheEntry[T]
-	sync.RWMutex // protects mergedCache
+	// internal indexes
+	indexes map[string]joinCollectionIndex[T]
+	*mergejoin[T]
 
 	// Keep a stop channel so we can check if nested collections are synced
 	stop <-chan struct{}
+}
+
+type joinCollectionIndex[T any] struct {
+	extract func(o T) []string
+	index   map[string]sets.Set[Key[T]]
+	parent  *mergejoin[T]
 }
 
 type collectionChangeHandlers[T any] struct {
@@ -56,99 +58,10 @@ type collectionChangeHandlers[T any] struct {
 	sync.RWMutex
 }
 
-func (j *nestedjoin[T]) quickGetKey(k string) *T {
-	for _, c := range j.collections.List() {
-		if r := c.GetKey(k); r != nil {
-			return r
-		}
-	}
-
-	return nil
-}
-
-func (j *nestedjoin[T]) GetKey(k string) *T {
-	if j.merge == nil {
-		return j.quickGetKey(k)
-	}
-
-	j.RLock()
-	defer j.RUnlock()
-	// Check the cache first
-	if entry, ok := j.mergedCache[mergedCacheKey{key: k, handlerID: ""}]; ok {
-		if entry.current != nil {
-			return entry.current
-		}
-		log.Warnf("Merged key %s in collection %s is nil in the cache during a get operation", k, j.collectionName)
-	}
-	return nil
-}
-
-func (j *nestedjoin[T]) quickList() []T {
-	var res []T
-	var found sets.String
-	first := true
-
-	// We need stable ordering so we'll loop through the outer collections first
-	// saving state as we go
-	collectionsByUID := make(map[collectionUID]Collection[T])
-	for _, c := range j.collections.List() {
-		ic := c.(internalCollection[T])
-		collectionsByUID[ic.uid()] = ic
-	}
-
-	// Now loop through the collections in UID order
-	for _, c := range maps.SeqStable(collectionsByUID) {
-		objs := c.List()
-		// As an optimization, take the first (non-empty) result as-is without copying
-		if len(objs) > 0 && first {
-			res = objs
-			first = false
-			found = sets.NewWithLength[string](len(objs))
-			for _, i := range objs {
-				found.Insert(GetKey(i))
-			}
-		} else {
-			// After the first, safely merge into the result
-			for _, i := range objs {
-				key := GetKey(i)
-				if !found.InsertContains(key) {
-					// Only keep it if it is the first time we saw it, as our merging mechanism is to keep the first one
-					res = append(res, i)
-				}
-			}
-		}
-	}
-
-	return res
-}
-
-func (j *nestedjoin[T]) mergeList() []T {
-	j.RLock()
-	defer j.RUnlock()
-
-	// TODO: Should we fall back to manually computing the merge and saving it in the cache?
-	// My gut says no; we want one source of truth
-	var l []T
-	for key, item := range j.mergedCache {
-		if key.handlerID != "" {
-			continue
-		}
-		if item.current != nil {
-			l = append(l, *item.current)
-		} else {
-			log.Warnf("Merged key %s in collection %s is nil in the cache during a list operation", key, j.collectionName)
-		}
-	}
-
-	return l
-}
-
-func (j *nestedjoin[T]) List() []T {
-	if j.merge == nil {
-		return j.quickList()
-	}
-
-	return j.mergeList()
+func (j *nestedjoin[T]) getCollections() []Collection[T] {
+	// This is used by the collection lister to get the collections for this join
+	// so it can be used in a nested join.
+	return j.collections.List()
 }
 
 func (j *nestedjoin[T]) Metadata() Metadata {
@@ -157,22 +70,26 @@ func (j *nestedjoin[T]) Metadata() Metadata {
 
 // nolint: unused // (not true, its to implement an interface)
 func (j *nestedjoin[T]) index(name string, extract func(o T) []string) indexer[T] {
-	ji := &dynamicJoinIndexer[T]{indexers: make(map[collectionUID]indexer[T])}
-	for _, c := range j.collections.List() {
-		ic := c.(internalCollection[T])
-		ji.indexers[ic.uid()] = ic.index(name, extract)
-	}
-	j.registerCollectionChangeHandler(func(e collectionChangeEvent[T]) {
-		ji.Lock()
-		defer ji.Unlock()
-		switch e.eventType {
-		case collectionMembershipEventAdd:
-			ji.indexers[e.collectionValue.uid()] = e.collectionValue.index(name, extract)
-		case collectionMembershipEventDelete:
-			delete(ji.indexers, e.collectionValue.uid())
+	if j.merge == nil {
+		ji := &dynamicJoinIndexer[T]{indexers: make(map[collectionUID]indexer[T])}
+		for _, c := range j.collections.List() {
+			ic := c.(internalCollection[T])
+			ji.indexers[ic.uid()] = ic.index(name, extract)
 		}
-	})
-	return ji
+		j.registerCollectionChangeHandler(func(e collectionChangeEvent[T]) {
+			ji.Lock()
+			defer ji.Unlock()
+			switch e.eventType {
+			case collectionMembershipEventAdd:
+				ji.indexers[e.collectionValue.uid()] = e.collectionValue.index(name, extract)
+			case collectionMembershipEventDelete:
+				delete(ji.indexers, e.collectionValue.uid())
+			}
+		})
+		return ji
+	}
+
+	return j.mergejoin.index(name, extract)
 }
 
 func (j *nestedjoin[T]) Synced() Syncer {
@@ -198,10 +115,11 @@ func (j *nestedjoin[T]) handleCollectionChangeEvent(
 	djhr *dynamicJoinHandlerRegistration,
 	e collectionChangeEvent[T],
 	handler func(o []Event[T]),
-	handlerID string,
+	handle *registrationHandle,
 ) {
 	djhr.Lock()
 	defer djhr.Unlock()
+	handlerID := handle.id
 
 	switch e.eventType {
 	case collectionMembershipEventAdd:
@@ -215,7 +133,7 @@ func (j *nestedjoin[T]) handleCollectionChangeEvent(
 				return
 			}
 			handler(o)
-		}, handlerID), true) // Always run existing state
+		}, handle), true) // Always run existing state
 		djhr.removes[e.collectionValue.uid()] = reg.UnregisterHandler
 		djhr.syncers[e.collectionValue.uid()] = reg
 	case collectionMembershipEventDelete:
@@ -264,20 +182,23 @@ func (j *nestedjoin[T]) handleCollectionChangeEvent(
 			keyString := string(key)
 			res := j.calculateMerged(keyString)
 			// Always update the cache on a collection delete
-			entry := j.updateMergedCache(keyString, handlerID, res)
+			entry := j.updateMergeCache(keyString, handlerID, res)
+			var e Event[T]
 			// If the result is nil, then it was deleted
 			if res == nil {
 				// Send a delete event for the merged version of this key
 				// Use the merge of the old items as the old value
-				events = append(events, Event[T]{Old: entry.prev, Event: controllers.EventDelete})
-				log.Infof("Merged event %s due to collection delete for key %s in collection %s", controllers.EventDelete, keyString, j.collectionName)
-				continue
+				e = Event[T]{Old: entry.prev, Event: controllers.EventDelete}
+			} else {
+				// There are some versions of this key still in the overall collection
+				// send an update with the new merged version and the old version from
+				// the cache
+				e = Event[T]{Old: entry.prev, New: res, Event: controllers.EventUpdate}
 			}
-			// There are some versions of this key still in the overall collection
-			// send an update with the new merged version and the old version from
-			// the cache
-			events = append(events, Event[T]{Old: entry.prev, New: res, Event: controllers.EventUpdate})
-			log.Infof("Merged event %s due to collection delete for key %s in collection %s", controllers.EventUpdate, keyString, j.collectionName)
+
+			j.updateIndex(e, Key[T](keyString))
+			events = append(events, e)
+			log.Infof("Merged event %s due to collection delete for key %s in collection %s", e.Event, keyString, j.collectionName)
 		}
 		handler(events)
 	case collectionMembershipEventUpdate:
@@ -313,7 +234,7 @@ func (j *nestedjoin[T]) handleCollectionChangeEvent(
 					merged = &i
 				} else {
 					// Update the cache with the new merged version
-					entry := j.updateMergedCache(string(key), handlerID, merged)
+					entry := j.updateMergeCache(string(key), handlerID, merged)
 					oldItem = ptr.OrEmpty(entry.prev)
 				}
 				// Send an update event for the merged version of this key
@@ -336,26 +257,33 @@ func (j *nestedjoin[T]) handleCollectionChangeEvent(
 			finalEvents = append(finalEvents, Event[T]{Old: &i, Event: controllers.EventDelete})
 		}
 
+		// Update the indexes
+		for _, e := range finalEvents {
+			j.updateIndex(e, getTypedKey(e.Latest()))
+		}
 		handler(finalEvents)
 	}
 }
 
 func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
+	// Create a unique handler ID for this context
+	h := &registrationHandle{
+		id: globalUIDCounter.Inc(),
+	}
+	return j.registerBatchBase(f, runExistingState, h)
+}
+
+func (j *nestedjoin[T]) registerBatchBase(f func(o []Event[T]), runExistingState bool, handle *registrationHandle) HandlerRegistration {
 	if j.merge == nil {
 		return j.registerBatchUnmerged(f, runExistingState)
 	}
 	syncers := make(map[collectionUID]Syncer)
 	removes := map[collectionUID]func(){}
-	// Create a unique handler ID for this context
-	handlerID := strconv.FormatUint(globalUIDCounter.Inc(), 10)
-	j.Lock()
-	log.Infof("NestedJoinCollection: Registering handler %s for collection %s", handlerID, j.collectionName)
-	maybeInitMergeCacheForHandlerLocked(j.mergedCache, handlerID)
-	j.Unlock()
+	j.maybeInitMergeCacheForHandler(handle.id)
 
 	for _, c := range j.collections.List() {
 		ic := c.(internalCollection[T])
-		reg := c.RegisterBatch(j.handleInnerCollectionEvent(f, handlerID), runExistingState)
+		reg := c.RegisterBatch(j.handleInnerCollectionEvent(f, handle), runExistingState)
 		removes[ic.uid()] = reg.UnregisterHandler
 		syncers[ic.uid()] = reg
 	}
@@ -366,43 +294,11 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState boo
 
 	// We register to get notified if a collection within our set of collections is modified
 	j.registerCollectionChangeHandler(func(e collectionChangeEvent[T]) {
-		j.handleCollectionChangeEvent(djhr, e, f, handlerID)
+		j.handleCollectionChangeEvent(djhr, e, f, handle)
 	})
 
-	log.Infof("NestedJoinCollection: Registered handler %s for collection %s", handlerID, j.collectionName)
+	log.Infof("NestedJoinCollection: Registered handler %s for collection %s", handle.id, j.collectionName)
 	return djhr
-}
-
-func (j *nestedjoin[T]) calculateMerged(k string) *T {
-	var found []T
-	for _, c := range j.collections.List() {
-		if r := c.GetKey(k); r != nil {
-			found = append(found, *r)
-		}
-	}
-	if len(found) == 0 {
-		return nil
-	}
-	return j.merge(found)
-}
-
-// Only call this when the caller has the lock
-func (j *nestedjoin[T]) updateMergedCacheLocked(key, handlerID string, merged *T) mergedCacheEntry[T] {
-	return updateMergeCacheLocked(j.mergedCache, merged, key, handlerID)
-}
-
-func (j *nestedjoin[T]) updateMergedCache(key, handlerID string, merged *T) mergedCacheEntry[T] {
-	j.Lock()
-	defer j.Unlock()
-	return updateMergeCacheLocked(j.mergedCache, merged, key, handlerID)
-}
-
-func (j *nestedjoin[T]) handleInnerCollectionEvent(handler func(o []Event[T]), handlerID string) func(o []Event[T]) {
-	return func(o []Event[T]) {
-		j.Lock()
-		defer j.Unlock()
-		handleInnerCollectionEvent(handler, handlerID, j.calculateMerged, j.updateMergedCacheLocked)(o)
-	}
 }
 
 func (j *nestedjoin[T]) registerBatchUnmerged(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
@@ -562,7 +458,6 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 
 	j := &nestedjoin[T]{
 		collectionName: o.name,
-		id:             nextUID(),
 		synced:         synced,
 		collections:    ics,
 		syncer: channelSyncer{
@@ -572,10 +467,16 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 		collectionChangeHandlers: &collectionChangeHandlers[T]{
 			handlers: make([]func(collectionChangeEvent[T]), 0),
 		},
-		mergedCache: make(map[mergedCacheKey]mergedCacheEntry[T]),
-		merge:       merge,
-		stop:        o.stop,
+		mergejoin: &mergejoin[T]{
+			id:          nextUID(),
+			mergedCache: make(map[mergedCacheKey]mergedCacheEntry[T]),
+			indexes:     make(map[string]joinCollectionIndex[T]),
+			merge:       merge,
+		},
+		stop: o.stop,
 	}
+
+	j.mergejoin.collections = j
 
 	if o.metadata != nil {
 		j.metadata = o.metadata
