@@ -90,28 +90,14 @@ func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
 func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion, false, false))
+		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion))
 }
 
 // TestStableRevisionLabelsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
 func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, false, false))
-}
-
-// TestAmbientStableRevisionLabelsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
-func TestAmbientStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion, true, false))
-}
-
-// TestStableRevisionLabelsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
-func TestAmbientStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, true, false))
+		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
 }
 
 // TestAmbientInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with ambient profile for Istio 1.(n-1)
