@@ -509,15 +509,36 @@ func (s *Server) checkAndRunNonRevisionLeaderElectionIfRequired(args *PilotArgs,
 			if leaderInfo.HolderIdentity != "" {
 				// Non-revision leader election should run, per-revision should be waiting for activation
 				s.addTerminatingStartFunc("gateway status", func(stop <-chan struct{}) error {
+					secondStop := make(chan struct{})
+					// if stop closes, ensure secondStop closes too
+					go func() {
+						<-stop
+						select {
+						case <-secondStop:
+						default:
+							close(secondStop)
+						}
+					}()
 					leaderelection.
 						NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
 						AddRunFunction(func(leaderStop <-chan struct{}) {
 							// now that we have the leader lock, we can activate the per-revision status writer
-							close(activateCh)
+							// first close the activateCh channel if it is not already closed
 							log.Infof("Activating gateway status writer")
-							// <-leaderStop
+							select {
+							case <-activateCh:
+								// Channel already closed, do nothing
+							default:
+								close(activateCh)
+							}
+							// now end this lease itself
+							select {
+							case <-secondStop:
+							default:
+								close(secondStop)
+							}
 						}).
-						Run(stop)
+						Run(secondStop)
 					return nil
 				})
 				return
