@@ -253,6 +253,10 @@ linters:
       - linters:
           - staticcheck
         text: 'S1007'
+      # TODO: remove once we have updated package names
+      - linters:
+          - revive
+        text: "var-naming: avoid meaningless package names"
     paths:
       - third_party$
       - builtin$
