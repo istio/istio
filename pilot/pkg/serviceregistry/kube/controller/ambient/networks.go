@@ -116,41 +116,6 @@ func buildGlobalNetworkCollections(
 			Network:   network.ID(nw),
 		}
 	}, opts.WithName("RemoteSystemNamespaceNetworks")...)
-	// SystemNamespaceNetworks := krt.JoinCollection([]krt.Collection[ClusterNetwork]{
-	// 	LocalSystemNamespaceNetwork.AsCollection(),
-	// 	RemoteSystemNamespaceNetworks,
-	// }, opts.WithName("SystemNamespaceNetworks")...)
-	// RemoteSystemNamespaceNetworks := krt.NewCollection(
-	// 	clusters,
-	// 	func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Singleton[string] {
-	// 		singletonOpts := opts.With(
-	// 			krt.WithName(fmt.Sprintf("SystemNamespaceNetwork[%s]", c.ID)),
-	// 			krt.WithMetadata(krt.Metadata{
-	// 				multicluster.ClusterKRTMetadataKey: c.ID,
-	// 			}),
-	// 		)
-	// 		if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster[%s] namespaces", c.ID), opts.Stop(), c.HasSynced) {
-	// 			log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
-	// 			return nil
-	// 		}
-	// 		ns := ptr.Flatten(krt.FetchOne(ctx, c.Namespaces(), krt.FilterKey(options.SystemNamespace)))
-	// 		if ns == nil {
-	// 			// If the namespace for the remote cluster is not found, we default to the empty string
-	// 			// to indicate that this cluster is a part of the default network
-	// 			return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-	// 				return ptr.Of("")
-	// 			}, singletonOpts...))
-	// 		}
-	// 		nw, f := ns.Labels[label.TopologyNetwork.Name]
-	// 		if !f {
-	// 			nw = ""
-	// 		}
-	// 		return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-	// 			return ptr.Of(nw)
-	// 		}, singletonOpts...))
-	// 	},
-	// 	opts.WithName("RemoteSystemNamespaceNetworks")...,
-	// )
 
 	RemoteSystemNamespaceNetworksByCluster := krt.NewIndex(RemoteSystemNamespaceNetworks, "cluster", func(o ClusterNetwork) []cluster.ID {
 		return []cluster.ID{o.ClusterID}

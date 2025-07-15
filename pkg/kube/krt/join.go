@@ -201,7 +201,6 @@ func maybeInitMergeCacheForHandlerLocked[T any](cache map[mergedCacheKey]mergedC
 }
 
 func updateMergeCacheLocked[T any](cache map[mergedCacheKey]mergedCacheEntry[T], merged *T, key, handlerID string) mergedCacheEntry[T] {
-	log.Infof("Received mergedCache call for handler %s and key %s", handlerID, key)
 	if merged == nil {
 		// First get the existing value from the cache (if it exists)
 		var old *T
@@ -255,7 +254,6 @@ func handleInnerCollectionEvent[T any](
 		// operate on the key and not the event itself.
 		for _, i := range events {
 			key := GetKey(i.Latest())
-			log.Infof("Received raw event %s for key %s in handler %s", i.Event, key, handlerID)
 			if _, ok := changedKeys[key]; ok {
 				continue
 			}
@@ -294,7 +292,6 @@ func handleInnerCollectionEvent[T any](
 					New:   merged,
 				}
 			}
-			log.Infof("Creating merged event %s for key %s in handler %s", e.Event, key, handlerID)
 			mergedEvents = append(mergedEvents, e)
 		}
 		handler(mergedEvents)
@@ -309,7 +306,6 @@ func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Han
 	removes := []func(){}
 	handlerID := strconv.FormatUint(globalUIDCounter.Inc(), 10)
 	j.Lock()
-	log.Infof("JoinCollection: Registering handler %s for collection %s", handlerID, j.collectionName)
 	maybeInitMergeCacheForHandlerLocked(j.mergedCache, handlerID)
 	j.Unlock()
 
