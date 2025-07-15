@@ -14,12 +14,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package capture
+package tproxy
 
 import (
 	"errors"
 
-	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/common/config"
 )
 
 // ErrNotImplemented is returned when a requested feature is not implemented.
