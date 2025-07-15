@@ -318,6 +318,10 @@ func createNamespaceLabels(ctx resource.Context, cfg Config) map[string]string {
 		if ctx.Settings().Compatibility {
 			l["istio-injection"] = "disabled"
 		}
+		if cfg.Revision != "" {
+			l[label.IoIstioRev.Name] = cfg.Revision
+			l["istio-injection"] = "disabled"
+		}
 	}
 
 	// bring over supplied labels

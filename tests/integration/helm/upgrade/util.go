@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/k8sgateway"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -466,6 +467,10 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 				namespace.Dump(t, helmtest.IstioNamespace)
 			}
 		})
+		crd.DeployGatewayAPI(t)
+		// TODO: this is too slow, as it waits
+		// 	t.Fatal("failed to deploy gateway API CRDs: ", err)
+		// }
 		var setupTrafficTest func(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance)
 		if ambient {
 			setupTrafficTest = func(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
@@ -487,7 +492,7 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 		})
 
 		// setup istio.io/rev=1-15-0 for the default-1 namespace
-		oldNs, oldClient, oldServer := setupTrafficTest(t, firstRevision)
+		oldNs, oldClient, oldServer := setupTrafficTest(t, prodTag)
 		if checkGatewayStatus {
 			deployWaypointsAndWaitForReady(t, cs, echo.Instances{oldServer})
 		}
@@ -512,7 +517,7 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 		})
 
 		// setup istio.io/rev=latest for the default-2 namespace
-		_, newClient, newServer := setupTrafficTest(t, latestRevisionTag)
+		_, newClient, newServer := setupTrafficTest(t, canaryTag)
 		if checkGatewayStatus {
 			deployWaypointsAndWaitForReady(t, cs, echo.Instances{newServer})
 		}
