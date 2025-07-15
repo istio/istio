@@ -171,5 +171,8 @@ _internal_defaults_do_not_set:
         cpu: 100m
         memory: 100Mi
 
+    # In order to use native nftable rules instead of iptable rules, set this flag to true.
+    nativeNftables: false
+
   # A `key: value` mapping of environment variables to add to the pod
   env: {}
