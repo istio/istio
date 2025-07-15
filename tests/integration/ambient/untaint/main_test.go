@@ -59,7 +59,6 @@ func TestMain(m *testing.M) {
 values:
   pilot:
     taint:
-      enabled: true
       namespace: "%s"
     env:
       PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
