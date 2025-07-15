@@ -200,8 +200,6 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 	// Handle Ambient profile override if set
 	if isAmbient {
 		values["profile"] = "ambient"
-		// Remove revision for ambient profile
-		delete(values, "revision")
 	}
 
 	// Marshal the map to a YAML string

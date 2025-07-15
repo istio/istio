@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
-	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/k8sgateway"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -467,10 +466,6 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 				namespace.Dump(t, helmtest.IstioNamespace)
 			}
 		})
-		crd.DeployGatewayAPI(t)
-		// TODO: this is too slow, as it waits
-		// 	t.Fatal("failed to deploy gateway API CRDs: ", err)
-		// }
 		var setupTrafficTest func(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance)
 		if ambient {
 			setupTrafficTest = func(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
@@ -481,7 +476,7 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 			setupTrafficTest = sanitycheck.SetupTrafficTest
 		}
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, firstRevision, false)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, firstRevision, ambient)
 		helmtest.InstallIstioWithRevision(t, cs, h, "", firstRevision, overrideValuesFile, false, false)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
@@ -501,7 +496,7 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 		// install the charts from this branch with revision set to "latest"
 		// helm upgrade istio-base ../manifests/charts/base --namespace istio-system -f values.yaml
 		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
-		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, false)
+		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, ambient)
 
 		helmtest.AdoptPre123CRDResourcesIfNeeded()
 
