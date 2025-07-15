@@ -268,7 +268,8 @@ func handleInnerCollectionEvent[T any](
 
 			switch {
 			case entry.current == nil && entry.prev == nil:
-				log.Warnf("Merged (nested) join collection: Received event for key %s in handler %s but it's not longer in our set of collections. Skipping...", key, handlerID)
+				msg := "Merged (nested) join collection: Received event for key %s in handler %s but it's not longer in our set of collections. Skipping..."
+				log.Warnf(msg, key, handlerID)
 				continue
 			// No current entry in our cache for this handler. This key was deleted across all our collections
 			case entry.current == nil:

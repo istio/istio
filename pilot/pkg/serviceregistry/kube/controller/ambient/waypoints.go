@@ -308,8 +308,7 @@ func GlobalWaypointsCollection(
 			}
 			clusterNetwork := nw.Network
 
-			w := makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, network.ID(clusterNetwork))
-			return w
+			return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, clusterNetwork)
 		}, opts.With(
 			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
 			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
