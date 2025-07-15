@@ -273,14 +273,14 @@ func MergedGlobalWorkloadsCollection(
 		opts.WithName("LocalEndpointSliceWorkloadsWithCluster")...,
 	)
 
-	LocalNetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
+	GlobalNetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
 		return slices.Map(LookupAllNetworkGateway(
 			ctx,
 			globalNetworks.NetworkGateways,
 		), convertGateway)
 	}, opts.WithName("LocalNetworkGatewayWorkloads")...)
 	LocalNetworkGatewayWorkloadsWithCluster := krt.MapCollection(
-		LocalNetworkGatewayWorkloads,
+		GlobalNetworkGatewayWorkloads,
 		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID),
 		opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...,
 	)
@@ -422,7 +422,7 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+						nw := krt.FetchOne(hc, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nw == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
 							hc.DiscardResult()
@@ -466,7 +466,7 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+						nw := krt.FetchOne(hc, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nw == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
 							hc.DiscardResult()
@@ -509,7 +509,7 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+						nw := krt.FetchOne(hc, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nw == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
 							hc.DiscardResult()
@@ -552,7 +552,7 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+						nw := krt.FetchOne(hc, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nw == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
 							hc.DiscardResult()
@@ -578,34 +578,34 @@ func MergedGlobalWorkloadsCollection(
 				)...,
 			)
 
-			NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
-				return slices.Map(LookupAllNetworkGateway(
-					ctx,
-					globalNetworks.NetworkGateways,
-				), convertGateway)
-			}, append(
-				opts.WithName(fmt.Sprintf("NetworkGatewayWorkloads[%s]", c.ID)),
-				krt.WithMetadata(krt.Metadata{
-					multicluster.ClusterKRTMetadataKey: c.ID,
-				}),
-			)...)
-			NetworkGatewayWorkloadsWithCluster := krt.MapCollection(
-				NetworkGatewayWorkloads,
-				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
-				append(
-					opts.WithName(fmt.Sprintf("LocalNetworkGatewayWorkloadsWithCluster[%s]", c.ID)),
-					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
-					}),
-				)...,
-			)
+			// NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
+			// 	return slices.Map(LookupAllNetworkGateway(
+			// 		ctx,
+			// 		globalNetworks.NetworkGateways,
+			// 	), convertGateway)
+			// }, append(
+			// 	opts.WithName(fmt.Sprintf("NetworkGatewayWorkloads[%s]", c.ID)),
+			// 	krt.WithMetadata(krt.Metadata{
+			// 		multicluster.ClusterKRTMetadataKey: c.ID,
+			// 	}),
+			// )...)
+			// NetworkGatewayWorkloadsWithCluster := krt.MapCollection(
+			// 	NetworkGatewayWorkloads,
+			// 	wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+			// 	append(
+			// 		opts.WithName(fmt.Sprintf("LocalNetworkGatewayWorkloadsWithCluster[%s]", c.ID)),
+			// 		krt.WithMetadata(krt.Metadata{
+			// 			multicluster.ClusterKRTMetadataKey: c.ID,
+			// 		}),
+			// 	)...,
+			// )
 
 			results := map[*collectionCacheByCluster[config.ObjectWithCluster[model.WorkloadInfo]]]bool{
-				podWorkloadInfosCache:            podWorkloadInfosCache.Insert(PodWorkloadsWithCluster),
-				workloadEntryWorkloadInfosCache:  workloadEntryWorkloadInfosCache.Insert(WorkloadEntryWorkloadsWithCluster),
-				serviceEntryWorkloadInfosCache:   serviceEntryWorkloadInfosCache.Insert(ServiceEntryWorkloadsWithCluster),
-				endpointSliceWorkloadInfosCache:  endpointSliceWorkloadInfosCache.Insert(EndpointSliceWorkloadsWithCluster),
-				networkGatewayWorkloadInfosCache: networkGatewayWorkloadInfosCache.Insert(NetworkGatewayWorkloadsWithCluster),
+				podWorkloadInfosCache:           podWorkloadInfosCache.Insert(PodWorkloadsWithCluster),
+				workloadEntryWorkloadInfosCache: workloadEntryWorkloadInfosCache.Insert(WorkloadEntryWorkloadsWithCluster),
+				serviceEntryWorkloadInfosCache:  serviceEntryWorkloadInfosCache.Insert(ServiceEntryWorkloadsWithCluster),
+				endpointSliceWorkloadInfosCache: endpointSliceWorkloadInfosCache.Insert(EndpointSliceWorkloadsWithCluster),
+				// networkGatewayWorkloadInfosCache: networkGatewayWorkloadInfosCache.Insert(NetworkGatewayWorkloadsWithCluster),
 			}
 
 			if slices.Contains(maps.Values(results), false) {
@@ -622,7 +622,7 @@ func MergedGlobalWorkloadsCollection(
 				WorkloadEntryWorkloadsWithCluster,
 				ServiceEntryWorkloadsWithCluster,
 				EndpointSliceWorkloadsWithCluster,
-				NetworkGatewayWorkloadsWithCluster,
+				// NetworkGatewayWorkloadsWithCluster,
 			}
 
 			return cols

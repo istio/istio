@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -765,6 +766,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			Labels: map[string]string{label.TopologyNetwork.Name: testNW},
 		},
 	})
+	log.Infof("Remote cluster %s now has network %s", remoteClient.clusterID, testNW)
 
 	s.labelServiceForClient(t, "svc2", testNS,
 		map[string]string{"istio.io/global": "true"}, localClient.sc)
@@ -785,6 +787,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			Labels: map[string]string{label.TopologyNetwork.Name: remoteNetwork},
 		},
 	})
+	log.Infof("Remote cluster %s now has network %s", remoteClient.clusterID, remoteNetwork)
 	assert.EventuallyEqual(t, func() int {
 		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
 		return len(ais)

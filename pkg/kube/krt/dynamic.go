@@ -16,6 +16,8 @@ package krt
 
 import (
 	"sync"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type dynamicJoinHandlerRegistration struct {
@@ -96,5 +98,6 @@ func (j *dynamicJoinIndexer[T]) Lookup(key string) []T {
 			res = append(res, l...)
 		}
 	}
+	log.Infof("Dynamic join indexer %T for key %s returned %d results: %s", j, key, len(res), spew.Sprint(res))
 	return res
 }
