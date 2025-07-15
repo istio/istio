@@ -997,9 +997,9 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			d := NewDeploymentController(client, cluster.ID(features.ClusterName), env, dummyWebHookInjectFn, func(fn func()) {
 			}, tw, "", "")
 			d.queue.ShutDownEarly()
+			client.RunAndWait(stop)
 			d.queue = controllers.NewQueue("fake gateway queue",
 				controllers.WithReconciler(dummyReconcile))
-			client.RunAndWait(stop)
 			go d.Run(stop)
 
 			switch tt.event.Event {
