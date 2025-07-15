@@ -125,7 +125,8 @@ func HTTPRouteCollection(
 						string(parent.OriginalReference.Name) +
 							"." +
 							string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))) +
-							".svc." + ctx.DomainSuffix}
+							".svc." + ctx.DomainSuffix,
+					}
 				}
 			}
 			if len(routes) == 0 {
