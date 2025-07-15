@@ -247,7 +247,7 @@ func handleInnerCollectionEvent[T any](
 ) func(o []Event[T]) {
 	return func(events []Event[T]) {
 		mergedEvents := make([]Event[T], 0, len(events))
-		changedKeys := make(map[string]struct{}, len(events))
+		changedKeys := make([]string, 0, len(events))
 		// When we calculate the merged value for a given key, we're looking at the present state
 		// of our set of collections, not the state at the time of the event. Therefore, it's possible
 		// that the event state is stale and the merged value is different. Therefore, we should just
@@ -257,11 +257,10 @@ func handleInnerCollectionEvent[T any](
 		}
 		// Loop through all of the keys that changed and create an event based on the currente state
 		// and our cached entries.
-		for key := range changedKeys {
+		for _, key := range changedKeys {
 			merged := getMergedForKey(key)
 			entry := updateMergedCache(key, handlerID, merged)
 			var e Event[T]
-
 			switch {
 			case entry.current == nil && entry.prev == nil:
 				msg := "Merged (nested) join collection: Received event for key %s in handler %s but it's not longer in our set of collections. Skipping..."
@@ -287,7 +286,12 @@ func handleInnerCollectionEvent[T any](
 			}
 			mergedEvents = append(mergedEvents, e)
 		}
-		handler(mergedEvents)
+		if len(mergedEvents) > 0 {
+			// Calling the handler can actually race for nested collections in the case where two collections
+			// with the same key are added close to each other. This will cause the handler to be called twice
+			// (once for each collection) with the same key.
+			handler(mergedEvents)
+		}
 	}
 }
 
