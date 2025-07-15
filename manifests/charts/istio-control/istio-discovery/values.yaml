@@ -287,6 +287,10 @@ _internal_defaults_do_not_set:
     logging:
       level: "default:info"
 
+    # When enabled, a default NetworkPolicy for istiod will be created
+    networkPolicy:
+      enabled: false
+
     omitSidecarInjectorConfigMap: false
 
     # Configure whether Operator manages webhook configurations. The current behavior

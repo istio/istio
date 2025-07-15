@@ -623,7 +623,10 @@ message GlobalConfig {
 
   // Specifies whether native nftables rules should be used instead of iptables rules for traffic redirection.
   google.protobuf.BoolValue nativeNftables = 74;
-  // The next available key is 75
+
+  // Settings related to Kubernetes NetworkPolicy.
+  NetworkPolicyConfig networkPolicy = 75;
+  // The next available key is 76
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -1466,4 +1469,10 @@ message WaypointConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
   repeated k8s.io.api.core.v1.Toleration toleration = 5;
+}
+
+// Configuration for NetworkPolicy
+message NetworkPolicyConfig {
+  // Controls whether default NetworkPolicy resources will be created.
+  google.protobuf.BoolValue enabled = 1;
 }
