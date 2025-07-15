@@ -884,7 +884,7 @@ func (a *index) HasSynced() bool {
 
 func (a *index) Network(ctx krt.HandlerContext) network.ID {
 	net := krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection())
-	return network.ID(ptr.OrEmpty(net))
+	return ptr.OrEmpty(net).Network
 }
 
 func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {

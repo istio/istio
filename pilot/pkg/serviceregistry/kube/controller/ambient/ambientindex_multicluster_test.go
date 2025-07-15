@@ -224,15 +224,9 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 						if len(networks) == 0 {
 							return false
 						}
-						singleton := networks[0]
-						if singleton == nil {
-							return false
-						}
-						nw := singleton.Get()
-						if nw == nil {
-							return false
-						}
-						return *nw == clusterToNetwork[client.clusterID]
+
+						nw := networks[0].Network
+						return string(nw) == clusterToNetwork[client.clusterID]
 					}, true)
 				}
 				if networkGatewayIps[client.clusterID] != "" {

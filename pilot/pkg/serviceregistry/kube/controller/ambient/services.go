@@ -129,14 +129,13 @@ func GlobalMergedWorkloadServicesCollection(
 				false,
 				checkServiceScope,
 				func(ctx krt.HandlerContext) network.ID {
-					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
-					if nwPtr == nil {
+					nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
+					if nw == nil {
 						log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
 						ctx.DiscardResult()
 						return ""
 					}
-					nw := *nwPtr
-					return network.ID(ptr.OrEmpty(nw.Get()))
+					return nw.Network
 				}), opts.With(
 				append(
 					opts.WithName(fmt.Sprintf("ServiceServiceInfos[%s]", cluster.ID)),
