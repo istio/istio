@@ -4,7 +4,7 @@ _internal_defaults_do_not_set:
   hub: ""
   tag: ""
   variant: ""
-  image: install-cni
+  image: install-cni-windows
   pullPolicy: ""
 
   # Same as `global.logging.level`, but will override it if set

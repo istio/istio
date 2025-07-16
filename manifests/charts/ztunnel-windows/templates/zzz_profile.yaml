@@ -49,7 +49,7 @@ Finally, we can set all of that under .Values so the chart behaves without aware
 {{- $a := mustMergeOverwrite $defaults $profile }}
 {{- end }}
 #  Flatten globals, if defined on a per-chart basis
-{{- if false }}
+{{- if true }}
 {{- $a := mustMergeOverwrite $defaults ($profile.global) ($.Values.global | default dict)  }}
 {{- end }}
 {{- $x := set $.Values "_original" (deepCopy $.Values) }}

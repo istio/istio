@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: ztunnel-windows
-  namespace: istio-system
+  name: {{ include "ztunnel-windows.release-name" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: ztunnel-windows
     {{- include "istio.labels" . | nindent 4}}
     {{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
   annotations:
 {{- if .Values.revision }}
-  {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
-  {{- toYaml $annos | nindent 4}}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
 {{- else }}
     {{- .Values.annotations | toYaml | nindent 4 }}
 {{- end }}
@@ -36,6 +36,7 @@ spec:
 {{- if .Values.revision }}
         istio.io/rev: {{ .Values.revision }}
 {{- end }}
+{{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
     spec:
       nodeSelector:
         kubernetes.io/os: windows
