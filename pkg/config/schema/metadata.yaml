@@ -62,6 +62,7 @@ resources:
 
   - kind: "EndpointSlice"
     plural: "endpointslices"
+    group: "discovery.k8s.io"
     version: "v1"
     builtin: true
     specless: true

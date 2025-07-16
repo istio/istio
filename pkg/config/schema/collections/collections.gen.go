@@ -183,7 +183,7 @@ var (
 
 	EndpointSlice = resource.Builder{
 		Identifier:    "EndpointSlice",
-		Group:         "",
+		Group:         "discovery.k8s.io",
 		Kind:          "EndpointSlice",
 		Plural:        "endpointslices",
 		Version:       "v1",
