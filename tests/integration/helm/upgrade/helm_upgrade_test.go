@@ -30,6 +30,7 @@ import (
 )
 
 var (
+	currentVersion           string
 	previousSupportedVersion string
 	nMinusTwoVersion         string
 )
@@ -47,6 +48,7 @@ func initVersions(ctx resource.Context) error {
 		return err
 	}
 
+	currentVersion = v.String()
 	previousVersion := semver.New(v.Major(), v.Minor()-1, v.Patch(), v.Prerelease(), v.Metadata())
 
 	// If the previous version is not published yet, use the latest one
@@ -110,4 +112,10 @@ func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(upgradeAllButZtunnel(previousSupportedVersion))
+}
+
+func TestAmbientStableRevisionLabelsGatewayStatus(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(runMultipleTagsFunc(true, true))
 }
