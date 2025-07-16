@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -488,7 +489,8 @@ func (s *Server) getRootCertFromSecret(name, namespace string) (*istioCredential
 // Once the lock is acquired, it will close the activateCh channel to signal the per-revision leader to start writing status.
 func (s *Server) checkAndRunNonRevisionLeaderElectionIfRequired(args *PilotArgs, activateCh chan struct{}) {
 	cm, err := s.kubeClient.Kube().CoreV1().ConfigMaps(args.Namespace).Get(context.Background(), leaderelection.GatewayStatusController, v1.GetOptions{})
-	if err != nil {
+
+	if errors.IsNotFound(err) {
 		// ConfigMap does not exist, so per-revision leader election should be active
 		close(activateCh)
 		return
