@@ -66,7 +66,7 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 		}
 		cert, err := x509.ParseCertificate(cb.Bytes)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse X.509 certificate: %v", err)
+			return nil, nil, fmt.Errorf("failed to parse X.509 certificate")
 		}
 		certs = append(certs, cert)
 		if len(certBytes) == 0 {
@@ -80,35 +80,36 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 }
 
 // We want to filter out certs that are invalid for whatever reason (e.g. negative serial number).
-// First return are parsed certificates, second return is the bytes of valid certs,
+// First return value is parsed certificates, second return is the bytes of valid certs,
 // and the third return is a slice of errors from parsing the certs.
-func ParseRootCerts(certBytes []byte) ([]*x509.Certificate, []byte, []error) {
+func ParseRootCerts(certBytes []byte) ([]byte, []error) {
 	var (
-		certs         []*x509.Certificate
-		cb            *pem.Block
+		cb                 *pem.Block
 		validRootCertBytes []byte
-		errs         []error
+		errs               []error
 	)
-	validRootCertBytes = make([]byte, 0, len(certBytes))
 	certBytes = bytes.TrimSpace(certBytes)
+	validRootCertBytes = make([]byte, 0, len(certBytes))
+
 	for {
+		if len(certBytes) == 0 {
+			break
+		}
 		cb, certBytes = pem.Decode(certBytes)
 		if cb == nil {
+			// give up if we have an encoding error
 			errs = append(errs, fmt.Errorf("invalid PEM encoded certificate"))
-			continue
+			return validRootCertBytes, errs
 		}
-		cert, err := x509.ParseCertificate(cb.Bytes)
+		_, err := x509.ParseCertificate(cb.Bytes)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		certs = append(certs, cert)
-		validRootCertBytes = append(validRootCertBytes, cb.Bytes...)
-		if len(certBytes) == 0 {
-			break
-		}
+		validRootCertBytes = append(validRootCertBytes, pem.EncodeToMemory(cb)...)
+
 	}
-	return certs, validRootCertBytes, errs
+	return validRootCertBytes, errs
 }
 
 // ParsePemEncodedCSR constructs a `x509.CertificateRequest` object using the

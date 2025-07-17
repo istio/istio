@@ -399,7 +399,7 @@ func (sc *SecretManagerClient) keyCertificateExist(certPath, keyPath string) boo
 // may issue such certificates, so we need to handle them gracefully as per rfc5280.
 // So if there is an invalid cert, we ignore it and only error if there are no valid certs.
 func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, resourceName string, workload bool) (*security.SecretItem, error) {
-	var validRootCert []byte
+	var validRootCertBytes []byte
 	o := backoff.DefaultOption()
 	o.InitialInterval = sc.configOptions.FileDebounceDuration
 	b := backoff.NewExponentialBackOff(o)
@@ -408,13 +408,14 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 		if err != nil {
 			return err
 		}
+
 		var errs []error
-		_, validRootCert, errs = pkiutil.ParseRootCerts(rootCert)
-		if len(validRootCert) == 0 {
+		validRootCertBytes, errs = pkiutil.ParseRootCerts(rootCert)
+		if len(validRootCertBytes) == 0 {
 			return fmt.Errorf("failed to parse root certs from file %s: %v", rootCertPath, errs)
 		}
 		if len(errs) > 0 {
-			cacheLog.Warnf("failed to parse some certs from file %s: %v", rootCertPath, errs)
+			cacheLog.Errorf("failed to parse some certs from file %s: %v", rootCertPath, errs)
 		}
 		return nil
 	}
@@ -426,11 +427,11 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 
 	// Set the rootCert only if it is workload root cert.
 	if workload {
-		sc.cache.SetRoot(validRootCert)
+		sc.cache.SetRoot(validRootCertBytes)
 	}
 	return &security.SecretItem{
 		ResourceName: resourceName,
-		RootCert:     validRootCert,
+		RootCert:     validRootCertBytes,
 	}, nil
 }
 
