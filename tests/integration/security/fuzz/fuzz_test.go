@@ -50,7 +50,6 @@ spec:
     - operation:
         paths: ["/private/secret.html"]
 `
-
 	authzDenyPolicy2 = `
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
@@ -63,7 +62,6 @@ spec:
     - operation:
         paths: ["/private/secre*.html"]
 `
-
 	authzDenyPolicy3 = `
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
@@ -76,7 +74,6 @@ spec:
     - operation:
         paths: ["/private/secret*.html"]
 `
-
 	authzDenyPolicy4 = `
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
