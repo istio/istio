@@ -730,7 +730,6 @@ func TestVersionManagement(t *testing.T) {
 }
 
 func TestHandlerEnqueueFunction(t *testing.T) {
-	log.SetOutputLevel(istiolog.DebugLevel)
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
 	defaultGatewayClass := &k8sbeta.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
@@ -829,7 +828,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 					},
 				},
 			},
-			reconciles: int32(2),
+			reconciles: int32(1),
 			objects:    defaultObjects,
 		},
 		{
@@ -873,7 +872,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 					},
 				},
 			},
-			reconciles: int32(2),
+			reconciles: int32(1),
 			objects:    defaultObjects,
 		},
 		{
@@ -919,7 +918,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 					},
 				},
 			},
-			reconciles: int32(2),
+			reconciles: int32(1),
 			objects:    defaultObjects,
 		},
 		{
@@ -965,7 +964,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 					},
 				},
 			},
-			reconciles: int32(1),
+			reconciles: int32(0),
 			objects:    defaultObjects,
 		},
 	}
@@ -973,8 +972,15 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reconciles := atomic.NewInt32(0)
+			reconcileDone := make(chan struct{}, 1) // Channel to signal reconciliation completion
+
 			dummyReconcile := func(types.NamespacedName) error {
 				reconciles.Inc()
+				// Signal that reconciliation is complete
+				select {
+				case reconcileDone <- struct{}{}:
+				default:
+				}
 				return nil
 			}
 
@@ -983,9 +989,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			}
 			stop := test.NewStop(t)
 
-			if tt.event.Event == controllers.EventUpdate || tt.event.Event == controllers.EventDelete {
-				tt.objects = append(tt.objects, tt.event.Old)
-			}
+			// Don't include the old object in initial objects - we'll create it during the test
 			client := kube.NewFakeClient(tt.objects...)
 			kube.SetObjectFilter(client, discoveryNamespaceFilter)
 			client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
@@ -997,23 +1001,36 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			d := NewDeploymentController(client, cluster.ID(features.ClusterName), env, dummyWebHookInjectFn, func(fn func()) {
 			}, tw, "", "")
 			d.queue.ShutDownEarly()
+			client.RunAndWait(stop)
 			d.queue = controllers.NewQueue("fake gateway queue",
 				controllers.WithReconciler(dummyReconcile))
-			client.RunAndWait(stop)
-			go d.Run(stop)
+			go d.queue.Run(stop)
+			kube.WaitForCacheSync("test", stop, d.queue.HasSynced, d.gateways.HasSynced)
 
 			switch tt.event.Event {
 			case controllers.EventAdd:
 				gw := tt.event.New.(*k8sbeta.Gateway)
 				kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(gw.DeepCopy())
 			case controllers.EventDelete:
+				// For delete events, first create the gateway, then delete it
 				gw := tt.event.Old.(*k8sbeta.Gateway)
+				kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(gw.DeepCopy())
+				kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
+				// Wait for the create event reconciliation to complete
+				<-reconcileDone
+				// Reset counter after create, so we only count the delete event
+				reconciles.Store(0)
 				kclient.NewWriteClient[*k8sbeta.Gateway](client).Delete(gw.Name, gw.Namespace)
 			case controllers.EventUpdate:
+				// For update events, first create the old gateway, then update it
 				newGw := tt.event.New.(*k8sbeta.Gateway)
 				oldGw := tt.event.Old.(*k8sbeta.Gateway)
 				kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(oldGw.DeepCopy())
 				kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
+				// Wait for the create event reconciliation to complete
+				<-reconcileDone
+				// Reset counter after create, so we only count the update event
+				reconciles.Store(0)
 				kclient.NewWriteClient[*k8sbeta.Gateway](client).Update(newGw.DeepCopy())
 			}
 			kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
