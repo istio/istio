@@ -80,8 +80,8 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 }
 
 // We want to filter out certs that are invalid for whatever reason (e.g. negative serial number).
-// First return value is parsed certificates, second return is the bytes of valid certs,
-// and the third return is a slice of errors from parsing the certs.
+// First return is the bytes of valid certs,
+// and the second return is a slice of errors from parsing the certs.
 func ParseRootCerts(certBytes []byte) ([]byte, []error) {
 	var (
 		cb                 *pem.Block
@@ -107,7 +107,6 @@ func ParseRootCerts(certBytes []byte) ([]byte, []error) {
 			continue
 		}
 		validRootCertBytes = append(validRootCertBytes, pem.EncodeToMemory(cb)...)
-
 	}
 	return validRootCertBytes, errs
 }
