@@ -171,6 +171,7 @@ func TestNativeNftablesInstall(t *testing.T) {
 		Run(setupInstallation(values, false, DefaultNamespaceConfig, ""))
 }
 
+//nolint: unparam
 func setupInstallation(values map[string]interface{}, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
 	return baseSetup(values, isAmbient, config, func(t framework.TestContext) {
 		sanitycheck.RunTrafficTest(t, isAmbient)
