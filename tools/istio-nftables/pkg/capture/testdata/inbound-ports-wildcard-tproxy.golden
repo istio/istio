@@ -20,7 +20,7 @@ add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 return
 add table inet istio-proxy-mangle
 flush table inet istio-proxy-mangle
 add chain inet istio-proxy-mangle prerouting { type filter hook prerouting priority -150 ; }
-add chain inet istio-proxy-mangle output { type filter hook output priority -150 ; }
+add chain inet istio-proxy-mangle output { type route hook output priority -150 ; }
 add chain inet istio-proxy-mangle istio-divert
 add chain inet istio-proxy-mangle istio-tproxy
 add chain inet istio-proxy-mangle istio-inbound
