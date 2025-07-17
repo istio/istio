@@ -328,38 +328,37 @@ func TestLookupNamedPort(t *testing.T) {
 func TestDumpAppGRPCProbers(t *testing.T) {
 	svc := "foo"
 	for _, tc := range []struct {
-		name     string
-		pod      *corev1.Pod
-		expected string
+		name          string
+		pod           *corev1.Pod
+		expected      string
+		blankExpected bool
 	}{
 		{
 			name: "simple gRPC liveness probe",
-			pod: &corev1.Pod{Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Ports: []corev1.ContainerPort{
-							{ContainerPort: 1234},
-						},
-						Name: "foo",
-						LivenessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								GRPC: &corev1.GRPCAction{
-									Port: 1234,
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "12345",
+					},
+				}, Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 1234},
+							},
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 1234,
+									},
 								},
 							},
 						},
 					},
-				},
-			}},
-			expected: `
-{
-    "/app-health/foo/livez": {
-        "grpc": {
-            "port": 1234,
-            "service": null
-        }
-    }
-}`,
+				}},
+			expected:      "",
+			blankExpected: true,
 		},
 		{
 			name: "gRPC readiness probe with service",
@@ -445,7 +444,11 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 		},
 	} {
 		got := DumpAppProbers(tc.pod, 15020)
-		test.JSONEquals(t, got, tc.expected)
+		if tc.blankExpected {
+			assert.Equal(t, got, tc.expected)
+		} else {
+			test.JSONEquals(t, got, tc.expected)
+		}
 	}
 }
 
