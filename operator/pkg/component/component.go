@@ -135,6 +135,9 @@ const (
 	CNIComponentName     Name = "Cni"
 	ZtunnelComponentName Name = "Ztunnel"
 
+	ZtunnelWindowsComponentName Name = "ZtunnelWindows"
+	CNIWindowsComponentName     Name = "CniWindows"
+
 	IngressComponentName Name = "IngressGateways"
 	EgressComponentName  Name = "EgressGateways"
 )
@@ -193,6 +196,16 @@ var AllComponents = []Component{
 		ReleaseName:          "cni",
 	},
 	{
+		UserFacingName:       CNIWindowsComponentName,
+		SpecName:             "cni-windows",
+		ResourceType:         "DaemonSet",
+		ResourceName:         "istio-cni-node",
+		ContainerName:        "install-cni",
+		HelmSubdir:           "istio-cni-windows",
+		ToHelmValuesTreeRoot: "cni-windows",
+		ReleaseName:          "cni",
+	},
+	{
 		UserFacingName:       ZtunnelComponentName,
 		SpecName:             "ztunnel",
 		ResourceType:         "DaemonSet",
@@ -203,16 +216,29 @@ var AllComponents = []Component{
 		FlattenValues:        true,
 		ReleaseName:          "ztunnel",
 	},
+	{
+		UserFacingName:       ZtunnelWindowsComponentName,
+		SpecName:             "ztunnel-windows",
+		ResourceType:         "DaemonSet",
+		ResourceName:         "ztunnel",
+		HelmSubdir:           "ztunnel-windows",
+		ToHelmValuesTreeRoot: "ztunnel_windows",
+		ContainerName:        "istio-proxy",
+		FlattenValues:        true,
+		ReleaseName:          "ztunnel",
+	},
 }
 
 var (
 	userFacingComponentNames = map[Name]string{
-		BaseComponentName:    "Istio core",
-		PilotComponentName:   "Istiod",
-		CNIComponentName:     "CNI",
-		ZtunnelComponentName: "Ztunnel",
-		IngressComponentName: "Ingress gateways",
-		EgressComponentName:  "Egress gateways",
+		BaseComponentName:           "Istio core",
+		PilotComponentName:          "Istiod",
+		CNIComponentName:            "CNI",
+		CNIWindowsComponentName:     "CNI (Windows)",
+		ZtunnelComponentName:        "Ztunnel",
+		ZtunnelWindowsComponentName: "Ztunnel (Windows)",
+		IngressComponentName:        "Ingress gateways",
+		EgressComponentName:         "Egress gateways",
 	}
 
 	Icons = map[Name]string{
