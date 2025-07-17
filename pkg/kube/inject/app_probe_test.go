@@ -215,7 +215,7 @@ func TestLookupNamedPort(t *testing.T) {
 			},
 			portName:      "metrics",
 			containerName: "container1",
-			expected:      9090, // Should find it in container2 as fallback
+			expected:      0,
 		},
 		{
 			name: "port not found in any container",
@@ -257,61 +257,7 @@ func TestLookupNamedPort(t *testing.T) {
 			},
 			portName:      "http",
 			containerName: "nonexistent",
-			expected:      8080, // Should find it in container1 as fallback
-		},
-		{
-			name: "no container specified, find in any container",
-			pod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-pod",
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "container1",
-							Ports: []corev1.ContainerPort{
-								{Name: "http", ContainerPort: 8080},
-							},
-						},
-						{
-							Name: "container2",
-							Ports: []corev1.ContainerPort{
-								{Name: "metrics", ContainerPort: 9090},
-							},
-						},
-					},
-				},
-			},
-			portName:      "metrics",
-			containerName: "",
-			expected:      9090,
-		},
-		{
-			name: "same port name in multiple containers, no container specified",
-			pod: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-pod",
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "container1",
-							Ports: []corev1.ContainerPort{
-								{Name: "http", ContainerPort: 8080},
-							},
-						},
-						{
-							Name: "container2",
-							Ports: []corev1.ContainerPort{
-								{Name: "http", ContainerPort: 8081},
-							},
-						},
-					},
-				},
-			},
-			portName:      "http",
-			containerName: "",
-			expected:      8080, // Should find the first one
+			expected:      0,
 		},
 	}
 
@@ -1190,7 +1136,10 @@ func TestGetIncludedPorts(t *testing.T) {
 				},
 			},
 			// When only exclude is specified, expect a map without those ports
-			expected: map[int32]bool{},
+			expected: map[int32]bool{
+				8080: false,
+				7070: false,
+			},
 		},
 		{
 			name: "include with invalid port",
@@ -1217,7 +1166,9 @@ func TestGetIncludedPorts(t *testing.T) {
 				},
 			},
 			// Invalid exclude ports should be ignored
-			expected: map[int32]bool{},
+			expected: map[int32]bool{
+				8080: false,
+			},
 		},
 		{
 			name: "empty include ports string",
@@ -1262,9 +1213,9 @@ func TestGetIncludedPorts(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := getIncludedPorts(tc.pod)
+			got := getPortInclusionOrExclusionList(tc.pod)
 			if !reflect.DeepEqual(got, tc.expected) {
-				t.Errorf("getIncludedPorts(%v) = %v, want %v", tc.pod, got, tc.expected)
+				t.Errorf("getPortInclusionOrExclusionList(%v) = %v, want %v", tc.pod, got, tc.expected)
 			}
 		})
 	}
@@ -1419,10 +1370,269 @@ func TestPatchRewriteProbe(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "pod with a gRPC liveness probe and port is not included",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "12345",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 1234,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "12345",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 1234,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "pod with a gRPC liveness probe and port is included",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 1234,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/app-health/foo/livez",
+										Port: statusPort,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "pod with a HTTP liveness probe and port is included",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/healthz",
+										Port:   intstr.FromInt32(1234),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/app-health/foo/livez",
+										Port:   statusPort,
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "pod with a HTTP liveness probe and port is not included",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/healthz",
+										Port:   intstr.FromInt32(1234),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/healthz",
+										Port:   intstr.FromInt32(1234),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	} {
-		patchRewriteProbe(annotations, tc.pod, 15020)
-		if !reflect.DeepEqual(tc.pod, tc.expected) {
-			t.Errorf("[%v] failed, want %v, got %v", tc.name, tc.expected, tc.pod)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			patchRewriteProbe(annotations, tc.pod, 15020)
+			if !reflect.DeepEqual(tc.pod, tc.expected) {
+				t.Errorf("[%v] failed, want %v, got %v", tc.name, tc.expected, tc.pod)
+			}
+		})
+	}
+}
+
+func TestIsPortIncluded(t *testing.T) {
+	tests := []struct {
+		name     string
+		port     int32
+		ports    map[int32]bool
+		expected bool
+	}{
+		{
+			name:     "port exists and is included",
+			port:     8080,
+			ports:    map[int32]bool{8080: true},
+			expected: true,
+		},
+		{
+			name:     "port exists and is not included",
+			port:     8080,
+			ports:    map[int32]bool{8080: false},
+			expected: false,
+		},
+		{
+			name:     "port doesn't exist and no ports are included",
+			port:     8080,
+			ports:    map[int32]bool{9090: false, 7070: false},
+			expected: true,
+		},
+		{
+			name:     "port doesn't exist but some ports are included",
+			port:     8080,
+			ports:    map[int32]bool{9090: true, 7070: false},
+			expected: false,
+		},
+		{
+			name:     "empty ports map",
+			port:     8080,
+			ports:    map[int32]bool{},
+			expected: true,
+		},
+		{
+			name:     "nil ports map",
+			port:     8080,
+			ports:    nil,
+			expected: true,
+		},
+		{
+			name:     "multiple ports with mixed inclusion",
+			port:     8080,
+			ports:    map[int32]bool{8080: true, 9090: false, 7070: true},
+			expected: true,
+		},
+		{
+			name:     "multiple ports with mixed inclusion false",
+			port:     9090,
+			ports:    map[int32]bool{8080: true, 9090: false, 7070: true},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isPortIncluded(tt.port, tt.ports)
+			if result != tt.expected {
+				t.Errorf("isPortIncluded(%d, %v) = %v, want %v",
+					tt.port, tt.ports, result, tt.expected)
+			}
+		})
 	}
 }
