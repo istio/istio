@@ -38,6 +38,7 @@ spec:
 {{- end }}
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
     spec:
+      hostNetwork: true
       nodeSelector:
         kubernetes.io/os: windows
 {{- if .Values.nodeSelector }}
@@ -74,7 +75,6 @@ spec:
           httpGet:
             port: 15021
             path: /healthz/ready            
-        command: [ "powershell", "-Command" ] 
         args:
         - proxy
         - ztunnel

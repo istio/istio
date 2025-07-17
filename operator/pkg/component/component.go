@@ -222,7 +222,7 @@ var AllComponents = []Component{
 		ResourceType:         "DaemonSet",
 		ResourceName:         "ztunnel",
 		HelmSubdir:           "ztunnel-windows",
-		ToHelmValuesTreeRoot: "ztunnel-windows",
+		ToHelmValuesTreeRoot: "ztunnel_windows",
 		ContainerName:        "istio-proxy",
 		FlattenValues:        true,
 		ReleaseName:          "ztunnel",
@@ -231,12 +231,14 @@ var AllComponents = []Component{
 
 var (
 	userFacingComponentNames = map[Name]string{
-		BaseComponentName:    "Istio core",
-		PilotComponentName:   "Istiod",
-		CNIComponentName:     "CNI",
-		ZtunnelComponentName: "Ztunnel",
-		IngressComponentName: "Ingress gateways",
-		EgressComponentName:  "Egress gateways",
+		BaseComponentName:           "Istio core",
+		PilotComponentName:          "Istiod",
+		CNIComponentName:            "CNI",
+		CNIWindowsComponentName:     "CNI (Windows)",
+		ZtunnelComponentName:        "Ztunnel",
+		ZtunnelWindowsComponentName: "Ztunnel (Windows)",
+		IngressComponentName:        "Ingress gateways",
+		EgressComponentName:         "Egress gateways",
 	}
 
 	Icons = map[Name]string{

@@ -1351,6 +1351,9 @@ message Values {
   // Configuration for the Istio CNI plugin.
   CNIConfig cni = 2;
 
+  // Configuration for the Istio CNI plugin for Windows.
+  CNIConfig cni_windows = 75;
+
   // Configuration for ingress and egress gateways.
   GatewaysConfig gateways = 5;
 
@@ -1362,6 +1365,9 @@ message Values {
 
   // Configuration for the ZTunnel component.
   google.protobuf.Value ztunnel = 41;
+
+  // Configuration for the ZTunnel component on Windows.
+  google.protobuf.Value ztunnel_windows = 76;
 
   // Controls whether telemetry is exported for Pilot.
   TelemetryConfig telemetry = 23;
