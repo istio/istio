@@ -160,6 +160,17 @@ func TestRevisionedReleaseChannels(t *testing.T) {
 		}, revision))
 }
 
+func TestNativeNftablesInstall(t *testing.T) {
+	values := map[string]interface{}{
+		"global": map[string]interface{}{
+			"nativeNftables": true,
+		},
+	}
+	framework.
+		NewTest(t).
+		Run(setupInstallation(values, false, DefaultNamespaceConfig, ""))
+}
+
 func setupInstallation(values map[string]interface{}, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
 	return baseSetup(values, isAmbient, config, func(t framework.TestContext) {
 		sanitycheck.RunTrafficTest(t, isAmbient)
