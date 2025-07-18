@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net/url"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -41,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
+	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/adsc"
@@ -168,11 +171,27 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		gwc := gateway.NewController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions, s.XDSServer)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
+
+		// Use a channel to signal activation of per-revision status writer
+		activatePerRevisionStatusWriterCh := make(chan struct{})
+		// This check is for backwards compatibility with older(non per-revision) gateway status leader election.
+		// By backward compatibility, we mean that during upgrade, new istiod deployment should not start writing status
+		// until the old istiod deployment has acquired the leader election lock.
+		// If the ConfigMap for leader election exists, the non-revision leader election will be joined by this deployment.
+		// Once the leader election is acquired, it will signal the channel to activate the per-revision status writer.
+		// So this function is helping in handing over the leader election from older non-revision leader election to
+		// per-revision leader election status writer.
+		// If the leader election ConfigMap does not exist, means there is no existing leader,
+		// this func will close the channel to activate the per-revision status writer immediately.
+		s.checkAndRunNonRevisionLeaderElectionIfRequired(args, activatePerRevisionStatusWriterCh)
+
 		s.addTerminatingStartFunc("gateway status", func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
+				NewPerRevisionLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					log.Infof("Starting gateway status writer")
+					log.Infof("waiting for gateway status writer activation")
+					<-activatePerRevisionStatusWriterCh
+					log.Infof("Starting gateway status writer for revision: %s", args.Revision)
 					gwc.SetStatusWrite(true, s.statusManager)
 
 					// Trigger a push so we can recompute status
@@ -463,4 +482,64 @@ func (s *Server) getRootCertFromSecret(name, namespace string) (*istioCredential
 		return nil, fmt.Errorf("failed to get credential with name %v: %v", name, err)
 	}
 	return kube.ExtractRoot(secret.Data)
+}
+
+// checkAndRunNonRevisionLeaderElectionIfRequired checks the ConfigMap for leader election and runs non-revision leader election
+// to figure out when the older leader has released the lock.
+// Once the lock is acquired, it will close the activateCh channel to signal the per-revision leader to start writing status.
+func (s *Server) checkAndRunNonRevisionLeaderElectionIfRequired(args *PilotArgs, activateCh chan struct{}) {
+	cm, err := s.kubeClient.Kube().CoreV1().ConfigMaps(args.Namespace).Get(context.Background(), leaderelection.GatewayStatusController, v1.GetOptions{})
+
+	if errors.IsNotFound(err) {
+		// ConfigMap does not exist, so per-revision leader election should be active
+		close(activateCh)
+		return
+	}
+	leaderAnn, ok := cm.Annotations[k8sresourcelock.LeaderElectionRecordAnnotationKey]
+	if ok {
+		var leaderInfo struct {
+			HolderIdentity string `json:"holderIdentity"`
+		}
+		if err := json.Unmarshal([]byte(leaderAnn), &leaderInfo); err == nil {
+			if leaderInfo.HolderIdentity != "" {
+				// Non-revision leader election should run, per-revision should be waiting for activation
+				s.addTerminatingStartFunc("gateway status", func(stop <-chan struct{}) error {
+					secondStop := make(chan struct{})
+					// if stop closes, ensure secondStop closes too
+					go func() {
+						<-stop
+						select {
+						case <-secondStop:
+						default:
+							close(secondStop)
+						}
+					}()
+					leaderelection.
+						NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
+						AddRunFunction(func(leaderStop <-chan struct{}) {
+							// now that we have the leader lock, we can activate the per-revision status writer
+							// first close the activateCh channel if it is not already closed
+							log.Infof("Activating gateway status writer")
+							select {
+							case <-activateCh:
+								// Channel already closed, do nothing
+							default:
+								close(activateCh)
+							}
+							// now end this lease itself
+							select {
+							case <-secondStop:
+							default:
+								close(secondStop)
+							}
+						}).
+						Run(secondStop)
+					return nil
+				})
+				return
+			}
+		}
+	}
+	// If annotation missing or holderIdentity is blank, per-revision leader election should be active
+	close(activateCh)
 }
