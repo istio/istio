@@ -80,4 +80,8 @@ var (
 	// TODO: change this to default true and add compatibility profile in v1.27
 	SpawnUpstreamSpanForGateway = env.Register("PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY", false,
 		"If true, separate tracing span for each upstream request for gateway.").Get()
+
+	AppendServiceInfoForWaypoint = env.Register("PILOT_APPEND_SERVICE_INFO_FOR_WAYPOINT", false,
+		"If true, service info will be appended to OpenTelemetry `service.name` for waypoints, e.g. "+
+			"httpbin.default:waypoint.default. By default, the `service.name` is `waypoint.default`.").Get()
 )

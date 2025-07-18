@@ -31,6 +31,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
@@ -60,10 +61,13 @@ func TestConfigureTracing(t *testing.T) {
 		UseRequestIDForTraceSampling: true,
 	}
 
+	features.AppendServiceInfoForWaypoint = true
+
 	testcases := []struct {
 		name            string
 		opts            gatewayListenerOpts
 		inSpec          *model.TracingConfig
+		svc             *model.Service
 		want            *hcm.HttpConnectionManager_Tracing
 		wantReqIDExtCtx *requestidextension.UUIDRequestIDExtensionContext
 	}{
@@ -240,12 +244,26 @@ func TestConfigureTracing(t *testing.T) {
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
+		{
+			name:   "append service info for waypoints",
+			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpc(), 99.999, false, true, true),
+			opts:   fakeOptsAppendServiceInfoForWaypoints(),
+			want: fakeTracingConfig(fakeOpenTelemetryWithServiceInfoProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			svc: &model.Service{
+				Attributes: model.ServiceAttributes{
+					Name:      "httpbin",
+					Namespace: "default",
+				},
+			},
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hcm := &hcm.HttpConnectionManager{}
-			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0, nil)
+			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0, tc.svc)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
@@ -1073,6 +1091,36 @@ func fakeOptsOnlyOpenTelemetryResourceDetectorsTelemetryAPI() gatewayListenerOpt
 	return opts
 }
 
+func fakeOptsAppendServiceInfoForWaypoints() gatewayListenerOpts {
+	var opts gatewayListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "opentelemetry",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+						Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+							Service:      "otel-collector",
+							Port:         4317,
+							MaxTagLength: 256,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		XdsNode: &core.Node{
+			Cluster: "waypoint.default",
+		},
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+	}
+
+	return opts
+}
+
 func fakeInboundOptsOnlySkywalkingTelemetryAPI() gatewayListenerOpts {
 	opts := fakeOptsOnlySkywalkingTelemetryAPI()
 	return opts
@@ -1321,6 +1369,25 @@ func fakeOpenTelemetryHTTPProvider(expectClusterName, expectAuthority string) *t
 						Value: "custom-value",
 					},
 					AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				},
+			},
+		},
+	}
+	fakeOtelHTTPAny := protoconv.MessageToAny(fakeOTelHTTPProviderConfig)
+	return &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHTTPAny},
+	}
+}
+
+func fakeOpenTelemetryWithServiceInfoProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
+	fakeOTelHTTPProviderConfig := &tracingcfg.OpenTelemetryConfig{
+		ServiceName: "httpbin.default:waypoint.default",
+		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: expectClusterName,
+					Authority:   expectAuthority,
 				},
 			},
 		},
