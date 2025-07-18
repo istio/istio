@@ -181,7 +181,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 				return pluginResponse(conf)
 			}
 		}
-		return fmt.Errorf("failed to createNewK8sClient jackie: %v", err)
+		return fmt.Errorf("failed to createNewK8sClient: %v", err)
 	}
 
 	// Actually do the add
