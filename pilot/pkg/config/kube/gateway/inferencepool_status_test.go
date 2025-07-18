@@ -47,7 +47,7 @@ const (
 )
 
 func TestInferencePoolStatusReconciliation(t *testing.T) {
-	test.SetForTest(t, &features.SupportGatewayAPIInferenceExtension, true)
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
 	testCases := []struct {
 		name         string
 		givens       []runtime.Object                 // Objects to create before the test
@@ -69,8 +69,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
-				assert.Equal(t, DefaultTestNS, status.Parents[0].GatewayRef.Namespace)
+				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, DefaultTestNS, string(*status.Parents[0].GatewayRef.Namespace))
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
 					Type:    string(inferencev1alpha2.InferencePoolConditionAccepted),
 					Status:  metav1.ConditionTrue,
@@ -92,8 +92,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
-				assert.Equal(t, DefaultTestNS, status.Parents[0].GatewayRef.Namespace)
+				assert.Equal(t, "gateway-1", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, DefaultTestNS, string(*status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -113,7 +113,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				require.Len(t, status.Parents, 2, "Expected two parent references")
 				assert.ElementsMatch(t,
 					[]string{"gateway-1", "gateway-2"},
-					[]string{status.Parents[0].GatewayRef.Name, status.Parents[1].GatewayRef.Name},
+					[]string{string(status.Parents[0].GatewayRef.Name), string(status.Parents[1].GatewayRef.Name)},
 				)
 			},
 		},
@@ -134,7 +134,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				require.Len(t, status.Parents, 2, "Expected two parent references")
 				assert.ElementsMatch(t,
 					[]string{"gateway-1", "gateway-2"},
-					[]string{status.Parents[0].GatewayRef.Name, status.Parents[1].GatewayRef.Name},
+					[]string{string(status.Parents[0].GatewayRef.Name), string(status.Parents[1].GatewayRef.Name)},
 				)
 			},
 		},
@@ -153,7 +153,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, "gateway-1", string(status.Parents[0].GatewayRef.Name))
 			},
 		},
 		{
@@ -170,7 +170,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, "gateway-1", string(status.Parents[0].GatewayRef.Name))
 				require.Len(t, status.Parents[0].Conditions, 2, "Expected two conditions")
 			},
 		},
@@ -188,7 +188,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				require.Len(t, status.Parents, 2, "Expected two parent references")
 				assert.ElementsMatch(t,
 					[]string{"gateway-1", "gateway-2"},
-					[]string{status.Parents[0].GatewayRef.Name, status.Parents[1].GatewayRef.Name},
+					[]string{string(status.Parents[0].GatewayRef.Name), string(status.Parents[1].GatewayRef.Name)},
 				)
 			},
 		},
@@ -203,7 +203,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS), WithParentStatus("default", DefaultTestNS, AsDefaultStatus())),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected two parent references")
-				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, "gateway-1", string(status.Parents[0].GatewayRef.Name))
 			},
 		},
 		{
@@ -221,7 +221,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected two parent references")
-				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, "gateway-1", string(status.Parents[0].GatewayRef.Name))
 				require.Len(t, status.Parents[0].Conditions, 2, "Expected two conditions")
 				assert.ElementsMatch(t,
 					[]string{string(inferencev1alpha2.InferencePoolConditionAccepted), string(inferencev1alpha2.InferencePoolConditionResolvedRefs)},
@@ -240,8 +240,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(AppTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
-				assert.Equal(t, GatewayTestNS, status.Parents[0].GatewayRef.Namespace)
+				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, GatewayTestNS, string(*status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -255,8 +255,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
-				assert.Equal(t, GatewayTestNS, status.Parents[0].GatewayRef.Namespace)
+				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, GatewayTestNS, string(*status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -270,8 +270,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(AppTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
-				assert.Equal(t, GatewayTestNS, status.Parents[0].GatewayRef.Namespace)
+				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, GatewayTestNS, string(*status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -285,8 +285,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(AppTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
-				assert.Equal(t, AppTestNS, status.Parents[0].GatewayRef.Namespace)
+				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, AppTestNS, string(*status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -303,7 +303,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected only one parent reference for the same gateway")
-				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
 			},
 		},
 		{
@@ -339,8 +339,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
-				assert.Equal(t, DefaultTestNS, status.Parents[0].GatewayRef.Namespace)
+				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, DefaultTestNS, string(*status.Parents[0].GatewayRef.Namespace))
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
 					Type:    string(inferencev1alpha2.InferencePoolConditionAccepted),
 					Status:  metav1.ConditionFalse,
@@ -361,8 +361,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
-				assert.Equal(t, DefaultTestNS, status.Parents[0].GatewayRef.Namespace)
+				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, DefaultTestNS, string(*status.Parents[0].GatewayRef.Namespace))
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
 					Type:    string(inferencev1alpha2.InferencePoolConditionAccepted),
 					Status:  metav1.ConditionUnknown,
@@ -640,9 +640,9 @@ func WithParentStatus(gatewayName, namespace string, opt ...ParentOption) Option
 				ip.Status.Parents = []inferencev1alpha2.PoolStatus{}
 			}
 			poolStatus := inferencev1alpha2.PoolStatus{
-				GatewayRef: corev1.ObjectReference{
-					Name:      gatewayName,
-					Namespace: namespace,
+				GatewayRef: inferencev1alpha2.ParentGatewayReference{
+					Name:      inferencev1alpha2.ObjectName(gatewayName),
+					Namespace: (*inferencev1alpha2.Namespace)(&namespace),
 				},
 			}
 			for _, opt := range opt {
@@ -655,8 +655,10 @@ func WithParentStatus(gatewayName, namespace string, opt ...ParentOption) Option
 
 func AsDefaultStatus() ParentOption {
 	return func(parentStatusRef *inferencev1alpha2.PoolStatus) {
-		parentStatusRef.GatewayRef.Name = "default"
-		parentStatusRef.GatewayRef.Kind = "Status"
+		dName := "default"
+		dKind := "Status"
+		parentStatusRef.GatewayRef.Name = inferencev1alpha2.ObjectName(dName)
+		parentStatusRef.GatewayRef.Kind = (*inferencev1alpha2.Kind)(&dKind)
 		WithConditions(
 			metav1.ConditionUnknown,
 			string(inferencev1alpha2.InferencePoolConditionAccepted),
