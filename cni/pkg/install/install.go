@@ -41,9 +41,7 @@ type Installer struct {
 	cfg                *config.InstallConfig
 	isReady            *atomic.Value
 	kubeconfigFilepath string
-	// TODO(jaellio): Allow users to configure file path in installer and add file path validation
-	// (valid priority)
-	cniConfigFilepath string
+	cniConfigFilepath  string
 }
 
 // NewInstaller returns an instance of Installer with the given config
@@ -130,11 +128,11 @@ func (in *Installer) Run(ctx context.Context) error {
 	}
 }
 
-// Cleanup remove Istio CNI's config, kubeconfig file, and binaries.
+// Cleanup removes Istio CNI's config, kubeconfig file, and binaries.
 func (in *Installer) Cleanup() error {
 	installLog.Info("cleaning up CNI installation")
 	if len(in.cniConfigFilepath) > 0 && file.Exists(in.cniConfigFilepath) {
-		if in.cfg.ChainedCNIPlugin {
+		if in.cfg.ChainedCNIPlugin && !in.cfg.IstioOwnedCNIConfig {
 			installLog.Infof("removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
 
 			// Read JSON from CNI config file

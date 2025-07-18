@@ -362,7 +362,6 @@ func TestSleepCheckInstall(t *testing.T) {
 	}
 }
 
-// TODO(jaellio) Update this test to ensure istio owned config is cleaned up (and other configs that contain istio-cni(?))
 func TestCleanup(t *testing.T) {
 	cases := []struct {
 		name                   string
@@ -371,6 +370,7 @@ func TestCleanup(t *testing.T) {
 		configFilename         string
 		existingConfigFilename string
 		expectedConfigFilename string
+		istioOwnedCNIConfig    bool
 	}{
 		{
 			name:                   "chained CNI plugin",
@@ -383,6 +383,13 @@ func TestCleanup(t *testing.T) {
 			name:                   "standalone CNI plugin",
 			configFilename:         "istio-cni.conf",
 			existingConfigFilename: "istio-cni.conf",
+		},
+		{
+			name:                   "istio owned CNI config",
+			chainedCNIPlugin:       true,
+			configFilename:         "istio-owned.conflist.golden",
+			existingConfigFilename: "istio-owned.conflist.golden",
+			istioOwnedCNIConfig:    true,
 		},
 	}
 
@@ -410,9 +417,11 @@ func TestCleanup(t *testing.T) {
 			}
 
 			cfg := &config.InstallConfig{
-				MountedCNINetDir: cniNetDir,
-				ChainedCNIPlugin: c.chainedCNIPlugin,
-				CNIBinTargetDirs: []string{cniBinDir},
+				MountedCNINetDir:            cniNetDir,
+				ChainedCNIPlugin:            c.chainedCNIPlugin,
+				CNIBinTargetDirs:            []string{cniBinDir},
+				IstioOwnedCNIConfig:         c.istioOwnedCNIConfig,
+				IstioOwnedCNIConfigFilename: c.configFilename,
 			}
 
 			isReady := &atomic.Value{}
@@ -426,7 +435,7 @@ func TestCleanup(t *testing.T) {
 			}
 
 			// check if conf file is deleted/conflist file is updated
-			if c.chainedCNIPlugin {
+			if c.chainedCNIPlugin && !c.istioOwnedCNIConfig {
 				resultConfig := testutils.ReadFile(t, cniConfigFilePath)
 
 				goldenFilepath := filepath.Join("testdata", c.expectedConfigFilename)
