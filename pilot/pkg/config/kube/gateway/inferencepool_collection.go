@@ -182,16 +182,18 @@ func calculateInferencePoolStatus(
 
 	// Add existing parents from other controllers (not managed by us)
 	for _, existingParent := range existingParents {
+		gtwName := string(existingParent.GatewayRef.Name)
+		gtwNamespace := string(*existingParent.GatewayRef.Namespace)
 		parentKey := types.NamespacedName{
-			Name:      existingParent.GatewayRef.Name,
-			Namespace: existingParent.GatewayRef.Namespace,
+			Name:      gtwName,
+			Namespace: gtwNamespace,
 		}
 
 		isCurrentlyOurs := gatewayParents.Contains(parentKey)
 
 		// Keep parents that are not ours and not default status parents
 		if !isCurrentlyOurs &&
-			!isOurManagedGateway(gateways, existingParent.GatewayRef.Namespace, existingParent.GatewayRef.Name) &&
+			!isOurManagedGateway(gateways, gtwNamespace, gtwName) &&
 			!isDefaultStatusParent(existingParent) {
 			finalParents = append(finalParents, existingParent)
 		}
@@ -289,8 +291,8 @@ func calculateSingleParentStatus(
 	// Find existing status for this parent to preserve some conditions
 	var existingConditions []metav1.Condition
 	for _, existingParent := range existingParents {
-		if existingParent.GatewayRef.Name == gatewayParent.Name &&
-			existingParent.GatewayRef.Namespace == gatewayParent.Namespace {
+		if string(existingParent.GatewayRef.Name) == gatewayParent.Name &&
+			string(*existingParent.GatewayRef.Namespace) == gatewayParent.Namespace {
 			existingConditions = existingParent.Conditions
 			break
 		}
@@ -309,11 +311,11 @@ func calculateSingleParentStatus(
 
 	// Build the final status
 	return inferencev1alpha2.PoolStatus{
-		GatewayRef: corev1.ObjectReference{
-			APIVersion: gatewayv1.GroupVersion.String(),
-			Kind:       gvk.Gateway.Kind,
-			Namespace:  gatewayParent.Namespace,
-			Name:       gatewayParent.Name,
+		GatewayRef: inferencev1alpha2.ParentGatewayReference{
+			Group:     (*inferencev1alpha2.Group)(&gvk.Gateway.Group),
+			Kind:      (*inferencev1alpha2.Kind)(&gvk.Gateway.Kind),
+			Namespace: (*inferencev1alpha2.Namespace)(&gatewayParent.Namespace),
+			Name:      inferencev1alpha2.ObjectName(gatewayParent.Name),
 		},
 		Conditions: setConditions(pool.Generation, filteredConditions, map[string]*condition{
 			string(inferencev1alpha2.InferencePoolConditionAccepted):     acceptedStatus,
@@ -428,7 +430,7 @@ func calculateResolvedRefsStatus(
 
 // isDefaultStatusParent checks if this is a default status parent entry
 func isDefaultStatusParent(parent inferencev1alpha2.PoolStatus) bool {
-	return parent.GatewayRef.Kind == "Status" && parent.GatewayRef.Name == "default"
+	return parent.GatewayRef.Kind != nil && string(*parent.GatewayRef.Kind) == "Status" && parent.GatewayRef.Name == "default"
 }
 
 // isOurManagedGateway checks if a Gateway is managed by one of our supported controllers
