@@ -297,47 +297,55 @@ func lookupNamedPort(pod *corev1.Pod, name string, containerName string) int32 {
 }
 
 func getPortInclusionOrExclusionList(pod *corev1.Pod) map[int32]bool {
-	// Get pod annotations
-	blankPorts := make(map[int32]bool)
 	annotations := pod.Annotations
 	if annotations == nil {
-		// If no annotations, include all ports by default
-		return blankPorts
+		// No annotations means include all ports (return empty map)
+		return make(map[int32]bool)
 	}
 
+	includePortsStr := annotations[annotation.SidecarTrafficIncludeInboundPorts.Name]
+	excludePortsStr := annotations[annotation.SidecarTrafficExcludeInboundPorts.Name]
+
+	// Include all ports by default
 	includedPorts := make(map[int32]bool)
-	includeInboundPortsKey := annotation.SidecarTrafficIncludeInboundPorts.Name
-	// Check if includeInboundPorts annotation is present
-	if includePortsStr, exists := annotations[includeInboundPortsKey]; exists && includePortsStr != "" {
-		// If includeInboundPorts is specified, only include those ports
-		if includePortsStr == "*" {
-			// "*" means include all ports
-			return blankPorts
-		}
 
-		// Parse comma-separated list of ports
-		for _, portStr := range splitPorts(includePortsStr) {
-			if port := extractPortAsInt(portStr); port != 0 {
-				includedPorts[int32(port)] = true
-			} else {
-				log.Errorf("Failed to parse port %v from includeInboundPorts", portStr)
-			}
+	if includePortsStr != "" {
+		if includePortsStr == "*" {
+			// Include all ports, then exclude any specified
+			return applyPortExclusion(includedPorts, excludePortsStr)
 		}
-	} else {
-		excludeInboundPortsKey := annotation.SidecarTrafficExcludeInboundPorts.Name
-		// Then exclude ports specified in excludeInboundPorts
-		if excludePortsStr, exists := annotations[excludeInboundPortsKey]; exists && excludePortsStr != "" {
-			for _, portStr := range splitPorts(excludePortsStr) {
-				if port := extractPortAsInt(portStr); port != 0 {
-					delete(includedPorts, int32(port))
-					includedPorts[int32(port)] = false
-				} else {
-					log.Errorf("Failed to parse port %v from excludeInboundPorts", portStr)
-				}
-			}
+		return parsePortList(includePortsStr, true)
+	}
+
+	// If only exclusions are specified
+	return applyPortExclusion(includedPorts, excludePortsStr)
+}
+
+func applyPortExclusion(base map[int32]bool, excludePortsStr string) map[int32]bool {
+	if excludePortsStr == "" {
+		return base
+	}
+
+	for _, portStr := range splitPorts(excludePortsStr) {
+		if port := extractPortAsInt(portStr); port != 0 {
+			base[int32(port)] = false
+		} else {
+			log.Errorf("Failed to parse port %v from excludeInboundPorts", portStr)
 		}
 	}
-	return includedPorts
+	return base
+}
+
+func parsePortList(portList string, include bool) map[int32]bool {
+	ports := make(map[int32]bool)
+	for _, portStr := range splitPorts(portList) {
+		if port := extractPortAsInt(portStr); port != 0 {
+			ports[int32(port)] = include
+		} else {
+			log.Errorf("Failed to parse port %v from includeInboundPorts", portStr)
+		}
+	}
+	return ports
 }
 
 func allContainers(pod *corev1.Pod) []corev1.Container {

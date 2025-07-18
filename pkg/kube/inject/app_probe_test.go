@@ -1097,6 +1097,22 @@ func TestGetIncludedPorts(t *testing.T) {
 			expected: make(map[int32]bool),
 		},
 		{
+			name: "include all ports with asterisk and make sure exclusions still apply",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "*",
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080,8090",
+					},
+				},
+			},
+			// When includeInboundPorts is "*", expect an empty map (all ports included)
+			expected: map[int32]bool{
+				8080: false,
+				8090: false,
+			},
+		},
+		{
 			name: "specific include ports",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1121,7 +1137,6 @@ func TestGetIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			// When both include and exclude are specified, include takes precedence
 			expected: map[int32]bool{
 				8080: true,
 				9090: true,
