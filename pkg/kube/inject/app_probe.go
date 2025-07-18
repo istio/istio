@@ -306,7 +306,6 @@ func getPortInclusionOrExclusionList(pod *corev1.Pod) map[int32]bool {
 	}
 
 	includedPorts := make(map[int32]bool)
-
 	includeInboundPortsKey := annotation.SidecarTrafficIncludeInboundPorts.Name
 	// Check if includeInboundPorts annotation is present
 	if includePortsStr, exists := annotations[includeInboundPortsKey]; exists && includePortsStr != "" {
@@ -462,9 +461,7 @@ func shouldPatchLifecycleHandler(handler *corev1.LifecycleHandler, includedAndEx
 	} else if handler.TCPSocket != nil {
 		handlerPort = handler.TCPSocket.Port.IntVal
 	}
-
 	return isPortIncluded(handlerPort, includedAndExcludedPorts)
-
 }
 
 // kubeProbeToInternalProber converts a Kubernetes Probe to an Istio internal Prober
