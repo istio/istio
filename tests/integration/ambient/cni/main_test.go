@@ -77,12 +77,12 @@ values:
 `
 	istioOwnedCNIConfigControlPlaneValues = `
 values:
+  cni:
+    istioOwnedCNIConfig: true
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
       SECRET_TTL: 5m
-  cni:
-    istioOwnedCNIConfig: true
 `
 	Captured   = "captured"
 	Uncaptured = "uncaptured"
@@ -234,7 +234,6 @@ func TestCNIRestartsWithMissingKubeConfig(t *testing.T) {
 				t.Skip("CNI kubeconfig removal is only tested when Istio owns the CNI config.")
 			}
 			c := t.Clusters().Default()
-			t.Log("Updating CNI Daemonset config")
 
 			// TODO this is really not very nice - we are mutating cluster state here
 			// with other tests which means other tests can break us and we don't have isolation,
@@ -250,7 +249,6 @@ func TestCNIRestartsWithMissingKubeConfig(t *testing.T) {
 				return fmt.Errorf("still waiting for CNI pods to become ready before starting")
 			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 
-
 			// We are manually deleting var/run/istio-cni/istio-cni-kubeconfig to simulate the file being removed on
 			// a node restart, or some other event that would cause the file to be missing.
 			nodeC := t.Clusters().Default().
@@ -259,12 +257,13 @@ func TestCNIRestartsWithMissingKubeConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to list cluster nodes: %v", err)
 			}
+			// Delete the kubeconfig file on each node and verify it is deleted
 			for _, node := range nodes.Items {
-				deleteKubeConfigOnHostCmd := fmt.Sprintf("kubectl debug node/%s -n %s --image=busybox -- chroot /host rm" +
-					" -f /var/run/istio-cni/istio-cni-kubeconfig", node.Name, i.Settings().SystemNamespace)
+				deleteKubeConfigOnHostCmd := fmt.Sprintf("kubectl debug node/%s -n %s --image=busybox -- chroot /host rm"+
+					" -f /var/run/istio-cni/istio-cni-kubeconfig && ! test -f /var/run/istio-cni/istio-cni-kubeconfig",
+					node.Name, i.Settings().SystemNamespace)
 				t.Log("Removing istio-cni-kubeconfig from node", node.Name)
 				if _, err := shell.Execute(true, deleteKubeConfigOnHostCmd); err != nil {
-					// TODO: ignore nodes where this file does not exist
 					t.Fatalf("failed to delete istio-cni-kubeconfig from node %v: %v", node.Name, err)
 				}
 			}
