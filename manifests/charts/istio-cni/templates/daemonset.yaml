@@ -50,12 +50,14 @@ spec:
         prometheus.io/scrape: 'true'
         prometheus.io/port: "15014"
         prometheus.io/path: '/metrics'
+        {{- if semverCompare "<1.30.0-0" .Capabilities.KubeVersion.Version }}
         # Add AppArmor annotation
         # This is required to avoid conflicts with AppArmor profiles which block certain
         # privileged pod capabilities.
         # Required for Kubernetes 1.29 which does not support setting appArmorProfile in the
         # securityContext which is otherwise preferred.
         container.apparmor.security.beta.kubernetes.io/install-cni: unconfined
+        {{- end }}
         # Custom annotations
         {{- if .Values.podAnnotations }}
 {{ toYaml .Values.podAnnotations | indent 8 }}
@@ -102,6 +104,10 @@ spec:
               path: /readyz
               port: 8000
           securityContext:
+            {{- if semverCompare ">=1.30.0-0" .Capabilities.KubeVersion.Version }}
+            appArmorProfile:
+              type: Unconfined
+            {{- end }}
             privileged: false
             runAsGroup: 0
             runAsUser: 0
