@@ -330,7 +330,35 @@ func NewDeploymentController(
 		}
 	}))
 
-	gateways.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	// we check if the generation has changed on a gateway, or if the annotations or labels have been updated
+	// reconciliation is expensive, so status updates for attachedRoutes can be skipped.
+
+	gateways.AddEventHandler(
+		controllers.FromEventHandler(func(o controllers.Event) {
+			switch o.Event {
+			case controllers.EventAdd:
+				dc.queue.AddObject(o.New)
+			case controllers.EventUpdate:
+				if o.New.GetGeneration() != o.Old.GetGeneration() {
+					dc.queue.AddObject(o.New)
+					break
+				}
+				if !reflect.DeepEqual(o.New.GetLabels(), o.Old.GetLabels()) {
+					dc.queue.AddObject(o.New)
+					break
+				}
+				if !reflect.DeepEqual(o.New.GetAnnotations(), o.Old.GetAnnotations()) {
+					dc.queue.AddObject(o.New)
+					break
+				}
+				log.Debugf("skip unchanged gateway %s", o.New.GetName())
+			case controllers.EventDelete:
+				dc.queue.AddObject(o.Old)
+			default:
+				log.Errorf("unhandled event for gateway object %v", o)
+			}
+		}))
+
 	gatewayClasses.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		for _, g := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 			if string(g.Spec.GatewayClassName) == o.GetName() {
