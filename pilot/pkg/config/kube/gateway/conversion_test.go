@@ -680,7 +680,7 @@ func TestConvertResources(t *testing.T) {
 		},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
-	test.SetForTest(t, &features.SupportGatewayAPIInferenceExtension, true)
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
