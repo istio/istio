@@ -75,6 +75,7 @@ unexpectedFiles="$(
     grep -v '^usr/bin/xtables' | \
     grep -v '^usr/bin/ldconfig$' | \
     grep -v '^etc/apk/commit_hooks.d/ldconfig-commit.sh$' | \
+    grep -v '^usr/bin/clear' | \
     grep -v '.*\.so[0-9\.]*' || true
 )"
 expectedFiles=(
