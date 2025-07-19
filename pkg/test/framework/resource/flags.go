@@ -226,6 +226,9 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.AmbientMultiNetwork, "istio.test.ambient.multinetwork", settingsFromCommandLine.AmbientMultiNetwork,
 		"Indicate the use of ambient multicluster.")
 
+	flag.BoolVar(&settingsFromCommandLine.IstioOwnedCNIConfig, "istio.test.ambient.istioOwnedCNIConfig", settingsFromCommandLine.IstioOwnedCNIConfig,
+		"Indicate the use of an Istio owned CNI configuration.")
+
 	flag.BoolVar(
 		&settingsFromCommandLine.GatewayConformanceAllowCRDsMismatch,
 		"istio.test.GatewayConformanceAllowCRDsMismatch",
