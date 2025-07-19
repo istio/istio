@@ -44,7 +44,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 
 	istiodLog := istiodLogCmd(ctx)
 	adminCmd.AddCommand(istiodLog)
-	adminCmd.PersistentFlags().StringVarP(&istiodLabelSelector, "selector", "l", "app=istiod", "label selector")
+	adminCmd.PersistentFlags().StringVarP(&istiodLabelSelector, "selector", "l", "", "label selector")
 
 	return adminCmd
 }
