@@ -46,8 +46,7 @@ type flagState interface {
 
 var (
 	_ flagState = (*resetState)(nil)
-	_ flagState = (*logLevelState)(nil)
-	_ flagState = (*stackTraceLevelState)(nil)
+	_ flagState = (*levelState)(nil)
 	_ flagState = (*getAllLogLevelsState)(nil)
 )
 
@@ -134,36 +133,32 @@ func (rs *stackTraceResetState) run(_ io.Writer) error {
 	return nil
 }
 
-type logLevelState struct {
-	client         *ControlzClient
-	outputLogLevel string
-}
-
-func (ll *logLevelState) run(_ io.Writer) error {
-	scopeInfos, err := newScopeInfosFromScopeLevelPairs(ll.outputLogLevel)
-	if err != nil {
-		return err
-	}
-	err = ll.client.PutScopes(scopeInfos)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type stackTraceLevelState struct {
+type levelState struct {
 	client          *ControlzClient
+	outputLogLevel  string
 	stackTraceLevel string
 }
 
-func (stl *stackTraceLevelState) run(_ io.Writer) error {
-	scopeInfos, err := newScopeInfosFromScopeStackTraceLevelPairs(stl.stackTraceLevel)
-	if err != nil {
-		return err
+func (ll *levelState) run(_ io.Writer) error {
+	if ll.outputLogLevel != "" {
+		scopeInfos, err := newScopeInfosFromScopeLevelPairs(ll.outputLogLevel)
+		if err != nil {
+			return err
+		}
+		err = ll.client.PutScopes(scopeInfos)
+		if err != nil {
+			return err
+		}
 	}
-	err = stl.client.PutScopes(scopeInfos)
-	if err != nil {
-		return err
+	if ll.stackTraceLevel != "" {
+		scopeInfos, err := newScopeInfosFromScopeStackTraceLevelPairs(ll.stackTraceLevel)
+		if err != nil {
+			return err
+		}
+		err = ll.client.PutScopes(scopeInfos)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -240,14 +235,10 @@ func chooseClientFlag(ctrzClient *ControlzClient, logReset, stackTraceReset, res
 		return &istiodConfigLog{state: &logResetState{ctrzClient}}
 	case stackTraceReset:
 		return &istiodConfigLog{state: &stackTraceResetState{ctrzClient}}
-	case logLevel != "":
-		return &istiodConfigLog{state: &logLevelState{
-			client:         ctrzClient,
-			outputLogLevel: logLevel,
-		}}
-	case stackTraceLevel != "":
-		return &istiodConfigLog{state: &stackTraceLevelState{
+	case logLevel != "" || stackTraceLevel != "":
+		return &istiodConfigLog{state: &levelState{
 			client:          ctrzClient,
+			outputLogLevel:  logLevel,
 			stackTraceLevel: stackTraceLevel,
 		}}
 	default:

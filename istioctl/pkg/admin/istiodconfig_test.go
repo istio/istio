@@ -180,7 +180,7 @@ func Test_chooseClientFlag(t *testing.T) {
 				stackTraceLevel: "",
 				outputFormat:    "",
 			},
-			want: &istiodConfigLog{state: &logLevelState{
+			want: &istiodConfigLog{state: &levelState{
 				client:         ctrzClient,
 				outputLogLevel: "resource:info",
 			}},
@@ -196,7 +196,7 @@ func Test_chooseClientFlag(t *testing.T) {
 				stackTraceLevel: "",
 				outputFormat:    "",
 			},
-			want: &istiodConfigLog{state: &logLevelState{
+			want: &istiodConfigLog{state: &levelState{
 				client:         ctrzClient,
 				outputLogLevel: "resource-foo:none",
 			}},
@@ -213,8 +213,27 @@ func Test_chooseClientFlag(t *testing.T) {
 				outputFormat:    "",
 			},
 			want: &istiodConfigLog{
-				state: &stackTraceLevelState{
+				state: &levelState{
 					client:          ctrzClient,
+					stackTraceLevel: "resource:info",
+				},
+			},
+		},
+		{
+			name: "given --stack-trace-level and --level flag",
+			args: args{
+				ctrzClient:      ctrzClient,
+				reset:           false,
+				logReset:        false,
+				stackTraceReset: false,
+				outputLogLevel:  "resource-foo:none",
+				stackTraceLevel: "resource:info",
+				outputFormat:    "",
+			},
+			want: &istiodConfigLog{
+				state: &levelState{
+					client:          ctrzClient,
+					outputLogLevel:  "resource-foo:none",
 					stackTraceLevel: "resource:info",
 				},
 			},
@@ -278,7 +297,7 @@ func Test_flagState_run(t *testing.T) {
 		},
 		{
 			name: "logLevelState.run() should throw an error if the /scopej endpoint is missing",
-			state: &logLevelState{
+			state: &levelState{
 				client:         ctrzClientNoScopejHandler,
 				outputLogLevel: "test:debug",
 			},
@@ -286,7 +305,7 @@ func Test_flagState_run(t *testing.T) {
 		},
 		{
 			name: "stackTraceLevelState.run() should throw an error if the /scopej endpoint is missing",
-			state: &stackTraceLevelState{
+			state: &levelState{
 				client:          ctrzClientNoScopejHandler,
 				stackTraceLevel: "test:debug",
 			},
