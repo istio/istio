@@ -387,7 +387,7 @@ func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 					"oifname", "lo",
 					"meta l4proto tcp",
 					"tcp dport", "!=", "53",
-					"skuid", uid,
+					"skuid", "!=", uid,
 					"return")
 			} else {
 				cfg.ruleBuilder.AppendRule(constants.IstioOutputChain, constants.IstioProxyNatTable,
@@ -724,7 +724,7 @@ func (cfg *NftablesConfigurator) addDNSConntrackZones(
 			// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
 			nft.AppendRule(constants.IstioInboundChain, constants.IstioProxyRawTable,
 				"udp sport", "53",
-				"ip daddr", s+"/32",
+				"ip saddr", s+"/32",
 				"ct", "zone", "set", "1")
 		}
 
@@ -737,7 +737,7 @@ func (cfg *NftablesConfigurator) addDNSConntrackZones(
 			// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
 			nft.AppendV6RuleIfSupported(constants.IstioInboundChain, constants.IstioProxyRawTable,
 				"udp sport", "53",
-				"ip6 daddr", s+"/128",
+				"ip6 saddr", s+"/128",
 				"ct", "zone", "set", "1")
 		}
 	}
@@ -908,7 +908,7 @@ func (cfg *NftablesConfigurator) addIstioMangleTableRules(tx *knftables.Transact
 			Name:     constants.OutputChain,
 			Table:    constants.IstioProxyMangleTable,
 			Family:   knftables.InetFamily,
-			Type:     knftables.PtrTo(knftables.FilterType),
+			Type:     knftables.PtrTo(knftables.RouteType),
 			Hook:     knftables.PtrTo(knftables.OutputHook),
 			Priority: knftables.PtrTo(knftables.ManglePriority),
 		},
