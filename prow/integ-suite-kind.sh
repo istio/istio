@@ -41,6 +41,7 @@ NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.32.0"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 CLUSTER_NAME="${CLUSTER_NAME:-istio-testing}"
+CLUSTER_YAML="${CLUSTER_YAML:-prow/config/default.yaml}"
 
 export FAST_VM_BUILDS=true
 export ISTIO_DOCKER_BUILDER="${ISTIO_DOCKER_BUILDER:-crane}"
@@ -157,7 +158,7 @@ export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  export DEFAULT_CLUSTER_YAML="./prow/config/default.yaml"
+  export DEFAULT_CLUSTER_YAML="${ROOT}/${CLUSTER_YAML}"
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
