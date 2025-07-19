@@ -576,7 +576,7 @@ metadata:
 			stop := test.NewStop(t)
 			env := model.NewEnvironment()
 			env.PushContext().ProxyConfigs = tt.pcs
-			tw := revisions.NewTagWatcher(client, "")
+			tw := revisions.NewTagWatcher(client, "", "istio-system")
 			go tw.Run(stop)
 			d := NewDeploymentController(client, cluster.ID(features.ClusterName), env, testInjectionConfig(t, tt.values), func(fn func()) {
 			}, tw, "", "")
@@ -637,7 +637,7 @@ func TestVersionManagement(t *testing.T) {
 			Name: "default",
 		},
 	})
-	tw := revisions.NewTagWatcher(c, "default")
+	tw := revisions.NewTagWatcher(c, "default", "istio-system")
 	env := &model.Environment{}
 	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "", "")
 	reconciles := atomic.NewInt32(0)
@@ -994,7 +994,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			kube.SetObjectFilter(client, discoveryNamespaceFilter)
 			client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
 
-			tw := revisions.NewTagWatcher(client, "")
+			tw := revisions.NewTagWatcher(client, "", "istio-system")
 			env := model.NewEnvironment()
 			go tw.Run(stop)
 
