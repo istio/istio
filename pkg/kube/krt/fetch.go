@@ -52,22 +52,57 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 		o(d)
 	}
 	var parent string
-	if ctx != nil {
-		h := ctx.(registerDependency)
-		// Important: register before we List(), so we cannot miss any events
-		h.registerDependency(d, c, func(f erasedEventHandler) Syncer {
-			ff := func(o []Event[T]) {
-				f(slices.Map(o, castEvent[T, any]))
-			}
-			// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
-			// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
-			return c.RegisterBatch(ff, false)
-		})
-		parent = h.name()
-	} else if !allowMissingContext {
+	if ctx == nil && !allowMissingContext {
 		panic("Fetch() requires a valid context")
 	}
 
+	h := ctx.(registerDependency)
+	// Important: register before we List(), so we cannot miss any events
+	h.registerDependency(d, c, func(f erasedEventHandler) Syncer {
+		ff := func(o []Event[T]) {
+			f(slices.Map(o, castEvent[T, any]))
+		}
+		// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
+		// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
+		var reg HandlerRegistration
+		switch cc := c.(type) {
+		case mergeCollection[T]:
+			// Register using the parent's uid for fetches
+			reg = cc.registerBatchForHandler(ff, false, &registrationHandle{
+				id: uint64(h.uid()),
+			})
+		default:
+			reg = c.RegisterBatch(ff, false)
+		}
+		if cc, ok := c.(mergeCollection[T]); ok {
+			switch o := reg.(type) {
+			case *joinHandlerRegistration:
+				log.Infof("%s fetching from collection %s has handler %d", h.name(), cc.name(), o.handlerID)
+			case *dynamicJoinHandlerRegistration:
+				log.Infof("%s fetching from collection %s has handler %d", h.name(), cc.name(), o.handlerID)
+			}
+		}
+		return reg
+	})
+	parent = h.name()
+
+	getKey := func(k string) *T {
+		switch cc := c.(type) {
+		case mergeCollection[T]:
+			return cc.getKeyForHandler(k, uint64(h.uid()))
+		default:
+			return c.GetKey(k)
+		}
+	}
+
+	listFunc := func() []T {
+		switch cc := c.(type) {
+		case mergeCollection[T]:
+			return cc.listForHandler(uint64(h.uid()))
+		default:
+			return c.List()
+		}
+	}
 	// Now we can do the real fetching
 	// Compute our list of all possible objects that can match. Then we will filter them later.
 	// This pre-filtering upfront avoids extra work
@@ -76,7 +111,7 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 		// If they fetch a set of keys, directly Get these. Usually this is a single resource.
 		list = make([]T, 0, d.filter.keys.Len())
 		for _, k := range d.filter.keys.List() {
-			if i := c.GetKey(k); i != nil {
+			if i := getKey(k); i != nil {
 				list = append(list, *i)
 			}
 		}
@@ -85,7 +120,7 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 		list = d.filter.index.list().([]T)
 	} else {
 		// Otherwise get everything
-		list = c.List()
+		list = listFunc()
 	}
 	list = slices.FilterInPlace(list, func(i T) bool {
 		o := c.augment(i)

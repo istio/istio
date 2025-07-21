@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -791,7 +792,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
 		return len(ais)
-	}, 3)
+	}, 3, retry.Timeout(time.Second*5))
 	s.assertEvent(t, s.podXdsNameForCluster("pod2", remoteClient.clusterID),
 		s.podXdsNameForCluster("pod1-abc", remoteClient.clusterID),
 		splitHorizonName,

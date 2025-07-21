@@ -320,7 +320,11 @@ func (a *index) buildGlobalCollections(
 			opts.WithName("workloadNetworkServiceIndex")...,
 		),
 		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) []model.WorkloadInfo {
-			log.Infof("Coalescing workloads for key %s:\n%s", i.Key, spew.Sprint(i.Objects))
+			objsStr := spew.Sprint(i.Objects)
+			log.Infof("Coalescing workloads for key %s:\n%s", i.Key, objsStr)
+			defer func() {
+				log.Infof("Returned from coalescing workloads for key %s:\n%s", i.Key, objsStr)
+			}()
 			parts := strings.Split(i.Key, ";")
 			if len(parts) != 2 {
 				log.Errorf("Invalid key %s for SplitHorizonWorkloads, expected <network>;<service>", i.Key)
@@ -375,6 +379,7 @@ func (a *index) buildGlobalCollections(
 		}, opts.WithName("CoalesedWorkloads")...,
 	)
 	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, wi model.WorkloadInfo) *model.WorkloadInfo {
+		log.Infof("Processing workload %s for network local workloads", spew.Sprint(wi.Workload))
 		if strings.HasPrefix(wi.Workload.Uid, "NetworkGateway/") {
 			return &wi
 		}

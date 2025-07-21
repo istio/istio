@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type join[T any] struct {
@@ -38,7 +39,7 @@ func (j *join[T]) getCollections() []Collection[T] {
 }
 
 func (j *join[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched[T](j, f)
+	return registerHandlerAsBatched(j, f)
 }
 
 func (j *join[T]) registerBatchUnmerged(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
@@ -55,33 +56,27 @@ func (j *join[T]) registerBatchUnmerged(f func(o []Event[T]), runExistingState b
 	}
 }
 
-func (j *join[T]) calculateMerged(k string) *T {
-	var found []T
-	for _, c := range j.collections {
-		if r := c.GetKey(k); r != nil {
-			found = append(found, *r)
-		}
-	}
-	if len(found) == 0 {
-		return nil
-	}
-	return j.merge(found)
-}
-
 func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
 	h := &registrationHandle{
 		id: globalUIDCounter.Inc(),
 	}
-	return j.registerBatchBase(f, runExistingState, h)
+	return j.registerBatchForHandler(f, runExistingState, h)
 }
 
-func (j *join[T]) registerBatchBase(f func(o []Event[T]), runExistingState bool, handle *registrationHandle) HandlerRegistration {
+func (j *join[T]) registerBatchForHandler(f func(o []Event[T]), runExistingState bool, handle *registrationHandle) HandlerRegistration {
 	if j.merge == nil {
 		return j.registerBatchUnmerged(f, runExistingState)
 	}
+	j.Lock()
+	defer j.Unlock()
 	sync := multiSyncer{}
+	j.handlers.Insert(handle.id)
 	removes := []func(){}
-	j.maybeInitMergeCacheForHandler(handle.id)
+	// Only init this new handler with the collection's state if we're not running existing state.
+	// Handlers that run existing state will catch up once they get all of their events.
+	if !runExistingState && handle.id != uint64(j.uid()) {
+		j.maybeInitMergeCacheForHandlerLocked(handle.id)
+	}
 
 	for _, c := range j.collections {
 		reg := c.RegisterBatch(j.handleInnerCollectionEvent(f, handle), runExistingState)
@@ -89,14 +84,16 @@ func (j *join[T]) registerBatchBase(f func(o []Event[T]), runExistingState bool,
 		sync.syncers = append(sync.syncers, reg)
 	}
 	return joinHandlerRegistration{
-		Syncer:  sync,
-		removes: removes,
+		Syncer:    sync,
+		removes:   removes,
+		handlerID: handle.id,
 	}
 }
 
 type joinHandlerRegistration struct {
 	Syncer
-	removes []func()
+	removes   []func()
+	handlerID uint64
 }
 
 func (j joinHandlerRegistration) UnregisterHandler() {
@@ -218,11 +215,11 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 		mergejoin: &mergejoin[T]{
 			id:               nextUID(),
 			collectionName:   o.name,
-			mergedCache:      make(map[mergedCacheKey]mergedCacheEntry[T]),
+			mergeCache:       make(map[mergeCacheKey]mergeCacheEntry[T]),
 			indexes:          make(map[string]joinCollectionIndex[T]),
 			uncheckedOverlap: o.joinUnchecked,
-
-			merge: merge,
+			handlers:         sets.New[uint64](),
+			merge:            merge,
 		},
 	}
 
@@ -231,6 +228,12 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 	if o.metadata != nil {
 		j.metadata = o.metadata
 	}
+
+	j.registerBatchForHandler(func(_ []Event[T]) {
+
+	}, true, &registrationHandle{
+		id: uint64(j.id),
+	})
 
 	go func() {
 		for _, c := range c {
