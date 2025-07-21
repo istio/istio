@@ -65,7 +65,7 @@ var SDSAdsConfig = &core.ConfigSource{
 // from certificates referenced by credentialName in DestinationRule or Gateway.
 // Currently this is served by a local SDS server, but in the future replaced by
 // Istiod SDS server.
-func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bool) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bool, push *model.PushContext) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
@@ -200,15 +200,14 @@ func constructSdsSecretConfig(maybeFileName string, fallbackName string, customF
 }
 
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
-// Used for building upstream TLS context for egress gateway's TLS/mTLS origination
 func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	tlsOpts *networking.ClientTLSSettings, credentialSocketExist bool,
 ) {
-	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
-		// create SDS config for gateway to fetch key/cert from agent.
-		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
-		}
+	if tlsOpts.CredentialName != "" {
+		// If credential name is specified at Destination Rule config and originating node is egress gateway, create
+		// SDS config for egress gateway to fetch key/cert at gateway agent.
+		tlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.TlsCertificateSdsSecretConfigs,
+			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, nil))
 	}
 
 	// If the InsecureSkipVerify is true, there is no need to configure CA Cert and SAN.
@@ -225,7 +224,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext: defaultValidationContext,
 			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(
-				tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist),
+				tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist, nil),
 		},
 	}
 }
@@ -233,7 +232,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 // ApplyCredentialSDSToServerCommonTLSContext applies the credentialName sds (Gateway/DestinationRule) to CommonTlsContext
 // Used for building both gateway/sidecar TLS context
 func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext,
-	tlsOpts *networking.ServerTLSSettings, credentialSocketExist bool,
+	tlsOpts *networking.ServerTLSSettings, credentialSocketExist bool, push *model.PushContext,
 ) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
 	caCert := tlsOpts.CredentialName + SdsCaSuffix
@@ -241,14 +240,14 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 		// Handle multiple certificates for RSA and ECDSA
 		tlsContext.TlsCertificateSdsSecretConfigs = make([]*tls.SdsSecretConfig, len(tlsOpts.CredentialNames))
 		for i, name := range tlsOpts.CredentialNames {
-			tlsContext.TlsCertificateSdsSecretConfigs[i] = ConstructSdsSecretConfigForCredential(name, credentialSocketExist)
+			tlsContext.TlsCertificateSdsSecretConfigs[i] = ConstructSdsSecretConfigForCredential(name, credentialSocketExist, push)
 		}
 		// If MUTUAL, we only support one CA certificate for all credentialNames. Thus we use the first one as CA.
 		caCert = tlsOpts.CredentialNames[0] + SdsCaSuffix
 	} else {
 		// Handle single certificate
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
+			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, push),
 		}
 	}
 
@@ -263,7 +262,7 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         defaultValidationContext,
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(caCert, credentialSocketExist),
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(caCert, credentialSocketExist, push),
 			},
 		}
 	} else if len(tlsOpts.SubjectAltNames) > 0 {
