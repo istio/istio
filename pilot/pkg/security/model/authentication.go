@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/log"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -63,8 +64,6 @@ var SDSAdsConfig = &core.ConfigSource{
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
 // from certificates referenced by credentialName in DestinationRule or Gateway.
-// Currently this is served by a local SDS server, but in the future replaced by
-// Istiod SDS server.
 func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bool, push *model.PushContext) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
@@ -75,10 +74,26 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 	if name == credentials.BuiltinGatewaySecretTypeURI+SdsCaSuffix {
 		return ConstructSdsSecretConfig(SDSRootResourceName)
 	}
+	if strings.HasPrefix(name, security.SDSExternalCredentialPrefix) {
+		// Check if External SDS is a provider and use its cluster name
+		if sdsName, ok := strings.CutPrefix(name, security.SDSExternalCredentialPrefix); ok {
+			for _, provider := range push.Mesh.ExtensionProviders {
+				if provider.GetSds() != nil && provider.GetSds().Name == sdsName {
+					_, cluster, err := model.LookupCluster(push, provider.GetSds().Service, int(provider.GetSds().Port))
+					if err != nil {
+						model.IncLookupClusterFailures("externalSds")
+						log.Errorf("could not find cluster for external sds provider %q: %v", provider.GetSds(), err)
+						return nil
+					}
+					return ConstructSdsSecretConfigForCredentialSocket(name, cluster)
+				}
+			}
+		}
+	}
 	// if credentialSocketExist exists and credentialName is using SDSExternalCredentialPrefix
 	// SDS will be served via SDSExternalClusterName
 	if credentialSocketExist && strings.HasPrefix(name, security.SDSExternalCredentialPrefix) {
-		return ConstructSdsSecretConfigForCredentialSocket(name)
+		return ConstructSdsSecretConfigForCredentialSocket(name, security.SDSExternalClusterName)
 	}
 
 	return &tls.SdsSecretConfig{
@@ -88,8 +103,7 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 }
 
 // ConstructSdsSecretConfigForCredentialSocket constructs SDS Secret Configuration based on CredentialNameSocketPath
-// if CredentialNameSocketPath exists, use a static cluster 'sds-external'
-func ConstructSdsSecretConfigForCredentialSocket(name string) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfigForCredentialSocket(name string, clusterName string) *tls.SdsSecretConfig {
 	return &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
@@ -101,7 +115,7 @@ func ConstructSdsSecretConfigForCredentialSocket(name string) *tls.SdsSecretConf
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: security.SDSExternalClusterName},
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: clusterName},
 							},
 						},
 					},
