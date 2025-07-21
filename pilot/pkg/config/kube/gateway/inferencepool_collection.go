@@ -183,7 +183,10 @@ func calculateInferencePoolStatus(
 	// Add existing parents from other controllers (not managed by us)
 	for _, existingParent := range existingParents {
 		gtwName := string(existingParent.GatewayRef.Name)
-		gtwNamespace := string(*existingParent.GatewayRef.Namespace)
+		gtwNamespace := pool.Namespace
+		if existingParent.GatewayRef.Namespace != nil {
+			gtwNamespace = string(*existingParent.GatewayRef.Namespace)
+		}
 		parentKey := types.NamespacedName{
 			Name:      gtwName,
 			Namespace: gtwNamespace,
@@ -292,7 +295,7 @@ func calculateSingleParentStatus(
 	var existingConditions []metav1.Condition
 	for _, existingParent := range existingParents {
 		if string(existingParent.GatewayRef.Name) == gatewayParent.Name &&
-			string(*existingParent.GatewayRef.Namespace) == gatewayParent.Namespace {
+			string(ptr.OrEmpty(existingParent.GatewayRef.Namespace)) == gatewayParent.Namespace {
 			existingConditions = existingParent.Conditions
 			break
 		}
@@ -430,7 +433,7 @@ func calculateResolvedRefsStatus(
 
 // isDefaultStatusParent checks if this is a default status parent entry
 func isDefaultStatusParent(parent inferencev1alpha2.PoolStatus) bool {
-	return parent.GatewayRef.Kind != nil && string(*parent.GatewayRef.Kind) == "Status" && parent.GatewayRef.Name == "default"
+	return string(ptr.OrEmpty(parent.GatewayRef.Kind)) == "Status" && parent.GatewayRef.Name == "default"
 }
 
 // isOurManagedGateway checks if a Gateway is managed by one of our supported controllers
