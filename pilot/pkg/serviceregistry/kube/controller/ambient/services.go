@@ -208,6 +208,10 @@ func serviceServiceBuilder(
 				waypointStatus.IngressLabelPresent = true
 				waypointStatus.IngressUseWaypoint = strings.EqualFold(val, "true")
 			}
+			if val, ok := s.Labels["istio.io/sidecar-use-waypoint"]; ok {
+				waypointStatus.SidecarLabelPresent = true
+				waypointStatus.SidecarUseWaypoint = strings.EqualFold(val, "true")
+			}
 		}
 		waypointStatus.Error = wperr
 

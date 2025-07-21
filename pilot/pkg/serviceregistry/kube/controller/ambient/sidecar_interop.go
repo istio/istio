@@ -115,9 +115,11 @@ func (a *index) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
 	for _, s := range svcs {
 		wp := s.Service.GetWaypoint()
 		useWaypoint := ingressUseWaypoint(s, a.namespaces.GetKey(s.Service.Namespace))
+		sidecarUseWaypoint := sidecarUseWaypoint(s, a.namespaces.GetKey(s.Service.Namespace))
 		wi := model.ServiceWaypointInfo{
 			Service:            s.Service,
 			IngressUseWaypoint: useWaypoint,
+			SidecarUseWaypoint: sidecarUseWaypoint,
 		}
 		if wp == nil {
 			continue
@@ -151,6 +153,16 @@ func ingressUseWaypoint(s model.ServiceInfo, ns *model.NamespaceInfo) bool {
 	}
 	if ns != nil {
 		return ns.IngressUseWaypoint
+	}
+	return false
+}
+
+func sidecarUseWaypoint(s model.ServiceInfo, ns *model.NamespaceInfo) bool {
+	if s.Waypoint.SidecarLabelPresent {
+		return s.Waypoint.SidecarUseWaypoint
+	}
+	if ns != nil {
+		return ns.SidecarUseWaypoint
 	}
 	return false
 }
