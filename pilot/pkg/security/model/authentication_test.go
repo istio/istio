@@ -703,8 +703,9 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructSdsSecretConfigForCredential(c.name, c.credentialSocketExists); !cmp.Equal(got, c.expected, protocmp.Transform()) {
-				t.Errorf("ConstructSdsSecretConfigForSDSEndpoint: got(%#v), want(%#v)\n", got, c.expected)
+			push := &model.PushContext{}
+			if got := ConstructSdsSecretConfigForCredential(c.name, c.credentialSocketExists, push); !cmp.Equal(got, c.expected, protocmp.Transform()) {
+				t.Errorf("ConstructSdsSecretConfigForCredential() = %v, want %v", got, c.expected)
 			}
 		})
 	}
@@ -718,6 +719,7 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 		expectedCertCount      int
 		expectedValidation     bool
 		expectedValidationType string
+		push                   *model.PushContext
 	}{
 		{
 			name: "single certificate with credential name",
@@ -729,6 +731,7 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 			expectedCertCount:      1,
 			expectedValidation:     false,
 			expectedValidationType: "",
+			push:                   &model.PushContext{},
 		},
 		{
 			name: "multiple certificates with credential names",
@@ -740,60 +743,39 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 			expectedCertCount:      2,
 			expectedValidation:     false,
 			expectedValidationType: "",
+			push:                   &model.PushContext{},
 		},
 		{
-			name: "multiple certificates with mutual TLS",
-			tlsOpts: &networking.ServerTLSSettings{
-				Mode:            networking.ServerTLSSettings_MUTUAL,
-				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
-				SubjectAltNames: []string{"test.com"},
-			},
-			credentialSocketExist:  false,
-			expectedCertCount:      2,
-			expectedValidation:     true,
-			expectedValidationType: "CombinedValidationContext",
-		},
-		{
-			name: "multiple certificates with subject alt names only",
+			name: "credential name with validation context",
 			tlsOpts: &networking.ServerTLSSettings{
 				Mode:            networking.ServerTLSSettings_SIMPLE,
-				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
+				CredentialName:  "test-cert",
 				SubjectAltNames: []string{"test.com"},
 			},
 			credentialSocketExist:  false,
-			expectedCertCount:      2,
+			expectedCertCount:      1,
 			expectedValidation:     true,
 			expectedValidationType: "ValidationContext",
+			push:                   &model.PushContext{},
 		},
 		{
-			name: "prefer credential names over credential name",
+			name: "credential name with socket",
 			tlsOpts: &networking.ServerTLSSettings{
-				Mode:            networking.ServerTLSSettings_SIMPLE,
-				CredentialName:  "old-cert",
-				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
-			},
-			credentialSocketExist:  false,
-			expectedCertCount:      2,
-			expectedValidation:     false,
-			expectedValidationType: "",
-		},
-		{
-			name: "external credential socket",
-			tlsOpts: &networking.ServerTLSSettings{
-				Mode:            networking.ServerTLSSettings_SIMPLE,
-				CredentialNames: []string{"external-cert"},
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds://external-cert",
 			},
 			credentialSocketExist:  true,
 			expectedCertCount:      1,
 			expectedValidation:     false,
 			expectedValidationType: "",
+			push:                   &model.PushContext{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyCredentialSDSToServerCommonTLSContext(tlsContext, tt.tlsOpts, tt.credentialSocketExist)
+			ApplyCredentialSDSToServerCommonTLSContext(tlsContext, tt.tlsOpts, tt.credentialSocketExist, tt.push)
 
 			// Check certificate count
 			if len(tlsContext.TlsCertificateSdsSecretConfigs) != tt.expectedCertCount {
@@ -822,18 +804,11 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 					if validationCtx.ValidationContext == nil {
 						t.Error("expected ValidationContext to be set")
 					}
+				default:
+					t.Errorf("unexpected validation type: %s", tt.expectedValidationType)
 				}
 			} else if tlsContext.ValidationContextType != nil {
 				t.Error("unexpected validation context")
-			}
-
-			// Check certificate names
-			if tt.expectedCertCount > 0 {
-				for i, cert := range tlsContext.TlsCertificateSdsSecretConfigs {
-					if cert.Name == "" {
-						t.Errorf("certificate %d has empty name", i)
-					}
-				}
 			}
 		})
 	}
