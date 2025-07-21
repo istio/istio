@@ -217,11 +217,11 @@ func constructSdsSecretConfig(maybeFileName string, fallbackName string, customF
 func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	tlsOpts *networking.ClientTLSSettings, credentialSocketExist bool,
 ) {
-	if tlsOpts.CredentialName != "" {
-		// If credential name is specified at Destination Rule config and originating node is egress gateway, create
-		// SDS config for egress gateway to fetch key/cert at gateway agent.
-		tlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.TlsCertificateSdsSecretConfigs,
-			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, nil))
+	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
+		// create SDS config for gateway to fetch key/cert from agent.
+		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, nil),
+		}
 	}
 
 	// If the InsecureSkipVerify is true, there is no need to configure CA Cert and SAN.
