@@ -79,7 +79,7 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 	return certs, rootCertBytes, nil
 }
 
-// We want to filter out certs that are invalid for whatever reason (e.g. negative serial number).
+// ParseRootCerts We want to filter out certs that are invalid for whatever reason (e.g. negative serial number).
 // First return is the bytes of valid certs,
 // and the second return is a slice of errors from parsing the certs.
 func ParseRootCerts(certBytes []byte) ([]byte, []error) {
