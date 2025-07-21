@@ -633,7 +633,8 @@ func (h *manyCollection[I, O]) runQueue() {
 		return
 	}
 	// Now register to our primary collection. On any event, we will enqueue the update.
-	syncer := c.RegisterBatch(func(o []Event[I]) {
+	var syncer HandlerRegistration
+	f := func(o []Event[I]) {
 		if h.onPrimaryInputEventHandler != nil {
 			h.onPrimaryInputEventHandler(o)
 		}
@@ -641,7 +642,25 @@ func (h *manyCollection[I, O]) runQueue() {
 			h.onPrimaryInputEvent(o)
 			return nil
 		})
-	}, true)
+	}
+	switch cc := c.(type) {
+	case mergeCollection[I]:
+		syncer = cc.registerBatchForHandler(f, true, &registrationHandle{
+			id: uint64(h.uid()),
+		})
+	default:
+		syncer = c.RegisterBatch(f, true)
+	}
+
+	cc := c.(internalCollection[I])
+	switch o := syncer.(type) {
+	case *joinHandlerRegistration:
+		log.Infof("Building manyCollection %s from collection %s has handler %d", h.name(), cc.name(), o.handlerID)
+	case *dynamicJoinHandlerRegistration:
+		log.Infof("Building manyCollection %s from collection %s has handler %d", h.name(), cc.name(), o.handlerID)
+	default:
+		log.Infof("Handle is of type %T, not a merge handler registration", o)
+	}
 	// Wait for everything initial state to be enqueued
 	if !syncer.WaitUntilSynced(h.stop) {
 		return
@@ -662,7 +681,14 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 	// While we could just do that manually, to re-use code, we will convert these into Event[I] and use the same logic as
 	// we would if the input itself changed.
 	for i := range changedInputKeys {
-		iObj := h.parent.GetKey(string(i))
+		var iObj *I
+		switch mc := h.parent.(type) {
+		case mergeCollection[I]:
+			iObj = mc.getKeyForHandler(string(i), uint64(h.id))
+		default:
+			log.Infof("%s is not a mergeCollection, using GetKey", h.parent.(internalCollection[I]).name())
+			iObj = h.parent.GetKey(string(i))
+		}
 		if iObj == nil {
 			// Object no longer found means it has been deleted.
 			h.log.Debugf("parent deletion %v", i)

@@ -200,8 +200,16 @@ func (i indexCollection[K, O]) index(name string, extract func(o IndexObject[K, 
 }
 
 func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
+	log.Infof("GetKey for %s in index %s", k, i.collectionName)
 	tk := i.fromKey(k).(K)
-	objs := i.idx.Lookup(tk)
+	var objs []O
+	switch i.idx.indexer.(type) {
+	case mergeIndexer[O]:
+		objs = i.idx.indexer.(mergeIndexer[O]).lookupForHandler(k, uint64(i.id))
+	default:
+		log.Infof("Index %s not a merge indexer; instead is a %T", i.name(), i.idx.indexer)
+		objs = i.idx.Lookup(tk)
+	}
 	return &IndexObject[K, O]{
 		Key:     tk,
 		Objects: objs,
@@ -250,7 +258,8 @@ func (i indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) Hand
 }
 
 func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]), runExistingState bool) HandlerRegistration {
-	return i.idx.c.RegisterBatch(func(o []Event[O]) {
+	reg := func(o []Event[O]) {
+		log.Infof("Inside indexCollection event handler for %s with %d events", i.collectionName, len(o))
 		allKeys := sets.New[K]()
 		diffs := []string{}
 		events := []controllers.EventType{}
@@ -284,6 +293,25 @@ func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]
 				})
 			}
 		}
+		log.Infof("  %T has %d downstream events:\n%s", i, len(downstream), spew.Sprint(downstream))
 		f(downstream)
-	}, runExistingState)
+	}
+	switch c := i.idx.c.(type) {
+	case mergeCollection[O]:
+		handle := c.registerBatchForHandler(reg, runExistingState, &registrationHandle{
+			id: uint64(i.id),
+		})
+		switch o := handle.(type) {
+		case *joinHandlerRegistration:
+			log.Infof("Building index collection %s from collection %s has handler %d", i.name(), c.name(), o.handlerID)
+		case *dynamicJoinHandlerRegistration:
+			log.Infof("Building index collection %s from collection %s has handler %d", i.name(), c.name(), o.handlerID)
+		default:
+			log.Infof("Handle is of type %T, not a join handler registration", o)
+		}
+		return handle
+	default:
+		log.Infof("Collection %s is not a merged collection (it is %T), using RegisterBatch", i.idx.c.(internalCollection[O]).name(), i.idx.c)
+		return i.idx.c.RegisterBatch(reg, runExistingState)
+	}
 }

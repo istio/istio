@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -122,7 +121,7 @@ func TrackerHandler[T any](tracker *assert.Tracker[string]) func(krt.Event[T]) {
 func BatchedTrackerHandler[T any](tracker *assert.Tracker[string]) func([]krt.Event[T]) {
 	return func(o []krt.Event[T]) {
 		tracker.Record(slices.Join(",", slices.Map(o, func(o krt.Event[T]) string {
-			log.Infof("Received %s event for key %s in tracker", o.Event, krt.GetKey(o.Latest()))
+			// log.Infof("Received %s event for key %s in tracker", o.Event, krt.GetKey(o.Latest()))
 			return fmt.Sprintf("%v/%v", o.Event, krt.GetKey(o.Latest()))
 		})...))
 	}

@@ -18,6 +18,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -614,8 +615,10 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
 			res = append(res, w.AsAddress)
 		}
+		log.Infof("Service lookup returned the following WDS addresses: %s", spew.Sprint(res))
 		return res
 	}
+
 	return nil
 }
 
