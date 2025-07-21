@@ -1623,7 +1623,10 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := buildGatewayListenerTLSContext(tc.mesh, tc.server, &pilot_model.Proxy{
+			push := &pilot_model.PushContext{
+				Mesh: tc.mesh,
+			}
+			ret := buildGatewayListenerTLSContext(push, tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
 			}, tc.transportProtocol)
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {

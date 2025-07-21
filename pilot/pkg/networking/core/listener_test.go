@@ -3145,7 +3145,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 		name                    string
 		serverTLSSettings       *networking.ServerTLSSettings
 		proxy                   *model.Proxy
-		mesh                    *meshconfig.MeshConfig
+		push                    *model.PushContext
 		transportProtocol       istionetworking.TransportProtocol
 		gatewayTCPServerWithTLS bool
 		expectedCertCount       int
@@ -3160,7 +3160,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       1,
@@ -3175,7 +3175,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       2,
@@ -3191,7 +3191,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       2,
@@ -3207,7 +3207,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       1,
@@ -3231,7 +3231,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       2,
@@ -3248,7 +3248,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       1,
@@ -3273,17 +3273,112 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       2,
+			expectedValidation:      true,
+		},
+		{
+			name: "external SDS provider with credential name",
+			serverTLSSettings: &networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds://provider-cert",
+			},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			push: func() *model.PushContext {
+				pc := &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+							{
+								Name: "provider-cert",
+								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+										Name:    "provider-cert",
+										Service: "sds-provider-service",
+										Port:    8080,
+									},
+								},
+							},
+						},
+					},
+				}
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+					"sds-provider-service": {
+						"": &model.Service{
+							Hostname: "sds-provider-service",
+							Ports: []*model.Port{
+								{
+									Name:     "grpc",
+									Port:     8080,
+									Protocol: protocol.GRPC,
+								},
+							},
+						},
+					},
+				}
+				return pc
+			}(),
+			transportProtocol:       istionetworking.TransportProtocolTCP,
+			gatewayTCPServerWithTLS: false,
+			expectedCertCount:       1,
+			expectedValidation:      false,
+		},
+		{
+			name: "external SDS provider with mutual TLS",
+			serverTLSSettings: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialName:  "sds://provider-cert",
+				SubjectAltNames: []string{"test.com"},
+			},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			push: func() *model.PushContext {
+				pc := &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+							{
+								Name: "provider-cert",
+								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+										Name:    "provider-cert",
+										Service: "sds-provider-service",
+										Port:    8080,
+									},
+								},
+							},
+						},
+					},
+				}
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+					"sds-provider-service": {
+						"": &model.Service{
+							Hostname: "sds-provider-service",
+							Ports: []*model.Port{
+								{
+									Name:     "grpc",
+									Port:     8080,
+									Protocol: protocol.GRPC,
+								},
+							},
+						},
+					},
+				}
+				return pc
+			}(),
+			transportProtocol:       istionetworking.TransportProtocolTCP,
+			gatewayTCPServerWithTLS: false,
+			expectedCertCount:       1,
 			expectedValidation:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := BuildListenerTLSContext(tt.serverTLSSettings, tt.proxy, tt.mesh, tt.transportProtocol, tt.gatewayTCPServerWithTLS)
+			ctx := BuildListenerTLSContext(tt.serverTLSSettings, tt.proxy, tt.push, tt.transportProtocol, tt.gatewayTCPServerWithTLS)
 
 			// Check certificate count
 			if len(ctx.CommonTlsContext.TlsCertificateSdsSecretConfigs) != tt.expectedCertCount {
