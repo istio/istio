@@ -304,6 +304,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 	// first call of checkValidCNIConfig and we will return an error so the the cni config file can be
 	// created or rewritten
 	if defaultCNIConfigFilepath != cniConfigFilepath {
+		log.Infof("cniConfigFilePath mismatch: expected %s but found %s", defaultCNIConfigFilepath, cniConfigFilepath)
 		if len(cfg.CNIConfName) > 0 || !cfg.ChainedCNIPlugin {
 			// Install was run with overridden CNI config file so don't error out on preempt check
 			// Likely the only use for this is testing the script
