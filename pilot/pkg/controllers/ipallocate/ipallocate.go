@@ -50,7 +50,7 @@ type IPAllocator struct {
 	stopChan           <-chan struct{}
 	queue              controllers.Queue
 
-	// This controller is not safe for concurency but it exists outside the critical path performing important but minimal functionality in a single thread.
+	// This controller is not safe for concurrency but it exists outside the critical path performing important but minimal functionality in a single thread.
 	// If we want the multi-thread this controller we must add locking around accessing the allocators which would otherwise be racy
 	v4allocator *prefixUse
 	v6allocator *prefixUse
