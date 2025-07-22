@@ -140,25 +140,24 @@ type levelState struct {
 }
 
 func (ll *levelState) run(_ io.Writer) error {
+	var scopeInfos []*ScopeInfo
 	if ll.outputLogLevel != "" {
-		scopeInfos, err := newScopeInfosFromScopeLevelPairs(ll.outputLogLevel)
+		scopeLogInfos, err := newScopeInfosFromScopeLevelPairs(ll.outputLogLevel)
 		if err != nil {
 			return err
 		}
-		err = ll.client.PutScopes(scopeInfos)
-		if err != nil {
-			return err
-		}
+		scopeInfos = append(scopeInfos, scopeLogInfos...)
 	}
 	if ll.stackTraceLevel != "" {
-		scopeInfos, err := newScopeInfosFromScopeStackTraceLevelPairs(ll.stackTraceLevel)
+		scopeStackInfos, err := newScopeInfosFromScopeStackTraceLevelPairs(ll.stackTraceLevel)
 		if err != nil {
 			return err
 		}
-		err = ll.client.PutScopes(scopeInfos)
-		if err != nil {
-			return err
-		}
+		scopeInfos = append(scopeInfos, scopeStackInfos...)
+	}
+	err := ll.client.PutScopes(scopeInfos)
+	if err != nil {
+		return err
 	}
 	return nil
 }
