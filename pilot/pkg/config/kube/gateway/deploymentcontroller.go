@@ -343,11 +343,11 @@ func NewDeploymentController(
 					dc.queue.AddObject(o.New)
 					break
 				}
-				if !reflect.DeepEqual(o.New.GetLabels(), o.Old.GetLabels()) {
+				if !maps.Equal(o.New.GetLabels(), o.Old.GetLabels()) {
 					dc.queue.AddObject(o.New)
 					break
 				}
-				if !reflect.DeepEqual(o.New.GetAnnotations(), o.Old.GetAnnotations()) {
+				if !maps.Equal(o.New.GetAnnotations(), o.Old.GetAnnotations()) {
 					dc.queue.AddObject(o.New)
 					break
 				}
