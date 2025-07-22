@@ -779,7 +779,7 @@ func mergeWorkloadInfosWithCluster(
 
 		// TODO: We should adjust the remote cluster store logic to seamlessly swap out clusters without there
 		// being duplicates in our collections. Tracked by https://github.com/istio/istio/issues/49349
-		log.Warnf("Duplicate workloadinfos found for %#+v. Trying to take local and then the first if we can't find it", workloadInfos)
+		log.Warnf("Duplicate workloadinfos found for key %s. Trying to take local and then the first if we can't find it", krt.GetKey(workloadInfos[0]))
 		for _, obj := range workloadInfos {
 			if obj.Object == nil {
 				continue

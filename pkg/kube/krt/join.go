@@ -44,11 +44,6 @@ type join[T any] struct {
 	sync.RWMutex // protects mergedCache
 }
 
-type eventSyncMap struct {
-	keys map[string]struct{}
-	sync.Mutex
-}
-
 type mergedCacheKey struct {
 	handlerID string // An empty handler id corresponds to the collection itself (e.g. during GetKey() or List())
 	key       string
@@ -178,66 +173,6 @@ func (j *join[T]) registerBatchUnmerged(f func(o []Event[T]), runExistingState b
 	}
 }
 
-func getMergedDelete[T any](e Event[T], merged, old *T) Event[T] {
-	if merged == nil {
-		// This is expected if the item is globally deleted
-		// across all collections. Use the original delete
-		// event.
-		return e
-	}
-	if old == nil {
-		log.Warnf("Given value is nil for merged delete handling %#+v for %s", e, ptr.TypeName[T]())
-		old = e.Old
-	}
-	// There are items for this key in other collections. This delete is actually
-	// an update. Use the given old value as the old value. If it's nil, fall back
-	// to the old value in the event.
-
-	return Event[T]{
-		Event: controllers.EventUpdate,
-		Old:   old,
-		New:   merged,
-	}
-}
-
-func getMergedAdd[T any](e Event[T], merged, old *T) Event[T] {
-	// Merged should never be nil after an add; log it in case we come across this
-	// in the future.
-	if merged == nil {
-		log.Warnf("JoinCollection: merge function returned nil for add event %v", e)
-	}
-
-	if old == nil {
-		log.Warnf("Given value is nil for merged add -> update %#+v for %s", e, ptr.TypeName[T]())
-		old = e.Old
-	}
-	// This is an update triggered by the add of a duplicate item.
-	// We use the added item as the old value as a best effort.
-	return Event[T]{
-		Event: controllers.EventUpdate,
-		Old:   old,
-		New:   merged,
-	}
-}
-
-func getMergedUpdate[T any](e Event[T], merged, old *T) Event[T] {
-	if merged == nil {
-		log.Warnf("JoinCollection: merge function returned nil for update event %v", e)
-	}
-
-	if old == nil {
-		log.Warnf("Given value is nil for merged update handling %#+v for %s", e, ptr.TypeName[T]())
-		old = e.Old
-	}
-	// This is an update triggered by the add of a duplicate key.
-	// We use the added item as the old value as a best effort.
-	return Event[T]{
-		Event: controllers.EventUpdate,
-		Old:   old,
-		New:   merged,
-	}
-}
-
 func (j *join[T]) calculateMerged(k string) *T {
 	var found []T
 	for _, c := range j.collections {
@@ -251,19 +186,37 @@ func (j *join[T]) calculateMerged(k string) *T {
 	return j.merge(found)
 }
 
-func (j *join[T]) updateMergedCache(key, handlerID string, merged *T) mergedCacheEntry[T] {
-	j.Lock()
-	defer j.Unlock()
+func maybeInitMergeCacheForHandlerLocked[T any](cache map[mergedCacheKey]mergedCacheEntry[T], handlerID string) {
+	// First check to see if there's been any merge cache entry before us
+	// by checking the empty handler mergeKey
+	for key, entry := range cache {
+		// no-op
+		if key.handlerID != "" {
+			continue
+		}
+
+		// There are entries in the cache; copy them to our handlerID
+		cache[mergedCacheKey{key: key.key, handlerID: handlerID}] = entry
+	}
+}
+
+func updateMergeCacheLocked[T any](cache map[mergedCacheKey]mergedCacheEntry[T], merged *T, key, handlerID string) mergedCacheEntry[T] {
 	if merged == nil {
-		// This is a legit delete; remove it from the cache
-		delete(j.mergedCache, mergedCacheKey{key: key, handlerID: handlerID})
+		// First get the existing value from the cache (if it exists)
+		var old *T
+		entry, ok := cache[mergedCacheKey{key: key, handlerID: handlerID}]
+		if ok && entry.current != nil {
+			old = entry.current
+		}
+
+		delete(cache, mergedCacheKey{key: key, handlerID: handlerID})
 		// Eagerly keep collection reads up to date; delete the collection entry too
-		delete(j.mergedCache, mergedCacheKey{key: key})
-		return mergedCacheEntry[T]{}
+		delete(cache, mergedCacheKey{key: key})
+		return mergedCacheEntry[T]{prev: old}
 	}
 	// Now we know this is either an add or an update
 	var updatedEntry mergedCacheEntry[T]
-	if entry, ok := j.mergedCache[mergedCacheKey{key: key, handlerID: handlerID}]; ok {
+	if entry, ok := cache[mergedCacheKey{key: key, handlerID: handlerID}]; ok {
 		if entry.current != nil {
 			entry.prev = entry.current
 			entry.current = merged
@@ -272,11 +225,78 @@ func (j *join[T]) updateMergedCache(key, handlerID string, merged *T) mergedCach
 	} else {
 		updatedEntry = mergedCacheEntry[T]{current: merged}
 	}
-	j.mergedCache[mergedCacheKey{key: key, handlerID: handlerID}] = updatedEntry
+
+	cache[mergedCacheKey{key: key, handlerID: handlerID}] = updatedEntry
 	// It's probably simpler to just always set the collection entry multiple times
 	// TODO: Ensure old vlues don't stick around for too long and prevent garbage collection
-	j.mergedCache[mergedCacheKey{key: key}] = updatedEntry
+	cache[mergedCacheKey{key: key}] = updatedEntry
 	return updatedEntry
+}
+
+func (j *join[T]) updateMergedCache(key, handlerID string, merged *T) mergedCacheEntry[T] {
+	j.Lock()
+	defer j.Unlock()
+	return updateMergeCacheLocked(j.mergedCache, merged, key, handlerID)
+}
+
+func handleInnerCollectionEvent[T any](
+	handler func(o []Event[T]),
+	handlerID string,
+	getMergedForKey func(key string) *T,
+	updateMergedCache func(key, handlerID string, merged *T) mergedCacheEntry[T],
+) func(o []Event[T]) {
+	return func(events []Event[T]) {
+		mergedEvents := make([]Event[T], 0, len(events))
+		changedKeys := make(map[string]struct{}, len(events))
+		// When we calculate the merged value for a given key, we're looking at the present state
+		// of our set of collections, not the state at the time of the event. Therefore, it's possible
+		// that the event state is stale and the merged value is different. Therefore, we should just
+		// operate on the key and not the event itself.
+		for _, i := range events {
+			key := GetKey(i.Latest())
+			if _, ok := changedKeys[key]; ok {
+				continue
+			}
+			changedKeys[key] = struct{}{}
+		}
+		// Loop through all of the keys that changed and create an event based on the currente state
+		// and our cached entries.
+		for key := range changedKeys {
+			merged := getMergedForKey(key)
+			entry := updateMergedCache(key, handlerID, merged)
+			var e Event[T]
+
+			switch {
+			case entry.current == nil && entry.prev == nil:
+				msg := "Merged (nested) join collection: Received event for key %s in handler %s but it's not longer in our set of collections. Skipping..."
+				log.Warnf(msg, key, handlerID)
+				continue
+			// No current entry in our cache for this handler. This key was deleted across all our collections
+			case entry.current == nil:
+				e = Event[T]{
+					Event: controllers.EventDelete,
+					Old:   entry.prev,
+				}
+			// No previous entry in our cache for this handler.
+			// This key was added for the first time across all our collections.
+			case entry.prev == nil:
+				e = Event[T]{
+					Event: controllers.EventAdd,
+					New:   merged,
+				}
+			// We have both a current and previous entry in our cache for this handler.
+			// This key was updated due to a change in one of our collections
+			default:
+				e = Event[T]{
+					Event: controllers.EventUpdate,
+					Old:   entry.prev,
+					New:   merged,
+				}
+			}
+			mergedEvents = append(mergedEvents, e)
+		}
+		handler(mergedEvents)
+	}
 }
 
 func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
@@ -286,59 +306,12 @@ func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Han
 	sync := multiSyncer{}
 	removes := []func(){}
 	handlerID := strconv.FormatUint(globalUIDCounter.Inc(), 10)
+	j.Lock()
+	maybeInitMergeCacheForHandlerLocked(j.mergedCache, handlerID)
+	j.Unlock()
 
-	// This is tricky because each handler has its own goroutine and we don't want to get
-	// multiple adds if a resource is added to multiple collections in the join at the same time.
-	// We want an add (for the first one) and then an update, and we want this to happen for each handler
-	// meaning we can't use the join struct to synchronize. Instead, we created a map per handler
-	// (note: not per handler per inner collection; 1 map for all collections).
-	// No need for a lock since each handler has its own queue/goroutine.
-	seenFirstAddForKey := &eventSyncMap{
-		keys: make(map[string]struct{}),
-	}
 	for _, c := range j.collections {
-		reg := c.RegisterBatch(func(o []Event[T]) {
-			// Lock the map during this entire handler for readability and to ensure events remain in-order
-			// across collections
-			seenFirstAddForKey.Lock()
-			defer seenFirstAddForKey.Unlock()
-			mergedEvents := make([]Event[T], 0, len(o))
-			for _, i := range o {
-				key := GetKey(i.Latest())
-				merged := j.calculateMerged(key)
-				entry := j.updateMergedCache(key, handlerID, merged)
-				old := entry.prev
-				switch i.Event {
-				case controllers.EventDelete:
-					mergedEvents = append(mergedEvents, getMergedDelete(i, merged, old))
-					if merged == nil {
-						// Remove the key from the seenFirstAddForKey map. It's unlikely that
-						// we would have two adds in different sub-collections at the exact same time
-						// but handle it just in case
-						delete(seenFirstAddForKey.keys, key)
-					}
-				case controllers.EventAdd:
-					// If we haven't seen an add for this key before, this should be a real add
-					// regardless. This is to prevent the case where the collection source starts
-					// its initial sync with duplicate keys in different collections. Without this check,
-					// both events would look like updates.
-					if _, ok := seenFirstAddForKey.keys[key]; !ok {
-						// We haven't seen an add for this key before, so we need to take a write lock
-						seenFirstAddForKey.keys[key] = struct{}{}
-						mergedEvents = append(mergedEvents, Event[T]{
-							Event: controllers.EventAdd,
-							Old:   nil,
-							New:   merged,
-						})
-						continue
-					}
-					mergedEvents = append(mergedEvents, getMergedAdd(i, merged, old))
-				case controllers.EventUpdate:
-					mergedEvents = append(mergedEvents, getMergedUpdate(i, merged, old))
-				}
-			}
-			f(mergedEvents)
-		}, runExistingState)
+		reg := c.RegisterBatch(handleInnerCollectionEvent(f, handlerID, j.calculateMerged, j.updateMergedCache), runExistingState)
 		removes = append(removes, reg.UnregisterHandler)
 		sync.syncers = append(sync.syncers, reg)
 	}
