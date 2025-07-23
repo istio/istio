@@ -197,4 +197,7 @@ var (
 
 	EnvoyStatusPortEnableProxyProtocol = env.Register("ENVOY_STATUS_PORT_ENABLE_PROXY_PROTOCOL", false,
 		"If enabled, Envoy will support requests with proxy protocol on its status port").Get()
+
+	SupportGatewayAPIInferenceExtension = env.Register("SUPPORT_GATEWAY_API_INFERENCE_EXTENSION", false,
+		"If true, support gateway inference extension routing apis").Get()
 )

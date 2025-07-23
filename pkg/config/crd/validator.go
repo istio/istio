@@ -283,6 +283,7 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 
 func NewIstioValidator(t test.Failer) *Validator {
 	v, err := NewValidatorFromFiles(
+		filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-inference-extension-crd.yaml"),
 		filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-crd.yaml"),
 		filepath.Join(env.IstioSrc, "manifests/charts/base/files/crd-all.gen.yaml"),
 	)
