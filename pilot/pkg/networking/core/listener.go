@@ -124,7 +124,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, mesh *meshconfig.MeshConfig, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
+	proxy *model.Proxy, push *model.PushContext, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
 ) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
@@ -167,7 +167,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			[]string{}, validateClient, nil)
 	// If credential name(s) are specified at gateway config, create SDS config for gateway to fetch key/cert from Istiod.
 	case len(serverTLSSettings.GetCredentialNames()) > 0 || serverTLSSettings.CredentialName != "":
-		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
+		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist, push)
 	default:
 		certProxy := &model.Proxy{}
 		certProxy.IstioVersion = proxy.IstioVersion
@@ -185,7 +185,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
 		// If Mesh TLSDefaults are set, use them.
-		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
+		applyDownstreamTLSDefaults(push.Mesh.GetTlsDefaults(), ctx.CommonTlsContext)
 		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
 
