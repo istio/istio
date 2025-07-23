@@ -883,7 +883,7 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 		// If we cannot accurately construct ServiceEndpoints from just the metadata, this will return an error and we can
 		// attempt to read the real pod.
 		out, err := c.GetProxyServiceTargetsFromMetadata(proxy)
-		if err != nil {
+		if err != nil && !features.EnableServiceEntrySelectPods {
 			log.Warnf("GetProxyServiceTargetsFromMetadata for %v failed: %v", proxy.ID, err)
 		}
 		return out
