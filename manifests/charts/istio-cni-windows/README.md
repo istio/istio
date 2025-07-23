@@ -45,4 +45,3 @@ That is, `--set some.field=true` should be passed, not `--set defaults.some.fiel
 ### Ambient
 
 Windows support is only available in the ambient profile. To enable ambient, you can use the ambient profile: `--set profile=ambient`.
-
