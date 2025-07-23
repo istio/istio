@@ -765,10 +765,22 @@ func TestAuthz_JWT(t *testing.T) {
 							allow:  false,
 						},
 						{
-							prefix: "[PermissionTokenWithSpaceDelimitedScope]",
-							jwt:    jwt.TokenIssuer2WithSpaceDelimitedScope,
+							prefix: "[PermissionTokenWithSpaceDelimitedPermission]",
+							jwt:    jwt.TokenIssuer2WithSpaceDelimitedPermission,
 							path:   "/permission",
 							allow:  true,
+						},
+						{
+							prefix: "[PermissionTokenWithSpaceDelimitedScope]",
+							jwt:    jwt.TokenIssuer2WithSpaceDelimitedScope,
+							path:   "/scope",
+							allow:  true,
+						},
+						{
+							prefix: "[PermissionTokenWithSpaceDelimitedScope]",
+							jwt:    jwt.TokenIssuer2WithSpaceDelimitedScope,
+							path:   "/otherscope",
+							allow:  false,
 						},
 						{
 							prefix: "[NestedToken1]",
