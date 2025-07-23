@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ServiceAccount
+  {{- with .Values.imagePullSecrets }}
+imagePullSecrets:
+  {{- range . }}
+  - name: {{ . }}
+  {{- end }}
+  {{- end }}
+metadata:
+  name: {{ include "ztunnel-windows.release-name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: ztunnel-windows
+    {{- include "istio.labels" . | nindent 4}}
+    {{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
+  annotations:
+{{- if .Values.revision }}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
+{{- else }}
+    {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
+---
+{{- if (eq (.Values.platform | default "") "openshift") }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "ztunnel-windows.release-name" . }}
+  labels:
+    app: ztunnel-windows
+    release: {{ include "ztunnel-windows.release-name" . }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    app.kubernetes.io/name: ztunnel-windows
+    {{- include "istio.labels" . | nindent 4}}
+  annotations:
+{{- if .Values.revision }}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
+{{- else }}
+    {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
+rules:
+- apiGroups: ["security.openshift.io"]
+  resources: ["securitycontextconstraints"]
+  resourceNames: ["privileged"]
+  verbs: ["use"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "ztunnel-windows.release-name" . }}
+  labels:
+    app: ztunnel-windows
+    release: {{ include "ztunnel-windows.release-name" . }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    app.kubernetes.io/name: ztunnel-windows
+    {{- include "istio.labels" . | nindent 4}}
+  annotations:
+{{- if .Values.revision }}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
+{{- else }}
+    {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "ztunnel-windows.release-name" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "ztunnel-windows.release-name" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+---
