@@ -160,13 +160,13 @@ func (j *mergejoin2[T]) GetKey(k string) *T {
 }
 
 func (j *mergejoin2[T]) onSubCollectionEventHandler(o []Event[T]) {
-	// Between the events being enqueued and now, the input may have changed. Update with latest info.
 	var events []Event[T]
-	items := j.refreshEventsLocked(o)
-
-	// Now acquire both the mergecache lock and the collection lock.
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	// Between the events being enqueued and now, the input may have changed. Update with latest info.
+
+	items := j.refreshEventsLocked(o)
+
 	for _, ev := range items {
 		obj := ev.Latest()
 		objKey := getTypedKey(obj)
@@ -290,4 +290,17 @@ func (j *mergejoin2[T]) calculateMerged(k string) *T {
 		return nil
 	}
 	return j.merge(found)
+}
+
+func (j *mergejoin2[T]) updateIndexLocked(e Event[T], key Key[T]) {
+	switch e.Event {
+	case controllers.EventAdd, controllers.EventUpdate:
+		for _, index := range j.indexes {
+			index.update(e, key)
+		}
+	case controllers.EventDelete:
+		for _, index := range j.indexes {
+			index.delete(*e.Old, key)
+		}
+	}
 }
