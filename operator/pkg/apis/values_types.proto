@@ -93,8 +93,14 @@ message CNIConfig {
   //   ENV_VAR_2: value2
   google.protobuf.Struct env = 32;
 
+  // Additional labels to apply to the istio-cni DaemonSet.
+  google.protobuf.Struct daemonSetLabels = 33;
+
   // Additional annotations to apply to the istio-cni Pods.
   google.protobuf.Struct podAnnotations = 10 [deprecated = true];
+
+  // Additional labels to apply to the istio-cni Pods.
+  google.protobuf.Struct podLabels = 34;
 
   // PodSecurityPolicy cluster role. No longer used anywhere.
   string psp_cluster_role = 11;
@@ -968,12 +974,12 @@ message PilotConfig {
   // Configuration for the istio-discovery chart when istiod is running in a remote cluster (e.g. "remote control plane").
   IstiodRemoteConfig istiodRemote = 61;
 
-  // Configuration for the istio-discovery chart 
+  // Configuration for the istio-discovery chart
   repeated google.protobuf.Struct envVarFrom = 62;
 }
 
 message PilotTaintControllerConfig {
-  // Enable the untaint controller for new nodes. This aims to solve a race for CNI installation on 
+  // Enable the untaint controller for new nodes. This aims to solve a race for CNI installation on
   // new nodes. For this to work, the newly added nodes need to have the istio CNI taint as they are
   // added to the cluster. This is usually done by configuring the cluster infra provider.
   bool enabled = 1;

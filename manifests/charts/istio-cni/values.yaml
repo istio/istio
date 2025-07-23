@@ -25,7 +25,7 @@ _internal_defaults_do_not_set:
   cniNetnsDir: "/var/run/netns"
 
   # If Istio owned CNI config is enabled, defaults to 02-istio-cni.conflist
-  istioOwnedCNIConfigFileName: "" 
+  istioOwnedCNIConfigFileName: ""
   istioOwnedCNIConfig: false
 
   excludeNamespaces:
@@ -34,8 +34,14 @@ _internal_defaults_do_not_set:
   # Allows user to set custom affinity for the DaemonSet
   affinity: {}
 
+  # Additional labels to apply on the daemonset level
+  daemonSetLabels: {}
+
   # Custom annotations on pod level, if you need them
   podAnnotations: {}
+
+  # Additional labels to apply on the pod level
+  podLabels: {}
 
   # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
   # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case

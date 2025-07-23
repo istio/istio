@@ -28,6 +28,7 @@ metadata:
     operator.istio.io/component: "Cni"
     app.kubernetes.io/name: {{ template "name" . }}
     {{- include "istio.labels" . | nindent 4 }}
+    {{ with .Values.daemonSetLabels -}}{{ toYaml . | nindent 4}}{{ end }}
 spec:
   selector:
     matchLabels:
@@ -44,6 +45,7 @@ spec:
         istio.io/dataplane-mode: none
         app.kubernetes.io/name: {{ template "name" . }}
         {{- include "istio.labels" . | nindent 8 }}
+        {{ with .Values.podLabels -}}{{ toYaml . | nindent 8}}{{ end }}
       annotations:
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations
