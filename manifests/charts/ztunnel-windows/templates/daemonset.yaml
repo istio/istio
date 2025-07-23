@@ -149,6 +149,17 @@ spec:
         {{- with .Values.volumeMounts }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
+      initContainers:
+        - name: windows-dns-config
+          image: mcr.microsoft.com/windows/servercore:ltsc2022
+          command:
+            - powershell
+            - -Command
+            - $config = Get-Content 'C:\\k\\kubeclusterconfig.json' -Raw; if ($config -match '--cluster-dns=([\d\.]+)') { $dnsIp = $matches[1]; Add-DnsClientNrptRule -Namespace '.cluster.local' -NameServers "$dnsIp"; Clear-DnsClientCache; Write-Output "Cluster DNS set to $dnsIp"; } else { Write-Output "Cluster DNS IP not found."; }
+          securityContext:
+            windowsOptions:
+              hostProcess: true
+              runAsUserName: "NT AUTHORITY\\SYSTEM"
       priorityClassName: system-node-critical
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       volumes:

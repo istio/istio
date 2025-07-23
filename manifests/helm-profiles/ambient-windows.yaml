@@ -11,3 +11,6 @@ pilot:
 cni:
   ambient:
     enabled: true
+cni_windows:
+  ambient:
+    enabled: true

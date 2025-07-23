@@ -242,12 +242,14 @@ var (
 	}
 
 	Icons = map[Name]string{
-		BaseComponentName:    "⛵️",
-		PilotComponentName:   "🧠",
-		CNIComponentName:     "🪢",
-		ZtunnelComponentName: "🔒",
-		IngressComponentName: "🛬",
-		EgressComponentName:  "🛫",
+		BaseComponentName:           "⛵️",
+		PilotComponentName:          "🧠",
+		CNIComponentName:            "🪢",
+		ZtunnelComponentName:        "🔒",
+		IngressComponentName:        "🛬",
+		EgressComponentName:         "🛫",
+		ZtunnelWindowsComponentName: "🪟",
+		CNIWindowsComponentName:     "🪟",
 	}
 )
 
