@@ -143,7 +143,7 @@ func (p *tagWatcher) GetMyTags() sets.String {
 		res.Insert(tagName)
 
 		if mwhTags.Contains(tagName) {
-			log.Warnf("Tag name %s is already defined by a service. Delete the %s-%s MutatingWebhookConfiguration ", tagName, "istio-revision-tag", tagName)
+			log.Debugf("Tag name %s is already defined by a service. Delete the %s-%s MutatingWebhookConfiguration ", tagName, "istio-revision-tag", tagName)
 			mwhTags.Delete(tagName)
 		}
 	}
