@@ -3,8 +3,12 @@ kind: DaemonSet
 metadata:
   annotations: {}
   labels:
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/name: ztunnel
     app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: ztunnel-1.0.0
   name: ztunnel
   namespace: istio-system
 spec:
@@ -19,6 +23,12 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: ztunnel
+        app.kubernetes.io/instance: istio
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: ztunnel
+        app.kubernetes.io/part-of: istio
+        app.kubernetes.io/version: 1.0.0
+        helm.sh/chart: ztunnel-1.0.0
         istio.io/dataplane-mode: none
         sidecar.istio.io/inject: "false"
     spec:
@@ -63,7 +73,11 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: ISTIO_META_ENABLE_HBONE
           value: "true"
-        image: gcr.io/istio-testing/ztunnel:latest
+        - name: ZTUNNEL_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        image: gcr.io/istio-testing/ztunnel:latest-distroless
         name: istio-proxy
         ports:
         - containerPort: 15020
@@ -133,3 +147,4 @@ spec:
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
+    type: RollingUpdate

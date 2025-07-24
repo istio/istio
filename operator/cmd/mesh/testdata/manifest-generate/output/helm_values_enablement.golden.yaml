@@ -3,8 +3,15 @@ kind: Deployment
 metadata:
   labels:
     app: istio-egressgateway
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-egressgateway
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: istio-egress-1.0.0
     install.operator.istio.io/owning-resource: unknown
     istio: egressgateway
+    istio.io/dataplane-mode: none
     istio.io/rev: default
     operator.istio.io/component: EgressGateways
     release: istio
@@ -29,10 +36,17 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istio-egressgateway
+        app.kubernetes.io/instance: istio
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: istio-egressgateway
+        app.kubernetes.io/part-of: istio
+        app.kubernetes.io/version: 1.0.0
         chart: gateways
+        helm.sh/chart: istio-egress-1.0.0
         heritage: Tiller
         install.operator.istio.io/owning-resource: unknown
         istio: egressgateway
+        istio.io/dataplane-mode: none
         istio.io/rev: default
         operator.istio.io/component: EgressGateways
         release: istio
@@ -221,6 +235,12 @@ metadata:
   annotations: null
   labels:
     app: istio-egressgateway
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-egressgateway
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: istio-egress-1.0.0
     install.operator.istio.io/owning-resource: unknown
     istio: egressgateway
     istio.io/rev: default

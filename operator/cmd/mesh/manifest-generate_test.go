@@ -15,14 +15,10 @@
 package mesh
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -56,35 +52,14 @@ const (
 	operatorSubdirFilePath      = "manifests"
 )
 
-// chartSourceType defines where charts used in the test come from.
-type chartSourceType string
-
 var (
 	operatorRootDir = filepath.Join(env.IstioSrc, "operator")
 
 	// testDataDir contains the directory for manifest-generate test data
 	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 
-	// Snapshot charts are in testdata/manifest-generate/data-snapshot
-	snapshotCharts = func() chartSourceType {
-		d, err := os.MkdirTemp("", "data-snapshot-*")
-		if err != nil {
-			panic(fmt.Errorf("failed to make temp dir: %v", err))
-		}
-		f, err := os.Open("testdata/manifest-generate/data-snapshot.tar.gz")
-		if err != nil {
-			panic(fmt.Errorf("failed to read data snapshot: %v", err))
-		}
-		if err := extract(f, d); err != nil {
-			panic(fmt.Errorf("failed to extract data snapshot: %v", err))
-		}
-		return chartSourceType(filepath.Join(d, "manifests"))
-	}()
-	// Run operator/scripts/run_update_golden_snapshots.sh to update the snapshot charts tarball.
-	compiledInCharts chartSourceType = "COMPILED"
-	_                                = compiledInCharts
 	// Live charts come from manifests/
-	liveCharts = chartSourceType(filepath.Join(env.IstioSrc, operatorSubdirFilePath))
+	liveCharts = filepath.Join(env.IstioSrc, operatorSubdirFilePath)
 )
 
 type testGroup []struct {
@@ -101,61 +76,12 @@ type testGroup []struct {
 	fileSelect                  []string
 	diffSelect                  string
 	diffIgnore                  string
-	chartSource                 chartSourceType
 }
 
 func init() {
 	kubeClientFunc = func() (kube.CLIClient, error) {
 		return nil, nil
 	}
-}
-
-func extract(gzipStream io.Reader, destination string) error {
-	uncompressedStream, err := gzip.NewReader(gzipStream)
-	if err != nil {
-		return fmt.Errorf("create gzip reader: %v", err)
-	}
-
-	tarReader := tar.NewReader(uncompressedStream)
-
-	for {
-		header, err := tarReader.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("next: %v", err)
-		}
-
-		dest := filepath.Join(destination, header.Name)
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if _, err := os.Stat(dest); err != nil {
-				if err := os.Mkdir(dest, 0o755); err != nil {
-					return fmt.Errorf("mkdir: %v", err)
-				}
-			}
-		case tar.TypeReg:
-			// Create containing folder if not present
-			dir := path.Dir(dest)
-			if _, err := os.Stat(dir); err != nil {
-				if err := os.MkdirAll(dir, 0o755); err != nil {
-					return err
-				}
-			}
-			outFile, err := os.Create(dest)
-			if err != nil {
-				return fmt.Errorf("create: %v", err)
-			}
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return fmt.Errorf("copy: %v", err)
-			}
-			outFile.Close()
-		default:
-			return fmt.Errorf("unknown type: %v in %v", header.Typeflag, header.Name)
-		}
-	}
-	return nil
 }
 
 func copyDir(src string, dest string) error {
@@ -181,13 +107,6 @@ func copyDir(src string, dest string) error {
 
 		return nil
 	})
-}
-
-func TestMain(m *testing.M) {
-	code := m.Run()
-	// Cleanup uncompress snapshot charts
-	os.RemoveAll(string(snapshotCharts))
-	os.Exit(code)
 }
 
 func TestManifestGenerateComponentHubTag(t *testing.T) {
@@ -320,8 +239,8 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	testResourceFile := "duplicate_mwc"
 
 	tmpDir := t.TempDir()
-	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
-	err := copyDir(string(liveCharts), string(tmpCharts))
+	tmpCharts := filepath.Join(tmpDir, operatorSubdirFilePath)
+	err := copyDir(liveCharts, tmpCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,8 +287,8 @@ func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
 	t.Helper()
 	recreateSimpleTestEnv()
 	tmpDir := t.TempDir()
-	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
-	err := copyDir(string(liveCharts), string(tmpCharts))
+	tmpCharts := filepath.Join(tmpDir, operatorSubdirFilePath)
+	err := copyDir(liveCharts, tmpCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -500,8 +419,8 @@ func TestManifestGenerateIstiodRemoteLocalInjection(t *testing.T) {
 func TestPrune(t *testing.T) {
 	recreateSimpleTestEnv()
 	tmpDir := t.TempDir()
-	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
-	err := copyDir(string(liveCharts), string(tmpCharts))
+	tmpCharts := filepath.Join(tmpDir, operatorSubdirFilePath)
+	err := copyDir(liveCharts, tmpCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -647,10 +566,9 @@ func TestManifestGeneratePilot(t *testing.T) {
 			fileSelect: []string{"templates/autoscale.yaml"},
 		},
 		{
-			desc:        "pilot_env_var_from",
-			diffSelect:  "Deployment:*:istiod",
-			fileSelect:  []string{"templates/deployment.yaml"},
-			chartSource: liveCharts,
+			desc:       "pilot_env_var_from",
+			diffSelect: "Deployment:*:istiod",
+			fileSelect: []string{"templates/deployment.yaml"},
 		},
 	})
 }
@@ -696,11 +614,11 @@ func TestManifestGenerateOrdered(t *testing.T) {
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
 	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
-	got1, err := runManifestGenerate([]string{inPath}, "", snapshotCharts, nil)
+	got1, err := runManifestGenerate([]string{inPath}, "", liveCharts, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got2, err := runManifestGenerate([]string{inPath}, "", snapshotCharts, nil)
+	got2, err := runManifestGenerate([]string{inPath}, "", liveCharts, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -713,11 +631,11 @@ func TestManifestGenerateOrdered(t *testing.T) {
 
 func TestManifestGenerateFlagAliases(t *testing.T) {
 	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
-	gotSet, err := runManifestGenerate([]string{inPath}, "--set revision=foo", snapshotCharts, []string{"templates/deployment.yaml"})
+	gotSet, err := runManifestGenerate([]string{inPath}, "--set revision=foo", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo", snapshotCharts, []string{"templates/deployment.yaml"})
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -731,7 +649,7 @@ func TestManifestGenerateFlagAliases(t *testing.T) {
 func TestMultiICPSFiles(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
 	inPathOverride := filepath.Join(testDataDir, "input/helm_values_enablement.yaml")
-	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", snapshotCharts, []string{"templates/deployment.yaml", "templates/service.yaml"})
+	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", liveCharts, []string{"templates/deployment.yaml", "templates/service.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -785,7 +703,7 @@ func TestInstallPackagePath(t *testing.T) {
 			// manifest generation.
 			desc:       "install_package_path",
 			diffSelect: "Deployment:*:istiod",
-			flags:      "--set installPackagePath=" + string(liveCharts),
+			flags:      "--set installPackagePath=" + liveCharts,
 		},
 	})
 }
@@ -924,7 +842,7 @@ func TestLDFlags(t *testing.T) {
 	}()
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
-	_, vals, err := render.GenerateManifest(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, nil)
+	_, vals, err := render.GenerateManifest(nil, []string{"installPackagePath=" + liveCharts}, true, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -960,11 +878,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				filenames = []string{inPath}
 			}
 
-			csource := snapshotCharts
-			if tt.chartSource != "" {
-				csource = tt.chartSource
-			}
-			got, err := runManifestGenerate(filenames, tt.flags, csource, tt.fileSelect)
+			got, err := runManifestGenerate(filenames, tt.flags, liveCharts, tt.fileSelect)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -983,7 +897,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 	}
 }
 
-func generateManifest(t test.Failer, inFile, flags string, chartSource chartSourceType, fileSelect []string) string {
+func generateManifest(t test.Failer, inFile, flags string, chartSource string, fileSelect []string) string {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
 	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource, fileSelect)
 	if err != nil {
@@ -994,7 +908,7 @@ func generateManifest(t test.Failer, inFile, flags string, chartSource chartSour
 
 // runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType, fileSelect []string) (string, error) {
+func runManifestGenerate(filenames []string, flags string, chartSource string, fileSelect []string) (string, error) {
 	return runManifestCommand("generate", filenames, flags, chartSource, fileSelect)
 }
 
