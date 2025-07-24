@@ -3,8 +3,6 @@ contents:
     - https://packages.wolfi.dev/os
   keyring:
     - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
-  # TODO: Replace the nftables package with a nftables-slim package from wolfi-dev/os.
-  # Note that the nftables-slim package is pending in https://github.com/wolfi-dev/os/pull/58274
   packages:
     - ca-certificates-bundle
     - wolfi-baselayout
@@ -15,7 +13,6 @@ contents:
     - libnfnetlink
     - libmnl
     - libgcc
-    - nftables
 archs:
   - x86_64
   - aarch64
