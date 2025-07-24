@@ -2,6 +2,12 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-cni
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: cni-1.0.0
     install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     k8s-app: istio-cni-node
@@ -16,11 +22,18 @@ spec:
   template:
     metadata:
       annotations:
+        container.apparmor.security.beta.kubernetes.io/install-cni: unconfined
         prometheus.io/path: /metrics
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
+        app.kubernetes.io/instance: istio
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: istio-cni
+        app.kubernetes.io/part-of: istio
+        app.kubernetes.io/version: 1.0.0
+        helm.sh/chart: cni-1.0.0
         istio.io/dataplane-mode: none
         k8s-app: istio-cni-node
         sidecar.istio.io/inject: "false"
@@ -39,6 +52,8 @@ spec:
           value: "true"
         - name: REPAIR_SIDECAR_ANNOTATION
           value: sidecar.istio.io/status
+        - name: ALLOW_SWITCH_TO_HOST_NS
+          value: "true"
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -47,10 +62,12 @@ spec:
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.memory
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.cpu
         - name: POD_NAME
           valueFrom:
@@ -67,7 +84,6 @@ spec:
         name: install-cni
         ports:
         - containerPort: 15014
-          hostPort: 15014
           name: metrics
           protocol: TCP
         readinessProbe:
@@ -83,10 +99,12 @@ spec:
             add:
             - NET_ADMIN
             - NET_RAW
+            - SYS_PTRACE
             - SYS_ADMIN
+            - DAC_OVERRIDE
             drop:
             - ALL
-          privileged: true
+          privileged: false
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0

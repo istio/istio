@@ -151,6 +151,17 @@ func extract(gzipStream io.Reader, destination string) error {
 				return fmt.Errorf("copy: %v", err)
 			}
 			outFile.Close()
+		case tar.TypeSymlink:
+			// Create containing folder if not present
+			dir := path.Dir(dest)
+			if _, err := os.Stat(dir); err != nil {
+				if err := os.MkdirAll(dir, 0o755); err != nil {
+					return err
+				}
+			}
+			if err := os.Symlink(header.Linkname, dest); err != nil {
+				return fmt.Errorf("symlink: %v", err)
+			}
 		default:
 			return fmt.Errorf("unknown type: %v in %v", header.Typeflag, header.Name)
 		}
@@ -647,10 +658,9 @@ func TestManifestGeneratePilot(t *testing.T) {
 			fileSelect: []string{"templates/autoscale.yaml"},
 		},
 		{
-			desc:        "pilot_env_var_from",
-			diffSelect:  "Deployment:*:istiod",
-			fileSelect:  []string{"templates/deployment.yaml"},
-			chartSource: liveCharts,
+			desc:       "pilot_env_var_from",
+			diffSelect: "Deployment:*:istiod",
+			fileSelect: []string{"templates/deployment.yaml"},
 		},
 	})
 }
