@@ -32,11 +32,6 @@ type mapCollection[T any, U any] struct {
 	metadata       Metadata
 }
 
-// Make sure this fulfills the mergedCollection interface so that type assertions work
-type mapMergeCollection[T any, U any] struct {
-	mapCollection[T, U]
-}
-
 // nolint: unused // (not true, used in func declared to implement an interface)
 type mappedIndexer[T any, U any] struct {
 	indexer indexer[T]
@@ -44,24 +39,12 @@ type mappedIndexer[T any, U any] struct {
 }
 
 var (
-	_ Collection[any]      = &mapCollection[any, any]{}
-	_ mergeCollection[any] = &mapMergeCollection[any, any]{}
-	_ mergeIndexer[any]    = &mappedIndexer[any, any]{}
+	_ Collection[any] = &mapCollection[any, any]{}
 )
 
 // nolint: unused // (not true, its to implement an interface)
 func (m *mappedIndexer[T, U]) Lookup(k string) []U {
 	keys := m.indexer.Lookup(k)
-	res := make([]U, 0, len(keys))
-	for _, obj := range keys {
-		res = append(res, m.mapFunc(obj))
-	}
-	return res
-}
-
-func (m *mappedIndexer[T, U]) lookupForHandler(k string, handlerID uint64) []U {
-	mergedIndexer := m.indexer.(mergeIndexer[T])
-	keys := mergedIndexer.lookupForHandler(k, handlerID)
 	res := make([]U, 0, len(keys))
 	for _, obj := range keys {
 		res = append(res, m.mapFunc(obj))
@@ -162,55 +145,6 @@ func (m *mapCollection[T, U]) WaitUntilSynced(stop <-chan struct{}) bool {
 	return m.collection.WaitUntilSynced(stop)
 }
 
-func (m *mapMergeCollection[T, U]) registerBatchForHandler(handler func([]Event[U]), runExisting bool, handle *registrationHandle) HandlerRegistration {
-	cc, ok := m.collection.(mergeCollection[T])
-	if !ok {
-		// This is a no-op, as the mapCollection does not support this
-		panic("Merged mapCollection must reference a mergedCollection[T]")
-	}
-	return cc.registerBatchForHandler(func(t []Event[T]) {
-		events := make([]Event[U], 0, len(t))
-		for _, o := range t {
-			e := Event[U]{
-				Event: o.Event,
-			}
-			if o.Old != nil {
-				e.Old = ptr.Of(m.mapFunc(*o.Old))
-			}
-			if o.New != nil {
-				e.New = ptr.Of(m.mapFunc(*o.New))
-			}
-			events = append(events, e)
-		}
-		handler(events)
-	}, runExisting, handle)
-}
-
-func (m *mapMergeCollection[T, U]) getKeyForHandler(k string, handlerID uint64) *U {
-	cc, ok := m.collection.(mergeCollection[T])
-	if !ok {
-		panic("mapMergeCollection must reference a mergedCollection[T]")
-	}
-	obj := cc.getKeyForHandler(k, handlerID)
-	if obj == nil {
-		return nil
-	}
-	return ptr.Of(m.mapFunc(*obj))
-}
-
-func (m *mapMergeCollection[T, U]) listForHandler(handlerID uint64) []U {
-	cc, ok := m.collection.(mergeCollection[T])
-	if !ok {
-		panic("mapMergeCollection must reference a mergedCollection[T]")
-	}
-	list := cc.listForHandler(handlerID)
-	res := make([]U, 0, len(list))
-	for _, obj := range list {
-		res = append(res, m.mapFunc(obj))
-	}
-	return res
-}
-
 func MapCollection[T, U any](
 	collection Collection[T],
 	mapFunc func(T) U,
@@ -233,9 +167,5 @@ func MapCollection[T, U any](
 		metadata:       metadata,
 	}
 	maybeRegisterCollectionForDebugging[U](m, o.debugger)
-	if _, ok := ic.(mergeCollection[T]); ok {
-		log.Infof("Mapped to a mergeCollection %s with mapFunc %T", m.name(), mapFunc)
-		return &mapMergeCollection[T, U]{*m}
-	}
 	return m
 }

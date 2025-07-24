@@ -26,10 +26,6 @@ func (t TestingDummyContext) name() string {
 	return "testing"
 }
 
-func (t TestingDummyContext) uid() collectionUID {
-	return 1
-}
-
 func (t TestingDummyContext) DiscardResult() {
 	panic("TestingDummyContext cannot DiscardResult")
 }

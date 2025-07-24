@@ -19,9 +19,8 @@ import (
 )
 
 type dynamicJoinHandlerRegistration struct {
-	syncers   map[collectionUID]Syncer
-	removes   map[collectionUID]func()
-	handlerID uint64
+	syncers map[collectionUID]Syncer
+	removes map[collectionUID]func()
 	sync.RWMutex
 }
 
