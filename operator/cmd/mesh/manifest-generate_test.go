@@ -652,6 +652,12 @@ func TestManifestGeneratePilot(t *testing.T) {
 			fileSelect:  []string{"templates/deployment.yaml"},
 			chartSource: liveCharts,
 		},
+		{
+			desc:        "networkpolicy_enabled",
+			diffSelect:  "NetworkPolicy:*:istiod",
+			fileSelect:  []string{"templates/networkpolicy.yaml"},
+			chartSource: liveCharts,
+		},
 	})
 }
 
