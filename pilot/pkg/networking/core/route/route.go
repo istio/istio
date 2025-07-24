@@ -30,6 +30,7 @@ import (
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -408,16 +409,25 @@ func BuildHTTPRoutesForVirtualService(
 	out := make([]*route.Route, 0, len(vs.Http))
 
 	catchall := false
+	var lastMatch *route.RouteMatch
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := TranslateRoute(node, http, nil, listenPort, virtualService, gatewayNames, opts); r != nil {
+				if lastMatch != nil && proto.Equal(lastMatch, r.Match) {
+					continue
+				}
 				out = append(out, r)
+				lastMatch = r.Match
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
 				if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
+					if lastMatch != nil && proto.Equal(lastMatch, r.Match) {
+						continue
+					}
 					out = append(out, r)
+					lastMatch = r.Match
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just stop sending any more routes here.
 					if IsCatchAllRoute(r) {
