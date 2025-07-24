@@ -297,7 +297,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			if sameNamespace && (isCAOnlySecret || isAuthorized()) {
 				// if sameNamespace && isAuthorized() {
 				allowedResources = append(allowedResources, r)
-			} else if features.EnableReferenceGrantForIstioGateway && !sameNamespace && verified {
+			} else if features.EnableReferenceGrantForIstioGateway && verified {
 				allowedResources = append(allowedResources, r)
 			} else {
 				deniedResources = append(deniedResources, r.Name)
