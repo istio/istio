@@ -19,7 +19,6 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -307,7 +306,6 @@ func (a *index) buildGlobalCollections(
 	// This will allow us to build coalesced workloads that represent all the workloads in a remote network,
 	// for a given service. This helps reduce the number of XDS objects we to proxies.
 	workloadNetworkServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "network;service", func(o model.WorkloadInfo) []string {
-		log.Infof("Calculating network;service index for workload %s", spew.Sprint(o.Workload))
 		res := make([]string, 0, len(o.Workload.Services))
 		for svc := range o.Workload.Services {
 			res = append(res, strings.Join([]string{o.Workload.Network, svc}, ";"))
@@ -320,11 +318,6 @@ func (a *index) buildGlobalCollections(
 			opts.WithName("workloadNetworkServiceIndex")...,
 		),
 		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) []model.WorkloadInfo {
-			objsStr := spew.Sprint(i.Objects)
-			log.Infof("Coalescing workloads for key %s:\n%s", i.Key, objsStr)
-			defer func() {
-				log.Infof("Returned from coalescing workloads for key %s:\n%s", i.Key, objsStr)
-			}()
 			parts := strings.Split(i.Key, ";")
 			if len(parts) != 2 {
 				log.Errorf("Invalid key %s for SplitHorizonWorkloads, expected <network>;<service>", i.Key)
@@ -334,7 +327,6 @@ func (a *index) buildGlobalCollections(
 			localNetwork := a.Network(ctx).String()
 			if networkID.String() == localNetwork {
 				// We don't coalesce workloads for the local network
-				log.Infof("Skipping coalescing workloads for local network %s given key %s", localNetwork, i.Key)
 				return nil
 			}
 
@@ -374,12 +366,10 @@ func (a *index) buildGlobalCollections(
 			gw := gws[0]
 			wi := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
 			res := []model.WorkloadInfo{wi}
-			log.Infof("Returning coalesced workload for network %s, service %s: %s", networkID, svcName, spew.Sprint(res))
 			return res
 		}, opts.WithName("CoalesedWorkloads")...,
 	)
 	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, wi model.WorkloadInfo) *model.WorkloadInfo {
-		log.Infof("Processing workload %s for network local workloads", spew.Sprint(wi.Workload))
 		if strings.HasPrefix(wi.Workload.Uid, "NetworkGateway/") {
 			return &wi
 		}

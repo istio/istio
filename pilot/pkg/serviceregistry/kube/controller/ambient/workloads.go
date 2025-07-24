@@ -578,34 +578,11 @@ func MergedGlobalWorkloadsCollection(
 				)...,
 			)
 
-			// NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
-			// 	return slices.Map(LookupAllNetworkGateway(
-			// 		ctx,
-			// 		globalNetworks.NetworkGateways,
-			// 	), convertGateway)
-			// }, append(
-			// 	opts.WithName(fmt.Sprintf("NetworkGatewayWorkloads[%s]", c.ID)),
-			// 	krt.WithMetadata(krt.Metadata{
-			// 		multicluster.ClusterKRTMetadataKey: c.ID,
-			// 	}),
-			// )...)
-			// NetworkGatewayWorkloadsWithCluster := krt.MapCollection(
-			// 	NetworkGatewayWorkloads,
-			// 	wrapObjectWithCluster[model.WorkloadInfo](c.ID),
-			// 	append(
-			// 		opts.WithName(fmt.Sprintf("LocalNetworkGatewayWorkloadsWithCluster[%s]", c.ID)),
-			// 		krt.WithMetadata(krt.Metadata{
-			// 			multicluster.ClusterKRTMetadataKey: c.ID,
-			// 		}),
-			// 	)...,
-			// )
-
 			results := map[*collectionCacheByCluster[config.ObjectWithCluster[model.WorkloadInfo]]]bool{
 				podWorkloadInfosCache:           podWorkloadInfosCache.Insert(PodWorkloadsWithCluster),
 				workloadEntryWorkloadInfosCache: workloadEntryWorkloadInfosCache.Insert(WorkloadEntryWorkloadsWithCluster),
 				serviceEntryWorkloadInfosCache:  serviceEntryWorkloadInfosCache.Insert(ServiceEntryWorkloadsWithCluster),
 				endpointSliceWorkloadInfosCache: endpointSliceWorkloadInfosCache.Insert(EndpointSliceWorkloadsWithCluster),
-				// networkGatewayWorkloadInfosCache: networkGatewayWorkloadInfosCache.Insert(NetworkGatewayWorkloadsWithCluster),
 			}
 
 			if slices.Contains(maps.Values(results), false) {
@@ -622,7 +599,6 @@ func MergedGlobalWorkloadsCollection(
 				WorkloadEntryWorkloadsWithCluster,
 				ServiceEntryWorkloadsWithCluster,
 				EndpointSliceWorkloadsWithCluster,
-				// NetworkGatewayWorkloadsWithCluster,
 			}
 
 			return cols

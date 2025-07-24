@@ -22,27 +22,74 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// TODO: Implement with merging
 type join[T any] struct {
-	collections []internalCollection[T]
-	synced      <-chan struct{}
-	syncer      Syncer
-	metadata    Metadata
-	*mergejoin[T]
+	collectionName   string
+	id               collectionUID
+	collections      []internalCollection[T]
+	synced           <-chan struct{}
+	uncheckedOverlap bool
+	syncer           Syncer
+	metadata         Metadata
 }
 
-func (j *join[T]) getCollections() []Collection[T] {
-	// This is used by the collection lister to get the collections for this join
-	// so it can be used in a nested join.
-	return slices.Map(j.collections, func(e internalCollection[T]) Collection[T] {
-		return e
-	})
+func (j *join[T]) GetKey(k string) *T {
+	for _, c := range j.collections {
+		if r := c.GetKey(k); r != nil {
+			return r
+		}
+	}
+	return nil
+}
+
+func (j *join[T]) List() []T {
+	var res []T
+	if j.uncheckedOverlap {
+		first := true
+		for _, c := range j.collections {
+			objs := c.List()
+			// As an optimization, take the first (non-empty) result as-is without copying
+			if len(objs) > 0 && first {
+				res = objs
+				first = false
+			} else {
+				// After the first, safely merge into the result
+				res = append(res, objs...)
+			}
+		}
+		return res
+	}
+	var found sets.String
+	first := true
+	for _, c := range j.collections {
+		objs := c.List()
+		// As an optimization, take the first (non-empty) result as-is without copying
+		if len(objs) > 0 && first {
+			res = objs
+			first = false
+			found = sets.NewWithLength[string](len(objs))
+			for _, i := range objs {
+				found.Insert(GetKey(i))
+			}
+		} else {
+			// After the first, safely merge into the result
+			for _, i := range objs {
+				key := GetKey(i)
+				if !found.InsertContains(key) {
+					// Only keep it if it is the first time we saw it, as our merging mechanism is to keep the first one
+					res = append(res, i)
+				}
+			}
+		}
+	}
+	return res
 }
 
 func (j *join[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched(j, f)
+	return registerHandlerAsBatched[T](j, f)
 }
 
-func (j *join[T]) registerBatchUnmerged(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
+func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
 	sync := multiSyncer{}
 	removes := []func(){}
 	for _, c := range j.collections {
@@ -56,44 +103,9 @@ func (j *join[T]) registerBatchUnmerged(f func(o []Event[T]), runExistingState b
 	}
 }
 
-func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
-	h := &registrationHandle{
-		id: globalUIDCounter.Inc(),
-	}
-	return j.registerBatchForHandler(f, runExistingState, h)
-}
-
-func (j *join[T]) registerBatchForHandler(f func(o []Event[T]), runExistingState bool, handle *registrationHandle) HandlerRegistration {
-	if j.merge == nil {
-		return j.registerBatchUnmerged(f, runExistingState)
-	}
-	j.Lock()
-	defer j.Unlock()
-	sync := multiSyncer{}
-	j.handlers.Insert(handle.id)
-	removes := []func(){}
-	// Only init this new handler with the collection's state if we're not running existing state.
-	// Handlers that run existing state will catch up once they get all of their events.
-	if !runExistingState && handle.id != uint64(j.uid()) {
-		j.maybeInitMergeCacheForHandlerLocked(handle.id)
-	}
-
-	for _, c := range j.collections {
-		reg := c.RegisterBatch(j.handleInnerCollectionEvent(f, handle), runExistingState)
-		removes = append(removes, reg.UnregisterHandler)
-		sync.syncers = append(sync.syncers, reg)
-	}
-	return joinHandlerRegistration{
-		Syncer:    sync,
-		removes:   removes,
-		handlerID: handle.id,
-	}
-}
-
 type joinHandlerRegistration struct {
 	Syncer
-	removes   []func()
-	handlerID uint64
+	removes []func()
 }
 
 func (j joinHandlerRegistration) UnregisterHandler() {
@@ -133,7 +145,6 @@ func (j joinIndexer[T]) Lookup(key string) []T {
 	for _, i := range j.indexers {
 		l := i.Lookup(key)
 		if len(l) > 0 && first {
-			// TODO: Add support for merging
 			// Optimization: re-use the first returned slice
 			res = l
 			first = false
@@ -146,15 +157,11 @@ func (j joinIndexer[T]) Lookup(key string) []T {
 
 // nolint: unused // (not true, its to implement an interface)
 func (j *join[T]) index(name string, extract func(o T) []string) indexer[T] {
-	if j.merge == nil {
-		ji := joinIndexer[T]{indexers: make([]indexer[T], 0, len(j.collections))}
-		for _, c := range j.collections {
-			ji.indexers = append(ji.indexers, c.index(name, extract))
-		}
-		return ji
+	ji := joinIndexer[T]{indexers: make([]indexer[T], 0, len(j.collections))}
+	for _, c := range j.collections {
+		ji.indexers = append(ji.indexers, c.index(name, extract))
 	}
-
-	return j.mergejoin.index(name, extract)
+	return ji
 }
 
 func (j *join[T]) Synced() Syncer {
@@ -177,21 +184,9 @@ func (j *join[T]) Metadata() Metadata {
 }
 
 // JoinCollection combines multiple Collection[T] into a single
-// Collection[T], picking the first object found when duplicates are found.
-// Access operations (e.g. GetKey and List) will perform a best effort stable ordering
-// of the list of elements returned; however, this ordering will not be persistent across
-// istiod restarts.
-func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
-	return JoinWithMergeCollection[T](cs, nil, opts...)
-}
-
-// JoinWithMergeCollection combines multiple Collection[T] into a single
 // Collection[T] merging equal objects into one record
-// in the resulting Collection based on the provided merge function.
-//
-// The merge function *cannot* assume a stable ordering of the list of elements passed to it. Therefore, access operations (e.g. GetKey and List) will
-// will only be deterministic if the merge function is deterministic. The merge function should return nil if no value should be returned.
-func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, opts ...CollectionOption) Collection[T] {
+// in the resulting Collection
+func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("Join[%v]", ptr.TypeName[T]())
@@ -200,41 +195,6 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 	c := slices.Map(cs, func(e Collection[T]) internalCollection[T] {
 		return e.(internalCollection[T])
 	})
-
-	if o.joinUnchecked && merge != nil {
-		log.Warn("JoinWithMergeCollection: unchecked overlap is ineffective with a merge function")
-		o.joinUnchecked = false
-	}
-	j := &join[T]{
-		synced:      synced,
-		collections: c,
-		syncer: channelSyncer{
-			name:   o.name,
-			synced: synced,
-		},
-		mergejoin: &mergejoin[T]{
-			id:               nextUID(),
-			collectionName:   o.name,
-			mergeCache:       make(map[mergeCacheKey]mergeCacheEntry[T]),
-			indexes:          make(map[string]joinCollectionIndex[T]),
-			uncheckedOverlap: o.joinUnchecked,
-			handlers:         sets.New[uint64](),
-			merge:            merge,
-		},
-	}
-
-	j.mergejoin.collections = j
-
-	if o.metadata != nil {
-		j.metadata = o.metadata
-	}
-
-	j.registerBatchForHandler(func(_ []Event[T]) {
-
-	}, true, &registrationHandle{
-		id: uint64(j.id),
-	})
-
 	go func() {
 		for _, c := range c {
 			if !c.WaitUntilSynced(o.stop) {
@@ -244,6 +204,22 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 		close(synced)
 		log.Infof("%v synced", o.name)
 	}()
+	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
+	j := &join[T]{
+		collectionName:   o.name,
+		id:               nextUID(),
+		synced:           synced,
+		collections:      c,
+		uncheckedOverlap: o.joinUnchecked,
+		syncer: channelSyncer{
+			name:   o.name,
+			synced: synced,
+		},
+	}
+
+	if o.metadata != nil {
+		j.metadata = o.metadata
+	}
 
 	return j
 }

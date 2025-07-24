@@ -1,3 +1,16 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package krt
 
 import (
@@ -13,21 +26,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type nestedjoin2[T any] struct {
-	*mergejoin2[T]
+type nestedjoinmerge[T any] struct {
+	*mergejoin[T]
 	collections internalCollection[Collection[T]]
 	regs        map[collectionUID]HandlerRegistration // registrations for the sub-collections, used to unsubscribe when the collection is deleted
 }
 
 var (
-	_ internalCollection[any] = &nestedjoin2[any]{}
+	_ internalCollection[any] = &nestedjoinmerge[any]{}
 )
 
-func (j *nestedjoin2[T]) Register(f func(e Event[T])) HandlerRegistration {
+func (j *nestedjoinmerge[T]) Register(f func(e Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched(j, f)
 }
 
-func (j *nestedjoin2[T]) RegisterBatch(f func(e []Event[T]), runExistingState bool) HandlerRegistration {
+func (j *nestedjoinmerge[T]) RegisterBatch(f func(e []Event[T]), runExistingState bool) HandlerRegistration {
 	if !runExistingState {
 		// If we don't to run the initial state this is simple, we just register the handler.
 		j.mu.Lock()
@@ -54,7 +67,7 @@ func (j *nestedjoin2[T]) RegisterBatch(f func(e []Event[T]), runExistingState bo
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (j *nestedjoin2[T]) dump() CollectionDump {
+func (j *nestedjoinmerge[T]) dump() CollectionDump {
 	innerCols := j.collections.List()
 	dumpsByCollectionUID := make(map[string]InputDump, len(innerCols))
 	for _, c := range innerCols {
@@ -75,13 +88,13 @@ func (j *nestedjoin2[T]) dump() CollectionDump {
 	}
 }
 
-func (j *nestedjoin2[T]) getCollections() []Collection[T] {
+func (j *nestedjoinmerge[T]) getCollections() []Collection[T] {
 	// This is used by the collection lister to get the collections for this join
 	// so it can be used in a nested join.
 	return j.collections.List()
 }
 
-func NewNestedJoinCollection2[T any](collections Collection[Collection[T]], merge func(ts []T) *T, opts ...CollectionOption) Collection[T] {
+func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]], merge func(ts []T) *T, opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("NestedJoin[%v]", ptr.TypeName[T]())
@@ -90,8 +103,8 @@ func NewNestedJoinCollection2[T any](collections Collection[Collection[T]], merg
 	ics := collections.(internalCollection[Collection[T]])
 	synced := make(chan struct{})
 
-	j := &nestedjoin2[T]{
-		mergejoin2: &mergejoin2[T]{
+	j := &nestedjoinmerge[T]{
+		mergejoin: &mergejoin[T]{
 			id:             nextUID(),
 			collectionName: o.name,
 			log:            log.WithLabels("owner", o.name),
@@ -106,7 +119,7 @@ func NewNestedJoinCollection2[T any](collections Collection[Collection[T]], merg
 		regs:        make(map[collectionUID]HandlerRegistration),
 	}
 
-	j.mergejoin2.collections = j
+	j.mergejoin.collections = j
 	j.syncer = channelSyncer{
 		name:   j.collectionName,
 		synced: j.synced,
@@ -157,7 +170,7 @@ func NewNestedJoinCollection2[T any](collections Collection[Collection[T]], merg
 	return j
 }
 
-func (j *nestedjoin2[T]) runQueue(initialCollections []Collection[T], subscriptionFunc func([]Event[T]), reg HandlerRegistration) {
+func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscriptionFunc func([]Event[T]), reg HandlerRegistration) {
 	// Wait for the container of collections to be synced before we start processing events.
 	j.mu.Lock()
 	if !j.collections.WaitUntilSynced(j.stop) {
@@ -184,7 +197,7 @@ func (j *nestedjoin2[T]) runQueue(initialCollections []Collection[T], subscripti
 	j.queue.Run(j.stop)
 }
 
-func (j *nestedjoin2[T]) handleCollectionUpdate(e Event[Collection[T]]) {
+func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 	// Get all of the elements in the old collection
 	oldCollectionValue := *e.Old
 	newCollectionValue := *e.New
@@ -211,29 +224,26 @@ func (j *nestedjoin2[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 		// If we see it in the old collection, then it's an update
 		if oldItem, ok := oldItemsMap[key]; ok {
 			seen.Insert(string(key))
-			// Don't need to pass i since the collection still exists and has been updated
+			// Don't need to pass i since the new collection is in our list of collections
+			// merged is guaranteed to be non-nil since newCollectionValue is a part of
+			// j's collection of collections.
 			merged := j.calculateMerged(string(key))
-			if merged == nil {
-				// This shouldn't happen, log it
-				log.Warnf("NestedJoinCollection: Merged item %v is nil after a collection update. Falling back to collection specific version", key)
-				merged = &i
-			} else {
-				// Update the cache with the new merged version
-				oldItem, ok = j.outputs[key]
-				if !ok {
-					// Outputs doesn't contain the key for this item, but it was in the old items map.
-					// This is unexpected, log it
-					log.Warnf("NestedJoinCollection: Expected to find key %v in outputs during a collection update in %s, but it was not found. Falling back to the old collection value", key, j.collectionName)
-				}
-				if Equal(oldItem, *merged) {
-					// no-op, the item is unchanged
-					continue
-				}
-				j.outputs[key] = *merged
+			oldItem, ok = j.outputs[key]
+			if !ok {
+				// Outputs doesn't contain the key for this item, but it was in the old items map.
+				// This is unexpected, log it
+				log.Warnf("NestedJoinCollection: Expected to find key %v in outputs during a collection update in %s, but it was not found. Falling back to the old collection value", key, j.collectionName)
+				oldItem = oldItemsMap[key]
 			}
+			if Equal(oldItem, *merged) {
+				// no-op, the item is unchanged
+				continue
+			}
+			// Update the cache with the new merged version
+			j.outputs[key] = *merged
 			// Send an update event for the merged version of this key
 			finalEvents = append(finalEvents, Event[T]{Old: &oldItem, New: merged, Event: controllers.EventUpdate})
-			// Delete it from the old items map
+			// Delete it from the old items map since we've seen it
 			delete(oldItemsMap, key)
 		} else {
 			if seen.Contains(string(key)) {
@@ -241,15 +251,43 @@ func (j *nestedjoin2[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 				log.Warnf("NestedJoinCollection: Duplicate item %v in updated collection, skipping", key)
 				continue
 			}
-			// This is a new item
-			finalEvents = append(finalEvents, Event[T]{New: &i, Event: controllers.EventAdd})
+			// This is a new item in the new collection, but it might not be a new item in the overall collection.
+			// Recalculate the merged version of this key just to be sure. Again, calculateMerged is guaranteed to be non-nil
+			// since newCollectionValue is a part of j's collection of collections.
+			merged := j.calculateMerged(string(key))
+			j.outputs[key] = *merged
+			finalEvents = append(finalEvents, Event[T]{New: merged, Event: controllers.EventAdd})
 		}
 	}
 
-	// Now loop through the old items map and send delete events for any items that
-	// are no longer in the new collection
-	for _, i := range maps.SeqStable(oldItemsMap) {
-		finalEvents = append(finalEvents, Event[T]{Old: &i, Event: controllers.EventDelete})
+	// Now loop through the old items map and delete any items whose merged value
+	// is nil. Send updates for the items that are still present in the outputs.
+	for key, i := range maps.SeqStable(oldItemsMap) {
+		existing, ok := j.outputs[key]
+		if !ok {
+			// This is a bug; the old items map should only contain items that are in the outputs.
+			msg := fmt.Sprintf("NestedJoinCollection: Expected to find key %v in outputs during a collection update in %s, but it was not found. This is a bug.", key, j.collectionName)
+			if EnableAssertions {
+				panic(msg)
+			} else {
+				j.log.Warn(msg)
+			}
+		}
+		// send deletes if the key isn't present at all in our collections
+		merged := j.calculateMerged(string(key))
+		if merged == nil {
+			finalEvents = append(finalEvents, Event[T]{Old: &existing, Event: controllers.EventDelete})
+			delete(j.outputs, getTypedKey(i))
+			continue
+		}
+
+		if Equal(existing, *merged) {
+			// no-op, the item is unchanged
+			continue
+		}
+		// If the merged value is not nil, then we have an update event
+		j.outputs[key] = *merged
+		finalEvents = append(finalEvents, Event[T]{Old: &existing, New: merged, Event: controllers.EventUpdate})
 	}
 
 	// Update the indexes
@@ -261,7 +299,7 @@ func (j *nestedjoin2[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 	j.eventHandlers.Distribute(finalEvents, !j.HasSynced())
 }
 
-func (j *nestedjoin2[T]) handleCollectionDelete(e Event[Collection[T]]) {
+func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	// Get all of the elements in the old collection
@@ -305,17 +343,22 @@ func (j *nestedjoin2[T]) handleCollectionDelete(e Event[Collection[T]]) {
 				j.log.Warnf("NestedJoinCollection: No item found in outputs for key %s during collection delete, sending delete event with event old value", keyString)
 				oldItem = *oldCollectionValue.GetKey(keyString)
 			}
+			delete(j.outputs, key)
+			if j.log.DebugEnabled() {
+				j.log.WithLabels("res", key).Debugf("handled delete")
+			}
 			e = Event[T]{Old: &oldItem, Event: controllers.EventDelete}
 		} else {
 			if !ok {
 				// If we don't have the old item, then this is actually an add (something must have changed in the time after enqueue)
-				j.outputs[key] = *res
 				e = Event[T]{New: res, Event: controllers.EventAdd}
+			} else {
+				// There are some versions of this key still in the overall collection
+				// send an update with the new merged version and the old version from
+				// the cache
+				e = Event[T]{Old: &oldItem, New: res, Event: controllers.EventUpdate}
 			}
-			// There are some versions of this key still in the overall collection
-			// send an update with the new merged version and the old version from
-			// the cache
-			e = Event[T]{Old: &oldItem, New: res, Event: controllers.EventUpdate}
+			j.outputs[key] = *res
 		}
 
 		// Update the index

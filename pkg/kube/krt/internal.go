@@ -103,7 +103,6 @@ type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
 	registerDependency(*dependency, Syncer, func(f erasedEventHandler) Syncer)
 	name() string
-	uid() collectionUID
 }
 
 // getLabels returns the labels for an object, if possible.

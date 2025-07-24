@@ -17,9 +17,6 @@ package krt
 import (
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube/controllers"
@@ -200,16 +197,8 @@ func (i indexCollection[K, O]) index(name string, extract func(o IndexObject[K, 
 }
 
 func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
-	log.Infof("GetKey for %s in index %s", k, i.collectionName)
 	tk := i.fromKey(k).(K)
-	var objs []O
-	switch i.idx.indexer.(type) {
-	case mergeIndexer[O]:
-		objs = i.idx.indexer.(mergeIndexer[O]).lookupForHandler(k, uint64(i.id))
-	default:
-		log.Infof("Index %s not a merge indexer; instead is a %T", i.name(), i.idx.indexer)
-		objs = i.idx.Lookup(tk)
-	}
+	objs := i.idx.Lookup(tk)
 	return &IndexObject[K, O]{
 		Key:     tk,
 		Objects: objs,
@@ -258,11 +247,8 @@ func (i indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) Hand
 }
 
 func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]), runExistingState bool) HandlerRegistration {
-	reg := func(o []Event[O]) {
-		log.Infof("Inside indexCollection event handler for %s with %d events", i.collectionName, len(o))
+	return i.idx.c.RegisterBatch(func(o []Event[O]) {
 		allKeys := sets.New[K]()
-		diffs := []string{}
-		events := []controllers.EventType{}
 		for _, ev := range o {
 			if ev.Old != nil {
 				allKeys.InsertAll(i.idx.extractKeys(*ev.Old)...)
@@ -270,10 +256,7 @@ func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]
 			if ev.New != nil {
 				allKeys.InsertAll(i.idx.extractKeys(*ev.New)...)
 			}
-			diffs = append(diffs, cmp.Diff(ev.Old, ev.New, protocmp.Transform()))
-			events = append(events, ev.Event)
 		}
-		log.Infof("Index of type %T has %s events %s that results in keys %s", i, spew.Sprint(events), diffs, allKeys)
 		downstream := make([]Event[IndexObject[K, O]], 0, len(allKeys))
 		for key := range allKeys {
 			v := i.GetKey(toString(key))
@@ -293,25 +276,6 @@ func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]
 				})
 			}
 		}
-		log.Infof("  %T has %d downstream events:\n%s", i, len(downstream), spew.Sprint(downstream))
 		f(downstream)
-	}
-	switch c := i.idx.c.(type) {
-	case mergeCollection[O]:
-		handle := c.registerBatchForHandler(reg, runExistingState, &registrationHandle{
-			id: uint64(i.id),
-		})
-		switch o := handle.(type) {
-		case *joinHandlerRegistration:
-			log.Infof("Building index collection %s from collection %s has handler %d", i.name(), c.name(), o.handlerID)
-		case *dynamicJoinHandlerRegistration:
-			log.Infof("Building index collection %s from collection %s has handler %d", i.name(), c.name(), o.handlerID)
-		default:
-			log.Infof("Handle is of type %T, not a join handler registration", o)
-		}
-		return handle
-	default:
-		log.Infof("Collection %s is not a merged collection (it is %T), using RegisterBatch", i.idx.c.(internalCollection[O]).name(), i.idx.c)
-		return i.idx.c.RegisterBatch(reg, runExistingState)
-	}
+	}, runExistingState)
 }

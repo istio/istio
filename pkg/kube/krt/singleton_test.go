@@ -121,7 +121,6 @@ func TrackerHandler[T any](tracker *assert.Tracker[string]) func(krt.Event[T]) {
 func BatchedTrackerHandler[T any](tracker *assert.Tracker[string]) func([]krt.Event[T]) {
 	return func(o []krt.Event[T]) {
 		tracker.Record(slices.Join(",", slices.Map(o, func(o krt.Event[T]) string {
-			// log.Infof("Received %s event for key %s in tracker", o.Event, krt.GetKey(o.Latest()))
 			return fmt.Sprintf("%v/%v", o.Event, krt.GetKey(o.Latest()))
 		})...))
 	}

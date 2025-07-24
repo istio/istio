@@ -72,7 +72,7 @@ func (t *Tracker[T]) WaitOrdered(events ...T) {
 			t.events[0] = ptr.Empty[T]()
 			t.events = t.events[1:]
 			return nil
-		}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
+		}, retry.Timeout(1*time.Second), retry.BackoffDelay(time.Millisecond))
 		if err != nil {
 			t.t.Fatal(err)
 		}
