@@ -327,7 +327,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 }
 
 func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
-	t.Skipf("This test is flaky, see https://github.com/istio/istio/issues/57126")
+	t.Skip("This test is flaky, see https://github.com/istio/istio/issues/57126")
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	wpKey := model.WaypointKey{
 		Namespace: testNS,
@@ -425,7 +425,7 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 }
 
 func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
-	t.Skipf("This test is flaky, see https://github.com/istio/istio/issues/57126")
+	t.Skip("This test is flaky, see https://github.com/istio/istio/issues/57126")
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
@@ -552,7 +552,7 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 }
 
 func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
-	t.Skipf("This test is flaky, see https://github.com/istio/istio/issues/57126")
+	t.Skip("This test is flaky, see https://github.com/istio/istio/issues/57126")
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
