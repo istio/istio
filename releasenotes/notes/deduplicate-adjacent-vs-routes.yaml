@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: traffic-management
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+  - |
+    This change improves the routing configuration by deduplicating adjacent routes in a virtual service.
+    This means that if two routes are adjacent and reduce to the same match conditions, only the first route
+    will be kept. This should result in more efficient routing configurations generated from some large virtual 
+    services, especially those that match on properties of the source proxy itself.
+
