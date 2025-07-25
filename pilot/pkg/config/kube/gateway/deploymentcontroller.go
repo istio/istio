@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
@@ -96,7 +97,7 @@ type DeploymentController struct {
 	patcher             patcher
 	gateways            kclient.Client[*gateway.Gateway]
 	gatewayClasses      kclient.Client[*gateway.GatewayClass]
-	listenerSets        kclient.Client[*gatewayx.XListenerSet]
+	listenerSets        kclient.Informer[*gatewayx.XListenerSet]
 	listenerSetByParent kclient.Index[types.NamespacedName, *gatewayx.XListenerSet]
 
 	clients         map[schema.GroupVersionResource]getter
@@ -269,7 +270,7 @@ func NewDeploymentController(
 		controllers.WithMaxAttempts(5))
 
 	if features.EnableAlphaGatewayAPI {
-		dc.listenerSets = kclient.NewFiltered[*gatewayx.XListenerSet](client, filter)
+		dc.listenerSets = kclient.NewDelayedInformer[*gatewayx.XListenerSet](client, gvr.XListenerSet, kubetypes.StandardInformer, filter)
 		dc.listenerSetByParent = kclient.CreateIndex(dc.listenerSets, "parent", func(o *gatewayx.XListenerSet) []types.NamespacedName {
 			return []types.NamespacedName{extractListenerSetParent(o)}
 		})
