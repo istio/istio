@@ -749,6 +749,14 @@ func buildSidecarOutboundHTTPListenerOpts(
 		class:                     istionetworking.ListenerClassSidecarOutbound,
 	}
 
+	// Configure X-Forwarded-Port and X-Forwarded-Host headers
+	if ph.XForwardedPort {
+		httpOpts.connectionManager.XForwardedPort = proto.BoolTrue
+	}
+	if ph.XForwardedHost {
+		httpOpts.connectionManager.XForwardedHost = proto.BoolTrue
+	}
+
 	if features.HTTP10 || enableHTTP10(opts.proxy.Metadata.HTTP10) {
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 			AcceptHttp_10: true,
