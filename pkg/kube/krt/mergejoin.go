@@ -25,6 +25,10 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+type collectionLister[T any] interface {
+	getCollections() []Collection[T]
+}
+
 type mergejoin[T any] struct {
 	id             collectionUID
 	collectionName string
@@ -265,11 +269,10 @@ func (j *mergejoin[T]) refreshEventsLocked(items []Event[T]) []Event[T] {
 				msg := fmt.Sprintf("POTENTIAL BUG: key %s not found in cache for event %s", iKey, ev.Event)
 				if EnableAssertions {
 					panic(msg)
-				} else {
-					j.log.Debug(msg)
-					// Convert the update into an add since that's what it is to us
-					items[idx] = Event[T]{Event: controllers.EventAdd, New: iObj}
 				}
+				j.log.Debug(msg)
+				// Convert the update into an add since that's what it is to us
+				items[idx] = Event[T]{Event: controllers.EventAdd, New: iObj}
 			}
 			continue
 		}

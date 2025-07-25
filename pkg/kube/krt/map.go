@@ -38,9 +38,7 @@ type mappedIndexer[T any, U any] struct {
 	mapFunc func(T) U
 }
 
-var (
-	_ Collection[any] = &mapCollection[any, any]{}
-)
+var _ Collection[any] = &mapCollection[any, any]{}
 
 // nolint: unused // (not true, its to implement an interface)
 func (m *mappedIndexer[T, U]) Lookup(k string) []U {

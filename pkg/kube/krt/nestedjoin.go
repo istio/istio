@@ -25,10 +25,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-type collectionLister[T any] interface {
-	getCollections() []Collection[T]
-}
-
 // Note: there's a goroutine per event handler, so we can't put state relevant
 // to any keys in the collection itself (otherwise, different handlers will
 // read/mutate the same state and see a different view of the world).
@@ -43,11 +39,6 @@ type nestedjoin[T any] struct {
 
 	// Keep a stop channel so we can check if nested collections are synced
 	stop <-chan struct{}
-}
-
-type handlerLocalKey[T any] struct {
-	Key[T]
-	handlerID uint64
 }
 
 type collectionChangeHandlers[T any] struct {
@@ -210,75 +201,9 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState boo
 		removes: removes,
 	}
 
+	// We register to get notified if a collection within our set of collections is modified
 	j.registerCollectionChangeHandler(func(e collectionChangeEvent[T]) {
-		djhr.Lock()
-		defer djhr.Unlock()
-		switch e.eventType {
-		case collectionMembershipEventAdd:
-			reg := e.collectionValue.RegisterBatch(f, runExistingState)
-			djhr.removes[e.collectionValue.uid()] = reg.UnregisterHandler
-			djhr.syncers[e.collectionValue.uid()] = reg
-		case collectionMembershipEventDelete:
-			// Unregister the handler for this collection
-			remover := djhr.removes[e.collectionValue.uid()]
-			syncer := djhr.syncers[e.collectionValue.uid()]
-			if remover == nil {
-				return
-			}
-			if syncer == nil {
-				return
-			}
-
-			remover()
-			delete(djhr.removes, e.collectionValue.uid())
-			delete(djhr.syncers, e.collectionValue.uid())
-
-			// Now send a final set of remove events for each object in the collection
-			var events []Event[T]
-			for _, elem := range e.collectionValue.List() {
-				events = append(events, Event[T]{Old: &elem, Event: controllers.EventDelete})
-			}
-			f(events)
-			return
-		case collectionMembershipEventUpdate:
-			// Get all of the elements in the old collection
-			oldItems := e.oldCollectionValue.List()
-			// Convert it to a sparse map for easy lookup
-			oldItemsMap := make(map[Key[T]]T, len(oldItems))
-			for _, i := range oldItems {
-				key := getTypedKey(i)
-				oldItemsMap[key] = i
-			}
-			// Now loop through the new collection and compare it to the old one
-			seen := sets.NewWithLength[string](len(oldItems))
-			finalEvents := make([]Event[T], 0, len(oldItems))
-			for _, i := range e.collectionValue.List() {
-				key := getTypedKey(i)
-				// If we see it in the old collection, then it's an update
-				if oldItem, ok := oldItemsMap[key]; ok {
-					seen.Insert(string(key))
-					// Send an update event for the new version of this key
-					finalEvents = append(finalEvents, Event[T]{Old: &oldItem, New: &i, Event: controllers.EventUpdate})
-					// Delete it from the old items map
-					delete(oldItemsMap, key)
-				} else {
-					if seen.Contains(string(key)) {
-						// This is a duplicate item in the new collection, skip it
-						log.Warnf("NestedJoinCollection: Duplicate item %v in updated collection, skipping", key)
-						continue
-					}
-					// This is a new item
-					finalEvents = append(finalEvents, Event[T]{New: &i, Event: controllers.EventAdd})
-				}
-			}
-			// Now loop through the old items map and send delete events for any items that
-			// are no longer in the new collection
-			for _, i := range maps.SeqStable(oldItemsMap) {
-				finalEvents = append(finalEvents, Event[T]{Old: &i, Event: controllers.EventDelete})
-			}
-
-			f(finalEvents)
-		}
+		j.handleCollectionChangeEvent(djhr, e, f)
 	})
 
 	return djhr

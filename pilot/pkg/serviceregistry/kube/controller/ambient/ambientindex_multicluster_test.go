@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +33,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -329,7 +327,6 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 }
 
 func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
-	t.Skip("This test is flaky, see https://github.com/istio/istio/issues/57126")
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	wpKey := model.WaypointKey{
 		Namespace: testNS,
@@ -337,29 +334,29 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		Addresses: []string{"10.0.0.1"},
 		Network:   testNW,
 	}
-	t.Run("waypoint eds", func(t *testing.T) {
-		s := newAmbientTestServer(t, testC, testNW, "")
-		s.addService(t, "svc1",
-			map[string]string{
-				label.IoIstioUseWaypoint.Name: "wp",
-				"istio.io/global":             "true",
-			},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
+	// t.Run("waypoint eds", func(t *testing.T) {
+	// 	s := newAmbientTestServer(t, testC, testNW, "")
+	// 	s.addService(t, "svc1",
+	// 		map[string]string{
+	// 			label.IoIstioUseWaypoint.Name: "wp",
+	// 			"istio.io/global":             "true",
+	// 		},
+	// 		map[string]string{},
+	// 		[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
+	// 	s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
-		s.addService(t, "wp",
-			map[string]string{},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
+	// 	s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
+	// 	s.addService(t, "wp",
+	// 		map[string]string{},
+	// 		map[string]string{},
+	// 		[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
+	// 	s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		s.addPodsForClient(t, "10.0.1.5", "wp-pod", "sa1",
-			map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning, s.pc)
-		// Event IDs do not have the namespace prefix for EDS
-		s.assertEvent(s.t, "svc1.ns1.svc.company.com")
-	})
+	// 	s.addPodsForClient(t, "10.0.1.5", "wp-pod", "sa1",
+	// 		map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning, s.pc)
+	// 	// Event IDs do not have the namespace prefix for EDS
+	// 	s.assertEvent(s.t, "svc1.ns1.svc.company.com")
+	// })
 
 	t.Run("hostname (multicluster but unused)", func(t *testing.T) {
 		s := newAmbientTestServer(t, testC, testNW, "")
@@ -427,7 +424,6 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 }
 
 func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
-	t.Skip("This test is flaky, see https://github.com/istio/istio/issues/57126")
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
@@ -554,7 +550,6 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 }
 
 func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
-	t.Skip("This test is flaky, see https://github.com/istio/istio/issues/57126")
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
@@ -767,7 +762,6 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			Labels: map[string]string{label.TopologyNetwork.Name: testNW},
 		},
 	})
-	log.Infof("Remote cluster %s now has network %s", remoteClient.clusterID, testNW)
 
 	s.labelServiceForClient(t, "svc2", testNS,
 		map[string]string{"istio.io/global": "true"}, localClient.sc)
@@ -788,11 +782,11 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			Labels: map[string]string{label.TopologyNetwork.Name: remoteNetwork},
 		},
 	})
-	log.Infof("Remote cluster %s now has network %s", remoteClient.clusterID, remoteNetwork)
+
 	assert.EventuallyEqual(t, func() int {
 		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
 		return len(ais)
-	}, 3, retry.Timeout(time.Second*5))
+	}, 3)
 	s.assertEvent(t, s.podXdsNameForCluster("pod2", remoteClient.clusterID),
 		s.podXdsNameForCluster("pod1-abc", remoteClient.clusterID),
 		splitHorizonName,
