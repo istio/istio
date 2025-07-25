@@ -334,29 +334,29 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		Addresses: []string{"10.0.0.1"},
 		Network:   testNW,
 	}
-	// t.Run("waypoint eds", func(t *testing.T) {
-	// 	s := newAmbientTestServer(t, testC, testNW, "")
-	// 	s.addService(t, "svc1",
-	// 		map[string]string{
-	// 			label.IoIstioUseWaypoint.Name: "wp",
-	// 			"istio.io/global":             "true",
-	// 		},
-	// 		map[string]string{},
-	// 		[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
-	// 	s.assertEvent(s.t, s.svcXdsName("svc1"))
+	t.Run("waypoint eds", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+		s.addService(t, "svc1",
+			map[string]string{
+				label.IoIstioUseWaypoint.Name: "wp",
+				"istio.io/global":             "true",
+			},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-	// 	s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
-	// 	s.addService(t, "wp",
-	// 		map[string]string{},
-	// 		map[string]string{},
-	// 		[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
-	// 	s.assertEvent(s.t, s.svcXdsName("svc1"))
+		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
+		s.addService(t, "wp",
+			map[string]string{},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-	// 	s.addPodsForClient(t, "10.0.1.5", "wp-pod", "sa1",
-	// 		map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning, s.pc)
-	// 	// Event IDs do not have the namespace prefix for EDS
-	// 	s.assertEvent(s.t, "svc1.ns1.svc.company.com")
-	// })
+		s.addPodsForClient(t, "10.0.1.5", "wp-pod", "sa1",
+			map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning, s.pc)
+		// Event IDs do not have the namespace prefix for EDS
+		s.assertEvent(s.t, "svc1.ns1.svc.company.com")
+	})
 
 	t.Run("hostname (multicluster but unused)", func(t *testing.T) {
 		s := newAmbientTestServer(t, testC, testNW, "")

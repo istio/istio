@@ -616,7 +616,6 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 		}
 		return res
 	}
-
 	return nil
 }
 
