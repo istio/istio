@@ -113,7 +113,7 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 		cniConfigFilepath += "list"
 	}
 
-	installLog.Infof("created CNI config %s", cniConfigFilepath)
+	installLog.Infof("Wrote CNI config to %s", cniConfigFilepath)
 	return cniConfigFilepath, nil
 }
 
