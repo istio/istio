@@ -151,6 +151,13 @@ var (
 	EnableGatewayAPIGatewayClassController = env.Register("PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER", true,
 		"If this is set to true, istiod will create and manage its default GatewayClasses").Get()
 
+	EnableReferenceGrantForIstioGateway = env.Register(
+		"PILOT_ENABLE_REFERENCE_GRANT_FOR_ISTIO_GATEWAY",
+		false,
+		"If enabled, support use of ReferenceGrant API to allow Istio Gateway to reference k8s Secrets across namespaces "+
+			"similarly to Kubernetes gateway-api.",
+	).Get()
+
 	DeltaXds = env.Register("ISTIO_DELTA_XDS", true,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world configuration on a Resource Request. "+
 			"While this feature uses the delta xds api, it may still occasionally send unchanged configurations instead of just the actual deltas.").Get()
