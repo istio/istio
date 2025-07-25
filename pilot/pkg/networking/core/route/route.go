@@ -408,8 +408,8 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
-	catchall := false
 	var lastMatch *route.RouteMatch
+translateLoop:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := TranslateRoute(node, http, nil, listenPort, virtualService, gatewayNames, opts); r != nil {
@@ -417,9 +417,8 @@ func BuildHTTPRoutesForVirtualService(
 					continue
 				}
 				out = append(out, r)
-				lastMatch = r.Match
 			}
-			catchall = true
+			break translateLoop
 		} else {
 			for _, match := range http.Match {
 				if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
@@ -427,18 +426,14 @@ func BuildHTTPRoutesForVirtualService(
 						continue
 					}
 					out = append(out, r)
-					lastMatch = r.Match
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just stop sending any more routes here.
 					if IsCatchAllRoute(r) {
-						catchall = true
-						break
+						break translateLoop
 					}
+					lastMatch = r.Match
 				}
 			}
-		}
-		if catchall {
-			break
 		}
 	}
 
