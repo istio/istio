@@ -258,7 +258,6 @@ func (a *index) buildGlobalCollections(
 	)
 
 	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
-	LocalServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](LocalWorkloadServices, "serviceAddress", networkAddressFromService)
 
 	LocalNamespacesInfo := krt.NewCollection(LocalNamespaces, func(ctx krt.HandlerContext, ns *v1.Namespace) *model.NamespaceInfo {
 		return &model.NamespaceInfo{
@@ -535,11 +534,11 @@ func (a *index) buildGlobalCollections(
 	if features.EnableIngressWaypointRouting {
 		RegisterEdsShim(
 			a.XDSUpdater,
-			GlobalWorkloads,
+			SplitHorizonWorkloads,
 			LocalNamespacesInfo,
 			SplitHorizonWorkloadServiceIndex,
-			GlobalMergedWorkloadServices,
-			LocalServiceAddressIndex, // TODO: should we consider allowing ingress -> remote services?
+			SplitHorizonServices,
+			SplitHorizonServiceAddressIndex, // TODO: should we consider allowing ingress -> remote services?
 			opts,
 		)
 	}

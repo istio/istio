@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
@@ -249,7 +248,6 @@ func TestNestedJoin2WithMergeAndIndexSimpleCollection(t *testing.T) {
 			Namespace: i.Key,
 			IPs:       slices.Sort(slices.Map(i.Objects, func(s SimpleService) string { return s.IP })),
 		}
-		log.Infof("Creating NamespaceIPs for %s: %v", i.Key, ni.IPs)
 		return ni
 	}, opts.WithName("NamespaceIPs")...)
 	tt := assert.NewTracker[string](t)

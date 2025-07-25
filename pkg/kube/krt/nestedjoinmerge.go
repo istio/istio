@@ -33,28 +33,23 @@ type nestedjoinmerge[T any] struct {
 	regs        map[collectionUID]HandlerRegistration // registrations for the sub-collections, used to unsubscribe when the collection is deleted
 }
 
-var (
-	_ internalCollection[any] = &nestedjoinmerge[any]{}
-)
+var _ internalCollection[any] = &nestedjoinmerge[any]{}
 
 func (j *nestedjoinmerge[T]) Register(f func(e Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched(j, f)
 }
 
 func (j *nestedjoinmerge[T]) RegisterBatch(f func(e []Event[T]), runExistingState bool) HandlerRegistration {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	if !runExistingState {
 		// If we don't to run the initial state this is simple, we just register the handler.
-		j.mu.Lock()
-		defer j.mu.Unlock()
 		return j.eventHandlers.Insert(f, j, nil, j.stop)
 	}
 
 	// We need to run the initial state, but we don't want to get duplicate events.
 	// We should get "ADD initialObject1, ADD initialObjectN, UPDATE someLaterUpdate" without mixing the initial ADDs
 	// Create ADDs for the current state of the merge cache
-	j.mu.RLock()
-	defer j.mu.RUnlock()
-
 	events := make([]Event[T], 0, len(j.outputs))
 	for _, o := range j.outputs {
 		events = append(events, Event[T]{
@@ -89,6 +84,7 @@ func (j *nestedjoinmerge[T]) dump() CollectionDump {
 	}
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (j *nestedjoinmerge[T]) getCollections() []Collection[T] {
 	// This is used by the collection lister to get the collections for this join
 	// so it can be used in a nested join.
@@ -110,7 +106,7 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 			collectionName: o.name,
 			log:            log.WithLabels("owner", o.name),
 			outputs:        make(map[Key[T]]T),
-			indexes:        make(map[string]joinCollectionIndex2[T]),
+			indexes:        make(map[string]joinCollectionIndex[T]),
 			eventHandlers:  newHandlerSet[T](),
 			merge:          merge,
 			synced:         synced,
@@ -145,20 +141,20 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 			return nil
 		})
 	}
-	reg := j.collections.RegisterBatch(func(o []Event[Collection[T]]) {
-		for _, e := range o {
-			o := e.Latest()
-			switch e.Event {
+	reg := j.collections.RegisterBatch(func(e []Event[Collection[T]]) {
+		for _, ev := range e {
+			obj := ev.Latest()
+			switch ev.Event {
 			case controllers.EventAdd:
 				// When a collection is added, subscribe to its events
-				reg := o.RegisterBatch(subscriptionFunc, true)
+				reg := obj.RegisterBatch(subscriptionFunc, true)
 				j.mu.Lock()
-				j.regs[o.(internalCollection[T]).uid()] = reg
+				j.regs[obj.(internalCollection[T]).uid()] = reg
 				j.mu.Unlock()
 			case controllers.EventUpdate:
-				j.handleCollectionUpdate(e)
+				j.handleCollectionUpdate(ev)
 			case controllers.EventDelete:
-				j.handleCollectionDelete(e)
+				j.handleCollectionDelete(ev)
 			}
 		}
 	}, false)
@@ -173,10 +169,10 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 
 func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscriptionFunc func([]Event[T]), reg HandlerRegistration) {
 	// Wait for the container of collections to be synced before we start processing events.
-	j.mu.Lock()
 	if !j.collections.WaitUntilSynced(j.stop) {
 		return
 	}
+	j.mu.Lock()
 
 	// Now that we've subscribed, process the current set of collections.
 	for _, c := range initialCollections {
@@ -265,9 +261,8 @@ func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 			msg := fmt.Sprintf("BUG: Expected to find key %v in outputs during a collection update in %s, but it was not found", key, j.collectionName)
 			if EnableAssertions {
 				panic(msg)
-			} else {
-				j.log.Warn(msg)
 			}
+			j.log.Warn(msg)
 		}
 		// send deletes if the key isn't present at all in our collections
 		merged := j.calculateMerged(string(key))
@@ -360,7 +355,6 @@ func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 		// Update the index
 		j.updateIndexLocked(e, key)
 		events = append(events, e)
-		log.Infof("Merged event %s due to collection delete for key %s in collection %s", e.Event, keyString, j.collectionName)
 	}
 
 	// Now send these events to the event handlers

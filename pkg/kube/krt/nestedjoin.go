@@ -126,67 +126,6 @@ func (j *nestedjoin[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched(j, f)
 }
 
-func (j *nestedjoin[T]) handleCollectionChangeEvent(
-	djhr *dynamicJoinHandlerRegistration,
-	e collectionChangeEvent[T],
-	handler func(o []Event[T]),
-) {
-	djhr.Lock()
-	defer djhr.Unlock()
-
-	switch e.eventType {
-	case collectionMembershipEventAdd:
-		log.Infof("NestedJoinCollection: Adding collection %s with uid %d", e.collectionValue.name(), e.collectionValue.uid())
-		// We always want to send events for existing state when a new collection is added
-		reg := e.collectionValue.RegisterBatch(func(o []Event[T]) {
-			djhr.RLock()
-			defer djhr.RUnlock()
-			if _, ok := djhr.removes[e.collectionValue.uid()]; !ok {
-				// The remover has been called; don't handle this event
-				return
-			}
-			handler(o)
-		}, true) // Always run existing state
-		djhr.removes[e.collectionValue.uid()] = reg.UnregisterHandler
-		djhr.syncers[e.collectionValue.uid()] = reg
-	case collectionMembershipEventDelete:
-		// Unregister the handler for this collection
-		remover := djhr.removes[e.collectionValue.uid()]
-		syncer := djhr.syncers[e.collectionValue.uid()]
-		if remover == nil || syncer == nil {
-			return
-		}
-
-		// krt schedules a callback to notify the event handler machinery that a collection is synced
-		// if a handler is registered before then. If the collection is removed before the callback
-		// is called, we can get a panic for trying to send on a closed channel, so wait for the collection
-		// to be synced before unregistering the handler.
-		if !syncer.WaitUntilSynced(j.stop) {
-			log.Warnf("Collection %v (uid %v) was not synced before unregistering", e.collectionValue.name(), e.collectionValue.uid())
-			return
-		}
-		remover()
-		delete(djhr.removes, e.collectionValue.uid())
-		delete(djhr.syncers, e.collectionValue.uid())
-
-		// Now we must send a final set of remove events for each object in the collection
-		oldItems := e.collectionValue.List()
-		events := slices.Map(oldItems, func(i T) Event[T] {
-			return Event[T]{Old: &i, Event: controllers.EventDelete}
-		})
-		handler(events)
-		return
-
-	case collectionMembershipEventUpdate:
-		oldItems := e.oldCollectionValue.List()
-		events := slices.Map(oldItems, func(i T) Event[T] {
-			return Event[T]{Old: &i, Event: controllers.EventUpdate, New: j.GetKey(GetKey(i))}
-		})
-		handler(events)
-		return
-	}
-}
-
 func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
 	syncers := make(map[collectionUID]Syncer)
 	removes := map[collectionUID]func(){}
@@ -201,9 +140,82 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState boo
 		removes: removes,
 	}
 
-	// We register to get notified if a collection within our set of collections is modified
 	j.registerCollectionChangeHandler(func(e collectionChangeEvent[T]) {
-		j.handleCollectionChangeEvent(djhr, e, f)
+		djhr.Lock()
+		defer djhr.Unlock()
+		switch e.eventType {
+		case collectionMembershipEventAdd:
+			reg := e.collectionValue.RegisterBatch(f, runExistingState)
+			djhr.removes[e.collectionValue.uid()] = reg.UnregisterHandler
+			djhr.syncers[e.collectionValue.uid()] = reg
+		case collectionMembershipEventDelete:
+			// Unregister the handler for this collection
+			remover := djhr.removes[e.collectionValue.uid()]
+			syncer := djhr.syncers[e.collectionValue.uid()]
+			if remover == nil {
+				return
+			}
+			if syncer == nil {
+				return
+			}
+			// krt schedules a callback to notify the event handler machinery that a collection is synced
+			// if a handler is registered before then. If the collection is removed before the callback
+			// is called, we can get a panic for trying to send on a closed channel, so wait for the collection
+			// to be synced before unregistering the handler.
+			if !syncer.WaitUntilSynced(j.stop) {
+				log.Warnf("Collection %v (uid %v) was not synced before unregistering", e.collectionValue.name(), e.collectionValue.uid())
+				return
+			}
+			remover()
+			delete(djhr.removes, e.collectionValue.uid())
+			delete(djhr.syncers, e.collectionValue.uid())
+
+			// Now send a final set of remove events for each object in the collection
+			var events []Event[T]
+			for _, elem := range e.collectionValue.List() {
+				events = append(events, Event[T]{Old: &elem, Event: controllers.EventDelete})
+			}
+			f(events)
+			return
+		case collectionMembershipEventUpdate:
+			// Get all of the elements in the old collection
+			oldItems := e.oldCollectionValue.List()
+			// Convert it to a sparse map for easy lookup
+			oldItemsMap := make(map[Key[T]]T, len(oldItems))
+			for _, i := range oldItems {
+				key := getTypedKey(i)
+				oldItemsMap[key] = i
+			}
+			// Now loop through the new collection and compare it to the old one
+			seen := sets.NewWithLength[string](len(oldItems))
+			finalEvents := make([]Event[T], 0, len(oldItems))
+			for _, i := range e.collectionValue.List() {
+				key := getTypedKey(i)
+				// If we see it in the old collection, then it's an update
+				if oldItem, ok := oldItemsMap[key]; ok {
+					seen.Insert(string(key))
+					// Send an update event for the new version of this key
+					finalEvents = append(finalEvents, Event[T]{Old: &oldItem, New: &i, Event: controllers.EventUpdate})
+					// Delete it from the old items map
+					delete(oldItemsMap, key)
+				} else {
+					if seen.Contains(string(key)) {
+						// This is a duplicate item in the new collection, skip it
+						log.Warnf("NestedJoinCollection: Duplicate item %v in updated collection, skipping", key)
+						continue
+					}
+					// This is a new item
+					finalEvents = append(finalEvents, Event[T]{New: &i, Event: controllers.EventAdd})
+				}
+			}
+			// Now loop through the old items map and send delete events for any items that
+			// are no longer in the new collection
+			for _, i := range maps.SeqStable(oldItemsMap) {
+				finalEvents = append(finalEvents, Event[T]{Old: &i, Event: controllers.EventDelete})
+			}
+
+			f(finalEvents)
+		}
 	})
 
 	return djhr
@@ -266,8 +278,7 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 		synced:         synced,
 		id:             nextUID(),
 		collectionName: o.name,
-
-		collections: ics,
+		collections:    ics,
 		syncer: channelSyncer{
 			name:   o.name,
 			synced: synced,
@@ -291,7 +302,6 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 		defer j.collectionChangeHandlers.RUnlock()
 
 		// Each event goes to all handlers first to preserve ordering
-		log.Infof("Received %d collection change events for collection %s", len(o), j.collectionName)
 		for _, e := range o {
 			for _, h := range j.collectionChangeHandlers.handlers {
 				switch e.Event {

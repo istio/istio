@@ -67,6 +67,7 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 	} else if !allowMissingContext {
 		panic("Fetch() requires a valid context")
 	}
+
 	// Now we can do the real fetching
 	// Compute our list of all possible objects that can match. Then we will filter them later.
 	// This pre-filtering upfront avoids extra work

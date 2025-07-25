@@ -37,7 +37,7 @@ type mergejoin[T any] struct {
 	// log is a logger for the collection, with additional labels already added to identify it.
 	log *istiolog.Scope
 	// internal indexes
-	indexes map[string]joinCollectionIndex2[T]
+	indexes map[string]joinCollectionIndex[T]
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers *handlerSet[T]
 	// outputs is a cache of the merged results
@@ -54,13 +54,13 @@ type mergejoin[T any] struct {
 	syncer Syncer
 }
 
-type joinCollectionIndex2[T any] struct {
+type joinCollectionIndex[T any] struct {
 	extract func(o T) []string
 	index   map[string]sets.Set[Key[T]]
 	parent  *mergejoin[T]
 }
 
-func (c joinCollectionIndex2[T]) Lookup(key string) []T {
+func (c joinCollectionIndex[T]) Lookup(key string) []T {
 	c.parent.mu.RLock()
 	defer c.parent.mu.RUnlock()
 	keys := c.index[key]
@@ -77,14 +77,14 @@ func (c joinCollectionIndex2[T]) Lookup(key string) []T {
 	return res
 }
 
-func (c joinCollectionIndex2[T]) delete(o T, oKey Key[T]) {
+func (c joinCollectionIndex[T]) delete(o T, oKey Key[T]) {
 	oldIndexKeys := c.extract(o)
 	for _, oldIndexKey := range oldIndexKeys {
 		sets.DeleteCleanupLast(c.index, oldIndexKey, oKey)
 	}
 }
 
-func (c joinCollectionIndex2[T]) update(ev Event[T], oKey Key[T]) {
+func (c joinCollectionIndex[T]) update(ev Event[T], oKey Key[T]) {
 	if ev.Old != nil {
 		c.delete(*ev.Old, oKey)
 	}
@@ -127,7 +127,7 @@ func (j *mergejoin[T]) index(name string, extract func(o T) []string) indexer[T]
 		return idx
 	}
 
-	idx := joinCollectionIndex2[T]{
+	idx := joinCollectionIndex[T]{
 		extract: extract,
 		index:   make(map[string]sets.Set[Key[T]]),
 		parent:  j,
