@@ -365,8 +365,7 @@ func (a *index) buildGlobalCollections(
 			}
 			gw := gws[0]
 			wi := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
-			res := []model.WorkloadInfo{wi}
-			return res
+			return []model.WorkloadInfo{wi}
 		}, opts.WithName("CoalesedWorkloads")...,
 	)
 	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, wi model.WorkloadInfo) *model.WorkloadInfo {

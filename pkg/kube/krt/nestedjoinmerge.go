@@ -16,6 +16,8 @@ package krt
 import (
 	"fmt"
 
+	"k8s.io/client-go/tools/cache"
+
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/maps"
@@ -23,7 +25,6 @@ import (
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"k8s.io/client-go/tools/cache"
 )
 
 type nestedjoinmerge[T any] struct {
@@ -228,13 +229,8 @@ func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 			// merged is guaranteed to be non-nil since newCollectionValue is a part of
 			// j's collection of collections.
 			merged := j.calculateMerged(string(key))
-			oldItem, ok = j.outputs[key]
-			if !ok {
-				// Outputs doesn't contain the key for this item, but it was in the old items map.
-				// This is unexpected, log it
-				log.Warnf("NestedJoinCollection: Expected to find key %v in outputs during a collection update in %s, but it was not found. Falling back to the old collection value", key, j.collectionName)
-				oldItem = oldItemsMap[key]
-			}
+			// Guaranteed to be in the outputs map since this was in oldItems
+			oldItem = j.outputs[key]
 			if Equal(oldItem, *merged) {
 				// no-op, the item is unchanged
 				continue
@@ -266,7 +262,7 @@ func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 		existing, ok := j.outputs[key]
 		if !ok {
 			// This is a bug; the old items map should only contain items that are in the outputs.
-			msg := fmt.Sprintf("NestedJoinCollection: Expected to find key %v in outputs during a collection update in %s, but it was not found. This is a bug.", key, j.collectionName)
+			msg := fmt.Sprintf("BUG: Expected to find key %v in outputs during a collection update in %s, but it was not found", key, j.collectionName)
 			if EnableAssertions {
 				panic(msg)
 			} else {
