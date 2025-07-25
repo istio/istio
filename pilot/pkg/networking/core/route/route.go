@@ -419,20 +419,19 @@ translateLoop:
 				out = append(out, r)
 			}
 			break translateLoop
-		} else {
-			for _, match := range http.Match {
-				if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
-					if lastMatch != nil && proto.Equal(lastMatch, r.Match) {
-						continue
-					}
-					out = append(out, r)
-					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
-					// As an optimization, we can just stop sending any more routes here.
-					if IsCatchAllRoute(r) {
-						break translateLoop
-					}
-					lastMatch = r.Match
+		}
+		for _, match := range http.Match {
+			if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
+				if lastMatch != nil && proto.Equal(lastMatch, r.Match) {
+					continue
 				}
+				out = append(out, r)
+				// This is a catch all path. Routes are matched in order, so we will never go beyond this match
+				// As an optimization, we can just stop sending any more routes here.
+				if IsCatchAllRoute(r) {
+					break translateLoop
+				}
+				lastMatch = r.Match
 			}
 		}
 	}
