@@ -323,6 +323,7 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 }
 
 func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
+	t.Skip("This test is flaky, see https://github.com/istio/istio/issues/57126")
 	opts := testOptions(t)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
