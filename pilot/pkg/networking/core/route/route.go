@@ -30,6 +30,7 @@ import (
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -407,35 +408,42 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
-	catchall := false
+translateLoop:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := TranslateRoute(node, http, nil, listenPort, virtualService, gatewayNames, opts); r != nil {
 				out = append(out, r)
 			}
-			catchall = true
-		} else {
-			for _, match := range http.Match {
-				if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
-					out = append(out, r)
-					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
-					// As an optimization, we can just stop sending any more routes here.
-					if IsCatchAllRoute(r) {
-						catchall = true
-						break
-					}
+			break translateLoop
+		}
+		for _, match := range http.Match {
+			if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
+				out = append(out, r)
+				// This is a catch all path. Routes are matched in order, so we will never go beyond this match
+				// As an optimization, we can just stop sending any more routes here.
+				if IsCatchAllRoute(r) {
+					break translateLoop
 				}
 			}
 		}
-		if catchall {
-			break
-		}
 	}
 
-	if len(out) == 0 {
+	// Filter out routes that are guaranteed to be short-circuited.
+	outFiltered := make([]*route.Route, 0, len(out))
+filterLoop:
+	for _, route := range out {
+		for _, other := range outFiltered {
+			if proto.Equal(route.Match, other.Match) {
+				continue filterLoop
+			}
+		}
+		outFiltered = append(outFiltered, route)
+	}
+
+	if len(outFiltered) == 0 {
 		return nil, fmt.Errorf("no routes matched")
 	}
-	return out, nil
+	return outFiltered, nil
 }
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the

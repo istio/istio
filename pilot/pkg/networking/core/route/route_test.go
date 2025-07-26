@@ -86,6 +86,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				Major: 1,
 				Minor: 20,
 			},
+			Labels: map[string]string{
+				"app": "foo",
+			},
 		})
 	}
 
@@ -1263,6 +1266,19 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			g.Expect(vhost.Services).To(HaveLen(1))
 			g.Expect(vhost.Routes).To(HaveLen(1))
 		}
+	})
+
+	t.Run("for virtual service with two routes that translate to the same match for a proxy", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{
+			Configs:  []config.Config{virtualServiceWithSimilarMatches},
+			Services: exampleService,
+		})
+
+		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
+			[]config.Config{}, 8080, map[host.Name]types.NamespacedName{},
+		)
+		g.Expect(vhosts[0].Routes).To(HaveLen(1))
 	})
 
 	t.Run("for virtual service with routing to an service with inference semantics", func(t *testing.T) {
@@ -2807,6 +2823,69 @@ var virtualServiceWithStatPrefix = config.Config{
 					{
 						Destination: &networking.Destination{
 							Host: "bar.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithSimilarMatches = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts: []string{},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "foo",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "foo-specific",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/foo",
+							},
+						},
+						SourceLabels: map[string]string{
+							"app": "foo",
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo-specific.example.org",
+							Port: &networking.PortSelector{
+								Number: 8484,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+			{
+				Name: "foo",
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "foo",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/foo",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
 							Port: &networking.PortSelector{
 								Number: 8484,
 							},
