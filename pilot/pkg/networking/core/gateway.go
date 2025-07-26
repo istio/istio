@@ -382,7 +382,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		}
 	}
 
-	ph := GetProxyHeaders(node, push, istionetworking.ListenerClassGateway)
+	ph := util.GetProxyHeaders(node, push, istionetworking.ListenerClassGateway)
 	merged := node.MergedGateway
 	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
 
@@ -453,6 +453,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					IsTLS:                     server.Tls != nil,
 					IsHTTP3AltSvcHeaderNeeded: isH3DiscoveryNeeded,
 					Mesh:                      push.Mesh,
+					Push:                      push,
 					LookupService: func(name host.Name) *model.Service {
 						return nameToServiceMap[name]
 					},
@@ -649,7 +650,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 	push *model.PushContext,
 ) *filterChainOpts {
 	serverProto := protocol.Parse(port.Protocol)
-	ph := GetProxyHeadersFromProxyConfig(proxyConfig, istionetworking.ListenerClassGateway)
+	ph := util.GetProxyHeadersFromProxyConfig(proxyConfig, istionetworking.ListenerClassGateway)
 	if serverProto.IsHTTP() {
 		return &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
@@ -696,7 +697,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *model.Proxy, http3SupportEnabled bool,
 	push *model.PushContext,
 ) *hcm.HttpConnectionManager {
-	ph := GetProxyHeadersFromProxyConfig(proxyConfig, istionetworking.ListenerClassGateway)
+	ph := util.GetProxyHeadersFromProxyConfig(proxyConfig, istionetworking.ListenerClassGateway)
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 	if features.HTTP10 || enableHTTP10(node.Metadata.HTTP10) {
 		httpProtoOpts.AcceptHttp_10 = true
