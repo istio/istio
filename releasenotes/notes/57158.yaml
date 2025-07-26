@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - https://github.com/istio/istio/issues/57158
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+  - |
+    **Fixed** a bug where the `env`, `cni.enabled` and `cni.provider` values were not correctly
+    picked up in `files/injection-template`.
+
+upgradeNotes:
+  - title: Review changes to the sidecar injection-template
+    content: |
+      Review the sidecar injection template in the `istio-sidecar-injector[-<revision>]` ConfigMap for
+      changes. This change corrects errors in the template.

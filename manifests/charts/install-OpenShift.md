@@ -18,7 +18,7 @@ The installation process using the Helm charts is as follows:
 helm install istio-base -n istio-system manifests/charts/base --set profile=openshift
 ```
 
-2) `istio-cni` chart installs the CNI plugin. This should be installed after the `base` chart and prior to `istiod` chart. Need to add `--set pilot.cni.enabled=true` to the `istiod` install to enable its usage.
+2) `istio-cni` chart installs the CNI plugin. This should be installed after the `base` chart and prior to `istiod` chart. Need to add `--set cni.enabled=true` to the `istiod` install to enable its usage.
 
 ```console
 helm install istio-cni -n kube-system manifests/charts/istio-cni --set profile=openshift

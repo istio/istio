@@ -373,7 +373,7 @@ func translateIstioOperatorToHelm(base values.Map) (values.Map, error) {
 	if err := base.SetPath("spec.values.pilot.enabled", base.GetPathBool("spec.components.pilot.enabled")); err != nil {
 		return nil, err
 	}
-	if err := base.SetPath("spec.values.pilot.cni.enabled", base.GetPathBool("spec.components.cni.enabled")); err != nil {
+	if err := base.SetPath("spec.values.cni.enabled", base.GetPathBool("spec.components.cni.enabled")); err != nil {
 		return nil, err
 	}
 	if n := base.GetPathString("spec.values.global.istioNamespace"); n != "" {

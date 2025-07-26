@@ -47,8 +47,8 @@ metadata:
     kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
     {{- end }}
     {{- end }}
-{{- if .Values.pilot.cni.enabled }}
-    {{- if eq .Values.pilot.cni.provider "multus" }}
+{{- if .Values.cni.enabled }}
+    {{- if eq .Values.cni.provider "multus" }}
     k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `default/istio-cni` }}',
     {{- end }}
     sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}",
@@ -79,7 +79,7 @@ spec:
   {{ else -}}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-  {{ if .Values.pilot.cni.enabled -}}
+  {{ if .Values.cni.enabled -}}
   - name: istio-validation
   {{ else -}}
   - name: istio-init
@@ -135,7 +135,7 @@ spec:
     {{ if .Values.global.logAsJson -}}
     - "--log_as_json"
     {{ end -}}
-    {{ if .Values.pilot.cni.enabled -}}
+    {{ if .Values.cni.enabled -}}
     - "--run-validation"
     - "--skip-rule-apply"
     {{ else if .Values.global.proxy_init.forceApplyIptables -}}
@@ -158,14 +158,14 @@ spec:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       privileged: {{ .Values.global.proxy.privileged }}
       capabilities:
-    {{- if not .Values.pilot.cni.enabled }}
+    {{- if not .Values.cni.enabled }}
         add:
         - NET_ADMIN
         - NET_RAW
     {{- end }}
         drop:
         - ALL
-    {{- if not .Values.pilot.cni.enabled }}
+    {{- if not .Values.cni.enabled }}
       readOnlyRootFilesystem: false
       runAsGroup: 0
       runAsNonRoot: false
@@ -496,7 +496,7 @@ spec:
           audience: {{ .Values.global.sds.token.aud }}
   {{- if eq .Values.global.pilotCertProvider "istiod" }}
   - name: istiod-ca-cert
-  {{- if eq (.Values.pilot.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+  {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
     projected:
       sources:
       - clusterTrustBundle:
