@@ -625,23 +625,12 @@ func vhostMergeable(a, b *route.VirtualHost) bool {
 	if a.RequireTls != b.RequireTls {
 		return false
 	}
-	if !routesEqual(a.Routes, b.Routes) {
+	if !slices.Equal(a.Routes, b.Routes) {
 		return false
 	}
 	return true
 }
 
-func routesEqual(a, b []*route.Route) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *model.Proxy, port *networking.Port, server *networking.Server,
