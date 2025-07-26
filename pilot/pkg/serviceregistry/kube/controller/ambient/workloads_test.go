@@ -966,7 +966,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 							},
 							{
 								ServicePort: 81,
-								TargetPort:  0,
+								TargetPort:  8081,
 							},
 							{
 								ServicePort: 82,
@@ -982,7 +982,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 						// Not a named port
 						80: {PortName: "80"},
 						// Named port found in WE
-						81: {PortName: "81", TargetPortName: "81-target"},
+						81: {PortName: "81"},
 						// Named port target found in WE
 						82: {PortName: "82", TargetPortName: "82-target"},
 						// Named port not found in WE
@@ -1027,6 +1027,10 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 							{
 								ServicePort: 80,
 								TargetPort:  8080,
+							},
+							{
+								ServicePort: 81,
+								TargetPort:  8180,
 							},
 							{
 								ServicePort: 82,

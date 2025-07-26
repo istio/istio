@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 56251
+
+releaseNotes:
+- |
+  **Fixed** zTunnel will now respect WorkloadEntry port map when referencing Service port name.
