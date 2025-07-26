@@ -18,6 +18,10 @@ _internal_defaults_do_not_set:
     # corresponds to the networks in the map of mesh networks.
     network: ""
 
+    # When enabled, default NetworkPolicy resources will be created
+    networkPolicy:
+      enabled: false
+
   # resourceName, if set, will override the naming of resources. If not set, will default to 'ztunnel'.
   # If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart.
   resourceName: ""
