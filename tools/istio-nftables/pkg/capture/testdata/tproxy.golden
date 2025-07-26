@@ -17,7 +17,7 @@ add rule inet istio-proxy-nat istio-output oifname lo ip saddr 127.0.0.6/32 retu
 add rule inet istio-proxy-nat istio-output oifname lo ip6 saddr ::6/128 return
 add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != { 53, 15008 } skuid 1337 jump istio-in-redirect
 add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != { 53, 15008 } skuid 1337 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp tcp dport != 53 skuid 1337 return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp tcp dport != 53 skuid != 1337 return
 add rule inet istio-proxy-nat istio-output skuid 1337 return
 add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 1337 jump istio-in-redirect
 add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != 15008 skgid 1337 jump istio-in-redirect
@@ -33,7 +33,7 @@ add rule inet istio-proxy-nat istio-output ip daddr 9.9.0.0/16 jump istio-redire
 add table inet istio-proxy-mangle
 flush table inet istio-proxy-mangle
 add chain inet istio-proxy-mangle prerouting { type filter hook prerouting priority -150 ; }
-add chain inet istio-proxy-mangle output { type filter hook output priority -150 ; }
+add chain inet istio-proxy-mangle output { type route hook output priority -150 ; }
 add chain inet istio-proxy-mangle istio-divert
 add chain inet istio-proxy-mangle istio-tproxy
 add chain inet istio-proxy-mangle istio-inbound
@@ -70,4 +70,4 @@ add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skgid 1337 ct z
 add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skgid 1337 ct zone set 2
 add rule inet istio-proxy-raw prerouting jump istio-inbound
 add rule inet istio-proxy-raw istio-output-dns udp dport 53 ip daddr 127.0.0.53/32 ct zone set 2
-add rule inet istio-proxy-raw istio-inbound udp sport 53 ip daddr 127.0.0.53/32 ct zone set 1
+add rule inet istio-proxy-raw istio-inbound udp sport 53 ip saddr 127.0.0.53/32 ct zone set 1
