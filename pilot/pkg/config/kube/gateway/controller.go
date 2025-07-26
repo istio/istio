@@ -221,7 +221,7 @@ func NewController(
 		inputs.ListenerSets = krt.NewStaticCollection[*gatewayx.XListenerSet](nil, nil, opts.WithName("disable/XListenerSet")...)
 	}
 
-	if features.SupportGatewayAPIInferenceExtension {
+	if features.EnableGatewayAPIInferenceExtension {
 		inputs.InferencePools = buildClient[*inferencev1alpha2.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
 		// If disabled, still build a collection but make it always empty
@@ -296,7 +296,7 @@ func NewController(
 		controllers.WithReconciler(c.reconcileShadowService(svcClient, InferencePools, inputs.Services)),
 		controllers.WithMaxAttempts(5))
 
-	if features.SupportGatewayAPIInferenceExtension {
+	if features.EnableGatewayAPIInferenceExtension {
 		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
 	}
 

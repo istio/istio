@@ -107,10 +107,10 @@ require (
 	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/gateway-api v1.3.0
-	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250627230429-b20b9998a164
+	sigs.k8s.io/gateway-api-inference-extension v0.5.0
 	sigs.k8s.io/knftables v0.0.19-0.20250623122614-e4307300abb5
 	sigs.k8s.io/mcs-api v0.1.1-0.20240624222831-d7001fe1d21c
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/yaml v1.5.0
 )
 
 require (
@@ -210,6 +210,8 @@ require (
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/mock v0.5.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	go.yaml.in/yaml/v3 v3.0.3 // indirect
 	golang.org/x/crypto v0.40.0 // indirect
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
 	golang.org/x/mod v0.25.0 // indirect
