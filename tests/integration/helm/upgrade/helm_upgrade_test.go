@@ -90,14 +90,28 @@ func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
 func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion))
+		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion, false))
 }
 
 // TestStableRevisionLabelsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
 func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
+		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, false))
+}
+
+// TestAmbientStableRevisionLabelsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+func TestAmbientStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion, true))
+}
+
+// TestAmbientStableRevisionLabelsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
+func TestAmbientStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, true))
 }
 
 // TestAmbientInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with ambient profile for Istio 1.(n-1)
@@ -114,6 +128,9 @@ func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
 		Run(upgradeAllButZtunnel(previousSupportedVersion))
 }
 
+// TestAmbientStableRevisionLabelsGatewayStatus is a bit different, installing 2 tagged revisions
+// using the latest version, and verifying that gateway status is correct for each.
+// This only works starting in 1.27, so we skip it for earlier versions.
 func TestAmbientStableRevisionLabelsGatewayStatus(t *testing.T) {
 	framework.
 		NewTest(t).
