@@ -1,0 +1,47 @@
+{{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- if (.Values.global.networkPolicy).enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $gateway.name }}{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $gateway.name }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "IngressGateways"
+    istio: ingressgateway
+    release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istio-ingressgateway"
+    {{- include "istio.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+{{ $gateway.labels | toYaml | indent 6 }}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Status/health check port
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 15021
+  # Metrics endpoint for monitoring/prometheus
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 15090
+  # Main gateway traffic ports
+{{- if $gateway.ports }}
+{{- range $gateway.ports }}
+  - from: []
+    ports:
+    - protocol: {{ .protocol | default "TCP" }}
+      port: {{ .targetPort | default .port }}
+{{- end }}
+{{- end }}
+  egress:
+  # Allow all egress (gateways need to reach external services, istiod, and other cluster services)
+  - {}
+{{- end }} 
