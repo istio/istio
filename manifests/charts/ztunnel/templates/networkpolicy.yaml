@@ -1,0 +1,40 @@
+{{- if (.Values.global.networkPolicy).enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ztunnel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: ztunnel
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    app.kubernetes.io/name: ztunnel
+    operator.istio.io/component: "Ztunnel"
+    {{- include "istio.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: ztunnel
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Metrics endpoint for monitoring/prometheus
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 15020
+    # Readiness probe endpoint
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 15021
+    # Admin endpoint
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 15000
+  egress:
+    # Allow all egress for now.
+    - {}
+  {{- end }}
