@@ -176,8 +176,8 @@ func MergedGlobalWorkloadsCollection(
 			func(_ krt.HandlerContext) cluster.ID {
 				return localCluster.ID
 			},
-			func(hc krt.HandlerContext) network.ID {
-				nw := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.LocalSystemNamespace.AsCollection()))
+			func(ctx krt.HandlerContext) network.ID {
+				nw := ptr.OrEmpty(krt.FetchOne(ctx, globalNetworks.LocalSystemNamespace.AsCollection()))
 				return nw.Network
 			},
 			globalNetworks.NetworkGateways,
@@ -204,8 +204,8 @@ func MergedGlobalWorkloadsCollection(
 			func(_ krt.HandlerContext) cluster.ID {
 				return localCluster.ID
 			},
-			func(hc krt.HandlerContext) network.ID {
-				nw := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.LocalSystemNamespace.AsCollection()))
+			func(ctx krt.HandlerContext) network.ID {
+				nw := ptr.OrEmpty(krt.FetchOne(ctx, globalNetworks.LocalSystemNamespace.AsCollection()))
 				return nw.Network
 			},
 			globalNetworks.NetworkGateways,
@@ -229,11 +229,11 @@ func MergedGlobalWorkloadsCollection(
 			localPeerAuths,
 			localWaypoints,
 			localCluster.Namespaces(),
-			func(hc krt.HandlerContext) cluster.ID {
+			func(ctx krt.HandlerContext) cluster.ID {
 				return localCluster.ID
 			},
-			func(hc krt.HandlerContext) network.ID {
-				nw := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.LocalSystemNamespace.AsCollection()))
+			func(ctx krt.HandlerContext) network.ID {
+				nw := ptr.OrEmpty(krt.FetchOne(ctx, globalNetworks.LocalSystemNamespace.AsCollection()))
 				return nw.Network
 			},
 			globalNetworks.NetworkGateways,
@@ -257,11 +257,11 @@ func MergedGlobalWorkloadsCollection(
 		endpointSlicesBuilder(meshConfig,
 			localWorkloadServices,
 			domainSuffix,
-			func(hc krt.HandlerContext) cluster.ID {
+			func(ctx krt.HandlerContext) cluster.ID {
 				return localCluster.ID
 			},
-			func(hc krt.HandlerContext) network.ID {
-				nw := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.LocalSystemNamespace.AsCollection()))
+			func(ctx krt.HandlerContext) network.ID {
+				nw := ptr.OrEmpty(krt.FetchOne(ctx, globalNetworks.LocalSystemNamespace.AsCollection()))
 				return nw.Network
 			},
 		),
@@ -273,14 +273,14 @@ func MergedGlobalWorkloadsCollection(
 		opts.WithName("LocalEndpointSliceWorkloadsWithCluster")...,
 	)
 
-	LocalNetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
+	GlobalNetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
 		return slices.Map(LookupAllNetworkGateway(
 			ctx,
 			globalNetworks.NetworkGateways,
 		), convertGateway)
 	}, opts.WithName("LocalNetworkGatewayWorkloads")...)
 	LocalNetworkGatewayWorkloadsWithCluster := krt.MapCollection(
-		LocalNetworkGatewayWorkloads,
+		GlobalNetworkGatewayWorkloads,
 		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID),
 		opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...,
 	)
@@ -421,11 +421,11 @@ func MergedGlobalWorkloadsCollection(
 					func(_ krt.HandlerContext) cluster.ID {
 						return c.ID
 					},
-					func(hc krt.HandlerContext) network.ID {
+					func(ctx krt.HandlerContext) network.ID {
 						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nw == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							hc.DiscardResult()
+							ctx.DiscardResult()
 							return ""
 						}
 						return nw.Network
@@ -465,11 +465,11 @@ func MergedGlobalWorkloadsCollection(
 					func(_ krt.HandlerContext) cluster.ID {
 						return c.ID
 					},
-					func(hc krt.HandlerContext) network.ID {
+					func(ctx krt.HandlerContext) network.ID {
 						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nw == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							hc.DiscardResult()
+							ctx.DiscardResult()
 							return ""
 						}
 						return nw.Network
@@ -505,14 +505,14 @@ func MergedGlobalWorkloadsCollection(
 					localPeerAuths,
 					waypoints,
 					namespaces,
-					func(hc krt.HandlerContext) cluster.ID {
+					func(ctx krt.HandlerContext) cluster.ID {
 						return c.ID
 					},
-					func(hc krt.HandlerContext) network.ID {
+					func(ctx krt.HandlerContext) network.ID {
 						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nw == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							hc.DiscardResult()
+							ctx.DiscardResult()
 							return ""
 						}
 						return nw.Network
@@ -548,14 +548,14 @@ func MergedGlobalWorkloadsCollection(
 				endpointSlicesBuilder(meshConfig,
 					globalWorkloadServices,
 					domainSuffix,
-					func(hc krt.HandlerContext) cluster.ID {
+					func(ctx krt.HandlerContext) cluster.ID {
 						return c.ID
 					},
-					func(hc krt.HandlerContext) network.ID {
+					func(ctx krt.HandlerContext) network.ID {
 						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nw == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							hc.DiscardResult()
+							ctx.DiscardResult()
 							return ""
 						}
 						return nw.Network
@@ -578,34 +578,11 @@ func MergedGlobalWorkloadsCollection(
 				)...,
 			)
 
-			NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
-				return slices.Map(LookupAllNetworkGateway(
-					ctx,
-					globalNetworks.NetworkGateways,
-				), convertGateway)
-			}, append(
-				opts.WithName(fmt.Sprintf("NetworkGatewayWorkloads[%s]", c.ID)),
-				krt.WithMetadata(krt.Metadata{
-					multicluster.ClusterKRTMetadataKey: c.ID,
-				}),
-			)...)
-			NetworkGatewayWorkloadsWithCluster := krt.MapCollection(
-				NetworkGatewayWorkloads,
-				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
-				append(
-					opts.WithName(fmt.Sprintf("LocalNetworkGatewayWorkloadsWithCluster[%s]", c.ID)),
-					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
-					}),
-				)...,
-			)
-
 			results := map[*collectionCacheByCluster[config.ObjectWithCluster[model.WorkloadInfo]]]bool{
-				podWorkloadInfosCache:            podWorkloadInfosCache.Insert(PodWorkloadsWithCluster),
-				workloadEntryWorkloadInfosCache:  workloadEntryWorkloadInfosCache.Insert(WorkloadEntryWorkloadsWithCluster),
-				serviceEntryWorkloadInfosCache:   serviceEntryWorkloadInfosCache.Insert(ServiceEntryWorkloadsWithCluster),
-				endpointSliceWorkloadInfosCache:  endpointSliceWorkloadInfosCache.Insert(EndpointSliceWorkloadsWithCluster),
-				networkGatewayWorkloadInfosCache: networkGatewayWorkloadInfosCache.Insert(NetworkGatewayWorkloadsWithCluster),
+				podWorkloadInfosCache:           podWorkloadInfosCache.Insert(PodWorkloadsWithCluster),
+				workloadEntryWorkloadInfosCache: workloadEntryWorkloadInfosCache.Insert(WorkloadEntryWorkloadsWithCluster),
+				serviceEntryWorkloadInfosCache:  serviceEntryWorkloadInfosCache.Insert(ServiceEntryWorkloadsWithCluster),
+				endpointSliceWorkloadInfosCache: endpointSliceWorkloadInfosCache.Insert(EndpointSliceWorkloadsWithCluster),
 			}
 
 			if slices.Contains(maps.Values(results), false) {
@@ -622,7 +599,6 @@ func MergedGlobalWorkloadsCollection(
 				WorkloadEntryWorkloadsWithCluster,
 				ServiceEntryWorkloadsWithCluster,
 				EndpointSliceWorkloadsWithCluster,
-				NetworkGatewayWorkloadsWithCluster,
 			}
 
 			return cols
