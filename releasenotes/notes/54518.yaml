@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 54518
+releaseNotes:
+- |
+  **Added** automatic detection of the default revision in `istioctl` commands. When `--revision` is not explicitly specified, the default revision (as configured by `istioctl tag set default`) will be used automatically.
