@@ -66,7 +66,7 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 		}
 		cert, err := x509.ParseCertificate(cb.Bytes)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse X.509 certificate")
+			return nil, nil, fmt.Errorf("failed to parse X.509 certificate : %v", err)
 		}
 		certs = append(certs, cert)
 		if len(certBytes) == 0 {
