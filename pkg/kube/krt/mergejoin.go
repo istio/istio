@@ -42,7 +42,7 @@ type mergejoin[T any] struct {
 	eventHandlers *handlerSet[T]
 	// outputs is a cache of the merged results
 	outputs map[Key[T]]T
-	mu      sync.RWMutex // protects indexes, mergeCache, and eventHandlers
+	mu      sync.RWMutex // protects indexes, outputs, and eventHandlers
 
 	merge func(ts []T) *T
 

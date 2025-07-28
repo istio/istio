@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
@@ -94,8 +93,8 @@ func (a *index) buildGlobalCollections(
 	)
 	serviceInformersByCluster := informerIndexByCluster(GlobalServices)
 
-	LocalGatewaysWithCluster := krt.MapCollection(LocalGateways, func(obj *v1beta1.Gateway) config.ObjectWithCluster[*v1beta1.Gateway] {
-		return config.ObjectWithCluster[*v1beta1.Gateway]{
+	LocalGatewaysWithCluster := krt.MapCollection(LocalGateways, func(obj *v1beta1.Gateway) krt.ObjectWithCluster[*v1beta1.Gateway] {
+		return krt.ObjectWithCluster[*v1beta1.Gateway]{
 			ClusterID: localCluster.ID,
 			Object:    &obj,
 		}
@@ -103,13 +102,13 @@ func (a *index) buildGlobalCollections(
 	GlobalGatewaysWithCluster := nestedCollectionFromLocalAndRemote(
 		LocalGatewaysWithCluster,
 		clusters,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]] {
+		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[*v1beta1.Gateway]] {
 			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/gateways[%s]", c.ID), a.stop, c.Gateways().HasSynced) {
 				log.Warnf("Failed to sync gateways informer for cluster %s", c.ID)
 				return nil
 			}
-			return ptr.Of(krt.MapCollection(c.Gateways(), func(obj *v1beta1.Gateway) config.ObjectWithCluster[*v1beta1.Gateway] {
-				return config.ObjectWithCluster[*v1beta1.Gateway]{
+			return ptr.Of(krt.MapCollection(c.Gateways(), func(obj *v1beta1.Gateway) krt.ObjectWithCluster[*v1beta1.Gateway] {
+				return krt.ObjectWithCluster[*v1beta1.Gateway]{
 					ClusterID: c.ID,
 					Object:    &obj,
 				}
@@ -129,8 +128,8 @@ func (a *index) buildGlobalCollections(
 	)
 	namespaceInformersByCluster := informerIndexByCluster(GlobalNamespaces)
 
-	LocalNodesWithCluster := krt.MapCollection(LocalNodes, func(obj *v1.Node) config.ObjectWithCluster[*v1.Node] {
-		return config.ObjectWithCluster[*v1.Node]{
+	LocalNodesWithCluster := krt.MapCollection(LocalNodes, func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
+		return krt.ObjectWithCluster[*v1.Node]{
 			ClusterID: localCluster.ID,
 			Object:    &obj,
 		}
@@ -138,13 +137,13 @@ func (a *index) buildGlobalCollections(
 	GlobalNodesWithCluster := nestedCollectionFromLocalAndRemote(
 		LocalNodesWithCluster,
 		clusters,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[config.ObjectWithCluster[*v1.Node]] {
+		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[*v1.Node]] {
 			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID), a.stop, c.Nodes().HasSynced) {
 				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
 				return nil
 			}
-			return ptr.Of(krt.MapCollection(c.Nodes(), func(obj *v1.Node) config.ObjectWithCluster[*v1.Node] {
-				return config.ObjectWithCluster[*v1.Node]{
+			return ptr.Of(krt.MapCollection(c.Nodes(), func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
+				return krt.ObjectWithCluster[*v1.Node]{
 					ClusterID: c.ID,
 					Object:    &obj,
 				}
@@ -669,8 +668,8 @@ type simpleNetworkAddress struct {
 
 func mergeServiceInfosWithCluster(
 	localClusterID cluster.ID,
-) func(serviceInfos []config.ObjectWithCluster[model.ServiceInfo]) *config.ObjectWithCluster[model.ServiceInfo] {
-	return func(serviceInfos []config.ObjectWithCluster[model.ServiceInfo]) *config.ObjectWithCluster[model.ServiceInfo] {
+) func(serviceInfos []krt.ObjectWithCluster[model.ServiceInfo]) *krt.ObjectWithCluster[model.ServiceInfo] {
+	return func(serviceInfos []krt.ObjectWithCluster[model.ServiceInfo]) *krt.ObjectWithCluster[model.ServiceInfo] {
 		svcInfosLen := len(serviceInfos)
 		if svcInfosLen == 0 {
 			return nil
@@ -760,7 +759,7 @@ func mergeServiceInfosWithCluster(
 		base.Object.Service.SubjectAltNames = sans.UnsortedList()
 
 		// Rememeber, we have to re-precompute the serviceinfo since we changed it
-		return &config.ObjectWithCluster[model.ServiceInfo]{
+		return &krt.ObjectWithCluster[model.ServiceInfo]{
 			ClusterID: base.ClusterID,
 			Object:    precomputeServicePtr(base.Object),
 		}
@@ -769,8 +768,8 @@ func mergeServiceInfosWithCluster(
 
 func mergeWorkloadInfosWithCluster(
 	localClusterID cluster.ID,
-) func(workloadInfos []config.ObjectWithCluster[model.WorkloadInfo]) *config.ObjectWithCluster[model.WorkloadInfo] {
-	return func(workloadInfos []config.ObjectWithCluster[model.WorkloadInfo]) *config.ObjectWithCluster[model.WorkloadInfo] {
+) func(workloadInfos []krt.ObjectWithCluster[model.WorkloadInfo]) *krt.ObjectWithCluster[model.WorkloadInfo] {
+	return func(workloadInfos []krt.ObjectWithCluster[model.WorkloadInfo]) *krt.ObjectWithCluster[model.WorkloadInfo] {
 		if len(workloadInfos) == 0 {
 			return nil
 		}
@@ -795,16 +794,16 @@ func mergeWorkloadInfosWithCluster(
 	}
 }
 
-func unwrapObjectWithCluster[T any](obj config.ObjectWithCluster[T]) T {
+func unwrapObjectWithCluster[T any](obj krt.ObjectWithCluster[T]) T {
 	if obj.Object == nil {
 		return ptr.Empty[T]()
 	}
 	return *obj.Object
 }
 
-func wrapObjectWithCluster[T any](clusterID cluster.ID) func(obj T) config.ObjectWithCluster[T] {
-	return func(obj T) config.ObjectWithCluster[T] {
-		return config.ObjectWithCluster[T]{ClusterID: clusterID, Object: &obj}
+func wrapObjectWithCluster[T any](clusterID cluster.ID) func(obj T) krt.ObjectWithCluster[T] {
+	return func(obj T) krt.ObjectWithCluster[T] {
+		return krt.ObjectWithCluster[T]{ClusterID: clusterID, Object: &obj}
 	}
 }
 
