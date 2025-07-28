@@ -2159,17 +2159,6 @@ func buildTLS(
 			// If we have no valid certificates, return an error
 			return out, combinedErr
 		}
-		if tls.FrontendValidation != nil && len(tls.FrontendValidation.CACertificateRefs) > 0 {
-			out.Mode = istio.ServerTLSSettings_MUTUAL
-			for _, ref := range tls.FrontendValidation.CACertificateRefs {
-				if (string(ref.Group) == gvk.ConfigMap.Group && string(ref.Kind) == gvk.ConfigMap.Kind) {
-					caCertNs := ptr.OrDefault((*string)(ref.Namespace), gw.Namespace)
-					caCert := fmt.Sprintf("%s://%s/%s%s", creds.KubernetesConfigMapType, caCertNs, ref.Name, creds.SdsCaSuffix)
-					credNames = append(credNames, caCert)
-					validCertCount++
-				}
-			}
-		}
 		if validCertCount == 1 {
 			out.CredentialName = credNames[0]
 		} else {
