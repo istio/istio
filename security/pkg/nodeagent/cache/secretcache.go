@@ -392,12 +392,12 @@ func (sc *SecretManagerClient) keyCertificateExist(certPath, keyPath string) boo
 	return true
 }
 
-// Generate a root certificate item from the passed in rootCertPath,
+// Generate a root certificates item from the passed in rootCertPath,
 // but ignore certificates that are not valid.
 // This might happen if a root certificate has a negativeSerialNumber.
-// Although rfc5280 does not allow negative serial numbers, some CAs
-// may issue such certificates, so we need to handle them gracefully as per rfc5280.
-// So if there is an invalid cert, we ignore it and only error if there are no valid certs.
+// Although rfc5280 does not allow negative serial numbers, but does require graceful handling 
+// (https://datatracker.ietf.org/doc/html/rfc5280#section-4.1.2.2)
+// If there is an invalid cert, we ignore it and only error if there are no valid certs.
 func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, resourceName string, workload bool) (*security.SecretItem, error) {
 	var validRootCertBytes []byte
 	o := backoff.DefaultOption()
