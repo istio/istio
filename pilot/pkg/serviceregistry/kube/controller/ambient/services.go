@@ -97,7 +97,7 @@ func GlobalMergedWorkloadServicesCollection(
 	globalNetworks networkCollections,
 	domainSuffix string,
 	opts krt.OptionsBuilder,
-) krt.Collection[krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]] {
+) krt.Collection[krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]]] {
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
 	LocalServiceInfosWithCluster := krt.MapCollection(
 		localServiceInfos,
@@ -110,7 +110,7 @@ func GlobalMergedWorkloadServicesCollection(
 	return nestedCollectionFromLocalAndRemote(
 		LocalServiceInfosWithCluster,
 		clusters,
-		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
+		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]] {
 			services := cluster.Services()
 			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
 			if waypointsPtr == nil {
@@ -147,8 +147,8 @@ func GlobalMergedWorkloadServicesCollection(
 
 			servicesInfoWithCluster := krt.MapCollection(
 				servicesInfo,
-				func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
-					return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
+				func(o model.ServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
+					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
 				},
 				opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...,
 			)

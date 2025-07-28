@@ -74,8 +74,8 @@ func buildGlobalNetworkCollections(
 	clusters krt.Collection[*multicluster.Cluster],
 	localNamespaces krt.Collection[*v1.Namespace],
 	localGateways krt.Collection[*v1beta1.Gateway],
-	gateways krt.Collection[krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
-	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
+	gateways krt.Collection[krt.Collection[krt.ObjectWithCluster[*v1beta1.Gateway]]],
+	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[krt.ObjectWithCluster[*v1beta1.Gateway]]],
 	options Options,
 	opts krt.OptionsBuilder,
 ) networkCollections {
@@ -121,14 +121,14 @@ func buildGlobalNetworkCollections(
 		return []cluster.ID{o.ClusterID}
 	})
 
-	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []config.ObjectWithCluster[NetworkGateway] {
+	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []krt.ObjectWithCluster[NetworkGateway] {
 		return k8sGatewayToNetworkGatewaysWithCluster(options.ClusterID, gw, options.ClusterID)
 	}, opts.WithName("LocalNetworkGateways")...)
 
 	GlobalNetworkGateways := nestedCollectionFromLocalAndRemote(
 		localNetworkGateways,
 		clusters,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[config.ObjectWithCluster[NetworkGateway]] {
+		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[NetworkGateway]] {
 			gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
 			if gatewaysPtr == nil {
 				log.Warnf("No gateways found for cluster %s", c.ID)
@@ -139,7 +139,7 @@ func buildGlobalNetworkCollections(
 			// sync.Once to ensure we only create the collection once and return that same value
 			nwGateways := krt.NewManyCollection(
 				gateways,
-				func(ctx krt.HandlerContext, gw config.ObjectWithCluster[*v1beta1.Gateway]) []config.ObjectWithCluster[NetworkGateway] {
+				func(ctx krt.HandlerContext, gw krt.ObjectWithCluster[*v1beta1.Gateway]) []krt.ObjectWithCluster[NetworkGateway] {
 					innerGw := ptr.Flatten(gw.Object)
 					if innerGw == nil {
 						return nil
@@ -161,7 +161,7 @@ func buildGlobalNetworkCollections(
 	)
 	MergedNetworkGatewaysWithCluster := krt.NestedJoinWithMergeCollection(
 		GlobalNetworkGateways,
-		func(gateways []config.ObjectWithCluster[NetworkGateway]) *config.ObjectWithCluster[NetworkGateway] {
+		func(gateways []krt.ObjectWithCluster[NetworkGateway]) *krt.ObjectWithCluster[NetworkGateway] {
 			if len(gateways) == 0 {
 				return nil
 			}
@@ -237,11 +237,11 @@ func k8sGatewayToNetworkGatewaysWithCluster(
 	clusterID cluster.ID,
 	gw *v1beta1.Gateway,
 	localClusterID cluster.ID,
-) []config.ObjectWithCluster[NetworkGateway] {
+) []krt.ObjectWithCluster[NetworkGateway] {
 	gateways := k8sGatewayToNetworkGateways(clusterID, gw, localClusterID)
-	var networkGateways []config.ObjectWithCluster[NetworkGateway]
+	var networkGateways []krt.ObjectWithCluster[NetworkGateway]
 	for _, gateway := range gateways {
-		networkGateways = append(networkGateways, config.ObjectWithCluster[NetworkGateway]{
+		networkGateways = append(networkGateways, krt.ObjectWithCluster[NetworkGateway]{
 			ClusterID: clusterID,
 			Object:    &gateway,
 		})

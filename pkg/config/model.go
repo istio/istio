@@ -35,7 +35,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -43,13 +42,6 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
-
-// Equaler is an optional interface that can be implemented by collection types.
-// If implemented, this will be used to determine if an object changed.
-// Copied from krt/core.go to avoid import cycle
-type Equaler[K any] interface {
-	Equals(k K) bool
-}
 
 // Meta is metadata attached to each configuration unit.
 // The revision is optional, and if provided, identifies the
@@ -119,62 +111,6 @@ type Config struct {
 
 	// Extra holds additional, non-spec information for internal processing.
 	Extra map[string]any
-}
-
-type ObjectWithCluster[T any] struct {
-	ClusterID cluster.ID
-	Object    *T
-}
-
-// We can't refer to krt directly without causing an import cycle, but this function
-// implements an interface that allows the krt helper to know how to get the object key
-func (o ObjectWithCluster[T]) GetObjectKeyable() any {
-	if o.Object == nil {
-		return nil
-	}
-	return *o.Object
-}
-
-func (o *ObjectWithCluster[T]) Equals(o2 *ObjectWithCluster[T]) bool {
-	if o.ClusterID != o2.ClusterID {
-		return false
-	}
-
-	if o.Object == nil && o2.Object == nil {
-		return true
-	}
-
-	if (o.Object == nil && o2.Object != nil) || (o.Object != nil && o2.Object == nil) {
-		return false
-	}
-
-	a := *o.Object
-	b := *o2.Object
-	// Duplicated from krt/internal.go to avoid import cycle
-	if ak, ok := any(a).(Equaler[T]); ok {
-		return ak.Equals(b)
-	}
-	if ak, ok := any(a).(Equaler[*T]); ok {
-		return ak.Equals(&b)
-	}
-	if pk, ok := any(&a).(Equaler[T]); ok {
-		return pk.Equals(b)
-	}
-	if pk, ok := any(&a).(Equaler[*T]); ok {
-		return pk.Equals(&b)
-	}
-	ap, ok := any(a).(proto.Message)
-	if ok {
-		if reflect.TypeOf(ap.ProtoReflect().Interface()) == reflect.TypeOf(ap) {
-			return proto.Equal(ap, any(b).(proto.Message))
-		}
-		// If not, this is an embedded proto most likely... Sneaky.
-		// DeepEqual on proto is broken, so fail fast to avoid subtle errors.
-		panic(fmt.Sprintf("unable to compare object %T; perhaps it is embedding a protobuf? Provide an Equaler implementation", a))
-	}
-
-	// Last resort
-	return reflect.DeepEqual(a, b)
 }
 
 func LabelsInRevision(lbls map[string]string, rev string) bool {
