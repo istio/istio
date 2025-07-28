@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 43966
+releaseNotes:
+  - |
+    **Added** Support client CA certificate references with `-cacert` suffix in ServerTLSSettings.credentialsNames
