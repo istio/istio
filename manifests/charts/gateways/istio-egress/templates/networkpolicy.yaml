@@ -27,12 +27,14 @@ spec:
     ports:
     - protocol: TCP
       port: 15021
-  # Metrics endpoint for monitoring/prometheus
+  # Metrics endpoints for monitoring/prometheus
   - from: []
     ports:
     - protocol: TCP
+      port: 15020
+    - protocol: TCP
       port: 15090
-  # Main egress gateway traffic ports (from other pods in mesh)
+  # Main gateway traffic ports
 {{- if $gateway.ports }}
 {{- range $gateway.ports }}
   - from: []
@@ -42,6 +44,6 @@ spec:
 {{- end }}
 {{- end }}
   egress:
-  # Allow all egress (egress gateways need to reach external services)
+  # Allow all egress (gateways need to reach external services, istiod, and other cluster services)
   - {}
 {{- end }} 

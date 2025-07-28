@@ -26,9 +26,11 @@ spec:
     ports:
     - protocol: TCP
       port: 15021
-  # Metrics endpoint for monitoring/prometheus
+  # Metrics endpoints for monitoring/prometheus
   - from: []
     ports:
+    - protocol: TCP
+      port: 15020
     - protocol: TCP
       port: 15090
   # Main gateway traffic ports
