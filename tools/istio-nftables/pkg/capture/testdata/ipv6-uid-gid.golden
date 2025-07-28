@@ -6,36 +6,36 @@ add chain inet istio-proxy-nat istio-inbound
 add chain inet istio-proxy-nat istio-redirect
 add chain inet istio-proxy-nat istio-in-redirect
 add chain inet istio-proxy-nat istio-output
-add rule inet istio-proxy-nat prerouting iifname eth0 return
-insert rule inet istio-proxy-nat prerouting index 0 iifname eth1 return
-add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 15008 return
-add rule inet istio-proxy-nat istio-redirect meta l4proto tcp redirect to :15001
-add rule inet istio-proxy-nat istio-in-redirect meta l4proto tcp redirect to :15006
-add rule inet istio-proxy-nat prerouting meta l4proto tcp jump istio-inbound
-add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 4000 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 5000 jump istio-in-redirect
-add rule inet istio-proxy-nat output jump istio-output
-add rule inet istio-proxy-nat istio-output oifname lo ip saddr 127.0.0.6/32 return
-add rule inet istio-proxy-nat istio-output oifname lo ip6 saddr ::6/128 return
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skuid 3 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != 15008 skuid 3 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output oifname lo skuid != 3 return
-add rule inet istio-proxy-nat istio-output skuid 3 return
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skuid 4 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != 15008 skuid 4 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output oifname lo skuid != 4 return
-add rule inet istio-proxy-nat istio-output skuid 4 return
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 1 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != 15008 skgid 1 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output oifname lo skgid != 1 return
-add rule inet istio-proxy-nat istio-output skgid 1 return
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 2 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != 15008 skgid 2 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output oifname lo skgid != 2 return
-add rule inet istio-proxy-nat istio-output skgid 2 return
-add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 return
-add rule inet istio-proxy-nat istio-output ip6 daddr ::1/128 return
-add rule inet istio-proxy-nat istio-output ip6 daddr 2001:db8::/32 return
-insert rule inet istio-proxy-nat prerouting index 0 iifname eth0 ip6 daddr 2001:db8::/32 jump istio-redirect
-insert rule inet istio-proxy-nat prerouting index 0 iifname eth1 ip6 daddr 2001:db8::/32 jump istio-redirect
-add rule inet istio-proxy-nat istio-output ip6 daddr 2001:db8::/32 jump istio-redirect
+add rule inet istio-proxy-nat prerouting iifname eth0 counter return
+insert rule inet istio-proxy-nat prerouting index 0 iifname eth1 counter return
+add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 15008 counter return
+add rule inet istio-proxy-nat istio-redirect meta l4proto tcp counter redirect to :15001
+add rule inet istio-proxy-nat istio-in-redirect meta l4proto tcp counter redirect to :15006
+add rule inet istio-proxy-nat prerouting meta l4proto tcp counter jump istio-inbound
+add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 4000 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 5000 counter jump istio-in-redirect
+add rule inet istio-proxy-nat output counter jump istio-output
+add rule inet istio-proxy-nat istio-output oifname lo ip saddr 127.0.0.6/32 counter return
+add rule inet istio-proxy-nat istio-output oifname lo ip6 saddr ::6/128 counter return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skuid 3 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != 15008 skuid 3 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo skuid != 3 counter return
+add rule inet istio-proxy-nat istio-output skuid 3 counter return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skuid 4 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != 15008 skuid 4 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo skuid != 4 counter return
+add rule inet istio-proxy-nat istio-output skuid 4 counter return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 1 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != 15008 skgid 1 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo skgid != 1 counter return
+add rule inet istio-proxy-nat istio-output skgid 1 counter return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 2 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip6 daddr != ::1/128 tcp dport != 15008 skgid 2 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output oifname lo skgid != 2 counter return
+add rule inet istio-proxy-nat istio-output skgid 2 counter return
+add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 counter return
+add rule inet istio-proxy-nat istio-output ip6 daddr ::1/128 counter return
+add rule inet istio-proxy-nat istio-output ip6 daddr 2001:db8::/32 counter return
+insert rule inet istio-proxy-nat prerouting index 0 iifname eth0 ip6 daddr 2001:db8::/32 counter jump istio-redirect
+insert rule inet istio-proxy-nat prerouting index 0 iifname eth1 ip6 daddr 2001:db8::/32 counter jump istio-redirect
+add rule inet istio-proxy-nat istio-output ip6 daddr 2001:db8::/32 counter jump istio-redirect
