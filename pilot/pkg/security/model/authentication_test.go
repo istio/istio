@@ -848,6 +848,7 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 		expectedCertCount      int
 		expectedValidation     bool
 		expectedValidationType string
+		expectedClientCaCert   string
 		push                   *model.PushContext
 	}{
 		{
@@ -888,6 +889,30 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 		},
 		{
+			name: "client CA certificate with credential names",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialNames: []string{"rsa-cert", "ecdsa-cert", "client-cacert"},
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      2,
+			expectedValidation:     true,
+			expectedValidationType: "CombinedValidationContext",
+			expectedClientCaCert:   "kubernetes://client-cacert",
+		},
+		{
+			name: "multiple client CA certificates with credential names",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialNames: []string{"ecdsa-cert", "configmap://client1-cacert", "client2-cacert"},
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      1,
+			expectedValidation:     true,
+			expectedValidationType: "CombinedValidationContext",
+			expectedClientCaCert:   "configmap://client1-cacert",
+		},
+		{
 			name: "credential name with socket",
 			tlsOpts: &networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,
@@ -924,6 +949,10 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 					}
 					if combinedCtx.CombinedValidationContext == nil {
 						t.Error("expected CombinedValidationContext to be set")
+					}
+					clientCaCert := combinedCtx.CombinedValidationContext.ValidationContextSdsSecretConfig.Name
+					if tt.expectedClientCaCert != "" && tt.expectedClientCaCert != clientCaCert {
+						t.Errorf("expected client CA cert %s, got %s", tt.expectedClientCaCert, clientCaCert)
 					}
 				case "ValidationContext":
 					validationCtx, ok := tlsContext.ValidationContextType.(*auth.CommonTlsContext_ValidationContext)
