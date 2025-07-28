@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** support specifying proxy admin port for `istioctl experimental authz` and `istioctl proxystatus`.
