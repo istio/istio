@@ -4800,9 +4800,12 @@ type IstiodRemoteConfig struct {
 	// injector ca bundle
 	InjectionCABundle string `protobuf:"bytes,3,opt,name=injectionCABundle,proto3" json:"injectionCABundle,omitempty"`
 	// Indicates if this cluster/install should consume a "remote" istiod instance,
-	Enabled       *wrapperspb.BoolValue `protobuf:"bytes,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Enabled *wrapperspb.BoolValue `protobuf:"bytes,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// If `true`, indicates that this cluster/install should consume a "local istiod" installation,
+	// local istiod inject sidecars
+	EnabledLocalInjectorIstiod *wrapperspb.BoolValue `protobuf:"bytes,6,opt,name=enabledLocalInjectorIstiod,proto3" json:"enabledLocalInjectorIstiod,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *IstiodRemoteConfig) Reset() {
@@ -4859,6 +4862,13 @@ func (x *IstiodRemoteConfig) GetInjectionCABundle() string {
 func (x *IstiodRemoteConfig) GetEnabled() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Enabled
+	}
+	return nil
+}
+
+func (x *IstiodRemoteConfig) GetEnabledLocalInjectorIstiod() *wrapperspb.BoolValue {
+	if x != nil {
+		return x.EnabledLocalInjectorIstiod
 	}
 	return nil
 }
@@ -5685,12 +5695,13 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\rvalidationURL\x18\x02 \x01(\tR\rvalidationURL\x12P\n" +
 	"\x15enableIstioConfigCRDs\x18\x03 \x01(\v2\x1a.google.protobuf.BoolValueR\x15enableIstioConfigCRDs\x12D\n" +
 	"\x0fvalidateGateway\x18\x04 \x01(\v2\x1a.google.protobuf.BoolValueR\x0fvalidateGateway\x12.\n" +
-	"\x12validationCABundle\x18\x05 \x01(\tR\x12validationCABundle\"\xc2\x01\n" +
+	"\x12validationCABundle\x18\x05 \x01(\tR\x12validationCABundle\"\x9e\x02\n" +
 	"\x12IstiodRemoteConfig\x12\"\n" +
 	"\finjectionURL\x18\x01 \x01(\tR\finjectionURL\x12$\n" +
 	"\rinjectionPath\x18\x02 \x01(\tR\rinjectionPath\x12,\n" +
 	"\x11injectionCABundle\x18\x03 \x01(\tR\x11injectionCABundle\x124\n" +
-	"\aenabled\x18\x05 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\"\xd7\b\n" +
+	"\aenabled\x18\x05 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12Z\n" +
+	"\x1aenabledLocalInjectorIstiod\x18\x06 \x01(\v2\x1a.google.protobuf.BoolValueR\x1aenabledLocalInjectorIstiod\"\xd7\b\n" +
 	"\x06Values\x124\n" +
 	"\x03cni\x18\x02 \x01(\v2\".istio.operator.v1alpha1.CNIConfigR\x03cni\x12C\n" +
 	"\bgateways\x18\x05 \x01(\v2'.istio.operator.v1alpha1.GatewaysConfigR\bgateways\x12=\n" +
@@ -5996,32 +6007,33 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	54,  // 164: istio.operator.v1alpha1.BaseConfig.enableIstioConfigCRDs:type_name -> google.protobuf.BoolValue
 	54,  // 165: istio.operator.v1alpha1.BaseConfig.validateGateway:type_name -> google.protobuf.BoolValue
 	54,  // 166: istio.operator.v1alpha1.IstiodRemoteConfig.enabled:type_name -> google.protobuf.BoolValue
-	4,   // 167: istio.operator.v1alpha1.Values.cni:type_name -> istio.operator.v1alpha1.CNIConfig
-	15,  // 168: istio.operator.v1alpha1.Values.gateways:type_name -> istio.operator.v1alpha1.GatewaysConfig
-	16,  // 169: istio.operator.v1alpha1.Values.global:type_name -> istio.operator.v1alpha1.GlobalConfig
-	23,  // 170: istio.operator.v1alpha1.Values.pilot:type_name -> istio.operator.v1alpha1.PilotConfig
-	55,  // 171: istio.operator.v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
-	27,  // 172: istio.operator.v1alpha1.Values.telemetry:type_name -> istio.operator.v1alpha1.TelemetryConfig
-	38,  // 173: istio.operator.v1alpha1.Values.sidecarInjectorWebhook:type_name -> istio.operator.v1alpha1.SidecarInjectorConfig
-	5,   // 174: istio.operator.v1alpha1.Values.istio_cni:type_name -> istio.operator.v1alpha1.CNIUsageConfig
-	55,  // 175: istio.operator.v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
-	44,  // 176: istio.operator.v1alpha1.Values.base:type_name -> istio.operator.v1alpha1.BaseConfig
-	45,  // 177: istio.operator.v1alpha1.Values.istiodRemote:type_name -> istio.operator.v1alpha1.IstiodRemoteConfig
-	47,  // 178: istio.operator.v1alpha1.Values.experimental:type_name -> istio.operator.v1alpha1.ExperimentalConfig
-	55,  // 179: istio.operator.v1alpha1.Values.gatewayClasses:type_name -> google.protobuf.Value
-	54,  // 180: istio.operator.v1alpha1.ExperimentalConfig.stableValidationPolicy:type_name -> google.protobuf.BoolValue
-	66,  // 181: istio.operator.v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
-	67,  // 182: istio.operator.v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
-	10,  // 183: istio.operator.v1alpha1.WaypointConfig.resources:type_name -> istio.operator.v1alpha1.Resources
-	56,  // 184: istio.operator.v1alpha1.WaypointConfig.affinity:type_name -> k8s.io.api.core.v1.Affinity
-	62,  // 185: istio.operator.v1alpha1.WaypointConfig.topologySpreadConstraints:type_name -> k8s.io.api.core.v1.TopologySpreadConstraint
-	68,  // 186: istio.operator.v1alpha1.WaypointConfig.nodeSelector:type_name -> k8s.io.api.core.v1.NodeSelector
-	60,  // 187: istio.operator.v1alpha1.WaypointConfig.toleration:type_name -> k8s.io.api.core.v1.Toleration
-	188, // [188:188] is the sub-list for method output_type
-	188, // [188:188] is the sub-list for method input_type
-	188, // [188:188] is the sub-list for extension type_name
-	188, // [188:188] is the sub-list for extension extendee
-	0,   // [0:188] is the sub-list for field type_name
+	54,  // 167: istio.operator.v1alpha1.IstiodRemoteConfig.enabledLocalInjectorIstiod:type_name -> google.protobuf.BoolValue
+	4,   // 168: istio.operator.v1alpha1.Values.cni:type_name -> istio.operator.v1alpha1.CNIConfig
+	15,  // 169: istio.operator.v1alpha1.Values.gateways:type_name -> istio.operator.v1alpha1.GatewaysConfig
+	16,  // 170: istio.operator.v1alpha1.Values.global:type_name -> istio.operator.v1alpha1.GlobalConfig
+	23,  // 171: istio.operator.v1alpha1.Values.pilot:type_name -> istio.operator.v1alpha1.PilotConfig
+	55,  // 172: istio.operator.v1alpha1.Values.ztunnel:type_name -> google.protobuf.Value
+	27,  // 173: istio.operator.v1alpha1.Values.telemetry:type_name -> istio.operator.v1alpha1.TelemetryConfig
+	38,  // 174: istio.operator.v1alpha1.Values.sidecarInjectorWebhook:type_name -> istio.operator.v1alpha1.SidecarInjectorConfig
+	5,   // 175: istio.operator.v1alpha1.Values.istio_cni:type_name -> istio.operator.v1alpha1.CNIUsageConfig
+	55,  // 176: istio.operator.v1alpha1.Values.meshConfig:type_name -> google.protobuf.Value
+	44,  // 177: istio.operator.v1alpha1.Values.base:type_name -> istio.operator.v1alpha1.BaseConfig
+	45,  // 178: istio.operator.v1alpha1.Values.istiodRemote:type_name -> istio.operator.v1alpha1.IstiodRemoteConfig
+	47,  // 179: istio.operator.v1alpha1.Values.experimental:type_name -> istio.operator.v1alpha1.ExperimentalConfig
+	55,  // 180: istio.operator.v1alpha1.Values.gatewayClasses:type_name -> google.protobuf.Value
+	54,  // 181: istio.operator.v1alpha1.ExperimentalConfig.stableValidationPolicy:type_name -> google.protobuf.BoolValue
+	66,  // 182: istio.operator.v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
+	67,  // 183: istio.operator.v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
+	10,  // 184: istio.operator.v1alpha1.WaypointConfig.resources:type_name -> istio.operator.v1alpha1.Resources
+	56,  // 185: istio.operator.v1alpha1.WaypointConfig.affinity:type_name -> k8s.io.api.core.v1.Affinity
+	62,  // 186: istio.operator.v1alpha1.WaypointConfig.topologySpreadConstraints:type_name -> k8s.io.api.core.v1.TopologySpreadConstraint
+	68,  // 187: istio.operator.v1alpha1.WaypointConfig.nodeSelector:type_name -> k8s.io.api.core.v1.NodeSelector
+	60,  // 188: istio.operator.v1alpha1.WaypointConfig.toleration:type_name -> k8s.io.api.core.v1.Toleration
+	189, // [189:189] is the sub-list for method output_type
+	189, // [189:189] is the sub-list for method input_type
+	189, // [189:189] is the sub-list for extension type_name
+	189, // [189:189] is the sub-list for extension extendee
+	0,   // [0:189] is the sub-list for field type_name
 }
 
 func init() { file_pkg_apis_values_types_proto_init() }
