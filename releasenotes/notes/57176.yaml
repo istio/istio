@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
 - |
-  **Added** support specifying proxy admin port for `istioctl experimental authz`, `istioctl proxystatus`, `istioctl bug-report` and `istioctl experimental describe`.
+  **Added** support specifying the proxy admin port for `istioctl experimental authz`, `istioctl proxystatus`, `istioctl bug-report` and `istioctl experimental describe` with the flag `--proxy-admin-port`.
