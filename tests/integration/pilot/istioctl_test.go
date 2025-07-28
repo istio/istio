@@ -329,7 +329,7 @@ func TestProxyStatus(t *testing.T) {
 				d := t.TempDir()
 				filename := filepath.Join(d, "ps-configdump.json")
 				cs := t.Clusters().Default()
-				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
+				dump, err := cs.EnvoyDoWithPort(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", 15000)
 				if err != nil {
 					return err
 				}

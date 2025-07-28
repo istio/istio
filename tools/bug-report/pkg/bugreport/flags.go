@@ -36,6 +36,8 @@ var (
 	gConfig                                            = &config2.BugReportConfig{}
 )
 
+const defaultProxyAdminPort = 15000
+
 func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// k8s client config
 	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "",
@@ -51,6 +53,9 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// dry run
 	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false,
 		"Only log commands that would be run, don't fetch or write.")
+
+	cmd.PersistentFlags().IntVar(&args.ProxyAdminPort, "proxy-admin-port", defaultProxyAdminPort,
+		"Envoy proxy admin port")
 
 	// full secrets
 	cmd.PersistentFlags().BoolVarP(&args.FullSecrets, "full-secrets", "", false,

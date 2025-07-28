@@ -1054,7 +1054,7 @@ func printIngressInfo(
 	recordGateways := map[string]bool{}
 
 	for _, pod := range pods.Items {
-		byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump")
+		byConfigDump, err := client.EnvoyDoWithPort(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump", proxyAdminPort)
 		if err != nil {
 			return fmt.Errorf("failed to execute command on ingress gateway sidecar: %v", err)
 		}
