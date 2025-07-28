@@ -1687,6 +1687,8 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 		eps = append(eps, corev1.EndpointPort{Name: name, Port: portNum})
 	}
 
+	// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+	// nolint: staticcheck
 	endpoint := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -1698,7 +1700,7 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 			Ports:     eps,
 		}},
 	}
-	clienttest.NewWriter[*corev1.Endpoints](t, controller.client).CreateOrUpdate(endpoint)
+	clienttest.NewWriter[*corev1.Endpoints](t, controller.client).CreateOrUpdate(endpoint) // nolint: staticcheck
 
 	// Create endpoint slice as well
 	esps := make([]discovery.EndpointPort, 0)
@@ -1738,6 +1740,8 @@ func updateEndpoints(controller *FakeController, name, namespace string, portNam
 		eps = append(eps, corev1.EndpointPort{Name: name, Port: portNum})
 	}
 
+	// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+	// nolint: staticcheck
 	endpoint := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
