@@ -55,26 +55,30 @@ func TestMain(m *testing.M) {
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.SkipDeployCrossClusterSecrets = true
 			}
-			cfg.ControlPlaneValues = fmt.Sprintf(`
+			controlPlaneValues := fmt.Sprintf(`
 values:
   pilot:
-    taint:
-      enabled: true
-      namespace: "%s"
-    env:
-      PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
+	taint:
+	  enabled: true
+	  namespace: "%s"
+	env:
+	  PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
   ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
+	terminationGracePeriodSeconds: 5
+	env:
+	  SECRET_TTL: 5m
 
   gateways:
-    istio-ingressgateway:
-      enabled: false
-    istio-egressgateway:
-      enabled: false
+	istio-ingressgateway:
+	  enabled: false
+	istio-egressgateway:
+	  enabled: false
 
 `, cfg.SystemNamespace)
+			if ctx.Settings().IstioOwnedCNIConfig {
+				controlPlaneValues += "  cni:\n    istioOwnedCNIConfig: true\n"
+			}
+			cfg.ControlPlaneValues = controlPlaneValues
 		}, cert.CreateCASecretAlt)).
 		Teardown(untaintNodes).
 		Run()
