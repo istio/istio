@@ -515,11 +515,9 @@ func TestRotation(t *testing.T) {
 				if !strings.Contains(got.Name, testServiceAccountName+"-istio-remote-secret-token-") {
 					tt.Fatalf("expected new secret name to contain timestamp suffix, got %s", got.Name)
 				}
-			} else {
+			} else if got.Name != secret.Name {
 				// When rotation is disabled, existing secret should be reused
-				if got.Name != secret.Name {
-					tt.Fatalf("expected existing secret %s to be reused, but got %s", secret.Name, got.Name)
-				}
+				tt.Fatalf("expected existing secret %s to be reused, but got %s", secret.Name, got.Name)
 			}
 		})
 	}
