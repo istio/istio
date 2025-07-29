@@ -55,7 +55,7 @@ func TestMain(m *testing.M) {
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.SkipDeployCrossClusterSecrets = true
 			}
-			controlPlaneValues := fmt.Sprintf(`
+			cfg.ControlPlaneValues = fmt.Sprintf(`
 values:
   pilot:
 	taint:
@@ -75,10 +75,6 @@ values:
 	  enabled: false
 
 `, cfg.SystemNamespace)
-			if ctx.Settings().IstioOwnedCNIConfig {
-				controlPlaneValues += "  cni:\n    istioOwnedCNIConfig: true\n"
-			}
-			cfg.ControlPlaneValues = controlPlaneValues
 		}, cert.CreateCASecretAlt)).
 		Teardown(untaintNodes).
 		Run()
