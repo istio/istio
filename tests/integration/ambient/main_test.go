@@ -76,18 +76,18 @@ values:
   pilot:
     env:
       AMBIENT_ENABLE_MULTI_NETWORK: "true"
+  ztunnel:
+    terminationGracePeriodSeconds: 5
+    env:
+      SECRET_TTL: 5m
+	podLabels:
+      networking.istio.io/tunnel: "http"
   cni:
     # The CNI repair feature is disabled for these tests because this is a controlled environment,
     # and it is important to catch issues that might otherwise be automatically fixed.
     # Refer to issue #49207 for more context.
     repair:
       enabled: false
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-    podLabels:
-      networking.istio.io/tunnel: "http"
 `
 )
 
@@ -147,6 +147,10 @@ func TestMain(m *testing.M) {
 				// TODO: Remove once we're actually ready to test the multi-cluster
 				// features
 				cfg.SkipDeployCrossClusterSecrets = true
+			}
+			if ctx.Settings().IstioOwnedCNIConfig {
+				// Assumes "cni" is the last value in the config and there is a newline at the end
+				cfg.ControlPlaneValues += "    istioOwnedCNIConfig: true\n"
 			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
