@@ -16,6 +16,7 @@ package multicluster
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -450,6 +451,78 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 			doCase(t, c, "")
 		}
 	})
+}
+
+func TestRotation(t *testing.T) {
+	secret := makeSecret("existing-secret", "caData", "token")
+
+	testCases := []struct {
+		name                string
+		rotation            bool
+		expectedNewSecret   bool
+		expectedSecretCount int
+	}{
+		{
+			name:                "without rotation, reuse existing secret",
+			rotation:            false,
+			expectedNewSecret:   false,
+			expectedSecretCount: 1,
+		},
+		{
+			name:                "with rotation, create new secret",
+			rotation:            true,
+			expectedNewSecret:   true,
+			expectedSecretCount: 2,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(tt *testing.T) {
+			opts := RemoteSecretOptions{
+				ServiceAccountName: testServiceAccountName,
+				Rotation:           tc.rotation,
+				KubeOptions: KubeOptions{
+					Namespace: testNamespace,
+				},
+				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+			}
+
+			client := kube.NewFakeClient(
+				makeServiceAccount("existing-secret"),
+				secret,
+			)
+
+			got, err := getServiceAccountSecret(client, opts)
+			if err != nil {
+				tt.Fatalf("unexpected error: %v", err)
+			}
+
+			// List all secrets to check count
+			allSecrets, err := client.Kube().CoreV1().Secrets(testNamespace).List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				tt.Fatalf("failed to list secrets: %v", err)
+			}
+
+			if len(allSecrets.Items) != tc.expectedSecretCount {
+				tt.Fatalf("expected %d secrets, got %d", tc.expectedSecretCount, len(allSecrets.Items))
+			}
+
+			if tc.expectedNewSecret {
+				// When rotation is enabled, a new secret should be created
+				if got.Name == secret.Name {
+					tt.Fatalf("expected new secret to be created, but got existing secret %s", got.Name)
+				}
+				if !strings.Contains(got.Name, testServiceAccountName+"-istio-remote-secret-token-") {
+					tt.Fatalf("expected new secret name to contain timestamp suffix, got %s", got.Name)
+				}
+			} else {
+				// When rotation is disabled, existing secret should be reused
+				if got.Name != secret.Name {
+					tt.Fatalf("expected existing secret %s to be reused, but got %s", secret.Name, got.Name)
+				}
+			}
+		})
+	}
 }
 
 func TestGenerateServiceAccount(t *testing.T) {
