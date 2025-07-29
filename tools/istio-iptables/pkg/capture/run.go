@@ -51,7 +51,11 @@ func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) (*Iptable
 
 	ipt6Ver, err := ext.DetectIptablesVersion(true)
 	if err != nil {
-		return nil, err
+		if cfg.EnableIPv6 {
+			return nil, err
+		}
+		log.Warnf("Failed to detect a working ip6tables binary; continuing because IPv6 support is disabled (ENABLE_INBOUND_IPV6=false): %v", err)
+		ipt6Ver = dep.IptablesVersion{}
 	}
 
 	return &IptablesConfigurator{
@@ -645,7 +649,9 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 			log.Info("Removing guardrails")
 			guardrailsCleanup := cfg.ruleBuilder.BuildCleanupGuardrails()
 			_ = cfg.executeIptablesCommands(iptVer, guardrailsCleanup)
-			_ = cfg.executeIptablesCommands(ipt6Ver, guardrailsCleanup)
+			if cfg.cfg.EnableIPv6 {
+				_ = cfg.executeIptablesCommands(ipt6Ver, guardrailsCleanup)
+			}
 		}
 	}()
 
@@ -660,7 +666,11 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 			log.Info("Setting up guardrails")
 			guardrailsCleanup := cfg.ruleBuilder.BuildCleanupGuardrails()
 			guardrailsRules := cfg.ruleBuilder.BuildGuardrails()
-			for _, ver := range []*dep.IptablesVersion{iptVer, ipt6Ver} {
+			iptVersions := []*dep.IptablesVersion{iptVer}
+			if cfg.cfg.EnableIPv6 {
+				iptVersions = append(iptVersions, ipt6Ver)
+			}
+			for _, ver := range iptVersions {
 				cfg.tryExecuteIptablesCommands(ver, guardrailsCleanup)
 				if err := cfg.executeIptablesCommands(ver, guardrailsRules); err != nil {
 					return err
@@ -671,7 +681,9 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 		// Remove old iptables
 		log.Info("Performing cleanup of existing iptables")
 		cfg.tryExecuteIptablesCommands(iptVer, cfg.ruleBuilder.BuildCleanupV4())
-		cfg.tryExecuteIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildCleanupV6())
+		if cfg.cfg.EnableIPv6 {
+			cfg.tryExecuteIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildCleanupV6())
+		}
 	}
 
 	// Apply Step
@@ -682,8 +694,10 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 			return err
 		}
 		// Execute ip6tables-restore
-		if err := cfg.executeIptablesRestoreCommand(ipt6Ver, cfg.ruleBuilder.BuildV6Restore()); err != nil {
-			return err
+		if cfg.cfg.EnableIPv6 {
+			if err := cfg.executeIptablesRestoreCommand(ipt6Ver, cfg.ruleBuilder.BuildV6Restore()); err != nil {
+				return err
+			}
 		}
 	}
 
