@@ -148,10 +148,6 @@ func TestMain(m *testing.M) {
 				// features
 				cfg.SkipDeployCrossClusterSecrets = true
 			}
-			if ctx.Settings().IstioOwnedCNIConfig {
-				// Assumes "cni" is the last value in the config and there is a newline at the end
-				cfg.ControlPlaneValues += "    istioOwnedCNIConfig: true\n"
-			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Cluster = t.Clusters().Default()

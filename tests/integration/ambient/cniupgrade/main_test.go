@@ -49,30 +49,6 @@ var (
 	apps = &EchoDeployments{}
 )
 
-const (
-	controlPlaneValues = `
-values:
-  cni:
-    repair:
-      enabled: true
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-`
-	istioOwnedCNIConfigControlPlaneValues = `
-values:
-  cni:
-    istioOwnedCNIConfig: true
-    repair:
-      enabled: true
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-`
-)
-
 type EchoDeployments struct {
 	// Namespace echo apps will be deployed
 	Namespace namespace.Instance
@@ -106,10 +82,16 @@ func TestMain(m *testing.M) {
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.SkipDeployCrossClusterSecrets = true
 			}
-			cfg.ControlPlaneValues = controlPlaneValues
-			if ctx.Settings().IstioOwnedCNIConfig {
-				cfg.ControlPlaneValues = istioOwnedCNIConfigControlPlaneValues
-			}
+			cfg.ControlPlaneValues = `
+values:
+  cni:
+    repair:
+      enabled: true
+  ztunnel:
+    terminationGracePeriodSeconds: 5
+    env:
+      SECRET_TTL: 5m
+`
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
