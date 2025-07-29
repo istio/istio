@@ -195,6 +195,8 @@ func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscr
 }
 
 func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
+	innerCollection := e.Latest().(internalCollection[T])
+	log.Debugf("NestedJoinCollection: Collection %s (uid %s) updated, recalculating merged values", innerCollection.name(), innerCollection.uid())
 	// Get all of the elements in the old collection
 	oldCollectionValue := *e.Old
 	newCollectionValue := *e.New
@@ -341,7 +343,7 @@ func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 			e = Event[T]{Old: &oldItem, Event: controllers.EventDelete}
 		} else {
 			if !ok {
-				// If we don't have the old item, then this is actually an add (something must have changed in the time after enqueue)
+				// If we don't have the old item, then this is actually an add
 				e = Event[T]{New: res, Event: controllers.EventAdd}
 			} else {
 				// There are some versions of this key still in the overall collection
