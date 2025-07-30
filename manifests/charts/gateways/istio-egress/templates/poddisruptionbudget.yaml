@@ -1,5 +1,7 @@
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 {{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+# a workaround for https://github.com/kubernetes/kubernetes/issues/93476
+{{- if or (and $gateway.autoscaleEnabled  (gt (int $gateway.autoscaleMin) 1)) (and (not $gateway.autoscaleEnabled) (gt (int $gateway.replicaCount) 1)) }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -18,4 +20,5 @@ spec:
   selector:
     matchLabels:
 {{ $gateway.labels | toYaml | trim | indent 6 }}
+{{- end }}
 {{- end }}
