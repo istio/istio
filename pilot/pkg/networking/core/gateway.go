@@ -453,6 +453,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					IsTLS:                     server.Tls != nil,
 					IsHTTP3AltSvcHeaderNeeded: isH3DiscoveryNeeded,
 					Mesh:                      push.Mesh,
+					Push:                      push,
 					LookupService: func(name host.Name) *model.Service {
 						return nameToServiceMap[name]
 					},

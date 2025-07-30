@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
@@ -49,7 +51,31 @@ func buildRouteOpts(sr map[host.Name]*model.Service, hash route.DestinationHashM
 	return route.RouteOptions{
 		IsTLS:                     false,
 		IsHTTP3AltSvcHeaderNeeded: false,
-		Mesh:                      nil,
+		Mesh:                      mesh.DefaultMeshConfig(),
+		Push:                      nil, // Will be set by individual tests if needed
+		LookupService: func(name host.Name) *model.Service {
+			return sr[name]
+		},
+		LookupDestinationCluster: route.GetDestinationCluster,
+		LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {
+			return hash[destination]
+		},
+	}
+}
+
+func buildRouteOptsWithXForwardedHost(sr map[host.Name]*model.Service, hash route.DestinationHashMap) route.RouteOptions {
+	meshConfig := mesh.DefaultMeshConfig()
+	meshConfig.DefaultConfig.ProxyHeaders = &meshconfig.ProxyConfig_ProxyHeaders{
+		XForwardedHost: &meshconfig.ProxyConfig_ProxyHeaders_XForwardedHost{
+			Enabled: &wrapperspb.BoolValue{Value: true},
+		},
+	}
+
+	return route.RouteOptions{
+		IsTLS:                     false,
+		IsHTTP3AltSvcHeaderNeeded: false,
+		Mesh:                      meshConfig,
+		Push:                      nil, // Will be set by individual tests if needed
 		LookupService: func(name host.Name) *model.Service {
 			return sr[name]
 		},
@@ -82,6 +108,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			IPAddresses: []string{"1.1.1.1"},
 			ID:          "someID",
 			DNSDomain:   "foo.com",
+			Metadata:    &model.NodeMetadata{},
 			IstioVersion: &model.IstioVersion{
 				Major: 1,
 				Minor: 20,
@@ -103,7 +130,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		t.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, 8080, gatewayNames, routeOpts)
+		routeOptsWithPush := routeOpts
+		routeOptsWithPush.Push = cg.PushContext()
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, 8080, gatewayNames, routeOptsWithPush)
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(HaveOccurred())
@@ -120,6 +149,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routeOpts := buildRouteOpts(serviceRegistry, nil)
 		routeOpts.IsHTTP3AltSvcHeaderNeeded = true
+		routeOpts.Push = cg.PushContext()
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, 8080, gatewayNames, routeOpts)
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(HaveOccurred())
@@ -138,7 +168,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithTimeout, 8080, gatewayNames, routeOpts)
+		routeOptsWithPush := routeOpts
+		routeOptsWithPush.Push = cg.PushContext()
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithTimeout, 8080, gatewayNames, routeOptsWithPush)
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(HaveOccurred())
@@ -153,7 +185,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithTimeoutDisabled, 8080, gatewayNames, routeOpts)
+		routeOptsWithPush := routeOpts
+		routeOptsWithPush.Push = cg.PushContext()
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithTimeoutDisabled, 8080, gatewayNames, routeOptsWithPush)
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(HaveOccurred())
@@ -979,6 +1013,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for host rewrite", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
+		routeOpts.Push = cg.PushContext()
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewriteHost, 8080, gatewayNames, routeOpts)
 		xdstest.ValidateRoutes(t, routes)
@@ -1088,6 +1123,46 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 			Substitution: "\\2/instance/\\1",
 		}))
+	})
+
+	t.Run("for host rewrite with XForwardedHost enabled", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routeOptsWithXForwardedHost := buildRouteOptsWithXForwardedHost(serviceRegistry, nil)
+		routeOptsWithXForwardedHost.Push = cg.PushContext()
+		routeOptsWithXForwardedHost.Push.Mesh = routeOptsWithXForwardedHost.Mesh
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewriteHost, 8080, gatewayNames, routeOptsWithXForwardedHost)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(BeFalse())
+		g.Expect(routeAction.Route.HostRewriteSpecifier).To(Equal(&envoyroute.RouteAction_HostRewriteLiteral{
+			HostRewriteLiteral: "bar.example.org",
+		}))
+		// Verify that XForwardedHost is enabled
+		g.Expect(routeAction.Route.AppendXForwardedHost).To(Equal(true))
+	})
+
+	t.Run("for prefix path rewrite with XForwardedHost enabled", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routeOptsWithXForwardedHost := buildRouteOptsWithXForwardedHost(serviceRegistry, nil)
+		routeOptsWithXForwardedHost.Push = cg.PushContext()
+		routeOptsWithXForwardedHost.Push.Mesh = routeOptsWithXForwardedHost.Mesh
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRewritePrefixPath, 8080, gatewayNames, routeOptsWithXForwardedHost)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		routeAction, ok := routes[0].Action.(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(BeFalse())
+		g.Expect(routeAction.Route.PrefixRewrite).To(Equal("/replace-prefix"))
+		// Verify that XForwardedHost is enabled
+		g.Expect(routeAction.Route.AppendXForwardedHost).To(Equal(true))
 	})
 
 	t.Run("for redirect uri prefix '%PREFIX()%' that is without gateway semantics", func(t *testing.T) {

@@ -321,14 +321,17 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		connectionManager.CodecType = hcm.HttpConnectionManager_AUTO
 	}
 
+	ph := lb.node.Metadata.ProxyConfigOrDefault(lb.push.Mesh.GetDefaultConfig()).GetProxyHeaders()
+
 	// Preserve HTTP/1.x traffic header case
-	if lb.node.Metadata.ProxyConfigOrDefault(lb.push.Mesh.GetDefaultConfig()).GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue() {
+	if ph.GetPreserveHttp1HeaderCase().GetValue() {
 		// This value only affects HTTP/1.x traffic
 		connectionManager.HttpProtocolOptions = preserveCaseFormatterConfig
 	}
 
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.StatPrefix = httpOpts.statPrefix
+	connectionManager.AppendXForwardedPort = ph.GetXForwardedPort().GetEnabled().GetValue()
 
 	// Setup normalization
 	connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_KEEP_UNCHANGED

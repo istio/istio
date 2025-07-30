@@ -835,6 +835,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		statPrefix:                cc.StatPrefix(),
 		hbone:                     cc.hbone,
 	}
+
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {
 		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}

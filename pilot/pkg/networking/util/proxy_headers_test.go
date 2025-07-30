@@ -45,6 +45,8 @@ func TestGetProxyHeadersFromProxyConfig(t *testing.T) {
 				GenerateRequestID:          nil,
 				SuppressDebugHeaders:       false,
 				SkipIstioMXHeaders:         false,
+				XForwardedPort:             false,
+				XForwardedHost:             false,
 			},
 		},
 		{
@@ -59,6 +61,8 @@ func TestGetProxyHeadersFromProxyConfig(t *testing.T) {
 				GenerateRequestID:          nil,
 				SuppressDebugHeaders:       false,
 				SkipIstioMXHeaders:         false,
+				XForwardedPort:             false,
+				XForwardedHost:             false,
 			},
 		},
 		{
@@ -88,6 +92,33 @@ func TestGetProxyHeadersFromProxyConfig(t *testing.T) {
 				GenerateRequestID:          proto.BoolFalse,
 				SuppressDebugHeaders:       true,
 				SkipIstioMXHeaders:         false,
+				XForwardedPort:             false,
+				XForwardedHost:             false,
+			},
+		},
+		{
+			name: "with X-Forwarded headers enabled",
+			config: &meshconfig.ProxyConfig{
+				ProxyHeaders: &meshconfig.ProxyConfig_ProxyHeaders{
+					XForwardedPort: &meshconfig.ProxyConfig_ProxyHeaders_XForwardedPort{
+						Enabled: &wrapperspb.BoolValue{Value: true},
+					},
+					XForwardedHost: &meshconfig.ProxyConfig_ProxyHeaders_XForwardedHost{
+						Enabled: &wrapperspb.BoolValue{Value: true},
+					},
+				},
+			},
+			class: istionetworking.ListenerClassSidecarInbound,
+			expected: ProxyHeaders{
+				ServerName:                 "istio-envoy",
+				ServerHeaderTransformation: hcm.HttpConnectionManager_OVERWRITE,
+				ForwardedClientCert:        hcm.HttpConnectionManager_APPEND_FORWARD,
+				IncludeRequestAttemptCount: true,
+				GenerateRequestID:          nil,
+				SuppressDebugHeaders:       false,
+				SkipIstioMXHeaders:         false,
+				XForwardedPort:             true,
+				XForwardedHost:             true,
 			},
 		},
 	}
@@ -112,6 +143,12 @@ func TestGetProxyHeadersFromProxyConfig(t *testing.T) {
 			}
 			if result.SkipIstioMXHeaders != tt.expected.SkipIstioMXHeaders {
 				t.Errorf("SkipIstioMXHeaders = %v, want %v", result.SkipIstioMXHeaders, tt.expected.SkipIstioMXHeaders)
+			}
+			if result.XForwardedPort != tt.expected.XForwardedPort {
+				t.Errorf("XForwardedPort = %v, want %v", result.XForwardedPort, tt.expected.XForwardedPort)
+			}
+			if result.XForwardedHost != tt.expected.XForwardedHost {
+				t.Errorf("XForwardedHost = %v, want %v", result.XForwardedHost, tt.expected.XForwardedHost)
 			}
 		})
 	}
@@ -142,5 +179,11 @@ func TestGetProxyHeaders(t *testing.T) {
 	}
 	if !result.IncludeRequestAttemptCount {
 		t.Error("Expected IncludeRequestAttemptCount to be true")
+	}
+	if result.XForwardedPort {
+		t.Error("Expected XForwardedPort to be false by default")
+	}
+	if result.XForwardedHost {
+		t.Error("Expected XForwardedHost to be false by default")
 	}
 }

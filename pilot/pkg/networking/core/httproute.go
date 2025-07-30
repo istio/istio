@@ -185,8 +185,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	util.SortVirtualHosts(virtualHosts)
 
 	if !useSniffing {
-		includeRequestAttemptCount := util.GetProxyHeaders(node, req.Push, istionetworking.ListenerClassSidecarOutbound).IncludeRequestAttemptCount
-		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, includeRequestAttemptCount))
+		ph := util.GetProxyHeaders(node, req.Push, istionetworking.ListenerClassSidecarOutbound)
+		appendXForwardedHost := ph.XForwardedHost
+		includeRequestAttemptCount := ph.IncludeRequestAttemptCount
+		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, includeRequestAttemptCount, appendXForwardedHost))
 	}
 
 	out := &route.RouteConfiguration{
@@ -768,7 +770,7 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 	return
 }
 
-func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount bool) *route.VirtualHost {
+func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount bool, appendXForwardedHost bool) *route.VirtualHost {
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
 		notimeout := durationpb.New(0)
@@ -787,7 +789,8 @@ func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount bool
 			Timeout: notimeout,
 			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
 			// nolint: staticcheck
-			MaxGrpcTimeout: notimeout,
+			MaxGrpcTimeout:       notimeout,
+			AppendXForwardedHost: appendXForwardedHost,
 		}
 
 		return &route.VirtualHost{

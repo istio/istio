@@ -34,6 +34,8 @@ type ProxyHeaders struct {
 	GenerateRequestID          *wrapperspb.BoolValue
 	SuppressDebugHeaders       bool
 	SkipIstioMXHeaders         bool
+	XForwardedPort             bool
+	XForwardedHost             bool
 }
 
 // GetProxyHeaders returns proxy headers configuration for the given node and listener class
@@ -52,6 +54,8 @@ func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetwo
 		SuppressDebugHeaders:       false,
 		GenerateRequestID:          nil, // Envoy default is to enable them, so set nil
 		SkipIstioMXHeaders:         false,
+		XForwardedPort:             false,
+		XForwardedHost:             false,
 	}
 	if class == istionetworking.ListenerClassSidecarOutbound {
 		// Likely due to a mistake, outbound uses "envoy" while inbound uses "istio-envoy". Bummer.
@@ -84,6 +88,12 @@ func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetwo
 	}
 	if ph.MetadataExchangeHeaders != nil && ph.MetadataExchangeHeaders.GetMode() == meshconfig.ProxyConfig_ProxyHeaders_IN_MESH {
 		base.SkipIstioMXHeaders = true
+	}
+	if ph.XForwardedPort.GetEnabled().GetValue() {
+		base.XForwardedPort = true
+	}
+	if ph.XForwardedHost.GetEnabled().GetValue() {
+		base.XForwardedHost = true
 	}
 	base.SetCurrentCertDetails = ph.SetCurrentClientCertDetails
 	return base
