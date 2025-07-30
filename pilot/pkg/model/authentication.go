@@ -15,7 +15,7 @@
 package model
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 	"time"
@@ -167,9 +167,9 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 		policy.peerAuthentications[config.Namespace] = append(policy.peerAuthentications[config.Namespace], config)
 	}
 
-	// nolint: gosec
-	// Not security sensitive code
-	policy.aggregateVersion = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(versions, ";"))))
+	// Not security sensitive code, but setting GODEBUG=fips140=only
+	// panics on *any* use of crypto/md5.
+	policy.aggregateVersion = fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(versions, ";"))))
 
 	// Process found namespace-level policy.
 	policy.namespaceMutualTLSMode = make(map[string]MutualTLSMode, len(foundNamespaceMTLS))
