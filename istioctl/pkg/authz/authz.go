@@ -31,7 +31,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var configDumpFile string
+var (
+	configDumpFile string
+	proxyAdminPort int
+)
 
 func checkCmd(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
@@ -74,7 +77,7 @@ The command also supports reading from a standalone config dump file with flag -
 				if err != nil {
 					return err
 				}
-				configDump, err = getConfigDumpFromPod(kubeClient, podName, podNamespace)
+				configDump, err = getConfigDumpFromPod(kubeClient, podName, podNamespace, proxyAdminPort)
 				if err != nil {
 					return fmt.Errorf("failed to get config dump from pod %s in %s", podName, podNamespace)
 				}
@@ -93,6 +96,7 @@ The command also supports reading from a standalone config dump file with flag -
 	}
 	cmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"The json file with Envoy config dump to be checked")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Envoy proxy admin port")
 	return cmd
 }
 
@@ -118,7 +122,7 @@ func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
 	return envoyConfig, nil
 }
 
-func getConfigDumpFromPod(kubeClient kube.CLIClient, podName, podNamespace string) (*configdump.Wrapper, error) {
+func getConfigDumpFromPod(kubeClient kube.CLIClient, podName, podNamespace string, proxyAdminPort int) (*configdump.Wrapper, error) {
 	pods, err := kubeClient.GetIstioPods(context.TODO(), podNamespace, metav1.ListOptions{
 		FieldSelector: "metadata.name=" + podName,
 	})
@@ -129,7 +133,7 @@ func getConfigDumpFromPod(kubeClient kube.CLIClient, podName, podNamespace strin
 		return nil, fmt.Errorf("expecting only 1 pod for %s.%s, found: %d", podName, podNamespace, len(pods))
 	}
 
-	data, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", "config_dump")
+	data, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", "config_dump", proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get proxy config for %s.%s: %s", podName, podNamespace, err)
 	}

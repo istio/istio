@@ -31,10 +31,14 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
-var configDumpFile string
+var (
+	proxyAdminPort int
+	configDumpFile string
+)
 
 func readConfigFile(filename string) ([]byte, error) {
 	file := os.Stdin
@@ -118,7 +122,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
   istioctl proxy-status --output json`,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 			if err != nil {
 				return err
 			}
@@ -139,7 +143,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					envoyDump, err = readConfigFile(configDumpFile)
 				} else {
 					path := "config_dump"
-					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
+					envoyDump, err = kubeClient.EnvoyDoWithPort(context.TODO(), podName, ns, "GET", path, proxyAdminPort)
 				}
 				if err != nil {
 					return fmt.Errorf("could not contact sidecar: %w", err)
@@ -181,6 +185,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 	statusCmd.PersistentFlags().StringVar(&configDumpFile, "file", "",
 		"Envoy config dump JSON file")
+	statusCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	statusCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table",
 		"Output format: table or json")

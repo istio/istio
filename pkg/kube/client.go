@@ -102,8 +102,9 @@ import (
 )
 
 const (
-	defaultLocalAddress = "localhost"
-	RunningStatus       = "status.phase=Running"
+	defaultLocalAddress   = "localhost"
+	RunningStatus         = "status.phase=Running"
+	DefaultProxyAdminPort = 15000
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -169,9 +170,6 @@ type CLIClient interface {
 	Client
 	// Revision of the Istio control plane.
 	Revision() string
-
-	// EnvoyDo makes a http request to the Envoy in the specified pod.
-	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
 	// EnvoyDoWithPort makes a http request to the Envoy in the specified pod and port.
 	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
@@ -923,10 +921,6 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 		return result, nil
 	}
 	return nil, nil
-}
-
-func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
-	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
 }
 
 func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {

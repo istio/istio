@@ -30,7 +30,7 @@ import (
 )
 
 func TestReconcileInferencePool(t *testing.T) {
-	test.SetForTest(t, &features.SupportGatewayAPIInferenceExtension, true)
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
 	pool := &inferencev1alpha2.InferencePool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pool",

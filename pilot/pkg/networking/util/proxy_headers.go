@@ -24,12 +24,7 @@ import (
 	"istio.io/istio/pkg/proto"
 )
 
-const (
-	// EnvoyServerName for istio's envoy
-	EnvoyServerName = "istio-envoy"
-)
-
-// ProxyHeaders contains configuration for proxy headers
+// ProxyHeaders contains configuration for HTTP proxy headers
 type ProxyHeaders struct {
 	ServerName                 string
 	ServerHeaderTransformation hcm.HttpConnectionManager_ServerHeaderTransformation
@@ -49,10 +44,10 @@ func GetProxyHeaders(node *model.Proxy, push *model.PushContext, class istionetw
 	return GetProxyHeadersFromProxyConfig(pc, class)
 }
 
-// GetProxyHeadersFromProxyConfig returns proxy headers configuration from proxy config
+// GetProxyHeadersFromProxyConfig returns proxy headers configuration from proxy config and listener class
 func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetworking.ListenerClass) ProxyHeaders {
 	base := ProxyHeaders{
-		ServerName:                 EnvoyServerName,
+		ServerName:                 "istio-envoy", // EnvoyServerName constant
 		ServerHeaderTransformation: hcm.HttpConnectionManager_OVERWRITE,
 		ForwardedClientCert:        hcm.HttpConnectionManager_APPEND_FORWARD,
 		IncludeRequestAttemptCount: true,

@@ -190,3 +190,8 @@ _internal_defaults_do_not_set:
   # Configure the lifecycle hooks for the gateway. See
   # https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/.
   lifecycle: {}
+
+  # When enabled, a default NetworkPolicy for gateways will be created
+  global:
+    networkPolicy:
+      enabled: false
