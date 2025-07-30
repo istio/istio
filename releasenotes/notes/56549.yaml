@@ -3,6 +3,9 @@ kind: feature
 area: security
 issue:
   - 43966
+docs:
+  - '[usage] https://istio.io/latest/docs/tasks/traffic-management/ingress/secure-ingress/#key-formats'
+  - '[reference] https://istio.io/latest/docs/reference/config/networking/gateway/#ServerTLSSettings-credential_names'
 releaseNotes:
   - |
     **Added** Support client CA certificate references with `-cacert` suffix in ServerTLSSettings.credentialsNames
