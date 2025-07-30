@@ -58,21 +58,21 @@ func TestMain(m *testing.M) {
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 values:
   pilot:
-	taint:
-	  enabled: true
-	  namespace: "%s"
-	env:
-	  PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
+    taint:
+      enabled: true
+      namespace: "%s"
+    env:
+      PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
   ztunnel:
-	terminationGracePeriodSeconds: 5
-	env:
-	  SECRET_TTL: 5m
+    terminationGracePeriodSeconds: 5
+    env:
+      SECRET_TTL: 5m
 
   gateways:
-	istio-ingressgateway:
-	  enabled: false
-	istio-egressgateway:
-	  enabled: false
+    istio-ingressgateway:
+      enabled: false
+    istio-egressgateway:
+      enabled: false
 
 `, cfg.SystemNamespace)
 		}, cert.CreateCASecretAlt)).
