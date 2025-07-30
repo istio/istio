@@ -238,9 +238,10 @@ spec:
 // nolint: lll
 func TestValidateValues(t *testing.T) {
 	tests := []struct {
-		desc     string
-		yamlStr  string
-		wantErrs util.Errors
+		desc        string
+		yamlStr     string
+		wantErrs    util.Errors
+		wantWarning util.Errors
 	}{
 		{
 			desc: "nil success",
@@ -359,15 +360,45 @@ cni:
 `,
 			wantErrs: makeErrors([]string{`could not unmarshal: error unmarshaling JSON: while decoding JSON: unknown field "foo" in istio.operator.v1alpha1.CNIConfig`}),
 		},
+		{
+			desc: "nativeNftables with distroless",
+			yamlStr: `
+global:
+  variant: "distroless"
+  nativeNftables: true
+`,
+			wantWarning: makeErrors([]string{
+				"nativeNftables is enabled, but the image is distroless. The 'nft' CLI binary is not available in distroless images, which is required for nativeNftables to work. Please either disable nativeNftables or use a non-distroless image",
+			}),
+		},
+		{
+			desc: "nativeNftables with debug image",
+			yamlStr: `
+global:
+  variant: "debug"
+  nativeNftables: true
+`,
+		},
+		{
+			desc: "nativeNftables disabled with distroless",
+			yamlStr: `
+global:
+  variant: "distroless"
+  nativeNftables: false
+`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			m, err := values.MapFromYaml([]byte(tt.yamlStr))
 			assert.NoError(t, err)
-			_, errs := validation.ParseAndValidateIstioOperator(values.MakeMap(m, "spec", "values"), nil)
+			warnings, errs := validation.ParseAndValidateIstioOperator(values.MakeMap(m, "spec", "values"), nil)
 			if gotErr, wantErr := errs, tt.wantErrs; !util.EqualErrors(gotErr, wantErr) {
 				t.Errorf("CheckValues(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.yamlStr, gotErr, wantErr)
+			}
+			if gotWarning, wantWarning := warnings, tt.wantWarning; !util.EqualErrors(gotWarning, wantWarning) {
+				t.Errorf("CheckValues(%s)(%v): gotWarning:%s, wantWarning:%s", tt.desc, tt.yamlStr, gotWarning, wantWarning)
 			}
 		})
 	}
