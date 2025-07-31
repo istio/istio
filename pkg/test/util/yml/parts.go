@@ -59,22 +59,36 @@ func GetMetadata(content string) []metav1.ObjectMeta {
 // SplitString splits the given yaml doc if it's multipart document.
 func SplitString(yamlText string) []string {
 	out := make([]string, 0)
-	scanner := bufio.NewScanner(strings.NewReader(yamlText))
+	reader := bufio.NewReader(strings.NewReader(yamlText))
+
 	parts := []string{}
 	active := strings.Builder{}
-	for scanner.Scan() {
-		line := scanner.Text()
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == bufio.ErrBufferFull {
+				active.WriteString(line)
+				continue
+			}
+			if line != "" {
+				active.WriteString(line)
+			}
+			break
+		}
+
 		if strings.HasPrefix(line, "---") {
 			parts = append(parts, active.String())
 			active = strings.Builder{}
 		} else {
 			active.WriteString(line)
-			active.WriteString("\n")
 		}
 	}
+
 	if active.Len() > 0 {
 		parts = append(parts, active.String())
 	}
+
 	for _, part := range parts {
 		part := strings.TrimSpace(part)
 		if len(part) > 0 {
