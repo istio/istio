@@ -27,21 +27,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-type collectionMembershipEvent int
-
-const (
-	collectionMembershipEventAdd collectionMembershipEvent = iota
-	collectionMembershipEventDelete
-	collectionMembershipEventUpdate
-)
-
-type collectionChangeEvent[T any] struct {
-	eventType       collectionMembershipEvent
-	collectionValue internalCollection[T]
-	// Only set for update events
-	oldCollectionValue internalCollection[T]
-}
-
 type nestedjoinmerge[T any] struct {
 	*mergejoin[T]
 	collections internalCollection[Collection[T]]
@@ -348,7 +333,8 @@ func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 			// Use the merge of the old items as the old value
 			if !ok {
 				// This shouldn't happen; log it and fall back to the event's old Item
-				j.log.Warnf("NestedJoinWithMergeCollection: No item found in outputs for key %s during collection delete, sending delete event with event old value", keyString)
+				msg := "NestedJoinWithMergeCollection: No item found in outputs for key %s during collection delete, sending delete event with event old value"
+				j.log.Warnf(msg, keyString)
 				oldItem = *oldCollectionValue.GetKey(keyString)
 			}
 			delete(j.outputs, key)
