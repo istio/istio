@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestNestedJoin2WithMergeSimpleCollection(t *testing.T) {
+func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 	opts := testOptions(t)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -159,11 +159,10 @@ func TestNestedJoin2WithMergeSimpleCollection(t *testing.T) {
 	}, nil)
 
 	// Now add the two collections back
-	// These are added very close to one another, so
-	// from the perspective of the collection, there's just one add event
 	MultiServices.UpdateObject(SimpleServices)
-	MultiServices.UpdateObject(SimpleServices2)
 	tt.WaitOrdered("add/namespace/svc")
+	MultiServices.UpdateObject(SimpleServices2)
+	tt.WaitOrdered("update/namespace/svc")
 	assert.EventuallyEqual(t, func() *SimpleService {
 		return AllServices.GetKey("namespace/svc")
 	}, &SimpleService{
@@ -172,7 +171,7 @@ func TestNestedJoin2WithMergeSimpleCollection(t *testing.T) {
 	})
 }
 
-func TestNestedJoin2WithMergeAndIndexSimpleCollection(t *testing.T) {
+func TestNestedJoinWithMergeAndIndexSimpleCollection(t *testing.T) {
 	opts := testOptions(t)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

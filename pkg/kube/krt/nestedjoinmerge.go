@@ -94,7 +94,7 @@ func (j *nestedjoinmerge[T]) getCollections() []Collection[T] {
 func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]], merge func(ts []T) *T, opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
-		o.name = fmt.Sprintf("NestedJoin[%v]", ptr.TypeName[T]())
+		o.name = fmt.Sprintf("NestedJoinWithMerge[%v]", ptr.TypeName[T]())
 	}
 
 	ics := collections.(internalCollection[Collection[T]])
@@ -196,13 +196,13 @@ func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscr
 
 func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 	innerCollection := e.Latest().(internalCollection[T])
-	log.Debugf("NestedJoinCollection: Collection %s (uid %s) updated, recalculating merged values", innerCollection.name(), innerCollection.uid())
+	log.Debugf("NestedJoinWithMergeCollection: Collection %s (uid %s) updated, recalculating merged values", innerCollection.name(), innerCollection.uid())
 	// Get all of the elements in the old collection
 	oldCollectionValue := *e.Old
 	newCollectionValue := *e.New
 	// Wait for the new collection to be synced before we process the update.
 	if !newCollectionValue.WaitUntilSynced(j.stop) {
-		log.Warnf("NestedJoinCollection: Collection %s not synced, skipping update event", newCollectionValue.(internalCollection[T]).uid())
+		log.Warnf("NestedJoinWithMergeCollection: Collection %s not synced, skipping update event", newCollectionValue.(internalCollection[T]).uid())
 	}
 	// Stop the world and update our outputs with new state for everything in the collection.
 	j.mu.Lock()
@@ -242,7 +242,7 @@ func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 		} else {
 			if seen.Contains(string(key)) {
 				// This is a duplicate item in the new collection, skip it
-				log.Warnf("NestedJoinCollection: Duplicate item %v in updated collection, skipping", key)
+				log.Warnf("NestedJoinWithMergeCollection: Duplicate item %v in updated collection, skipping", key)
 				continue
 			}
 			// This is a new item in the new collection, but it might not be a new item in the overall collection.
@@ -304,7 +304,7 @@ func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 		reg.UnregisterHandler()
 		delete(j.regs, cc.uid())
 	} else {
-		j.log.Warnf("NestedJoinCollection: No registration found for collection %s during delete event", cc.uid())
+		j.log.Warnf("NestedJoinWithMergeCollection: No registration found for collection %s during delete event", cc.uid())
 	}
 
 	// Now we must send a final set of remove events for each object in the collection
@@ -333,7 +333,7 @@ func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 			// Use the merge of the old items as the old value
 			if !ok {
 				// This shouldn't happen; log it and fall back to the event's old Item
-				j.log.Warnf("NestedJoinCollection: No item found in outputs for key %s during collection delete, sending delete event with event old value", keyString)
+				j.log.Warnf("NestedJoinWithMergeCollection: No item found in outputs for key %s during collection delete, sending delete event with event old value", keyString)
 				oldItem = *oldCollectionValue.GetKey(keyString)
 			}
 			delete(j.outputs, key)
