@@ -251,29 +251,21 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
 	caCert := tlsOpts.CredentialName + SdsCaSuffix
 	if len(tlsOpts.CredentialNames) > 0 {
-		hasCacert := false
 		// Handle multiple certificates for RSA and ECDSA
-		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{}
-		for _, name := range tlsOpts.CredentialNames {
-			if strings.HasSuffix(name, SdsCaSuffix) {
-				if !hasCacert {
-					caCert = name
-					hasCacert = true
-				}
-			} else {
-				tlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.TlsCertificateSdsSecretConfigs,
-					ConstructSdsSecretConfigForCredential(name, credentialSocketExist, push))
-			}
+		tlsContext.TlsCertificateSdsSecretConfigs = make([]*tls.SdsSecretConfig, len(tlsOpts.CredentialNames))
+		for i, name := range tlsOpts.CredentialNames {
+			tlsContext.TlsCertificateSdsSecretConfigs[i] = ConstructSdsSecretConfigForCredential(name, credentialSocketExist, push)
 		}
 		// If MUTUAL, we only support one CA certificate for all credentialNames. Thus we use the first one as CA.
-		if !hasCacert {
-			caCert = tlsOpts.CredentialNames[0] + SdsCaSuffix
-		}
+		caCert = tlsOpts.CredentialNames[0] + SdsCaSuffix
 	} else {
 		// Handle single certificate
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, push),
 		}
+	}
+	if tlsOpts.CaCertCredentialName != "" {
+		caCert = tlsOpts.CaCertCredentialName
 	}
 
 	// If tls mode is MUTUAL/OPTIONAL_MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context

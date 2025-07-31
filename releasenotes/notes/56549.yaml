@@ -5,7 +5,7 @@ issue:
   - 43966
 docs:
   - '[usage] https://istio.io/latest/docs/tasks/traffic-management/ingress/secure-ingress/#key-formats'
-  - '[reference] https://istio.io/latest/docs/reference/config/networking/gateway/#ServerTLSSettings-credential_names'
+  - '[reference] https://istio.io/latest/docs/reference/config/networking/gateway/#ServerTLSSettings-ca_cert_credential_name'
 releaseNotes:
   - |
-    **Added** Support client CA certificate references with `-cacert` suffix in ServerTLSSettings.credentialsNames
+    **Added** `caCertCredentialName` field in `ServerTLSSettings` to reference a Secret/ConfigMap that holds CA certificates for mTLS
