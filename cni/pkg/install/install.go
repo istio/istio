@@ -81,7 +81,7 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
 	// unless it's missing or the contents are not what we expect.
 	if err := checkValidCNIConfig(ctx, in.cfg, in.cniConfigFilepath); err != nil {
-		installLog.Infof("configuration requires updates, (re)writing CNI config file at %q: %v", in.cniConfigFilepath, err)
+		installLog.Infof("configuration requires updates, (re)writing CNI config file: %v", err)
 		cfgPath, err := createCNIConfigFile(ctx, in.cfg)
 		if err != nil {
 			cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
@@ -312,7 +312,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 		} else {
 			// If CNIConfName isn't set yet, set it to the default CNI config filename (the primary CNI config file)
 			if len(cfg.CNIConfName) == 0 {
-				if useIstioOwnedCNIConfig(cfg) && defaultCNIConfigFilepath == cfg.IstioOwnedCNIConfigFilename {
+				if useIstioOwnedCNIConfig(cfg) && firstCNIConfigFilename == cfg.IstioOwnedCNIConfigFilename {
 					// Since the Istio owned CNI config is the highest priority, set the CNIConfigName to the config
 					// with the second highest priority. We will copy the configuration in this file to create the
 					// write to the Istio owned CNI config on update or creation
@@ -321,7 +321,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 					cfg.CNIConfName = firstCNIConfigFilename
 				}
 			}
-			return fmt.Errorf("perform initial update of %s using existing configuration from file %s",
+			return fmt.Errorf("perform initial update of highest priority config %s using existing configuration from file %s",
 				defaultCNIConfigFilepath, cfg.CNIConfName)
 		}
 	}
