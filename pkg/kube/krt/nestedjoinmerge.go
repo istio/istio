@@ -27,6 +27,21 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+type collectionMembershipEvent int
+
+const (
+	collectionMembershipEventAdd collectionMembershipEvent = iota
+	collectionMembershipEventDelete
+	collectionMembershipEventUpdate
+)
+
+type collectionChangeEvent[T any] struct {
+	eventType       collectionMembershipEvent
+	collectionValue internalCollection[T]
+	// Only set for update events
+	oldCollectionValue internalCollection[T]
+}
+
 type nestedjoinmerge[T any] struct {
 	*mergejoin[T]
 	collections internalCollection[Collection[T]]
