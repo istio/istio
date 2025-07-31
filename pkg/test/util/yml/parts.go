@@ -67,10 +67,6 @@ func SplitString(yamlText string) []string {
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			if err == bufio.ErrBufferFull {
-				active.WriteString(line)
-				continue
-			}
 			if line != "" {
 				active.WriteString(line)
 			}
