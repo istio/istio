@@ -132,10 +132,8 @@ const (
 	BaseComponentName  Name = "Base"
 	PilotComponentName Name = "Pilot"
 
-	CNIComponentName            Name = "Cni"
-	CNIWindowsComponentName     Name = "CniWindows"
-	ZtunnelComponentName        Name = "Ztunnel"
-	ZtunnelWindowsComponentName Name = "ZtunnelWindows"
+	CNIComponentName     Name = "Cni"
+	ZtunnelComponentName Name = "Ztunnel"
 
 	ZtunnelWindowsComponentName Name = "ZtunnelWindows"
 	CNIWindowsComponentName     Name = "CniWindows"
