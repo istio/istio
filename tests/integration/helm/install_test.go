@@ -160,8 +160,9 @@ func TestRevisionedReleaseChannels(t *testing.T) {
 		}, revision))
 }
 
-// TODO: Add a TestNativeNftablesInstall NewTest.
-// when the nftables-slim package is ready in the distroless base image (https://github.com/istio/istio/pull/56917).
+// TODO: Reintroduce TestNativeNftablesInstall as a NewTest 
+// once the nft binary is available in the distroless image.
+// See: https://github.com/istio/istio/pull/56917
 
 // nolint: unparam
 func setupInstallation(values map[string]interface{}, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
