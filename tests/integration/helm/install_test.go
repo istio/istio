@@ -160,16 +160,8 @@ func TestRevisionedReleaseChannels(t *testing.T) {
 		}, revision))
 }
 
-func TestNativeNftablesInstall(t *testing.T) {
-	values := map[string]interface{}{
-		"global": map[string]interface{}{
-			"nativeNftables": true,
-		},
-	}
-	framework.
-		NewTest(t).
-		Run(setupInstallation(values, false, DefaultNamespaceConfig, ""))
-}
+// TODO: Add a TestNativeNftablesInstall NewTest.
+// when the nftables-slim package is ready in the distroless base image (https://github.com/istio/istio/pull/56917).
 
 // nolint: unparam
 func setupInstallation(values map[string]interface{}, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
