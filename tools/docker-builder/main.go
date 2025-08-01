@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -68,6 +69,7 @@ var privilegedHubs = sets.New[string](
 	"gcr.io/istio-testing",
 )
 
+// TODO: make the help command work
 var rootCmd = &cobra.Command{
 	SilenceUsage: true,
 	Short:        "Builds Istio docker images",
@@ -91,6 +93,8 @@ var rootCmd = &cobra.Command{
 		}
 
 		args, err := ReadPlan(ctx, globalArgs)
+		b, _ := json.MarshalIndent(args.Plan, "", "  ")
+		log.Infof("Plan: %s", string(b))
 		if err != nil {
 			return fmt.Errorf("plan: %v", err)
 		}
@@ -213,6 +217,10 @@ func ReadPlan(ctx context.Context, a Args) (Args, error) {
 					log.Infof("Skipping %s for %s as --qemu is not passed", i.Name, arch)
 					continue
 				}
+				if !i.CanBuildForPlatform(arch) {
+					log.Infof("Skipping %s for %s as it is not supported on this architecture", i.Name, arch)
+					continue
+				}
 				desiredImages = append(desiredImages, i)
 			}
 		}
@@ -298,10 +306,11 @@ func archToGoFlags(a string) []string {
 func archToEnvMap(a string) map[string]string {
 	os, arch, _ := strings.Cut(a, "/")
 	return map[string]string{
-		"TARGET_OS":        os,
-		"TARGET_ARCH":      arch,
-		"TARGET_OUT":       filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("%s_%s", os, arch)),
-		"TARGET_OUT_LINUX": filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("linux_%s", arch)),
+		"TARGET_OS":          os,
+		"TARGET_ARCH":        arch,
+		"TARGET_OUT":         filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("%s_%s", os, arch)),
+		"TARGET_OUT_LINUX":   filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("linux_%s", arch)),
+		"TARGET_OUT_WINDOWS": filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("windows_%s", arch)),
 	}
 }
 
