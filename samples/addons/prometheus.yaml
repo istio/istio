@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v3.5.0
-    helm.sh/chart: prometheus-27.28.0
+    helm.sh/chart: prometheus-27.29.0
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -24,7 +24,7 @@ metadata:
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v3.5.0
-    helm.sh/chart: prometheus-27.28.0
+    helm.sh/chart: prometheus-27.29.0
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -355,7 +355,7 @@ metadata:
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v3.5.0
-    helm.sh/chart: prometheus-27.28.0
+    helm.sh/chart: prometheus-27.29.0
     app.kubernetes.io/part-of: prometheus
   name: prometheus
 rules:
@@ -405,7 +405,7 @@ metadata:
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v3.5.0
-    helm.sh/chart: prometheus-27.28.0
+    helm.sh/chart: prometheus-27.29.0
     app.kubernetes.io/part-of: prometheus
   name: prometheus
 subjects:
@@ -426,7 +426,7 @@ metadata:
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v3.5.0
-    helm.sh/chart: prometheus-27.28.0
+    helm.sh/chart: prometheus-27.29.0
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -452,7 +452,7 @@ metadata:
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v3.5.0
-    helm.sh/chart: prometheus-27.28.0
+    helm.sh/chart: prometheus-27.29.0
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -474,7 +474,7 @@ spec:
         app.kubernetes.io/name: prometheus
         app.kubernetes.io/instance: prometheus
         app.kubernetes.io/version: v3.5.0
-        helm.sh/chart: prometheus-27.28.0
+        helm.sh/chart: prometheus-27.29.0
         app.kubernetes.io/part-of: prometheus
         
         sidecar.istio.io/inject: "false"
