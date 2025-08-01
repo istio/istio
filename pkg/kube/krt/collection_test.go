@@ -202,7 +202,6 @@ func SimpleEndpointsCollection(pods krt.Collection[SimplePod], services krt.Coll
 	}, opts.WithName("SimpleEndpoints")...)
 }
 
-// And then create a collection from that index
 type NamespaceIPs struct {
 	Namespace string
 	IPs       []string
