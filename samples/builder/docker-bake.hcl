@@ -12,7 +12,6 @@ images = [
     source = "../tcp-echo/src"
     tags   = ["1.3", "latest"]
   },
-
   {
     name   = "examples-helloworld-v1"
     source = "../helloworld/src"
@@ -28,6 +27,11 @@ images = [
       service_version = "v2"
     }
     tags = ["1.0", "latest"]
+  },
+  {
+  name = "mtls-server"
+  source = "../mtls-server/src" 
+  tags = ["1.0", "latest"]
   },
 ]
 
