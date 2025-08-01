@@ -160,7 +160,7 @@ func TestRevisionedReleaseChannels(t *testing.T) {
 		}, revision))
 }
 
-// TODO: Reintroduce TestNativeNftablesInstall as a NewTest 
+// TODO: Reintroduce TestNativeNftablesInstall as a NewTest
 // once the nft binary is available in the distroless image.
 // See: https://github.com/istio/istio/pull/56917
 
