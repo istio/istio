@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: test
-area: traffic-management
-issue: 
-- 57195
-releaseNotes:
-- |
-  **Fixed** `TestIPAllocateWithEnvCIDR` test race condition that occasionally caused test failures due to inconsistent IP allocation timing during controller initialization.
