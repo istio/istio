@@ -51,8 +51,9 @@ All other charts, however, are exposed by `istioctl` and need to follow the step
 
 ### Step 3. Update istioctl schema
 
-Istioctl uses a [schema](../../operator/pkg/apis/values_types.proto) to validate the values. Any changes to
-the schema must be added here, otherwise istioctl users will see errors.
+Istioctl uses a protobuf schema to allow for type-checking of all fields used in the charts.
+If you're adding new fields to values, make sure to update the [values_types.proto](../../operator/pkg/apis/values_types.proto) file!.
+Any changes to the schema must be added here, otherwise istioctl users will see errors.
 Once the schema file is updated, run:
 
 ```bash
