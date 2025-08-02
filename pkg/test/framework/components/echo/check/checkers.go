@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/slices"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -244,6 +245,16 @@ func Hostname(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if r.Hostname != expected {
 			return fmt.Errorf("expected hostname %s, received %s", expected, r.Hostname)
+		}
+		return nil
+	})
+}
+
+// ResponseHosts checks that the response hostnames match the expected values.
+func ResponseHosts(expects []string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if !slices.Contains(expects, r.Hostname) {
+			return fmt.Errorf("expected hostnames %v, received %s", expects, r.Hostname)
 		}
 		return nil
 	})
