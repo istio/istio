@@ -31,6 +31,12 @@ spec:
       certificateRefs:
       - name: cert
         namespace: cert
+      frontendValidation:
+        caCertificateRefs:
+        - group: ""
+          kind: ConfigMap
+          namespace: default
+          name: auth-cert
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
@@ -45,6 +51,20 @@ spec:
   to:
     - group: ""
       kind: Secret
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-cacert
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: istio-system
+  to:
+  - group: ""
+    kind: ConfigMap
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
