@@ -73,6 +73,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	webhooks := map[string][]v1.MutatingWebhook{}
 	resources := map[string]*resource.Instance{}
 	revisions := sets.New[string]()
+	defaultTags := sets.New[string]()
 	context.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
 		if a.SkipDefaultRevisionedWebhook && isDefaultRevisionedWebhook(resource.Message.(*v1.MutatingWebhookConfiguration)) {
 			return true
@@ -87,8 +88,18 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 			resources[fmt.Sprintf("%v/%v", resource.Metadata.FullName.String(), h.Name)] = resource
 		}
 		revisions.InsertAll(revs...)
+		if wh.Labels["istio.io/tag"] == "default" {
+			defaultTags.Insert(wh.Name)
+		}
 		return true
 	})
+
+	if len(defaultTags) < 1 {
+		context.Report(gvk.MutatingWebhookConfiguration, msg.NewInvalidWebhook(nil, "No default tag found for MutatingWebhookConfigurations"))
+	} else if len(defaultTags) > 1 {
+		context.Report(gvk.MutatingWebhookConfiguration, msg.NewInvalidWebhook(nil,
+			fmt.Sprintf("Multiple default tags found for MutatingWebhookConfigurations: %v", defaultTags)))
+	}
 
 	// Set up all relevant namespace and object selector permutations
 	namespaceLabels := getNamespaceLabels()

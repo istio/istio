@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 55987
+releaseNotes:
+- |
+  **Added** `istioctln analyze` warns when there is no default tag for MutatingWebhookConfigurations.
