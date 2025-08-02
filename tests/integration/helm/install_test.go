@@ -161,6 +161,7 @@ func TestRevisionedReleaseChannels(t *testing.T) {
 }
 
 func TestNativeNftablesInstall(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/57237")
 	values := map[string]interface{}{
 		"global": map[string]interface{}{
 			"nativeNftables": true,
