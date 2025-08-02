@@ -29,6 +29,16 @@ spec:
       ports:
         - protocol: TCP
           port: 15000
+    # Traffic endpoint for inbound plaintext
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 15006
+    # Traffic endpoint for inbound HBONE
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 15008
   egress:
     # Allow all egress for now.
     - {}
