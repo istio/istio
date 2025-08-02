@@ -504,7 +504,7 @@ func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
 	mockIntercept := testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 
 	if len(mockIntercept.lastRedirect) != 0 {
-		t.Fatal("Didnt Expect nsenterFunc to be called because this pod does not contain a sidecar")
+		t.Fatal("Didn't Expect nsenterFunc to be called because this pod does not contain a sidecar")
 	}
 }
 
