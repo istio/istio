@@ -160,9 +160,17 @@ func TestRevisionedReleaseChannels(t *testing.T) {
 		}, revision))
 }
 
-// TODO: Reintroduce TestNativeNftablesInstall as a NewTest
-// once the nft binary is available in the distroless image.
-// See: https://github.com/istio/istio/pull/56917
+func TestNativeNftablesInstall(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/57237")
+	values := map[string]interface{}{
+		"global": map[string]interface{}{
+			"nativeNftables": true,
+		},
+	}
+	framework.
+		NewTest(t).
+		Run(setupInstallation(values, false, DefaultNamespaceConfig, ""))
+}
 
 // nolint: unparam
 func setupInstallation(values map[string]interface{}, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
