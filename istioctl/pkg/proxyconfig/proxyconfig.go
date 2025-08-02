@@ -52,8 +52,6 @@ const (
 	summaryOutput          = "short"
 	prometheusOutput       = "prom"
 	prometheusMergedOutput = "prom-merged"
-
-	defaultProxyAdminPort = 15000
 )
 
 var (
@@ -706,7 +704,7 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short|prom|prom-merged")
 	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
 	statsConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	statsConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	statsConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	return statsConfigCmd
 }
@@ -1359,7 +1357,7 @@ func ProxyConfig(ctx cli.Context) *cobra.Command {
 	}
 
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	configCmd.AddCommand(clusterConfigCmd(ctx))
 	configCmd.AddCommand(allConfigCmd(ctx))

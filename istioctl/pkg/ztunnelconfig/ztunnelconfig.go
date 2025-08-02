@@ -45,8 +45,6 @@ const (
 	jsonOutput    = "json"
 	yamlOutput    = "yaml"
 	summaryOutput = "short"
-
-	defaultProxyAdminPort = 15000
 )
 
 func ZtunnelConfig(ctx cli.Context) *cobra.Command {
@@ -689,7 +687,7 @@ type commonFlags struct {
 }
 
 func (c *commonFlags) attach(cmd *cobra.Command) {
-	cmd.PersistentFlags().IntVar(&c.proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Ztunnel proxy admin port")
+	cmd.PersistentFlags().IntVar(&c.proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Ztunnel proxy admin port")
 	cmd.PersistentFlags().StringVarP(&c.outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	cmd.PersistentFlags().StringVar(&c.node, "node", "", "Filter workloads by node field")
 	cmd.PersistentFlags().StringVarP(&c.configDumpFile, "file", "f", "",

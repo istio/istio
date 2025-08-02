@@ -29,7 +29,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
@@ -642,12 +641,12 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	envoy.Long += fmt.Sprintf("\n\n%s\n", "Note: envoy command is deprecated and can be replaced with proxy command, "+
 		"e.g. `istioctl dashboard proxy --help`")
 	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	envoy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
+	envoy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", kube.DefaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(envoy)
 
 	proxy := proxyDashCmd(cliContext)
 	proxy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	proxy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
+	proxy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", kube.DefaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(proxy)
 
 	controlz := controlZDashCmd(cliContext)

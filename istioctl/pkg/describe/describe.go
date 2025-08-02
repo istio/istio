@@ -81,8 +81,6 @@ type myProtoValue struct {
 }
 
 const (
-	defaultProxyAdminPort = 15000
-
 	k8sSuffix = ".svc." + constants.DefaultClusterLocalDomain
 
 	printLevel0 = 0
@@ -196,7 +194,7 @@ the configuration objects that affect that pod.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Envoy proxy admin port")
 	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }
@@ -1321,7 +1319,7 @@ the configuration objects that affect that service.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Envoy proxy admin port")
 	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }
