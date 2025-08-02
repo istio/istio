@@ -161,11 +161,17 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	var maxTagLength uint32
 	var providerConfig typedConfigGenFn
 	var providerName string
-	if svc != nil {
-		serviceCluster = svc.Hostname.String()
-	} else if proxy.XdsNode != nil {
+	if proxy.XdsNode != nil {
 		serviceCluster = proxy.XdsNode.Cluster
 	}
+
+	// Append service info for waypoints, e.g. httpbin.default:waypoint.default.
+	// In ambient mode, if service info is not added, the actual application topology cannot be visualized
+	// and only waypoint is shown in the graph.
+	if features.AppendServiceInfoForWaypoint && svc != nil {
+		serviceCluster = fmt.Sprintf("%s.%s:%s", svc.Attributes.Name, svc.Attributes.Namespace, serviceCluster)
+	}
+
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 		maxTagLength = provider.Zipkin.GetMaxTagLength()
