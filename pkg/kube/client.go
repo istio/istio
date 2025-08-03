@@ -102,9 +102,8 @@ import (
 )
 
 const (
-	defaultLocalAddress   = "localhost"
-	RunningStatus         = "status.phase=Running"
-	DefaultProxyAdminPort = 15000
+	defaultLocalAddress = "localhost"
+	RunningStatus       = "status.phase=Running"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
