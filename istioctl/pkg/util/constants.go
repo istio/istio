@@ -15,6 +15,9 @@
 package util
 
 const (
+	// DefaultProxyAdminPort is the default port for the proxy admin server
+	DefaultProxyAdminPort = 15000
+
 	// DefaultMeshConfigMapName is the default name of the ConfigMap with the mesh config
 	// The actual name can be different - use getMeshConfigMapName
 	DefaultMeshConfigMapName = "istio"

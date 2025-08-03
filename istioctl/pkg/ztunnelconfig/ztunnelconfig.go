@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/istioctl/pkg/util"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
 	"istio.io/istio/pkg/config"
@@ -687,7 +688,7 @@ type commonFlags struct {
 }
 
 func (c *commonFlags) attach(cmd *cobra.Command) {
-	cmd.PersistentFlags().IntVar(&c.proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Ztunnel proxy admin port")
+	cmd.PersistentFlags().IntVar(&c.proxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort, "Ztunnel proxy admin port")
 	cmd.PersistentFlags().StringVarP(&c.outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	cmd.PersistentFlags().StringVar(&c.node, "node", "", "Filter workloads by node field")
 	cmd.PersistentFlags().StringVarP(&c.configDumpFile, "file", "f", "",

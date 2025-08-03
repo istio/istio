@@ -96,7 +96,7 @@ The command also supports reading from a standalone config dump file with flag -
 	}
 	cmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"The json file with Envoy config dump to be checked")
-	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Envoy proxy admin port")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort, "Envoy proxy admin port")
 	return cmd
 }
 
