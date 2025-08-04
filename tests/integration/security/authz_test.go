@@ -783,6 +783,24 @@ func TestAuthz_JWT(t *testing.T) {
 							allow:  false,
 						},
 						{
+							prefix: "[CustomScopeToken-AllowAdmin]",
+							jwt:    jwt.TokenIssuer2WithCustomScopeSpaceDelimitedScope,
+							path:   "/custom-scope-admin",
+							allow:  true, // Should work when custom_scope contains "admin" and is space-delimited
+						},
+						{
+							prefix: "[CustomScopeToken-DenyOther]",
+							jwt:    jwt.TokenIssuer2WithCustomScopeSpaceDelimitedScope,
+							path:   "/custom-scope-other",
+							allow:  false, // Should fail when custom_scope doesn't contain "other"
+						},
+						{
+							prefix: "[CustomScopeToken-AllowUser]",
+							jwt:    jwt.TokenIssuer2WithCustomScopeSpaceDelimitedScope,
+							path:   "/custom-scope-user",
+							allow:  true, // Should work when custom_scope contains "user" and is space-delimited
+						},
+						{
 							prefix: "[NestedToken1]",
 							jwt:    jwt.TokenIssuer1WithNestedClaims1,
 							path:   "/nested-key1",

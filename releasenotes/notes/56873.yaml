@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+issue:
+  - https://github.com/istio/istio/issues/56873
+  - 56873
+
+releaseNotes:
+  - |
+    **Added** support for space-delimited custom claims in JWT authorization policies by setting 
+    the `PILOT_JWT_SPACE_DELIMITED_CLAIMS` environment variable in the Istiod deployment.
+    This allows users to specify multiple values for a single custom claim in a space-separated format,
+    enhancing flexibility against the current space-delimited approach by hardcoding values: scope and permission.

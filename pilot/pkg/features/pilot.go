@@ -84,7 +84,7 @@ var (
 			return []string{"scope", "permission"}
 		}
 
-		log.Infof("JWT space-delimited claims configured: %v", validClaims)
+		log.Debugf("JWT space-delimited claims configured: %v", validClaims)
 		return validClaims
 	}()
 

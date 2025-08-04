@@ -76,6 +76,27 @@ spec:
       values: ["write", "append"]
   - to:
     - operation:
+        paths: ["/custom-scope-admin"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[custom_scope]
+      values: ["admin"]
+  - to:
+    - operation:
+        paths: ["/custom-scope-other"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[custom_scope]
+      values: ["other"]
+  - to:
+    - operation:
+        paths: ["/custom-scope-user"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[custom_scope]
+      values: ["user"]
+  - to:
+    - operation:
         paths: ["/nested-key1"]
         methods: ["GET"]
     when:

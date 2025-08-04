@@ -58,6 +58,7 @@ values:
   pilot: 
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
+      PILOT_JWT_SPACE_DELIMITED_CLAIMS: "custom_scope, scope, permission"
 meshConfig:
   defaultConfig:
     gatewayTopology:
