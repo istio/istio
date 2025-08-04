@@ -134,7 +134,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           false,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -210,7 +210,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           false,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -286,7 +286,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           false,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -357,7 +357,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           false,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -433,7 +433,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           false,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -560,7 +560,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           false,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 								"origins-1": {
@@ -575,7 +575,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           false,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -645,7 +645,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           false,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -715,7 +715,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           false,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -786,7 +786,7 @@ func TestJwtFilter(t *testing.T) {
 									Forward:           true,
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -859,7 +859,7 @@ func TestJwtFilter(t *testing.T) {
 									ForwardPayloadHeader: "x-foo",
 									PayloadInMetadata:    "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -938,7 +938,7 @@ func TestJwtFilter(t *testing.T) {
 									},
 									PayloadInMetadata: "payload",
 									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-										SpaceDelimitedClaims: []string{"scope", "permission"},
+										SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 									},
 								},
 							},
@@ -1038,7 +1038,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						Forward:           false,
 						PayloadInMetadata: "payload",
 						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-							SpaceDelimitedClaims: []string{"scope", "permission"},
+							SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 						},
 					},
 				},
@@ -1144,7 +1144,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						Forward:           false,
 						PayloadInMetadata: "payload",
 						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-							SpaceDelimitedClaims: []string{"scope", "permission"},
+							SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 						},
 					},
 					"origins-1": {
@@ -1159,7 +1159,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						Forward:           false,
 						PayloadInMetadata: "payload",
 						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-							SpaceDelimitedClaims: []string{"scope", "permission"},
+							SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 						},
 					},
 				},
@@ -1216,7 +1216,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						Forward:           false,
 						PayloadInMetadata: "payload",
 						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-							SpaceDelimitedClaims: []string{"scope", "permission"},
+							SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 						},
 					},
 				},
@@ -1274,7 +1274,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						Forward:           false,
 						PayloadInMetadata: "payload",
 						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-							SpaceDelimitedClaims: []string{"scope", "permission"},
+							SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 						},
 					},
 				},

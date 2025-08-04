@@ -166,7 +166,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
 			PayloadInMetadata:    filters.EnvoyJwtFilterPayload,
 			NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-				SpaceDelimitedClaims: []string{"scope", "permission"},
+				SpaceDelimitedClaims: features.JwtSpaceDelimitedClaims,
 			},
 			ClearRouteCache: clearRouteCache,
 		}

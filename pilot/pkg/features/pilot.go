@@ -52,6 +52,42 @@ var (
 		return jwt.ConvertToJwksFetchMode(v)
 	}()
 
+	// JwtSpaceDelimitedClaims returns the list of claims that should be treated as space-delimited
+	// This allows custom claims to be parsed as space-separated values similar to the standard 'scope' claim defined in RFC 6749.
+	// If empty, defaults to "scope,permission".
+	// TODO: Move this to proper API.
+	JwtSpaceDelimitedClaims = func() []string {
+		claims := env.Register(
+			"PILOT_JWT_SPACE_DELIMITED_CLAIMS",
+			"scope,permission",
+			"Comma-separated list of JWT claims that should be treated as space-delimited strings. "+
+				"This allows custom claims to be parsed as space-separated values "+
+				"similar to the standard 'scope' claim defined in RFC 6749.",
+		).Get()
+
+		if claims == "" {
+			return []string{"scope", "permission"} // fallback to default
+		}
+
+		// Parse and validate the claims list
+		var validClaims []string
+		for _, claim := range strings.Split(claims, ",") {
+			claim = strings.TrimSpace(claim)
+			if claim != "" {
+				validClaims = append(validClaims, claim)
+			}
+		}
+
+		// If no valid claims found, fallback to default
+		if len(validClaims) == 0 {
+			log.Warnf("PILOT_JWT_SPACE_DELIMITED_CLAIMS contains no valid claims, using default: scope,permission")
+			return []string{"scope", "permission"}
+		}
+
+		log.Infof("JWT space-delimited claims configured: %v", validClaims)
+		return validClaims
+	}()
+
 	// IstiodServiceCustomHost allow user to bring a custom address or multiple custom addresses for istiod server
 	// for examples: 1. istiod.mycompany.com  2. istiod.mycompany.com,istiod-canary.mycompany.com
 	IstiodServiceCustomHost = env.Register("ISTIOD_CUSTOM_HOST", "",
