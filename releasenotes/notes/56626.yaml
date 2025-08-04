@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56587
+releaseNotes:
+- |
+  **Fixed** `istio-iptables` sometimes ignoring the IPv4 state in favor of the IPv6 one when deciding whether new iptables rules needed to be applied.

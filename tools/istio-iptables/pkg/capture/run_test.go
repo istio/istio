@@ -524,6 +524,189 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 	}
 }
 
+func TestMixedIPv4Ipv6State(t *testing.T) {
+	scope := log.FindScope(log.DefaultScopeName)
+	testCases := []struct {
+		name              string
+		enableInboundIPv6 bool
+		errorExpected     bool
+		setup             func(t *testing.T, iptConfigurator *IptablesConfigurator)
+		check             func(t *testing.T, ext *dep.RealDependencies, cfg *IptablesConfigurator, residueExists, deltaExists bool)
+		teardown          func(t *testing.T, iptConfigurator *IptablesConfigurator)
+	}{
+		{
+			name: "With pre-existing IPv6 rule",
+			setup: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+				assert.NoError(t, exec.Command(iptConfigurator.ipt6V.DetectedBinary, "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT").Run())
+			},
+			check: func(t *testing.T, ext *dep.RealDependencies, iptConfigurator *IptablesConfigurator, residueExists, deltaExists bool) {
+				assert.Equal(t, residueExists, true)
+				assert.Equal(t, deltaExists, false)
+
+				output, err := ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.iptV, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))) > 0, true)
+				output, err = ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.ipt6V, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))) == 0, true)
+			},
+			teardown: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+				assert.NoError(t, exec.Command(iptConfigurator.ipt6V.DetectedBinary, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT").Run())
+			},
+		},
+		{
+			name:              "With pre-existing IPv6 rule and IPv6 enabled",
+			enableInboundIPv6: true,
+			setup: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+				assert.NoError(t, exec.Command(iptConfigurator.ipt6V.DetectedBinary, "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT").Run())
+			},
+			check: func(t *testing.T, ext *dep.RealDependencies, iptConfigurator *IptablesConfigurator, residueExists, deltaExists bool) {
+				assert.Equal(t, residueExists, true)
+				assert.Equal(t, deltaExists, false)
+
+				output, err := ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.iptV, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))) > 0, true)
+				output, err = ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.ipt6V, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))) > 0, true)
+			},
+			teardown: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+				assert.NoError(t, exec.Command(iptConfigurator.ipt6V.DetectedBinary, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT").Run())
+			},
+		},
+		{
+			name: "With no pre-existing IPv6 rules",
+			setup: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+				// No-op
+			},
+			check: func(t *testing.T, ext *dep.RealDependencies, iptConfigurator *IptablesConfigurator, residueExists, deltaExists bool) {
+				assert.Equal(t, residueExists, true)
+				assert.Equal(t, deltaExists, false)
+
+				output, err := ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.iptV, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))) > 0, true)
+				output, err = ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.ipt6V, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))) == 0, true)
+			},
+			// No specific teardown is needed for this case
+			teardown: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+			},
+		},
+		{
+			name: "With pre-existing rule in Istio IPv6 chain",
+			setup: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+				cmd := exec.Command(iptConfigurator.ipt6V.DetectedBinary,
+					"-t", "nat",
+					"-N", "ISTIO_INBOUND")
+				assert.NoError(t, cmd.Run())
+				cmd = exec.Command(iptConfigurator.ipt6V.DetectedBinary,
+					"-t", "nat", "-A", "ISTIO_INBOUND",
+					"-p", "udp", "--dport", "123", "-j", "RETURN")
+				assert.NoError(t, cmd.Run())
+			},
+			check: func(t *testing.T, ext *dep.RealDependencies, iptConfigurator *IptablesConfigurator, residueExists, deltaExists bool) {
+				assert.Equal(t, residueExists, true)
+				assert.Equal(t, deltaExists, true)
+
+				output, err := ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.iptV, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))) > 0, true)
+				output, err = ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.ipt6V, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))["nat"].Chains) == 1, true)
+			},
+			teardown: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+				assert.NoError(t, exec.Command(iptConfigurator.ipt6V.DetectedBinary, "-t", "nat", "-F", "ISTIO_INBOUND").Run())
+				assert.NoError(t, exec.Command(iptConfigurator.ipt6V.DetectedBinary, "-t", "nat", "-X", "ISTIO_INBOUND").Run())
+			},
+		},
+		{
+			name:              "With pre-existing rule in Istio IPv6 chain and IPv6 enabled",
+			enableInboundIPv6: true,
+			errorExpected:     true,
+			setup: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+				cmd := exec.Command(iptConfigurator.ipt6V.DetectedBinary,
+					"-t", "nat",
+					"-N", "ISTIO_INBOUND")
+				assert.NoError(t, cmd.Run())
+				cmd = exec.Command(iptConfigurator.ipt6V.DetectedBinary,
+					"-t", "nat", "-A", "ISTIO_INBOUND",
+					"-p", "udp", "--dport", "123", "-j", "RETURN")
+				assert.NoError(t, cmd.Run())
+			},
+			check: func(t *testing.T, ext *dep.RealDependencies, iptConfigurator *IptablesConfigurator, residueExists, deltaExists bool) {
+				assert.Equal(t, residueExists, true)
+				assert.Equal(t, deltaExists, true)
+
+				output, err := ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.iptV, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))) > 0, true)
+				output, err = ext.Run(scope, true, constants.IPTablesSave, &iptConfigurator.ipt6V, nil)
+				assert.NoError(t, err)
+				assert.Equal(t, len(HasIstioLeftovers(iptConfigurator.ruleBuilder.GetStateFromSave(output.String()))["nat"].Chains) == 1, true)
+			},
+			teardown: func(t *testing.T, iptConfigurator *IptablesConfigurator) {
+				assert.NoError(t, exec.Command(iptConfigurator.ipt6V.DetectedBinary, "-t", "nat", "-F", "ISTIO_INBOUND").Run())
+				assert.NoError(t, exec.Command(iptConfigurator.ipt6V.DetectedBinary, "-t", "nat", "-X", "ISTIO_INBOUND").Run())
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			setup(t)
+			ext := &dep.RealDependencies{
+				UsePodScopedXtablesLock: false,
+				NetworkNamespace:        "",
+			}
+			cfg := constructTestConfig()
+			scope := log.FindScope(log.DefaultScopeName)
+			cfg.EnableIPv6 = tc.enableInboundIPv6
+			cfg.ProxyUID = "0"
+			cfg.ProxyGID = "0"
+			if cfg.OwnerGroupsExclude != "" {
+				cfg.OwnerGroupsInclude = "0"
+			}
+			if cfg.OwnerGroupsInclude != "" {
+				cfg.OwnerGroupsInclude = "0"
+			}
+
+			iptConfigurator, err := NewIptablesConfigurator(cfg, ext)
+			assert.NoError(t, err)
+
+			defer func() {
+				tc.teardown(t, iptConfigurator)
+				cfg.CleanupOnly = true
+				cleanupConfigurator, err := NewIptablesConfigurator(cfg, ext)
+				assert.NoError(t, err)
+				assert.NoError(t, cleanupConfigurator.Run())
+
+				residueExists, deltaExists := VerifyIptablesState(
+					scope,
+					cleanupConfigurator.ext,
+					cleanupConfigurator.ruleBuilder,
+					&cleanupConfigurator.iptV,
+					&cleanupConfigurator.ipt6V,
+				)
+				assert.Equal(t, residueExists, false)
+				assert.Equal(t, deltaExists, true)
+			}()
+
+			tc.setup(t, iptConfigurator)
+			if tc.errorExpected {
+				assert.Error(t, iptConfigurator.Run())
+			} else {
+				assert.NoError(t, iptConfigurator.Run())
+			}
+			residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptConfigurator.iptV, &iptConfigurator.ipt6V)
+			tc.check(t, ext, iptConfigurator, residueExists, deltaExists)
+		})
+	}
+}
+
 func compareToGolden(t *testing.T, name string, actual []string) {
 	t.Helper()
 	gotBytes := []byte(strings.Join(actual, "\n"))
