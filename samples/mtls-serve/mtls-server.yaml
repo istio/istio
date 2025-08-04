@@ -43,7 +43,7 @@ spec:
     spec:
       containers:
         - name: mtls-serve
-          image: localhost:5000/mtls-server:latest
+          image: localhost:5000/mtls-serve:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8443
@@ -72,8 +72,8 @@ spec:
       volumes:
         - name: certs
           secret:
-            secretName: nginx-server-certs
+            secretName: mtls-serve-certs
         - name: ca-certs
           secret:
-            secretName: nginx-ca-certs
+            secretName: mtls-serve-ca-certs
 ---
