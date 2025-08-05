@@ -337,6 +337,98 @@ func TestReloadIstiodCert(t *testing.T) {
 	}, "10s", "100ms").Should(BeTrue())
 }
 
+func TestReloadcacerts(t *testing.T) {
+	var err error
+
+	// set ROOT_CA_DIR to temp cacertsDir and create the directory
+	cacertsDir := filepath.Join(t.TempDir(), "/etc/cacerts")
+	if err := os.MkdirAll(cacertsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(%v) failed: %v", cacertsDir, err)
+	}
+	test.SetEnvForTest(t, "ROOT_CA_DIR", cacertsDir)
+	test.SetForTest(t, &features.EnableCAServer, true)
+
+	// load cacerts files into memory
+	var caCert, caKey, certChain, rootCert []byte
+	if caCert, err = readSampleCertFromFile("ca-cert.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if caKey, err = readSampleCertFromFile("ca-key.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if certChain, err = readSampleCertFromFile("cert-chain.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if rootCert, err = readSampleCertFromFile("root-cert.pem"); err != nil {
+		t.Fatal(err)
+	}
+	// write cacerts files to temp dir
+	if err := os.WriteFile(filepath.Join(cacertsDir, "ca-cert.pem"), caCert, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "ca-cert.pem"), err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "ca-key.pem"), caKey, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "ca-key.pem"), err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "cert-chain.pem"), certChain, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "cert-chain.pem"), err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "root-cert.pem"), rootCert, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "root-cert.pem"), err)
+	}
+
+	stop := make(chan struct{})
+	s := &Server{
+		fileWatcher: filewatcher.NewWatcher(),
+		// internalStop:            make(chan struct{}),
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+		kubeClient:              kube.NewFakeClient(),
+		server:                  server.New(),
+	}
+
+	defer func() {
+		close(stop)
+		_ = s.fileWatcher.Close()
+		_ = s.cacertsWatcher.Close()
+		s.kubeClient.Shutdown()
+		// close(s.internalStop)
+	}()
+
+	// start server
+	if err := s.server.Start(stop); err != nil {
+		t.Fatalf("Could not invoke startFuncs: %v", err)
+	}
+	// s.initServers(nil)
+
+	// create server CA for load cacerts files
+	if err = s.maybeCreateCA(&caOptions{}); err != nil {
+		t.Fatalf("Could not create CA: %v", err)
+	}
+	// if err := s.initIstiodCertLoader(); err != nil {
+	// 	t.Fatal("failed to init istiod cert loader")
+	// }
+
+	// validate that the cacerts files are loaded
+	g := NewWithT(t)
+	g.Eventually(func() bool {
+		return len(s.CA.GetCAKeyCertBundle().GetCertChainPem()) > 0
+	}, "10s", "100ms").Should(BeTrue())
+
+	// update cert chain of cert bundle to alt version
+	certChainAlt, err := readSampleCertFromFile("cert-chain-alt.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "cert-chain.pem"), certChainAlt, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "cert-chain.pem"), err)
+	}
+
+	// validate that the cert chain is updated
+	g.Eventually(func() bool {
+		currentCertChain := s.CA.GetCAKeyCertBundle().GetCertChainPem()
+		return bytes.Equal(currentCertChain, certChainAlt)
+	}, "10s", "100ms").Should(BeTrue())
+}
+
 func TestNewServer(t *testing.T) {
 	// All of the settings to apply and verify. Currently just testing domain suffix,
 	// but we should expand this list.
