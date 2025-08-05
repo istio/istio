@@ -8,7 +8,7 @@ metadata:
     helm.sh/chart: perses-0.14.6
     app.kubernetes.io/name: perses
     app.kubernetes.io/instance: perses
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v0.51.1
     app.kubernetes.io/part-of: perses
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: iam
@@ -22,7 +22,7 @@ metadata:
     helm.sh/chart: perses-0.14.6
     app.kubernetes.io/name: perses
     app.kubernetes.io/instance: perses
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v0.51.1
     app.kubernetes.io/part-of: perses
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: configuration
@@ -41,7 +41,7 @@ data:
       information: ""
     provisioning:
       folders:
-      - /etc/external/provisioning
+      - /etc/perses/provisioning
       interval: 10m
     security:
       cookie:
@@ -49,6 +49,38 @@ data:
         secure: false
       enable_auth: false
       readonly: false
+---
+# Source: perses/templates/cluster-role-and-binding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: perses-clusterrole
+  labels:
+    helm.sh/chart: perses-0.14.6
+    app.kubernetes.io/name: perses
+    app.kubernetes.io/instance: perses
+    app.kubernetes.io/version: v0.51.1
+    app.kubernetes.io/part-of: perses
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: iam
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "watch", "list"]
+---
+# Source: perses/templates/cluster-role-and-binding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: perses-clusterrolebinding
+roleRef:
+  kind: ClusterRole
+  name: perses-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: perses
+  namespace: istio-system
 ---
 # Source: perses/templates/service.yaml
 apiVersion: v1
@@ -59,7 +91,7 @@ metadata:
     helm.sh/chart: perses-0.14.6
     app.kubernetes.io/name: perses
     app.kubernetes.io/instance: perses
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v0.51.1
     app.kubernetes.io/part-of: perses
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: networking
@@ -83,7 +115,7 @@ metadata:
     helm.sh/chart: perses-0.14.6
     app.kubernetes.io/name: perses
     app.kubernetes.io/instance: perses
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v0.51.1
     app.kubernetes.io/part-of: perses
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: workload
@@ -100,14 +132,26 @@ spec:
         app.kubernetes.io/name: perses
         app.kubernetes.io/instance: perses
       annotations:
-        checksum/config: bd419dc8a4ef5a319af4c4f8965fff1a6cb237a0daf7a1901e160fc8efa78461
+        checksum/config: de936e00640440602cdf34ff67e0de86dbb44b867ac5cf6479fa49ef29e18d9f
     spec:
       serviceAccountName: perses
       securityContext:
         fsGroup: 2000
       containers:
+      - name: perses-provisioning-sidecar
+        image: "kiwigrid/k8s-sidecar:1.30.7"
+        volumeMounts:
+        - name: provisioning
+          mountPath: /etc/perses/provisioning
+        env:
+          - name: LABEL
+            value: perses.dev/resource
+          - name: LABEL_VALUE
+            value: "true"
+          - name: FOLDER
+            value: /etc/perses/provisioning
       - name: perses
-        image: "persesdev/perses:latest"
+        image: "persesdev/perses:v0.51.1"
         imagePullPolicy: IfNotPresent
         args:
           - --config=/etc/perses/config/config.yaml
@@ -121,6 +165,8 @@ spec:
             mountPath: "/etc/perses/config"
           - name: data
             mountPath: /perses
+          - name: provisioning
+            mountPath: /etc/perses/provisioning
         ports:
           - name: http
             containerPort: 8080
@@ -157,6 +203,8 @@ spec:
         - name: config
           configMap:
             name: perses
+        - name: provisioning
+          emptyDir: {}
 
 ---
 

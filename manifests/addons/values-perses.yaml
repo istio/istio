@@ -4,7 +4,7 @@
 # Use default image and version from chart
 image:
   name: "persesdev/perses"
-  version: "latest"
+  version: "v0.51.1"
   pullPolicy: IfNotPresent
 
 service:
@@ -19,13 +19,16 @@ config:
       extension: json
   provisioning:
     folders:
-      - /etc/external/provisioning    
+      - /etc/perses/provisioning    
   security:
     enable_auth: false
 
 # Enable sidecar for ConfigMap provisioning
 sidecar:
-  enabled: false
+  enabled: true
+  label: "perses.dev/resource"
+  labelValue: "true"
+  allNamespaces: false
 
 # Resources
 resources:
