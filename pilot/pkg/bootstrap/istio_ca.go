@@ -331,7 +331,7 @@ func handleEvent(s *Server) {
 
 	var newCABundle []byte
 	var err error
-	var updateRootCA, updateCRL bool
+	var updateCRL bool
 
 	fileBundle, err := detectSigningCABundleAndCRL()
 	if err != nil {
@@ -360,7 +360,6 @@ func handleEvent(s *Server) {
 		if bytes.Contains(currentCABundle, newCABundle) ||
 			bytes.Contains(newCABundle, currentCABundle) {
 			log.Info("Updating new ROOT-CA")
-			updateRootCA = true
 		} else {
 			log.Warn("Updating new ROOT-CA not supported")
 			return
@@ -384,11 +383,6 @@ func handleEvent(s *Server) {
 				updateCRL = true
 			}
 		}
-	}
-
-	if !updateRootCA && !updateCRL {
-		log.Info("No changes detected in root cert or CRL file data, skipping update")
-		return
 	}
 
 	// process updated root cert or crl file
