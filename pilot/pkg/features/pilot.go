@@ -65,10 +65,6 @@ var (
 				"similar to the standard 'scope' claim defined in RFC 6749.",
 		).Get()
 
-		if claims == "" {
-			return []string{"scope", "permission"} // fallback to default
-		}
-
 		// Parse and validate the claims list
 		var validClaims []string
 		for _, claim := range strings.Split(claims, ",") {
