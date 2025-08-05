@@ -3595,7 +3595,6 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 
 			istioSystemNS := i.Settings().SystemNamespace
 			k8sPods := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS)
-			patchOpts := metav1.PatchOptions{}
 
 			// Get ztunnel pod info
 			ztunnelPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
@@ -3610,23 +3609,6 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 			// Extract ztunnel app labels for canonical service/revision
 			ztunnelAppLabel := ztunnelPod.Labels["app"]
 			ztunnelVersionLabel := ztunnelPod.Labels["app.kubernetes.io/version"]
-
-			// Label the ztunnel pod to force HBONE for HTTP traffic
-			ztunnelLabelPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": "http"}}}`, "networking.istio.io/tunnel")
-			_, err = k8sPods.Patch(context.Background(), ztunnelPod.Name, types.StrategicMergePatchType, []byte(ztunnelLabelPatch), patchOpts)
-			if err != nil {
-				tc.Fatalf("Failed to label ztunnel pod %s: %v", ztunnelPod.Name, err)
-			}
-
-			tc.Cleanup(func() {
-				// Cleanup the label
-				cleanupPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": null}}}`, "networking.istio.io/tunnel")
-				_, err = k8sPods.Patch(context.Background(), ztunnelPod.Name, types.StrategicMergePatchType, []byte(cleanupPatch), patchOpts)
-				if err != nil {
-					tc.Logf("Failed to remove networking.istio.io/tunnel label from ztunnel pod %s: %v", ztunnelPod.Name, err)
-				}
-				tc.Logf("Removed networking.istio.io/tunnel label from ztunnel pod %s", ztunnelPod.Name)
-			})
 
 			tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d. Expecting transport HBONE.",
 				clientInstance.Config().Service, clientInstance.WorkloadsOrFail(tc)[0].PodName(), ztunnelPod.Name, ztunnelPodIP, ztunnelMetricsPort)
