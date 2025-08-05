@@ -28,6 +28,7 @@ mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
 LOKI_VERSION=${LOKI_VERSION:-"6.34.0"}
 GRAFANA_VERSION=${GRAFANA_VERSION:-"9.2.2"}
+PERSES_VERSION=${PERSES_VERSION:-"0.14.6"}
 
 # Set up kiali
 {
@@ -51,6 +52,12 @@ helm3 template prometheus prometheus \
 
 function compressDashboard() {
   < "${DASHBOARDS}/$1" jq -c  > "${TMP}/$1"
+}
+
+function formatAndCompressPersesDashboard() {
+  # First format with proper indentation, then compress
+  < "${DASHBOARDS}/perses/$1" jq '.' > "${TMP}/${1%.json}-formatted.json"
+  < "${TMP}/${1%.json}-formatted.json" jq -c '.' > "${TMP}/$1"
 }
 
 # Set up grafana
@@ -102,6 +109,39 @@ function compressDashboard() {
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-loki.yaml"
 } > "${ADDONS}/loki.yaml"
+
+# Set up perses
+{
+  helm3 template perses perses \
+    --namespace istio-system \
+    --version "${PERSES_VERSION}" \
+    --repo https://perses.github.io/helm-charts \
+    -f "${WD}/values-perses.yaml"
+
+  # Format and compress Perses resources (project, datasource, dashboards)
+  formatAndCompressPersesDashboard "project.json"
+  formatAndCompressPersesDashboard "prom-datasource.json"
+  formatAndCompressPersesDashboard "istio-control-plane.json"
+  formatAndCompressPersesDashboard "istio-mesh-dashboard.json"
+  formatAndCompressPersesDashboard "istio-performance.json"
+  formatAndCompressPersesDashboard "istio-service-dashboard.json"
+  formatAndCompressPersesDashboard "istio-workload-dashboard.json"
+  formatAndCompressPersesDashboard "istio-ztunnel-dashboard.json"
+
+  echo -e "\n---\n"
+  kubectl create configmap -n istio-system perses-resources \
+    --dry-run=client -oyaml \
+    --from-file=project.json="${TMP}/project.json" \
+    --from-file=prom-datasource.json="${TMP}/prom-datasource.json" \
+    --from-file=istio-control-plane.json="${TMP}/istio-control-plane.json" \
+    --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.json" \
+    --from-file=istio-performance.json="${TMP}/istio-performance.json" \
+    --from-file=istio-service-dashboard.json="${TMP}/istio-service-dashboard.json" \
+    --from-file=istio-workload-dashboard.json="${TMP}/istio-workload-dashboard.json" \
+    --from-file=istio-ztunnel-dashboard.json="${TMP}/istio-ztunnel-dashboard.json" | \
+    kubectl label --dry-run=client -oyaml --local -f - perses.dev/resource=true
+
+} > "${ADDONS}/perses.yaml"
 
 # Test that the dashboard links are using UIDs instead of paths
 if [[ -f "${DASHBOARDS}/test_dashboard_links.sh" ]]; then

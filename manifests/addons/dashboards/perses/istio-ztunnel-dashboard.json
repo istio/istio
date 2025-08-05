@@ -1,0 +1,616 @@
+{
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "istio-ztunnel-dashboard",
+    "createdAt": "2025-08-04T14:25:09.986216606Z",
+    "updatedAt": "2025-08-05T09:02:31.630088398Z",
+    "version": 493,
+    "project": "istio"
+  },
+  "spec": {
+    "display": {
+      "name": "Istio Ztunnel Dashboard"
+    },
+    "panels": {
+      "bytestransmitted": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Bytes Transmitted",
+            "description": "Bytes sent and received per instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "bytes/sec"
+                }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (rate(istio_tcp_sent_bytes_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
+                    "seriesNameFormat": "Sent ({{pod}})"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (rate(istio_tcp_received_bytes_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
+                    "seriesNameFormat": "Received ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "connections": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Connections",
+            "description": "Connections opened and closed per instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "counts/sec"
+                }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (rate(istio_tcp_connections_opened_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
+                    "seriesNameFormat": "Opened ({{pod}})"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "-sum by (pod) (rate(istio_tcp_connections_closed_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
+                    "seriesNameFormat": "Closed ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "cpuusage": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "CPU Usage",
+            "description": "CPU usage of each running instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (irate(container_cpu_usage_seconds_total{container=\"istio-proxy\",pod=~\"ztunnel-.*\"}[$__rate_interval]))",
+                    "seriesNameFormat": "Container ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "dnsrequest": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "DNS Request",
+            "description": "DNS queries received per instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (rate(istio_dns_requests_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
+                    "seriesNameFormat": "Request ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "memoryusage": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Memory Usage",
+            "description": "Memory usage of each running instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "bytes"
+                }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (container_memory_working_set_bytes{container=\"istio-proxy\",pod=~\"ztunnel-.*\"})",
+                    "seriesNameFormat": "Container ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "workloadmanager": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Workload Manager",
+            "description": "Count of active and pending proxies managed by each instance.\nPending is expected to converge to zero.\n"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (workload_manager_active_proxy_count{pod=~\"ztunnel-.*\"})",
+                    "seriesNameFormat": "Active Proxies ({{pod}})"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (workload_manager_pending_proxy_count{pod=~\"ztunnel-.*\"})",
+                    "seriesNameFormat": "Pending Proxies ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "xdsconnections": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "XDS Connections",
+            "description": "Count of XDS connection terminations.\nThis will typically spike every 30min for each instance.\n"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (rate(istio_xds_connection_terminations_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
+                    "seriesNameFormat": "XDS Connection Terminations ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "xdspushes": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "XDS Pushes"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom",
+                "values": []
+              },
+              "visual": {
+                "areaOpacity": 1,
+                "connectNulls": false,
+                "display": "bar",
+                "lineWidth": 1,
+                "stack": "all"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (url) (irate(istio_xds_message_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
+                    "seriesNameFormat": "{{url}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "ztunnelversions": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Ztunnel Versions",
+            "description": "Version number of each running instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (tag) (istio_build{component=\"ztunnel\"})",
+                    "seriesNameFormat": "Version ({{tag}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Process",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/ztunnelversions"
+              }
+            },
+            {
+              "x": 8,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/memoryusage"
+              }
+            },
+            {
+              "x": 16,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/cpuusage"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Network",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/connections"
+              }
+            },
+            {
+              "x": 8,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/bytestransmitted"
+              }
+            },
+            {
+              "x": 16,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/dnsrequest"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Operations",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/xdsconnections"
+              }
+            },
+            {
+              "x": 8,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/xdspushes"
+              }
+            },
+            {
+              "x": 16,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/workloadmanager"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "variables": [],
+    "duration": "1h",
+    "refreshInterval": "0s"
+  }
+}

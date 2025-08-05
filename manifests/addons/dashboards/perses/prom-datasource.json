@@ -1,0 +1,24 @@
+{
+  "kind": "Datasource",
+  "metadata": {
+    "name": "prometheus",
+    "project": "istio"
+  },
+  "spec": {
+    "display": {
+      "name": "Prometheus Main"
+    },
+    "default": true,
+    "plugin": {
+      "kind": "PrometheusDatasource",
+      "spec": {
+        "proxy": {
+          "kind": "HTTPProxy",
+          "spec": {
+            "url": "http://prometheus.istio-system:9090"
+          }
+        }
+      }
+    }
+  }
+}
