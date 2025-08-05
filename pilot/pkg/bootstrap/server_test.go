@@ -340,6 +340,7 @@ func TestReloadIstiodCert(t *testing.T) {
 func TestReloadcacerts(t *testing.T) {
 	var err error
 
+	// Run test in an isolated directory so we don't read test files written by other cases
 	// set ROOT_CA_DIR to temp cacertsDir and create the directory
 	cacertsDir := filepath.Join(t.TempDir(), "/etc/cacerts")
 	if err := os.MkdirAll(cacertsDir, 0o755); err != nil {
@@ -347,6 +348,7 @@ func TestReloadcacerts(t *testing.T) {
 	}
 	test.SetEnvForTest(t, "ROOT_CA_DIR", cacertsDir)
 	test.SetForTest(t, &features.EnableCAServer, true)
+	assert.NoError(t, os.Chdir(t.TempDir()))
 
 	// load cacerts files into memory
 	var caCert, caKey, certChain, rootCert []byte
@@ -378,34 +380,24 @@ func TestReloadcacerts(t *testing.T) {
 
 	stop := make(chan struct{})
 	s := &Server{
-		fileWatcher: filewatcher.NewWatcher(),
-		// internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
-		kubeClient:              kube.NewFakeClient(),
 		server:                  server.New(),
 	}
 
 	defer func() {
 		close(stop)
-		_ = s.fileWatcher.Close()
 		_ = s.cacertsWatcher.Close()
-		s.kubeClient.Shutdown()
-		// close(s.internalStop)
 	}()
 
 	// start server
 	if err := s.server.Start(stop); err != nil {
 		t.Fatalf("Could not invoke startFuncs: %v", err)
 	}
-	// s.initServers(nil)
 
 	// create server CA for load cacerts files
 	if err = s.maybeCreateCA(&caOptions{}); err != nil {
 		t.Fatalf("Could not create CA: %v", err)
 	}
-	// if err := s.initIstiodCertLoader(); err != nil {
-	// 	t.Fatal("failed to init istiod cert loader")
-	// }
 
 	// validate that the cacerts files are loaded
 	g := NewWithT(t)
