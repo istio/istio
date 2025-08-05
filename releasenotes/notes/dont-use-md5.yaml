@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: security-fix
+
+area: security
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Removed** use of MD5 to optimize comparisons.
+  Istio does not and has not use MD5 for cryptographic purposes.
+  The change is merely to make the code easier to audit and to run in [FIPS 140-3 mode](https://go.dev/doc/security/fips140).
+
+securityNotes:
+  - |
+  This change does not affect security, but does make the code easier to audit.
+
