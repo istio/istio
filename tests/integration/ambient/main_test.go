@@ -67,7 +67,7 @@ values:
     terminationGracePeriodSeconds: 5
     env:
       SECRET_TTL: 5m
-    labels:
+    podLabels:
       networking.istio.io/tunnel: "http"
 `
 
@@ -86,7 +86,7 @@ values:
     terminationGracePeriodSeconds: 5
     env:
       SECRET_TTL: 5m
-    labels:
+    podLabels:
       networking.istio.io/tunnel: "http"
 `
 )
