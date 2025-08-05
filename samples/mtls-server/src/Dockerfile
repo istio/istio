@@ -14,12 +14,12 @@
 
 # build a mtls-server binary using the golang container
 FROM golang:1.24 AS builder
-WORKDIR /go/src/istio.io/mtls-serve/
+WORKDIR /go/src/istio.io/mtls-server/
 COPY main.go .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags '-extldflags -static -s -w' -o mtls-serve main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags '-extldflags -static -s -w' -o mtls-server main.go
 
 FROM scratch
 
 WORKDIR /bin/
 COPY --from=builder /go/src/istio.io/mtls-server/mtls-server .
-ENTRYPOINT [ "/bin/mtls-serve" ]
+ENTRYPOINT [ "/bin/mtls-server" ]

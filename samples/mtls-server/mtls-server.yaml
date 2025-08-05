@@ -15,9 +15,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: mtls-serve
+  name: mtls-server
   labels:
-    app: mtls-serve
+    app: mtls-server
 spec:
   ports:
     - port: 443
@@ -25,25 +25,25 @@ spec:
       protocol: TCP
       name: https
   selector:
-    app: mtls-serve
+    app: mtls-server
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mtls-serve
+  name: mtls-server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mtls-serve
+      app: mtls-server
   template:
     metadata:
       labels:
-        app: mtls-serve
+        app: mtls-server
     spec:
       containers:
-        - name: mtls-serve
-          image: localhost:5000/mtls-serve:latest
+        - name: mtls-server
+          image: docker.io/istio/examples-mtls-server:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8443
@@ -72,8 +72,8 @@ spec:
       volumes:
         - name: certs
           secret:
-            secretName: mtls-serve-certs
+            secretName: mtls-server-certs
         - name: ca-certs
           secret:
-            secretName: mtls-serve-ca-certs
+            secretName: mtls-server-ca-certs
 ---

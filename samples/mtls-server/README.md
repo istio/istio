@@ -43,8 +43,8 @@ Both endpoints support content negotiation:
 ## Building and Running
 
 ```bash
-cd samples/mtls-serve/src/
-docker build -t mtls-server . --tag localhost:5000/mtls-server:latest
+cd samples/mtls-server/src/
+docker build -t mtls-server . --tag localhost:5000/examples-mtls-server:latest
 ```
 
 ## Expected Responses

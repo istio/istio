@@ -29,7 +29,7 @@ images = [
     tags = ["1.0", "latest"]
   },
   {
-  name = "mtls-server"
+  name = "examples-mtls-server"
   source = "../mtls-server/src" 
   tags = ["1.0", "latest"]
   },
