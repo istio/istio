@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 12602
+releaseNotes:
+  - |
+    **Fixed** an issue where the PDB created by default installation was blocking draining of the k8s node
