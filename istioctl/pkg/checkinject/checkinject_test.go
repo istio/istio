@@ -298,7 +298,7 @@ func Test_analyzeRunningWebhooks(t *testing.T) {
 	whFiles := []string{
 		"testdata/check-inject/default-injector.yaml",
 		"testdata/check-inject/rev-16-injector.yaml",
-		"testdata/check-inject/-injector.yaml",
+		"testdata/check-inject/never-match-injector.yaml",
 	}
 	var whs []admitv1.MutatingWebhookConfiguration
 	for _, whName := range whFiles {
