@@ -1,37 +1,3 @@
-# Experimental Windows Ambient Support
-
-This is an experimental branch that adds support for Windows user nodes for the ambient data-plane mode (there's no support for sidecar mode on Windows at the moment). **Do not use this branch in production**, it hasn't been extensively tested and it has a couple of known issues.
-
-## List of Known Issues
-- Containers can't be added to the mesh dynamically.
-- We only support amd64 Windows nodes for now.
-
-## How It Works
-
-The Istio components running on Windows are only two: ztunnel and the CNI plugin. Everything else still runs on Linux nodes, including `istiod` and Waypoint Proxies when added to the mesh.
-
-At the moment we don't have Windows images available from the Istio project's GCR. We're working on that. For now, you'll have to build and host your own images (for the CNI plugin and ztunnel) with the steps below. Note that the build process will run from a Linux machine.
-
-## Building Your Own Images
-
-First things first, you have to install the dependencies as described in [Preparing for Development](https://github.com/istio/istio/wiki/Preparing-for-Development).
-
-After that, pull Istio's experimental branch.
-
-```
-git clone -b experimental-windows-ambient git@github.com:istio/istio.git istio
-```
-
-And also, ztunnel's experimental branch.
-
-```
-git clone -b experimental-windows-ambient git@github.com:istio/istio.git ztunnel
-```
-
-
-
-## Installation
-
 # Istio
 
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1395/badge)](https://bestpractices.coreinfrastructure.org/projects/1395)
