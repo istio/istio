@@ -4,5 +4,5 @@ area: security
 issue: []
 releaseNotes:
   - |
-    **Improved** root certificate parsing to handle certificate bundles gracefully when some certificates are invalid. 
+    **Improved** root certificate parsing to when some certificates are invalid. 
     Istio now filters out malformed certificates instead of rejecting the entire bundle.
