@@ -113,6 +113,8 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 
 	flag.BindEnv(fs, constants.RunValidation, "", "Validate iptables.", &cfg.RunValidation)
 
+	flag.BindEnv(fs, constants.AmbientMode, "", "Enable ambient mode validation.", &cfg.AmbientMode)
+
 	flag.BindEnv(fs, constants.RedirectDNS, "", "Enable capture of dns traffic by istio-agent.", &cfg.RedirectDNS)
 	// Allow binding to a different var, for consistency with other components
 	flag.AdditionalEnv(fs, constants.RedirectDNS, "ISTIO_META_DNS_CAPTURE")
@@ -170,6 +172,15 @@ func GetCommand(logOpts *log.Options) *cobra.Command {
 			if err := cfg.Validate(); err != nil {
 				handleErrorWithCode(err, 1)
 			}
+			if cfg.AmbientMode {
+				validator := validation.NewAmbientValidator(cfg)
+				if err := validator.Run(); err != nil {
+					handleErrorWithCode(fmt.Errorf("ambient mode validation failed: %v", err), constants.ValidationErrorCode)
+				}
+				log.Info("Ambient mode validation passed, iptables rules established")
+				return
+			}
+
 			runMethod := ProgramIptables
 
 			// If nftables is enabled, use nft rules for traffic redirection.

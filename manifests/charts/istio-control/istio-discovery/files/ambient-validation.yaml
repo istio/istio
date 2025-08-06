@@ -1,0 +1,18 @@
+spec:
+  initContainers:
+  - name: ambient-validation
+    image: "{{ .ProxyImage }}"
+    args:
+    - istio-iptables
+    - "--ambient-mode"
+    {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
+    securityContext:
+      allowPrivilegeEscalation: false
+      privileged: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+      runAsGroup: 1337
+      runAsUser: 1337
+      runAsNonRoot: true

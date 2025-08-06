@@ -112,6 +112,12 @@ _internal_defaults_do_not_set:
   # Set this if you install ztunnel with a name different from the default.
   trustedZtunnelName: ""
 
+  # Ambient mode only.
+  # Set this to true if you want to deploy selectors in the mutating webhook
+  # to allow the injection of ambient init containers.
+  # TODO(jaellio): return to false after testing
+  ambientInitContainerInjection: true
+
   sidecarInjectorWebhook:
     # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
     # always skip the injection on pods that match that label selector, regardless of the global policy.
@@ -285,7 +291,7 @@ _internal_defaults_do_not_set:
     # The control plane has different scopes depending on component, but can configure default log level across all components
     # If empty, default scope and level will be used as configured in code
     logging:
-      level: "default:info"
+      level: "default:debug"
 
     # When enabled, default NetworkPolicy resources will be created
     networkPolicy:

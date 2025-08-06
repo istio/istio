@@ -106,6 +106,31 @@ webhooks:
       {{- end }}
 
 
+{{- /* Ambient Init Container Injection */}}
+{{- if .Values.ambientInitContainerInjection }}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.ambient.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: DoesNotExist
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: ambient.istio.io/init
+      operator: NotIn
+      values:
+      - "false"
+    - key: istio.io/rev
+      operator: In
+      values:
+      {{- if (eq .Values.revision "") }}
+      - "default"
+      {{- else }}
+      - "{{ .Values.revision }}"
+      {{- end }}
+{{- end }}
+
 {{- /* Webhooks for default revision */}}
 {{- if (eq .Values.revision "") }}
 
@@ -140,6 +165,25 @@ webhooks:
       - "true"
     - key: istio.io/rev
       operator: DoesNotExist
+
+{{- /* Ambient Init Container Injection */}}
+{{- if .Values.ambientInitContainerInjection }}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "ambient.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: DoesNotExist
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: ambient.istio.io/init
+      operator: In
+      values:
+      - "true"
+    - key: istio.io/rev
+      operator: DoesNotExist
+{{- end }}
 
 {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
 {{- /* Special case 3: no labels at all */}}

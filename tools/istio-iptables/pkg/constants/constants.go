@@ -88,6 +88,7 @@ const (
 	CleanupOnly               = "cleanup-only"
 	ForceApply                = "force-apply"
 	NativeNftables            = "native-nftables"
+	AmbientMode	              = "ambient-mode"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.
