@@ -8,6 +8,10 @@ global:
 pilot:
   env:
     PILOT_ENABLE_AMBIENT: "true"
+    # TODO: at some point we need to modify the templates for pilot
+    # to make sure it can generate manifests with multiple trusted nodes
+    # like below.
+    CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,istio-system/ztunnel-windows"
 cni:
   ambient:
     enabled: true
