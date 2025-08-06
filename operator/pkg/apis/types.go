@@ -108,7 +108,9 @@ type IstioComponentSpec struct {
 	Base    *BaseComponentSpec `json:"base,omitempty"`
 	Pilot   *ComponentSpec     `json:"pilot,omitempty"`
 	Cni     *ComponentSpec     `json:"cni,omitempty"`
+	CniWindows *ComponentSpec  `json:"cni-windows,omitempty"`
 	Ztunnel *ComponentSpec     `json:"ztunnel,omitempty"`
+	ZtunnelWindows *ComponentSpec `json:"ztunnel-windows,omitempty"`
 	// Remote cluster using an external control plane.
 	IstiodRemote    *ComponentSpec         `json:"istiodRemote,omitempty"`
 	IngressGateways []GatewayComponentSpec `json:"ingressGateways,omitempty"`

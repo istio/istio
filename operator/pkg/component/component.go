@@ -132,10 +132,11 @@ const (
 	BaseComponentName  Name = "Base"
 	PilotComponentName Name = "Pilot"
 
-	CNIComponentName            Name = "Cni"
-	CNIWindowsComponentName     Name = "CniWindows"
-	ZtunnelComponentName        Name = "Ztunnel"
+	CNIComponentName     Name = "Cni"
+	ZtunnelComponentName Name = "Ztunnel"
+
 	ZtunnelWindowsComponentName Name = "ZtunnelWindows"
+	CNIWindowsComponentName     Name = "CniWindows"
 
 	IngressComponentName Name = "IngressGateways"
 	EgressComponentName  Name = "EgressGateways"
@@ -230,21 +231,25 @@ var AllComponents = []Component{
 
 var (
 	userFacingComponentNames = map[Name]string{
-		BaseComponentName:    "Istio core",
-		PilotComponentName:   "Istiod",
-		CNIComponentName:     "CNI",
-		ZtunnelComponentName: "Ztunnel",
-		IngressComponentName: "Ingress gateways",
-		EgressComponentName:  "Egress gateways",
+		BaseComponentName:           "Istio core",
+		PilotComponentName:          "Istiod",
+		CNIComponentName:            "CNI",
+		CNIWindowsComponentName:     "CNI (Windows)",
+		ZtunnelComponentName:        "Ztunnel",
+		ZtunnelWindowsComponentName: "Ztunnel (Windows)",
+		IngressComponentName:        "Ingress gateways",
+		EgressComponentName:         "Egress gateways",
 	}
 
 	Icons = map[Name]string{
-		BaseComponentName:    "⛵️",
-		PilotComponentName:   "🧠",
-		CNIComponentName:     "🪢",
-		ZtunnelComponentName: "🔒",
-		IngressComponentName: "🛬",
-		EgressComponentName:  "🛫",
+		BaseComponentName:           "⛵️",
+		PilotComponentName:          "🧠",
+		CNIComponentName:            "🪢",
+		ZtunnelComponentName:        "🔒",
+		IngressComponentName:        "🛬",
+		EgressComponentName:         "🛫",
+		ZtunnelWindowsComponentName: "🪟",
+		CNIWindowsComponentName:     "🪟",
 	}
 )
 
