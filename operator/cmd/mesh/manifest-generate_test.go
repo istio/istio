@@ -260,8 +260,8 @@ func TestManifestGenerateGateways(t *testing.T) {
 	g := NewWithT(t)
 
 	flags := "-s components.ingressGateways.[0].k8s.resources.requests.memory=999Mi " +
-		"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m"
-
+		"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m " +
+		"-s values.gateways.istio-ingressgateway.autoscaleMin=2"
 	objss := runManifestCommands(t, "gateways", flags, liveCharts, nil)
 
 	for _, objs := range objss {
@@ -301,7 +301,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 
 		for _, o := range objs.kind(manifest.HorizontalPodAutoscaler).objSlice {
 			ou := o.Unstructured.Object
-			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
+			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(2)}))
 			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
 		}
 
@@ -847,12 +847,16 @@ func TestConfigSelectors(t *testing.T) {
 		"templates/autoscale.yaml",
 		"templates/serviceaccount.yaml",
 	}
-	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts, selectors)
+	flags := "--set values.gateways.istio-egressgateway.enabled=true " +
+		"--set values.gateways.istio-ingressgateway.autoscaleMin=2 " +
+		"--set values.gateways.istio-egressgateway.autoscaleMin=2 " +
+		"--set values.pilot.autoscaleMin=2"
+	got, err := runManifestGenerate([]string{}, flags, liveCharts, selectors)
 	if err != nil {
 		t.Fatal(err)
 	}
 	objs := parseObjectSetFromManifest(t, got).objSlice
-	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", liveCharts, selectors)
+	gotRev, e := runManifestGenerate([]string{}, fmt.Sprintf("%s %s", flags, "--set revision=canary"), liveCharts, selectors)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -947,7 +951,7 @@ func TestManifestGenerateStructure(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, len(sets), 1) // if this produces more than 1 ManifestSet it will cause a deadlock during install
 	gateways := sets[0].Manifests
-	assert.Equal(t, len(gateways), 21) // 7 kube resources * 3 gateways
+	assert.Equal(t, len(gateways), 18) // 6 kube resources * 3 gateways
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
