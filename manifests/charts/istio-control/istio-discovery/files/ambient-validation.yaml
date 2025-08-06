@@ -1,6 +1,7 @@
 spec:
   initContainers:
   - name: ambient-validation
+    # TODO(jaellio): Add back logic around proxy image selection
     image: "{{ .ProxyImage }}"
     args:
     - istio-iptables
