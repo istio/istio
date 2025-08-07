@@ -26,12 +26,15 @@ import (
 	"time"
 )
 
+var accessLogger = log.New(os.Stdout, "", 0)
+
 type ServerConfig struct {
-	Name       string
-	Namespace  string
-	AlwaysJSON bool
-	Cert       certConfig
-	Addr       string
+	Name         string
+	Namespace    string
+	AlwaysJSON   bool
+	Cert         certConfig
+	Addr         string
+	LogPlainText bool
 }
 
 type certConfig struct {
@@ -54,6 +57,14 @@ type ResponseBody struct {
 	Namespace string
 	Client    ClientCertInfo
 	Headers   map[string][]string
+}
+
+type AccessLog struct {
+	Timestamp     time.Time
+	Method        string
+	Path          string
+	ClientIP      string
+	ClientSubject string
 }
 
 func initServerConfig() *ServerConfig {
@@ -88,6 +99,8 @@ func initServerConfig() *ServerConfig {
 
 	serverConfig.AlwaysJSON = os.Getenv("ALWAYS_JSON") == "true"
 
+	serverConfig.LogPlainText = os.Getenv("LOG_PLAIN_TEXT") == "true"
+
 	return serverConfig
 }
 
@@ -113,9 +126,10 @@ func main() {
 
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    caCertPool,
-		MinVersion:   tls.VersionTLS12,
+		// ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientAuth: tls.RequireAnyClientCert,
+		ClientCAs:  caCertPool,
+		MinVersion: tls.VersionTLS12,
 	}
 
 	mux := http.NewServeMux()
@@ -134,10 +148,16 @@ func main() {
 	}
 }
 
-func (c *ServerConfig) getResponseBody(r *http.Request) *ResponseBody {
+func (c *ServerConfig) getResponseBody(r *http.Request) (*ResponseBody, *AccessLog) {
 	responseBody := &ResponseBody{
 		Name:      c.Name,
 		Namespace: c.Namespace,
+	}
+	accessLog := &AccessLog{
+		Timestamp: time.Now(),
+		Method:    r.Method,
+		Path:      r.URL.Path,
+		ClientIP:  r.RemoteAddr,
 	}
 	if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
 		clientCert := r.TLS.PeerCertificates[0]
@@ -149,12 +169,13 @@ func (c *ServerConfig) getResponseBody(r *http.Request) *ResponseBody {
 			NotBefore: clientCert.NotBefore,
 			NotAfter:  clientCert.NotAfter,
 		}
+		accessLog.ClientSubject = responseBody.Client.Subject
 	}
 	responseBody.Headers = make(map[string][]string)
 	for key, values := range r.Header {
 		responseBody.Headers[key] = values
 	}
-	return responseBody
+	return responseBody, accessLog
 }
 
 func textResponseBody(responseBody *ResponseBody) string {
@@ -177,7 +198,8 @@ func textResponseBody(responseBody *ResponseBody) string {
 }
 
 func (c *ServerConfig) serveSubject(w http.ResponseWriter, r *http.Request) {
-	responseBody := c.getResponseBody(r)
+	responseBody, accessLog := c.getResponseBody(r)
+	defer c.logAccess(accessLog)
 	w.Header().Set("mtls-client-subject", responseBody.Client.Subject)
 	accept := r.Header.Get("Accept")
 	if c.AlwaysJSON || strings.Contains(accept, "application/json") {
@@ -199,8 +221,8 @@ func (c *ServerConfig) serveSubject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *ServerConfig) serve(w http.ResponseWriter, r *http.Request) {
-	responseBody := c.getResponseBody(r)
-
+	responseBody, accessLog := c.getResponseBody(r)
+	defer c.logAccess(accessLog)
 	accept := r.Header.Get("Accept")
 	if c.AlwaysJSON || strings.Contains(accept, "application/json") {
 		w.Header().Set("Content-Type", "application/json")
@@ -217,4 +239,20 @@ func (c *ServerConfig) serve(w http.ResponseWriter, r *http.Request) {
 	body := textResponseBody(responseBody)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(body))
+}
+
+func (c *ServerConfig) logAccess(accessLog *AccessLog) {
+	if c.LogPlainText {
+		accessLogger.Printf("access %s %s %s %s %s", accessLog.Timestamp.Format(time.RFC3339), accessLog.Method, accessLog.Path, accessLog.ClientIP, accessLog.ClientSubject)
+	} else {
+		a := map[string]any{
+			"access": accessLog,
+		}
+		json, err := json.Marshal(a)
+		if err != nil {
+			log.Printf("failed to marshal access log: %v", err)
+			return
+		}
+		accessLogger.Printf("%s", json)
+	}
 }
