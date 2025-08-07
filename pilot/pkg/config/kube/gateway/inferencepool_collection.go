@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -87,19 +87,19 @@ func (i InferencePool) ResourceName() string {
 }
 
 func InferencePoolCollection(
-	pools krt.Collection[*inferencev1alpha2.InferencePool],
+	pools krt.Collection[*inferencev1.InferencePool],
 	services krt.Collection[*corev1.Service],
 	httpRoutes krt.Collection[*gateway.HTTPRoute],
 	gateways krt.Collection[*gateway.Gateway],
 	routesByInferencePool krt.Index[string, *gateway.HTTPRoute],
 	c *Controller,
 	opts krt.OptionsBuilder,
-) (krt.StatusCollection[*inferencev1alpha2.InferencePool, inferencev1alpha2.InferencePoolStatus], krt.Collection[InferencePool]) {
+) (krt.StatusCollection[*inferencev1.InferencePool, inferencev1.InferencePoolStatus], krt.Collection[InferencePool]) {
 	return krt.NewStatusCollection(pools,
 		func(
 			ctx krt.HandlerContext,
-			pool *inferencev1alpha2.InferencePool,
-		) (*inferencev1alpha2.InferencePoolStatus, *InferencePool) {
+			pool *inferencev1.InferencePool,
+		) (*inferencev1.InferencePoolStatus, *InferencePool) {
 			// Fetch HTTPRoutes that reference this InferencePool once and reuse
 			routeList := krt.Fetch(ctx, httpRoutes, krt.FilterIndex(routesByInferencePool, pool.Namespace+"/"+pool.Name))
 
@@ -124,7 +124,7 @@ func InferencePoolCollection(
 }
 
 // createInferencePoolObject creates the InferencePool object with shadow service and extension ref info
-func createInferencePoolObject(pool *inferencev1alpha2.InferencePool, gatewayParents sets.Set[types.NamespacedName]) *InferencePool {
+func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents sets.Set[types.NamespacedName]) *InferencePool {
 	// Build extension reference info
 	extRef := extRefInfo{
 		name: string(pool.Spec.ExtensionRef.Name),
@@ -137,7 +137,7 @@ func createInferencePoolObject(pool *inferencev1alpha2.InferencePool, gatewayPar
 	if pool.Spec.ExtensionRef.FailureMode != nil {
 		extRef.failureMode = string(*pool.Spec.ExtensionRef.FailureMode)
 	} else {
-		extRef.failureMode = string(inferencev1alpha2.FailClose)
+		extRef.failureMode = string(inferencev1.FailClose)
 	}
 
 	svcName, err := InferencePoolServiceName(pool.Name)
@@ -170,15 +170,15 @@ func createInferencePoolObject(pool *inferencev1alpha2.InferencePool, gatewayPar
 
 // calculateInferencePoolStatus calculates the complete status for an InferencePool
 func calculateInferencePoolStatus(
-	pool *inferencev1alpha2.InferencePool,
+	pool *inferencev1.InferencePool,
 	gatewayParents sets.Set[types.NamespacedName],
 	services krt.Collection[*corev1.Service],
 	gateways krt.Collection[*gateway.Gateway],
 	routeList []*gateway.HTTPRoute,
-) *inferencev1alpha2.InferencePoolStatus {
+) *inferencev1.InferencePoolStatus {
 	// Calculate status for each gateway parent
 	existingParents := pool.Status.DeepCopy().Parents
-	finalParents := []inferencev1alpha2.PoolStatus{}
+	finalParents := []inferencev1.PoolStatus{}
 
 	// Add existing parents from other controllers (not managed by us)
 	for _, existingParent := range existingParents {
@@ -208,14 +208,14 @@ func calculateInferencePoolStatus(
 		finalParents = append(finalParents, parentStatus)
 	}
 
-	return &inferencev1alpha2.InferencePoolStatus{
+	return &inferencev1.InferencePoolStatus{
 		Parents: finalParents,
 	}
 }
 
 // findGatewayParents finds all Gateway parents that reference this InferencePool through HTTPRoutes
 func findGatewayParents(
-	pool *inferencev1alpha2.InferencePool,
+	pool *inferencev1.InferencePool,
 	routeList []*gateway.HTTPRoute,
 ) sets.Set[types.NamespacedName] {
 	gatewayParents := sets.New[types.NamespacedName]()
@@ -251,7 +251,7 @@ func findGatewayParents(
 }
 
 // routeReferencesInferencePool checks if an HTTPRoute references the given InferencePool
-func routeReferencesInferencePool(route *gateway.HTTPRoute, pool *inferencev1alpha2.InferencePool) bool {
+func routeReferencesInferencePool(route *gateway.HTTPRoute, pool *inferencev1.InferencePool) bool {
 	for _, rule := range route.Spec.Rules {
 		for _, backendRef := range rule.BackendRefs {
 			if !isInferencePoolBackendRef(backendRef.BackendRef) {
@@ -285,12 +285,12 @@ func isInferencePoolBackendRef(backendRef gatewayv1.BackendRef) bool {
 
 // calculateSingleParentStatus calculates the status for a single gateway parent
 func calculateSingleParentStatus(
-	pool *inferencev1alpha2.InferencePool,
+	pool *inferencev1.InferencePool,
 	gatewayParent types.NamespacedName,
 	services krt.Collection[*corev1.Service],
-	existingParents []inferencev1alpha2.PoolStatus,
+	existingParents []inferencev1.PoolStatus,
 	routeList []*gateway.HTTPRoute,
-) inferencev1alpha2.PoolStatus {
+) inferencev1.PoolStatus {
 	// Find existing status for this parent to preserve some conditions
 	var existingConditions []metav1.Condition
 	for _, existingParent := range existingParents {
@@ -303,8 +303,8 @@ func calculateSingleParentStatus(
 
 	// Filter to only keep conditions we manage
 	filteredConditions := filterUsedConditions(existingConditions,
-		inferencev1alpha2.InferencePoolConditionAccepted,
-		inferencev1alpha2.InferencePoolConditionResolvedRefs)
+		inferencev1.InferencePoolConditionAccepted,
+		inferencev1.InferencePoolConditionResolvedRefs)
 
 	// Calculate Accepted status by checking HTTPRoute parent status
 	acceptedStatus := calculateAcceptedStatus(pool, gatewayParent, routeList)
@@ -313,23 +313,23 @@ func calculateSingleParentStatus(
 	resolvedRefsStatus := calculateResolvedRefsStatus(pool, services)
 
 	// Build the final status
-	return inferencev1alpha2.PoolStatus{
-		GatewayRef: inferencev1alpha2.ParentGatewayReference{
-			Group:     (*inferencev1alpha2.Group)(&gvk.Gateway.Group),
-			Kind:      (*inferencev1alpha2.Kind)(&gvk.Gateway.Kind),
-			Namespace: (*inferencev1alpha2.Namespace)(&gatewayParent.Namespace),
-			Name:      inferencev1alpha2.ObjectName(gatewayParent.Name),
+	return inferencev1.PoolStatus{
+		GatewayRef: inferencev1.ParentGatewayReference{
+			Group:     (*inferencev1.Group)(&gvk.Gateway.Group),
+			Kind:      (*inferencev1.Kind)(&gvk.Gateway.Kind),
+			Namespace: (*inferencev1.Namespace)(&gatewayParent.Namespace),
+			Name:      inferencev1.ObjectName(gatewayParent.Name),
 		},
 		Conditions: setConditions(pool.Generation, filteredConditions, map[string]*condition{
-			string(inferencev1alpha2.InferencePoolConditionAccepted):     acceptedStatus,
-			string(inferencev1alpha2.InferencePoolConditionResolvedRefs): resolvedRefsStatus,
+			string(inferencev1.InferencePoolConditionAccepted):     acceptedStatus,
+			string(inferencev1.InferencePoolConditionResolvedRefs): resolvedRefsStatus,
 		}),
 	}
 }
 
 // calculateAcceptedStatus determines if the InferencePool is accepted by checking HTTPRoute parent status
 func calculateAcceptedStatus(
-	pool *inferencev1alpha2.InferencePool,
+	pool *inferencev1.InferencePool,
 	gatewayParent types.NamespacedName,
 	routeList []*gateway.HTTPRoute,
 ) *condition {
@@ -359,13 +359,13 @@ func calculateAcceptedStatus(
 					if parentCondition.Type == string(gatewayv1.RouteConditionAccepted) {
 						if parentCondition.Status == metav1.ConditionTrue {
 							return &condition{
-								reason:  string(inferencev1alpha2.InferencePoolReasonAccepted),
+								reason:  string(inferencev1.InferencePoolReasonAccepted),
 								status:  metav1.ConditionTrue,
 								message: "Referenced by an HTTPRoute accepted by the parentRef Gateway",
 							}
 						}
 						return &condition{
-							reason: string(inferencev1alpha2.InferencePoolReasonHTTPRouteNotAccepted),
+							reason: string(inferencev1.InferencePoolReasonHTTPRouteNotAccepted),
 							status: metav1.ConditionFalse,
 							message: fmt.Sprintf("Referenced HTTPRoute %s/%s not accepted by Gateway %s/%s: %s",
 								route.Namespace, route.Name, gatewayParent.Namespace, gatewayParent.Name, parentCondition.Message),
@@ -375,7 +375,7 @@ func calculateAcceptedStatus(
 
 				// If no Accepted condition found, treat as unknown (parent is listed in status)
 				return &condition{
-					reason:  string(inferencev1alpha2.InferencePoolReasonAccepted),
+					reason:  string(inferencev1.InferencePoolReasonAccepted),
 					status:  metav1.ConditionUnknown,
 					message: "Referenced by an HTTPRoute unknown parentRef Gateway status",
 				}
@@ -386,7 +386,7 @@ func calculateAcceptedStatus(
 	// If we get here, no HTTPRoute was found that references this InferencePool with this gateway as parent
 	// This shouldn't happen in normal operation since we only call this for known gateway parents
 	return &condition{
-		reason: string(inferencev1alpha2.InferencePoolReasonHTTPRouteNotAccepted),
+		reason: string(inferencev1.InferencePoolReasonHTTPRouteNotAccepted),
 		status: metav1.ConditionFalse,
 		message: fmt.Sprintf("No HTTPRoute found referencing this InferencePool with Gateway %s/%s as parent",
 			gatewayParent.Namespace, gatewayParent.Name),
@@ -398,20 +398,20 @@ func calculateAcceptedStatus(
 // * if the extensionRef is defined
 // * if the service exists in the same namespace as the InferencePool
 func calculateResolvedRefsStatus(
-	pool *inferencev1alpha2.InferencePool,
+	pool *inferencev1.InferencePool,
 	services krt.Collection[*corev1.Service],
 ) *condition {
 	// defaults to service
 	if pool.Spec.ExtensionRef.Kind != nil && string(*pool.Spec.ExtensionRef.Kind) != gvk.Service.Kind {
 		return &condition{
-			reason:  string(inferencev1alpha2.InferencePoolReasonInvalidExtensionRef),
+			reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
 			status:  metav1.ConditionFalse,
 			message: "Unsupported ExtensionRef kind " + string(*pool.Spec.ExtensionRef.Kind),
 		}
 	}
 	if string(pool.Spec.ExtensionRef.Name) == "" {
 		return &condition{
-			reason:  string(inferencev1alpha2.InferencePoolReasonInvalidExtensionRef),
+			reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
 			status:  metav1.ConditionFalse,
 			message: "ExtensionRef not defined",
 		}
@@ -419,20 +419,20 @@ func calculateResolvedRefsStatus(
 	svc := ptr.Flatten(services.GetKey(fmt.Sprintf("%s/%s", pool.Namespace, pool.Spec.ExtensionRef.Name)))
 	if svc == nil {
 		return &condition{
-			reason:  string(inferencev1alpha2.InferencePoolReasonInvalidExtensionRef),
+			reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
 			status:  metav1.ConditionFalse,
 			message: "Referenced ExtensionRef not found " + string(pool.Spec.ExtensionRef.Name),
 		}
 	}
 	return &condition{
-		reason:  string(inferencev1alpha2.InferencePoolConditionResolvedRefs),
+		reason:  string(inferencev1.InferencePoolConditionResolvedRefs),
 		status:  metav1.ConditionTrue,
 		message: "Referenced ExtensionRef resolved successfully",
 	}
 }
 
 // isDefaultStatusParent checks if this is a default status parent entry
-func isDefaultStatusParent(parent inferencev1alpha2.PoolStatus) bool {
+func isDefaultStatusParent(parent inferencev1.PoolStatus) bool {
 	return string(ptr.OrEmpty(parent.GatewayRef.Kind)) == "Status" && parent.GatewayRef.Name == "default"
 }
 
@@ -447,10 +447,10 @@ func isOurManagedGateway(gateways krt.Collection[*gateway.Gateway], namespace, n
 	return ok
 }
 
-func filterUsedConditions(conditions []metav1.Condition, usedConditions ...inferencev1alpha2.InferencePoolConditionType) []metav1.Condition {
+func filterUsedConditions(conditions []metav1.Condition, usedConditions ...inferencev1.InferencePoolConditionType) []metav1.Condition {
 	var result []metav1.Condition
 	for _, condition := range conditions {
-		if slices.Contains(usedConditions, inferencev1alpha2.InferencePoolConditionType(condition.Type)) {
+		if slices.Contains(usedConditions, inferencev1.InferencePoolConditionType(condition.Type)) {
 			result = append(result, condition)
 		}
 	}
