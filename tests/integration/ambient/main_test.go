@@ -80,7 +80,7 @@ values:
     terminationGracePeriodSeconds: 5
     env:
       SECRET_TTL: 5m
-	podLabels:
+    podLabels:
       networking.istio.io/tunnel: "http"
   cni:
     # The CNI repair feature is disabled for these tests because this is a controlled environment,
