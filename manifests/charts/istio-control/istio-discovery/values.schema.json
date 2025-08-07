@@ -1,0 +1,2586 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "$ref": "#/$defs/internal",
+  "additionalProperties": false,
+  "$defs": {
+    "global": {
+      "type": "object",
+      "properties": {
+        "platform": {
+          "type": "string"
+        },
+        "ipFamilies": {
+          "type": "array",
+          "items": {}
+        },
+        "ipFamilyPolicy": {
+          "type": "string"
+        },
+        "certSigners": {
+          "type": "array",
+          "items": {}
+        },
+        "istiod": {
+          "type": "object",
+          "properties": {
+            "enableAnalysis": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "nativeNftables": {
+          "type": "boolean"
+        },
+        "omitSidecarInjectorConfigMap": {
+          "type": "boolean"
+        },
+        "operatorManageWebhooks": {
+          "type": "boolean"
+        },
+        "proxy": {
+          "type": "object",
+          "properties": {
+            "seccompProfile": {
+              "$ref": "#/$defs/seccompProfile"
+            },
+            "image": {
+              "type": "string"
+            },
+            "autoInject": {
+              "type": "string"
+            },
+            "clusterDomain": {
+              "type": "string"
+            },
+            "componentLogLevel": {
+              "type": "string"
+            },
+            "excludeInboundPorts": {
+              "type": "string"
+            },
+            "includeInboundPorts": {
+              "type": "string"
+            },
+            "includeIPRanges": {
+              "type": "string"
+            },
+            "excludeIPRanges": {
+              "type": "string"
+            },
+            "includeOutboundPorts": {
+              "type": "string"
+            },
+            "excludeOutboundPorts": {
+              "type": "string"
+            },
+            "logLevel": {
+              "type": "string"
+            },
+            "outlierLogPath": {
+              "type": "string"
+            },
+            "privileged": {
+              "type": "boolean"
+            },
+            "readinessFailureThreshold": {
+              "type": "integer"
+            },
+            "readinessInitialDelaySeconds": {
+              "type": "integer"
+            },
+            "readinessPeriodSeconds": {
+              "type": "integer"
+            },
+            "startupProbe": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "failureThreshold": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "resources": {
+              "type": "object",
+              "properties": {
+                "requests": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": {
+                      "type": "string"
+                    },
+                    "memory": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "limits": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": {
+                      "type": "string"
+                    },
+                    "memory": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "statusPort": {
+              "type": "integer"
+            },
+            "tracer": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "proxy_init": {
+          "type": "object",
+          "properties": {
+            "image": {
+              "type": "string"
+            },
+            "forceApplyIptables": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "remotePilotAddress": {
+          "type": "string"
+        },
+        "externalIstiod": {
+          "type": "boolean"
+        },
+        "configCluster": {
+          "type": "boolean"
+        },
+        "configValidation": {
+          "type": "boolean"
+        },
+        "meshNetworks": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "caName": {
+          "type": "string"
+        },
+        "waypoint": {
+          "type": "object",
+          "properties": {
+            "resources": {
+              "type": "object",
+              "properties": {
+                "requests": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": {
+                      "type": "string"
+                    },
+                    "memory": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "limits": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": {
+                      "type": "string"
+                    },
+                    "memory": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "affinity": {
+              "$ref": "#/$defs/affinity"
+            },
+            "topologySpreadConstraints": {
+              "type": "array",
+              "items": {}
+            },
+            "nodeSelector": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "tolerations": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "additionalProperties": false
+        },
+        "defaultNodeSelector": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "defaultPodDisruptionBudget": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "defaultResources": {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "defaultTolerations": {
+          "type": "array",
+          "items": {}
+        },
+        "hub": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        },
+        "variant": {
+          "type": "string"
+        },
+        "imagePullPolicy": {
+          "type": "string"
+        },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {}
+        },
+        "logAsJson": {
+          "type": "boolean"
+        },
+        "arch": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "logging": {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "priorityClassName": {
+          "type": "string"
+        },
+        "caAddress": {
+          "type": "string"
+        },
+        "istioNamespace": {
+          "type": "string"
+        },
+        "meshID": {
+          "type": "string"
+        },
+        "mountMtlsCerts": {
+          "type": "boolean"
+        },
+        "multiCluster": {
+          "type": "object",
+          "properties": {
+            "clusterName": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "network": {
+          "type": "string"
+        },
+        "pilotCertProvider": {
+          "type": "string"
+        },
+        "sds": {
+          "type": "object",
+          "properties": {
+            "token": {
+              "type": "object",
+              "properties": {
+                "aud": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "sts": {
+          "type": "object",
+          "properties": {
+            "servicePort": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "networkPolicy": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "trustBundleName": {
+          "type": "string"
+        }
+      },
+      "imagePullSecrets": {
+        "type": "array",
+        "items": {}
+      },
+      "istioNamespace": {
+        "type": "string"
+      }
+    },
+    "base": {
+      "type": "object",
+      "properties": {
+        "excludedCRDs": {
+          "type": "array",
+          "items": {}
+        },
+        "enableCRDTemplates": {
+          "type": "boolean"
+        },
+        "validationURL": {
+          "type": "string"
+        },
+        "validationCABundle": {
+          "type": "string"
+        },
+        "enableIstioConfigCRDs": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "experimental": {
+      "type": "object",
+      "properties": {
+        "stableValidationPolicy": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "gateways": {
+      "type": "object",
+      "properties": {
+        "securityContext": {
+          "type": ["object", "null"]
+        },
+        "seccompProfile": {
+          "$ref": "#/$defs/seccompProfile"
+        },
+        "istio-ingressgateway": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "ports": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "port": {
+                    "type": "integer"
+                  },
+                  "targetPort": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "protocol": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "labels": {
+              "type": "object",
+              "properties": {
+                "app": {
+                  "type": "string"
+                },
+                "istio": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "rollingMaxSurge": {
+              "type": "string"
+            },
+            "rollingMaxUnavailable": {
+              "type": "string"
+            },
+            "autoscaleEnabled": {
+              "type": "boolean"
+            },
+            "autoscaleMin": {
+              "type": "integer"
+            },
+            "autoscaleMax": {
+              "type": "integer"
+            },
+            "resources": {
+              "type": "object",
+              "properties": {
+                "requests": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": {
+                      "type": "string"
+                    },
+                    "memory": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "limits": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": {
+                      "type": "string"
+                    },
+                    "memory": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "loadBalancerIP": {
+              "type": "string"
+            },
+            "loadBalancerSourceRanges": {
+              "type": "array",
+              "items": {}
+            },
+            "cpu": {
+              "type": "object",
+              "properties": {
+                "targetAverageUtilization": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "memory": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "serviceAnnotations": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "podAnnotations": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "type": {
+              "type": "string"
+            },
+            "ipFamilyPolicy": {
+              "type": "string"
+            },
+            "ipFamilies": {
+              "type": "array",
+              "items": {}
+            },
+            "secretVolumes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "secretName": {
+                    "type": "string"
+                  },
+                  "mountPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "customService": {
+              "type": "boolean"
+            },
+            "externalTrafficPolicy": {
+              "type": "string"
+            },
+            "ingressPorts": {
+              "type": "array",
+              "items": {}
+            },
+            "configVolumes": {
+              "type": "array",
+              "items": {}
+            },
+            "additionalContainers": {
+              "type": "array",
+              "items": {}
+            },
+            "serviceAccount": {
+              "type": "object",
+              "properties": {
+                "annotations": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "env": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "nodeSelector": {
+              "type": ["object", "null"],
+              "additionalProperties": {
+                "type": ["string", "null"]
+              }
+            },
+            "tolerations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": ["string", "null"]
+                  },
+                  "effect": {
+                    "type": ["string", "null"]
+                  },
+                  "operator": {
+                    "type": ["string", "null"]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "podAntiAffinityLabelSelector": {
+              "type": "array",
+              "items": {}
+            },
+            "podAntiAffinityTermLabelSelector": {
+              "type": "array",
+              "items": {}
+            },
+            "runAsRoot": {
+              "type": "boolean"
+            },
+            "injectionTemplate": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "istio-egressgateway": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "ports": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "port": {
+                    "type": "integer"
+                  },
+                  "targetPort": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "protocol": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "labels": {
+              "type": "object",
+              "properties": {
+                "app": {
+                  "type": "string"
+                },
+                "istio": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "rollingMaxSurge": {
+              "type": "string"
+            },
+            "rollingMaxUnavailable": {
+              "type": "string"
+            },
+            "autoscaleEnabled": {
+              "type": "boolean"
+            },
+            "autoscaleMin": {
+              "type": "integer"
+            },
+            "autoscaleMax": {
+              "type": "integer"
+            },
+            "resources": {
+              "type": "object",
+              "properties": {
+                "requests": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": {
+                      "type": "string"
+                    },
+                    "memory": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "limits": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": {
+                      "type": "string"
+                    },
+                    "memory": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "loadBalancerIP": {
+              "type": "string"
+            },
+            "loadBalancerSourceRanges": {
+              "type": "array",
+              "items": {}
+            },
+            "cpu": {
+              "type": "object",
+              "properties": {
+                "targetAverageUtilization": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "memory": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "serviceAnnotations": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "podAnnotations": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "type": {
+              "type": "string"
+            },
+            "ipFamilyPolicy": {
+              "type": "string"
+            },
+            "ipFamilies": {
+              "type": "array",
+              "items": {}
+            },
+            "secretVolumes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "secretName": {
+                    "type": "string"
+                  },
+                  "mountPath": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "customService": {
+              "type": "boolean"
+            },
+            "externalTrafficPolicy": {
+              "type": "string"
+            },
+            "configVolumes": {
+              "type": "array",
+              "items": {}
+            },
+            "additionalContainers": {
+              "type": "array",
+              "items": {}
+            },
+            "serviceAccount": {
+              "type": "object",
+              "properties": {
+                "annotations": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": false
+            },
+            "env": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "nodeSelector": {
+              "type": ["object", "null"],
+              "additionalProperties": {
+                "type": ["string", "null"]
+              }
+            },
+            "tolerations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": ["string", "null"]
+                  },
+                  "effect": {
+                    "type": ["string", "null"]
+                  },
+                  "operator": {
+                    "type": ["string", "null"]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "podAntiAffinityLabelSelector": {
+              "type": "array",
+              "items": {}
+            },
+            "podAntiAffinityTermLabelSelector": {
+              "type": "array",
+              "items": {}
+            },
+            "runAsRoot": {
+              "type": "boolean"
+            },
+            "injectionTemplate": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "revision": {
+      "type": "string"
+    },
+    "ownerName": {
+      "type": "string"
+    },
+    "meshConfig": {
+      "type": "object",
+      "properties": {
+        "enablePrometheusMerge": {
+          "type": "boolean"
+        },
+        "trustDomain": {
+          "type": "string"
+        },
+        "defaultConfig": {
+          "type": "object",
+          "properties": {
+            "proxyMetadata": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "tracing": {
+              "type": "object",
+              "properties": {
+                "zipkin": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "lightstep": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "accessToken": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "datadog": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "stackdriver": {
+                  "type": "object",
+                  "properties": {
+                    "debug": {
+                      "type": "boolean"
+                    },
+                    "maxNumberOfAttributes": {
+                      "type": "integer"
+                    },
+                    "maxNumberOfAnnotations": {
+                      "type": "integer"
+                    },
+                    "maxNumberOfMessageEvents": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "compatibilityVersion": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "pilot": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "compatibilityVersion": {
+          "type": "string"
+        },
+        "hub": {
+          "type": "string"
+        },
+        "tag": {
+          "type": ["integer", "string"]
+        },
+        "variant": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "imagePullPolicy": {
+          "type": "string"
+        },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {}
+        },
+        "affinity": {
+          "$ref": "#/$defs/affinity"
+        },
+        "nodeSelector": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": ["string", "null"]
+          }
+        },
+        "autoscaleEnabled": {
+          "type": "boolean"
+        },
+        "autoscaleMin": {
+          "type": "integer"
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": ["string", "null"]
+              },
+              "effect": {
+                "type": ["string", "null"]
+              },
+              "operator": {
+                "type": ["string", "null"]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "podAnnotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "podLabels": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "revision": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "cni": {
+          "$ref": "#/$defs/cni"
+        },
+        "env": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "envVarFrom": {
+          "type": "array",
+          "items": {}
+        }
+      },
+      "additionalProperties": false
+    },
+    "ztunnel": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "compatibilityVersion": {
+          "type": "string"
+        },
+        "hub": {
+          "type": "string"
+        },
+        "tag": {
+          "type": ["integer", "string"]
+        },
+        "variant": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "imagePullPolicy": {
+          "type": "string"
+        },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {}
+        },
+        "affinity": {
+          "$ref": "#/$defs/affinity"
+        },
+        "nodeSelector": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": ["string", "null"]
+          }
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": ["string", "null"]
+              },
+              "effect": {
+                "type": ["string", "null"]
+              },
+              "operator": {
+                "type": ["string", "null"]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "podAnnotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "podLabels": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "env": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "revision": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "trustBundleName": {
+          "type": "string"
+        },
+        "resourceName": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "annotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "volumeMounts": {
+          "type": "array",
+          "items": {}
+        },
+        "volumes": {
+          "type": "array",
+          "items": {}
+        },
+        "resourceQuotas": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "pods": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "multiCluster": {
+          "type": "object",
+          "properties": {
+            "clusterName": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "meshConfig": {
+          "type": "object",
+          "properties": {
+            "defaultConfig": {
+              "type": "object",
+              "properties": {
+                "proxyMetadata": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer"
+        },
+        "caAddress": {
+          "type": "string"
+        },
+        "xdsAddress": {
+          "type": "string"
+        },
+        "istioNamespace": {
+          "type": "string"
+        },
+        "logLevel": {
+          "type": "string"
+        },
+        "logAsJson": {
+          "type": "boolean"
+        },
+        "seLinuxOptions": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "updateStrategy": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "rollingUpdate": {
+              "type": "object",
+              "properties": {
+                "maxSurge": {
+                  "type": "integer"
+                },
+                "maxUnavailable": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "cni": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "compatibilityVersion": {
+          "type": "string"
+        },
+        "hub": {
+          "type": "string"
+        },
+        "tag": {
+          "type": ["integer", "string"]
+        },
+        "variant": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "imagePullPolicy": {
+          "type": "string"
+        },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {}
+        },
+        "affinity": {
+          "$ref": "#/$defs/affinity"
+        },
+        "nodeSelector": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": ["string", "null"]
+          }
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": ["string", "null"]
+              },
+              "effect": {
+                "type": ["string", "null"]
+              },
+              "operator": {
+                "type": ["string", "null"]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "podAnnotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "podLabels": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "env": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "revision": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "pullPolicy": {
+          "type": "string"
+        },
+        "logging": {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "cniBinDir": {
+          "type": "string"
+        },
+        "cniConfDir": {
+          "type": "string"
+        },
+        "cniConfFileName": {
+          "type": "string"
+        },
+        "cniNetnsDir": {
+          "type": "string"
+        },
+        "istioOwnedCNIConfigFileName": {
+          "type": "string"
+        },
+        "istioOwnedCNIConfig": {
+          "type": "boolean"
+        },
+        "excludeNamespaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "daemonSetLabels": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "chained": {
+          "type": "boolean"
+        },
+        "ambient": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "enablementSelectors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "podSelector": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "matchLabels": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "matchExpressions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "type": "string"
+                            },
+                            "operator": {
+                              "type": "string"
+                            },
+                            "values": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      }
+                    }
+                  },
+                  "namespaceSelector": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "matchLabels": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "matchExpressions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "type": "string"
+                            },
+                            "operator": {
+                              "type": "string"
+                            },
+                            "values": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      }
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "configDir": {
+              "type": "string"
+            },
+            "dnsCapture": {
+              "type": "boolean"
+            },
+            "ipv6": {
+              "type": "boolean"
+            },
+            "reconcileIptablesOnStartup": {
+              "type": "boolean"
+            },
+            "shareHostNetworkNamespace": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "repair": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "hub": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "labelPods": {
+              "type": "boolean"
+            },
+            "deletePods": {
+              "type": "boolean"
+            },
+            "repairPods": {
+              "type": "boolean"
+            },
+            "initContainerName": {
+              "type": "string"
+            },
+            "brokenPodLabelKey": {
+              "type": "string"
+            },
+            "brokenPodLabelValue": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "seccompProfile": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "seLinuxOptions": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "resourceQuotas": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "pods": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "updateStrategy": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "rollingUpdate": {
+              "type": "object",
+              "properties": {
+                "maxUnavailable": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "affinity": {
+      "description": "Affinity is a group of affinity scheduling rules.",
+      "additionalProperties": false,
+      "properties": {
+        "nodeAffinity": {
+          "description": "Node affinity is a group of node affinity scheduling rules.",
+          "properties": {
+            "preferredDuringSchedulingIgnoredDuringExecution": {
+              "description": "The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding \"weight\" to the sum if the node matches the corresponding matchExpressions; the node(s) with the highest sum are the most preferred.",
+              "items": {
+                "description": "An empty preferred scheduling term matches all objects with implicit weight 0 (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).",
+                "properties": {
+                  "preference": {
+                    "description": "A null or empty node selector term matches no objects. The requirements of them are ANDed. The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.",
+                    "properties": {
+                      "matchExpressions": {
+                        "description": "A list of node selector requirements by node's labels.",
+                        "items": {
+                          "description": "A node selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+                          "properties": {
+                            "key": {
+                              "description": "The label key that the selector applies to.",
+                              "type": "string"
+                            },
+                            "operator": {
+                              "description": "Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.",
+                              "type": "string"
+                            },
+                            "values": {
+                              "description": "An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.",
+                              "items": {
+                                "type": ["string", "null"]
+                              },
+                              "type": ["array", "null"]
+                            }
+                          },
+                          "required": ["key", "operator"],
+                          "type": ["object", "null"]
+                        },
+                        "type": ["array", "null"]
+                      },
+                      "matchFields": {
+                        "description": "A list of node selector requirements by node's fields.",
+                        "items": {
+                          "description": "A node selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+                          "properties": {
+                            "key": {
+                              "description": "The label key that the selector applies to.",
+                              "type": "string"
+                            },
+                            "operator": {
+                              "description": "Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.",
+                              "type": "string"
+                            },
+                            "values": {
+                              "description": "An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.",
+                              "items": {
+                                "type": ["string", "null"]
+                              },
+                              "type": ["array", "null"]
+                            }
+                          },
+                          "required": ["key", "operator"],
+                          "type": ["object", "null"]
+                        },
+                        "type": ["array", "null"]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "weight": {
+                    "description": "Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.",
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": ["weight", "preference"],
+                "type": ["object", "null"]
+              },
+              "type": ["array", "null"]
+            },
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "description": "A node selector represents the union of the results of one or more label queries over a set of nodes; that is, it represents the OR of the selectors represented by the node selector terms.",
+              "properties": {
+                "nodeSelectorTerms": {
+                  "description": "Required. A list of node selector terms. The terms are ORed.",
+                  "items": {
+                    "description": "A null or empty node selector term matches no objects. The requirements of them are ANDed. The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.",
+                    "properties": {
+                      "matchExpressions": {
+                        "description": "A list of node selector requirements by node's labels.",
+                        "items": {
+                          "description": "A node selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+                          "properties": {
+                            "key": {
+                              "description": "The label key that the selector applies to.",
+                              "type": "string"
+                            },
+                            "operator": {
+                              "description": "Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.",
+                              "type": "string"
+                            },
+                            "values": {
+                              "description": "An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.",
+                              "items": {
+                                "type": ["string", "null"]
+                              },
+                              "type": ["array", "null"]
+                            }
+                          },
+                          "required": ["key", "operator"],
+                          "type": ["object", "null"]
+                        },
+                        "type": ["array", "null"]
+                      },
+                      "matchFields": {
+                        "description": "A list of node selector requirements by node's fields.",
+                        "items": {
+                          "description": "A node selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+                          "properties": {
+                            "key": {
+                              "description": "The label key that the selector applies to.",
+                              "type": "string"
+                            },
+                            "operator": {
+                              "description": "Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.",
+                              "type": "string"
+                            },
+                            "values": {
+                              "description": "An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.",
+                              "items": {
+                                "type": ["string", "null"]
+                              },
+                              "type": ["array", "null"]
+                            }
+                          },
+                          "required": ["key", "operator"],
+                          "type": ["object", "null"]
+                        },
+                        "type": ["array", "null"]
+                      }
+                    },
+                    "type": ["object", "null"]
+                  },
+                  "type": "array"
+                }
+              },
+              "required": ["nodeSelectorTerms"],
+              "type": ["object", "null"]
+            }
+          },
+          "type": ["object", "null"]
+        },
+        "podAffinity": {
+          "description": "Pod affinity is a group of inter pod affinity scheduling rules.",
+          "properties": {
+            "preferredDuringSchedulingIgnoredDuringExecution": {
+              "description": "The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding \"weight\" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.",
+              "items": {
+                "description": "The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)",
+                "properties": {
+                  "podAffinityTerm": {
+                    "description": "Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running",
+                    "properties": {
+                      "labelSelector": {
+                        "description": "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
+                        "properties": {
+                          "matchExpressions": {
+                            "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                            "items": {
+                              "description": "A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+                              "properties": {
+                                "key": {
+                                  "description": "key is the label key that the selector applies to.",
+                                  "type": "string",
+                                  "x-kubernetes-patch-merge-key": "key",
+                                  "x-kubernetes-patch-strategy": "merge"
+                                },
+                                "operator": {
+                                  "description": "operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.",
+                                  "type": "string"
+                                },
+                                "values": {
+                                  "description": "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+                                  "items": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "type": ["array", "null"]
+                                }
+                              },
+                              "required": ["key", "operator"],
+                              "type": ["object", "null"]
+                            },
+                            "type": ["array", "null"]
+                          },
+                          "matchLabels": {
+                            "additionalProperties": {
+                              "type": ["string", "null"]
+                            },
+                            "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                            "type": ["object", "null"]
+                          }
+                        },
+                        "type": ["object", "null"]
+                      },
+                      "namespaces": {
+                        "description": "namespaces specifies which namespaces the labelSelector applies to (matches against); null or empty list means \"this pod's namespace\"",
+                        "items": {
+                          "type": ["string", "null"]
+                        },
+                        "type": ["array", "null"]
+                      },
+                      "topologyKey": {
+                        "description": "This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching the labelSelector in the specified namespaces, where co-located is defined as running on a node whose value of the label with key topologyKey matches that of any node on which any of the selected pods is running. Empty topologyKey is not allowed.",
+                        "type": "string"
+                      }
+                    },
+                    "required": ["topologyKey"],
+                    "type": "object"
+                  },
+                  "weight": {
+                    "description": "weight associated with matching the corresponding podAffinityTerm, in the range 1-100.",
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": ["weight", "podAffinityTerm"],
+                "type": ["object", "null"]
+              },
+              "type": ["array", "null"]
+            },
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "description": "If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.",
+              "items": {
+                "description": "Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running",
+                "properties": {
+                  "labelSelector": {
+                    "description": "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
+                    "properties": {
+                      "matchExpressions": {
+                        "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                        "items": {
+                          "description": "A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+                          "properties": {
+                            "key": {
+                              "description": "key is the label key that the selector applies to.",
+                              "type": "string",
+                              "x-kubernetes-patch-merge-key": "key",
+                              "x-kubernetes-patch-strategy": "merge"
+                            },
+                            "operator": {
+                              "description": "operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.",
+                              "type": "string"
+                            },
+                            "values": {
+                              "description": "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+                              "items": {
+                                "type": ["string", "null"]
+                              },
+                              "type": ["array", "null"]
+                            }
+                          },
+                          "required": ["key", "operator"],
+                          "type": ["object", "null"]
+                        },
+                        "type": ["array", "null"]
+                      },
+                      "matchLabels": {
+                        "additionalProperties": {
+                          "type": ["string", "null"]
+                        },
+                        "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                        "type": ["object", "null"]
+                      }
+                    },
+                    "type": ["object", "null"]
+                  },
+                  "namespaces": {
+                    "description": "namespaces specifies which namespaces the labelSelector applies to (matches against); null or empty list means \"this pod's namespace\"",
+                    "items": {
+                      "type": ["string", "null"]
+                    },
+                    "type": ["array", "null"]
+                  },
+                  "topologyKey": {
+                    "description": "This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching the labelSelector in the specified namespaces, where co-located is defined as running on a node whose value of the label with key topologyKey matches that of any node on which any of the selected pods is running. Empty topologyKey is not allowed.",
+                    "type": "string"
+                  }
+                },
+                "required": ["topologyKey"],
+                "type": ["object", "null"]
+              },
+              "type": ["array", "null"]
+            }
+          },
+          "type": ["object", "null"]
+        },
+        "podAntiAffinity": {
+          "description": "Pod anti affinity is a group of inter pod anti affinity scheduling rules.",
+          "properties": {
+            "preferredDuringSchedulingIgnoredDuringExecution": {
+              "description": "The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding \"weight\" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.",
+              "items": {
+                "description": "The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)",
+                "properties": {
+                  "podAffinityTerm": {
+                    "description": "Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running",
+                    "properties": {
+                      "labelSelector": {
+                        "description": "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
+                        "properties": {
+                          "matchExpressions": {
+                            "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                            "items": {
+                              "description": "A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+                              "properties": {
+                                "key": {
+                                  "description": "key is the label key that the selector applies to.",
+                                  "type": "string",
+                                  "x-kubernetes-patch-merge-key": "key",
+                                  "x-kubernetes-patch-strategy": "merge"
+                                },
+                                "operator": {
+                                  "description": "operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.",
+                                  "type": "string"
+                                },
+                                "values": {
+                                  "description": "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+                                  "items": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "type": ["array", "null"]
+                                }
+                              },
+                              "required": ["key", "operator"],
+                              "type": ["object", "null"]
+                            },
+                            "type": ["array", "null"]
+                          },
+                          "matchLabels": {
+                            "additionalProperties": {
+                              "type": ["string", "null"]
+                            },
+                            "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                            "type": ["object", "null"]
+                          }
+                        },
+                        "type": ["object", "null"]
+                      },
+                      "namespaces": {
+                        "description": "namespaces specifies which namespaces the labelSelector applies to (matches against); null or empty list means \"this pod's namespace\"",
+                        "items": {
+                          "type": ["string", "null"]
+                        },
+                        "type": ["array", "null"]
+                      },
+                      "topologyKey": {
+                        "description": "This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching the labelSelector in the specified namespaces, where co-located is defined as running on a node whose value of the label with key topologyKey matches that of any node on which any of the selected pods is running. Empty topologyKey is not allowed.",
+                        "type": "string"
+                      }
+                    },
+                    "required": ["topologyKey"],
+                    "type": "object"
+                  },
+                  "weight": {
+                    "description": "weight associated with matching the corresponding podAffinityTerm, in the range 1-100.",
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": ["weight", "podAffinityTerm"],
+                "type": ["object", "null"]
+              },
+              "type": ["array", "null"]
+            },
+            "requiredDuringSchedulingIgnoredDuringExecution": {
+              "description": "If the anti-affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the anti-affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.",
+              "items": {
+                "description": "Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running",
+                "properties": {
+                  "labelSelector": {
+                    "description": "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
+                    "properties": {
+                      "matchExpressions": {
+                        "description": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+                        "items": {
+                          "description": "A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+                          "properties": {
+                            "key": {
+                              "description": "key is the label key that the selector applies to.",
+                              "type": "string",
+                              "x-kubernetes-patch-merge-key": "key",
+                              "x-kubernetes-patch-strategy": "merge"
+                            },
+                            "operator": {
+                              "description": "operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.",
+                              "type": "string"
+                            },
+                            "values": {
+                              "description": "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+                              "items": {
+                                "type": ["string", "null"]
+                              },
+                              "type": ["array", "null"]
+                            }
+                          },
+                          "required": ["key", "operator"],
+                          "type": ["object", "null"]
+                        },
+                        "type": ["array", "null"]
+                      },
+                      "matchLabels": {
+                        "additionalProperties": {
+                          "type": ["string", "null"]
+                        },
+                        "description": "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+                        "type": ["object", "null"]
+                      }
+                    },
+                    "type": ["object", "null"]
+                  },
+                  "namespaces": {
+                    "description": "namespaces specifies which namespaces the labelSelector applies to (matches against); null or empty list means \"this pod's namespace\"",
+                    "items": {
+                      "type": ["string", "null"]
+                    },
+                    "type": ["array", "null"]
+                  },
+                  "topologyKey": {
+                    "description": "This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching the labelSelector in the specified namespaces, where co-located is defined as running on a node whose value of the label with key topologyKey matches that of any node on which any of the selected pods is running. Empty topologyKey is not allowed.",
+                    "type": "string"
+                  }
+                },
+                "required": ["topologyKey"],
+                "type": ["object", "null"]
+              },
+              "type": ["array", "null"]
+            }
+          },
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "internal": {
+      "type": "object",
+      "properties": {
+        "_internal_defaults_do_not_set": {
+          "$ref": "#/$defs/internal"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "defaultRevision": {
+          "type": "string"
+        },
+        "pilot": {
+          "$ref": "#/$defs/pilot"
+        },
+        "ztunnel": {
+          "$ref": "#/$defs/ztunnel"
+        },
+        "cni": {
+          "$ref": "#/$defs/cni"
+        },
+        "global": {
+          "$ref": "#/$defs/global"
+        },
+        "gateways": {
+          "$ref": "#/$defs/gateways"
+        },
+        "trafficDistribution": {
+          "type": "string"
+        },
+        "compatibilityVersion": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "autoscaleEnabled": {
+          "type": "boolean"
+        },
+        "autoscaleMin": {
+          "type": "integer"
+        },
+        "autoscaleMax": {
+          "type": "integer"
+        },
+        "autoscaleBehavior": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "replicaCount": {
+          "type": "integer"
+        },
+        "rollingMaxSurge": {
+          "type": "string"
+        },
+        "rollingMaxUnavailable": {
+          "type": "string"
+        },
+        "hub": {
+          "type": "string"
+        },
+        "tag": {
+          "type": ["integer", "string"]
+        },
+        "variant": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "traceSampling": {
+          "type": "number"
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "seccompProfile": {
+          "$ref": "#/$defs/seccompProfile"
+        },
+        "extraContainerArgs": {
+          "type": "array",
+          "items": {}
+        },
+        "env": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "envVarFrom": {
+          "type": "array",
+          "items": {}
+        },
+        "taint": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "namespace": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "affinity": {
+          "$ref": "#/$defs/affinity"
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {}
+        },
+        "cpu": {
+          "type": "object",
+          "properties": {
+            "targetAverageUtilization": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "memory": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "volumeMounts": {
+          "type": "array",
+          "items": {}
+        },
+        "volumes": {
+          "type": "array",
+          "items": {}
+        },
+        "initContainers": {
+          "type": "array",
+          "items": {}
+        },
+        "nodeSelector": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "podAnnotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "serviceAnnotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "sidecarInjectorWebhookAnnotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "topologySpreadConstraints": {
+          "type": "array",
+          "items": {}
+        },
+        "jwksResolverExtraRootCA": {
+          "type": "string"
+        },
+        "keepaliveMaxServerConnectionAge": {
+          "type": "string"
+        },
+        "deploymentLabels": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "deploymentAnnotations": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "configMap": {
+          "type": "boolean"
+        },
+        "podLabels": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "ipFamilyPolicy": {
+          "type": "string"
+        },
+        "ipFamilies": {
+          "type": "array",
+          "items": {}
+        },
+        "trustedZtunnelNamespace": {
+          "type": "string"
+        },
+        "trustedZtunnelName": {
+          "type": "string"
+        },
+        "sidecarInjectorWebhook": {
+          "type": "object",
+          "properties": {
+            "neverInjectSelector": {
+              "type": "array",
+              "items": {}
+            },
+            "alwaysInjectSelector": {
+              "type": "array",
+              "items": {}
+            },
+            "injectedAnnotations": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "enableNamespacesByDefault": {
+              "type": "boolean"
+            },
+            "reinvocationPolicy": {
+              "type": "string"
+            },
+            "rewriteAppHTTPProbe": {
+              "type": "boolean"
+            },
+            "templates": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            },
+            "defaultTemplates": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "additionalProperties": false
+        },
+        "istiodRemote": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "enabledLocalInjectorIstiod": {
+              "type": "boolean"
+            },
+            "injectionURL": {
+              "type": "string"
+            },
+            "injectionPath": {
+              "type": "string"
+            },
+            "injectionCABundle": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "telemetry": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "v2": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "prometheus": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "stackdriver": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "revision": {
+          "type": "string"
+        },
+        "revisionTags": {
+          "type": "array",
+          "items": {}
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "meshConfig": {
+          "type": "object",
+          "properties": {
+            "enablePrometheusMerge": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "experimental": {
+          "type": "object",
+          "properties": {
+            "stableValidationPolicy": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "base": {
+          "$ref": "#/$defs/base"
+        },
+        "gatewayClasses": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        },
+        "pdb": {
+          "type": "object",
+          "properties": {
+            "minAvailable": {
+              "type": ["integer", "string"]
+            },
+            "maxUnavailable": {
+              "type": ["integer", "string"]
+            },
+            "unhealthyPodEvictionPolicy": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "seccompProfile": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Type indicates which kind of seccomp profile will be applied. Valid options are: RuntimeDefault, Unconfined, Localhost."
+        },
+        "localhostProfile": {
+          "type": "string",
+          "description": "localhostProfile indicates a profile loaded from the node's seccomp profiles directory. The loaded profile must be in the form of a JSON file and must be available on the node."
+        }
+      },
+      "additionalProperties": false
+    },
+    "appArmorProfile": {
+      "description": "AppArmorProfile defines a pod or container's AppArmor settings.",
+      "properties": {
+        "localhostProfile": {
+          "description": "localhostProfile indicates a profile loaded on the node that should be used. The profile must be preconfigured on the node to work. Must match the loaded name of the profile. Must be set if and only if type is \"Localhost\".",
+          "type": ["string", "null"]
+        },
+        "type": {
+          "description": "type indicates which kind of AppArmor profile will be applied. Valid options are:\n  Localhost - a profile pre-loaded on the node.\n  RuntimeDefault - the container runtime's default profile.\n  Unconfined - no AppArmor enforcement.",
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["type"],
+      "type": "object"
+    },
+    "seLinuxOptions": {
+      "description": "SELinuxOptions are the labels to be applied to the container",
+      "properties": {
+        "level": {
+          "description": "Level is SELinux level label that applies to the container.",
+          "type": ["string", "null"]
+        },
+        "role": {
+          "description": "Role is a SELinux role label that applies to the container.",
+          "type": ["string", "null"]
+        },
+        "type": {
+          "description": "Type is a SELinux type label that applies to the container.",
+          "type": ["string", "null"]
+        },
+        "user": {
+          "description": "User is a SELinux user label that applies to the container.",
+          "type": ["string", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "sysctls": {
+      "description": "Sysctl defines a kernel parameter to be set",
+      "properties": {
+        "name": {
+          "description": "Name of a property to set",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value of a property to set",
+          "type": "string"
+        }
+      },
+      "required": ["name", "value"],
+      "type": "object"
+    },
+    "windowsSecurityContextOptions": {
+      "description": "WindowsSecurityContextOptions contain Windows-specific options and credentials.",
+      "properties": {
+        "gmsaCredentialSpec": {
+          "description": "GMSACredentialSpec is where the GMSA admission webhook (https://github.com/kubernetes-sigs/windows-gmsa) inlines the contents of the GMSA credential spec named by the GMSACredentialSpecName field.",
+          "type": ["string", "null"]
+        },
+        "gmsaCredentialSpecName": {
+          "description": "GMSACredentialSpecName is the name of the GMSA credential spec to use.",
+          "type": ["string", "null"]
+        },
+        "hostProcess": {
+          "description": "HostProcess determines if a container should be run as a 'Host Process' container. All of a Pod's containers must have the same effective HostProcess value (it is not allowed to have a mix of HostProcess containers and non-HostProcess containers). In addition, if HostProcess is true then HostNetwork must also be set to true.",
+          "type": ["boolean", "null"]
+        },
+        "runAsUserName": {
+          "description": "The UserName in Windows to run the entrypoint of the container process. Defaults to the user specified in image metadata if unspecified. May also be set in PodSecurityContext. If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.",
+          "type": ["string", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "securityContext": {
+      "description": "PodSecurityContext holds pod-level security attributes and common container settings. Some fields are also present in container.securityContext.  Field values of container.securityContext take precedence over field values of PodSecurityContext.",
+      "properties": {
+        "appArmorProfile": {
+          "$ref": "#/$defs/appArmorProfile",
+          "description": "appArmorProfile is the AppArmor options to use by the containers in this pod. Note that this field cannot be set when spec.os.name is windows."
+        },
+        "fsGroup": {
+          "description": "A special supplemental group that applies to all containers in a pod. Some volume types allow the Kubelet to change the ownership of that volume to be owned by the pod:\n\n1. The owning GID will be the FSGroup 2. The setgid bit is set (new files created in the volume will be owned by FSGroup) 3. The permission bits are OR'd with rw-rw----\n\nIf unset, the Kubelet will not modify the ownership and permissions of any volume. Note that this field cannot be set when spec.os.name is windows.",
+          "format": "int64",
+          "type": ["integer", "null"]
+        },
+        "fsGroupChangePolicy": {
+          "description": "fsGroupChangePolicy defines behavior of changing ownership and permission of the volume before being exposed inside Pod. This field will only apply to volume types which support fsGroup based ownership(and permissions). It will have no effect on ephemeral volume types such as: secret, configmaps and emptydir. Valid values are \"OnRootMismatch\" and \"Always\". If not specified, \"Always\" is used. Note that this field cannot be set when spec.os.name is windows.",
+          "type": ["string", "null"]
+        },
+        "runAsGroup": {
+          "description": "The GID to run the entrypoint of the container process. Uses runtime default if unset. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows.",
+          "format": "int64",
+          "type": ["integer", "null"]
+        },
+        "runAsNonRoot": {
+          "description": "Indicates that the container must run as a non-root user. If true, the Kubelet will validate the image at runtime to ensure that it does not run as UID 0 (root) and fail to start the container if it does. If unset or false, no such validation will be performed. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.",
+          "type": ["boolean", "null"]
+        },
+        "runAsUser": {
+          "description": "The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows.",
+          "format": "int64",
+          "type": ["integer", "null"]
+        },
+        "seLinuxChangePolicy": {
+          "description": "seLinuxChangePolicy defines how the container's SELinux label is applied to all volumes used by the Pod. It has no effect on nodes that do not support SELinux or to volumes does not support SELinux. Valid values are \"MountOption\" and \"Recursive\".\n\n\"Recursive\" means relabeling of all files on all Pod volumes by the container runtime. This may be slow for large volumes, but allows mixing privileged and unprivileged Pods sharing the same volume on the same node.\n\n\"MountOption\" mounts all eligible Pod volumes with `-o context` mount option. This requires all Pods that share the same volume to use the same SELinux label. It is not possible to share the same volume among privileged and unprivileged Pods. Eligible volumes are in-tree FibreChannel and iSCSI volumes, and all CSI volumes whose CSI driver announces SELinux support by setting spec.seLinuxMount: true in their CSIDriver instance. Other volumes are always re-labelled recursively. \"MountOption\" value is allowed only when SELinuxMount feature gate is enabled.\n\nIf not specified and SELinuxMount feature gate is enabled, \"MountOption\" is used. If not specified and SELinuxMount feature gate is disabled, \"MountOption\" is used for ReadWriteOncePod volumes and \"Recursive\" for all other volumes.\n\nThis field affects only Pods that have SELinux label set, either in PodSecurityContext or in SecurityContext of all containers.\n\nAll Pods that use the same volume should use the same seLinuxChangePolicy, otherwise some pods can get stuck in ContainerCreating state. Note that this field cannot be set when spec.os.name is windows.",
+          "type": ["string", "null"]
+        },
+        "seLinuxOptions": {
+          "$ref": "#/$defs/seLinuxOptions",
+          "description": "The SELinux context to be applied to all containers. If unspecified, the container runtime will allocate a random SELinux context for each container.  May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows."
+        },
+        "seccompProfile": {
+          "$ref": "#/$defs/seccompProfile",
+          "description": "The seccomp options to use by the containers in this pod. Note that this field cannot be set when spec.os.name is windows."
+        },
+        "supplementalGroups": {
+          "description": "A list of groups applied to the first process run in each container, in addition to the container's primary GID and fsGroup (if specified).  If the SupplementalGroupsPolicy feature is enabled, the supplementalGroupsPolicy field determines whether these are in addition to or instead of any group memberships defined in the container image. If unspecified, no additional groups are added, though group memberships defined in the container image may still be used, depending on the supplementalGroupsPolicy field. Note that this field cannot be set when spec.os.name is windows.",
+          "items": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "type": ["array", "null"],
+          "x-kubernetes-list-type": "atomic"
+        },
+        "supplementalGroupsPolicy": {
+          "description": "Defines how supplemental groups of the first container processes are calculated. Valid values are \"Merge\" and \"Strict\". If not specified, \"Merge\" is used. (Alpha) Using the field requires the SupplementalGroupsPolicy feature gate to be enabled and the container runtime must implement support for this feature. Note that this field cannot be set when spec.os.name is windows.",
+          "type": ["string", "null"]
+        },
+        "sysctls": {
+          "description": "Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported sysctls (by the container runtime) might fail to launch. Note that this field cannot be set when spec.os.name is windows.",
+          "items": {
+            "$ref": "#/$defs/sysctls"
+          },
+          "type": ["array", "null"],
+          "x-kubernetes-list-type": "atomic"
+        },
+        "windowsOptions": {
+          "$ref": "#/$defs/windowsOptions",
+          "description": "The Windows specific settings applied to all containers. If unspecified, the options within a container's SecurityContext will be used. If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence. Note that this field cannot be set when spec.os.name is linux."
+        }
+      },
+      "type": "object"
+    }
+  }
+}

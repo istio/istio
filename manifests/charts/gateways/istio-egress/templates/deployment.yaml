@@ -80,7 +80,7 @@ spec:
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ $gateway.tag | default .Values.global.tag }}{{with (.Values.global.proxy.variant | default .Values.global.variant)}}-{{.}}{{end}}"
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ $gateway.tag | default .Values.global.tag }}{{with (.Values.global.variant)}}-{{.}}{{end}}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}

@@ -21,6 +21,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/wrappers.proto";
 import "k8s.io/api/core/v1/generated.proto";
+import "k8s.io/api/apps/v1/generated.proto";
 import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 
 // Package-wide variables from generator "generated".
@@ -119,8 +120,8 @@ message CNIConfig {
   // the configuration is added as a standalone file in the CNI configuration directory.
   google.protobuf.BoolValue chained = 14;
 
-  // The resource quotas configuration for the CNI DaemonSet.
-  ResourceQuotas resource_quotas = 16;
+  // The resource quotas configration for the CNI DaemonSet.
+  ResourceQuotas resourceQuotas = 16;  // renamed
 
   // The k8s resource requests and limits for the istio-cni Pods.
   Resources resources = 17;
@@ -152,6 +153,17 @@ message CNIConfig {
   google.protobuf.BoolValue istioOwnedCNIConfig = 35;
   
   string istioOwnedCNIConfigFileName = 36;
+
+  // SELinuxOptions are the labels to be applied to the container
+  k8s.io.api.core.v1.SELinuxOptions seLinuxOptions = 37;
+
+  // The node tolerations to be applied to the cni daemonset so that it can be
+  // scheduled to particular nodes with matching taints.
+  // More info: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling
+  repeated k8s.io.api.core.v1.Toleration tolerations = 38;
+
+  // DaemonSetUpdateStrategy is a struct used to control the update strategy for a DaemonSet.
+  k8s.io.api.apps.v1.DaemonSetUpdateStrategy updateStrategy = 39;
 }
 
 message CNIUsageConfig {
@@ -180,6 +192,12 @@ message CNIAmbientConfig {
 
   // If enabled, and ambient is enabled, iptables reconciliation will be enabled.
   google.protobuf.BoolValue reconcileIptablesOnStartup = 9;
+
+  // If ambient is enabled, selectors will be used to identify the ambient-enabled pods
+  repeated EnablementSelectors enablementSelectors = 10;
+
+  // If enabled, and ambient is enabled, the CNI agent will always share the network namespace of the host node it is running on
+  google.protobuf.BoolValue shareHostNetworkNamespace = 11;
 }
 
 message CNIRepairConfig {
@@ -981,6 +999,45 @@ message PilotConfig {
 
   // Configuration for the istio-discovery chart
   repeated google.protobuf.Struct envVarFrom = 62;
+
+  // DeploymentAnnotations are the annotations to be applied to the istiod deployment
+  google.protobuf.Struct deploymentAnnotations = 63;
+
+  // List of initialization containers belonging to the istiod pod.
+  // Init containers are executed in order prior to containers being started. If any
+  // init container fails, the pod is considered to have failed and is handled according
+  // to its restartPolicy. The name for an init container or normal container must be
+  // unique among all containers.
+  // Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes.
+  // The resourceRequirements of an init container are taken into account during scheduling
+  // by finding the highest request/limit for each resource type, and then using the max of
+  // that value or the sum of the normal containers. Limits are applied to init containers
+  // in a similar fashion.
+  // Init containers cannot currently be added or removed.
+  // Cannot be updated.
+  // More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+  // +patchMergeKey=name
+  // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=name
+  repeated k8s.io.api.core.v1.Container initContainers = 64;
+
+  // Configuration for pod disruption budget.
+  PodDisruptionBudget podDisruptionBudget = 65;
+
+  // Annotations for the webhooks for istiod.
+  google.protobuf.Struct sidecarInjectorWebhookAnnotations = 66;
+
+  // TrafficDistribution offers a way to express preferences for how traffic
+  // is distributed to Service endpoints. Implementations can use this field
+  // as a hint, but are not required to guarantee strict adherence. If the
+  // field is not set, the implementation will apply its default routing
+  // strategy. If set to "PreferClose", implementations should prioritize
+  // endpoints that are in the same zone.
+  string trafficDistribution = 67;
+
+  // The trusted ztunnel name when setting the environment variable CA_TRUSTED_NODE_ACCOUNTS for istiod.
+  string trustedZtunnelName = 68;
 }
 
 message PilotTaintControllerConfig {
@@ -1374,6 +1431,44 @@ message IstiodRemoteConfig {
   google.protobuf.BoolValue enabledLocalInjectorIstiod = 6;
 }
 
+// See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+message PodDisruptionBudget {
+  // An eviction is allowed if at least "minAvailable" pods selected by
+  // "selector" will still be available after the eviction, i.e. even in the
+  // absence of the evicted pod.  So for example you can prevent all voluntary
+  // evictions by specifying "100%".
+  IntOrString minAvailable = 1;
+  // An eviction is allowed if at most "maxUnavailable" pods selected by
+  // "selector" are unavailable after the eviction, i.e. even in absence of
+  // the evicted pod. For example, one can prevent all voluntary evictions
+  // by specifying 0. This is a mutually exclusive setting with "minAvailable".
+  IntOrString maxUnavailable = 2;
+
+  // UnhealthyPodEvictionPolicy defines the criteria for when unhealthy pods
+  // should be considered for eviction. Current implementation considers healthy pods,
+  // as pods that have status.conditions item with type="Ready",status="True".
+  //
+  // Valid policies are IfHealthyBudget and AlwaysAllow.
+  // If no policy is specified, the default behavior will be used,
+  // which corresponds to the IfHealthyBudget policy.
+  //
+  // IfHealthyBudget policy means that running pods (status.phase="Running"),
+  // but not yet healthy can be evicted only if the guarded application is not
+  // disrupted (status.currentHealthy is at least equal to status.desiredHealthy).
+  // Healthy pods will be subject to the PDB for eviction.
+  //
+  // AlwaysAllow policy means that all running pods (status.phase="Running"),
+  // but not yet healthy are considered disrupted and can be evicted regardless
+  // of whether the criteria in a PDB is met. This means perspective running
+  // pods of a disrupted application might not get a chance to become healthy.
+  // Healthy pods will be subject to the PDB for eviction.
+  //
+  // Additional policies may be added in the future.
+  // Clients making eviction decisions should disallow eviction of unhealthy pods
+  // if they encounter an unrecognized policy in this field.
+  string unhealthyPodEvictionPolicy = 3;
+}
+
 message Values {
   // Configuration for the Istio CNI plugin.
   CNIConfig cni = 2;
@@ -1494,4 +1589,10 @@ message WaypointConfig {
 message NetworkPolicyConfig {
   // Controls whether default NetworkPolicy resources will be created.
   google.protobuf.BoolValue enabled = 1;
+}
+
+// Combination of pod and namespace selectors for enablement of features.
+message EnablementSelectors {
+  k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector podSelector = 1;
+  k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector namespaceSelector = 2;
 }
