@@ -78,6 +78,8 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 	}
 
 	if cfg.ChainedCNIPlugin {
+		// If useIstioOwnedCNIConfig is true then we are copying the configuration from the primary CNI config file
+		// otherwise, we are overwriting the existing primary cni config
 		if !file.Exists(cniConfigFilepath) {
 			return "", fmt.Errorf("CNI config file %s removed during configuration", cniConfigFilepath)
 		}
@@ -93,7 +95,7 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 	}
 
 	if useIstioOwnedCNIConfig(cfg) {
-		// if useIstioOwnedCNIConfig is true, write to the istio owned CNI config path
+		// If useIstioOwnedCNIConfig is true, write to the istio owned CNI config path
 		cniConfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.IstioOwnedCNIConfigFilename)
 	}
 
@@ -113,7 +115,7 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 		cniConfigFilepath += "list"
 	}
 
-	installLog.Infof("created CNI config %s", cniConfigFilepath)
+	installLog.Infof("Wrote CNI config to %s", cniConfigFilepath)
 	return cniConfigFilepath, nil
 }
 
