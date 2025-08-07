@@ -166,7 +166,6 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 		policy.peerAuthentications[config.Namespace] = append(policy.peerAuthentications[config.Namespace], config)
 	}
 
-	
 	hash := hash.New()
 	hash.WriteString(strings.Join(versions, ";"))
 	policy.aggregateVersion = hash.Sum()
