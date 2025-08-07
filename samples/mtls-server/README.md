@@ -27,6 +27,8 @@ The server can be configured using the following environment variables:
 | `SERVER_NAME` | (empty) | Name of the server (included in responses) |
 | `SERVER_NAMESPACE` | (empty) | Namespace of the server (included in responses) |
 | `ALWAYS_JSON` | `false` | If set to `true`, always return JSON responses regardless of Accept header |
+| `INSECURE_SKIP_CLIENT_VERIFY` | `false` | If set to `true`, disables client certificate verification |
+| `ACCESS_LOG_PLAINTEXT` | `false` | If set to `true`, access logs will be plaintext instead of JSON |
 
 ## Endpoints
 
