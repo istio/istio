@@ -571,3 +571,7 @@ _internal_defaults_do_not_set:
     # -- Eviction policy for unhealthy pods guarded by PodDisruptionBudget.
     # Ref: https://kubernetes.io/blog/2023/01/06/unhealthy-pod-eviction-policy-for-pdbs/
     unhealthyPodEvictionPolicy: ""
+
+  # Key to descope values defined in profile.
+  # Used at zzz_profile.yaml file.
+  descopeKey: "pilot"

@@ -182,3 +182,7 @@ _internal_defaults_do_not_set:
 
   # A `key: value` mapping of environment variables to add to the pod
   env: {}
+
+  # Key to descope values defined in profile.
+  # Used at zzz_profile.yaml file.
+  descopeKey: "cni"

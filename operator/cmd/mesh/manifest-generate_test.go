@@ -194,7 +194,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 	g := NewWithT(t)
 
 	objs := runManifestCommands(t, "component_hub_tag", "", liveCharts,
-		[]string{"templates/deployment.yaml", "templates/daemonset.yaml", "templates/zzy_descope_legacy.yaml"})
+		[]string{"templates/deployment.yaml", "templates/daemonset.yaml"})
 
 	tests := []struct {
 		deploymentName string
