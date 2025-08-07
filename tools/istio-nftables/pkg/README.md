@@ -3,7 +3,7 @@
 This document outlines the design, configuration, and basic troubleshooting steps for the `nftables` backend in Istio.
 As the official successor to `iptables`, `nftables` offers a modern, high-performance alternative for transparently redirecting
 traffic to and from the `Envoy` sidecar proxy. Many major Linux distributions are actively moving towards adopting native
-`nftables` support. At present, this backend supports Istio Sidecar mode only, with Ambient mode support currently under development.
+`nftables` support. At present, this backend supports Istio sidecar mode only, with ambient mode support currently under development.
 
 ## Key Benefits
 
@@ -46,7 +46,7 @@ table inet istio-proxy-nat {
 
 ## Configuration
 
-The `nftables` backend is **disabled by default**. To enable it, you must set the following value during installation process
+The `nftables` backend is **disabled by default**. To enable it, you must set the following value during installation process:
 
 ```sh
 --set values.global.nativeNftables=true
@@ -127,6 +127,6 @@ nft reset counters table inet istio-proxy-nat
 
 ## Limitations and Known Issues
 
-- **Supports only Sidecar mode with debug images:**. The `nft` binary is currently available only in the debug version of the Istio proxy
+- **Supports only sidecar mode with debug images:**. The `nft` binary is currently available only in the debug version of the Istio proxy
     and is not included in the [distroless image](https://github.com/istio/istio/issues/57237).
-- **Nftables version**: Requires `nft` binary version 1.0.1 or later.
+- **nftables version**: Requires `nft` binary version 1.0.1 or later.
