@@ -66,6 +66,10 @@ fi
 # when ambient is enabled, we don't need to create an istioOperator resource
 # but we still need to create the gateway deployment
 if [[ "${AMBIENT}" -eq 1 ]]; then
+  if [[ -z "${NETWORK}" ]]; then
+    echo "Must specify --network with --ambient."
+    exit 1
+  fi
 GW=$(cat <<EOF
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -73,7 +77,7 @@ metadata:
   name: istio-eastwestgateway
   namespace: istio-system
   labels:
-    topology.istio.io/network: "network-1"
+    topology.istio.io/network: "${NETWORK}"
 spec:
   gatewayClassName: "istio-east-west"
   listeners:
