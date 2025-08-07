@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 57219
+
+releaseNotes:
+- |
+  **Removed** support for the v1alpha2 InferencePool API type.
+  **Added** support for the v1 InferencePool API type.

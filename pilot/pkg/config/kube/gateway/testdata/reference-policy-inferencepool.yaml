@@ -17,7 +17,7 @@ spec:
       namespaces:
         from: All
 ---
-apiVersion: inference.networking.x-k8s.io/v1alpha2
+apiVersion: inference.networking.k8s.io/v1
 kind: InferencePool
 metadata:
   name: my-ip
@@ -43,7 +43,7 @@ spec:
     kind: HTTPRoute
     namespace: istio-system
   to:
-  - group: inference.networking.x-k8s.io
+  - group: inference.networking.k8s.io
     kind: InferencePool
     name: my-ip
 ---
@@ -61,7 +61,7 @@ spec:
   - backendRefs:
     - name: my-ip
       kind: InferencePool
-      group: inference.networking.x-k8s.io
+      group: inference.networking.k8s.io
       namespace: inferencepool
       port: 80
 ---
@@ -79,7 +79,7 @@ spec:
   - backendRefs:
     - name: my-ip
       kind: InferencePool
-      group: inference.networking.x-k8s.io
+      group: inference.networking.k8s.io
       namespace: inferencepool
       port: 80
       weight: 1
