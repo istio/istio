@@ -137,8 +137,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					return err
 				}
 				annotations := klabels.Set(pod.ObjectMeta.Annotations)
-				opts.Revision = describe.GetRevisionFromPodAnnotation(annotations)
-				kubeClient, err = ctx.CLIClientWithRevision(opts.Revision)
+				revision := describe.GetRevisionFromPodAnnotation(annotations)
+				if opts.Revision != revision {
+					fmt.Printf("Pod %s.%s is running in revision %s, the --revision flag %s will be ignored \n", podName, ns, revision, opts.Revision)
+				}
+				kubeClient, err = ctx.CLIClientWithRevision(revision)
 				if err != nil {
 					return err
 				}
