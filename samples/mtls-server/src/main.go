@@ -34,6 +34,7 @@ type ServerConfig struct {
 	AlwaysJSON   bool
 	Cert         certConfig
 	Addr         string
+	ClientAuth   tls.ClientAuthType
 	LogPlainText bool
 }
 
@@ -99,7 +100,12 @@ func initServerConfig() *ServerConfig {
 
 	serverConfig.AlwaysJSON = os.Getenv("ALWAYS_JSON") == "true"
 
-	serverConfig.LogPlainText = os.Getenv("LOG_PLAIN_TEXT") == "true"
+	serverConfig.LogPlainText = os.Getenv("LOG_PLAINTEXT") == "true"
+
+	serverConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	if os.Getenv("INSECURE_SKIP_CLIENT_VERIFY") == "true" {
+		serverConfig.ClientAuth = tls.RequireAnyClientCert
+	}
 
 	return serverConfig
 }
@@ -126,10 +132,9 @@ func main() {
 
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		// ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientAuth: tls.RequireAnyClientCert,
-		ClientCAs:  caCertPool,
-		MinVersion: tls.VersionTLS12,
+		ClientAuth:   serverConfig.ClientAuth,
+		ClientCAs:    caCertPool,
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	mux := http.NewServeMux()
