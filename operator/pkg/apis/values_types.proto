@@ -141,6 +141,11 @@ message CNIConfig {
   // May be specified as a number of pods or as a percent of the total number
   // of pods at the start of the update.
   IntOrString rollingMaxUnavailable = 23;
+
+  // Specifies if an Istio owned CNI config should be created.
+  google.protobuf.BoolValue istioOwnedCNIConfig = 35;
+  
+  string istioOwnedCNIConfigFileName = 36;
 }
 
 message CNIUsageConfig {
