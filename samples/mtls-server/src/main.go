@@ -115,7 +115,10 @@ func main() {
 	serverConfig := initServerConfig()
 
 	// Load server certificate and key
-	cert, err := tls.LoadX509KeyPair(serverConfig.Cert.certFile, serverConfig.Cert.keyFile)
+	cert, err := tls.LoadX509KeyPair(
+		serverConfig.Cert.certFile,
+		serverConfig.Cert.keyFile,
+	)
 	if err != nil {
 		log.Fatalf("failed to load server cert/key: %v", err)
 	}
@@ -248,7 +251,13 @@ func (c *ServerConfig) serve(w http.ResponseWriter, r *http.Request) {
 
 func (c *ServerConfig) logAccess(accessLog *AccessLog) {
 	if c.LogPlainText {
-		accessLogger.Printf("access %s %s %s %s %s", accessLog.Timestamp.Format(time.RFC3339), accessLog.Method, accessLog.Path, accessLog.ClientIP, accessLog.ClientSubject)
+		accessLogger.Printf("access %s %s %s %s %s",
+			accessLog.Timestamp.Format(time.RFC3339),
+			accessLog.Method,
+			accessLog.Path,
+			accessLog.ClientIP,
+			accessLog.ClientSubject,
+		)
 	} else {
 		a := map[string]any{
 			"access": accessLog,
