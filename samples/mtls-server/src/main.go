@@ -29,13 +29,14 @@ import (
 var accessLogger = log.New(os.Stdout, "", 0)
 
 type ServerConfig struct {
-	Name         string
-	Namespace    string
-	AlwaysJSON   bool
-	Cert         certConfig
-	Addr         string
-	ClientAuth   tls.ClientAuthType
-	LogPlainText bool
+	Name                    string
+	Namespace               string
+	AlwaysJSON              bool
+	Cert                    certConfig
+	Addr                    string
+	ClientAuth              tls.ClientAuthType
+	ClientAuthHumanReadable string
+	LogPlainText            bool
 }
 
 type certConfig struct {
@@ -107,12 +108,21 @@ func initServerConfig() *ServerConfig {
 		serverConfig.ClientAuth = tls.RequireAnyClientCert
 	}
 
+	serverConfig.ClientAuthHumanReadable = serverConfig.ClientAuth.String()
+
 	return serverConfig
 }
 
 func main() {
 	log.Println("Initializing mTLS server")
 	serverConfig := initServerConfig()
+
+	jsonCfg, marshalErr := json.MarshalIndent(serverConfig, "", "  ")
+	if marshalErr != nil {
+		log.Printf("failed to marshal server config: %v", marshalErr)
+	} else {
+		log.Printf("Server config: %s", jsonCfg)
+	}
 
 	// Load server certificate and key
 	cert, err := tls.LoadX509KeyPair(
