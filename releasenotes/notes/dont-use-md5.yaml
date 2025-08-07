@@ -12,7 +12,7 @@ issue:
 releaseNotes:
 - |
   **Removed** use of MD5 to optimize comparisons.
-  Istio does not and has not use MD5 for cryptographic purposes.
+  Istio does not and has not used MD5 for cryptographic purposes.
   The change is merely to make the code easier to audit and to run in [FIPS 140-3 mode](https://go.dev/doc/security/fips140).
 
 securityNotes:
