@@ -80,5 +80,5 @@ If you built the images yourself, also add `--set hub=example.registry.io`.
 
 ## Contributing
 
-If you want to contribute to ambient support for Windows, please follow Istio's contributor guidelines. We also have a channel on Istio's Slack dedicated to Windows support discussions.
+If you want to contribute to ambient support for Windows, please follow Istio's contributor guidelines. We also have a [channel on Istio's Slack dedicated to Windows support discussions](https://istio.slack.com/archives/C08KEE4H8CX).
 
