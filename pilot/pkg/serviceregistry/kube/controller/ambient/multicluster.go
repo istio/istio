@@ -269,7 +269,7 @@ func (a *index) buildGlobalCollections(
 		LocalNodes,
 		opts.WithName("LocalNodeLocality")...,
 	)
-	GlobalNodeLocality := GlobalNodesCollection(GlobalNodesWithCluster, opts.Stop(), opts.WithName("GlobalNodeLocalityWithCluster")...)
+	GlobalNodeLocality := GlobalNodesCollection(GlobalNodesWithCluster, opts.WithName("GlobalNodeLocalityWithCluster")...)
 	GlobalNodeLocalityByCluster := nestedCollectionIndexByCluster(GlobalNodeLocality)
 
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
