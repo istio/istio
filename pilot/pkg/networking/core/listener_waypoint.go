@@ -473,6 +473,12 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		}
 	}
 	tlsInspector := func() *listener.ListenerFilter {
+		// If we have enrolled workloads, we should sniff TLS
+		// This is important if users want to assert authz against SNI.
+		if len(wls) > 0 {
+			// Default inspector with no excluded ports, workloads could listen on any port
+			return xdsfilters.TLSInspector
+		}
 		tlsPorts := sets.New[int]()
 		nonTLSPorts := sets.New[int]()
 		for _, s := range svcs {
