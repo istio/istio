@@ -194,7 +194,18 @@ func (s *DebugWriter) PrintAll(drs map[string]*discovery.DiscoveryResponse) erro
 	if len(mappedResp) > 0 {
 		rawMap := make(map[string]json.RawMessage)
 		for k, v := range mappedResp {
-			rawMap[k] = json.RawMessage(v)
+			var temp interface{}
+			if err := json.Unmarshal(v, &temp); err == nil {
+				rawMap[k] = json.RawMessage(v)
+			} else {
+				str := string(v)
+				encodedStr, err := json.Marshal(str)
+				if err == nil {
+					rawMap[k] = json.RawMessage(encodedStr)
+				} else {
+					rawMap[k] = json.RawMessage(str)
+				}
+			}
 		}
 		mresp, err := json.MarshalIndent(rawMap, "", "  ")
 		if err != nil {
