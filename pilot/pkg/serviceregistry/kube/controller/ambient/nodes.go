@@ -42,7 +42,6 @@ func (n Node) Equals(o Node) bool {
 
 func GlobalNodesCollection(
 	nodes krt.Collection[krt.Collection[krt.ObjectWithCluster[*v1.Node]]],
-	stop <-chan struct{},
 	opts ...krt.CollectionOption,
 ) krt.Collection[krt.Collection[krt.ObjectWithCluster[Node]]] {
 	return krt.NewCollection(
