@@ -3551,8 +3551,12 @@ func restartZtunnel(t framework.TestContext) {
 				}
 			}
 		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
-	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
-	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	ztunnelNS, err := locateDaemonsetNS(t, "ztunnel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(ztunnelNS)
+	_, err = ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3569,9 +3573,25 @@ func restartZtunnel(t framework.TestContext) {
 	}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
 		t.Fatalf("failed to wait for ztunnel rollout status for: %v", err)
 	}
-	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], i.Settings().SystemNamespace, "app=ztunnel")); err != nil {
+	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], ztunnelNS, "app=ztunnel")); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Locate DaemonSet namespace by name
+func locateDaemonsetNS(t framework.TestContext, dsName string) (string, error) {
+	daemonsets, err := t.Clusters().Default().Kube().AppsV1().DaemonSets("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("unable to fetch daemonsets list: %v", err)
+	}
+
+	for _, ds := range daemonsets.Items {
+		if ds.Name == dsName {
+			return ds.Namespace, nil
+		}
+	}
+
+	return "", fmt.Errorf("daemonset %q not found in any namespace", dsName)
 }
 
 func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
