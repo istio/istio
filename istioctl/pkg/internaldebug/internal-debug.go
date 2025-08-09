@@ -203,6 +203,7 @@ func (s *DebugWriter) PrintAll(drs map[string]*discovery.DiscoveryResponse) erro
 				if err == nil {
 					rawMap[k] = json.RawMessage(encodedStr)
 				} else {
+					// the final fallback, back to string, the theory will not stop here
 					rawMap[k] = json.RawMessage(str)
 				}
 			}
