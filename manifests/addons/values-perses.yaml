@@ -1,0 +1,52 @@
+# Values for Perses Helm Chart
+# https://github.com/perses/helm-charts
+
+# Use default image and version from chart
+image:
+  name: "persesdev/perses"
+  version: "v0.51.1"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 4000
+  targetPort: 8080
+
+# Minimal configuration to avoid schema errors
+config:
+  database:
+    file:
+      extension: json
+  provisioning:
+    folders:
+      - /etc/perses/provisioning    
+  security:
+    enable_auth: false
+
+# Enable sidecar for ConfigMap provisioning
+sidecar:
+  enabled: true
+  label: "perses.dev/resource"
+  labelValue: "true"
+  allNamespaces: false
+
+# Resources
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Persistence (disabled for demo)
+persistence:
+  enabled: false
+
+# Service account
+serviceAccount:
+  create: true
+
+# Disable test framework
+testFramework:
+  enabled: false
