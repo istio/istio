@@ -1,0 +1,19 @@
+spec:
+  initContainers:
+  - name: ambient-validation
+    # TODO(jaellio): Add back logic around proxy image selection
+    image: "{{ .ProxyImage }}"
+    args:
+    - istio-iptables
+    - "--ambient-mode"
+    {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
+    securityContext:
+      allowPrivilegeEscalation: false
+      privileged: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+      runAsGroup: 1337
+      runAsUser: 1337
+      runAsNonRoot: true
