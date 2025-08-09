@@ -159,7 +159,7 @@ type processorListener[O any] struct {
 	// added until we OOM.
 	// TODO: This is no worse than before, since reflectors were backed by unbounded DeltaFIFOs, but
 	// we should try to do something better.
-	pendingNotifications buffer.RingGrowing
+	pendingNotifications buffer.TypedRingGrowing[any]
 }
 
 func newProcessListener[O any](
@@ -174,7 +174,7 @@ func newProcessListener[O any](
 		stop:                 stop,
 		handler:              handler,
 		syncTracker:          &countingTracker{upstreamSyncer: upstreamSyncer, synced: make(chan struct{})},
-		pendingNotifications: *buffer.NewRingGrowing(bufferSize),
+		pendingNotifications: *buffer.NewTypedRingGrowing[any](buffer.RingGrowingOptions{InitialSize: bufferSize}),
 	}
 
 	return ret
