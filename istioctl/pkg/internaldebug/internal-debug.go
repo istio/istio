@@ -173,11 +173,11 @@ type DebugWriter struct {
 
 func (s *DebugWriter) PrintAll(drs map[string]*discovery.DiscoveryResponse) error {
 	// Gather the statuses before printing so they may be sorted
-	mappedResp := map[string]string{}
+	mappedResp := map[string][]byte{}
 	for id, dr := range drs {
 		for _, resource := range dr.Resources {
 			if s.InternalDebugAllIstiod {
-				mappedResp[id] = string(resource.Value) + "\n"
+				mappedResp[id] = resource.Value
 			} else {
 				var out bytes.Buffer
 				if err := json.Indent(&out, resource.Value, "", "  "); err != nil {
@@ -192,7 +192,23 @@ func (s *DebugWriter) PrintAll(drs map[string]*discovery.DiscoveryResponse) erro
 		}
 	}
 	if len(mappedResp) > 0 {
-		mresp, err := json.MarshalIndent(mappedResp, "", "  ")
+		rawMap := make(map[string]json.RawMessage)
+		for k, v := range mappedResp {
+			var temp interface{}
+			if err := json.Unmarshal(v, &temp); err == nil {
+				rawMap[k] = json.RawMessage(v)
+			} else {
+				str := string(v)
+				encodedStr, err := json.Marshal(str)
+				if err == nil {
+					rawMap[k] = json.RawMessage(encodedStr)
+				} else {
+					// the final fallback, back to string, the theory will not stop here
+					rawMap[k] = json.RawMessage(str)
+				}
+			}
+		}
+		mresp, err := json.MarshalIndent(rawMap, "", "  ")
 		if err != nil {
 			return err
 		}
