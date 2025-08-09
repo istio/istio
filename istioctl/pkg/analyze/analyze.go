@@ -41,9 +41,11 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // AnalyzerFoundIssuesError indicates that at least one analyzer found problems.
@@ -82,6 +84,7 @@ var (
 	revisionSpecified string
 	remoteContexts    []string
 	selectedAnalyzers []string
+	excludeNamespaces []string
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -221,7 +224,7 @@ func Analyze(ctx cli.Context) *cobra.Command {
 				}
 				for _, c := range clients {
 					k := kube.EnableCrdWatcher(c.client)
-					sa.AddRunningKubeSourceWithRevision(k, revisionSpecified, c.remote)
+					sa.AddRunningKubeSourceWithRevision(k, revisionSpecified, c.remote, excludeNamespaces...)
 				}
 			}
 
@@ -335,8 +338,10 @@ func Analyze(ctx cli.Context) *cobra.Command {
 		},
 	}
 
+	analysisDefaultExclude := strings.Join(sets.SortedList(inject.IgnoredNamespaces), ",")
 	analysisCmd.PersistentFlags().BoolVarP(&listAnalyzers, "list-analyzers", "L", false,
 		"List the analyzers available to run. Suppresses normal execution.")
+	analysisCmd.PersistentFlags().StringSliceVar(&excludeNamespaces, "exclude-namespaces", nil, "Skip these namespace analysis, default="+analysisDefaultExclude)
 	analysisCmd.PersistentFlags().BoolVarP(&useKube, "use-kube", "k", true,
 		"Use live Kubernetes cluster for analysis. Set --use-kube=false to analyze files only.")
 	analysisCmd.PersistentFlags().BoolVar(&colorize, "color", formatting.IstioctlColorDefault(analysisCmd.OutOrStdout()),
