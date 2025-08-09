@@ -55,6 +55,20 @@ spec:
         requestPrincipals: ["*"]
   - to:
     - operation:
+        paths: ["/scope"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[scope]
+      values: ["append", "write"]
+  - to:
+    - operation:
+        paths: ["/otherscope"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[scope]
+      values: ["admin"]
+  - to:
+    - operation:
         paths: ["/permission"]
         methods: ["GET"]
     when:
