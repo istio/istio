@@ -104,6 +104,10 @@ func NewCreateRemoteSecretCommand(ctx cli.Context) *cobra.Command {
 
   # Create a secret access a remote cluster with an auth plugin
   istioctl --kubeconfig=c0.yaml create-remote-secret --name c0 --auth-type=plugin --auth-plugin-name=gcp \
+    | kubectl --kubeconfig=c1.yaml apply -f -
+
+  # Enable token rotation by creating a new token secret
+  istioctl --kubeconfig=c0.yaml create-remote-secret --name c0 --rotation \
     | kubectl --kubeconfig=c1.yaml apply -f -`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
@@ -305,16 +309,18 @@ func getOrCreateServiceAccountSecret(
 		return secret, nil
 	}
 
-	// first try to find an existing secret that references the SA
+	// first try to find an existing secret that references the SA unless rotation is requested
 	// TODO will the SA have any reference to secrets anymore, can we avoid this list?
-	allSecrets, err := client.Kube().CoreV1().Secrets(opt.Namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed listing secrets in %s: %v", opt.Namespace, err)
-	}
-	for _, item := range allSecrets.Items {
-		secret := item
-		if secretReferencesServiceAccount(serviceAccount, &secret) == nil {
-			return &secret, nil
+	if !opt.Rotation {
+		allSecrets, err := client.Kube().CoreV1().Secrets(opt.Namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed listing secrets in %s: %v", opt.Namespace, err)
+		}
+		for _, item := range allSecrets.Items {
+			secret := item
+			if secretReferencesServiceAccount(serviceAccount, &secret) == nil {
+				return &secret, nil
+			}
 		}
 	}
 
@@ -323,6 +329,12 @@ func getOrCreateServiceAccountSecret(
 	// TODO ephemeral time-based tokens are preferred; we should re-think this
 	log.Infof("Creating token secret for service account %q", serviceAccount.Name)
 	secretName := tokenSecretName(serviceAccount.Name)
+
+	// If rotation is enabled, append timestamp to ensure uniqueness
+	if opt.Rotation {
+		secretName = secretName + "-" + fmt.Sprintf("%d", time.Now().Unix())
+	}
+
 	return client.Kube().CoreV1().Secrets(opt.Namespace).Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        secretName,
@@ -584,6 +596,10 @@ type RemoteSecretOptions struct {
 
 	// SecretName selects a specific secret from the remote service account, if there are multiple
 	SecretName string
+
+	// Rotation forces creation of a new service account token secret even if one already exists.
+	// This is useful for token rotation scenarios.
+	Rotation bool
 }
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
@@ -604,6 +620,9 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 		"The server name that should be validated by kube-client during establishing TLS connection with kube-apiserver.")
 	flagset.StringVar(&o.SecretName, "secret-name", "",
 		"The name of the specific secret to use from the service-account. Needed when there are multiple secrets in the service account.")
+	flagset.BoolVar(&o.Rotation, "rotation", false,
+		"Enable token rotation by forcing creation of a new service account token secret even if one already exists. "+
+			"This allows safe token rotation without invalidating existing tokens.")
 	var supportedAuthType []string
 	for _, at := range []RemoteSecretAuthType{RemoteSecretAuthTypeBearerToken, RemoteSecretAuthTypePlugin} {
 		supportedAuthType = append(supportedAuthType, string(at))
