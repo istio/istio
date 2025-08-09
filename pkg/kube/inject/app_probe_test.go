@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
@@ -124,38 +125,187 @@ func TestShouldRewriteAppHTTPProbers(t *testing.T) {
 	}
 }
 
+func TestLookupNamedPort(t *testing.T) {
+	testCases := []struct {
+		name          string
+		pod           *corev1.Pod
+		portName      string
+		containerName string
+		expected      int32
+	}{
+		{
+			name: "port found in specified regular container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+								{Name: "metrics", ContainerPort: 9090},
+							},
+						},
+						{
+							Name: "container2",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8081},
+							},
+						},
+					},
+				},
+			},
+			portName:      "http",
+			containerName: "container1",
+			expected:      8080,
+		},
+		{
+			name: "port found in specified init container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name: "init-container",
+							Ports: []corev1.ContainerPort{
+								{Name: "init-port", ContainerPort: 7070},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+					},
+				},
+			},
+			portName:      "init-port",
+			containerName: "init-container",
+			expected:      7070,
+		},
+		{
+			name: "port not found in specified container but found in another container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+						{
+							Name: "container2",
+							Ports: []corev1.ContainerPort{
+								{Name: "metrics", ContainerPort: 9090},
+							},
+						},
+					},
+				},
+			},
+			portName:      "metrics",
+			containerName: "container1",
+			expected:      0,
+		},
+		{
+			name: "port not found in any container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+					},
+				},
+			},
+			portName:      "nonexistent",
+			containerName: "container1",
+			expected:      0, // Not found
+		},
+		{
+			name: "container not found but port found in another container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+					},
+				},
+			},
+			portName:      "http",
+			containerName: "nonexistent",
+			expected:      0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := lookupNamedPort(tc.pod, tc.portName, tc.containerName)
+			if result != tc.expected {
+				t.Errorf("Expected port %d but got %d", tc.expected, result)
+			}
+		})
+	}
+}
+
 func TestDumpAppGRPCProbers(t *testing.T) {
 	svc := "foo"
 	for _, tc := range []struct {
-		name     string
-		pod      *corev1.Pod
-		expected string
+		name          string
+		pod           *corev1.Pod
+		expected      string
+		blankExpected bool
 	}{
 		{
 			name: "simple gRPC liveness probe",
-			pod: &corev1.Pod{Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name: "foo",
-						LivenessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								GRPC: &corev1.GRPCAction{
-									Port: 1234,
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "12345",
+					},
+				}, Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 1234},
+							},
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 1234,
+									},
 								},
 							},
 						},
 					},
 				},
-			}},
-			expected: `
-{
-    "/app-health/foo/livez": {
-        "grpc": {
-            "port": 1234,
-            "service": null
-        }
-    }
-}`,
+			},
+			expected:      "",
+			blankExpected: true,
 		},
 		{
 			name: "gRPC readiness probe with service",
@@ -163,6 +313,9 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 				Containers: []corev1.Container{
 					{
 						Name: "bar",
+						Ports: []corev1.ContainerPort{
+							{ContainerPort: 1234},
+						},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								GRPC: &corev1.GRPCAction{
@@ -190,6 +343,9 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 				Containers: []corev1.Container{
 					{
 						Name: "foo",
+						Ports: []corev1.ContainerPort{
+							{ContainerPort: 1234},
+						},
 						StartupProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								GRPC: &corev1.GRPCAction{
@@ -235,7 +391,849 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 		},
 	} {
 		got := DumpAppProbers(tc.pod, 15020)
-		test.JSONEquals(t, got, tc.expected)
+		if tc.blankExpected {
+			assert.Equal(t, got, tc.expected)
+		} else {
+			test.JSONEquals(t, got, tc.expected)
+		}
+	}
+}
+
+func TestDumpAppProbersForIncludedPorts(t *testing.T) {
+	const targetPort int32 = 15020
+	svc := "foo"
+
+	tests := []struct {
+		name     string
+		pod      *corev1.Pod
+		expected string
+	}{
+		{
+			name: "simple gRPC liveness probe",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 1234},
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 1234,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{"/app-health/foo/livez":{"grpc":{"port":1234,"service":null}}}`,
+		},
+		{
+			name: "gRPC readiness probe with service",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "bar",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "grpc",
+									ContainerPort: 1234,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port:    1234,
+										Service: &svc,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{"/app-health/bar/readyz":{"grpc":{"port":1234,"service":"foo"}}}`,
+		},
+		{
+			name: "gRPC startup probe with service and timeout",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "grpc",
+									ContainerPort: 1234,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port:    1234,
+										Service: &svc,
+									},
+								},
+								TimeoutSeconds: 10,
+							},
+						},
+					},
+				},
+			},
+			expected: `{"/app-health/foo/startupz":{"grpc":{"port":1234,"service":"foo"},"timeoutSeconds":10}}`,
+		},
+		{
+			name: "startup probe with includeInboundPorts annotation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "grpc",
+									ContainerPort: 1234,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port:    1234,
+										Service: &svc,
+									},
+								},
+								TimeoutSeconds: 10,
+							},
+						},
+					},
+				},
+			},
+			expected: `{"/app-health/foo/startupz":{"grpc":{"port":1234,"service":"foo"},"timeoutSeconds":10}}`,
+		},
+		{
+			name: "startup probe with excludeInboundPorts annotation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "grpc",
+									ContainerPort: 1234,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port:    1234,
+										Service: &svc,
+									},
+								},
+								TimeoutSeconds: 10,
+							},
+						},
+					},
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "startup probe with includeInboundPorts annotation and one of the ports in the list",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "grpc",
+									ContainerPort: 1234,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									Name:          "http",
+									ContainerPort: 8080,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port:    1234,
+										Service: &svc,
+									},
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/health/full",
+										Host:   "localhost",
+										Scheme: "http",
+										Port: intstr.IntOrString{
+											Type:   intstr.String,
+											StrVal: "8080",
+										},
+									},
+								},
+								TimeoutSeconds: 10,
+							},
+						},
+					},
+				},
+			},
+			expected: `{
+				"/app-health/foo/startupz":{
+					"httpGet":{
+						"path":"/health/full",
+						"port":8080,
+						"host":"localhost",
+						"scheme":"http"
+					},
+					"timeoutSeconds":10
+				}
+			}`,
+		},
+		{
+			name: "http, grpc, and tcp probes on different ports",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "multi-probe-container",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 8080},
+								{ContainerPort: 9090},
+								{ContainerPort: 7070},
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/health",
+										Port: intstr.FromInt32(8080),
+									},
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 9090,
+									},
+								},
+							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
+										Port: intstr.FromInt32(7070),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{
+				"/app-health/multi-probe-container/livez": {
+					"httpGet": {
+						"path": "/health",
+						"port": 8080
+					}
+				},
+				"/app-health/multi-probe-container/readyz": {
+					"grpc": {
+						"port": 9090,
+						"service": null
+					}
+				},
+				"/app-health/multi-probe-container/startupz": {
+					"tcpSocket": {
+						"port": 7070
+					}
+				}
+			}`,
+		},
+		{
+			name: "http liveness probe on excluded port",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "excluded-port-container",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/health",
+										Port: intstr.FromInt32(8080),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "http liveness probe on excluded port and readinessProbe on included port",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080",
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "7070",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "excluded-port-container",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/health",
+										Port: intstr.FromInt32(8080),
+									},
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/health",
+										Port: intstr.FromInt32(7070),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{"/app-health/excluded-port-container/readyz":{"httpGet":{"path":"/health","port":7070}}}`,
+		},
+		{
+			name: "liveness and readiness probes on different http ports with one included",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "partial-included-ports",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/liveness",
+										Port: intstr.FromInt32(8080),
+									},
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/readiness",
+										Port: intstr.FromInt32(9090),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{"/app-health/partial-included-ports/livez":{"httpGet":{"path":"/liveness","port":8080}}}`,
+		},
+		// New test cases for lifecycle hooks
+		{
+			name: "preStop lifecycle hook with HTTP handler",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "prestop-http-container",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 8080},
+							},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.LifecycleHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/shutdown",
+										Port:   intstr.FromInt32(8080),
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{"/app-lifecycle/prestop-http-container/prestopz":{"httpGet":{"path":"/shutdown","port":8080,"scheme":"HTTP"}}}`,
+		},
+		{
+			name: "postStart lifecycle hook with HTTP handler",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "poststart-http-container",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 8080},
+							},
+							Lifecycle: &corev1.Lifecycle{
+								PostStart: &corev1.LifecycleHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/startup",
+										Port:   intstr.FromInt32(8080),
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{
+				"/app-lifecycle/poststart-http-container/poststartz": {
+					"httpGet": {
+						"path": "/startup",
+						"port": 8080,
+						"scheme": "HTTP"
+					}
+				}
+			}`,
+		},
+		{
+			name: "both preStop and postStart lifecycle hooks",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "lifecycle-hooks-container",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 8080},
+								{ContainerPort: 9090},
+							},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.LifecycleHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/shutdown",
+										Port:   intstr.FromInt32(8080),
+										Scheme: "HTTP",
+									},
+								},
+								PostStart: &corev1.LifecycleHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/startup",
+										Port:   intstr.FromInt32(9090),
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{
+				  "/app-lifecycle/lifecycle-hooks-container/poststartz": {
+					"httpGet": {
+					  "path": "/startup",
+					  "port": 9090,
+					  "scheme": "HTTP"
+					}
+				  },
+				  "/app-lifecycle/lifecycle-hooks-container/prestopz": {
+					"httpGet": {
+					  "path": "/shutdown",
+					  "port": 8080,
+					  "scheme": "HTTP"
+					}
+				  }
+				}`,
+		},
+		{
+			name: "preStop with TCP handler",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "prestop-tcp-container",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 8080},
+							},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.LifecycleHandler{
+									TCPSocket: &corev1.TCPSocketAction{
+										Port: intstr.FromInt32(8080),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{"/app-lifecycle/prestop-tcp-container/prestopz":{"tcpSocket":{"port":8080}}}`,
+		},
+		{
+			name: "lifecycle hooks with excluded ports",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "excluded-lifecycle-container",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 8080},
+							},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.LifecycleHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/shutdown",
+										Port:   intstr.FromInt32(8080),
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "probes and lifecycle hooks on different ports",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "multi-handler-container",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 8080},
+								{ContainerPort: 9090},
+								{ContainerPort: 7070},
+								{ContainerPort: 6060},
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/health",
+										Port: intstr.FromInt32(8080),
+									},
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 9090,
+									},
+								},
+							},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.LifecycleHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/shutdown",
+										Port:   intstr.FromInt32(7070),
+										Scheme: "HTTP",
+									},
+								},
+								PostStart: &corev1.LifecycleHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/startup",
+										Port:   intstr.FromInt32(6060),
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{
+				"/app-health/multi-handler-container/livez": {
+					"httpGet": {
+						"path": "/health",
+						"port": 8080
+					}
+				},
+				"/app-health/multi-handler-container/readyz": {
+					"grpc": {
+						"port": 9090,
+						"service": null
+					}
+				},
+				"/app-lifecycle/multi-handler-container/poststartz": {
+					"httpGet": {
+						"path": "/startup",
+						"port": 6060,
+						"scheme": "HTTP"
+					}
+				},
+				"/app-lifecycle/multi-handler-container/prestopz": {
+					"httpGet": {
+						"path": "/shutdown",
+						"port": 7070,
+						"scheme": "HTTP"
+					}
+				}
+			}`,
+		},
+		{
+			name: "lifecycle hooks with string port",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "string-port-container",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "http",
+									ContainerPort: 8080,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.LifecycleHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/shutdown",
+										Port: intstr.IntOrString{
+											Type:   intstr.String,
+											StrVal: "8080",
+										},
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: `{
+				"/app-lifecycle/string-port-container/prestopz": {
+					"httpGet": {
+						"path": "/shutdown",
+						"port": 8080,
+						"scheme": "HTTP"
+					}
+				}
+			}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := DumpAppProbers(tc.pod, targetPort)
+			if len(tc.expected) > 0 {
+				test.JSONEquals(t, got, tc.expected)
+			} else {
+				assert.Equal(t, 0, len(got))
+			}
+		})
+	}
+}
+
+func TestGetIncludedPorts(t *testing.T) {
+	tests := []struct {
+		name     string
+		pod      *corev1.Pod
+		expected map[int32]bool
+	}{
+		{
+			name: "nil annotations",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: nil,
+				},
+			},
+			// When no annotations are provided, expect an empty map (all ports included)
+			expected: make(map[int32]bool),
+		},
+		{
+			name: "empty annotations",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			// When annotations are empty, expect an empty map (all ports included)
+			expected: make(map[int32]bool),
+		},
+		{
+			name: "include all ports with asterisk",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "*",
+					},
+				},
+			},
+			// When includeInboundPorts is "*", expect an empty map (all ports included)
+			expected: make(map[int32]bool),
+		},
+		{
+			name: "include all ports with asterisk and make sure exclusions still apply",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "*",
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080,8090",
+					},
+				},
+			},
+			// When includeInboundPorts is "*", expect an empty map (all ports included)
+			expected: map[int32]bool{
+				8080: false,
+				8090: false,
+			},
+		},
+		{
+			name: "specific include ports",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080,9090",
+					},
+				},
+			},
+			// When specific ports are included, expect a map with those ports
+			expected: map[int32]bool{
+				8080: true,
+				9090: true,
+			},
+		},
+		{
+			name: "exclude ports not relevant when include specified",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080,9090",
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080,7070",
+					},
+				},
+			},
+			expected: map[int32]bool{
+				8080: true,
+				9090: true,
+			},
+		},
+		{
+			name: "only exclude ports specified",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080,7070",
+					},
+				},
+			},
+			// When only exclude is specified, expect a map without those ports
+			expected: map[int32]bool{
+				8080: false,
+				7070: false,
+			},
+		},
+		{
+			name: "include with invalid port",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080,invalid,9090",
+					},
+				},
+			},
+			// Invalid ports should be ignored
+			expected: map[int32]bool{
+				8080: true,
+				9090: true,
+			},
+		},
+		{
+			name: "exclude with invalid port",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080,invalid",
+					},
+				},
+			},
+			// Invalid exclude ports should be ignored
+			expected: map[int32]bool{
+				8080: false,
+			},
+		},
+		{
+			name: "empty include ports string",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "",
+					},
+				},
+			},
+			// Empty include string is treated as not specified
+			expected: map[int32]bool{},
+		},
+		{
+			name: "empty exclude ports string",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "",
+					},
+				},
+			},
+			// Empty exclude string is treated as not specified
+			expected: map[int32]bool{},
+		},
+		{
+			name: "multiple include values with spaces",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080, 9090",
+					},
+				},
+			},
+			// Spaces in port list should be handled by splitPorts
+			expected: map[int32]bool{
+				8080: true,
+				9090: true,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getPortInclusionOrExclusionList(tc.pod)
+			if !reflect.DeepEqual(got, tc.expected) {
+				t.Errorf("getPortInclusionOrExclusionList(%v) = %v, want %v", tc.pod, got, tc.expected)
+			}
+		})
 	}
 }
 
@@ -388,10 +1386,269 @@ func TestPatchRewriteProbe(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "pod with a gRPC liveness probe and port is not included",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "12345",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 1234,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "12345",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 1234,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "pod with a gRPC liveness probe and port is included",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									GRPC: &corev1.GRPCAction{
+										Port: 1234,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/app-health/foo/livez",
+										Port: statusPort,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "pod with a HTTP liveness probe and port is included",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/healthz",
+										Port:   intstr.FromInt32(1234),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/app-health/foo/livez",
+										Port:   statusPort,
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "pod with a HTTP liveness probe and port is not included",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/healthz",
+										Port:   intstr.FromInt32(1234),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "1234",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "foo",
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/healthz",
+										Port:   intstr.FromInt32(1234),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	} {
-		patchRewriteProbe(annotations, tc.pod, 15020)
-		if !reflect.DeepEqual(tc.pod, tc.expected) {
-			t.Errorf("[%v] failed, want %v, got %v", tc.name, tc.expected, tc.pod)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			patchRewriteProbe(annotations, tc.pod, 15020)
+			if !reflect.DeepEqual(tc.pod, tc.expected) {
+				t.Errorf("[%v] failed, want %v, got %v", tc.name, tc.expected, tc.pod)
+			}
+		})
+	}
+}
+
+func TestIsPortIncluded(t *testing.T) {
+	tests := []struct {
+		name     string
+		port     int32
+		ports    map[int32]bool
+		expected bool
+	}{
+		{
+			name:     "port exists and is included",
+			port:     8080,
+			ports:    map[int32]bool{8080: true},
+			expected: true,
+		},
+		{
+			name:     "port exists and is not included",
+			port:     8080,
+			ports:    map[int32]bool{8080: false},
+			expected: false,
+		},
+		{
+			name:     "port doesn't exist and no ports are included",
+			port:     8080,
+			ports:    map[int32]bool{9090: false, 7070: false},
+			expected: true,
+		},
+		{
+			name:     "port doesn't exist but some ports are included",
+			port:     8080,
+			ports:    map[int32]bool{9090: true, 7070: false},
+			expected: false,
+		},
+		{
+			name:     "empty ports map",
+			port:     8080,
+			ports:    map[int32]bool{},
+			expected: true,
+		},
+		{
+			name:     "nil ports map",
+			port:     8080,
+			ports:    nil,
+			expected: true,
+		},
+		{
+			name:     "multiple ports with mixed inclusion",
+			port:     8080,
+			ports:    map[int32]bool{8080: true, 9090: false, 7070: true},
+			expected: true,
+		},
+		{
+			name:     "multiple ports with mixed inclusion false",
+			port:     9090,
+			ports:    map[int32]bool{8080: true, 9090: false, 7070: true},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isPortIncluded(tt.port, tt.ports)
+			if result != tt.expected {
+				t.Errorf("isPortIncluded(%d, %v) = %v, want %v",
+					tt.port, tt.ports, result, tt.expected)
+			}
+		})
 	}
 }
