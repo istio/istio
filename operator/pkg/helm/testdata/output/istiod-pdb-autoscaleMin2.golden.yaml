@@ -19,7 +19,7 @@ metadata:
     app.kubernetes.io/version: "1.0.0"
     helm.sh/chart: istiod-1.0.0
 spec:
-  maxUnavailable: 1
+  minAvailable: 1
   selector:
     matchLabels:
       app: istiod

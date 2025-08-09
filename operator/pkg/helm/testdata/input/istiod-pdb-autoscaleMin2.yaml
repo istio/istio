@@ -1,4 +1,5 @@
 spec:
   values:
+    autoscaleMin: 2
     pdb:
       minAvailable: 1
