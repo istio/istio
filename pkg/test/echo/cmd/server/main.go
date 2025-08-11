@@ -38,6 +38,7 @@ var (
 	tcpPorts           []int
 	udpPorts           []int
 	tlsPorts           []int
+	mtlsPorts          []int
 	hbonePorts         []int
 	doubleHbonePorts   []int
 	instanceIPPorts    []int
@@ -64,10 +65,16 @@ var (
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
 			shutdown := NewShutdown()
-			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts)+len(doubleHbonePorts))
+			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts)+len(doubleHbonePorts)+len(mtlsPorts))
 			tlsByPort := map[int]bool{}
+			mtlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
 				tlsByPort[p] = true
+			}
+			for _, p := range mtlsPorts {
+				// mTLS ports are also TLS ports.
+				tlsByPort[p] = true
+				mtlsByPort[p] = true
 			}
 			serverFirstByPort := map[int]bool{}
 			for _, p := range serverFirstPorts {
@@ -84,12 +91,13 @@ var (
 			portIndex := 0
 			for i, p := range httpPorts {
 				ports[portIndex] = &common.Port{
-					Name:          "http-" + strconv.Itoa(i),
-					Protocol:      protocol.HTTP,
-					Port:          p,
-					TLS:           tlsByPort[p],
-					ServerFirst:   serverFirstByPort[p],
-					ProxyProtocol: proxyProtocolByPort[p],
+					Name:              "http-" + strconv.Itoa(i),
+					Protocol:          protocol.HTTP,
+					Port:              p,
+					TLS:               tlsByPort[p],
+					RequireClientCert: mtlsByPort[p],
+					ServerFirst:       serverFirstByPort[p],
+					ProxyProtocol:     proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
@@ -234,6 +242,7 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&hbonePorts, "hbone", []int{}, "HBONE ports")
 	rootCmd.PersistentFlags().IntSliceVar(&doubleHbonePorts, "double-hbone", []int{}, "Double HBONE ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tlsPorts, "tls", []int{}, "Ports that are using TLS. These must be defined as http/grpc/tcp.")
+	rootCmd.PersistentFlags().IntSliceVar(&mtlsPorts, "mtls", []int{}, "Ports that are using mTLS. These must be defined as http.")
 	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&localhostIPPorts, "bind-localhost", []int{}, "Ports that are bound to localhost rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&serverFirstPorts, "server-first", []int{}, "Ports that are server first. These must be defined as tcp.")
