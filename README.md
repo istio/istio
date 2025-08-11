@@ -15,10 +15,7 @@ The Istio components running on Windows are only two: ztunnel and the CNI plugin
 
 ## Building the Experimental Windows Support
 
-In order to use this experimental branch you have two options:
-
-1. You can build the necessary container images for the Istio installation, which includes `istiod`, ztunnel, the CNI plugin and others and host those images yourself. This is useful when you're a developer trying to contribute to the experimental branch. After you have those images pushed to a container registry of your choice, you can build `istioctl` and run `istioctl install` with the necessary parameters (more details on the following sections).
-2. You can use prebuilt images, which is the easiest route if you just want to try the experimental support. All that is needed is building `istioctl` and running `istioctl install` with the necessary parameters (more details on the following sections).
+At the moment we don't have ready to use Windows images, so you have to build your own. Those are the images pulled by the Istio deployument, which includes, `istiod`, ztunnel, the CNI plugin and others. Once you have built those images, you'll also have to host them in a container registry of your choice. After you have those images pushed to a registry, you can build `istioctl` and run `istioctl install` with the necessary parameters (more details on the following sections).
 
 ### Dependencies
 
@@ -33,14 +30,14 @@ git clone -b experimental-windows-ambient git@github.com:istio/istio.git istio
 git clone -b experimental-windows-ambient git@github.com:istio/istio.git ztunnel
 ```
 
-The build process is pretty similiar to the production branch. The difference is a few shell variables we need set:
+The build process is pretty similiar to the one in the production branch. The difference is a few shell variables we need set:
 
 The container registry we're pushing the images to. Make sure you're authorized in Docker to push images to the registry of your choice.
 ```
-export HUB=example.cr.io
+export HUB=example.registry.io
 ```
 
-The target operating systems and architectures. We need both Linux and Windows here, as we're also building `istiod` and other components that run on Linux system nodes. If you're looking only for the Windows targets, few free to use only `windows/amd64`.
+The target operating systems and architectures. We need both Linux and Windows here, as we're also building `istiod` and other components that run on Linux system nodes. If you're looking only for the Windows targets (ztunnel and CNI plugin), few free to use only `windows/amd64`.
 ```
 export DOCKER_ARCHITECTURES=linux/amd64,windows/amd64
 ```
@@ -48,7 +45,7 @@ export DOCKER_ARCHITECTURES=linux/amd64,windows/amd64
 Some extra mount parameters used by the container hosting the build. That makes sure the ztunnel repository is available inside the host container.
 ```
 export CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=/home/gustavomeira/repos/ztunnel,destination=/ztunnel"
-BUILD_ZTUNNEL_REPO=/ztunnel
+export BUILD_ZTUNNEL_REPO=/ztunnel
 ```
 
 Then run:
@@ -56,7 +53,7 @@ Then run:
 make docker.push
 ```
 
-If everything goes well, the images should now be available in your container registry. They can now be used by the Istio deployment.
+If everything goes well, the images should now be available in your container registry. They can now be used by the Istio deployment. Otherwise, please open an issue in this GitHub repository, we're eager to get things going.
 
 ### Building `istioctl`
 
