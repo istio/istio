@@ -110,6 +110,9 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 			},
 			MinVersion: tls.VersionTLS12,
 		}
+		if s.Port.RequireClientCert {
+			config.ClientAuth = tls.RequireAndVerifyClientCert
+		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)
 		// Store the actual listening port back to the argument.
@@ -344,6 +347,11 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 		// not supported by the server (ie one of h2,http/1.1,http/1.0)
 		echo.AlpnField.WriteNonEmpty(body, r.TLS.NegotiatedProtocol)
 		echo.SNIField.WriteNonEmpty(body, r.TLS.ServerName)
+		// If the client cert is present, write the subject to the response
+		if len(r.TLS.PeerCertificates) > 0 {
+			echo.ClientCertSubjectField.WriteNonEmpty(body, r.TLS.PeerCertificates[0].Subject.String())
+			echo.ClientCertSerialNumberField.WriteNonEmpty(body, r.TLS.PeerCertificates[0].SerialNumber.String())
+		}
 	}
 
 	if conn := GetConn(r); conn != nil {
