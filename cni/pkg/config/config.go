@@ -19,6 +19,24 @@ import (
 	"strings"
 )
 
+// These constants are shared between iptables and nftables implementations
+const (
+	// INPOD marks/masks
+	InpodTProxyMark   = 0x111
+	InpodTProxyMask   = 0xfff
+	InpodMark         = 1337 // this needs to match the inpod config mark in ztunnel.
+	InpodMask         = 0xfff
+	InpodRestoreMask  = 0xffffffff
+	RouteTableInbound = 100
+
+	// Port constants
+	DNSCapturePort              = 15053
+	ZtunnelInboundPort          = 15008
+	ZtunnelOutboundPort         = 15001
+	ZtunnelInboundPlaintextPort = 15006
+	ProbeIPSet                  = "istio-inpod-probes"
+)
+
 type Config struct {
 	InstallConfig InstallConfig
 	RepairConfig  RepairConfig

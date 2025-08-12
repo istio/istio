@@ -21,6 +21,21 @@ import (
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
+const (
+	AmbientNatTable    = "istio-ambient-nat"
+	AmbientMangleTable = "istio-ambient-mangle"
+	AmbientRawTable    = "istio-ambient-raw"
+
+	// Base chains.
+	PreroutingChain  = "prerouting"
+	PostroutingChain = "postrouting"
+	OutputChain      = "output"
+
+	// Regular chains prefixed with "istio" to distinguish them from base chains
+	IstioOutputChain     = "istio-output"
+	IstioPreroutingChain = "istio-prerouting"
+)
+
 var log = scopes.CNIAgent
 
 // NftablesConfigurator handles nftables rule management for Ambient mode
