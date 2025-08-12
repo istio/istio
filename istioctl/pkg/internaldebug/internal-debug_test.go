@@ -258,7 +258,8 @@ func TestPrintAll(t *testing.T) {
     "name": "Alice",
     "age": 30
   }
-}`,
+}
+`,
 		},
 		{
 			name: "valid JSON slice",
@@ -274,7 +275,8 @@ func TestPrintAll(t *testing.T) {
     "reading",
     "coding"
   ]
-}`,
+}
+`,
 		},
 		{
 			name: "invalid JSON string",
@@ -287,20 +289,22 @@ func TestPrintAll(t *testing.T) {
 			},
 			expected: `{
   "invalid": "invalid json data"
-}`,
+}
+`,
 		},
 		{
 			name: "empty key",
 			input: map[string]*discovery.DiscoveryResponse{
 				"": {
 					Resources: []*anypb.Any{
-						{Value: []byte(`invalid json data`)},
+						{Value: []byte(`empty key`)},
 					},
 				},
 			},
 			expected: `{
-  "": "invalid json data"
-}`,
+  "": "empty key"
+}
+`,
 		},
 		{
 			name: "empty value",
@@ -313,7 +317,22 @@ func TestPrintAll(t *testing.T) {
 			},
 			expected: `{
   "empty": {}
-}`,
+}
+`,
+		},
+		{
+			name: "the value is nil",
+			input: map[string]*discovery.DiscoveryResponse{
+				"nilValue": {
+					Resources: []*anypb.Any{
+						{Value: nil},
+					},
+				},
+			},
+			expected: `{
+  "nilValue": ""
+}
+`,
 		},
 		{
 			name: "special characters",
@@ -326,7 +345,8 @@ func TestPrintAll(t *testing.T) {
 			},
 			expected: `{
   "special": "Hello \"World\"!"
-}`,
+}
+`,
 		},
 		{
 			name: "binary data",
@@ -339,7 +359,8 @@ func TestPrintAll(t *testing.T) {
 			},
 			expected: `{
   "binary": "\u0000\u0001\u0002"
-}`,
+}
+`,
 		},
 		{
 			name: "valid nested structures",
@@ -360,10 +381,11 @@ func TestPrintAll(t *testing.T) {
       ]
     }
   }
-}`,
+}
+`,
 		},
 		{
-			name: "invalid nested structures",
+			name: "invalid nested structures, missing a \" at the end",
 			input: map[string]*discovery.DiscoveryResponse{
 				"nested": {
 					Resources: []*anypb.Any{
@@ -373,7 +395,8 @@ func TestPrintAll(t *testing.T) {
 			},
 			expected: `{
   "nested": "{\"user\": {\"name\": \"Bob\", \"tags\": [\"dev\", \"ops]}}"
-}`,
+}
+`,
 		},
 	}
 
@@ -388,22 +411,12 @@ func TestPrintAll(t *testing.T) {
 			if err := dw.PrintAll(tt.input); err != nil {
 				t.Fatalf("PrintAll() returned error: %v", err)
 			}
-
-			// normalize output (remove the final "\n")
-			got := normalizeOutput(buf.String())
+			got := buf.String()
 			if got != tt.expected {
 				t.Errorf("Output mismatch.\nWant:\n%s\nGot:\n%s", tt.expected, got)
 			}
 		})
 	}
-}
-
-// normalizeOutput remove the final "\n"
-func normalizeOutput(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	return s[:len(s)-1]
 }
 
 func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
