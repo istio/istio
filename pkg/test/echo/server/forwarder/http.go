@@ -69,11 +69,11 @@ func (c *httpProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.For
 	call := &httpCall{
 		httpProtocol: c,
 		getTransport: func() (http.RoundTripper, func(), error) {
-			base, close, err := getTransport()
+			base, c, err := getTransport()
 			if err != nil {
-				return base, close, err
+				return base, c, err
 			}
-			return otelhttp.NewTransport(base), close, err
+			return otelhttp.NewTransport(base), c, err
 		},
 	}
 
