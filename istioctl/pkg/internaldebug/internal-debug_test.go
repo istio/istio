@@ -60,7 +60,7 @@ func TestInternalDebug(t *testing.T) {
 		{ // case 0, no args
 			args:           []string{},
 			noIstiod:       true,
-			expectedOutput: "Error: debug type is required\n",
+			expectedOutput: "Error: debug type is required, you can specify --list flag to list supported debug types\n",
 			wantException:  true,
 		},
 		{ // case 1, no istiod
