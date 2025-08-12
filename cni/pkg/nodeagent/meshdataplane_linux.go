@@ -22,8 +22,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/ipset"
-	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/util/sets"
@@ -280,7 +280,7 @@ func createHostsideProbeIpset(isV6 bool) (ipset.IPSet, error) {
 	runErr := util.RunAsHost(func() error {
 		var err error
 		linDeps := ipset.RealNlDeps()
-		probeSet, err = ipset.NewIPSet(iptables.ProbeIPSet, isV6, linDeps)
+		probeSet, err = ipset.NewIPSet(config.ProbeIPSet, isV6, linDeps)
 		if err != nil {
 			return err
 		}
