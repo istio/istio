@@ -44,6 +44,7 @@ type Config struct {
 	Metrics               int
 	TLSCert               string
 	TLSKey                string
+	TLSCACert             string
 	Version               string
 	UDSServer             string
 	Cluster               string
@@ -240,6 +241,7 @@ func (s *Instance) newEndpoint(port *common.Port, listenerIP string, udsServer s
 		Cluster:       s.Cluster,
 		TLSCert:       s.TLSCert,
 		TLSKey:        s.TLSKey,
+		TLSCACert:     s.TLSCACert,
 		Dialer:        s.Dialer,
 		ListenerIP:    listenerIP,
 		DisableALPN:   s.DisableALPN,

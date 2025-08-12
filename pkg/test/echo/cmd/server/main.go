@@ -52,6 +52,7 @@ var (
 	cluster            string
 	crt                string
 	key                string
+	ca                 string
 	istioVersion       string
 	disableALPN        bool
 
@@ -65,7 +66,7 @@ var (
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
 			shutdown := NewShutdown()
-			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts)+len(doubleHbonePorts)+len(mtlsPorts))
+			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts)+len(doubleHbonePorts))
 			tlsByPort := map[int]bool{}
 			mtlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
@@ -167,6 +168,7 @@ var (
 				BindLocalhostPortsMap: localhostIPByPort,
 				TLSCert:               crt,
 				TLSKey:                key,
+				TLSCACert:             ca,
 				Version:               version,
 				Cluster:               cluster,
 				IstioVersion:          istioVersion,
@@ -252,8 +254,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")
 	rootCmd.PersistentFlags().StringVar(&version, "version", "", "Version string")
 	rootCmd.PersistentFlags().StringVar(&cluster, "cluster", "", "Cluster where this server is deployed")
-	rootCmd.PersistentFlags().StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
-	rootCmd.PersistentFlags().StringVar(&key, "key", "", "gRPC TLS server-side key")
+	rootCmd.PersistentFlags().StringVar(&crt, "crt", "", "TLS server-side certificate")
+	rootCmd.PersistentFlags().StringVar(&key, "key", "", "TLS server-side key")
+	rootCmd.PersistentFlags().StringVar(&ca, "ca", "", "TLS CA certificate")
 	rootCmd.PersistentFlags().StringVar(&istioVersion, "istio-version", "", "Istio sidecar version")
 	rootCmd.PersistentFlags().BoolVar(&disableALPN, "disable-alpn", disableALPN, "disable ALPN negotiation")
 

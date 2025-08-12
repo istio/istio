@@ -35,6 +35,7 @@ type Config struct {
 	Cluster       string
 	TLSCert       string
 	TLSKey        string
+	TLSCACert     string
 	UDSServer     string
 	Dialer        common.Dialer
 	Port          *common.Port
