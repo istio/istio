@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"math/rand"
 	"net"
@@ -94,12 +95,21 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		if cerr != nil {
 			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
+		caCert, err := os.ReadFile(s.TLSCACert)
+		if err != nil {
+			return fmt.Errorf("could not load TLS CA certificate: %v", err)
+		}
+		caCertPool := x509.NewCertPool()
+		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+			return fmt.Errorf("could not append TLS CA certificate: %v", err)
+		}
 		nextProtos := []string{"h2", "http/1.1", "http/1.0"}
 		if s.DisableALPN {
 			nextProtos = nil
 		}
 		config := &tls.Config{
 			Certificates: []tls.Certificate{cert},
+			RootCAs:      caCertPool,
 			NextProtos:   nextProtos,
 			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
 				// There isn't a way to pass through all ALPNs presented by the client down to the
@@ -173,6 +183,23 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, address string) {
 	} else if s.Port.TLS {
 		url = fmt.Sprintf("https://%s", address)
 		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // nolint: gosec // test only code
+		if s.Port.RequireClientCert {
+			clientCert, err := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
+			if err != nil {
+				epLog.Errorf("could not load TLS keys: %v", err)
+			}
+			client.Transport.(*http.Transport).TLSClientConfig.Certificates = []tls.Certificate{clientCert}
+			caCert, err := os.ReadFile(s.TLSCACert)
+			if err != nil {
+				epLog.Errorf("could not load TLS CA certificate: %v", err)
+			}
+			if client.Transport.(*http.Transport).TLSClientConfig.RootCAs == nil {
+				client.Transport.(*http.Transport).TLSClientConfig.RootCAs = x509.NewCertPool()
+			}
+			if ok := client.Transport.(*http.Transport).TLSClientConfig.RootCAs.AppendCertsFromPEM(caCert); !ok {
+				epLog.Errorf("could not append TLS CA certificate: %v", err)
+			}
+		}
 	} else {
 		url = fmt.Sprintf("http://%s", address)
 	}
