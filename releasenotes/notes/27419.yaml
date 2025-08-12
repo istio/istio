@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 27419
+releaseNotes:
+  - |
+    **Fixed** a bug that incorrectly rejects traffic policies when only `retry_budget` is set.
