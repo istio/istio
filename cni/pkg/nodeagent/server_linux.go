@@ -21,7 +21,9 @@ import (
 
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/iptables"
+	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/pkg/kube"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, error) {
@@ -53,21 +55,22 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
 	}
 
-	hostIptables, podIptables, err := iptables.NewIptablesConfigurator(
-		hostCfg,
-		podCfg,
-		realDependenciesHost(),
-		realDependenciesInpod(UseScopedIptablesLegacyLocking),
-		iptables.RealNlDeps(),
-	)
+	hostTrafficManager, podTrafficManager, err := trafficmanager.NewTrafficRuleManager(&trafficmanager.TrafficRuleManagerConfig{
+		NativeNftables: args.NativeNftables,
+		HostConfig:     hostCfg,
+		PodConfig:      podCfg,
+		HostDeps:       realDependenciesHost(),
+		PodDeps:        realDependenciesInpod(UseScopedIptablesLegacyLocking),
+		NlDeps:         iptables.RealNlDeps(),
+	})
 	if err != nil {
-		return nil, fmt.Errorf("error configuring iptables: %w", err)
+		return nil, fmt.Errorf("error creating traffic managers: %w", err)
 	}
 
 	// Create hostprobe rules now, in the host netns
-	hostIptables.DeleteHostRules()
+	hostTrafficManager.DeleteHostRules()
 
-	if err := hostIptables.CreateHostRulesForHealthChecks(); err != nil {
+	if err := hostTrafficManager.CreateHostRulesForHealthChecks(); err != nil {
 		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
 	}
 
@@ -75,12 +78,26 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 	if err != nil {
 		return nil, err
 	}
-	netServer := newNetServer(ztunnelServer, podNsMap, podIptables, podNetns)
+	netServer := newNetServer(ztunnelServer, podNsMap, podTrafficManager, podNetns)
 
 	return &meshDataplane{
 		kubeClient:         client.Kube(),
 		netServer:          netServer,
-		hostIptables:       hostIptables,
+		hostTrafficManager: hostTrafficManager,
 		hostsideProbeIPSet: set,
 	}, nil
+}
+
+func realDependenciesHost() *dep.RealDependencies {
+	return &dep.RealDependencies{
+		UsePodScopedXtablesLock: false,
+		NetworkNamespace:        "",
+	}
+}
+
+func realDependenciesInpod(useScopedLocks bool) *dep.RealDependencies {
+	return &dep.RealDependencies{
+		UsePodScopedXtablesLock: useScopedLocks,
+		NetworkNamespace:        "",
+	}
 }

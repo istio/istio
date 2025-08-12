@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
+	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -31,7 +32,7 @@ import (
 type meshDataplane struct {
 	kubeClient         kubernetes.Interface
 	netServer          MeshDataplane
-	hostIptables       *iptables.IptablesConfigurator
+	hostTrafficManager trafficmanager.TrafficRuleManager
 	hostsideProbeIPSet ipset.IPSet
 }
 
@@ -61,8 +62,8 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 	if !skipCleanup {
 		log.Info("CNI ambient server terminating, cleaning up node net rules")
 
-		log.Debug("removing host iptables rules")
-		s.hostIptables.DeleteHostRules()
+		log.Debug("removing host traffic rules")
+		s.hostTrafficManager.DeleteHostRules()
 		_ = util.RunAsHost(func() error {
 			log.Debug("destroying host ipset")
 			s.hostsideProbeIPSet.Flush()
