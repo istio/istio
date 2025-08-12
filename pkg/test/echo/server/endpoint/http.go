@@ -31,6 +31,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pires/go-proxyproto"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/net/http2"
 
 	"istio.io/istio/pkg/h2c"
@@ -75,9 +76,9 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 
 	s.server = &http.Server{
 		IdleTimeout: idleTimeout,
-		Handler: h2c.NewHandler(&httpHandler{
+		Handler: h2c.NewHandler(otelhttp.NewHandler(&httpHandler{
 			Config: s.Config,
-		}, h2s),
+		}, "echo"), h2s),
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
 			return context.WithValue(ctx, ConnContextKey, c)
 		},

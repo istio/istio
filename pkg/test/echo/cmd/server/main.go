@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server"
+	"istio.io/istio/pkg/tracing"
 )
 
 var (
@@ -63,6 +64,8 @@ var (
 		Long:              `Echo application for testing Istio E2E`,
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
+			shutdownTracing, _ := tracing.Initialize("echo-server")
+			defer shutdownTracing()
 			shutdown := NewShutdown()
 			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts)+len(doubleHbonePorts))
 			tlsByPort := map[int]bool{}

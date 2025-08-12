@@ -76,7 +76,7 @@ var rootCmd = &cobra.Command{
 		defer func() {
 			log.WithLabels("runtime", time.Since(t0)).Infof("build complete")
 		}()
-		ctx, shutdown, err := tracing.InitializeFullBinary("docker-builder")
+		ctx, shutdown, err := tracing.InitializeFullBinary("docker-builder", "docker-builder")
 		if err != nil {
 			return err
 		}

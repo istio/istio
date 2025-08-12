@@ -30,6 +30,7 @@ import (
 
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/net/http2"
 
 	"istio.io/istio/pkg/hbone"
@@ -67,7 +68,13 @@ func (c *httpProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.For
 
 	call := &httpCall{
 		httpProtocol: c,
-		getTransport: getTransport,
+		getTransport: func() (http.RoundTripper, func(), error) {
+			base, close, err := getTransport()
+			if err != nil {
+				return base, close, err
+			}
+			return otelhttp.NewTransport(base), close, err
+		},
 	}
 
 	return doForward(ctx, cfg, c.e, call.makeRequest)

@@ -32,12 +32,15 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+func Enabled() bool {
+	return os.Getenv("OTEL_TRACES_EXPORTER") == "otlp" || os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" || os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") != ""
+}
+
 // Inspired by https://github.com/moby/buildkit/blob/d9a6afdf089a7c4b97cac704a60ad70c21086f12/util/tracing/detect/otlp.go#L18
 // Most OTLP aspects are configured by Environment variables, but the actual client we use needs to be explicitly defined.
 // So we can parse the env vars ourselves and set up the correct client.
 func newExporter() (trace.SpanExporter, error) {
-	set := os.Getenv("OTEL_TRACES_EXPORTER") == "otlp" || os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" || os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") != ""
-	if !set {
+	if !Enabled() {
 		return nil, nil
 	}
 
@@ -64,11 +67,12 @@ func newExporter() (trace.SpanExporter, error) {
 }
 
 // newResource returns a resource describing this application.
-func newResource() *resource.Resource {
+func newResource(name string) *resource.Resource {
 	r, _ := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
+			semconv.ServiceNameKey.String(name),
 			// TODO: consider adding attributes here.
 			// Component, hostname, version are all possibly useful
 		),
@@ -85,16 +89,25 @@ func tracer() traceapi.Tracer {
 	return otel.Tracer(instrumentationScope)
 }
 
+func newPropagator() propagation.TextMapPropagator {
+	return propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	)
+}
+
 // Initialize starts the tracing provider. This must be called before any traces are created or traces will be discarded.
 // Returned is a shutdown function that should be called to ensure graceful shutdown.
-func Initialize() (func(), error) {
+func Initialize(name string) (func(), error) {
 	exp, err := newExporter()
 	if err != nil {
 		return nil, err
 	}
+	prop := newPropagator()
+	otel.SetTextMapPropagator(prop)
 	tp := trace.NewTracerProvider(
 		trace.WithBatcher(exp),
-		trace.WithResource(newResource()),
+		trace.WithResource(newResource(name)),
 	)
 	otel.SetTracerProvider(tp)
 	return func() {
@@ -106,8 +119,8 @@ func Initialize() (func(), error) {
 
 // InitializeFullBinary is a specialized variant of Initialize for uses with binaries who are tracing their entire execution
 // as a single trace span. Not for use with long running services.
-func InitializeFullBinary(rootSpan string) (context.Context, func(), error) {
-	shutdown, err := Initialize()
+func InitializeFullBinary(name string, rootSpan string) (context.Context, func(), error) {
+	shutdown, err := Initialize(name)
 	if err != nil {
 		return nil, nil, err
 	}
