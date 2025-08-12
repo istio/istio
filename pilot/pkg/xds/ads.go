@@ -173,7 +173,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but proxy's SidecarScope has been updated(s.computeProxyState -> SetSidecarScope) due to optimizations that skip sidecar scope
 	// computation.
-	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
+	if len(con.proxy.ServiceTargets) == 0 || (con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion) {
 		s.computeProxyState(con.proxy, request)
 	}
 	return s.pushXds(con, con.proxy.GetWatchedResource(req.TypeUrl), request)
