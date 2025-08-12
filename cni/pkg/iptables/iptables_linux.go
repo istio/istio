@@ -24,6 +24,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	cniconfig "istio.io/istio/cni/pkg/config"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/common/config"
 )
@@ -57,9 +58,9 @@ func forEachInpodMarkIPRule(cfg *IptablesConfig, f func(*netlink.Rule) error) er
 		// TODO largely identical/copied from tools/istio-iptables/pkg/capture/run_linux.go
 		inpodMarkRule := netlink.NewRule()
 		inpodMarkRule.Family = family
-		inpodMarkRule.Table = RouteTableInbound
-		inpodMarkRule.Mark = InpodTProxyMark
-		inpodMarkRule.Mask = ptr.Of(uint32(InpodTProxyMask))
+		inpodMarkRule.Table = cniconfig.RouteTableInbound
+		inpodMarkRule.Mark = cniconfig.InpodTProxyMark
+		inpodMarkRule.Mask = ptr.Of(uint32(cniconfig.InpodTProxyMask))
 		inpodMarkRule.Priority = 32764
 		rules = append(rules, inpodMarkRule)
 	}
@@ -127,7 +128,7 @@ func forEachLoopbackRoute(cfg *IptablesConfig, operation string, f func(*netlink
 				Dst:       localhostDst,
 				Scope:     netlink.SCOPE_HOST,
 				Type:      unix.RTN_LOCAL,
-				Table:     RouteTableInbound,
+				Table:     cniconfig.RouteTableInbound,
 				LinkIndex: loopbackLink.Attrs().Index,
 			},
 		}
