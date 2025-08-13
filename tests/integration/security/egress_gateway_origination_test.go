@@ -100,14 +100,14 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			}
 
 			newTLSGateway(t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
-				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel)
+				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel, "443")
 
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					newTLSGatewayDestinationRule(t, apps.External.All, "SIMPLE", tc.credentialToUse)
+					newTLSGatewayDestinationRule(t, apps.External.All, "SIMPLE", tc.credentialToUse, "443")
 					newTLSGatewayTest(t).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callOpt := newTLSGatewayCallOpts(to, host, tc.statusCode, tc.useGateway)
+							callOpt := newTLSGatewayCallOpts(to, host, tc.statusCode, tc.useGateway, false)
 							from.CallOrFail(t, callOpt)
 						})
 				})
@@ -243,13 +243,13 @@ func TestMutualTlsOrigination(t *testing.T) {
 			}
 
 			newTLSGateway(t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
-				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel)
+				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel, "4443")
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					newTLSGatewayDestinationRule(t, apps.External.All, "MUTUAL", tc.credentialToUse)
+					newTLSGatewayDestinationRule(t, apps.External.All, "MUTUAL", tc.credentialToUse, "4443")
 					newTLSGatewayTest(t).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callOpt := newTLSGatewayCallOpts(to, host, tc.statusCode, tc.useGateway)
+							callOpt := newTLSGatewayCallOpts(to, host, tc.statusCode, tc.useGateway, true)
 							from.CallOrFail(t, callOpt)
 						})
 				})
@@ -262,8 +262,9 @@ func TestMutualTlsOrigination(t *testing.T) {
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
 func newTLSGateway(t framework.TestContext, clientNamespace namespace.Instance,
 	to echo.Instances, egressNs string, egressSvc string, egressLabel string,
+	destinationPort string,
 ) {
-	args := map[string]any{"to": to, "EgressNamespace": egressNs, "EgressService": egressSvc, "EgressLabel": egressLabel}
+	args := map[string]any{"to": to, "EgressNamespace": egressNs, "EgressService": egressSvc, "EgressLabel": egressLabel, "DestinationPort": destinationPort}
 
 	gateway := `
 apiVersion: networking.istio.io/v1
@@ -330,7 +331,7 @@ spec:
         - destination:
             host: {{ .to.Config.ClusterLocalFQDN }}
             port:
-              number: 443
+              number: {{.DestinationPort}}
           weight: 100
       headers:
         request:
@@ -340,11 +341,12 @@ spec:
 	t.ConfigIstio().Eval(clientNamespace.Name(), args, gateway, vs).ApplyOrFail(t)
 }
 
-func newTLSGatewayDestinationRule(t framework.TestContext, to echo.Instances, destinationRuleMode string, credentialName string) {
+func newTLSGatewayDestinationRule(t framework.TestContext, to echo.Instances, destinationRuleMode string, credentialName string, portNumber string) {
 	args := map[string]any{
 		"to":             to,
 		"Mode":           destinationRuleMode,
 		"CredentialName": credentialName,
+		"PortNumber":     portNumber,
 	}
 
 	// Get namespace for gateway pod.
@@ -361,7 +363,7 @@ spec:
   trafficPolicy:
     portLevelSettings:
       - port:
-          number: 443
+          number: {{.PortNumber}}
         tls:
           mode: {{.Mode}}
           credentialName: {{.CredentialName}}
@@ -372,7 +374,7 @@ spec:
 		ApplyOrFail(t)
 }
 
-func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int, useGateway bool) echo.CallOptions {
+func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int, useGateway bool, useMTLS bool) echo.CallOptions {
 	return echo.CallOptions{
 		To: to,
 		Port: echo.Port{
@@ -386,6 +388,10 @@ func newTLSGatewayCallOpts(to echo.Target, host string, statusCode int, useGatew
 			check.Each(func(r echoClient.Response) error {
 				if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; useGateway && !f {
 					return fmt.Errorf("expected to be handled by gateway. response: %s", r)
+				}
+				// When using MTLS, assert that the client cert subject is the one we expect for a successful request.
+				if useMTLS && statusCode == http.StatusOK && r.ClientCertSubject != "CN=server.default.svc.cluster.local" {
+					return fmt.Errorf("expected client cert subject to be CN=server.default.svc.cluster.local, got %s", r.ClientCertSubject)
 				}
 				return nil
 			})),
