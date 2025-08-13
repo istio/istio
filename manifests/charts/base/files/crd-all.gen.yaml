@@ -6242,7 +6242,7 @@ spec:
                       description: |-
                         Specifies where in the Envoy configuration, the patch should be applied.
 
-                        Valid Options: LISTENER, FILTER_CHAIN, NETWORK_FILTER, HTTP_FILTER, ROUTE_CONFIGURATION, VIRTUAL_HOST, HTTP_ROUTE, CLUSTER, EXTENSION_CONFIG, BOOTSTRAP, LISTENER_FILTER
+                        Valid Options: LISTENER, FILTER_CHAIN, NETWORK_FILTER, HTTP_FILTER, ROUTE_CONFIGURATION, VIRTUAL_HOST, HTTP_ROUTE, CLUSTER, EXTENSION_CONFIG, BOOTSTRAP, LISTENER_FILTER, UPSTREAM_HTTP_FILTER
                       enum:
                       - INVALID
                       - LISTENER
@@ -6256,6 +6256,7 @@ spec:
                       - EXTENSION_CONFIG
                       - BOOTSTRAP
                       - LISTENER_FILTER
+                      - UPSTREAM_HTTP_FILTER
                       type: string
                     match:
                       description: Match on listener/route configuration/cluster.
@@ -6278,6 +6279,14 @@ spec:
                         cluster:
                           description: Match on envoy cluster attributes.
                           properties:
+                            filter:
+                              description: The name of a specific filter to apply
+                                the patch to.
+                              properties:
+                                name:
+                                  description: The filter name to match on.
+                                  type: string
+                              type: object
                             name:
                               description: The exact name of the cluster to match.
                               type: string
