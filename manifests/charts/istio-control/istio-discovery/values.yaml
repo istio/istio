@@ -359,6 +359,8 @@ _internal_defaults_do_not_set:
 
       #If set to true, istio-proxy container will have privileged securityContext
       privileged: false
+      
+      seccompProfile: {}
 
       # The number of successive failed probes before indicating readiness failure.
       readinessFailureThreshold: 4
