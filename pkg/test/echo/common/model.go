@@ -54,6 +54,9 @@ type Port struct {
 	// TLS determines if the port will use TLS.
 	TLS bool
 
+	// RequireClientCert determines if the port will be mTLS.
+	RequireClientCert bool
+
 	// ServerFirst if a port will be server first
 	ServerFirst bool
 
