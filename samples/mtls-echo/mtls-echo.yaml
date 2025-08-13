@@ -9,7 +9,8 @@ spec:
     app: mtls-echo
   type: ClusterIP
   ports:
-  - name: mtls
+  - name: https
+    protocol: TCP
     port: 8443
     targetPort: 8443
 ---
