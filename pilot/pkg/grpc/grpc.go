@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func ServerOptions(options *istiokeepalive.Options, statHandler func(int64), interceptors ...grpc.UnaryServerInterceptor) []grpc.ServerOption {
+func ServerOptions(options *istiokeepalive.Options, handleNewMaxMessageSize func(int64), interceptors ...grpc.UnaryServerInterceptor) []grpc.ServerOption {
 	maxStreams := features.MaxConcurrentStreams
 	maxRecvMsgSize := features.MaxRecvMsgSize
 
@@ -47,7 +47,7 @@ func ServerOptions(options *istiokeepalive.Options, statHandler func(int64), int
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime: options.Time / 2,
 		}),
-		grpc.StatsHandler(StatsHandler(statHandler)),
+		grpc.StatsHandler(statsHandler(handleNewMaxMessageSize)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:                  options.Time,
 			Timeout:               options.Timeout,
@@ -59,7 +59,7 @@ func ServerOptions(options *istiokeepalive.Options, statHandler func(int64), int
 	return grpcOptions
 }
 
-func StatsHandler(callback func(int64)) stats.Handler {
+func statsHandler(callback func(int64)) stats.Handler {
 	return grpcStatsHandler{max: atomic.NewInt64(0), callback: callback}
 }
 
