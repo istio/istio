@@ -1,0 +1,29 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: security
+
+issue:
+  - https://github.com/istio/istio/issues/57004
+
+releaseNotes: |
+  Added support for configuring `seccompProfile` in the `istio-validation` and `istio-proxy` containers within the sidecar injection template. Users can now set the `seccompProfile.type` to `RuntimeDefault` for enhanced security compliance.
+
+upgradeNotes:
+  - title: Enabling seccompProfile for Sidecar Containers
+    content: |
+      To enable the `RuntimeDefault` seccomp profile for `istio-validation` and `istio-proxy` containers, set the following in your Istio configuration:
+      ```yaml
+      global:
+        proxy:
+          seccompProfile:
+            type: RuntimeDefault
+      ```
+      This change allows for better security practices by using the default seccomp profile provided by the container runtime.
+
+docs:
+  - https://istio.io/latest/docs/setup/additional-setup/security/
+
+securityNotes: |
+  The addition of `seccompProfile` support enhances the security posture of Istio by allowing users to leverage the `RuntimeDefault` profile, which restricts the system calls available to the containers, reducing the attack surface.
