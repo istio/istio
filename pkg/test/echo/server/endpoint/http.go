@@ -101,7 +101,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		}
 		caCertPool := x509.NewCertPool()
 		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
-			return fmt.Errorf("could not append TLS CA certificate: %v", err)
+			return fmt.Errorf("could not append TLS CA certificate")
 		}
 		nextProtos := []string{"h2", "http/1.1", "http/1.0"}
 		if s.DisableALPN {
@@ -109,7 +109,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		}
 		config := &tls.Config{
 			Certificates: []tls.Certificate{cert},
-			RootCAs:      caCertPool,
+			ClientCAs:    caCertPool,
 			NextProtos:   nextProtos,
 			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
 				// There isn't a way to pass through all ALPNs presented by the client down to the
