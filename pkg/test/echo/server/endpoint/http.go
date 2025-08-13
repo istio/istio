@@ -124,6 +124,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 			config.ClientAuth = tls.RequireAndVerifyClientCert
 		}
 		// Listen on the given port and update the port if it changed from what was passed in.
+		//nolint:ineffassign,staticcheck // not true, we check all branches for error conditions below
 		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)
 		// Store the actual listening port back to the argument.
 		s.Port.Port = port
@@ -134,6 +135,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		s.Port.Port = port
 	}
 
+	// check error for all branches here!
 	if err != nil {
 		return err
 	}
