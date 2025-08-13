@@ -1051,7 +1051,8 @@ func validateTrafficPolicy(configNamespace string, policy *networking.TrafficPol
 		return Validation{}
 	}
 	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
-		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil && policy.Tunnel == nil && policy.ProxyProtocol == nil {
+		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil && policy.Tunnel == nil && policy.ProxyProtocol == nil &&
+		policy.RetryBudget == nil {
 		return WrapError(fmt.Errorf("traffic policy must have at least one field"))
 	}
 
