@@ -18,9 +18,12 @@
 package cni
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
@@ -64,6 +67,11 @@ type EchoDeployments struct {
 	All echo.Instances
 }
 
+const (
+	Captured   = "captured"
+	Uncaptured = "uncaptured"
+)
+
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
@@ -98,11 +106,6 @@ values:
 		}).
 		Run()
 }
-
-const (
-	Captured   = "captured"
-	Uncaptured = "uncaptured"
-)
 
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
@@ -207,6 +210,66 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 
 			// put it back
 			util.DeployCNIDaemonset(t, c, origDS)
+		})
+}
+
+func TestCNIRestartsWithMissingKubeConfig(t *testing.T) {
+	framework.NewTest(t).
+		TopLevel().
+		Run(func(t framework.TestContext) {
+			if !t.Settings().IstioOwnedCNIConfig {
+				t.Skip("CNI kubeconfig removal is only tested when Istio owns the CNI config.")
+			}
+			c := t.Clusters().Default()
+
+			// TODO this is really not very nice - we are mutating cluster state here
+			// with other tests which means other tests can break us and we don't have isolation,
+			// so we have to be more paranoid.
+			//
+			// I don't think we have a good way to solve this ATM so doing stuff like this is as
+			// good as it gets, short of creating an entirely new suite for every possibly-cluster-destructive op.
+			retry.UntilSuccessOrFail(t, func() error {
+				ensureCNIDS := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
+				if ensureCNIDS.Status.NumberReady == ensureCNIDS.Status.DesiredNumberScheduled {
+					return nil
+				}
+				return fmt.Errorf("still waiting for CNI pods to become ready before starting")
+			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+
+			// We are manually deleting var/run/istio-cni/istio-cni-kubeconfig to simulate the file being removed on
+			// a node restart, or some other event that would cause the file to be missing.
+			nodeC := t.Clusters().Default().
+				Kube().CoreV1().Nodes()
+			nodes, err := nodeC.List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				t.Fatalf("failed to list cluster nodes: %v", err)
+			}
+			// Delete the kubeconfig file on each node and verify it is deleted
+			for _, node := range nodes.Items {
+				deleteKubeConfigOnHostCmd := fmt.Sprintf("kubectl debug node/%s -n %s --image=busybox -- chroot /host rm"+
+					" -f /var/run/istio-cni/istio-cni-kubeconfig && ! test -f /var/run/istio-cni/istio-cni-kubeconfig",
+					node.Name, i.Settings().SystemNamespace)
+				t.Log("Removing istio-cni-kubeconfig from node", node.Name)
+				if _, err := shell.Execute(true, deleteKubeConfigOnHostCmd); err != nil {
+					t.Fatalf("failed to delete istio-cni-kubeconfig from node %v: %v", node.Name, err)
+				}
+			}
+
+			// Restart the CNI daemonsets
+			restartDSPodsCmd := fmt.Sprintf("kubectl delete pods -l k8s-app=istio-cni-node -n %s", i.Settings().SystemNamespace)
+			if _, err := shell.Execute(true, restartDSPodsCmd); err != nil {
+				t.Fatalf("failed to restart daemonset %v", err)
+			}
+
+			// Check the CNI pods restarted successfully
+			retry.UntilSuccessOrFail(t, func() error {
+				fixedCNIDaemonSet := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
+				t.Log("Checking missing kubeconfig didn't block CNI Pod")
+				if fixedCNIDaemonSet.Status.NumberReady == fixedCNIDaemonSet.Status.DesiredNumberScheduled {
+					return nil
+				}
+				return fmt.Errorf("still waiting for CNI pods to heal")
+			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 		})
 }
 
