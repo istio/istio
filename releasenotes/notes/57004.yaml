@@ -8,7 +8,8 @@ issue:
   - https://github.com/istio/istio/issues/57004
 
 releaseNotes: 
-  - Added support for configuring `seccompProfile` in the `istio-validation` and `istio-proxy` containers within the sidecar injection template. Users can now set the `seccompProfile.type` to `RuntimeDefault` for enhanced security compliance.
+  - |
+    **Added** support for configuring `seccompProfile` in the `istio-validation` and `istio-proxy` containers within the sidecar injection template. Users can now set the `seccompProfile.type` to `RuntimeDefault` for enhanced security compliance.
 
 upgradeNotes:
   - title: Enabling seccompProfile for Sidecar Containers
