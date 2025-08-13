@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** new envoy filter type "UPSTREAM_HTTP_FILTER" that allows users to add HTTP filters to upstream HTTP clusters.
