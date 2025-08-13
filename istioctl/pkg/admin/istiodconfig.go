@@ -439,7 +439,7 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 	outputFormat := "short"
 
 	logCmd := &cobra.Command{
-		Use:   "log [<pod-name>]|[-r|--revision] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[--reset]|[--output|-o short|json|yaml]",
+		Use:   "log [<pod-name>]|[-r|--revision] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[--reset|--log-reset|--stack-trace-reset]|[--output|-o short|json|yaml]", // nolint: lll
 		Short: "Manage istiod logging.",
 		Long:  "Retrieve or update logging levels of istiod components.",
 		Example: `  # Retrieve information about istiod logging levels.
@@ -448,14 +448,20 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
   # Retrieve information about istiod logging levels on a specific control plane pod.
   istioctl admin l istiod-5c868d8bdd-pmvgg
 
-  # Update levels of the specified loggers.
-  istioctl admin log --level ads:debug,authorization:debug
+  # Update levels of the specified loggers and stack trace.
+  istioctl admin log --level ads:debug,authorization:debug --stack-trace-level ads:debug,adsc:debug
 
   # Retrieve information about istiod logging levels for a specified revision.
   istioctl admin log --revision v1
 
   # Reset levels of all the loggers to default value (info).
-  istioctl admin log --reset
+  istioctl admin log --log-reset
+
+  # Reset all stack stace levels to default value. (none)
+  istioctl admin log --stack-trace-reset
+
+  # Reset levels of all the loggers and stack stace to default value.
+  istioctl admin log --log-reset
 `,
 		Aliases: []string{"l"},
 		Args: func(logCmd *cobra.Command, args []string) error {

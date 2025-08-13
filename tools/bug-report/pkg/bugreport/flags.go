@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/kube"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/slices"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
@@ -53,7 +53,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false,
 		"Only log commands that would be run, don't fetch or write.")
 
-	cmd.PersistentFlags().IntVar(&args.ProxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort,
+	cmd.PersistentFlags().IntVar(&args.ProxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort,
 		"Envoy proxy admin port")
 
 	// full secrets

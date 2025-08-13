@@ -666,13 +666,19 @@ func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.Ser
 	// hot path for east west gateway updates/configuration.
 	for _, svc := range a.services.List() {
 		workloads := a.workloads.ByServiceKey.Lookup(svc.ResourceName())
-		// All workloads for a service should belong in the same network
-		// Don't add a service if it is in a different network
-		if len(workloads) != 0 && workloads[0].Workload.Network != key.Network {
-			log.Debugf("Skipping service %s/%s in network %s, as it is not in the network %s"+
-				" of the network gateway", svc.Service.Namespace, svc.Service.Name, key.Network)
+		localWorkloads := false
+		for _, wl := range workloads {
+			if wl.Workload.Network == key.Network {
+				localWorkloads = true
+				break
+			}
+		}
+		if !localWorkloads {
+			log.Debugf("Skipping service %s/%s in network %s, as it has no local workloads in the network %s",
+				svc.Service.Namespace, svc.Service.Name, key.Network, key.Network)
 			continue
 		}
+
 		if svc.Scope != model.Global {
 			// Check if the service is a waypoint. If the service is not a waypoint
 			// or it's a waypoint containing no services then the Lookup will return

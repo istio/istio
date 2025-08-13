@@ -47,6 +47,9 @@ const (
 // this is to prevent it being intercepted to envoy inbound listener.
 const OutboundMark = "1338"
 
+// A counter statement helps us in tracking the number of packets that match the rule.
+const Counter = "counter"
+
 // DNS ports
 const (
 	IstioAgentDNSListenerPort = "15053"

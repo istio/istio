@@ -16,6 +16,8 @@ package cache
 
 import (
 	"bytes"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -369,6 +371,60 @@ func TestKeyCertificateExist(t *testing.T) {
 	}
 }
 
+func TestSomeInvalidCerts(t *testing.T) {
+	// Tests that we can properly parse root certs and handle the case where some of the certs are not valid.
+	testCases := map[string]struct {
+		certPath   string
+		validCerts int
+		err        *string
+	}{
+		"negative serial": {
+			certPath:   "./testdata/root-ca-bundle-with-graceful-failures.pem",
+			validCerts: 3,
+		},
+		"empty file": {
+			certPath:   "./testdata/emptyfile.pem",
+			validCerts: 0,
+		},
+		"invalid pem": {
+			certPath:   "./testdata/invalidpem.pem",
+			validCerts: 1,
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			sc := createCache(t, nil, func(string) {}, security.Options{})
+			si, err := sc.generateRootCertFromExistingFile(tc.certPath, "dummy", false)
+			if tc.validCerts == 0 {
+				if si != nil || err == nil {
+					t.Fatalf("Expected no valid certs, but got %v and error %v", si, err)
+				}
+				return
+			}
+			if si == nil {
+				t.Fatalf("Expected valid secret item, but got nil for file %s", tc.certPath)
+			}
+			rootCertDer := make([]byte, 0, len(si.RootCert))
+			rest := si.RootCert
+			var cert *pem.Block
+			for {
+				cert, rest = pem.Decode(rest)
+				if cert == nil {
+					break
+				}
+				rootCertDer = append(rootCertDer, cert.Bytes...)
+			}
+			certs, err := x509.ParseCertificates(rootCertDer)
+			if err != nil {
+				t.Fatalf("Error parsing valid root certs from file %s: %v", tc.certPath, err)
+			}
+			if len(certs) != tc.validCerts {
+				t.Fatalf("Expected %d valid certs, got %d", tc.validCerts, len(certs))
+			}
+		})
+	}
+}
+
 func setupTestDir(t *testing.T, sc *SecretManagerClient) {
 	dir := t.TempDir()
 
@@ -565,17 +621,21 @@ func verifySecret(t *testing.T, gotSecret *security.SecretItem, expectedSecret *
 	}
 	cfg, ok := security.SdsCertificateConfigFromResourceName(expectedSecret.ResourceName)
 	if expectedSecret.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
-		if !bytes.Equal(expectedSecret.RootCert, gotSecret.RootCert) {
-			t.Fatalf("root cert: expected %v but got %v", expectedSecret.RootCert,
-				gotSecret.RootCert)
+		expectedRootCert := bytes.TrimSpace(expectedSecret.RootCert)
+		gotRootCert := bytes.TrimSpace(gotSecret.RootCert)
+		if !bytes.Equal(expectedRootCert, gotRootCert) {
+			t.Fatalf("root cert: expected %v but got %v", expectedRootCert, gotRootCert)
 		}
 	} else {
-		if !bytes.Equal(expectedSecret.CertificateChain, gotSecret.CertificateChain) {
-			t.Fatalf("cert chain: expected %s but got %s", string(expectedSecret.CertificateChain),
-				string(gotSecret.CertificateChain))
+		expectedCertChain := bytes.TrimSpace(expectedSecret.CertificateChain)
+		gotCertChain := bytes.TrimSpace(gotSecret.CertificateChain)
+		if !bytes.Equal(expectedCertChain, gotCertChain) {
+			t.Fatalf("cert chain: expected %s but got %s", string(expectedCertChain), string(gotCertChain))
 		}
-		if !bytes.Equal(expectedSecret.PrivateKey, gotSecret.PrivateKey) {
-			t.Fatalf("private key: expected %s but got %s", string(expectedSecret.PrivateKey), string(gotSecret.PrivateKey))
+		expectedPrivateKey := bytes.TrimSpace(expectedSecret.PrivateKey)
+		gotPrivateKey := bytes.TrimSpace(gotSecret.PrivateKey)
+		if !bytes.Equal(expectedPrivateKey, gotPrivateKey) {
+			t.Fatalf("private key: expected %s but got %s", string(expectedPrivateKey), string(gotPrivateKey))
 		}
 	}
 	if !expectedSecret.ExpireTime.IsZero() && expectedSecret.ExpireTime != gotSecret.ExpireTime {

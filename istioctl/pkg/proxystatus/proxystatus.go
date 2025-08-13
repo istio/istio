@@ -27,11 +27,11 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/istioctl/pkg/multixds"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -185,7 +185,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 	statusCmd.PersistentFlags().StringVar(&configDumpFile, "file", "",
 		"Envoy config dump JSON file")
-	statusCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", kube.DefaultProxyAdminPort, "Envoy proxy admin port")
+	statusCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	statusCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table",
 		"Output format: table or json")

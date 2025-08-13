@@ -848,6 +848,7 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 		expectedCertCount      int
 		expectedValidation     bool
 		expectedValidationType string
+		expectedCaCert         string
 		push                   *model.PushContext
 	}{
 		{
@@ -888,6 +889,45 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 		},
 		{
+			name: "CA certificates with credential name",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CredentialName: "rsa-cert",
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      1,
+			expectedValidation:     true,
+			expectedValidationType: "CombinedValidationContext",
+			expectedCaCert:         "kubernetes://rsa-cert-cacert",
+		},
+		{
+			name: "CA certificates with credential names",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialName:  "ecdsa-cert",
+				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      2,
+			expectedValidation:     true,
+			expectedValidationType: "CombinedValidationContext",
+			expectedCaCert:         "kubernetes://rsa-cert-cacert",
+		},
+		{
+			name: "CA certificates with CA cert credential name",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:                 networking.ServerTLSSettings_MUTUAL,
+				CredentialName:       "ecdsa-cert",
+				CredentialNames:      []string{"rsa-cert", "ecdsa-cert"},
+				CaCertCredentialName: "cacert",
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      2,
+			expectedValidation:     true,
+			expectedValidationType: "CombinedValidationContext",
+			expectedCaCert:         "kubernetes://cacert",
+		},
+		{
 			name: "credential name with socket",
 			tlsOpts: &networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,
@@ -924,6 +964,10 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 					}
 					if combinedCtx.CombinedValidationContext == nil {
 						t.Error("expected CombinedValidationContext to be set")
+					}
+					caCert := combinedCtx.CombinedValidationContext.ValidationContextSdsSecretConfig.Name
+					if tt.expectedCaCert != "" && tt.expectedCaCert != caCert {
+						t.Errorf("expected CA cert %s, got %s", tt.expectedCaCert, caCert)
 					}
 				case "ValidationContext":
 					validationCtx, ok := tlsContext.ValidationContextType.(*auth.CommonTlsContext_ValidationContext)

@@ -264,6 +264,9 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, push),
 		}
 	}
+	if tlsOpts.CaCertCredentialName != "" {
+		caCert = tlsOpts.CaCertCredentialName
+	}
 
 	// If tls mode is MUTUAL/OPTIONAL_MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
 	// at gateway agent. Otherwise, use the static certificate validation context config.

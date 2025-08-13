@@ -20,7 +20,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
@@ -42,18 +41,17 @@ func (n Node) Equals(o Node) bool {
 }
 
 func GlobalNodesCollection(
-	nodes krt.Collection[krt.Collection[config.ObjectWithCluster[*v1.Node]]],
-	stop <-chan struct{},
+	nodes krt.Collection[krt.Collection[krt.ObjectWithCluster[*v1.Node]]],
 	opts ...krt.CollectionOption,
-) krt.Collection[krt.Collection[config.ObjectWithCluster[Node]]] {
+) krt.Collection[krt.Collection[krt.ObjectWithCluster[Node]]] {
 	return krt.NewCollection(
 		nodes,
-		func(ctx krt.HandlerContext, col krt.Collection[config.ObjectWithCluster[*v1.Node]]) *krt.Collection[config.ObjectWithCluster[Node]] {
+		func(ctx krt.HandlerContext, col krt.Collection[krt.ObjectWithCluster[*v1.Node]]) *krt.Collection[krt.ObjectWithCluster[Node]] {
 			clusterID := col.Metadata()[multicluster.ClusterKRTMetadataKey]
 			if clusterID == nil {
 				panic("cluster metadata is nil for Node collection")
 			}
-			nc := krt.NewCollection(col, func(ctx krt.HandlerContext, obj config.ObjectWithCluster[*v1.Node]) *config.ObjectWithCluster[Node] {
+			nc := krt.NewCollection(col, func(ctx krt.HandlerContext, obj krt.ObjectWithCluster[*v1.Node]) *krt.ObjectWithCluster[Node] {
 				k := ptr.Flatten(obj.Object)
 				if k == nil {
 					log.Warnf("Node %s is nil, skipping", obj.ClusterID)
@@ -74,7 +72,7 @@ func GlobalNodesCollection(
 					}
 				}
 
-				return &config.ObjectWithCluster[Node]{
+				return &krt.ObjectWithCluster[Node]{
 					ClusterID: obj.ClusterID,
 					Object:    node,
 				}

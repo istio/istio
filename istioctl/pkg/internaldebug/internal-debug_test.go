@@ -238,6 +238,187 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 	}
 }
 
+func TestPrintAll(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    map[string]*discovery.DiscoveryResponse
+		expected string
+	}{
+		{
+			name: "valid JSON struct",
+			input: map[string]*discovery.DiscoveryResponse{
+				"user": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`{"name": "Alice", "age": 30}`)},
+					},
+				},
+			},
+			expected: `{
+  "user": {
+    "name": "Alice",
+    "age": 30
+  }
+}
+`,
+		},
+		{
+			name: "valid JSON slice",
+			input: map[string]*discovery.DiscoveryResponse{
+				"hobbies": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`["reading", "coding"]`)},
+					},
+				},
+			},
+			expected: `{
+  "hobbies": [
+    "reading",
+    "coding"
+  ]
+}
+`,
+		},
+		{
+			name: "invalid JSON string",
+			input: map[string]*discovery.DiscoveryResponse{
+				"invalid": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`invalid json data`)},
+					},
+				},
+			},
+			expected: `{
+  "invalid": "invalid json data"
+}
+`,
+		},
+		{
+			name: "empty key",
+			input: map[string]*discovery.DiscoveryResponse{
+				"": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`empty key`)},
+					},
+				},
+			},
+			expected: `{
+  "": "empty key"
+}
+`,
+		},
+		{
+			name: "empty value",
+			input: map[string]*discovery.DiscoveryResponse{
+				"empty": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`{}`)},
+					},
+				},
+			},
+			expected: `{
+  "empty": {}
+}
+`,
+		},
+		{
+			name: "the value is nil",
+			input: map[string]*discovery.DiscoveryResponse{
+				"nilValue": {
+					Resources: []*anypb.Any{
+						{Value: nil},
+					},
+				},
+			},
+			expected: `{
+  "nilValue": ""
+}
+`,
+		},
+		{
+			name: "special characters",
+			input: map[string]*discovery.DiscoveryResponse{
+				"special": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`"Hello \"World\"!"`)},
+					},
+				},
+			},
+			expected: `{
+  "special": "Hello \"World\"!"
+}
+`,
+		},
+		{
+			name: "binary data",
+			input: map[string]*discovery.DiscoveryResponse{
+				"binary": {
+					Resources: []*anypb.Any{
+						{Value: []byte{0x00, 0x01, 0x02}},
+					},
+				},
+			},
+			expected: `{
+  "binary": "\u0000\u0001\u0002"
+}
+`,
+		},
+		{
+			name: "valid nested structures",
+			input: map[string]*discovery.DiscoveryResponse{
+				"nested": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`{"user": {"name": "Bob", "tags": ["dev", "ops"]}}`)},
+					},
+				},
+			},
+			expected: `{
+  "nested": {
+    "user": {
+      "name": "Bob",
+      "tags": [
+        "dev",
+        "ops"
+      ]
+    }
+  }
+}
+`,
+		},
+		{
+			name: "invalid nested structures, missing a \" at the end",
+			input: map[string]*discovery.DiscoveryResponse{
+				"nested": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`{"user": {"name": "Bob", "tags": ["dev", "ops]}}`)},
+					},
+				},
+			},
+			expected: `{
+  "nested": "{\"user\": {\"name\": \"Bob\", \"tags\": [\"dev\", \"ops]}}"
+}
+`,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			dw := &DebugWriter{
+				Writer:                 &buf,
+				InternalDebugAllIstiod: true,
+			}
+
+			if err := dw.PrintAll(tt.input); err != nil {
+				t.Fatalf("PrintAll() returned error: %v", err)
+			}
+			got := buf.String()
+			if got != tt.expected {
+				t.Errorf("Output mismatch.\nWant:\n%s\nGot:\n%s", tt.expected, got)
+			}
+		})
+	}
+}
+
 func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 	t.Helper()
 
