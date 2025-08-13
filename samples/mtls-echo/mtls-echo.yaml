@@ -50,8 +50,7 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
-          # image: gcr.io/istio-testing/app:latest
-          image: localhost:5000/app:istio-testing
+          image: gcr.io/istio-testing/app:latest
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 10
@@ -88,26 +87,14 @@ spec:
               port: tcp-health-port
             timeoutSeconds: 1
           volumeMounts:
-          - mountPath: /certs
-            name: certs
-            readOnly: true
-          - mountPath: /ca-certs
-            name: ca-certs
-            readOnly: true
-          # - name: certs
-          #   mountPath: /certs
-          # - name: ca
-          #   mountPath: /etc/certs/ca.crt
+          - name: certs
+            mountPath: /certs
+          - name: ca-certs
+            mountPath: /etc/certs/ca.crt
       volumes:
       - name: certs
         secret:
-          secretName: nginx-server-certs
-      - name: ca-certs
+          secretName: mtls-echo-certs
+      - name: ca
         secret:
-          secretName: nginx-ca-certs
-      # - name: certs
-      #   secret:
-      #     secretName: mtls-echo-certs
-      # - name: ca
-      #   secret:
-      #     secretName: mtls-echo-ca
+          secretName: mtls-echo-ca
