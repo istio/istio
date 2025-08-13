@@ -63,6 +63,7 @@ func (c Config) String() string {
 	b.WriteString(fmt.Sprintf("Metrics:               %v\n", c.Metrics))
 	b.WriteString(fmt.Sprintf("TLSCert:               %v\n", c.TLSCert))
 	b.WriteString(fmt.Sprintf("TLSKey:                %v\n", c.TLSKey))
+	b.WriteString(fmt.Sprintf("TLSCACert:             %v\n", c.TLSCACert))
 	b.WriteString(fmt.Sprintf("Version:               %v\n", c.Version))
 	b.WriteString(fmt.Sprintf("UDSServer:             %v\n", c.UDSServer))
 	b.WriteString(fmt.Sprintf("Cluster:               %v\n", c.Cluster))
