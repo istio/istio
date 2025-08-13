@@ -47,7 +47,7 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 		obj = &route.RouteConfiguration{}
 	case networking.EnvoyFilter_FILTER_CHAIN:
 		obj = &listener.FilterChain{}
-	case networking.EnvoyFilter_HTTP_FILTER:
+	case networking.EnvoyFilter_HTTP_FILTER, networking.EnvoyFilter_UPSTREAM_HTTP_FILTER:
 		obj = &hcm.HttpFilter{}
 	case networking.EnvoyFilter_NETWORK_FILTER:
 		obj = &listener.Filter{}
