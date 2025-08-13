@@ -25,5 +25,5 @@ upgradeNotes:
 docs:
   - https://istio.io/latest/docs/setup/additional-setup/security/
 
-securityNotes: |
-  The addition of `seccompProfile` support enhances the security posture of Istio by allowing users to leverage the `RuntimeDefault` profile, which restricts the system calls available to the containers, reducing the attack surface.
+securityNotes: 
+  - The addition of `seccompProfile` support enhances the security posture of Istio by allowing users to leverage the `RuntimeDefault` profile, which restricts the system calls available to the containers, reducing the attack surface.
