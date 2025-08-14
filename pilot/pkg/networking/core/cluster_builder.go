@@ -646,19 +646,24 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 }
 
 // setHTTP1Options make the cluster an http cluster by setting httpProtocolOptions.
-func setHTTP1Options(mc *clusterWrapper) {
+func setHTTP1Options(mc *clusterWrapper, preserveHeaderCase bool) {
 	if mc == nil {
 		return
 	}
 	if mc.httpProtocolOptions == nil {
 		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 	}
+	http1ProtocolOptions := &core.Http1ProtocolOptions{}
+	if preserveHeaderCase {
+		// Apply the stateful formatter for HTTP/1.x headers
+		http1ProtocolOptions = preserveCaseFormatterConfig
+	}
 	options := mc.httpProtocolOptions
 	if options.UpstreamHttpProtocolOptions == nil {
 		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
 			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
-					HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					HttpProtocolOptions: http1ProtocolOptions,
 				},
 			},
 		}
@@ -733,23 +738,8 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	effectiveProxyConfig := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig())
 	preserveHeaderCase := effectiveProxyConfig.GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
 
-	if isExplicitHTTP {
-		setHTTP1Options(cluster)
-	}
-
-	if (isExplicitHTTP || isAutoProtocol) && preserveHeaderCase {
-		// Apply the stateful formatter for HTTP/1.x headers
-		if cluster.httpProtocolOptions == nil {
-			cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
-		}
-		options := cluster.httpProtocolOptions
-		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
-			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
-					HttpProtocolOptions: preserveCaseFormatterConfig,
-				},
-			},
-		}
+	if isExplicitHTTP || (isAutoProtocol && preserveHeaderCase) {
+		setHTTP1Options(cluster, preserveHeaderCase)
 	}
 
 	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled. Since
