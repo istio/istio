@@ -22,18 +22,18 @@ import (
 	"istio.io/istio/cni/pkg/config"
 )
 
-func AddInpodMarkIPRule(cfg *config.IptablesConfig) error {
+func AddInpodMarkIPRule(cfg *config.AmbientConfig) error {
 	return errors.New("not implemented on this platform")
 }
 
-func DelInpodMarkIPRule(cfg *config.IptablesConfig) error {
+func DelInpodMarkIPRule(cfg *config.AmbientConfig) error {
 	return errors.New("not implemented on this platform")
 }
 
-func AddLoopbackRoutes(cfg *config.IptablesConfig) error {
+func AddLoopbackRoutes(cfg *config.AmbientConfig) error {
 	return errors.New("not implemented on this platform")
 }
 
-func DelLoopbackRoutes(cfg *config.IptablesConfig) error {
+func DelLoopbackRoutes(cfg *config.AmbientConfig) error {
 	return errors.New("not implemented on this platform")
 }

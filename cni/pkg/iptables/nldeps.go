@@ -17,10 +17,10 @@ package iptables
 import "istio.io/istio/cni/pkg/config"
 
 type NetlinkDependencies interface {
-	AddInpodMarkIPRule(cfg *config.IptablesConfig) error
-	DelInpodMarkIPRule(cfg *config.IptablesConfig) error
-	AddLoopbackRoutes(cfg *config.IptablesConfig) error
-	DelLoopbackRoutes(cfg *config.IptablesConfig) error
+	AddInpodMarkIPRule(cfg *config.AmbientConfig) error
+	DelInpodMarkIPRule(cfg *config.AmbientConfig) error
+	AddLoopbackRoutes(cfg *config.AmbientConfig) error
+	DelLoopbackRoutes(cfg *config.AmbientConfig) error
 }
 
 func RealNlDeps() NetlinkDependencies {
@@ -29,19 +29,19 @@ func RealNlDeps() NetlinkDependencies {
 
 type realDeps struct{}
 
-func (r *realDeps) AddInpodMarkIPRule(cfg *config.IptablesConfig) error {
+func (r *realDeps) AddInpodMarkIPRule(cfg *config.AmbientConfig) error {
 	return AddInpodMarkIPRule(cfg)
 }
 
-func (r *realDeps) DelInpodMarkIPRule(cfg *config.IptablesConfig) error {
+func (r *realDeps) DelInpodMarkIPRule(cfg *config.AmbientConfig) error {
 	return DelInpodMarkIPRule(cfg)
 }
 
-func (r *realDeps) AddLoopbackRoutes(cfg *config.IptablesConfig) error {
+func (r *realDeps) AddLoopbackRoutes(cfg *config.AmbientConfig) error {
 	return AddLoopbackRoutes(cfg)
 }
 
-func (r *realDeps) DelLoopbackRoutes(cfg *config.IptablesConfig) error {
+func (r *realDeps) DelLoopbackRoutes(cfg *config.AmbientConfig) error {
 	return DelLoopbackRoutes(cfg)
 }
 
@@ -51,18 +51,18 @@ func EmptyNlDeps() NetlinkDependencies {
 	return &emptyDeps{}
 }
 
-func (r *emptyDeps) AddInpodMarkIPRule(cfg *config.IptablesConfig) error {
+func (r *emptyDeps) AddInpodMarkIPRule(cfg *config.AmbientConfig) error {
 	return nil
 }
 
-func (r *emptyDeps) DelInpodMarkIPRule(cfg *config.IptablesConfig) error {
+func (r *emptyDeps) DelInpodMarkIPRule(cfg *config.AmbientConfig) error {
 	return nil
 }
 
-func (r *emptyDeps) AddLoopbackRoutes(cfg *config.IptablesConfig) error {
+func (r *emptyDeps) AddLoopbackRoutes(cfg *config.AmbientConfig) error {
 	return nil
 }
 
-func (r *emptyDeps) DelLoopbackRoutes(cfg *config.IptablesConfig) error {
+func (r *emptyDeps) DelLoopbackRoutes(cfg *config.AmbientConfig) error {
 	return nil
 }

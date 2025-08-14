@@ -50,7 +50,7 @@ func getTestFixure(ctx context.Context) netTestFixture {
 }
 
 // nolint: lll
-func getTestFixureWithIptablesConfig(ctx context.Context, fakeDeps *dependencies.DependenciesStub, hostConfig, podConfig *config.IptablesConfig) netTestFixture {
+func getTestFixureWithIptablesConfig(ctx context.Context, fakeDeps *dependencies.DependenciesStub, hostConfig, podConfig *config.AmbientConfig) netTestFixture {
 	podNsMap := newPodNetnsCache(openNsTestOverride)
 	nlDeps := &fakeIptablesDeps{}
 	_, podIptC, _ := iptables.NewIptablesConfigurator(hostConfig, podConfig, fakeDeps, fakeDeps, nlDeps)
@@ -371,7 +371,7 @@ func TestConstructInitialSnapReconcilesPodsIfIptConfiguratorSupportsReconciliati
 	defer cancel()
 	setupLogging()
 
-	podCfg := config.IptablesConfig{
+	podCfg := config.AmbientConfig{
 		Reconcile: true,
 	}
 
@@ -404,7 +404,7 @@ func TestConstructInitialSnapDoesNotReconcilePodIfIptablesReconciliationDisabled
 	defer cancel()
 	setupLogging()
 
-	podCfg := config.IptablesConfig{
+	podCfg := config.AmbientConfig{
 		Reconcile: false,
 	}
 
@@ -437,7 +437,7 @@ func TestReconcilePodReturnsErrorIfNoNetnsFound(t *testing.T) {
 	defer cancel()
 	setupLogging()
 
-	podCfg := config.IptablesConfig{
+	podCfg := config.AmbientConfig{
 		Reconcile: true,
 	}
 
@@ -469,7 +469,7 @@ func TestReconcilePodReturnsNoErrorIfPodReconciles(t *testing.T) {
 	defer cancel()
 	setupLogging()
 
-	podCfg := config.IptablesConfig{
+	podCfg := config.AmbientConfig{
 		Reconcile: true,
 	}
 

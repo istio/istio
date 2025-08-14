@@ -19,7 +19,7 @@ import (
 	"net/netip"
 	"strings"
 
-	iptablesconfig "istio.io/istio/tools/common/config"
+	cfg "istio.io/istio/tools/common/config"
 )
 
 // These constants are shared between iptables and nftables implementations
@@ -57,8 +57,8 @@ type PodLevelOverrides struct {
 	DNSProxy          PodDNSOverride
 }
 
-// IptablesConfig represents the "global"/per-instance IptablesConfig
-type IptablesConfig struct {
+// AmbientConfig represents the "global"/per-instance configuration for Ambient mode traffic management
+type AmbientConfig struct {
 	TraceLogging           bool       `json:"IPTABLES_TRACE_LOGGING"`
 	EnableIPv6             bool       `json:"ENABLE_INBOUND_IPV6"`
 	RedirectDNS            bool       `json:"REDIRECT_DNS"`
@@ -69,9 +69,9 @@ type IptablesConfig struct {
 	ForceApply             bool       `json:"FORCE_APPLY"`
 }
 
-// IpbuildConfig converts IptablesConfig to tools common config format
-func IpbuildConfig(c *IptablesConfig) *iptablesconfig.Config {
-	return &iptablesconfig.Config{
+// GetConfig converts AmbientConfig to tools common config format
+func GetConfig(c *AmbientConfig) *cfg.Config {
+	return &cfg.Config{
 		EnableIPv6:  c.EnableIPv6,
 		RedirectDNS: c.RedirectDNS,
 		Reconcile:   c.Reconcile,

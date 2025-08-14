@@ -29,14 +29,14 @@ import (
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, error) {
 	// Linux specific startup operations
-	hostCfg := &config.IptablesConfig{
+	hostCfg := &config.AmbientConfig{
 		RedirectDNS:            args.DNSCapture,
 		EnableIPv6:             args.EnableIPv6,
 		HostProbeSNATAddress:   HostProbeSNATIP,
 		HostProbeV6SNATAddress: HostProbeSNATIPV6,
 	}
 
-	podCfg := &config.IptablesConfig{
+	podCfg := &config.AmbientConfig{
 		RedirectDNS:            args.DNSCapture,
 		EnableIPv6:             args.EnableIPv6,
 		HostProbeSNATAddress:   HostProbeSNATIP,

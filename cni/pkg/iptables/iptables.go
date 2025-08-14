@@ -42,23 +42,23 @@ const (
 type IptablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps NetlinkDependencies
-	cfg    *config.IptablesConfig
+	cfg    *config.AmbientConfig
 	iptV   dep.IptablesVersion
 	ipt6V  dep.IptablesVersion
 }
 
 func NewIptablesConfigurator(
-	hostCfg *config.IptablesConfig,
-	podCfg *config.IptablesConfig,
+	hostCfg *config.AmbientConfig,
+	podCfg *config.AmbientConfig,
 	hostDeps dep.Dependencies,
 	podDeps dep.Dependencies,
 	nlDeps NetlinkDependencies,
 ) (*IptablesConfigurator, *IptablesConfigurator, error) {
 	if hostCfg == nil {
-		hostCfg = &config.IptablesConfig{}
+		hostCfg = &config.AmbientConfig{}
 	}
 	if podCfg == nil {
-		podCfg = &config.IptablesConfig{}
+		podCfg = &config.AmbientConfig{}
 	}
 
 	configurator := &IptablesConfigurator{
@@ -201,7 +201,7 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	inpodMark := fmt.Sprintf("0x%x", config.InpodMark) + "/" + fmt.Sprintf("0x%x", config.InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", config.InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", config.InpodTProxyMask)
 
-	iptablesBuilder := builder.NewIptablesRuleBuilder(config.IpbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesRuleBuilder(config.GetConfig(cfg.cfg))
 
 	// Insert jumps to our custom chains
 	// This is mostly just for visual tidiness and cleanup, as we can delete the secondary chains and jumps
@@ -609,7 +609,7 @@ func (cfg *IptablesConfigurator) DeleteHostRules() {
 }
 
 func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder {
-	iptablesBuilder := builder.NewIptablesRuleBuilder(config.IpbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesRuleBuilder(config.GetConfig(cfg.cfg))
 
 	// For easier cleanup, insert a jump into an owned chain
 	// -I POSTROUTING 1 -p tcp -j ISTIO_POSTRT

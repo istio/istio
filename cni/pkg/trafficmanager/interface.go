@@ -36,10 +36,10 @@ type TrafficRuleManagerConfig struct {
 	NativeNftables bool
 
 	// Host-level configuration
-	HostConfig *config.IptablesConfig
+	HostConfig *config.AmbientConfig
 
 	// Pod-level configuration
-	PodConfig *config.IptablesConfig
+	PodConfig *config.AmbientConfig
 
 	// Dependencies for iptables (host and pod)
 	HostDeps interface{}
