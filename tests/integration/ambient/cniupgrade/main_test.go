@@ -20,6 +20,7 @@ package cniupgrade
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
@@ -193,6 +194,12 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 
 			// Leave the DS in place, but cause all its backing pods to terminate.
 			util.ScaleCNIDaemonsetToZeroPods(t, c, i.Settings().SystemNamespace)
+
+			// In real Kubernetes clusters, Istio CNI pods may terminate and disappear
+			// from the API before the CNI plugin is actually removed from node
+			// filesystems. This can allow workloads restarted immediately after the
+			// scale-down to succeed unexpectedly, causing test failures.
+			time.Sleep(5 * time.Second)
 
 			// Rollout restart app instances in the echo namespace, and wait for a broken instance.
 			// Because the CNI daemonset was not marked for deleting when the CNI daemonset pods shut down,
