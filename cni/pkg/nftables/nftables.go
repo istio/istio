@@ -44,22 +44,22 @@ var log = scopes.CNIAgent
 type NftablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps iptables.NetlinkDependencies
-	cfg    *config.IptablesConfig
+	cfg    *config.AmbientConfig
 }
 
 // NewNftablesConfigurator creates both host and pod nftables configurators
 func NewNftablesConfigurator(
-	hostCfg *config.IptablesConfig,
-	podCfg *config.IptablesConfig,
+	hostCfg *config.AmbientConfig,
+	podCfg *config.AmbientConfig,
 	hostDeps dep.Dependencies,
 	podDeps dep.Dependencies,
 	nlDeps iptables.NetlinkDependencies,
 ) (*NftablesConfigurator, *NftablesConfigurator, error) {
 	if hostCfg == nil {
-		hostCfg = &config.IptablesConfig{}
+		hostCfg = &config.AmbientConfig{}
 	}
 	if podCfg == nil {
-		podCfg = &config.IptablesConfig{}
+		podCfg = &config.AmbientConfig{}
 	}
 
 	hostConfigurator := &NftablesConfigurator{
