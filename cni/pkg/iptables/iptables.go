@@ -17,7 +17,6 @@ package iptables
 import (
 	"errors"
 	"fmt"
-	"net/netip"
 	"strings"
 
 	"istio.io/istio/cni/pkg/config"
@@ -26,7 +25,6 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
-	iptablesconfig "istio.io/istio/tools/common/config"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablescapture "istio.io/istio/tools/istio-iptables/pkg/capture"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -41,64 +39,26 @@ const (
 	ChainHostPostrouting = "ISTIO_POSTRT"
 )
 
-// "global"/per-instance IptablesConfig
-type IptablesConfig struct {
-	TraceLogging           bool       `json:"IPTABLES_TRACE_LOGGING"`
-	EnableIPv6             bool       `json:"ENABLE_INBOUND_IPV6"`
-	RedirectDNS            bool       `json:"REDIRECT_DNS"`
-	HostProbeSNATAddress   netip.Addr `json:"HOST_PROBE_SNAT_ADDRESS"`
-	HostProbeV6SNATAddress netip.Addr `json:"HOST_PROBE_V6_SNAT_ADDRESS"`
-	Reconcile              bool       `json:"RECONCILE"`
-	CleanupOnly            bool       `json:"CLEANUP_ONLY"`
-	ForceApply             bool       `json:"FORCE_APPLY"`
-}
-
-// For inpod rules, any runtime/dynamic pod-level
-// config overrides that may need to be taken into account
-// when injecting pod rules
-type PodLevelOverrides struct {
-	VirtualInterfaces []string
-	IngressMode       bool
-	DNSProxy          PodDNSOverride
-}
-
-type PodDNSOverride int
-
-const (
-	PodDNSUnset PodDNSOverride = iota
-	PodDNSEnabled
-	PodDNSDisabled
-)
-
 type IptablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps NetlinkDependencies
-	cfg    *IptablesConfig
+	cfg    *config.IptablesConfig
 	iptV   dep.IptablesVersion
 	ipt6V  dep.IptablesVersion
 }
 
-func ipbuildConfig(c *IptablesConfig) *iptablesconfig.Config {
-	return &iptablesconfig.Config{
-		EnableIPv6:  c.EnableIPv6,
-		RedirectDNS: c.RedirectDNS,
-		Reconcile:   c.Reconcile,
-		ForceApply:  c.ForceApply,
-	}
-}
-
 func NewIptablesConfigurator(
-	hostCfg *IptablesConfig,
-	podCfg *IptablesConfig,
+	hostCfg *config.IptablesConfig,
+	podCfg *config.IptablesConfig,
 	hostDeps dep.Dependencies,
 	podDeps dep.Dependencies,
 	nlDeps NetlinkDependencies,
 ) (*IptablesConfigurator, *IptablesConfigurator, error) {
 	if hostCfg == nil {
-		hostCfg = &IptablesConfig{}
+		hostCfg = &config.IptablesConfig{}
 	}
 	if podCfg == nil {
-		podCfg = &IptablesConfig{}
+		podCfg = &config.IptablesConfig{}
 	}
 
 	configurator := &IptablesConfigurator{
@@ -205,7 +165,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides PodLevelOverrides) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
 	// Append our rules here
 	builder := cfg.AppendInpodRules(podOverrides)
 
@@ -226,22 +186,22 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverri
 	return nil
 }
 
-func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOverrides) *builder.IptablesRuleBuilder {
 	var redirectDNS bool
 
 	switch podOverrides.DNSProxy {
-	case PodDNSUnset:
+	case config.PodDNSUnset:
 		redirectDNS = cfg.cfg.RedirectDNS
-	case PodDNSEnabled:
+	case config.PodDNSEnabled:
 		redirectDNS = true
-	case PodDNSDisabled:
+	case config.PodDNSDisabled:
 		redirectDNS = false
 	}
 
 	inpodMark := fmt.Sprintf("0x%x", config.InpodMark) + "/" + fmt.Sprintf("0x%x", config.InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", config.InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", config.InpodTProxyMask)
 
-	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesRuleBuilder(config.IpbuildConfig(cfg.cfg))
 
 	// Insert jumps to our custom chains
 	// This is mostly just for visual tidiness and cleanup, as we can delete the secondary chains and jumps
@@ -649,7 +609,7 @@ func (cfg *IptablesConfigurator) DeleteHostRules() {
 }
 
 func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder {
-	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesRuleBuilder(config.IpbuildConfig(cfg.cfg))
 
 	// For easier cleanup, insert a jump into an owned chain
 	// -I POSTROUTING 1 -p tcp -j ISTIO_POSTRT

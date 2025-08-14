@@ -15,6 +15,7 @@
 package nftables
 
 import (
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/scopes"
 	istiolog "istio.io/istio/pkg/log"
@@ -39,25 +40,26 @@ const (
 var log = scopes.CNIAgent
 
 // NftablesConfigurator handles nftables rule management for Ambient mode
+// This follows the same pattern as iptables.IptablesConfigurator
 type NftablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps iptables.NetlinkDependencies
-	cfg    *iptables.IptablesConfig
+	cfg    *config.IptablesConfig
 }
 
 // NewNftablesConfigurator creates both host and pod nftables configurators
 func NewNftablesConfigurator(
-	hostCfg *iptables.IptablesConfig,
-	podCfg *iptables.IptablesConfig,
+	hostCfg *config.IptablesConfig,
+	podCfg *config.IptablesConfig,
 	hostDeps dep.Dependencies,
 	podDeps dep.Dependencies,
 	nlDeps iptables.NetlinkDependencies,
 ) (*NftablesConfigurator, *NftablesConfigurator, error) {
 	if hostCfg == nil {
-		hostCfg = &iptables.IptablesConfig{}
+		hostCfg = &config.IptablesConfig{}
 	}
 	if podCfg == nil {
-		podCfg = &iptables.IptablesConfig{}
+		podCfg = &config.IptablesConfig{}
 	}
 
 	hostConfigurator := &NftablesConfigurator{
@@ -76,9 +78,22 @@ func NewNftablesConfigurator(
 }
 
 // CreateInpodRules creates nftables rules within a pod's network namespace
-func (cfg *NftablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides iptables.PodLevelOverrides) error {
+func (cfg *NftablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
 	log.Info("native nftables enabled, using nft rules for inpod traffic redirection")
 
+	// TODO: Implement nftables rule creation for inpod traffic redirection
+
+	// Add loopback routes (still needed for nftables)
+	if err := cfg.addLoopbackRoute(); err != nil {
+		return err
+	}
+
+	// Add inpod mark IP rule (still needed for nftables)
+	if err := cfg.addInpodMarkIPRule(); err != nil {
+		return err
+	}
+
+	log.Info("nftables inpod rules creation completed (stub implementation)")
 	return nil
 }
 
@@ -86,20 +101,36 @@ func (cfg *NftablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverri
 func (cfg *NftablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
 	log.Info("removing nftables inpod rules")
 
+	// TODO: Implement nftables rule deletion for inpod traffic
+
+	// Remove loopback routes
+	if err := cfg.delLoopbackRoute(); err != nil {
+		log.Warnf("failed to remove loopback route: %v", err)
+	}
+
+	// Remove inpod mark IP rule
+	if err := cfg.delInpodMarkIPRule(); err != nil {
+		log.Warnf("failed to remove inpod mark IP rule: %v", err)
+	}
+
+	log.Info("nftables inpod rules deletion completed (stub implementation)")
 	return nil
 }
 
 // CreateHostRulesForHealthChecks creates host-level nftables rules for health check handling
-// NOTE: This expects to be run from within the HOST network namespace!
 func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 	log.Info("configuring host-level nftables rules (healthchecks, etc)")
 
+	// TODO: Implement host-level nftables rules for health check handling
+	log.Info("host-level nftables rules creation completed (stub implementation)")
 	return nil
 }
 
 // DeleteHostRules removes host-level nftables rules
 func (cfg *NftablesConfigurator) DeleteHostRules() {
 	log.Debug("Attempting to delete hostside nftables rules (if they exist)")
+
+	// TODO: Implement host-level nftables rule deletion
 	log.Debug("hostside nftables rules deletion completed (stub implementation)")
 }
 
@@ -108,6 +139,7 @@ func (cfg *NftablesConfigurator) ReconcileModeEnabled() bool {
 	return cfg.cfg.Reconcile
 }
 
+// Helper functions for route and rule management (delegated to netlink dependencies)
 func (cfg *NftablesConfigurator) addLoopbackRoute() error {
 	return cfg.nlDeps.AddLoopbackRoutes(cfg.cfg)
 }

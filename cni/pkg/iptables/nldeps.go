@@ -14,11 +14,13 @@
 
 package iptables
 
+import "istio.io/istio/cni/pkg/config"
+
 type NetlinkDependencies interface {
-	AddInpodMarkIPRule(cfg *IptablesConfig) error
-	DelInpodMarkIPRule(cfg *IptablesConfig) error
-	AddLoopbackRoutes(cfg *IptablesConfig) error
-	DelLoopbackRoutes(cfg *IptablesConfig) error
+	AddInpodMarkIPRule(cfg *config.IptablesConfig) error
+	DelInpodMarkIPRule(cfg *config.IptablesConfig) error
+	AddLoopbackRoutes(cfg *config.IptablesConfig) error
+	DelLoopbackRoutes(cfg *config.IptablesConfig) error
 }
 
 func RealNlDeps() NetlinkDependencies {
@@ -27,19 +29,19 @@ func RealNlDeps() NetlinkDependencies {
 
 type realDeps struct{}
 
-func (r *realDeps) AddInpodMarkIPRule(cfg *IptablesConfig) error {
+func (r *realDeps) AddInpodMarkIPRule(cfg *config.IptablesConfig) error {
 	return AddInpodMarkIPRule(cfg)
 }
 
-func (r *realDeps) DelInpodMarkIPRule(cfg *IptablesConfig) error {
+func (r *realDeps) DelInpodMarkIPRule(cfg *config.IptablesConfig) error {
 	return DelInpodMarkIPRule(cfg)
 }
 
-func (r *realDeps) AddLoopbackRoutes(cfg *IptablesConfig) error {
+func (r *realDeps) AddLoopbackRoutes(cfg *config.IptablesConfig) error {
 	return AddLoopbackRoutes(cfg)
 }
 
-func (r *realDeps) DelLoopbackRoutes(cfg *IptablesConfig) error {
+func (r *realDeps) DelLoopbackRoutes(cfg *config.IptablesConfig) error {
 	return DelLoopbackRoutes(cfg)
 }
 
@@ -49,18 +51,18 @@ func EmptyNlDeps() NetlinkDependencies {
 	return &emptyDeps{}
 }
 
-func (r *emptyDeps) AddInpodMarkIPRule(cfg *IptablesConfig) error {
+func (r *emptyDeps) AddInpodMarkIPRule(cfg *config.IptablesConfig) error {
 	return nil
 }
 
-func (r *emptyDeps) DelInpodMarkIPRule(cfg *IptablesConfig) error {
+func (r *emptyDeps) DelInpodMarkIPRule(cfg *config.IptablesConfig) error {
 	return nil
 }
 
-func (r *emptyDeps) AddLoopbackRoutes(cfg *IptablesConfig) error {
+func (r *emptyDeps) AddLoopbackRoutes(cfg *config.IptablesConfig) error {
 	return nil
 }
 
-func (r *emptyDeps) DelLoopbackRoutes(cfg *IptablesConfig) error {
+func (r *emptyDeps) DelLoopbackRoutes(cfg *config.IptablesConfig) error {
 	return nil
 }
