@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/common/config"
 	"istio.io/istio/tools/common/tproxy"
+	"istio.io/istio/tools/istio-nftables/pkg/builder"
 	"istio.io/istio/tools/istio-nftables/pkg/capture"
 )
 
@@ -55,7 +56,7 @@ func logNftRules(rules *knftables.Transaction) {
 		return
 	}
 
-	nftProvider, err := capture.NewNftImpl("", "")
+	nftProvider, err := builder.NewNftImpl("", "")
 	if err != nil {
 		log.Errorf("Error creating NftImpl interface: %v", err)
 		return
