@@ -15,6 +15,7 @@
 package trafficmanager
 
 import (
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/iptables"
 	istiolog "istio.io/istio/pkg/log"
 )
@@ -23,7 +24,7 @@ import (
 // in Ambient mode. This abstraction allows switching between iptables and nftables
 // implementations without changing the higher-level logic.
 type TrafficRuleManager interface {
-	CreateInpodRules(log *istiolog.Scope, podOverrides iptables.PodLevelOverrides) error
+	CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error
 	DeleteInpodRules(log *istiolog.Scope) error
 	CreateHostRulesForHealthChecks() error
 	DeleteHostRules()
@@ -35,10 +36,10 @@ type TrafficRuleManagerConfig struct {
 	NativeNftables bool
 
 	// Host-level configuration
-	HostConfig *iptables.IptablesConfig
+	HostConfig *config.IptablesConfig
 
 	// Pod-level configuration
-	PodConfig *iptables.IptablesConfig
+	PodConfig *config.IptablesConfig
 
 	// Dependencies for iptables (host and pod)
 	HostDeps interface{}

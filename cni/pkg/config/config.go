@@ -16,7 +16,10 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
+
+	iptablesconfig "istio.io/istio/tools/common/config"
 )
 
 // These constants are shared between iptables and nftables implementations
@@ -36,6 +39,45 @@ const (
 	ZtunnelInboundPlaintextPort = 15006
 	ProbeIPSet                  = "istio-inpod-probes"
 )
+
+// PodDNSOverride represents DNS proxy configuration for a pod
+type PodDNSOverride int
+
+const (
+	PodDNSUnset PodDNSOverride = iota
+	PodDNSEnabled
+	PodDNSDisabled
+)
+
+// PodLevelOverrides holds runtime/dynamic pod-level config overrides
+// that may need to be taken into account when injecting pod rules
+type PodLevelOverrides struct {
+	VirtualInterfaces []string
+	IngressMode       bool
+	DNSProxy          PodDNSOverride
+}
+
+// IptablesConfig represents the "global"/per-instance IptablesConfig
+type IptablesConfig struct {
+	TraceLogging           bool       `json:"IPTABLES_TRACE_LOGGING"`
+	EnableIPv6             bool       `json:"ENABLE_INBOUND_IPV6"`
+	RedirectDNS            bool       `json:"REDIRECT_DNS"`
+	HostProbeSNATAddress   netip.Addr `json:"HOST_PROBE_SNAT_ADDRESS"`
+	HostProbeV6SNATAddress netip.Addr `json:"HOST_PROBE_V6_SNAT_ADDRESS"`
+	Reconcile              bool       `json:"RECONCILE"`
+	CleanupOnly            bool       `json:"CLEANUP_ONLY"`
+	ForceApply             bool       `json:"FORCE_APPLY"`
+}
+
+// IpbuildConfig converts IptablesConfig to tools common config format
+func IpbuildConfig(c *IptablesConfig) *iptablesconfig.Config {
+	return &iptablesconfig.Config{
+		EnableIPv6:  c.EnableIPv6,
+		RedirectDNS: c.RedirectDNS,
+		Reconcile:   c.Reconcile,
+		ForceApply:  c.ForceApply,
+	}
+}
 
 type Config struct {
 	InstallConfig InstallConfig
