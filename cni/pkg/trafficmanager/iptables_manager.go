@@ -17,6 +17,7 @@ package trafficmanager
 import (
 	"fmt"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/iptables"
 	istiolog "istio.io/istio/pkg/log"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -73,7 +74,7 @@ func NewIptablesTrafficManager(cfg *TrafficRuleManagerConfig) (hostManager, podM
 }
 
 // CreateInpodRules creates iptables rules within a pod's network namespace
-func (m *IptablesTrafficManager) CreateInpodRules(log *istiolog.Scope, podOverrides iptables.PodLevelOverrides) error {
+func (m *IptablesTrafficManager) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
 	if m.podIptables == nil {
 		return fmt.Errorf("pod iptables configurator not available (this is likely a host-only traffic manager)")
 	}

@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"istio.io/istio/cni/pkg/config"
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/trafficmanager"
@@ -28,14 +29,14 @@ import (
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, error) {
 	// Linux specific startup operations
-	hostCfg := &iptables.IptablesConfig{
+	hostCfg := &config.IptablesConfig{
 		RedirectDNS:            args.DNSCapture,
 		EnableIPv6:             args.EnableIPv6,
 		HostProbeSNATAddress:   HostProbeSNATIP,
 		HostProbeV6SNATAddress: HostProbeSNATIPV6,
 	}
 
-	podCfg := &iptables.IptablesConfig{
+	podCfg := &config.IptablesConfig{
 		RedirectDNS:            args.DNSCapture,
 		EnableIPv6:             args.EnableIPv6,
 		HostProbeSNATAddress:   HostProbeSNATIP,
