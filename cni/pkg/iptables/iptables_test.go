@@ -133,10 +133,10 @@ func compareToGolden(t *testing.T, ipv6 bool, name string, actual []string) {
 	testutil.CompareContent(t, gotBytes, goldenFile)
 }
 
-func constructTestConfig() *config.IptablesConfig {
+func constructTestConfig() *config.AmbientConfig {
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
 	probeSNATipv6 := netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")
-	return &config.IptablesConfig{
+	return &config.AmbientConfig{
 		HostProbeSNATAddress:   probeSNATipv4,
 		HostProbeV6SNATAddress: probeSNATipv6,
 	}
