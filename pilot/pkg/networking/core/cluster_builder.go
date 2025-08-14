@@ -645,6 +645,26 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	return cluster
 }
 
+// setHTTP1Options make the cluster an http cluster by setting httpProtocolOptions.
+func setHTTP1Options(mc *clusterWrapper) {
+	if mc == nil {
+		return
+	}
+	if mc.httpProtocolOptions == nil {
+		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+	}
+	options := mc.httpProtocolOptions
+	if options.UpstreamHttpProtocolOptions == nil {
+		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
+					HttpProtocolOptions: &core.Http1ProtocolOptions{},
+				},
+			},
+		}
+	}
+}
+
 // setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.
 func setH2Options(mc *clusterWrapper) {
 	if mc == nil {
@@ -712,6 +732,10 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	isAutoProtocol := port.Protocol.IsUnsupported()
 	effectiveProxyConfig := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig())
 	preserveHeaderCase := effectiveProxyConfig.GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
+
+	if isExplicitHTTP {
+		setHTTP1Options(cluster)
+	}
 
 	if (isExplicitHTTP || isAutoProtocol) && preserveHeaderCase {
 		// Apply the stateful formatter for HTTP/1.x headers
