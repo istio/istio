@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/iptables"
 )
 
@@ -169,22 +170,22 @@ type fakeIptablesDeps struct {
 
 var _ iptables.NetlinkDependencies = &fakeIptablesDeps{}
 
-func (r *fakeIptablesDeps) AddInpodMarkIPRule(cfg *iptables.IptablesConfig) error {
+func (r *fakeIptablesDeps) AddInpodMarkIPRule(cfg *config.IptablesConfig) error {
 	r.AddInpodMarkIPRuleCnt.Add(1)
 	return nil
 }
 
-func (r *fakeIptablesDeps) DelInpodMarkIPRule(cfg *iptables.IptablesConfig) error {
+func (r *fakeIptablesDeps) DelInpodMarkIPRule(cfg *config.IptablesConfig) error {
 	r.DelInpodMarkIPRuleCnt.Add(1)
 	return nil
 }
 
-func (r *fakeIptablesDeps) AddLoopbackRoutes(cfg *iptables.IptablesConfig) error {
+func (r *fakeIptablesDeps) AddLoopbackRoutes(cfg *config.IptablesConfig) error {
 	r.AddLoopbackRoutesCnt.Add(1)
 	return r.AddRouteErr
 }
 
-func (r *fakeIptablesDeps) DelLoopbackRoutes(cfg *iptables.IptablesConfig) error {
+func (r *fakeIptablesDeps) DelLoopbackRoutes(cfg *config.IptablesConfig) error {
 	r.DelLoopbackRoutesCnt.Add(1)
 	return nil
 }
