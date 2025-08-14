@@ -189,10 +189,6 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 		}
 	}
 
-	if len(fullStatus) == 0 {
-		return nil, nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
-	}
-
 	// Sort types for consistent output, preserving legacy order for core types
 	coreOrder := []string{
 		xdsresource.ClusterType,  // CDS

@@ -66,8 +66,8 @@ func TestProxyStatus(t *testing.T) {
 		},
 		{ // case 1, with Istiod instance but no proxies
 			args:           []string{},
-			expectedOutput: "Error: failed to setup status print: no proxies found (checked 1 istiods)\n",
-			wantException:  true,
+			expectedOutput: "NAME     CLUSTER     ISTIOD     VERSION     SUBSCRIBED TYPES\n",
+			wantException:  false,
 		},
 		{ // case 2: supplying nonexistent pod name should result in error with flag
 			args:          strings.Split("deployment/random-gibberish", " "),
@@ -87,9 +87,9 @@ func TestProxyStatus(t *testing.T) {
 		},
 		{ // case 6: new --revision argument, but no proxies
 			args:           strings.Split("--revision canary", " "),
-			expectedOutput: "Error: failed to setup status print: no proxies found (checked 1 istiods)\n",
+			expectedOutput: "NAME     CLUSTER     ISTIOD     VERSION     SUBSCRIBED TYPES\n",
 			revision:       "canary",
-			wantException:  true,
+			wantException:  false,
 		},
 		{ // case 7: supplying type that doesn't select pods should fail
 			args:          strings.Split("serviceaccount/sleep", " "),
