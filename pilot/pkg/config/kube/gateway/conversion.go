@@ -17,6 +17,7 @@ package gateway
 import (
 	"cmp"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"net/netip"
@@ -40,6 +41,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/credentials"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -1961,6 +1963,7 @@ func extractGatewayServices(domainSuffix string, kgw *k8sbeta.Gateway, info clas
 
 func buildListener(
 	ctx krt.HandlerContext,
+	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
 	namespaces krt.Collection[*corev1.Namespace],
@@ -1992,7 +1995,7 @@ func buildListener(
 	}
 
 	ok := true
-	tls, err := buildTLS(ctx, secrets, grants, l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
+	tls, err := buildTLS(ctx, configMaps, secrets, grants, l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
 		listenerConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
@@ -2085,6 +2088,7 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 
 func buildTLS(
 	ctx krt.HandlerContext,
+	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
 	tls *k8s.GatewayTLSConfig,
@@ -2164,6 +2168,30 @@ func buildTLS(
 		} else {
 			out.CredentialNames = credNames
 		}
+		if tls.FrontendValidation != nil && len(tls.FrontendValidation.CACertificateRefs) > 0 {
+			if len(tls.FrontendValidation.CACertificateRefs) > 1 {
+				return out, &ConfigError{
+					Reason:  InvalidTLS,
+					Message: "only one caCertificateRef is supported",
+				}
+			}
+			caCertRef := tls.FrontendValidation.CACertificateRefs[0]
+			cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
+			if err != nil {
+				return out, err
+			}
+			if cred.Namespace != namespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw), cred.ResourceName, namespace) {
+				return out, &ConfigError{
+					Reason: InvalidListenerRefNotPermitted,
+					Message: fmt.Sprintf(
+						"caCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+						cred.Namespace, caCertRef.Name, namespace,
+					),
+				}
+			}
+			out.Mode = istio.ServerTLSSettings_MUTUAL
+			out.CaCertCredentialName = cred.ResourceName
+		}
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
 		if isAutoPassthrough {
@@ -2180,7 +2208,10 @@ func buildSecretReference(
 	secrets krt.Collection[*corev1.Secret],
 ) (string, *ConfigError) {
 	if normalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
-		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", objectReferenceString(ref))}
+		return "", &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", secretObjectReferenceString(ref)),
+		}
 	}
 
 	secret := model.ConfigKey{
@@ -2194,26 +2225,101 @@ func buildSecretReference(
 	if scrt == nil {
 		return "", &ConfigError{
 			Reason:  InvalidTLS,
-			Message: fmt.Sprintf("invalid certificate reference %v, secret %v not found", objectReferenceString(ref), key),
+			Message: fmt.Sprintf("invalid certificate reference %v, secret %v not found", secretObjectReferenceString(ref), key),
 		}
 	}
 	certInfo, err := kubecreds.ExtractCertInfo(scrt)
 	if err != nil {
 		return "", &ConfigError{
 			Reason:  InvalidTLS,
-			Message: fmt.Sprintf("invalid certificate reference %v, %v", objectReferenceString(ref), err),
+			Message: fmt.Sprintf("invalid certificate reference %v, %v", secretObjectReferenceString(ref), err),
 		}
 	}
 	if _, err = tls.X509KeyPair(certInfo.Cert, certInfo.Key); err != nil {
 		return "", &ConfigError{
 			Reason:  InvalidTLS,
-			Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err),
+			Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", secretObjectReferenceString(ref), err),
 		}
 	}
 	return creds.ToKubernetesGatewayResource(secret.Namespace, secret.Name), nil
 }
 
-func objectReferenceString(ref k8s.SecretObjectReference) string {
+func buildCaCertificateReference(
+	ctx krt.HandlerContext,
+	ref k8s.ObjectReference,
+	gw controllers.Object,
+	configMaps krt.Collection[*corev1.ConfigMap],
+	secrets krt.Collection[*corev1.Secret],
+) (*creds.SecretResource, *ConfigError) {
+	var resourceType string
+	var resourceKind kind.Kind
+	var certInfo *credentials.CertInfo
+	var certInfoErr error
+
+	namespace := ptr.OrDefault((*string)(ref.Namespace), gw.GetNamespace())
+	name := string(ref.Name)
+
+	switch normalizeReference(&ref.Group, &ref.Kind, config.GroupVersionKind{}) {
+	case gvk.ConfigMap:
+		resourceType = creds.KubernetesConfigMapType
+		resourceKind = kind.ConfigMap
+
+		key := namespace + "/" + name
+		cm := ptr.Flatten(krt.FetchOne(ctx, configMaps, krt.FilterKey(key)))
+		if cm == nil {
+			return nil, &ConfigError{
+				Reason:  InvalidTLS,
+				Message: fmt.Sprintf("invalid CA certificate reference %v, configmap %v not found", objectReferenceString(ref), key),
+			}
+		}
+		certInfo, certInfoErr = kubecreds.ExtractRootFromString(cm.Data)
+	case gvk.Secret:
+		resourceType = creds.KubernetesGatewaySecretType
+		resourceKind = kind.Secret
+
+		key := namespace + "/" + name
+		scrt := ptr.Flatten(krt.FetchOne(ctx, secrets, krt.FilterKey(key)))
+		if scrt == nil {
+			return nil, &ConfigError{
+				Reason:  InvalidTLS,
+				Message: fmt.Sprintf("invalid CA certificate reference %v, secret %v not found", objectReferenceString(ref), key),
+			}
+		}
+		certInfo, certInfoErr = kubecreds.ExtractRoot(scrt.Data)
+	default:
+		return nil, &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid CA certificate reference %v, only secret and configmap are allowed", objectReferenceString(ref)),
+		}
+	}
+	if certInfoErr != nil {
+		return nil, &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid CA certificate reference %v, %v", objectReferenceString(ref), certInfoErr),
+		}
+	}
+	if !x509.NewCertPool().AppendCertsFromPEM(certInfo.Cert) {
+		return nil, &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid CA certificate reference %v, the bundle is malformed", objectReferenceString(ref)),
+		}
+	}
+	log.Warnf("buildCaCertificateReference %s://%s/%s%s", resourceType, namespace, ref.Name, creds.SdsCaSuffix)
+	return &creds.SecretResource{
+		ResourceType: resourceType,
+		ResourceKind: resourceKind,
+		Name:         name + creds.SdsCaSuffix,
+		Namespace:    namespace,
+		ResourceName: fmt.Sprintf("%s://%s/%s%s", resourceType, namespace, ref.Name, creds.SdsCaSuffix),
+		Cluster:      "",
+	}, nil
+}
+
+func objectReferenceString(ref k8s.ObjectReference) string {
+	return fmt.Sprintf("%s/%s/%s.%s", ref.Group, ref.Kind, ref.Name, ptr.OrEmpty(ref.Namespace))
+}
+
+func secretObjectReferenceString(ref k8s.SecretObjectReference) string {
 	return fmt.Sprintf("%s/%s/%s.%s",
 		ptr.OrEmpty(ref.Group),
 		ptr.OrEmpty(ref.Kind),

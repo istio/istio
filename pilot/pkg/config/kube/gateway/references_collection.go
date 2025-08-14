@@ -22,6 +22,7 @@ import (
 
 	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 )
@@ -72,7 +73,7 @@ func ReferenceGrantsCollection(referenceGrants krt.Collection[*gateway.Reference
 
 				ref := normalizeReference(&to.Group, &to.Kind, config.GroupVersionKind{})
 				switch ref {
-				case gvk.Secret, gvk.Service, gvk.InferencePool:
+				case gvk.ConfigMap, gvk.Secret, gvk.Service, gvk.InferencePool:
 					toKey.Kind = ref
 				default:
 					continue
@@ -127,8 +128,13 @@ func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, kind config.Gr
 		log.Warnf("failed to parse resource name %q: %v", resourceName, err)
 		return false
 	}
+	resourceKind := config.GroupVersionKind{Kind: p.ResourceKind.String()}
+	resourceSchema, resourceSchemaFound := collections.All.FindByGroupKind(resourceKind)
+	if resourceSchemaFound {
+		resourceKind = resourceSchema.GroupVersionKind()
+	}
 	from := Reference{Kind: kind, Namespace: gateway.Namespace(namespace)}
-	to := Reference{Kind: gvk.Secret, Namespace: gateway.Namespace(p.Namespace)}
+	to := Reference{Kind: resourceKind, Namespace: gateway.Namespace(p.Namespace)}
 	pair := ReferencePair{From: from, To: to}
 	grants := krt.FetchOrList(ctx, refs.collection, krt.FilterIndex(refs.index, pair))
 	for _, g := range grants {
