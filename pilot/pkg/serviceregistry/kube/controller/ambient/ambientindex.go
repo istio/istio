@@ -149,9 +149,13 @@ type Options struct {
 	Debugger                    *krt.DebugHandler
 	ClientBuilder               multicluster.ClientBuilder
 	RemoteClientConfigOverrides []func(*rest.Config)
+	Stop                        chan struct{}
 }
 
 func New(options Options) Index {
+	if options.Stop == nil {
+		options.Stop = make(chan struct{})
+	}
 	a := &index{
 		SystemNamespace:             options.SystemNamespace,
 		DomainSuffix:                options.DomainSuffix,
@@ -161,7 +165,7 @@ func New(options Options) Index {
 		Flags:                       options.Flags,
 		revision:                    options.Revision,
 		clientBuilder:               options.ClientBuilder,
-		stop:                        make(chan struct{}),
+		stop:                        options.Stop,
 		cs:                          multicluster.NewClustersStore(),
 		remoteClientConfigOverrides: options.RemoteClientConfigOverrides,
 	}

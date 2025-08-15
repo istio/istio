@@ -163,7 +163,6 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 	// After this, we can run our queue.
 	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)
 	go j.runQueue(initialCollections, subscriptionFunc, reg)
-
 	return j
 }
 
