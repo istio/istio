@@ -64,7 +64,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
-	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayapiinferenceclient "sigs.k8s.io/gateway-api-inference-extension/client-go/clientset/versioned"
 	gatewayapiinferencefake "sigs.k8s.io/gateway-api-inference-extension/client-go/clientset/versioned/fake"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -257,7 +257,7 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 		if strings.Contains(g, "istio.io") {
 			return group == "istio"
 		}
-		if strings.Contains(g, "inference.networking.x-k8s.io") {
+		if strings.Contains(g, inferencev1.GroupVersion.Group) {
 			return group == "inference"
 		}
 		if strings.Contains(g, "gateway.networking.k8s.io") {
@@ -1378,7 +1378,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(gatewayapibeta.Install(scheme))
 	utilruntime.Must(gatewayapiv1.Install(scheme))
 	utilruntime.Must(gatewayx.Install(scheme))
-	utilruntime.Must(inferencev1alpha2.Install(scheme))
+	utilruntime.Must(inferencev1.Install(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
 }
