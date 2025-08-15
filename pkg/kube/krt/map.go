@@ -16,7 +16,6 @@ package krt
 
 import (
 	"fmt"
-	"time"
 
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
