@@ -16,6 +16,7 @@ package model
 
 import (
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 
@@ -356,6 +357,105 @@ func TestFailurePolicy(t *testing.T) {
 
 			if got := filter.Config.FailurePolicy; got != tc.out {
 				t.Errorf("got %v, want %v", got, tc.out)
+			}
+		})
+	}
+}
+
+func TestParseWasmPluginUrl(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected *url.URL
+		wantErr  bool
+	}{
+		{
+			name:  "file scheme",
+			input: "file:///path/to/plugin.wasm",
+			expected: &url.URL{
+				Scheme: "file",
+				Path:   "/path/to/plugin.wasm",
+			},
+			wantErr: false,
+		},
+		{
+			name:  "oci scheme",
+			input: "oci://ghcr.io/istio/wasm-plugin:latest",
+			expected: &url.URL{
+				Scheme: "oci",
+				Host:   "ghcr.io",
+				Path:   "/istio/wasm-plugin:latest",
+			},
+			wantErr: false,
+		},
+		{
+			name:  "http scheme",
+			input: "http://example.com/plugin.wasm",
+			expected: &url.URL{
+				Scheme: "http",
+				Host:   "example.com",
+				Path:   "/plugin.wasm",
+			},
+			wantErr: false,
+		},
+		{
+			name:  "https scheme",
+			input: "https://example.com/plugin.wasm",
+			expected: &url.URL{
+				Scheme: "https",
+				Host:   "example.com",
+				Path:   "/plugin.wasm",
+			},
+			wantErr: false,
+		},
+		{
+			name:  "no scheme - defaults to oci",
+			input: "ghcr.io/istio/wasm-plugin:latest",
+			expected: &url.URL{
+				Scheme: "oci",
+				Host:   "ghcr.io",
+				Path:   "/istio/wasm-plugin:latest",
+			},
+			wantErr: false,
+		},
+		{
+			name:  "image with port number - defaults to oci",
+			input: "example.com:5000/wasm-plugin:latest",
+			expected: &url.URL{
+				Scheme: "oci",
+				Host:   "example.com:5000",
+				Path:   "/wasm-plugin:latest",
+			},
+			wantErr: false,
+		},
+		{
+			name:     "invalid URL",
+			input:    ":invalid",
+			expected: nil,
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseWasmPluginURL(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseWasmPluginURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr {
+				return
+			}
+
+			if !reflect.DeepEqual(got.Scheme, tt.expected.Scheme) {
+				t.Errorf("parseWasmPluginURL() scheme got = %v, want %v", got.Scheme, tt.expected.Scheme)
+			}
+			if !reflect.DeepEqual(got.Host, tt.expected.Host) {
+				t.Errorf("parseWasmPluginURL() host got = %v, want %v", got.Host, tt.expected.Host)
+			}
+			if !reflect.DeepEqual(got.Path, tt.expected.Path) {
+				t.Errorf("parseWasmPluginURL() path got = %v, want %v", got.Path, tt.expected.Path)
 			}
 		})
 	}
