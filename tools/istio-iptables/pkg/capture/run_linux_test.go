@@ -98,6 +98,23 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 	}
 }
 
+func TestIPv6NotAvailable(t *testing.T) {
+	setup(t)
+	cfg := constructTestConfig()
+	ext := &dep.DependenciesStub{
+		ForceIPv6DetectionFail: true,
+	}
+
+	// Istio shouldn't fail if we're working with IPv4 interfaces only, and ip6tables is unavailable.
+	cfg.EnableIPv6 = false
+	iptConfigurator, _ := NewIptablesConfigurator(cfg, ext)
+	assert.NoError(t, iptConfigurator.Run())
+
+	cfg.EnableIPv6 = true
+	_, err := NewIptablesConfigurator(cfg, ext)
+	assert.Error(t, err)
+}
+
 var initialized = &sync.Once{}
 
 func setup(t *testing.T) {
