@@ -36,9 +36,11 @@ const (
 	FilterChain    PatchType = "filterchain"
 	NetworkFilter  PatchType = "networkfilter"
 	// nolint
-	HttpFilter  PatchType = "httpfilter"
-	Route       PatchType = "route"
-	VirtualHost PatchType = "vhost"
+	HttpFilter PatchType = "httpfilter"
+	// nolint
+	UpstreamHttpFilter PatchType = "upstreamhttpfilter"
+	Route              PatchType = "route"
+	VirtualHost        PatchType = "vhost"
 )
 
 var (

@@ -148,10 +148,22 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 				}
 			}
 
-		case networking.EnvoyFilter_CLUSTER:
+		case networking.EnvoyFilter_CLUSTER, networking.EnvoyFilter_UPSTREAM_HTTP_FILTER:
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetCluster() == nil {
 					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: stylecheck
+				}
+				clusterMatch := cp.Match.GetCluster()
+				if clusterMatch.Filter != nil {
+					if cp.ApplyTo == networking.EnvoyFilter_CLUSTER {
+						errs = validation.AppendValidation(errs, validation.WrapError(
+							fmt.Errorf("Envoy filter: upstream filter match has no effect when used with %v", cp.ApplyTo))) // nolint: stylecheck
+					}
+					// filter names are required if upstream http filter matches are being made
+					if clusterMatch.Filter.Name == "" {
+						errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: upstream filter match has no name to match on")) // nolint: stylecheck
+						continue
+					}
 				}
 			}
 		}

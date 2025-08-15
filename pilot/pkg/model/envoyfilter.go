@@ -194,11 +194,12 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE ||
 			cpw.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
 			// insert_before, after or first is applicable for listener filter, network filter,
-			// http filter and http route, convert the rest to add
+			// http filter, upstream http filter and http route, convert the rest to add
 			if cpw.ApplyTo != networking.EnvoyFilter_HTTP_FILTER &&
 				cpw.ApplyTo != networking.EnvoyFilter_NETWORK_FILTER &&
 				cpw.ApplyTo != networking.EnvoyFilter_HTTP_ROUTE &&
-				cpw.ApplyTo != networking.EnvoyFilter_LISTENER_FILTER {
+				cpw.ApplyTo != networking.EnvoyFilter_LISTENER_FILTER &&
+				cpw.ApplyTo != networking.EnvoyFilter_UPSTREAM_HTTP_FILTER {
 				cpw.Operation = networking.EnvoyFilter_Patch_ADD
 			}
 		}

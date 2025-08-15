@@ -431,11 +431,11 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if filter.Name == wellknown.HTTPConnectionManager {
-		patchHTTPFilters(patchContext, patches, lis, fc, filter)
+		patchHCMHTTPFilters(patchContext, patches, lis, fc, filter)
 	}
 }
 
-func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
+func patchHCMHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	lis *listener.Listener, fc *listener.FilterChain, filter *listener.Filter,
 ) {
@@ -447,130 +447,22 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 			//  as this loop will be called very frequently
 		}
 	}
-	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
-		applied := false
-		if !commonConditionMatch(patchContext, lp) ||
-			!listenerMatch(lis, lp) ||
-			!filterChainMatch(lis, fc, lp) ||
-			!networkFilterMatch(filter, lp) {
-			IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, false)
-			continue
-		}
-		if lp.Operation == networking.EnvoyFilter_Patch_ADD {
-			applied = true
-			httpconn.HttpFilters = append(httpconn.HttpFilters, proto.Clone(lp.Value).(*hcm.HttpFilter))
-		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
-			httpconn.HttpFilters = append([]*hcm.HttpFilter{proto.Clone(lp.Value).(*hcm.HttpFilter)}, httpconn.HttpFilters...)
-		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
-			// Insert after without a filter match is same as ADD in the end
-			if !hasHTTPFilterMatch(lp) {
-				httpconn.HttpFilters = append(httpconn.HttpFilters, proto.Clone(lp.Value).(*hcm.HttpFilter))
-				continue
-			}
-			httpconn.HttpFilters, applied = insertAfterFunc(
-				httpconn.HttpFilters,
-				func(e *hcm.HttpFilter) (bool, *hcm.HttpFilter) {
-					if httpFilterMatch(e, lp) {
-						return true, proto.Clone(lp.Value).(*hcm.HttpFilter)
-					}
-					return false, nil
-				},
-			)
-		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
-			// insert before without a filter match is same as insert in the beginning
-			if !hasHTTPFilterMatch(lp) {
-				httpconn.HttpFilters = append([]*hcm.HttpFilter{proto.Clone(lp.Value).(*hcm.HttpFilter)}, httpconn.HttpFilters...)
-				continue
-			}
-			httpconn.HttpFilters, applied = insertBeforeFunc(
-				httpconn.HttpFilters,
-				func(e *hcm.HttpFilter) (bool, *hcm.HttpFilter) {
-					if httpFilterMatch(e, lp) {
-						return true, proto.Clone(lp.Value).(*hcm.HttpFilter)
-					}
-					return false, nil
-				},
-			)
-		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
-			if !hasHTTPFilterMatch(lp) {
-				continue
-			}
-			httpconn.HttpFilters, applied = replaceFunc(
-				httpconn.HttpFilters,
-				func(e *hcm.HttpFilter) (bool, *hcm.HttpFilter) {
-					if httpFilterMatch(e, lp) {
-						return true, proto.Clone(lp.Value).(*hcm.HttpFilter)
-					}
-					return false, nil
-				},
-			)
-		} else if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
-			if !hasHTTPFilterMatch(lp) {
-				continue
-			}
-			httpconn.HttpFilters = slices.FilterInPlace(httpconn.HttpFilters, func(h *hcm.HttpFilter) bool {
-				return !httpFilterMatch(h, lp)
-			})
-		}
-		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
-	}
-	for _, httpFilter := range httpconn.HttpFilters {
-		mergeHTTPFilter(patchContext, patches, lis, fc, filter, httpFilter)
-	}
+	httpconn.HttpFilters = patchHTTPFilters(patchContext, HttpFilter,
+		patches[networking.EnvoyFilter_HTTP_FILTER],
+		httpconn.HttpFilters,
+		func(lp *model.EnvoyFilterConfigPatchWrapper) bool {
+			return listenerMatch(lis, lp) &&
+				filterChainMatch(lis, fc, lp) &&
+				networkFilterMatch(filter, lp)
+		},
+		func(efcpw *model.EnvoyFilterConfigPatchWrapper) string {
+			// assumes that the listener and filter name were already matched
+			return efcpw.Match.GetListener().GetFilterChain().GetFilter().GetSubFilter().GetName()
+		},
+	)
 	if filter.GetTypedConfig() != nil {
 		// convert to any type
 		filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(httpconn)}
-	}
-}
-
-// mergeHTTPFilter patches passed in filter if it is MERGE operation.
-func mergeHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
-	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	listener *listener.Listener, fc *listener.FilterChain, filter *listener.Filter,
-	httpFilter *hcm.HttpFilter,
-) {
-	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
-		applied := false
-		if !commonConditionMatch(patchContext, lp) ||
-			!listenerMatch(listener, lp) ||
-			!filterChainMatch(listener, fc, lp) ||
-			!networkFilterMatch(filter, lp) ||
-			!httpFilterMatch(httpFilter, lp) {
-			IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
-			continue
-		}
-		if lp.Operation == networking.EnvoyFilter_Patch_MERGE {
-			// proto merge doesn't work well when merging two filters with ANY typed configs
-			// especially when the incoming cp.Value is a struct that could contain the json config
-			// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
-			// typed output of json)
-			if httpFilter.GetTypedConfig() == nil {
-				// TODO(rshriram): fixme
-				// skip this op as we would possibly have to do a merge of Any with struct
-				// which doesn't seem to work well.
-				continue
-			}
-			userHTTPFilter := lp.Value.(*hcm.HttpFilter)
-			var err error
-			// we need to be able to overwrite filter names or simply empty out a filter's configs
-			// as they could be supplied through per route filter configs
-			httpFilterName := httpFilter.Name
-			if userHTTPFilter.Name != "" {
-				httpFilterName = userHTTPFilter.Name
-			}
-			var retVal *anypb.Any
-			if userHTTPFilter.GetTypedConfig() != nil {
-				if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
-					retVal = httpFilter.GetTypedConfig()
-				}
-			}
-			applied = true
-			httpFilter.Name = httpFilterName
-			if retVal != nil {
-				httpFilter.ConfigType = &hcm.HttpFilter_TypedConfig{TypedConfig: retVal}
-			}
-		}
-		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
 }
 
@@ -743,26 +635,6 @@ func networkFilterMatch(filter *listener.Filter, cp *model.EnvoyFilterConfigPatc
 	}
 
 	return cp.Match.GetListener().FilterChain.Filter.Name == filter.Name
-}
-
-func hasHTTPFilterMatch(lp *model.EnvoyFilterConfigPatchWrapper) bool {
-	if !hasNetworkFilterMatch(lp) {
-		return false
-	}
-
-	match := lp.Match.GetListener().FilterChain.Filter.SubFilter
-	return match != nil
-}
-
-// We assume that the parent listener and filter chain, and network filter have already been matched
-func httpFilterMatch(filter *hcm.HttpFilter, lp *model.EnvoyFilterConfigPatchWrapper) bool {
-	if !hasHTTPFilterMatch(lp) {
-		return true
-	}
-
-	match := lp.Match.GetListener().FilterChain.Filter.SubFilter
-
-	return match.Name == filter.Name
 }
 
 func patchContextMatch(patchContext networking.EnvoyFilter_PatchContext,

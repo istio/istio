@@ -20,14 +20,20 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	admission "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/admission_control/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -280,6 +286,226 @@ func TestClusterPatching(t *testing.T) {
 							"@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
               "type_url": "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
 							"value":{"handshaker_service":"1.2.3.4"}}}}`),
+			},
+		},
+		// Add upstream http filter
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter1"}`),
+			},
+		},
+		// Add upstream http filter with cluster match
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Name: "cluster2",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter2"}`),
+			},
+		},
+		// Remove upstream http filter
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter-to-be-removed"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_ANY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Filter: &networking.EnvoyFilter_ClusterMatch_UpstreamFilterMatch{
+							Name: "http-filter-to-be-removed",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		// Insert upstream http filter before existing filter
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Name: "cluster2",
+						Filter: &networking.EnvoyFilter_ClusterMatch_UpstreamFilterMatch{
+							Name: "http-filter2",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+				Value:     buildPatchStruct(`{"name":"http-filter3"}`),
+			},
+		},
+		// Insert upstream http filter after existing filter
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Name: "cluster2",
+						Filter: &networking.EnvoyFilter_ClusterMatch_UpstreamFilterMatch{
+							Name: "http-filter3",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_AFTER,
+				Value:     buildPatchStruct(`{"name":"http-filter4"}`),
+			},
+		},
+		// Insert first upstream http filter
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Name: "cluster2",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
+				Value:     buildPatchStruct(`{"name":"http-filter5"}`),
+			},
+		},
+		// Insert upstream http filter before existing filter without a filter match
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Name: "cluster2",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
+				Value:     buildPatchStruct(`{"name":"http-filter6"}`),
+			},
+		},
+		// Insert upstream http filter after without a filter match
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Name: "cluster2",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_INSERT_AFTER,
+				Value:     buildPatchStruct(`{"name":"http-filter7"}`),
+			},
+		},
+		// Replace upstream http filter
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Name: "cluster2",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value:     buildPatchStruct(`{"name":"http-filter-to-be-replaced"}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Filter: &networking.EnvoyFilter_ClusterMatch_UpstreamFilterMatch{
+							Name: "http-filter-to-be-replaced",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REPLACE,
+				Value:     buildPatchStruct(`{"name":"http-filter8"}`),
+			},
+		},
+		// Merge upstream http filter
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Name: "cluster2",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_ADD,
+				Value: buildPatchStruct(`
+{"name":"envoy.filters.http.admission_control",
+"typed_config":{
+	"@type":"type.googleapis.com/envoy.extensions.filters.http.admission_control.v3.AdmissionControl",
+	"enabled": {
+		"default_value": false
+	},
+	"success_criteria":{}
+}}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						Name: "cluster2",
+						Filter: &networking.EnvoyFilter_ClusterMatch_UpstreamFilterMatch{
+							Name: "envoy.filters.http.admission_control",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+{"name":"envoy.filters.http.admission_control",
+"typed_config":{
+	"@type":"type.googleapis.com/envoy.extensions.filters.http.admission_control.v3.AdmissionControl",
+	"enabled": {
+		"default_value": true
+	}
+}
+}`),
 			},
 		},
 	}
@@ -548,10 +774,21 @@ func TestClusterPatching(t *testing.T) {
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
 		{
 			Name: "cluster2",
-			Http2ProtocolOptions: &core.Http2ProtocolOptions{
-				AllowConnect:  true,
-				AllowMetadata: true,
-			}, LbPolicy: cluster.Cluster_MAGLEV,
+			TypedExtensionProtocolOptions: map[string]*anypb.Any{
+				v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+					UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{
+						ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+							ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+								Http2ProtocolOptions: &core.Http2ProtocolOptions{
+									AllowConnect:  true,
+									AllowMetadata: true,
+								},
+							},
+						},
+					},
+				}),
+			},
+			LbPolicy: cluster.Cluster_MAGLEV,
 		},
 		{Name: "outbound|443||gateway.com"},
 	}
@@ -559,9 +796,58 @@ func TestClusterPatching(t *testing.T) {
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
 		{
 			Name: "cluster2",
-			Http2ProtocolOptions: &core.Http2ProtocolOptions{
-				AllowConnect:  true,
-				AllowMetadata: true,
+			TypedExtensionProtocolOptions: map[string]*anypb.Any{
+				v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+					UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{
+						ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+							ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+								Http2ProtocolOptions: &core.Http2ProtocolOptions{
+									AllowConnect:  true,
+									AllowMetadata: true,
+								},
+							},
+						},
+					},
+					HttpFilters: []*hcm.HttpFilter{
+						{
+							Name: "http-filter6",
+						},
+						{
+							Name: "http-filter5",
+						},
+						{
+							Name: "http-filter1",
+						},
+						{
+							Name: "http-filter3",
+						},
+						{
+							Name: "http-filter4",
+						},
+						{
+							Name: "http-filter2",
+						},
+						{
+							Name: "http-filter7",
+						},
+						{
+							Name: "http-filter8",
+						},
+						{
+							Name: "envoy.filters.http.admission_control",
+							ConfigType: &hcm.HttpFilter_TypedConfig{
+								TypedConfig: protoconv.MessageToAny(&admission.AdmissionControl{
+									Enabled: &core.RuntimeFeatureFlag{
+										DefaultValue: wrapperspb.Bool(true),
+									},
+									EvaluationCriteria: &admission.AdmissionControl_SuccessCriteria_{
+										SuccessCriteria: &admission.AdmissionControl_SuccessCriteria{},
+									},
+								}),
+							},
+						},
+					},
+				}),
 			}, LbPolicy: cluster.Cluster_RING_HASH, DnsLookupFamily: cluster.Cluster_V6_ONLY,
 		},
 	}
