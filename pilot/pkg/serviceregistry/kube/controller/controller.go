@@ -81,8 +81,9 @@ const (
 var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")
 
 var (
-	typeTag  = monitoring.CreateLabel("type")
-	eventTag = monitoring.CreateLabel("event")
+	typeTag   = monitoring.CreateLabel("type")
+	eventTag  = monitoring.CreateLabel("event")
+	reasonTag = monitoring.CreateLabel("reason")
 
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
@@ -100,6 +101,14 @@ var (
 		"pilot_k8s_endpoints_pending_pod",
 		"Number of endpoints that do not currently have any corresponding pods.",
 	)
+
+	proxyNoSvcTarget = monitoring.NewSum(
+		"pilot_k8s_proxies_with_no_service_targets",
+		"Number of proxies that do not have any corresponding service targets.",
+	)
+	proxyNoSvcTargetWrongCluster   = proxyNoSvcTarget.With(reasonTag.Value("incorrect_cluster"))
+	proxyNoSvcTargetMissingService = proxyNoSvcTarget.With(reasonTag.Value("no_matching_services"))
+	proxyNoSvcTargetFromMetadata   = proxyNoSvcTarget.With(reasonTag.Value("no_matching_metadata"))
 )
 
 // Options stores the configurable attributes of a Controller.
@@ -848,6 +857,7 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
 	if !c.isControllerForProxy(proxy) {
 		log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.Cluster())
+		proxyNoSvcTargetWrongCluster.Increment()
 		return nil
 	}
 
@@ -874,7 +884,11 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 				return out
 			}
 			// 2. Headless service without selector
-			return c.endpoints.GetProxyServiceTargets(proxy)
+			out := c.endpoints.GetProxyServiceTargets(proxy)
+			if len(out) == 0 {
+				proxyNoSvcTargetMissingService.Increment()
+			}
+			return out
 		}
 
 		// 3. The pod is not present when this is called
@@ -882,7 +896,13 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 		// metadata already. Because of this, we can still get most of the information we need.
 		// If we cannot accurately construct ServiceEndpoints from just the metadata, this will return an error and we can
 		// attempt to read the real pod.
-		out, _ := c.GetProxyServiceTargetsFromMetadata(proxy)
+		out, err := c.GetProxyServiceTargetsFromMetadata(proxy)
+		if err != nil {
+			log.Errorf("failed to get proxy service targets from metadata: %v", err)
+		}
+		if len(out) == 0 {
+			proxyNoSvcTargetFromMetadata.Increment()
+		}
 		return out
 	}
 
