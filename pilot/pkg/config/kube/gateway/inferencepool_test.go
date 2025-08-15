@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -37,18 +36,19 @@ func TestReconcileInferencePool(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: inferencev1.InferencePoolSpec{
-			TargetPortNumber: 8080,
-			Selector: map[inferencev1.LabelKey]inferencev1.LabelValue{
-				"app": "test",
-			},
-			EndpointPickerConfig: inferencev1.EndpointPickerConfig{
-				ExtensionRef: &inferencev1.Extension{
-					ExtensionReference: inferencev1.ExtensionReference{
-						Name: "dummy",
-						// Kind:       &inferencev1alpha2.Kind(),
-						PortNumber: ptr.Of(inferencev1.PortNumber(5421)),
-					},
+			TargetPorts: []inferencev1.Port{
+				{
+					Number: inferencev1.PortNumber(8080),
 				},
+			},
+			Selector: inferencev1.LabelSelector{
+				MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
+					"app": "test",
+				},
+			},
+			ExtensionRef: inferencev1.Extension{
+				Name:       "dummy",
+				PortNumber: inferencev1.PortNumber(5421),
 			},
 		},
 	}

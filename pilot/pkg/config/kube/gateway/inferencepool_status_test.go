@@ -70,7 +70,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			expectations: func(t *testing.T, status *inferencev1.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, DefaultTestNS, string(*status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, DefaultTestNS, string(status.Parents[0].GatewayRef.Namespace))
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
 					Type:    string(inferencev1.InferencePoolConditionAccepted),
 					Status:  metav1.ConditionTrue,
@@ -93,7 +93,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			expectations: func(t *testing.T, status *inferencev1.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "gateway-1", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, DefaultTestNS, string(*status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, DefaultTestNS, string(status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -241,7 +241,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			expectations: func(t *testing.T, status *inferencev1.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, GatewayTestNS, string(*status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, GatewayTestNS, string(status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -256,7 +256,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			expectations: func(t *testing.T, status *inferencev1.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, GatewayTestNS, string(*status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, GatewayTestNS, string(status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -271,7 +271,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			expectations: func(t *testing.T, status *inferencev1.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, GatewayTestNS, string(*status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, GatewayTestNS, string(status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -286,7 +286,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			expectations: func(t *testing.T, status *inferencev1.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, AppTestNS, string(*status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, AppTestNS, string(status.Parents[0].GatewayRef.Namespace))
 			},
 		},
 		{
@@ -340,7 +340,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			expectations: func(t *testing.T, status *inferencev1.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, DefaultTestNS, string(*status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, DefaultTestNS, string(status.Parents[0].GatewayRef.Namespace))
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
 					Type:    string(inferencev1.InferencePoolConditionAccepted),
 					Status:  metav1.ConditionFalse,
@@ -362,7 +362,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			expectations: func(t *testing.T, status *inferencev1.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, DefaultTestNS, string(*status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, DefaultTestNS, string(status.Parents[0].GatewayRef.Namespace))
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
 					Type:    string(inferencev1.InferencePoolConditionAccepted),
 					Status:  metav1.ConditionUnknown,
@@ -642,7 +642,7 @@ func WithParentStatus(gatewayName, namespace string, opt ...ParentOption) Option
 			poolStatus := inferencev1.PoolStatus{
 				GatewayRef: inferencev1.ParentGatewayReference{
 					Name:      inferencev1.ObjectName(gatewayName),
-					Namespace: (*inferencev1.Namespace)(&namespace),
+					Namespace: inferencev1.Namespace(namespace),
 				},
 			}
 			for _, opt := range opt {
@@ -658,7 +658,7 @@ func AsDefaultStatus() ParentOption {
 		dName := "default"
 		dKind := "Status"
 		parentStatusRef.GatewayRef.Name = inferencev1.ObjectName(dName)
-		parentStatusRef.GatewayRef.Kind = (*inferencev1.Kind)(&dKind)
+		parentStatusRef.GatewayRef.Kind = inferencev1.Kind(dKind)
 		WithConditions(
 			metav1.ConditionUnknown,
 			string(inferencev1.InferencePoolConditionAccepted),
@@ -708,11 +708,9 @@ func WithExtensionRef(kind, name string) Option {
 		ip, ok := obj.(*inferencev1.InferencePool)
 		if ok {
 			typedKind := inferencev1.Kind(kind)
-			ip.Spec.EndpointPickerConfig.ExtensionRef = &inferencev1.Extension{
-				ExtensionReference: inferencev1.ExtensionReference{
-					Name: inferencev1.ObjectName(name),
-					Kind: &typedKind,
-				},
+			ip.Spec.ExtensionRef = inferencev1.Extension{
+				Name: inferencev1.ObjectName(name),
+				Kind: typedKind,
 			}
 		}
 	}
@@ -756,15 +754,13 @@ func NewInferencePool(name string, opts ...Option) *inferencev1.InferencePool {
 			Namespace: DefaultTestNS,
 		},
 		Spec: inferencev1.InferencePoolSpec{
-			Selector: map[inferencev1.LabelKey]inferencev1.LabelValue{
-				"app": "test",
-			},
-			EndpointPickerConfig: inferencev1.EndpointPickerConfig{
-				ExtensionRef: &inferencev1.Extension{
-					ExtensionReference: inferencev1.ExtensionReference{
-						Name: "endpoint-picker",
-					},
+			Selector: inferencev1.LabelSelector{
+				MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
+					"app": "test",
 				},
+			},
+			ExtensionRef: inferencev1.Extension{
+				Name: "endpoint-picker",
 			},
 		},
 	}

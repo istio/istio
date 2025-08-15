@@ -8,3 +8,8 @@ releaseNotes:
 - |
   **Removed** support for the v1alpha2 InferencePool API type.
   **Added** support for the v1 InferencePool API type.
+upgradeNotes:
+- title: InferencePool
+  content: |
+    The v1alpha2 InferencePool API type has been removed. Please use the v1 InferencePool API type instead.
+    Update your configurations to use the new API version.

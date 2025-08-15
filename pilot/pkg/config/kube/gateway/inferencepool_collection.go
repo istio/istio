@@ -63,11 +63,17 @@ func getSupportedControllers() sets.Set[gatewayv1.GatewayController] {
 }
 
 type shadowServiceInfo struct {
-	key        types.NamespacedName
-	selector   map[string]string
-	poolName   string
-	poolUID    types.UID
-	targetPort int32
+	key      types.NamespacedName
+	selector map[string]string
+	poolName string
+	poolUID  types.UID
+	// targetPorts is the port number on the pods selected by the selector.
+	// Currently, inference extension only supports a single target port.
+	targetPorts []targetPort
+}
+
+type targetPort struct {
+	port int32
 }
 
 type extRefInfo struct {
@@ -129,15 +135,15 @@ func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents s
 	extRef := extRefInfo{
 		name: string(pool.Spec.ExtensionRef.Name),
 	}
-	if pool.Spec.ExtensionRef.PortNumber != nil {
-		extRef.port = int32(*pool.Spec.ExtensionRef.PortNumber)
-	} else {
-		extRef.port = 9002 // Default port for the inference extension
+
+	extRef.port = 9002 // Default port for the inference extension
+	if pool.Spec.ExtensionRef.PortNumber > 0 && pool.Spec.ExtensionRef.PortNumber < 65536 {
+		extRef.port = int32(pool.Spec.ExtensionRef.PortNumber)
 	}
-	if pool.Spec.ExtensionRef.FailureMode != nil {
-		extRef.failureMode = string(*pool.Spec.ExtensionRef.FailureMode)
-	} else {
-		extRef.failureMode = string(inferencev1.FailClose)
+
+	extRef.failureMode = string(inferencev1.FailClose) // Default failure mode for the inference extension
+	if pool.Spec.ExtensionRef.FailureMode != inferencev1.FailClose {
+		extRef.failureMode = string(pool.Spec.ExtensionRef.FailureMode)
 	}
 
 	svcName, err := InferencePoolServiceName(pool.Name)
@@ -151,14 +157,18 @@ func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents s
 			Name:      svcName,
 			Namespace: pool.GetNamespace(),
 		},
-		selector:   make(map[string]string, len(pool.Spec.Selector)),
-		poolName:   pool.GetName(),
-		targetPort: pool.Spec.TargetPortNumber,
-		poolUID:    pool.GetUID(),
+		selector:    make(map[string]string, len(pool.Spec.Selector.MatchLabels)),
+		poolName:    pool.GetName(),
+		targetPorts: make([]targetPort, 0, len(pool.Spec.TargetPorts)),
+		poolUID:     pool.GetUID(),
 	}
 
-	for k, v := range pool.Spec.Selector {
+	for k, v := range pool.Spec.Selector.MatchLabels {
 		shadowSvcInfo.selector[string(k)] = string(v)
+	}
+
+	for _, port := range pool.Spec.TargetPorts {
+		shadowSvcInfo.targetPorts = append(shadowSvcInfo.targetPorts, targetPort{port: int32(port.Number)})
 	}
 
 	return &InferencePool{
@@ -184,8 +194,8 @@ func calculateInferencePoolStatus(
 	for _, existingParent := range existingParents {
 		gtwName := string(existingParent.GatewayRef.Name)
 		gtwNamespace := pool.Namespace
-		if existingParent.GatewayRef.Namespace != nil {
-			gtwNamespace = string(*existingParent.GatewayRef.Namespace)
+		if existingParent.GatewayRef.Namespace != "" {
+			gtwNamespace = string(existingParent.GatewayRef.Namespace)
 		}
 		parentKey := types.NamespacedName{
 			Name:      gtwName,
@@ -295,7 +305,7 @@ func calculateSingleParentStatus(
 	var existingConditions []metav1.Condition
 	for _, existingParent := range existingParents {
 		if string(existingParent.GatewayRef.Name) == gatewayParent.Name &&
-			string(ptr.OrEmpty(existingParent.GatewayRef.Namespace)) == gatewayParent.Namespace {
+			string(existingParent.GatewayRef.Namespace) == gatewayParent.Namespace {
 			existingConditions = existingParent.Conditions
 			break
 		}
@@ -316,8 +326,8 @@ func calculateSingleParentStatus(
 	return inferencev1.PoolStatus{
 		GatewayRef: inferencev1.ParentGatewayReference{
 			Group:     (*inferencev1.Group)(&gvk.Gateway.Group),
-			Kind:      (*inferencev1.Kind)(&gvk.Gateway.Kind),
-			Namespace: (*inferencev1.Namespace)(&gatewayParent.Namespace),
+			Kind:      inferencev1.Kind(gvk.Gateway.Kind),
+			Namespace: inferencev1.Namespace(gatewayParent.Namespace),
 			Name:      inferencev1.ObjectName(gatewayParent.Name),
 		},
 		Conditions: setConditions(pool.Generation, filteredConditions, map[string]*condition{
@@ -401,31 +411,40 @@ func calculateResolvedRefsStatus(
 	pool *inferencev1.InferencePool,
 	services krt.Collection[*corev1.Service],
 ) *condition {
-	// defaults to service
-	if pool.Spec.ExtensionRef.Kind != nil && string(*pool.Spec.ExtensionRef.Kind) != gvk.Service.Kind {
+	// Default Kind to Service if unset
+	kind := string(pool.Spec.ExtensionRef.Kind)
+	if kind == "" {
+		kind = gvk.Service.Kind
+	}
+
+	if kind != gvk.Service.Kind {
 		return &condition{
 			reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
 			status:  metav1.ConditionFalse,
-			message: "Unsupported ExtensionRef kind " + string(*pool.Spec.ExtensionRef.Kind),
+			message: "Unsupported ExtensionRef kind " + kind,
 		}
 	}
-	if string(pool.Spec.ExtensionRef.Name) == "" {
+
+	name := string(pool.Spec.ExtensionRef.Name)
+	if name == "" {
 		return &condition{
 			reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
 			status:  metav1.ConditionFalse,
 			message: "ExtensionRef not defined",
 		}
 	}
-	svc := ptr.Flatten(services.GetKey(fmt.Sprintf("%s/%s", pool.Namespace, pool.Spec.ExtensionRef.Name)))
+
+	svc := ptr.Flatten(services.GetKey(fmt.Sprintf("%s/%s", pool.Namespace, name)))
 	if svc == nil {
 		return &condition{
 			reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
 			status:  metav1.ConditionFalse,
-			message: "Referenced ExtensionRef not found " + string(pool.Spec.ExtensionRef.Name),
+			message: "Referenced ExtensionRef not found " + name,
 		}
 	}
+
 	return &condition{
-		reason:  string(inferencev1.InferencePoolConditionResolvedRefs),
+		reason:  string(inferencev1.InferencePoolReasonResolvedRefs),
 		status:  metav1.ConditionTrue,
 		message: "Referenced ExtensionRef resolved successfully",
 	}
@@ -433,7 +452,7 @@ func calculateResolvedRefsStatus(
 
 // isDefaultStatusParent checks if this is a default status parent entry
 func isDefaultStatusParent(parent inferencev1.PoolStatus) bool {
-	return string(ptr.OrEmpty(parent.GatewayRef.Kind)) == "Status" && parent.GatewayRef.Name == "default"
+	return string(parent.GatewayRef.Kind) == "Status" && parent.GatewayRef.Name == "default"
 }
 
 // isOurManagedGateway checks if a Gateway is managed by one of our supported controllers
@@ -484,6 +503,17 @@ func InferencePoolServiceName(poolName string) (string, error) {
 }
 
 func translateShadowServiceToService(existingLabels map[string]string, shadow shadowServiceInfo, extRef extRefInfo) *corev1.Service {
+	// Create the ports used by the shadow service
+	ports := make([]corev1.ServicePort, 0, len(shadow.targetPorts))
+	dummyPort := int32(54320) // Dummy port, not used for anything
+	for i, port := range shadow.targetPorts {
+		ports = append(ports, corev1.ServicePort{
+			Protocol:   corev1.ProtocolTCP,
+			Port:       dummyPort + int32(i),
+			TargetPort: intstr.FromInt(int(port.port)),
+		})
+	}
+
 	// Create a new service object based on the shadow service info
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -501,13 +531,7 @@ func translateShadowServiceToService(existingLabels map[string]string, shadow sh
 			Selector:  shadow.selector,
 			Type:      corev1.ServiceTypeClusterIP,
 			ClusterIP: corev1.ClusterIPNone, // Headless service
-			Ports: []corev1.ServicePort{ // adding dummy port, not used for anything
-				{
-					Protocol:   "TCP",
-					Port:       int32(54321),
-					TargetPort: intstr.FromInt(int(shadow.targetPort)),
-				},
-			},
+			Ports:     ports,
 		},
 	}
 

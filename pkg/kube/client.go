@@ -257,7 +257,7 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 		if strings.Contains(g, "istio.io") {
 			return group == "istio"
 		}
-		if strings.Contains(g, "inference.networking.k8s.io") {
+		if strings.Contains(g, inferencev1.GroupVersion.Group) {
 			return group == "inference"
 		}
 		if strings.Contains(g, "gateway.networking.k8s.io") {
