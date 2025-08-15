@@ -16,6 +16,7 @@ package krt
 
 import (
 	"fmt"
+	"time"
 
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -157,6 +158,7 @@ func MapCollection[T, U any](
 	if metadata == nil {
 		metadata = ic.Metadata()
 	}
+
 	m := &mapCollection[T, U]{
 		collectionName: o.name,
 		id:             nextUID(),
@@ -164,6 +166,7 @@ func MapCollection[T, U any](
 		mapFunc:        mapFunc,
 		metadata:       metadata,
 	}
+
 	maybeRegisterCollectionForDebugging[U](m, o.debugger)
 	return m
 }
