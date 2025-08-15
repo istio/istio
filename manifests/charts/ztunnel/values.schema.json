@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "_internal_defaults_do_not_set": {
+      "$ref": "#/$defs"
+    },
+    "values": {
+      "$ref": "#/$defs"
+    }
+  },
+  "$defs": {
+    "type": "object",
+    "properties": {
+      "_internal_defaults_do_not_set": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "affinity": {
+            "$ref": "file://schemas/affinity.schema.json"
+          },
+          "ownerName": {
+            "type": "string"
+          },
+          "nodeSelector": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "compatibilityVersion": {
+            "type": "string"
+          },
+          "trustBundleName": {
+            "type": "string"
+          },
+          "hub": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "variant": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "global": {
+            "type": "object",
+            "properties": {
+              "network": {
+                "type": "string"
+              },
+              "trustBundleName": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "resourceName": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "annotations": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "volumeMounts": {
+            "type": "array",
+            "items": {}
+          },
+          "volumes": {
+            "type": "array",
+            "items": {}
+          },
+          "tolerations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "effect": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operator": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "podAnnotations": {
+            "type": "object",
+            "properties": {
+              "prometheus.io/port": {
+                "type": "string"
+              },
+              "prometheus.io/scrape": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "podLabels": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "resources": {
+            "type": "object",
+            "properties": {
+              "requests": {
+                "type": "object",
+                "properties": {
+                  "cpu": {
+                    "type": "string"
+                  },
+                  "memory": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "resourceQuotas": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "pods": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "imagePullSecrets": {
+            "type": "array",
+            "items": {}
+          },
+          "env": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "imagePullPolicy": {
+            "type": "string"
+          },
+          "multiCluster": {
+            "type": "object",
+            "properties": {
+              "clusterName": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "meshConfig": {
+            "type": "object",
+            "properties": {
+              "defaultConfig": {
+                "type": "object",
+                "properties": {
+                  "proxyMetadata": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "terminationGracePeriodSeconds": {
+            "type": "integer"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "caAddress": {
+            "type": "string"
+          },
+          "xdsAddress": {
+            "type": "string"
+          },
+          "istioNamespace": {
+            "type": "string"
+          },
+          "logLevel": {
+            "type": "string"
+          },
+          "logAsJson": {
+            "type": "boolean"
+          },
+          "seLinuxOptions": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "updateStrategy": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "rollingUpdate": {
+                "type": "object",
+                "properties": {
+                  "maxSurge": {
+                    "type": "integer"
+                  },
+                  "maxUnavailable": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+    "additionalProperties": false
+    }
+  }
+}

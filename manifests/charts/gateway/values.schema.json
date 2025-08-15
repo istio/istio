@@ -76,7 +76,16 @@
           "type": "string"
         },
         "nodeSelector": {
-          "type": "object"
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         },
         "podAnnotations": {
           "type": "object",

@@ -1,0 +1,383 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "_internal_defaults_do_not_set": {
+      "$ref": "#/$defs"
+    },
+    "values": {
+      "$ref": "#/$defs"
+    }
+  },
+  "$defs": {
+    "type": "object",
+    "properties": {
+      "platform": {
+        "type": "string"
+      },
+      "compatibilityVersion": {
+        "type": "string"
+      },
+      "hub": {
+        "type": "string"
+      },
+      "tag": {
+        "type": "string"
+      },
+      "variant": {
+        "type": "string"
+      },
+      "image": {
+        "type": "string"
+      },
+      "pullPolicy": {
+        "type": "string"
+      },
+      "logging": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "cniBinDir": {
+        "type": "string"
+      },
+      "cniConfDir": {
+        "type": "string"
+      },
+      "cniConfFileName": {
+        "type": "string"
+      },
+      "cniNetnsDir": {
+        "type": "string"
+      },
+      "istioOwnedCNIConfigFileName": {
+        "type": "string"
+      },
+      "istioOwnedCNIConfig": {
+        "type": "boolean"
+      },
+      "excludeNamespaces": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "affinity": {
+        "$ref": "file://schemas/affinity.schema.json"
+      },
+      "daemonSetLabels": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      },
+      "podAnnotations": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      },
+      "podLabels": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      },
+      "chained": {
+        "type": "boolean"
+      },
+      "provider": {
+        "type": "string"
+      },
+      "ambient": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "enablementSelectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "podSelector": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "matchLabels": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "matchExpressions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "operator": {
+                            "type": "string"
+                          },
+                          "values": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                },
+                "namespaceSelector": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "matchLabels": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "matchExpressions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "operator": {
+                            "type": "string"
+                          },
+                          "values": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "configDir": {
+            "type": "string"
+          },
+          "dnsCapture": {
+            "type": "boolean"
+          },
+          "ipv6": {
+            "type": "boolean"
+          },
+          "reconcileIptablesOnStartup": {
+            "type": "boolean"
+          },
+          "shareHostNetworkNamespace": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "repair": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "hub": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "labelPods": {
+            "type": "boolean"
+          },
+          "deletePods": {
+            "type": "boolean"
+          },
+          "repairPods": {
+            "type": "boolean"
+          },
+          "initContainerName": {
+            "type": "string"
+          },
+          "brokenPodLabelKey": {
+            "type": "string"
+          },
+          "brokenPodLabelValue": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "seccompProfile": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      },
+      "seLinuxOptions": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      },
+      "resources": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "object",
+            "properties": {
+              "cpu": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "resourceQuotas": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "pods": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "tolerations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "effect": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "operator": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "updateStrategy": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "rollingUpdate": {
+            "type": "object",
+            "properties": {
+              "maxUnavailable": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "revision": {
+        "type": "string"
+      },
+      "ownerName": {
+        "type": "string"
+      },
+      "global": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "hub": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "variant": {
+            "type": "string"
+          },
+          "imagePullPolicy": {
+            "type": "string"
+          },
+          "logging": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "logAsJson": {
+            "type": "boolean"
+          },
+          "imagePullSecrets": {
+            "type": "array",
+            "items": {}
+          },
+          "defaultResources": {
+            "type": "object",
+            "properties": {
+              "requests": {
+                "type": "object",
+                "properties": {
+                  "cpu": {
+                    "type": "string"
+                  },
+                  "memory": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "nativeNftables": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "env": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": true
+      }
+    },
+    "additionalProperties": false
+  }
+}
