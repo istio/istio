@@ -15,6 +15,7 @@ package builder
 
 import (
 	"context"
+	"istio.io/istio/pkg/log"
 
 	"sigs.k8s.io/knftables"
 )
@@ -76,4 +77,24 @@ func NewMockNftables(family knftables.Family, table string) *MockNftables {
 // We don't want to sort objects in the Dump result so we are not using the Fake.Dump method.
 func (m *MockNftables) Dump(tx *knftables.Transaction) string {
 	return tx.String()
+}
+
+func LogNftRules(rules *knftables.Transaction) {
+	if rules.NumOperations() == 0 {
+		log.Infof("There are no nftables rules to log")
+		return
+	}
+
+	nftProvider, err := NewNftImpl("", "")
+	if err != nil {
+		log.Errorf("Error creating NftImpl interface: %v", err)
+		return
+	}
+
+	dump := nftProvider.Dump(rules)
+	if dump != "" {
+		log.Infof("nftables rules programmed:\n%s \n", dump)
+	} else {
+		log.Info("There are no nftables rules.")
+	}
 }
