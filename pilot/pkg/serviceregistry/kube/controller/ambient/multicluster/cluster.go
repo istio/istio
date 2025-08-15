@@ -162,6 +162,10 @@ func (c *Cluster) ResourceName() string {
 	return c.ID.String()
 }
 
+func (c *Cluster) GetStop() <-chan struct{} {
+	return c.stop
+}
+
 func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
 	// Check and see if this is a local cluster or not
 	if c.RemoteClusterCollections != nil {

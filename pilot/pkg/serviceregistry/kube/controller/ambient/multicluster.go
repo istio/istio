@@ -107,12 +107,17 @@ func (a *index) buildGlobalCollections(
 				log.Warnf("Failed to sync gateways informer for cluster %s", c.ID)
 				return nil
 			}
+			opts := []krt.CollectionOption{
+				krt.WithName(fmt.Sprintf("ambient/GatewaysWithCluster[%s]", c.ID)),
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(c.GetStop()),
+			}
 			return ptr.Of(krt.MapCollection(c.Gateways(), func(obj *v1beta1.Gateway) krt.ObjectWithCluster[*v1beta1.Gateway] {
 				return krt.ObjectWithCluster[*v1beta1.Gateway]{
 					ClusterID: c.ID,
 					Object:    &obj,
 				}
-			}, opts.WithName(fmt.Sprintf("GatewaysWithCluster[%s]", c.ID))...))
+			}, opts...))
 		}, "GatewaysWithCluster", opts)
 
 	globalGatewaysByCluster := nestedCollectionIndexByCluster(GlobalGatewaysWithCluster)
@@ -142,12 +147,17 @@ func (a *index) buildGlobalCollections(
 				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
 				return nil
 			}
+			opts := []krt.CollectionOption{
+				krt.WithName(fmt.Sprintf("ambient/NodesWithCluster[%s]", c.ID)),
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(c.GetStop()),
+			}
 			return ptr.Of(krt.MapCollection(c.Nodes(), func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
 				return krt.ObjectWithCluster[*v1.Node]{
 					ClusterID: c.ID,
 					Object:    &obj,
 				}
-			}, opts.WithName(fmt.Sprintf("NodesWithCluster[%s]", c.ID))...))
+			}, opts...))
 		}, "NodesWithCluster", opts)
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(

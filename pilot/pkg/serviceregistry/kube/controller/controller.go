@@ -160,6 +160,8 @@ type Options struct {
 	StatusWritingEnabled *activenotifier.ActiveNotifier
 
 	KrtDebugger *krt.DebugHandler
+
+	Stop chan struct{}
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -309,6 +311,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			MeshConfig:      options.MeshWatcher,
 			StatusNotifier:  options.StatusWritingEnabled,
 			Debugger:        options.KrtDebugger,
+			Stop:            options.Stop,
 			Flags: ambient.FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
