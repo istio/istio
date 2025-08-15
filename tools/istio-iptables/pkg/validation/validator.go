@@ -122,6 +122,28 @@ func NewValidator(config *config.Config) *Validator {
 	}
 }
 
+func NewAmbientValidator(config *config.Config) *Validator {
+	// It's tricky here:
+	// Connect to 127.0.0.6 will redirect to 127.0.0.1
+	// Connect to ::6       will redirect to ::1
+	isIPv6 := config.HostIP.Is6()
+	listenIP, _ := netip.AddrFromSlice([]byte{127, 0, 0, 1})
+	serverIP, _ := netip.AddrFromSlice([]byte{127, 0, 0, 6})
+	if isIPv6 {
+		listenIP, _ = netip.AddrFromSlice([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+		serverIP, _ = netip.AddrFromSlice([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6})
+	}
+	return &Validator{
+		Config: &Config{
+			ServerListenAddress: genListenerAddress(listenIP, []string{"15006", "15008"}),
+			ServerOriginalPort:  config.IptablesProbePort,
+			ServerOriginalIP:    serverIP,
+			ServerReadyBarrier:  make(chan ReturnCode, 1),
+			ProbeTimeout:        config.ProbeTimeout,
+		},
+	}
+}
+
 // Write human readable response
 func echo(conn io.WriteCloser, echo []byte) {
 	_, _ = conn.Write(echo)
@@ -136,7 +158,9 @@ func restoreOriginalAddress(l net.Listener, config *Config, c chan<- ReturnCode)
 			log.Errorf("Listener failed to accept connection: %v", err)
 			continue
 		}
+		log.Infof("Accepted connection from %s", conn.RemoteAddr())
 		_, port, err := GetOriginalDestination(conn)
+		log.Infof("Got original destination port: %d", port)
 		if err != nil {
 			log.Errorf("Error getting original dst: %v", err)
 			conn.Close()
@@ -175,6 +199,7 @@ func (s *Service) Run() error {
 		hasAtLeastOneListener = true
 		go restoreOriginalAddress(l, s.Config, c)
 	}
+	// TODO(jaellio): Do we want both listeners to be up in ambient mode?
 	if hasAtLeastOneListener {
 		s.Config.ServerReadyBarrier <- DONE
 		// bump at least one since we currently support either v4 or v6
@@ -185,10 +210,12 @@ func (s *Service) Run() error {
 }
 
 func (c *Client) Run() error {
+	log.Infof("Starting Client. Connecting to %s:%d", c.Config.ServerOriginalIP, c.Config.ServerOriginalPort)
 	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	if err != nil {
 		return err
 	}
+	log.Infof("Client local address: %s", laddr)
 	if c.Config.ServerOriginalIP.Is6() {
 		laddr, err = net.ResolveTCPAddr("tcp", "[::1]:0")
 		if err != nil {
@@ -197,10 +224,13 @@ func (c *Client) Run() error {
 	}
 	sOriginalPort := fmt.Sprintf("%d", c.Config.ServerOriginalPort)
 	serverOriginalAddress := net.JoinHostPort(c.Config.ServerOriginalIP.String(), sOriginalPort)
+	log.Infof("Connecting to server at %s", serverOriginalAddress)
 	raddr, err := net.ResolveTCPAddr("tcp", serverOriginalAddress)
 	if err != nil {
 		return err
 	}
+	log.Infof("Resolved server address: %s", raddr)
+	log.Infof("Attempting to connect to %s", serverOriginalAddress)
 	conn, err := net.DialTCP("tcp", laddr, raddr)
 	if err != nil {
 		log.Errorf("Error connecting to %s: %v", serverOriginalAddress, err)
