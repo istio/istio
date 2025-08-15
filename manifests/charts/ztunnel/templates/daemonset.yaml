@@ -71,22 +71,7 @@ spec:
         imagePullPolicy: {{ . }}
 {{- end }}
         securityContext:
-          # K8S docs are clear that CAP_SYS_ADMIN *or* privileged: true
-          # both force this to `true`: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
-          # But there is a K8S validation bug that doesn't propery catch this: https://github.com/kubernetes/kubernetes/issues/119568
-          allowPrivilegeEscalation: true
-          privileged: false
-          capabilities:
-            drop:
-            - ALL
-            add: # See https://man7.org/linux/man-pages/man7/capabilities.7.html
-            - NET_ADMIN # Required for TPROXY and setsockopt
-            - SYS_ADMIN # Required for `setns` - doing things in other netns
-            - NET_RAW # Required for RAW/PACKET sockets, TPROXY
-          readOnlyRootFilesystem: true
-          runAsGroup: 1337
-          runAsNonRoot: false
-          runAsUser: 0
+{{ toYaml .Values.securityContext | trim |indent 12 }}
 {{- if .Values.seLinuxOptions }}
           seLinuxOptions:
 {{ toYaml .Values.seLinuxOptions | trim | indent 12 }}
