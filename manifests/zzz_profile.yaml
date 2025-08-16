@@ -53,7 +53,11 @@ Finally, we can set all of that under .Values so the chart behaves without aware
 {{- $a := mustMergeOverwrite $defaults ($profile.global) ($.Values.global | default dict)  }}
 {{- end }}
 {{- $x := set $.Values "_original" (deepCopy $.Values) }}
-{{- $b := set $ "Values" (mustMergeOverwrite $defaults $.Values) }}
+{{- if $defaults.descopeKey }}
+{{- $b := mustMergeOverwrite $defaults (index $defaults $defaults.descopeKey) }}
+{{- $c := mustMergeOverwrite $.Values (index $.Values $defaults.descopeKey) }}
+{{- end }}
+{{- $d := set $ "Values" (mustMergeOverwrite $defaults $.Values) }}
 
 {{/*
 Labels that should be applied to ALL resources.
