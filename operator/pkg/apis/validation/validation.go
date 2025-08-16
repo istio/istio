@@ -193,22 +193,53 @@ func validateMeshConfig(contents string) (Warnings, util.Errors) {
 
 type FeatureValidator func(*apis.Values, apis.IstioOperatorSpec) (Warnings, util.Errors)
 
+func validateNativeNftablesWithDistroless(values *apis.Values) Warnings {
+	var warnings Warnings
+
+	// Check if nativeNftables is enabled
+	nativeNftablesEnabled := false
+	if values.GetGlobal() != nil && values.GetGlobal().GetNativeNftables() != nil && values.GetGlobal().GetNativeNftables().GetValue() {
+		nativeNftablesEnabled = true
+	}
+
+	// Check if image is distroless
+	isDistroless := false
+	if values.GetGlobal() != nil && values.GetGlobal().GetVariant() == "distroless" {
+		isDistroless = true
+	}
+
+	// If nativeNftables is enabled and image is distroless, add a warning
+	if nativeNftablesEnabled && isDistroless {
+		warnings = util.AppendErr(warnings, fmt.Errorf("nativeNftables is enabled, but the image is distroless."+
+			" The 'nft' CLI binary is not available in distroless images, which is required for nativeNftables to work."+
+			" Please either disable nativeNftables or use a non-distroless image"))
+	}
+
+	return warnings
+}
+
 // validateFeatures check whether the config semantically make sense. For example, feature X and feature Y can't be enabled together.
 func validateFeatures(values *apis.Values, spec apis.IstioOperatorSpec) (Warnings, util.Errors) {
+	var warnings Warnings
+	var errors util.Errors
+
+	// Check nativeNftables with distroless images
+	// Revisit: Once the PR https://github.com/istio/istio/pull/56917 is merged.
+	w := validateNativeNftablesWithDistroless(values)
+	warnings = util.AppendErrs(warnings, w)
+
 	validators := []FeatureValidator{
 		checkServicePorts,
 		checkAutoScaleAndReplicaCount,
 	}
 
-	var warnings Warnings
-	var errs util.Errors
 	for _, validator := range validators {
 		newWarnings, newErrs := validator(values, spec)
-		errs = util.AppendErrs(errs, newErrs)
-		warnings = append(warnings, newWarnings...)
+		warnings = util.AppendErrs(warnings, newWarnings)
+		errors = util.AppendErrs(errors, newErrs)
 	}
 
-	return warnings, errs
+	return warnings, errors
 }
 
 // checkAutoScaleAndReplicaCount warns when autoscaleEnabled is true and k8s replicaCount is set.
