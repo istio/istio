@@ -71,7 +71,7 @@ function download_ztunnel_if_necessary () {
   cp -f "$2" "$(dirname "$2")/${3}"
   popd
 
-  # Also copy it to out/$os_arch/ztunnel as that's whats used in the build
+  # Also copy it to out/$os_arch/ztunnel as that's what's used in the build
   echo "Copying '${2}' to ${TARGET_OUT_LINUX}/ztunnel"
   cp -f "${2}" "${TARGET_OUT_LINUX}/ztunnel"
 }

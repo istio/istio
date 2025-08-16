@@ -1123,7 +1123,7 @@ func printIngressInfo(
 									recordGateways[gwID] = true
 									if gw.Spec.Selector == nil {
 										fmt.Fprintf(writer,
-											"Ingress Gateway %s/%s be applyed all workloads",
+											"Ingress Gateway %s/%s be applied all workloads",
 											gns, gatewayName)
 										continue
 									}

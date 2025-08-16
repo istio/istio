@@ -55,7 +55,7 @@ func getHostAddressesFromServiceEntryStatus(status *apiv1.ServiceEntryStatus) ma
 	for _, addr := range status.GetAddresses() {
 		parsed, err := netip.ParseAddr(addr.GetValue())
 		if err != nil {
-			// strange, we should have written these so it probaby should parse but for now unreadable is unusable and we move on
+			// strange, we should have written these so it probably should parse but for now unreadable is unusable and we move on
 			continue
 		}
 		host := addr.GetHost()
