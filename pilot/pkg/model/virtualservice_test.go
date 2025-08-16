@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const wildcardIP = "0.0.0.0"
@@ -2378,4 +2379,210 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 
 	service.Ports = Ports
 	return service
+}
+
+func BenchmarkSelectVirtualServices(b *testing.B) {
+	// Create test data with different sizes to test various scenarios
+	benchmarks := []struct {
+		name                string
+		virtualServiceCount int
+		namespaceCount      int
+		hostCount           int
+		useGatewaySemantics bool
+	}{
+		{
+			name:                "Small-10VS-3NS-5Hosts",
+			virtualServiceCount: 10,
+			namespaceCount:      3,
+			hostCount:           5,
+			useGatewaySemantics: false,
+		},
+		{
+			name:                "Medium-100VS-10NS-20Hosts",
+			virtualServiceCount: 100,
+			namespaceCount:      10,
+			hostCount:           20,
+			useGatewaySemantics: false,
+		},
+		{
+			name:                "Large-1000VS-20NS-50Hosts",
+			virtualServiceCount: 1000,
+			namespaceCount:      20,
+			hostCount:           50,
+			useGatewaySemantics: false,
+		},
+		{
+			name:                "Small-GatewaySemantics-10VS-3NS-5Hosts",
+			virtualServiceCount: 10,
+			namespaceCount:      3,
+			hostCount:           5,
+			useGatewaySemantics: true,
+		},
+		{
+			name:                "Medium-GatewaySemantics-100VS-10NS-20Hosts",
+			virtualServiceCount: 100,
+			namespaceCount:      10,
+			hostCount:           20,
+			useGatewaySemantics: true,
+		},
+		{
+			name:                "Large-GatewaySemantics-1000VS-20NS-50Hosts",
+			virtualServiceCount: 1000,
+			namespaceCount:      20,
+			hostCount:           50,
+			useGatewaySemantics: true,
+		},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			// Create test data
+			vsidx, hostsByNamespace := createBenchmarkData(bm.virtualServiceCount, bm.namespaceCount, bm.hostCount, bm.useGatewaySemantics)
+			configNamespace := "default"
+
+			// Reset timer before the actual benchmark
+			b.ResetTimer()
+
+			// Run the benchmark
+			for i := 0; i < b.N; i++ {
+				_ = SelectVirtualServices(vsidx, configNamespace, hostsByNamespace)
+			}
+		})
+	}
+}
+
+// createBenchmarkData creates test data for benchmarking SelectVirtualServices
+func createBenchmarkData(vsCount, nsCount, hostCount int, useGatewaySemantics bool) (virtualServiceIndex, map[string]hostClassification) {
+	vsidx := virtualServiceIndex{
+		publicByGateway:              make(map[string][]config.Config),
+		privateByNamespaceAndGateway: make(map[types.NamespacedName][]config.Config),
+		exportedToNamespaceByGateway: make(map[types.NamespacedName][]config.Config),
+		delegates:                    make(map[ConfigKey][]ConfigKey),
+		destinationsByGateway:        make(map[string]sets.String),
+		referencedDestinations:       make(map[string]sets.String),
+	}
+
+	hostsByNamespace := make(map[string]hostClassification)
+
+	// Create namespaces
+	namespaces := make([]string, nsCount)
+	for i := 0; i < nsCount; i++ {
+		namespaces[i] = fmt.Sprintf("namespace-%d", i)
+		hostsByNamespace[namespaces[i]] = hostClassification{
+			exactHosts: sets.New[host.Name](),
+			allHosts:   make([]host.Name, 0, hostCount),
+		}
+	}
+
+	// Add wildcard namespace
+	hostsByNamespace[wildcardNamespace] = hostClassification{
+		exactHosts: sets.New[host.Name](),
+		allHosts:   make([]host.Name, 0, hostCount),
+	}
+
+	// Create hosts for each namespace
+	for _, ns := range namespaces {
+		hc := hostsByNamespace[ns]
+		for i := 0; i < hostCount; i++ {
+			hostname := host.Name(fmt.Sprintf("host-%d.%s.com", i, ns))
+			hc.allHosts = append(hc.allHosts, hostname)
+			if !hostname.IsWildCarded() {
+				hc.exactHosts.Insert(hostname)
+			}
+		}
+		hostsByNamespace[ns] = hc
+
+		// Add some hosts to wildcard namespace
+		wcHc := hostsByNamespace[wildcardNamespace]
+		for i := 0; i < hostCount/2; i++ {
+			hostname := host.Name(fmt.Sprintf("wildcard-host-%d.com", i))
+			wcHc.allHosts = append(wcHc.allHosts, hostname)
+			if !hostname.IsWildCarded() {
+				wcHc.exactHosts.Insert(hostname)
+			}
+		}
+		hostsByNamespace[wildcardNamespace] = wcHc
+	}
+
+	// Create virtual services
+	vsidx.publicByGateway[constants.IstioMeshGateway] = make([]config.Config, 0, vsCount/2)
+	vsidx.privateByNamespaceAndGateway[types.NamespacedName{Namespace: "default", Name: constants.IstioMeshGateway}] = make([]config.Config, 0, vsCount/4)
+	vsidx.exportedToNamespaceByGateway[types.NamespacedName{Namespace: "default", Name: constants.IstioMeshGateway}] = make([]config.Config, 0, vsCount/4)
+
+	for i := 0; i < vsCount; i++ {
+		// Distribute virtual services across different categories
+		vs := createVirtualService(i, namespaces[i%len(namespaces)], useGatewaySemantics)
+
+		if i < vsCount/2 {
+			// Public virtual services
+			vsidx.publicByGateway[constants.IstioMeshGateway] = append(vsidx.publicByGateway[constants.IstioMeshGateway], vs)
+		} else if i < 3*vsCount/4 {
+			// Private virtual services
+			vsidx.privateByNamespaceAndGateway[types.NamespacedName{Namespace: "default", Name: constants.IstioMeshGateway}] = append(
+				vsidx.privateByNamespaceAndGateway[types.NamespacedName{Namespace: "default", Name: constants.IstioMeshGateway}], vs)
+		} else {
+			// Exported virtual services
+			vsidx.exportedToNamespaceByGateway[types.NamespacedName{Namespace: "default", Name: constants.IstioMeshGateway}] = append(
+				vsidx.exportedToNamespaceByGateway[types.NamespacedName{Namespace: "default", Name: constants.IstioMeshGateway}], vs)
+		}
+	}
+
+	return vsidx, hostsByNamespace
+}
+
+// createVirtualService creates a virtual service for benchmarking
+func createVirtualService(index int, namespace string, useGatewaySemantics bool) config.Config {
+	// Create hosts that will match some of the test hosts
+	hosts := []string{
+		fmt.Sprintf("host-%d.%s.com", index%5, namespace),
+		fmt.Sprintf("wildcard-host-%d.com", index%3),
+	}
+
+	// Add some wildcard hosts
+	if index%7 == 0 {
+		hosts = append(hosts, fmt.Sprintf("*.%s.com", namespace))
+	}
+
+	vs := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             fmt.Sprintf("vs-%d", index),
+			Namespace:        namespace,
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    hosts,
+			Gateways: []string{constants.IstioMeshGateway},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: fmt.Sprintf("destination-%d.com", index),
+								Port: &networking.PortSelector{
+									Number: uint32(80 + index%20),
+								},
+							},
+							Weight: int32(100),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// If using gateway semantics, add some additional configuration
+	if useGatewaySemantics {
+		// Add some match conditions to make it more realistic
+		vs.Spec.(*networking.VirtualService).Http[0].Match = []*networking.HTTPMatchRequest{
+			{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{
+						Prefix: fmt.Sprintf("/api/v%d", index%5),
+					},
+				},
+			},
+		}
+	}
+
+	return vs
 }
