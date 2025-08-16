@@ -3,6 +3,12 @@ kind: Deployment
 metadata:
   labels:
     app: istiod
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istiod
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: istiod-1.0.0
     install.operator.istio.io/owning-resource: unknown
     istio: pilot
     istio.io/rev: default
@@ -26,6 +32,12 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
+        app.kubernetes.io/instance: istio
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: istiod
+        app.kubernetes.io/part-of: istio
+        app.kubernetes.io/version: 1.0.0
+        helm.sh/chart: istiod-1.0.0
         install.operator.istio.io/owning-resource: unknown
         istio: pilot
         istio.io/dataplane-mode: none
@@ -75,10 +87,12 @@ spec:
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.memory
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.cpu
         - name: PLATFORM
           value: ""
@@ -86,12 +100,19 @@ spec:
         name: discovery
         ports:
         - containerPort: 8080
+          name: http-debug
           protocol: TCP
         - containerPort: 15010
+          name: grpc-xds
+          protocol: TCP
+        - containerPort: 15012
+          name: tls-xds
           protocol: TCP
         - containerPort: 15017
+          name: https-webhooks
           protocol: TCP
         - containerPort: 15014
+          name: http-monitoring
           protocol: TCP
         readinessProbe:
           httpGet:
@@ -169,6 +190,12 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istiod
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istiod
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: istiod-1.0.0
     install.operator.istio.io/owning-resource: unknown
     istio.io/rev: default
     operator.istio.io/component: Pilot
