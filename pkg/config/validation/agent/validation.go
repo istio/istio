@@ -30,6 +30,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/security"
@@ -276,9 +277,18 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 	return ValidateProxyAddress(strings.Replace(d.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
 }
 
-func ValidateTLS(settings *networking.ClientTLSSettings) (errs error) {
+func ValidateTLS(configNamespace string, settings *networking.ClientTLSSettings) (errs error) {
 	if settings == nil {
 		return
+	}
+
+	if settings.CredentialName != "" && strings.HasPrefix(settings.CredentialName, credentials.KubernetesConfigMapTypeURI) {
+		rn, err := credentials.ParseResourceName(settings.CredentialName, configNamespace, "", "")
+		if err != nil {
+			errs = AppendErrors(errs, fmt.Errorf("invalid configmap:// credentialName: %v", err))
+		} else if rn.Namespace != configNamespace || configNamespace == "" {
+			errs = AppendErrors(errs, fmt.Errorf("invalid configmap:// credentialName: namespace must match the configuration namespace %q", configNamespace))
+		}
 	}
 
 	if settings.GetInsecureSkipVerify().GetValue() {
@@ -376,7 +386,7 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) Validation {
 	}
 
 	if tracer := config.GetTracing().GetTlsSettings(); tracer != nil {
-		if err := ValidateTLS(tracer); err != nil {
+		if err := ValidateTLS("", tracer); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid tracing TLS config:"))
 		}
 	}

@@ -24,6 +24,7 @@ type KeyCertBundle struct {
 	CertPem  []byte
 	KeyPem   []byte
 	CABundle []byte
+	CRL      []byte
 }
 
 type Watcher struct {
@@ -83,6 +84,23 @@ func (w *Watcher) SetAndNotify(key, cert, caBundle []byte) {
 	}
 }
 
+// SetAndNotifyCACRL sets crl and notifies the watchers.
+func (w *Watcher) SetAndNotifyCACRL(crl []byte) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if len(crl) != 0 {
+		w.bundle.CRL = crl
+	}
+
+	for _, ch := range w.watchers {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
 // SetFromFilesAndNotify sets the key cert and root cert from files and notify the watchers.
 func (w *Watcher) SetFromFilesAndNotify(keyFile, certFile, rootCert string) error {
 	cert, err := os.ReadFile(certFile)
@@ -113,4 +131,11 @@ func (w *Watcher) GetKeyCertBundle() KeyCertBundle {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 	return w.bundle
+}
+
+// GetCRL returns the CRL data.
+func (w *Watcher) GetCRL() []byte {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+	return w.bundle.CRL
 }

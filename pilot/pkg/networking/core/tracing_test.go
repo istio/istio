@@ -245,7 +245,7 @@ func TestConfigureTracing(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hcm := &hcm.HttpConnectionManager{}
-			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
+			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0, nil)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
@@ -372,7 +372,7 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 			want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 			hcm := &hcm.HttpConnectionManager{}
-			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
+			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
 
 			if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -417,8 +417,10 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 					Timeout: &durationpb.Duration{Seconds: 3},
 					Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 						{
-							Name:  expectedHeader,
-							Value: expectedToken,
+							Name: expectedHeader,
+							HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+								Value: expectedToken,
+							},
 						},
 					},
 				},
@@ -448,8 +450,10 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 					Timeout: &durationpb.Duration{Seconds: 3},
 					Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 						{
-							Name:  expectedHeader,
-							Value: expectedToken,
+							Name: expectedHeader,
+							HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+								Value: expectedToken,
+							},
 						},
 					},
 				},
@@ -512,7 +516,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 	hcm := &hcm.HttpConnectionManager{}
-	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
+	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
 
 	if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 		t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -904,8 +908,10 @@ func fakeOpenTelemetryGrpcWithInitialMetadata() *meshconfig.MeshConfig_Extension
 				Grpc: &meshconfig.MeshConfig_ExtensionProvider_GrpcService{
 					InitialMetadata: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 						{
-							Name:  "Authentication",
-							Value: "token-xxxxx",
+							Name: "Authentication",
+							HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+								Value: "token-xxxxx",
+							},
 						},
 					},
 					Timeout: &durationpb.Duration{Seconds: 3},
@@ -928,8 +934,10 @@ func fakeOpenTelemetryHTTP() *meshconfig.MeshConfig_ExtensionProvider {
 					Timeout: &durationpb.Duration{Seconds: 3},
 					Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 						{
-							Name:  "custom-header",
-							Value: "custom-value",
+							Name: "custom-header",
+							HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+								Value: "custom-value",
+							},
 						},
 					},
 				},
@@ -991,8 +999,10 @@ func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI() gatewayListe
 							Grpc: &meshconfig.MeshConfig_ExtensionProvider_GrpcService{
 								InitialMetadata: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 									{
-										Name:  "Authentication",
-										Value: "token-xxxxx",
+										Name: "Authentication",
+										HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+											Value: "token-xxxxx",
+										},
 									},
 								},
 								Timeout: &durationpb.Duration{Seconds: 3},
@@ -1029,8 +1039,10 @@ func fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI() gatewayListenerOpts {
 								Timeout: &durationpb.Duration{Seconds: 3},
 								Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 									{
-										Name:  "custom-header",
-										Value: "custom-value",
+										Name: "custom-header",
+										HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+											Value: "custom-value",
+										},
 									},
 								},
 							},
@@ -1355,5 +1367,49 @@ func fakeOpenTelemetryResourceDetectorsProvider(expectClusterName, expectAuthori
 	return &tracingcfg.Tracing_Http{
 		Name:       envoyOpenTelemetry,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHTTPAny},
+	}
+}
+
+func TestGetHeaderValue(t *testing.T) {
+	t.Setenv("CUSTOM_ENV_NAME", "custom-env-value")
+	cases := []struct {
+		name     string
+		input    *meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+		expected string
+	}{
+		{
+			name: "custom-value",
+			input: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+					Value: "custom-value",
+				},
+			},
+			expected: "custom-value",
+		},
+		{
+			name: "read-from-env",
+			input: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_EnvName{
+					EnvName: "CUSTOM_ENV_NAME",
+				},
+			},
+			expected: "custom-env-value",
+		},
+		{
+			name: "read-from-env-not-exists",
+			input: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_EnvName{
+					EnvName: "CUSTOM_ENV_NAME1",
+				},
+			},
+			expected: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getHeaderValue(tc.input)
+			assert.Equal(t, tc.expected, got)
+		})
 	}
 }

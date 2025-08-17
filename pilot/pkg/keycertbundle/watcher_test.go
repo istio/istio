@@ -36,13 +36,15 @@ func TestWatcher(t *testing.T) {
 	key := []byte("key")
 	cert := []byte("cert")
 	ca := []byte("caBundle")
+	crl := []byte("crl")
 	// 2. set key cert bundle
 	watcher.SetAndNotify(key, cert, ca)
+	watcher.SetAndNotifyCACRL(crl)
 	select {
 	case <-watch1:
 		keyCertBundle := watcher.GetKeyCertBundle()
 		if !bytes.Equal(keyCertBundle.KeyPem, key) || !bytes.Equal(keyCertBundle.CertPem, cert) ||
-			!bytes.Equal(keyCertBundle.CABundle, ca) {
+			!bytes.Equal(keyCertBundle.CABundle, ca) || !bytes.Equal(keyCertBundle.CRL, crl) {
 			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
 		}
 	default:
@@ -55,12 +57,14 @@ func TestWatcher(t *testing.T) {
 	key = []byte("key2")
 	cert = []byte("cert2")
 	ca = []byte("caBundle2")
+	crl = []byte("crl2")
 	watcher.SetAndNotify(key, cert, ca)
+	watcher.SetAndNotifyCACRL(crl)
 	select {
 	case <-watch1:
 		keyCertBundle := watcher.GetKeyCertBundle()
 		if !bytes.Equal(keyCertBundle.KeyPem, key) || !bytes.Equal(keyCertBundle.CertPem, cert) ||
-			!bytes.Equal(keyCertBundle.CABundle, ca) {
+			!bytes.Equal(keyCertBundle.CABundle, ca) || !bytes.Equal(keyCertBundle.CRL, crl) {
 			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
 		}
 	default:

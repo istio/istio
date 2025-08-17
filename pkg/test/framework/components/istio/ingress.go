@@ -96,26 +96,48 @@ func (c *ingressImpl) Close() error {
 // the returned list will contain will have the externally reachable NodePort address and port.
 func (c *ingressImpl) getAddressesInner(port int) ([]string, []int, error) {
 	attempts := 0
-	remoteAddrs, err := retry.UntilComplete(func() (addrs any, completed bool, err error) {
+	rawAddrs, err := retry.UntilComplete(func() (rawAddrs any, completed bool, err error) {
 		attempts++
-		addrs, completed, err = getRemoteServiceAddresses(c.env.Settings(), c.cluster, c.service.Namespace, c.labelSelector, c.service.Name, port)
+		rawAddrs, completed, err = getRemoteServiceAddresses(c.env.Settings(), c.cluster, c.service.Namespace, c.labelSelector, c.service.Name, port)
 		if err != nil && attempts > 1 {
 			// Log if we fail more than once to avoid test appearing to hang
 			// LB provision be slow, so timeout here needs to be long we should give context
 			scopes.Framework.Warnf("failed to get address for port %v: %v", port, err)
 		}
+
+		// Check and wait for resolvable ingress DNS name. Skip if IP.
+		if err == nil && completed {
+			hostPorts, ok := rawAddrs.([]any)
+			if !ok || len(hostPorts) == 0 {
+				return rawAddrs, completed, err
+			}
+			v, ok := hostPorts[0].(string)
+			if !ok {
+				return rawAddrs, completed, err
+			}
+			host, _, splitErr := net.SplitHostPort(v)
+			if splitErr != nil || net.ParseIP(host) != nil {
+				// If address is malformed or is already an IP, skip DNS resolution
+				return rawAddrs, completed, err
+			}
+			if _, lookupErr := net.LookupHost(host); lookupErr != nil {
+				scopes.Framework.Infof("waiting for DNS to resolve for host %q", host)
+				return nil, false, fmt.Errorf("the DNS for %q not ready: %v", host, lookupErr)
+			}
+		}
 		return
 	}, getAddressTimeout, getAddressDelay)
-	var anyRemoteAddrs []interface{}
-	// Perform type assertion and construct a new slice of `any`
-	anyRemoteAddrs, _ = remoteAddrs.([]any)
-
 	if err != nil {
 		return nil, nil, err
 	}
+	hostPorts, ok := rawAddrs.([]any)
+	if !ok {
+		return nil, nil, fmt.Errorf("unexpected address format: %T", rawAddrs)
+	}
+
 	var addrs []string
 	var ports []int
-	for _, addr := range anyRemoteAddrs {
+	for _, addr := range hostPorts {
 		switch v := addr.(type) {
 		case string:
 			host, portStr, err := net.SplitHostPort(v)
@@ -137,7 +159,7 @@ func (c *ingressImpl) getAddressesInner(port int) ([]string, []int, error) {
 		return addrs, ports, nil
 	}
 
-	return nil, nil, fmt.Errorf("failed to get address for port %v", port)
+	return nil, nil, fmt.Errorf("failed to resolve any address for port %d after %d attempts", port, attempts)
 }
 
 // AddressForPort returns the externally reachable host and port of the component for the given port.
@@ -167,6 +189,11 @@ func (c *ingressImpl) TCPAddresses() ([]string, []int) {
 // HTTPSAddresses returns the externally reachable TCP hosts and port (443) of the component.
 func (c *ingressImpl) HTTPSAddresses() ([]string, []int) {
 	return c.AddressesForPort(443)
+}
+
+// HBONEAddresses returns the externally reachable HBONE hosts and port (15008) of the component.
+func (c *ingressImpl) HBONEAddresses() ([]string, []int) {
+	return c.AddressesForPort(15008)
 }
 
 // DiscoveryAddresses returns the externally reachable discovery addresses (15012) of the component.

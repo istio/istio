@@ -36,9 +36,6 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/test"
 )
 
 func TestGoldenConversion(t *testing.T) {
@@ -49,22 +46,11 @@ func TestGoldenConversion(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			serviceLister := createFakeClient(t)
-			cfgs := map[string]*config.Config{}
-			for _, obj := range input {
-				ingress := obj.(*knetworking.Ingress)
-				ConvertIngressVirtualService(*ingress, "mydomain", cfgs, serviceLister)
-			}
-			ordered := []config.Config{}
-			for _, v := range cfgs {
-				ordered = append(ordered, *v)
-			}
-			for _, obj := range input {
-				ingress := obj.(*knetworking.Ingress)
-				m := mesh.DefaultMeshConfig()
-				gws := ConvertIngressV1alpha3(*ingress, m, "mydomain")
-				ordered = append(ordered, gws)
-			}
+
+			controller, _ := setupController(t, "mydomain", input...)
+
+			ordered := controller.outputs.VirtualServices.List()
+			ordered = append(ordered, controller.outputs.Gateways.List()...)
 
 			sort.Slice(ordered, func(i, j int) bool {
 				return ordered[i].Name < ordered[j].Name
@@ -132,6 +118,7 @@ func TestConversion(t *testing.T) {
 
 	ingress := knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mock1",
 			Namespace: "mock", // goes into backend full name
 		},
 		Spec: knetworking.IngressSpec{
@@ -223,6 +210,7 @@ func TestConversion(t *testing.T) {
 	}
 	ingress2 := knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mock2",
 			Namespace: "mock",
 		},
 		Spec: knetworking.IngressSpec{
@@ -268,10 +256,16 @@ func TestConversion(t *testing.T) {
 			},
 		},
 	}
-	serviceLister := createFakeClient(t)
+
+	controller, _ := setupController(t, "mydomain", &ingress, &ingress2)
+
 	cfgs := map[string]*config.Config{}
-	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
-	ConvertIngressVirtualService(ingress2, "mydomain", cfgs, serviceLister)
+	for _, cfg := range controller.outputs.VirtualServices.List() {
+		vs := cfg.Spec.(*networking.VirtualService)
+		for _, h := range vs.Hosts {
+			cfgs[h] = &cfg
+		}
+	}
 
 	if len(cfgs) != 4 {
 		t.Error("VirtualServices, expected 4 got ", len(cfgs))
@@ -398,7 +392,7 @@ func TestIngressClass(t *testing.T) {
 }
 
 func TestNamedPortIngressConversion(t *testing.T) {
-	ingress := knetworking.Ingress{
+	ingress := &knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
 		},
@@ -447,9 +441,17 @@ func TestNamedPortIngressConversion(t *testing.T) {
 			},
 		},
 	}
-	serviceLister := createFakeClient(t, service)
+
+	controller, _ := setupController(t, "mydomain", ingress, service)
+
 	cfgs := map[string]*config.Config{}
-	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
+	for _, cfg := range controller.outputs.VirtualServices.List() {
+		vs := cfg.Spec.(*networking.VirtualService)
+		for _, h := range vs.Hosts {
+			cfgs[h] = &cfg
+		}
+	}
+
 	if len(cfgs) != 1 {
 		t.Error("VirtualServices, expected 1 got ", len(cfgs))
 	}
@@ -468,13 +470,4 @@ func TestNamedPortIngressConversion(t *testing.T) {
 	if route.Destination.Port.Number != 8888 {
 		t.Error("PortNumer, expected 8888 got ", route.Destination.Port.Number)
 	}
-}
-
-func createFakeClient(t test.Failer, objects ...runtime.Object) kclient.Client[*corev1.Service] {
-	kc := kube.NewFakeClient(objects...)
-	stop := test.NewStop(t)
-	services := kclient.New[*corev1.Service](kc)
-	kc.RunAndWait(stop)
-	kube.WaitForCacheSync("test", stop, services.HasSynced)
-	return services
 }

@@ -12,15 +12,19 @@ import (
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
+	k8sioapicertificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	sigsk8siogatewayapiinferenceextensionapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
@@ -54,6 +58,21 @@ var (
 		ValidateProto: validation.ValidateAuthorizationPolicy,
 	}.MustBuild()
 
+	BackendTLSPolicy = resource.Builder{
+		Identifier: "BackendTLSPolicy",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "BackendTLSPolicy",
+		Plural:     "backendtlspolicies",
+		Version:    "v1alpha3",
+		Proto:      "k8s.io.gateway_api.api.v1alpha3.BackendTLSPolicySpec", StatusProto: "k8s.io.gateway_api.api.v1alpha2.PolicyStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.PolicyStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha3", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	CertificateSigningRequest = resource.Builder{
 		Identifier: "CertificateSigningRequest",
 		Group:      "certificates.k8s.io",
@@ -63,6 +82,21 @@ var (
 		Proto:      "k8s.io.api.certificates.v1.CertificateSigningRequestSpec", StatusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus",
 		ReflectType: reflect.TypeOf(&k8sioapicertificatesv1.CertificateSigningRequestSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapicertificatesv1.CertificateSigningRequestStatus{}).Elem(),
 		ProtoPackage: "k8s.io/api/certificates/v1", StatusPackage: "k8s.io/api/certificates/v1",
+		ClusterScoped: true,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
+	ClusterTrustBundle = resource.Builder{
+		Identifier:    "ClusterTrustBundle",
+		Group:         "certificates.k8s.io",
+		Kind:          "ClusterTrustBundle",
+		Plural:        "clustertrustbundles",
+		Version:       "v1beta1",
+		Proto:         "k8s.io.api.certificates.v1beta1.ClusterTrustBundleSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapicertificatesv1beta1.ClusterTrustBundleSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/certificates/v1beta1",
 		ClusterScoped: true,
 		Synthetic:     false,
 		Builtin:       true,
@@ -150,7 +184,7 @@ var (
 
 	EndpointSlice = resource.Builder{
 		Identifier:    "EndpointSlice",
-		Group:         "",
+		Group:         "discovery.k8s.io",
 		Kind:          "EndpointSlice",
 		Plural:        "endpointslices",
 		Version:       "v1",
@@ -280,6 +314,21 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
+	InferencePool = resource.Builder{
+		Identifier: "InferencePool",
+		Group:      "inference.networking.x-k8s.io",
+		Kind:       "InferencePool",
+		Plural:     "inferencepools",
+		Version:    "v1alpha2",
+		Proto:      "x-k8s.io.gateway-api-inference-extension.api.v1alpha2.InferencePoolSpec", StatusProto: "x-k8s.io.gateway-api-inference-extension.api.v1alpha2.InferencePoolStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePoolSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePoolStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
@@ -769,10 +818,42 @@ var (
 		ValidateProto: validation.ValidateWorkloadGroup,
 	}.MustBuild()
 
+	XBackendTrafficPolicy = resource.Builder{
+		Identifier: "XBackendTrafficPolicy",
+		Group:      "gateway.networking.x-k8s.io",
+		Kind:       "XBackendTrafficPolicy",
+		Plural:     "xbackendtrafficpolicies",
+		Version:    "v1alpha1",
+		Proto:      "k8s.io.gateway_api.apix.v1alpha1.BackendTrafficPolicySpec", StatusProto: "PolicyStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.BackendTrafficPolicySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.PolicyStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
+	XListenerSet = resource.Builder{
+		Identifier: "XListenerSet",
+		Group:      "gateway.networking.x-k8s.io",
+		Kind:       "XListenerSet",
+		Plural:     "xlistenersets",
+		Version:    "v1alpha1",
+		Proto:      "ListenerSetSpec", StatusProto: "ListenerSetStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.ListenerSetSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.ListenerSetStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
+		MustAdd(BackendTLSPolicy).
 		MustAdd(CertificateSigningRequest).
+		MustAdd(ClusterTrustBundle).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
 		MustAdd(DaemonSet).
@@ -786,6 +867,7 @@ var (
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
 		MustAdd(HorizontalPodAutoscaler).
+		MustAdd(InferencePool).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
@@ -816,11 +898,15 @@ var (
 		MustAdd(WasmPlugin).
 		MustAdd(WorkloadEntry).
 		MustAdd(WorkloadGroup).
+		MustAdd(XBackendTrafficPolicy).
+		MustAdd(XListenerSet).
 		Build()
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
+		MustAdd(BackendTLSPolicy).
 		MustAdd(CertificateSigningRequest).
+		MustAdd(ClusterTrustBundle).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
 		MustAdd(DaemonSet).
@@ -831,6 +917,7 @@ var (
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
 		MustAdd(HorizontalPodAutoscaler).
+		MustAdd(InferencePool).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
@@ -849,6 +936,8 @@ var (
 		MustAdd(TLSRoute).
 		MustAdd(UDPRoute).
 		MustAdd(ValidatingWebhookConfiguration).
+		MustAdd(XBackendTrafficPolicy).
+		MustAdd(XListenerSet).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -872,6 +961,7 @@ var (
 	// pilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
 	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
+			MustAdd(BackendTLSPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
 			MustAdd(GRPCRoute).
@@ -893,6 +983,8 @@ var (
 			MustAdd(WasmPlugin).
 			MustAdd(WorkloadEntry).
 			MustAdd(WorkloadGroup).
+			MustAdd(XBackendTrafficPolicy).
+			MustAdd(XListenerSet).
 			Build()
 
 	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.

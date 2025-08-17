@@ -20,112 +20,213 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
+)
+
+const (
+	AllowedNamespace    = "allowed-ns"
+	NotAllowedNamespace = "not-allowed-ns"
 )
 
 // nolint lll
 func TestMergeGateways(t *testing.T) {
-	gwHTTPFoo := makeConfig("foo1", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE)
-	gwHTTPbar := makeConfig("bar1", "not-default", "bar.foo.com", "bname1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE)
-	gwHTTPlocalbar := makeConfig("lcoalbar1", "not-default", "localbar.foo.com", "bname1", "http", 7, "ingressgateway", "127.0.0.1", networking.ServerTLSSettings_SIMPLE)
-	gwHTTP2Wildcard := makeConfig("foo5", "not-default", "*", "name5", "http2", 8, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE)
-	gwHTTPWildcard := makeConfig("foo3", "not-default", "*", "name3", "http", 8, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE)
-	gwTCPWildcard := makeConfig("foo4", "not-default-2", "*", "name4", "tcp", 8, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE)
+	gwHTTPFoo := makeConfig("foo1", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "")
+	gwHTTPbar := makeConfig("bar1", "not-default", "bar.foo.com", "bname1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "")
+	gwHTTPlocalbar := makeConfig("lcoalbar1", "not-default", "localbar.foo.com", "bname1", "http", 7, "ingressgateway", "127.0.0.1", networking.ServerTLSSettings_SIMPLE, "")
+	gwHTTP2Wildcard := makeConfig("foo5", "not-default", "*", "name5", "http2", 8, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "")
+	gwHTTPWildcard := makeConfig("foo3", "not-default", "*", "name3", "http", 8, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "")
+	gwTCPWildcard := makeConfig("foo4", "not-default-2", "*", "name4", "tcp", 8, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "")
 
-	gwHTTPWildcardAlternate := makeConfig("foo2", "not-default", "*", "name2", "http", 7, "ingressgateway2", "", networking.ServerTLSSettings_SIMPLE)
+	gwHTTPWildcardAlternate := makeConfig("foo2", "not-default", "*", "name2", "http", 7, "ingressgateway2", "", networking.ServerTLSSettings_SIMPLE, "")
 
-	gwSimple := makeConfig("foo-simple", "not-default-2", "*.example.com", "https", "HTTPS", 443, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE)
-	gwPassthrough := makeConfig("foo-passthrough", "not-default-2", "foo.example.com", "tls-foo", "TLS", 443, "ingressgateway", "", networking.ServerTLSSettings_PASSTHROUGH)
+	gwSimple := makeConfig("foo-simple", "not-default-2", "*.example.com", "https", "HTTPS", 443, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "")
+	gwPassthrough := makeConfig("foo-passthrough", "not-default-2", "foo.example.com", "tls-foo", "TLS", 443, "ingressgateway", "", networking.ServerTLSSettings_PASSTHROUGH, "")
+
+	gwSimpleCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo")
+	gwMutualCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, "kubernetes-gateway://ns/foo")
+	gwSimpleCredInAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, fmt.Sprintf("kubernetes-gateway://%s/foo", AllowedNamespace))
+	gwSimpleCredInNotAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace))
+	gwMutualCredInAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, fmt.Sprintf("kubernetes-gateway://%s/foo", AllowedNamespace))
+	gwMutualCredInNotAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace))
+
+	proxyNoInput := makeProxy(func() *spiffe.Identity { return nil })
+	proxyIdentity := makeProxy(func() *spiffe.Identity {
+		identity, _ := spiffe.ParseIdentity("spiffe://td/ns/ns/sa/sa")
+		return &identity
+	})
 
 	// TODO(ramaraochavali): Add more test cases here.
 	tests := []struct {
 		name               string
 		gwConfig           []config.Config
+		proxy              *Proxy
 		mergedServersNum   int
 		serverNum          int
 		serversForRouteNum map[string]int
 		gatewaysNum        int
+		verifiedCertNum    int
 	}{
 		{
 			"single-server-config",
 			[]config.Config{gwHTTPFoo},
+			proxyNoInput,
 			1,
 			1,
 			map[string]int{"http.7": 1},
 			1,
+			0,
 		},
 		{
 			"two servers on the same port",
 			[]config.Config{gwHTTPFoo, gwHTTPbar},
+			proxyNoInput,
 			1,
 			2,
 			map[string]int{"http.7": 2},
 			2,
+			0,
 		},
 		{
 			"two servers on the same port with different bind",
 			[]config.Config{gwHTTPbar, gwHTTPlocalbar},
+			proxyNoInput,
 			2,
 			2,
 			map[string]int{"http.7": 1, "http.7.127.0.0.1": 1},
 			2,
+			0,
 		},
 		{
 			"same-server-config",
 			[]config.Config{gwHTTPFoo, gwHTTPWildcardAlternate},
+			proxyNoInput,
 			1,
 			2,
 			map[string]int{"http.7": 2},
 			2,
+			0,
 		},
 		{
 			"multi-server-config",
 			[]config.Config{gwHTTPFoo, gwHTTPWildcardAlternate, gwHTTPWildcard},
+			proxyNoInput,
 			2,
 			3,
 			map[string]int{"http.7": 2, "http.8": 1},
 			3,
+			0,
 		},
 		{
 			"http-tcp-wildcard-server-config",
 			[]config.Config{gwHTTPFoo, gwTCPWildcard},
+			proxyNoInput,
 			2,
 			2,
 			map[string]int{"http.7": 1},
 			2,
+			0,
 		},
 		{
 			"tcp-http-server-config",
 			[]config.Config{gwTCPWildcard, gwHTTPWildcard},
+			proxyNoInput,
 			1,
 			1,
 			map[string]int{},
 			2,
+			0,
 		},
 		{
 			"tcp-tcp-server-config",
 			[]config.Config{gwHTTPWildcard, gwTCPWildcard}, // order matters
+			proxyNoInput,
 			1,
 			1,
 			map[string]int{"http.8": 1},
 			2,
+			0,
 		},
 		{
 			"http-http2-server-config",
 			[]config.Config{gwHTTPWildcard, gwHTTP2Wildcard},
+			proxyNoInput,
 			1,
 			1,
 			// http and http2 both present
 			map[string]int{"http.8": 1},
 			2,
+			0,
 		},
 		{
 			"simple-passthrough",
 			[]config.Config{gwSimple, gwPassthrough},
+			proxyNoInput,
 			2,
 			2,
 			map[string]int{"https.443.https.foo-simple.not-default-2": 1},
 			2,
+			0,
+		},
+		{
+			"simple-cred",
+			[]config.Config{gwSimpleCred},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			1,
+		},
+		{
+			"mutual-cred",
+			[]config.Config{gwMutualCred},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			2,
+		},
+		{
+			"simple-cred-in-allowed-ns",
+			[]config.Config{gwSimpleCredInAllowedNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			1,
+		},
+		{
+			"simple-cred-in-not-allowed-ns",
+			[]config.Config{gwSimpleCredInNotAllowedNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			0,
+		},
+		{
+			"mutual-cred-in-allowed-ns",
+			[]config.Config{gwMutualCredInAllowedNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			2,
+		},
+		{
+			"mutual-cred-in-not-allowed-ns",
+			[]config.Config{gwMutualCredInNotAllowedNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			0,
 		},
 	}
 
@@ -135,7 +236,7 @@ func TestMergeGateways(t *testing.T) {
 			for _, c := range tt.gwConfig {
 				instances = append(instances, gatewayWithInstances{c, true, nil})
 			}
-			mgw := mergeGateways(instances, &Proxy{}, nil)
+			mgw := mergeGateways(instances, tt.proxy, makePushContext())
 			if len(mgw.MergedServers) != tt.mergedServersNum {
 				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
 			}
@@ -156,6 +257,9 @@ func TestMergeGateways(t *testing.T) {
 			}
 			if len(mgw.GatewayNameForServer) != tt.gatewaysNum {
 				t.Errorf("Incorrect number of gateways. Expected: %v Got: %d", tt.gatewaysNum, len(mgw.GatewayNameForServer))
+			}
+			if mgw.VerifiedCertificateReferences.Len() != tt.verifiedCertNum {
+				t.Errorf("Incorrect number of verified certs. Expected: %v Got: %d", tt.verifiedCertNum, mgw.VerifiedCertificateReferences.Len())
 			}
 		})
 	}
@@ -226,7 +330,7 @@ func TestGetAutoPassthroughSNIHosts(t *testing.T) {
 }
 
 func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string, bind string,
-	mode networking.ServerTLSSettings_TLSmode,
+	mode networking.ServerTLSSettings_TLSmode, credName string,
 ) config.Config {
 	c := config.Config{
 		Meta: config.Meta{
@@ -240,12 +344,24 @@ func makeConfig(name, namespace, host, portName, portProtocol string, portNumber
 					Hosts: []string{host},
 					Port:  &networking.Port{Name: portName, Number: portNumber, Protocol: portProtocol},
 					Bind:  bind,
-					Tls:   &networking.ServerTLSSettings{Mode: mode},
+					Tls:   &networking.ServerTLSSettings{Mode: mode, CredentialName: credName},
 				},
 			},
 		},
 	}
 	return c
+}
+
+func makeProxy(fn func() *spiffe.Identity) *Proxy {
+	return &Proxy{
+		VerifiedIdentity: fn(),
+	}
+}
+
+func makePushContext() *PushContext {
+	return &PushContext{
+		GatewayAPIController: FakeController{},
+	}
 }
 
 func BenchmarkParseGatewayRDSRouteName(b *testing.B) {

@@ -145,6 +145,11 @@ func (i *istioImpl) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
 	return i.CustomIngressFor(c, name, eastWestIngressIstioLabel)
 }
 
+func (i *istioImpl) EastWestGatewayForAmbient(c cluster.Cluster) ingress.Instance {
+	name := types.NamespacedName{Name: eastWestGatewayName, Namespace: i.cfg.SystemNamespace}
+	return i.CustomIngressFor(c, name, eastWestGatewayLabel)
+}
+
 func (i *istioImpl) CustomIngressFor(c cluster.Cluster, service types.NamespacedName, labelSelector string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -464,6 +469,15 @@ func (i *istioImpl) installControlPlaneCluster(c cluster.Cluster) error {
 		// exclude these tests from installing eastwest gw for now
 		if !i.cfg.DeployEastWestGW {
 			return nil
+		}
+
+		// only deploy gateway API resources during cluster creation if ambientMultiNetwork
+		// is enabled
+		if i.cfg.DeployGatewayAPI && i.ctx.Settings().AmbientMultiNetwork {
+			if err := DeployGatewayAPI(i.ctx); err != nil {
+				return err
+			}
+			return i.deployAmbientEastWestGateway(c)
 		}
 
 		if err := i.deployEastWestGateway(c, i.primaryIOP.spec.Revision, i.eastwestIOP.file); err != nil {

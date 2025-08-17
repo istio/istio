@@ -43,10 +43,11 @@ spec:
                 description: |-
                   Specifies the failure behavior for the plugin due to fatal errors.
 
-                  Valid Options: FAIL_CLOSE, FAIL_OPEN
+                  Valid Options: FAIL_CLOSE, FAIL_OPEN, FAIL_RELOAD
                 enum:
                 - FAIL_CLOSE
                 - FAIL_OPEN
+                - FAIL_RELOAD
                 type: string
               imagePullPolicy:
                 description: |-
@@ -389,11 +390,11 @@ spec:
       jsonPath: .spec.host
       name: Host
       type: string
-    - description: 'CreationTimestamp is a timestamp representing the server time
-        when this object was created. It is not guaranteed to be set in happens-before
+    - description: CreationTimestamp is a timestamp representing the server time when
+        this object was created. It is not guaranteed to be set in happens-before
         order across separate operations. Clients may not set this value. It is represented
         in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
-        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+        lists. For more information, see [Kubernetes API Conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata)
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -1238,6 +1239,26 @@ spec:
                               - V2
                               type: string
                           type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -2104,6 +2125,26 @@ spec:
                         - V2
                         type: string
                     type: object
+                  retryBudget:
+                    description: Specifies a limit on concurrent retries in relation
+                      to the number of active requests.
+                    properties:
+                      minRetryConcurrency:
+                        description: Specifies the minimum retry concurrency allowed
+                          for the retry budget.
+                        maximum: 4294967295
+                        minimum: 0
+                        type: integer
+                      percent:
+                        description: Specifies the limit on concurrent retries as
+                          a percentage of the sum of active requests and active pending
+                          requests.
+                        format: double
+                        maximum: 100
+                        minimum: 0
+                        nullable: true
+                        type: number
+                    type: object
                   tls:
                     description: TLS related settings for connections to the upstream
                       service.
@@ -2280,7 +2321,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -2288,11 +2329,11 @@ spec:
       jsonPath: .spec.host
       name: Host
       type: string
-    - description: 'CreationTimestamp is a timestamp representing the server time
-        when this object was created. It is not guaranteed to be set in happens-before
+    - description: CreationTimestamp is a timestamp representing the server time when
+        this object was created. It is not guaranteed to be set in happens-before
         order across separate operations. Clients may not set this value. It is represented
         in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
-        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+        lists. For more information, see [Kubernetes API Conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata)
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -3137,6 +3178,26 @@ spec:
                               - V2
                               type: string
                           type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -4003,6 +4064,26 @@ spec:
                         - V2
                         type: string
                     type: object
+                  retryBudget:
+                    description: Specifies a limit on concurrent retries in relation
+                      to the number of active requests.
+                    properties:
+                      minRetryConcurrency:
+                        description: Specifies the minimum retry concurrency allowed
+                          for the retry budget.
+                        maximum: 4294967295
+                        minimum: 0
+                        type: integer
+                      percent:
+                        description: Specifies the limit on concurrent retries as
+                          a percentage of the sum of active requests and active pending
+                          requests.
+                        format: double
+                        maximum: 100
+                        minimum: 0
+                        nullable: true
+                        type: number
+                    type: object
                   tls:
                     description: TLS related settings for connections to the upstream
                       service.
@@ -4187,11 +4268,11 @@ spec:
       jsonPath: .spec.host
       name: Host
       type: string
-    - description: 'CreationTimestamp is a timestamp representing the server time
-        when this object was created. It is not guaranteed to be set in happens-before
+    - description: CreationTimestamp is a timestamp representing the server time when
+        this object was created. It is not guaranteed to be set in happens-before
         order across separate operations. Clients may not set this value. It is represented
         in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
-        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+        lists. For more information, see [Kubernetes API Conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata)
       jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -5036,6 +5117,26 @@ spec:
                               - V2
                               type: string
                           type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -5902,6 +6003,26 @@ spec:
                         - V2
                         type: string
                     type: object
+                  retryBudget:
+                    description: Specifies a limit on concurrent retries in relation
+                      to the number of active requests.
+                    properties:
+                      minRetryConcurrency:
+                        description: Specifies the minimum retry concurrency allowed
+                          for the retry budget.
+                        maximum: 4294967295
+                        minimum: 0
+                        type: integer
+                      percent:
+                        description: Specifies the limit on concurrent retries as
+                          a percentage of the sum of active requests and active pending
+                          requests.
+                        format: double
+                        maximum: 100
+                        minimum: 0
+                        nullable: true
+                        type: number
+                    type: object
                   tls:
                     description: TLS related settings for connections to the upstream
                       service.
@@ -6078,7 +6199,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -6575,6 +6696,10 @@ spec:
                       description: Set of TLS related options that govern the server's
                         behavior.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -6656,13 +6781,12 @@ spec:
                             type: string
                           type: array
                         tlsCertificates:
-                          description: Only one of `server_certificate`, `private_key`,
-                            `ca_certificates` or `credential_name` or `credential_names`
-                            or `tls_certificates` should be specified.
+                          description: Only one of `server_certificate`, `private_key`
+                            or `credential_name` or `credential_names` or `tls_certificates`
+                            should be specified.
                           items:
                             properties:
                               caCertificates:
-                                description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                                 type: string
                               privateKey:
                                 description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -6783,7 +6907,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - name: v1alpha3
@@ -6847,6 +6971,10 @@ spec:
                       description: Set of TLS related options that govern the server's
                         behavior.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -6928,13 +7056,12 @@ spec:
                             type: string
                           type: array
                         tlsCertificates:
-                          description: Only one of `server_certificate`, `private_key`,
-                            `ca_certificates` or `credential_name` or `credential_names`
-                            or `tls_certificates` should be specified.
+                          description: Only one of `server_certificate`, `private_key`
+                            or `credential_name` or `credential_names` or `tls_certificates`
+                            should be specified.
                           items:
                             properties:
                               caCertificates:
-                                description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                                 type: string
                               privateKey:
                                 description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -7119,6 +7246,10 @@ spec:
                       description: Set of TLS related options that govern the server's
                         behavior.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -7200,13 +7331,12 @@ spec:
                             type: string
                           type: array
                         tlsCertificates:
-                          description: Only one of `server_certificate`, `private_key`,
-                            `ca_certificates` or `credential_name` or `credential_names`
-                            or `tls_certificates` should be specified.
+                          description: Only one of `server_certificate`, `private_key`
+                            or `credential_name` or `credential_names` or `tls_certificates`
+                            should be specified.
                           items:
                             properties:
                               caCertificates:
-                                description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                                 type: string
                               privateKey:
                                 description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -7327,7 +7457,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -7803,7 +7933,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -8399,7 +8529,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -8741,6 +8871,10 @@ spec:
                         termination on the sidecar for requests originating from outside
                         the mesh.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -8822,13 +8956,12 @@ spec:
                             type: string
                           type: array
                         tlsCertificates:
-                          description: Only one of `server_certificate`, `private_key`,
-                            `ca_certificates` or `credential_name` or `credential_names`
-                            or `tls_certificates` should be specified.
+                          description: Only one of `server_certificate`, `private_key`
+                            or `credential_name` or `credential_names` or `tls_certificates`
+                            should be specified.
                           items:
                             properties:
                               caCertificates:
-                                description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                                 type: string
                               privateKey:
                                 description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -8998,7 +9131,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - name: v1alpha3
@@ -9316,6 +9449,10 @@ spec:
                         termination on the sidecar for requests originating from outside
                         the mesh.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -9397,13 +9534,12 @@ spec:
                             type: string
                           type: array
                         tlsCertificates:
-                          description: Only one of `server_certificate`, `private_key`,
-                            `ca_certificates` or `credential_name` or `credential_names`
-                            or `tls_certificates` should be specified.
+                          description: Only one of `server_certificate`, `private_key`
+                            or `credential_name` or `credential_names` or `tls_certificates`
+                            should be specified.
                           items:
                             properties:
                               caCertificates:
-                                description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                                 type: string
                               privateKey:
                                 description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -9891,6 +10027,10 @@ spec:
                         termination on the sidecar for requests originating from outside
                         the mesh.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -9972,13 +10112,12 @@ spec:
                             type: string
                           type: array
                         tlsCertificates:
-                          description: Only one of `server_certificate`, `private_key`,
-                            `ca_certificates` or `credential_name` or `credential_names`
-                            or `tls_certificates` should be specified.
+                          description: Only one of `server_certificate`, `private_key`
+                            or `credential_name` or `credential_names` or `tls_certificates`
+                            should be specified.
                           items:
                             properties:
                               caCertificates:
-                                description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                                 type: string
                               privateKey:
                                 description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -10148,7 +10287,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -11226,7 +11365,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -13330,7 +13469,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -13516,7 +13655,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -13836,7 +13975,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -14168,7 +14307,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -14784,7 +14923,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -16043,8 +16182,6 @@ spec:
                       x-kubernetes-validations:
                       - message: must be a valid duration greater than 1ms
                         rule: duration(self) >= duration('1ms')
-                  required:
-                  - issuer
                   type: object
                   x-kubernetes-validations:
                   - message: only one of jwks or jwksUri can be set
@@ -16326,8 +16463,6 @@ spec:
                       x-kubernetes-validations:
                       - message: must be a valid duration greater than 1ms
                         rule: duration(self) >= duration('1ms')
-                  required:
-                  - issuer
                   type: object
                   x-kubernetes-validations:
                   - message: only one of jwks or jwksUri can be set

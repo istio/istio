@@ -15,8 +15,6 @@
 package model
 
 import (
-	"crypto/md5"
-	"fmt"
 	"strings"
 	"time"
 
@@ -26,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/hash"
 )
 
 // MutualTLSMode is the mutual TLS mode specified by authentication policy.
@@ -167,9 +166,9 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 		policy.peerAuthentications[config.Namespace] = append(policy.peerAuthentications[config.Namespace], config)
 	}
 
-	// nolint: gosec
-	// Not security sensitive code
-	policy.aggregateVersion = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(versions, ";"))))
+	hash := hash.New()
+	hash.WriteString(strings.Join(versions, ";"))
+	policy.aggregateVersion = hash.Sum()
 
 	// Process found namespace-level policy.
 	policy.namespaceMutualTLSMode = make(map[string]MutualTLSMode, len(foundNamespaceMTLS))

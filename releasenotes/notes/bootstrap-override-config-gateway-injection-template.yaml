@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 28302
+releaseNotes:
+- |
+  **Added** boostrap override config for gateway-injection-template.

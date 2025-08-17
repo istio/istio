@@ -17,30 +17,26 @@
 package ingress
 
 import (
-	"cmp"
 	"errors"
-	"fmt"
-	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -72,23 +68,8 @@ var schemas = collection.SchemasFor(
 	collections.VirtualService,
 	collections.Gateway)
 
-// Control needs RBAC permissions to write to Pods.
-
-type controller struct {
-	meshWatcher  mesh.Holder
-	domainSuffix string
-
-	queue                  controllers.Queue
-	virtualServiceHandlers []model.EventHandler
-	gatewayHandlers        []model.EventHandler
-
-	mutex sync.RWMutex
-	// processed ingresses
-	ingresses map[types.NamespacedName]*knetworking.Ingress
-
-	classes  kclient.Client[*knetworking.IngressClass]
-	ingress  kclient.Client[*knetworking.Ingress]
-	services kclient.Client[*corev1.Service]
+type xdsConfigUpdater interface {
+	ConfigUpdate(req *model.PushRequest)
 }
 
 var IngressNamespace = env.Register("K8S_INGRESS_NS", constants.IstioSystemNamespace,
@@ -96,277 +77,237 @@ var IngressNamespace = env.Register("K8S_INGRESS_NS", constants.IstioSystemNames
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
-// NewController creates a new Kubernetes controller
-func NewController(client kube.Client, meshWatcher mesh.Holder,
+type Controller struct {
+	// client for accessing Kubernetes
+	client kube.Client
+
+	stop chan struct{}
+
+	xdsUpdater xdsConfigUpdater
+
+	// Handlers tracks all registered handlers, so that syncing can be detected
+	handlers []krt.HandlerRegistration
+
+	inputs Inputs
+
+	// outputs contains all the output collections for this controller.
+	outputs Outputs
+
+	status *status.StatusCollections
+}
+
+type Inputs struct {
+	Ingresses      krt.Collection[*knetworking.Ingress]
+	IngressClasses krt.Collection[*knetworking.IngressClass]
+	Services       krt.Collection[*corev1.Service]
+	Nodes          krt.Collection[*corev1.Node]
+	Pods           krt.Collection[*corev1.Pod]
+	MeshConfig     krt.Collection[meshwatcher.MeshConfigResource]
+}
+
+type Outputs struct {
+	VirtualServices krt.Collection[config.Config]
+	Gateways        krt.Collection[config.Config]
+}
+
+func NewController(
+	client kube.Client,
+	meshConfig meshwatcher.WatcherCollection,
 	options kubecontroller.Options,
-) model.ConfigStoreController {
-	ingress := kclient.NewFiltered[*knetworking.Ingress](client, kclient.Filter{ObjectFilter: client.ObjectFilter()})
-	classes := kclient.New[*knetworking.IngressClass](client)
-	services := kclient.NewFiltered[*corev1.Service](client, kclient.Filter{ObjectFilter: client.ObjectFilter()})
+	xdsUpdater xdsConfigUpdater,
+) *Controller {
+	stop := make(chan struct{})
+	opts := krt.NewOptionsBuilder(stop, "ingress", options.KrtDebugger)
 
-	c := &controller{
-		meshWatcher:  meshWatcher,
-		domainSuffix: options.DomainSuffix,
-		ingresses:    make(map[types.NamespacedName]*knetworking.Ingress),
-		ingress:      ingress,
-		classes:      classes,
-		services:     services,
+	c := &Controller{
+		client:     client,
+		stop:       stop,
+		status:     &status.StatusCollections{},
+		xdsUpdater: xdsUpdater,
 	}
-	c.queue = controllers.NewQueue("ingress",
-		controllers.WithReconciler(c.onEvent),
-		controllers.WithMaxAttempts(5))
-	c.ingress.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 
-	// We watch service changes to detect service port number change to trigger
-	// re-convert ingress to new-vs.
-	c.services.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
-		c.onServiceEvent(o)
-	}))
+	c.inputs = Inputs{
+		IngressClasses: krt.NewInformer[*knetworking.IngressClass](client, opts.WithName("informer/IngressClasses")...),
+		Ingresses: krt.WrapClient(
+			kclient.NewFiltered[*knetworking.Ingress](client, kclient.Filter{
+				ObjectFilter: client.ObjectFilter(),
+			}),
+			opts.WithName("informer/Ingresses")...,
+		),
+		Services: krt.WrapClient(
+			kclient.NewFiltered[*corev1.Service](client, kclient.Filter{
+				ObjectFilter: client.ObjectFilter(),
+			}),
+			opts.WithName("informer/Services")...,
+		),
+		Nodes: krt.NewInformerFiltered[*corev1.Node](client, kclient.Filter{
+			ObjectFilter:    client.ObjectFilter(),
+			ObjectTransform: kube.StripNodeUnusedFields,
+		}, opts.WithName("informer/Nodes")...),
+		Pods: krt.NewInformerFiltered[*corev1.Pod](client, kclient.Filter{
+			ObjectFilter:    client.ObjectFilter(),
+			ObjectTransform: kube.StripPodUnusedFields,
+		}, opts.WithName("informer/Pods")...),
+		MeshConfig: meshConfig.AsCollection(),
+	}
+
+	ServicesWithPorts := ServicesWithPorts(
+		c.inputs.Services,
+		opts,
+	)
+
+	Status, SupportedIngresses := SupportedIngresses(
+		c.inputs.IngressClasses,
+		c.inputs.Ingresses,
+		meshConfig,
+		c.inputs.Services,
+		c.inputs.Nodes,
+		c.inputs.Pods,
+		opts,
+	)
+	status.RegisterStatus(c.status, Status, func(ingress *knetworking.Ingress) knetworking.IngressStatus {
+		return ingress.Status
+	})
+
+	_, RuleHostIndex := RuleCollection(
+		SupportedIngresses,
+		opts,
+	)
+
+	c.outputs = Outputs{
+		VirtualServices: VirtualServices(
+			RuleHostIndex,
+			ServicesWithPorts,
+			options.DomainSuffix,
+			opts,
+		),
+		Gateways: Gateways(
+			SupportedIngresses,
+			meshConfig,
+			options.DomainSuffix,
+			opts,
+		),
+	}
+
+	c.handlers = append(
+		c.handlers,
+		c.outputs.VirtualServices.RegisterBatch(pushXds(c.xdsUpdater,
+			func(t config.Config) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.VirtualService,
+					Name:      t.Name,
+					Namespace: t.Namespace,
+				}
+			}), false),
+		c.outputs.Gateways.RegisterBatch(pushXds(c.xdsUpdater,
+			func(t config.Config) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.Gateway,
+					Name:      t.Name,
+					Namespace: t.Namespace,
+				}
+			}), false),
+	)
 
 	return c
 }
 
-func (c *controller) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync("ingress", stop, c.ingress.HasSynced, c.services.HasSynced, c.classes.HasSynced)
-	c.queue.Run(stop)
-	controllers.ShutdownAll(c.ingress, c.services, c.classes)
+func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
+	if enabled && statusManager != nil {
+		var q status.Queue = statusManager.CreateGenericController(func(status status.Manipulator, context any) {
+			status.SetInner(context)
+		})
+		c.status.SetQueue(q)
+	} else {
+		c.status.UnsetQueue()
+	}
 }
 
-func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) bool {
-	var class *knetworking.IngressClass
-	if i.Spec.IngressClassName != nil {
-		c := c.classes.Get(*i.Spec.IngressClassName, "")
-		if c == nil {
+func (c *Controller) Run(stop <-chan struct{}) {
+	log.Infof("Starting ingress controller")
+	<-stop
+	close(c.stop)
+}
+
+func (c *Controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
+}
+
+func (c *Controller) HasSynced() bool {
+	if !c.outputs.VirtualServices.HasSynced() ||
+		!c.outputs.Gateways.HasSynced() {
+		return false
+	}
+
+	for _, h := range c.handlers {
+		if !h.HasSynced() {
 			return false
 		}
-		class = c
 	}
-	return shouldProcessIngressWithClass(mesh, i, class)
+
+	return true
 }
 
-// shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) bool {
-	// ingress add/update
-	shouldProcess := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
-	item := config.NamespacedName(ing)
-	if shouldProcess {
-		// record processed ingress
-		c.mutex.Lock()
-		c.ingresses[item] = ing
-		c.mutex.Unlock()
-		return true
-	}
-
-	c.mutex.Lock()
-	_, preProcessed := c.ingresses[item]
-	// previous processed but should not currently, delete it
-	if preProcessed && !shouldProcess {
-		delete(c.ingresses, item)
-	} else {
-		c.ingresses[item] = ing
-	}
-	c.mutex.Unlock()
-
-	return preProcessed
-}
-
-func (c *controller) onEvent(item types.NamespacedName) error {
-	event := model.EventUpdate
-	ing := c.ingress.Get(item.Name, item.Namespace)
-	if ing == nil {
-		event = model.EventDelete
-		c.mutex.Lock()
-		ing = c.ingresses[item]
-		delete(c.ingresses, item)
-		c.mutex.Unlock()
-		if ing == nil {
-			// It was a delete and we didn't have an existing known ingress, no action
-			return nil
-		}
-	}
-
-	// we should check need process only when event is not delete,
-	// if it is delete event, and previously processed, we need to process too.
-	if event != model.EventDelete {
-		shouldProcess := c.shouldProcessIngressUpdate(ing)
-		if !shouldProcess {
-			return nil
-		}
-	}
-
-	vsmetadata := config.Meta{
-		Name:             item.Name + "-" + "virtualservice",
-		Namespace:        item.Namespace,
-		GroupVersionKind: gvk.VirtualService,
-		// Set this label so that we do not compare configs and just push.
-		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
-	}
-	gatewaymetadata := config.Meta{
-		Name:             item.Name + "-" + "gateway",
-		Namespace:        item.Namespace,
-		GroupVersionKind: gvk.Gateway,
-		// Set this label so that we do not compare configs and just push.
-		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
-	}
-
-	// Trigger updates for Gateway and VirtualService
-	// TODO: we could be smarter here and only trigger when real changes were found
-	for _, f := range c.virtualServiceHandlers {
-		f(config.Config{Meta: vsmetadata}, config.Config{Meta: vsmetadata}, event)
-	}
-	for _, f := range c.gatewayHandlers {
-		f(config.Config{Meta: gatewaymetadata}, config.Config{Meta: gatewaymetadata}, event)
-	}
-
-	return nil
-}
-
-func (c *controller) onServiceEvent(input any) {
-	event := input.(controllers.Event)
-	curSvc := event.Latest().(*corev1.Service)
-
-	// This is shortcut. We only care about the port number change if we receive service update event.
-	if event.Event == controllers.EventUpdate {
-		oldSvc := event.Old.(*corev1.Service)
-		oldPorts := extractPorts(oldSvc.Spec.Ports)
-		curPorts := extractPorts(curSvc.Spec.Ports)
-		// If the ports don't change, we do nothing.
-		if oldPorts.Equals(curPorts) {
-			return
-		}
-	}
-
-	// We care about add, delete and ports changed event of services that are referred
-	// by ingress using port name.
-	namespacedName := config.NamespacedName(curSvc).String()
-	for _, ingress := range c.ingress.List(curSvc.GetNamespace(), klabels.Everything()) {
-		referredSvcSet := extractServicesByPortNameType(ingress)
-		if referredSvcSet.Contains(namespacedName) {
-			c.queue.AddObject(ingress)
-		}
-	}
-}
-
-func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
-	switch kind {
-	case gvk.VirtualService:
-		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
-	case gvk.Gateway:
-		c.gatewayHandlers = append(c.gatewayHandlers, f)
-	}
-}
-
-func (c *controller) HasSynced() bool {
-	return c.queue.HasSynced()
-}
-
-func (c *controller) Schemas() collection.Schemas {
-	// TODO: are these two config descriptors right?
+func (c *Controller) Schemas() collection.Schemas {
 	return schemas
 }
 
-func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
+func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	return nil
 }
 
-// sortIngressByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortIngressByCreationTime(ingr []*knetworking.Ingress) []*knetworking.Ingress {
-	slices.SortFunc(ingr, func(i, j *knetworking.Ingress) int {
-		if r := i.CreationTimestamp.Compare(j.CreationTimestamp.Time); r != 0 {
-			return r
-		}
-		// If creation time is the same, then behavior is nondeterministic. In this case, we can
-		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
-		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if r := cmp.Compare(i.Name, j.Name); r != 0 {
-			return r
-		}
-		return cmp.Compare(i.Namespace, j.Namespace)
-	})
-	return ingr
-}
-
-func (c *controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
-	if typ != gvk.Gateway &&
-		typ != gvk.VirtualService {
-		return nil
-	}
-
-	out := make([]config.Config, 0)
-	ingressByHost := map[string]*config.Config{}
-	for _, ingress := range sortIngressByCreationTime(c.ingress.List(namespace, klabels.Everything())) {
-		process := c.shouldProcessIngress(c.meshWatcher.Mesh(), ingress)
-		if !process {
-			continue
-		}
-
-		switch typ {
-		case gvk.VirtualService:
-			ConvertIngressVirtualService(*ingress, c.domainSuffix, ingressByHost, c.services)
-		case gvk.Gateway:
-			gateways := ConvertIngressV1alpha3(*ingress, c.meshWatcher.Mesh(), c.domainSuffix)
-			out = append(out, gateways)
-		}
+func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
+	if typ == gvk.Gateway {
+		return c.outputs.Gateways.List()
 	}
 
 	if typ == gvk.VirtualService {
-		for _, obj := range ingressByHost {
-			out = append(out, *obj)
-		}
+		return c.outputs.VirtualServices.List()
 	}
 
-	return out
+	return nil
 }
 
-// extractServicesByPortNameType extract services that are of port name type in the specified ingress resource.
-func extractServicesByPortNameType(ingress *knetworking.Ingress) sets.String {
-	services := sets.String{}
-	for _, rule := range ingress.Spec.Rules {
-		if rule.HTTP == nil {
-			continue
-		}
-
-		for _, route := range rule.HTTP.Paths {
-			if route.Backend.Service == nil {
-				continue
-			}
-
-			if route.Backend.Service.Port.Name != "" {
-				services.Insert(types.NamespacedName{
-					Namespace: ingress.GetNamespace(),
-					Name:      route.Backend.Service.Name,
-				}.String())
-			}
-		}
-	}
-	return services
-}
-
-func extractPorts(ports []corev1.ServicePort) sets.String {
-	result := sets.String{}
-	for _, port := range ports {
-		// the format is port number|port name.
-		result.Insert(fmt.Sprintf("%d|%s", port.Port, port.Name))
-	}
-	return result
-}
-
-func (c *controller) Create(_ config.Config) (string, error) {
+func (c *Controller) Create(_ config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Update(_ config.Config) (string, error) {
+func (c *Controller) Update(_ config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) UpdateStatus(config.Config) (string, error) {
+func (c *Controller) UpdateStatus(config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Patch(_ config.Config, _ config.PatchFunc) (string, error) {
+func (c *Controller) Patch(_ config.Config, _ config.PatchFunc) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Delete(_ config.GroupVersionKind, _, _ string, _ *string) error {
+func (c *Controller) Delete(_ config.GroupVersionKind, _, _ string, _ *string) error {
 	return errUnsupportedOp
+}
+
+func pushXds[T any](xds xdsConfigUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {
+	return func(events []krt.Event[T]) {
+		if xds == nil {
+			return
+		}
+		cu := sets.New[model.ConfigKey]()
+		for _, e := range events {
+			for _, i := range e.Items() {
+				c := f(i)
+				if c != (model.ConfigKey{}) {
+					cu.Insert(c)
+				}
+			}
+		}
+		if len(cu) == 0 {
+			return
+		}
+		xds.ConfigUpdate(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: cu,
+			Reason:         model.NewReasonStats(model.ConfigUpdate),
+		})
+	}
 }

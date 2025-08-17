@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
@@ -178,6 +179,8 @@ func ConvertConfig(cfg config.Config) (IstioObject, error) {
 			Labels:            cfg.Labels,
 			Annotations:       cfg.Annotations,
 			CreationTimestamp: metav1.NewTime(cfg.CreationTimestamp),
+			UID:               types.UID(cfg.UID),
+			Generation:        cfg.Generation,
 		},
 		Spec:   spec,
 		Status: status,

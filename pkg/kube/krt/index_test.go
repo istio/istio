@@ -15,6 +15,8 @@
 package krt_test
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -41,7 +43,7 @@ func TestIndex(t *testing.T) {
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 	fetchSorted := func(ip string) []SimplePod {
@@ -95,15 +97,30 @@ func TestIndexCollection(t *testing.T) {
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)
-	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	podsCol := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
 	c.RunAndWait(stop)
-	SimplePods := SimplePodCollection(pods, opts)
+	SimplePods := SimplePodCollection(podsCol, opts)
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
+	LabelIndex := krt.NewIndex[string, SimplePod](SimplePods, "label", func(o SimplePod) []string {
+		var out []string
+		for k, v := range o.GetLabels() {
+			out = append(out, k+"="+v)
+		}
+		return out
+	})
 	Collection := krt.NewSingleton[string](func(ctx krt.HandlerContext) *string {
-		pods := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "1.2.3.5"))
+		// two fetches by the same index
+		a := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "2.2.2.2"))
+		b := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "3.3.3.3"))
+		// a third fetch on the same SimplePods but with another index
+		c := krt.Fetch(ctx, SimplePods, krt.FilterIndex(LabelIndex, "marker=true"))
+
+		pods := append(a, b...)
+		pods = append(pods, c...)
+
 		names := slices.Sort(slices.Map(pods, SimplePod.ResourceName))
 		return ptr.Of(strings.Join(names, ","))
 	}, opts.WithName("Collection")...)
@@ -116,37 +133,60 @@ func TestIndexCollection(t *testing.T) {
 
 	SimplePods.Register(TrackerHandler[SimplePod](tt))
 
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "name",
-			Namespace: "namespace",
-		},
-		Status: corev1.PodStatus{PodIP: "1.2.3.4"},
+	var pods []*corev1.Pod
+	for i := range 4 {
+		pods = append(pods, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "name" + strconv.Itoa(i+1),
+				Namespace: "namespace",
+				Labels:    map[string]string{},
+			},
+			Status: corev1.PodStatus{PodIP: fmt.Sprintf("%d.%d.%d.%d", i+1, i+1, i+1, i+1)},
+		})
 	}
+	pod := pods[0]
+	pod2 := pods[1]
+	pod3 := pods[2]
+	pod4 := pods[3]
+
+	// pod 1 with 1.1.1.1 doesn't show up in the collection
 	pc.CreateOrUpdateStatus(pod)
-	tt.WaitUnordered("add/namespace/name")
+	tt.WaitUnordered("add/namespace/name1")
 	assert.Equal(t, Collection.Get(), ptr.Of(""))
 
-	pod.Status.PodIP = "1.2.3.5"
+	// when we update it to what we Fetch with, we will see it
+	pod.Status.PodIP = "2.2.2.2"
 	pc.UpdateStatus(pod)
-	tt.WaitUnordered("update/namespace/name")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name"))
+	tt.WaitUnordered("update/namespace/name1")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1"))
 
-	pod2 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "name2",
-			Namespace: "namespace",
-		},
-		Status: corev1.PodStatus{PodIP: "1.2.3.5"},
-	}
+	// adding pod 2 with the same IP gives us both
 	pc.CreateOrUpdateStatus(pod2)
 	tt.WaitUnordered("add/namespace/name2")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name,namespace/name2"))
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1,namespace/name2"))
 
-	pc.Delete(pod.Name, pod.Namespace)
-	pc.Delete(pod2.Name, pod2.Namespace)
-	tt.WaitUnordered("delete/namespace/name", "delete/namespace/name2")
-	assert.Equal(t, fetchSorted("1.2.3.4"), []SimplePod{})
+	// add pod 3 to make sure our second fetch works
+	pc.CreateOrUpdateStatus(pod3)
+	tt.WaitUnordered("add/namespace/name3")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1,namespace/name2,namespace/name3"))
+
+	// make sure the separate index fetch works
+	pod4.GetLabels()["marker"] = "true"
+	pc.CreateOrUpdateStatus(pod4)
+	tt.WaitUnordered("add/namespace/name4")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1,namespace/name2,namespace/name3,namespace/name4"))
+
+	// delete everything
+	for _, pod := range pods {
+		pc.Delete(pod.Name, pod.Namespace)
+	}
+	tt.WaitUnordered(
+		"delete/namespace/name1",
+		"delete/namespace/name2",
+		"delete/namespace/name3",
+		"delete/namespace/name4",
+	)
+	assert.Equal(t, fetchSorted("1.1.1.1"), []SimplePod{})
 }
 
 type PodCount struct {
@@ -168,7 +208,7 @@ func TestIndexAsCollection(t *testing.T) {
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 
@@ -240,7 +280,7 @@ func TestReverseIndex(t *testing.T) {
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 	Collection := krt.NewSingleton(func(ctx krt.HandlerContext) *PodCounts {
@@ -292,4 +332,20 @@ func TestReverseIndex(t *testing.T) {
 	pc.Delete(pod.Name, pod.Namespace)
 	pc.Delete(pod2.Name, pod2.Namespace)
 	assert.EventuallyEqual(t, Collection.Get, &PodCounts{ByIP: 0, ByName: 1})
+}
+
+func TestIndexAsCollectionMetadata(t *testing.T) {
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	meta := krt.Metadata{
+		"key1": "value1",
+	}
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	SimplePods := SimplePodCollection(pods, opts)
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ips", func(o SimplePod) []string {
+		return []string{o.IP}
+	})
+	c.RunAndWait(opts.Stop())
+	assert.Equal(t, IPIndex.AsCollection(krt.WithMetadata(meta)).Metadata(), meta)
 }

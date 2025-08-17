@@ -86,6 +86,55 @@ func TestNamespaceController(t *testing.T) {
 	}
 }
 
+func TestNamespaceControllerForCrlConfigMap(t *testing.T) {
+	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
+	watcher := keycertbundle.NewWatcher()
+	crlData := []byte("crl")
+	watcher.SetAndNotifyCACRL(crlData)
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
+	stop := test.NewStop(t)
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		kclient.New[*v1.Namespace](client),
+		meshWatcher,
+		stop,
+	)
+	kube.SetObjectFilter(client, discoveryNamespacesFilter)
+	nc := NewNamespaceController(client, watcher)
+	client.RunAndWait(stop)
+	go nc.Run(stop)
+	retry.UntilOrFail(t, nc.queue.HasSynced)
+
+	expectedData := map[string]string{
+		constants.CACRLNamespaceConfigMapDataName: string(crlData),
+	}
+	createNamespace(t, client.Kube(), "foo", nil)
+	expectConfigMap(t, nc.crlConfigmaps, CRLNamespaceConfigMap, "foo", expectedData)
+
+	// Make sure random configmap does not get updated
+	cmData := createConfigMap(t, client.Kube(), "not-root-cm", "foo", "key")
+	expectConfigMap(t, nc.crlConfigmaps, "not-root-cm", "foo", cmData)
+
+	newCrlData := []byte("new-crl")
+	watcher.SetAndNotifyCACRL(newCrlData)
+	newData := map[string]string{
+		constants.CACRLNamespaceConfigMapDataName: string(newCrlData),
+	}
+	expectConfigMap(t, nc.crlConfigmaps, CRLNamespaceConfigMap, "foo", newData)
+
+	deleteConfigMap(t, client.Kube(), "foo")
+	expectConfigMap(t, nc.crlConfigmaps, CRLNamespaceConfigMap, "foo", newData)
+
+	ignoredNamespaces := inject.IgnoredNamespaces.Copy().Delete(constants.KubeSystemNamespace)
+	for _, namespace := range ignoredNamespaces.UnsortedList() {
+		// Create namespace in ignored list, make sure it's not created
+		createNamespace(t, client.Kube(), namespace, newData)
+		// Configmap in that namespace should not do anything either
+		createConfigMap(t, client.Kube(), "not-root-cm", namespace, "key")
+		expectConfigMapNotExist(t, nc.crlConfigmaps, namespace)
+	}
+}
+
 func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 	client := kube.NewFakeClient()
 	t.Cleanup(client.Shutdown)
@@ -278,6 +327,6 @@ func expectConfigMapNotExist(t *testing.T, configmaps kclient.Client[*v1.ConfigM
 	}, retry.Timeout(time.Millisecond*25))
 
 	if err == nil {
-		t.Fatalf("%s namespace should not have istio-ca-root-cert configmap.", ns)
+		t.Fatalf("%s namespace should not have %s configmap.", ns, CACertNamespaceConfigMap)
 	}
 }

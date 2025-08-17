@@ -1,11 +1,17 @@
-# This file is only used for remote `istiod` installs.
-{{- if .Values.global.remotePilotAddress }}
+# This file is only used for remote
+{{- if and .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
+  {{- if .Values.istiodRemote.enabledLocalInjectorIstiod }}
+  # only primary `istiod` to xds and local `istiod` injection installs.
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
+  {{- else }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
+  {{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     app.kubernetes.io/name: "istiod"
     {{ include "istio.labels" . | nindent 4 }}
 spec:

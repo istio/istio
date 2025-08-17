@@ -164,6 +164,8 @@ func toTypePath(r *ast.Resource) string {
 func toGetter(protoPackage string) string {
 	if strings.Contains(protoPackage, "istio.io") {
 		return "Istio"
+	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api-inference-extension") {
+		return "GatewayAPIInference"
 	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
 		return "GatewayAPI"
 	} else if strings.Contains(protoPackage, "k8s.io/apiextensions-apiserver") {
@@ -175,7 +177,13 @@ func toGetter(protoPackage string) string {
 func toGroup(protoPackage string, version string) string {
 	p := strings.Split(protoPackage, "/")
 	e := len(p) - 1
-	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
+	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api/apisx") {
+		// Custom naming for "X" types
+		return "Experimental" + strcase.UpperCamelCase(version)
+	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api-inference-extension") {
+		// Gateway has one level of nesting with custom name
+		return "Inference" + strcase.UpperCamelCase(version)
+	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
 		// Gateway has one level of nesting with custom name
 		return "Gateway" + strcase.UpperCamelCase(version)
 	}

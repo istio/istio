@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -196,19 +197,30 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 
 			cn := s.GetTls().GetCredentialName()
 			if cn != "" && proxy.VerifiedIdentity != nil {
+				gwKind := gvk.KubernetesGateway
+				lookupNamespace := proxy.VerifiedIdentity.Namespace
+				if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.XListenerSet.Kind+"/") {
+					gwKind = gvk.XListenerSet
+					lookupNamespace = gatewayConfig.Namespace
+				}
 				// Ignore BuiltinGatewaySecretTypeURI, as it is not referencing a Secret at all
 				if !strings.HasPrefix(cn, credentials.BuiltinGatewaySecretTypeURI) {
 					rn := credentials.ToResourceName(cn)
 					parse, err := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
-					if err == nil && gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace && parse.Namespace == proxy.VerifiedIdentity.Namespace {
+					// For ListenerSet, we do not require the config to live in the same namespace. However, there is a trust handshake via AllowedListeners.
+					configAndProxyAllowed := gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace || gwKind == gvk.XListenerSet
+					if err == nil && configAndProxyAllowed && parse.Namespace == lookupNamespace {
 						// Same namespace is always allowed
 						verifiedCertificateReferences.Insert(rn)
 						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
 							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
 						}
-					} else if ps.ReferenceAllowed(gvk.Secret, rn, proxy.VerifiedIdentity.Namespace) {
+					} else if ps.SecretAllowed(gwKind, rn, lookupNamespace) {
 						// Explicitly allowed by some policy
 						verifiedCertificateReferences.Insert(rn)
+						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
+							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
+						}
 					}
 				}
 			}

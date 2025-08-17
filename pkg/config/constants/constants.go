@@ -89,6 +89,9 @@ const (
 	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMapDataName = "root-cert.pem"
 
+	// CACRLNamespaceConfigMapDataName in the ConfigMap of each namespace storing the CRL of plugged in CA certificates.
+	CACRLNamespaceConfigMapDataName = "ca-crl.pem"
+
 	// PodInfoLabelsPath is the filepath that pod labels will be stored
 	// This is typically set by the downward API
 	PodInfoLabelsPath = "./etc/istio/pod/labels"
@@ -126,12 +129,16 @@ const (
 	// InternalParentNames declares the original resources of an internally-generated config.
 	// This is used by k8s gateway-api.
 	// It is a comma separated list. For example, "HTTPRoute/foo.default,HTTPRoute/bar.default"
-	InternalParentNames      = "internal.istio.io/parents"
-	InternalRouteSemantics   = "internal.istio.io/route-semantics"
-	RouteSemanticsIngress    = "ingress"
-	RouteSemanticsGateway    = "gateway"
-	InternalGatewaySemantics = "internal.istio.io/gateway-semantics"
-	GatewaySemanticsGateway  = "gateway"
+	InternalParentNames = "internal.istio.io/parents"
+	// InternalParentNamespace contains, for internally-generated resource, the namespace of the parent, if different then current.
+	InternalParentNamespace       = "internal.istio.io/parent-namespace"
+	InternalRouteSemantics        = "internal.istio.io/route-semantics"
+	RouteSemanticsIngress         = "ingress"
+	RouteSemanticsGateway         = "gateway"
+	InternalGatewaySemantics      = "internal.istio.io/gateway-semantics"
+	GatewaySemanticsGateway       = "gateway"
+	InternalServiceSemantics      = "internal.istio.io/service-semantics"
+	ServiceSemanticsInferencePool = "inferencepool"
 
 	// ThirdPartyJwtPath is the default 3P token to authenticate with third party services
 	ThirdPartyJwtPath = "./var/run/secrets/tokens/istio-token"
@@ -154,13 +161,20 @@ const (
 	// testing the validation webhook.
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
-	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
-	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
-	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
-	ManagedGatewayMeshController      = "istio.io/mesh-controller"
+	UnmanagedGatewayController            = "istio.io/unmanaged-gateway"
+	ManagedGatewayControllerLabel         = "istio.io-gateway-controller"
+	ManagedGatewayMeshControllerLabel     = "istio.io-mesh-controller"
+	ManagedGatewayMeshController          = "istio.io/mesh-controller"
+	ManagedGatewayEastWestController      = "istio.io/eastwest-controller"
+	ManagedGatewayEastWestControllerLabel = "istio.io-eastwest-controller"
+
+	// WaypointSandwichListenerProxyProtocol defines the protocol which is defined on the listener used by a waypoint sandwich
+	// This listener should align to the proto/port defined by the  "ambient.istio.io/waypoint-inbound-binding" annotation
+	WaypointSandwichListenerProxyProtocol = "istio.io/PROXY"
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
+	EastWestGatewayClassName = "istio-east-west"
 
 	// TODO formalize this API
 	// TODO additional values to represent passthrough and hbone or both
@@ -194,4 +208,13 @@ const (
 	AllTraffic = "all"
 	// NoTraffic indicates that no traffic should go through the intended waypoint.
 	NoTraffic = "none"
+	// envoy namespace used for subset selection
+	EnvoySubsetNamespace string = "envoy.lb"
+	// The metadata key used for endpoint selection. This key is set from the InferencePool EPP (Endpoint Picker)
+	GatewayInferenceExtensionEndpointHintKey string = "x-gateway-destination-endpoint"
+
+	// config.Config.Extra well-known key values
+
+	// TODO: think about a better name?
+	ConfigExtraPerRouteRuleInferencePoolConfigs = "perRouteRuleInferencePoolConfigs"
 )

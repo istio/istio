@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
@@ -33,6 +34,7 @@ import (
 	"istio.io/istio/cni/pkg/nodeagent"
 	"istio.io/istio/cni/pkg/repair"
 	"istio.io/istio/cni/pkg/scopes"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
@@ -100,11 +102,22 @@ var rootCmd = &cobra.Command{
 			// as well as listen for messages from the CNI binary.
 			cniEventAddr := filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.CNIEventSocketName)
 			log.Infof("Starting ambient node agent with inpod redirect mode on socket %s", cniEventAddr)
+
+			// instantiate and validate the ambient enablement selector
+			selectors := []util.EnablementSelector{}
+			if err = yaml.Unmarshal([]byte(cfg.InstallConfig.AmbientEnablementSelector), &selectors); err != nil {
+				return fmt.Errorf("failed to parse ambient enablement selector: %v", err)
+			}
+			compiledSelectors, err := util.NewCompiledEnablementSelectors(selectors)
+			if err != nil {
+				return fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
+			}
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
 					SystemNamespace:            nodeagent.SystemNamespace,
 					Revision:                   nodeagent.Revision,
 					ServerSocket:               cfg.InstallConfig.ZtunnelUDSAddress,
+					EnablementSelector:         compiledSelectors,
 					DNSCapture:                 cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
@@ -203,6 +216,8 @@ func init() {
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
+	registerStringParameter(constants.IstioOwnedCNIConfigFilename, "", "Filename for Istio owned CNI configuration")
+	registerBooleanParameter(constants.IstioOwnedCNIConfig, false, "Whether an Istio owned CNI configuration is enabled")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
 	// Not configurable in CNI helm charts
@@ -271,10 +286,12 @@ func bindViper(name string) {
 
 func constructConfig() (*config.Config, error) {
 	installCfg := config.InstallConfig{
-		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
-		CNIConfName:      viper.GetString(constants.CNIConfName),
-		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
-		CNIAgentRunDir:   viper.GetString(constants.CNIAgentRunDir),
+		MountedCNINetDir:            viper.GetString(constants.MountedCNINetDir),
+		CNIConfName:                 viper.GetString(constants.CNIConfName),
+		ChainedCNIPlugin:            viper.GetBool(constants.ChainedCNIPlugin),
+		CNIAgentRunDir:              viper.GetString(constants.CNIAgentRunDir),
+		IstioOwnedCNIConfigFilename: viper.GetString(constants.IstioOwnedCNIConfigFilename),
+		IstioOwnedCNIConfig:         viper.GetBool(constants.IstioOwnedCNIConfig),
 
 		// Whatever user has set (with --log_output_level) for 'cni-plugin', pass it down to the plugin. It will use this to determine
 		// what level to use for itself.
@@ -298,10 +315,13 @@ func constructConfig() (*config.Config, error) {
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
 		AmbientEnabled:                    viper.GetBool(constants.AmbientEnabled),
+		AmbientEnablementSelector:         viper.GetString(constants.AmbientEnablementSelector),
 		AmbientDNSCapture:                 viper.GetBool(constants.AmbientDNSCapture),
 		AmbientIPv6:                       viper.GetBool(constants.AmbientIPv6),
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),
 		AmbientReconcilePodRulesOnStartup: viper.GetBool(constants.AmbientReconcilePodRulesOnStartup),
+
+		NativeNftables: viper.GetBool(constants.NativeNftables),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
@@ -310,6 +330,12 @@ func constructConfig() (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if installCfg.IstioOwnedCNIConfig && len(installCfg.IstioOwnedCNIConfigFilename) == 0 {
+		// If Istio owned CNI config is enabled, but no filename is specified, use the default one.
+		// The filename is not set to the default value if Istio owned CNI config is not enabled.
+		installCfg.IstioOwnedCNIConfigFilename = constants.DefaultIstioOwnedCNIConfigFilename
 	}
 
 	repairCfg := config.RepairConfig{
@@ -326,6 +352,7 @@ func constructConfig() (*config.Config, error) {
 		InitExitCode:       viper.GetInt(constants.RepairInitExitCode),
 		LabelSelectors:     viper.GetString(constants.RepairLabelSelectors),
 		FieldSelectors:     viper.GetString(constants.RepairFieldSelectors),
+		NativeNftables:     viper.GetBool(constants.NativeNftables),
 	}
 
 	return &config.Config{InstallConfig: installCfg, RepairConfig: repairCfg}, nil

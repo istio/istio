@@ -1,0 +1,24 @@
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackendTrafficPolicy
+metadata:
+  name: lb-policy
+  namespace: default
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: echo
+  retryConstraint:
+    minRetryRate:
+      interval: "1s"
+      count: 5
+    budget:
+      percent: 30
+      interval: "10s"
+
+  sessionPersistence:
+    sessionName: foo
+    absoluteTimeout: 1h
+    type: Cookie
+    cookieConfig:
+      lifetimeType: Permanent

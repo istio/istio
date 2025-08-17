@@ -857,7 +857,7 @@ func TestValidateTLS(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		if got := ValidateTLS(tc.tls); (got == nil) != tc.valid {
+		if got := ValidateTLS("", tc.tls); (got == nil) != tc.valid {
 			t.Errorf("ValidateTLS(%q) => got valid=%v, want valid=%v",
 				tc.name, got == nil, tc.valid)
 		}

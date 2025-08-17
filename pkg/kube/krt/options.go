@@ -24,6 +24,8 @@ type OptionsBuilder struct {
 	debugger   *DebugHandler
 }
 
+type BuilderOption func(opt CollectionOption) OptionsBuilder
+
 func NewOptionsBuilder(stop <-chan struct{}, namePrefix string, debugger *DebugHandler) OptionsBuilder {
 	return OptionsBuilder{
 		namePrefix: namePrefix,
@@ -88,5 +90,22 @@ func WithStop(stop <-chan struct{}) CollectionOption {
 func WithDebugging(handler *DebugHandler) CollectionOption {
 	return func(c *collectionOptions) {
 		c.debugger = handler
+	}
+}
+
+// WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
+// This option can only be used when joined collections are disjoint: keys overlapping between collections is undefined behavior
+func WithJoinUnchecked() CollectionOption {
+	return func(c *collectionOptions) {
+		c.joinUnchecked = true
+	}
+}
+
+// WithMetadata adds metadata to the collection. This is mainly useful
+// for creating collections of collections where the metadata is needed to
+// fetch a specific collection.
+func WithMetadata(metadata Metadata) CollectionOption {
+	return func(c *collectionOptions) {
+		c.metadata = metadata
 	}
 }

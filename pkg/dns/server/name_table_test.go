@@ -652,7 +652,7 @@ func TestNameTable(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(tt.push, "default")
+			tt.proxy.SetSidecarScope(tt.push)
 			tt.proxy.DiscoverIPMode()
 			if diff := cmp.Diff(dnsServer.BuildNameTable(dnsServer.Config{
 				Node:                        tt.proxy,

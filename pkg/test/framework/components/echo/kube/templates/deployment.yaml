@@ -76,6 +76,7 @@ spec:
   (ne (index $subset.Annotations "sidecar.istio.io/inject") "false")
   (ne (index $subset.Annotations "inject.istio.io/templates") "grpc")
   ($.OverlayIstioProxy)
+  (not (and $.OpenShift (eq $.Service "tproxy")))
 }}
       - name: istio-proxy
         image: auto

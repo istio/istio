@@ -224,16 +224,22 @@ func mustGetContainerFromDaemonset(g *WithT, objs *ObjectSet, daemonSetName, con
 	return container
 }
 
-// mustGetEndpoint returns the endpoint tree with the given name in the deployment with the given name.
-func mustGetEndpoint(g *WithT, objs *ObjectSet, endpointName string) *manifest.Manifest {
-	obj := objs.kind(gvk.Endpoints.Kind).nameEquals(endpointName)
-	g.Expect(obj).Should(Not(BeNil()), fmt.Sprintf("Expected to get endpoints %s", endpointName))
+// mustGetEndpointSlice returns the EndpointSlice with the given name or fails if it's not found in objs.
+func mustGetEndpointSlice(g *WithT, objs *ObjectSet, endpointSliceName string) *manifest.Manifest {
+	obj := objs.kind(gvk.EndpointSlice.Kind).nameEquals(endpointSliceName)
+	g.Expect(obj).Should(Not(BeNil()), fmt.Sprintf("Expected to get EndpointSlice %s", endpointSliceName))
 	return obj
 }
 
 // mustGetMutatingWebhookConfiguration returns the mutatingWebhookConfiguration with the given name or fails if it's not found in objs.
 func mustGetMutatingWebhookConfiguration(g *WithT, objs *ObjectSet, mutatingWebhookConfigurationName string) *manifest.Manifest {
 	obj := objs.kind(gvk.MutatingWebhookConfiguration.Kind).nameEquals(mutatingWebhookConfigurationName)
+	g.Expect(obj).Should(Not(BeNil()))
+	return obj
+}
+
+func mustGetValidatingWebhookConfiguration(g *WithT, objs *ObjectSet, cName string) *manifest.Manifest {
+	obj := objs.kind(gvk.ValidatingWebhookConfiguration.Kind).nameEquals(cName)
 	g.Expect(obj).Should(Not(BeNil()))
 	return obj
 }
@@ -450,21 +456,6 @@ func toMap(s string) map[string]any {
 	}
 	if len(out) == 0 {
 		return nil
-	}
-	return out
-}
-
-// endpointSubsetAddressVal returns a map having subset address type for an endpoint.
-func endpointSubsetAddressVal(hostname, ip, nodeName string) map[string]any {
-	out := make(map[string]any)
-	if hostname != "" {
-		out["hostname"] = hostname
-	}
-	if ip != "" {
-		out["ip"] = ip
-	}
-	if nodeName != "" {
-		out["nodeName"] = nodeName
 	}
 	return out
 }

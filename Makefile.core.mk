@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2025-03-26T19-01-05
+BASE_VERSION ?= master-2025-07-30T19-02-17
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -228,7 +228,8 @@ RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl envoy ztunnel c
 # agent: enables agent-specific files. Usually this is used to trim dependencies where they would be hard to trim through standard refactoring
 # disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
 # not set vtprotobuf: this adds some performance improvement, but at a binary cost increase that is not worth it for the agent
-AGENT_TAGS=agent,disable_pgv
+# notrace: helps with https://github.com/istio/istio/issues/56636 and reduces bnary size
+AGENT_TAGS=agent,disable_pgv,grpcnotrace,retrynotrace
 # disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
 # vtprotobuf: enables optimized protobuf marshalling.
 STANDARD_TAGS=vtprotobuf,disable_pgv
@@ -307,10 +308,6 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-# Keep dummy target since some build pipelines depend on this
-gen-charts:
-	@echo "This target is no longer required and will be removed in the future"
-
 gen-addons:
 	manifests/addons/gen.sh
 
@@ -333,8 +330,14 @@ copy-templates:
 
 	# gateway charts
 	cp -r manifests/charts/gateways/istio-ingress/templates/* manifests/charts/gateways/istio-egress/templates
-	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/ingress/egress/g' {} \;
-	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/Ingress/Egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f -name "*.yaml" ! -name "networkpolicy.yaml" -exec sed -i -e 's/ingress/egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f -name "*.yaml" ! -name "networkpolicy.yaml" -exec sed -i -e 's/Ingress/Egress/g' {} \;
+	if [ -f ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml ]; then \
+		sed -i -e 's/"IngressGateways"/"EgressGateways"/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/istio-ingress/istio-egress/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/app: istio-ingress/app: istio-egress/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/istio: ingressgateway/istio: egressgateway/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+	fi
 
 	# copy istio-discovery values, but apply some local customizations
 	warning=$$(cat manifests/helm-profiles/warning-edit.txt | sed ':a;N;$$!ba;s/\n/\\n/g') ; \

@@ -32,15 +32,21 @@ func RunTrafficTest(t framework.TestContext, ambient bool) {
 	RunTrafficTestClientServer(t, client, server)
 }
 
-func SetupTrafficTestAmbient(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+func SetupTrafficTestAmbient(t framework.TestContext, revision string) (namespace.Instance,
+	echo.Instance, echo.Instance,
+) {
 	return setupTrafficTest(t, revision, true)
 }
 
-func SetupTrafficTest(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+func SetupTrafficTest(t framework.TestContext, revision string) (namespace.Instance,
+	echo.Instance, echo.Instance,
+) {
 	return setupTrafficTest(t, revision, false)
 }
 
-func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (namespace.Instance, echo.Instance, echo.Instance) {
+func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (namespace.Instance,
+	echo.Instance, echo.Instance,
+) {
 	var client, server echo.Instance
 	nsConfig := namespace.Config{
 		Prefix:   "default",
@@ -59,6 +65,23 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 		}}
 	}
 	testNs := namespace.NewOrFail(t, nsConfig)
+	serverCfg := echo.Config{
+		Service:   "server",
+		Namespace: testNs,
+		Ports: []echo.Port{
+			{
+				Name:         "http",
+				Protocol:     protocol.HTTP,
+				WorkloadPort: 8090,
+			},
+		},
+		Subsets: subsetConfig,
+	}
+	if ambient {
+		serverCfg.ServiceLabels = map[string]string{label.IoIstioUseWaypoint.Name: "waypoint"}
+		serverCfg.ServiceAccount = true
+		serverCfg.ServiceWaypointProxy = "waypoint"
+	}
 	deployment.New(t).
 		With(&client, echo.Config{
 			Service:        "client",
@@ -67,18 +90,7 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 			Subsets:        subsetConfig,
 			ServiceAccount: true,
 		}).
-		With(&server, echo.Config{
-			Service:   "server",
-			Namespace: testNs,
-			Ports: []echo.Port{
-				{
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					WorkloadPort: 8090,
-				},
-			},
-			Subsets: subsetConfig,
-		}).
+		With(&server, serverCfg).
 		BuildOrFail(t)
 
 	return testNs, client, server

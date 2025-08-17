@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/tools/common/config"
 )
 
 func AddInpodMarkIPRule(cfg *IptablesConfig) error {
@@ -92,7 +93,7 @@ func ReadSysctl(key string) (string, error) {
 }
 
 func forEachLoopbackRoute(cfg *IptablesConfig, operation string, f func(*netlink.Route) error) error {
-	loopbackLink, err := netlink.LinkByName("lo")
+	loopbackLink, err := config.LinkByNameWithRetries("lo")
 	if err != nil {
 		return fmt.Errorf("failed to find 'lo' link: %v", err)
 	}

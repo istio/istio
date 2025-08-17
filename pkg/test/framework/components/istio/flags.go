@@ -73,4 +73,7 @@ func init() {
 		settingsFromCommandline.ControlPlaneInstaller,
 		`Specifies the external script to install external control plane at run time.
 		Should only be set when istio.test.kube.deploy=false.`)
+	flag.BoolVar(&settingsFromCommandline.DeployGatewayAPI, "istio.test.kube.deployGatewayAPI",
+		settingsFromCommandline.DeployGatewayAPI,
+		"Deploy Gateway API into the target Kubernetes environment.")
 }

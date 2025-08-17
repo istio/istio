@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -727,6 +728,251 @@ func TestGetAllAddresses(t *testing.T) {
 			assert.Equal(t, addresses, tc.expectedAddresses)
 			extraAddresses := tc.service.GetExtraAddressesForProxy(proxy)
 			assert.Equal(t, extraAddresses, tc.expectedExtraAddresses)
+		})
+	}
+}
+
+func TestGetAddressForProxy(t *testing.T) {
+	tests := []struct {
+		name            string
+		service         *Service
+		proxy           *Proxy
+		expectedAddress string
+	}{
+		{
+			name: "IPv4 mode with IPv4 addresses, expected to return the first IPv4 address",
+			service: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cl1": {"10.0.0.1", "10.0.0.2"},
+					},
+				},
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					ClusterID: "cl1",
+				},
+				ipMode: IPv4,
+			},
+			expectedAddress: "10.0.0.1",
+		},
+		{
+			name: "IPv6 mode with IPv6 addresses, expected to return the first IPv6 address",
+			service: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cl1": {"2001:db8:abcd::1", "2001:db8:abcd::2"},
+					},
+				},
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					ClusterID: "cl1",
+				},
+				ipMode: IPv6,
+			},
+			expectedAddress: "2001:db8:abcd::1",
+		},
+		{
+			name: "Dual mode with both IPv6 and IPv4 addresses, expected to return the IPv6 address",
+			service: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cl1": {"2001:db8:abcd::1", "10.0.0.1"},
+					},
+				},
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					ClusterID: "cl1",
+				},
+				ipMode: Dual,
+			},
+			expectedAddress: "2001:db8:abcd::1",
+		},
+		{
+			name: "IPv4 mode with Auto-allocated IPv4 address",
+			service: &Service{
+				DefaultAddress:           constants.UnspecifiedIP,
+				AutoAllocatedIPv4Address: "240.240.0.1",
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					DNSAutoAllocate: true,
+					DNSCapture:      true,
+				},
+				ipMode: IPv4,
+			},
+			expectedAddress: "240.240.0.1",
+		},
+		{
+			name: "IPv6 mode with Auto-allocated IPv6 address",
+			service: &Service{
+				DefaultAddress:           constants.UnspecifiedIP,
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					DNSAutoAllocate: true,
+					DNSCapture:      true,
+				},
+				ipMode: IPv6,
+			},
+			expectedAddress: "2001:2::f0f0:e351",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.service.GetAddressForProxy(tt.proxy)
+			assert.Equal(t, result, tt.expectedAddress)
+		})
+	}
+}
+
+func TestWaypointKeyForProxy(t *testing.T) {
+	tests := []struct {
+		name              string
+		proxy             *Proxy
+		externalAddresses bool
+		expectedKey       WaypointKey
+	}{
+		{
+			name: "single service target with internal addresses",
+			proxy: &Proxy{
+				ConfigNamespace: "default",
+				Metadata: &NodeMetadata{
+					Network:   network.ID("network1"),
+					ClusterID: "cluster1",
+				},
+				ServiceTargets: []ServiceTarget{
+					{
+						Service: &Service{
+							Hostname: host.Name("service1.default.svc.cluster.local"),
+							ClusterVIPs: AddressMap{
+								Addresses: map[cluster.ID][]string{
+									"cluster1": {"10.0.0.1"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedKey: WaypointKey{
+				Namespace: "default",
+				Network:   "network1",
+				Hostnames: []string{"service1.default.svc.cluster.local"},
+				Addresses: []string{"10.0.0.1"},
+			},
+		},
+		{
+			name: "single service target with external addresses",
+			proxy: &Proxy{
+				ConfigNamespace: "default",
+				Metadata: &NodeMetadata{
+					Network:   network.ID("network1"),
+					ClusterID: "cluster1",
+				},
+				ServiceTargets: []ServiceTarget{
+					{
+						Service: &Service{
+							Hostname: host.Name("service1.default.svc.cluster.local"),
+							Attributes: ServiceAttributes{
+								ClusterExternalAddresses: &AddressMap{
+									Addresses: map[cluster.ID][]string{
+										"cluster1": {"192.168.0.1"},
+									},
+								},
+								Labels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+						},
+					},
+				},
+			},
+			externalAddresses: true,
+			expectedKey: WaypointKey{
+				Namespace:        "default",
+				Network:          "network1",
+				Hostnames:        []string{"service1.default.svc.cluster.local"},
+				Addresses:        []string{"192.168.0.1"},
+				IsNetworkGateway: true,
+			},
+		},
+		{
+			name: "service target with auto-allocated addresses",
+			proxy: &Proxy{
+				ConfigNamespace: "default",
+				Metadata: &NodeMetadata{
+					Network:   network.ID("network1"),
+					ClusterID: "cluster1",
+				},
+				ServiceTargets: []ServiceTarget{
+					{
+						Service: &Service{
+							Hostname:                 host.Name("service1.default.svc.cluster.local"),
+							AutoAllocatedIPv4Address: "240.240.0.1",
+							AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+						},
+					},
+				},
+			},
+			externalAddresses: false,
+			expectedKey: WaypointKey{
+				Namespace: "default",
+				Network:   "network1",
+				Hostnames: []string{"service1.default.svc.cluster.local"},
+				Addresses: []string{"240.240.0.1", "2001:2::f0f0:e351"},
+			},
+		},
+		{
+			name: "multiple service targets",
+			proxy: &Proxy{
+				ConfigNamespace: "default",
+				Metadata: &NodeMetadata{
+					Network:   network.ID("network1"),
+					ClusterID: "cluster1",
+				},
+				ServiceTargets: []ServiceTarget{
+					{
+						Service: &Service{
+							Hostname: host.Name("service1.default.svc.cluster.local"),
+							ClusterVIPs: AddressMap{
+								Addresses: map[cluster.ID][]string{
+									"cluster1": {"10.0.0.1"},
+								},
+							},
+						},
+					},
+					{
+						Service: &Service{
+							Hostname: host.Name("service2.default.svc.cluster.local"),
+							ClusterVIPs: AddressMap{
+								Addresses: map[cluster.ID][]string{
+									"cluster1": {"10.0.0.2"},
+								},
+							},
+						},
+					},
+				},
+			},
+			externalAddresses: false,
+			expectedKey: WaypointKey{
+				Namespace: "default",
+				Network:   "network1",
+				Hostnames: []string{"service1.default.svc.cluster.local", "service2.default.svc.cluster.local"},
+				Addresses: []string{"10.0.0.1", "10.0.0.2"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key := waypointKeyForProxy(tt.proxy, tt.externalAddresses)
+			if !cmp.Equal(key, tt.expectedKey) {
+				t.Errorf("waypointKeyForProxy() = %v, want %v", key, tt.expectedKey)
+			}
 		})
 	}
 }

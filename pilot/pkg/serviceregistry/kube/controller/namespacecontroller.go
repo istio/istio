@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -32,18 +33,23 @@ import (
 )
 
 const (
-	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
-	CACertNamespaceConfigMap = "istio-ca-root-cert"
-
 	// maxRetries is the number of times a namespace will be retried before it is dropped out of the queue.
 	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
 	// sequence of delays between successive queuing of a namespace.
 	//
 	// 5ms, 10ms, 20ms, 40ms, 80ms
 	maxRetries = 5
+
+	// CRLNamespaceConfigMap is the name of the ConfigMap in each namespace storing the CRL of plugged in CA certificates.
+	CRLNamespaceConfigMap = "istio-ca-crl"
 )
 
-var configMapLabel = map[string]string{"istio.io/config": "true"}
+var (
+	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
+	CACertNamespaceConfigMap = features.CACertConfigMapName
+
+	configMapLabel = map[string]string{"istio.io/config": "true"}
+)
 
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
@@ -51,8 +57,9 @@ type NamespaceController struct {
 
 	queue controllers.Queue
 
-	namespaces kclient.Client[*v1.Namespace]
-	configmaps kclient.Client[*v1.ConfigMap]
+	namespaces    kclient.Client[*v1.Namespace]
+	configmaps    kclient.Client[*v1.ConfigMap]
+	crlConfigmaps kclient.Client[*v1.ConfigMap]
 
 	ignoredNamespaces sets.Set[string]
 }
@@ -63,7 +70,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		caBundleWatcher: caBundleWatcher,
 	}
 	c.queue = controllers.NewQueue("namespace controller",
-		controllers.WithReconciler(c.reconcileCACert),
+		controllers.WithReconciler(c.reconcileCACertAndCRL),
 		controllers.WithMaxAttempts(maxRetries))
 
 	c.configmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
@@ -73,6 +80,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	c.namespaces = kclient.NewFiltered[*v1.Namespace](kubeClient, kclient.Filter{
 		ObjectFilter: kubeClient.ObjectFilter(),
 	})
+
 	// kube-system is not skipped to enable deploying ztunnel in that namespace
 	c.ignoredNamespaces = inject.IgnoredNamespaces.Copy().Delete(constants.KubeSystemNamespace)
 
@@ -92,6 +100,26 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		}
 		return true
 	}))
+
+	if features.EnableCACRL {
+		// set filtered client for crl configmap
+		c.crlConfigmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
+			FieldSelector: "metadata.name=" + CRLNamespaceConfigMap,
+			ObjectFilter:  kubeClient.ObjectFilter(),
+		})
+
+		// register crl configmap event handler
+		c.crlConfigmaps.AddEventHandler(
+			controllers.FilteredObjectSpecHandler(
+				c.queue.AddObject,
+				func(o controllers.Object) bool {
+					// skip special kubernetes system namespaces
+					return !c.ignoredNamespaces.Contains(o.GetNamespace())
+				},
+			),
+		)
+	}
+
 	return c
 }
 
@@ -123,22 +151,51 @@ func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
 	}
 }
 
-// reconcileCACert will reconcile the ca root cert configmap for the specified namespace
+// reconcileCACertAndCRL will reconcile the ca root cert and crl configmap for the specified namespace
 // If the configmap is not found, it will be created.
 // If the namespace is filtered out by discovery selector, the configmap will be deleted.
-func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
+func (nc *NamespaceController) reconcileCACertAndCRL(o types.NamespacedName) error {
 	ns := o.Namespace
 	if ns == "" {
 		// For Namespace object, it will not have o.Namespace field set
 		ns = o.Name
 	}
 
-	meta := metav1.ObjectMeta{
-		Name:      CACertNamespaceConfigMap,
-		Namespace: ns,
-		Labels:    configMapLabel,
+	errs := []error{
+		// upsert root-cert configmap
+		k8s.InsertDataToConfigMap(
+			nc.configmaps,
+			metav1.ObjectMeta{
+				Name:      CACertNamespaceConfigMap,
+				Namespace: ns,
+				Labels:    configMapLabel,
+			},
+			constants.CACertNamespaceConfigMapDataName,
+			nc.caBundleWatcher.GetCABundle(),
+		),
 	}
-	return k8s.InsertDataToConfigMap(nc.configmaps, meta, nc.caBundleWatcher.GetCABundle())
+
+	if features.EnableCACRL {
+		// upsert crl configmap
+		errs = append(
+			errs,
+			k8s.InsertDataToConfigMap(
+				nc.crlConfigmaps,
+				metav1.ObjectMeta{
+					Name:      CRLNamespaceConfigMap,
+					Namespace: ns,
+					Labels:    configMapLabel,
+				},
+				constants.CACRLNamespaceConfigMapDataName,
+				nc.caBundleWatcher.GetCRL(),
+			),
+		)
+	}
+
+	// Returns nil when there are no errors,
+	// the single error when there is exactly one,
+	// or a combined error when there are several.
+	return utilerrors.NewAggregate(errs)
 }
 
 // On namespace change, update the config map.

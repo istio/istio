@@ -1,0 +1,541 @@
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=v0.5.1"`
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
+  name: inferencemodels.inference.networking.x-k8s.io
+spec:
+  group: inference.networking.x-k8s.io
+  names:
+    kind: InferenceModel
+    listKind: InferenceModelList
+    plural: inferencemodels
+    singular: inferencemodel
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.modelName
+      name: Model Name
+      type: string
+    - jsonPath: .spec.poolRef.name
+      name: Inference Pool
+      type: string
+    - jsonPath: .spec.criticality
+      name: Criticality
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: InferenceModel is the Schema for the InferenceModels API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              InferenceModelSpec represents the desired state of a specific model use case. This resource is
+              managed by the "Inference Workload Owner" persona.
+
+              The Inference Workload Owner persona is someone that trains, verifies, and
+              leverages a large language model from a model frontend, drives the lifecycle
+              and rollout of new versions of those models, and defines the specific
+              performance and latency goals for the model. These workloads are
+              expected to operate within an InferencePool sharing compute capacity with other
+              InferenceModels, defined by the Inference Platform Admin.
+
+              InferenceModel's modelName (not the ObjectMeta name) is unique for a given InferencePool,
+              if the name is reused, an error will be shown on the status of a
+              InferenceModel that attempted to reuse. The oldest InferenceModel, based on
+              creation timestamp, will be selected to remain valid. In the event of a race
+              condition, one will be selected at random.
+            properties:
+              criticality:
+                description: |-
+                  Criticality defines how important it is to serve the model compared to other models referencing the same pool.
+                  Criticality impacts how traffic is handled in resource constrained situations. It handles this by
+                  queuing or rejecting requests of lower criticality. InferenceModels of an equivalent Criticality will
+                  fairly share resources over throughput of tokens. In the future, the metric used to calculate fairness,
+                  and the proportionality of fairness will be configurable.
+
+                  Default values for this field will not be set, to allow for future additions of new field that may 'one of' with this field.
+                  Any implementations that may consume this field may treat an unset value as the 'Standard' range.
+                enum:
+                - Critical
+                - Standard
+                - Sheddable
+                type: string
+              modelName:
+                description: |-
+                  ModelName is the name of the model as it will be set in the "model" parameter for an incoming request.
+                  ModelNames must be unique for a referencing InferencePool
+                  (names can be reused for a different pool in the same cluster).
+                  The modelName with the oldest creation timestamp is retained, and the incoming
+                  InferenceModel's Ready status is set to false with a corresponding reason.
+                  In the rare case of a race condition, one Model will be selected randomly to be considered valid, and the other rejected.
+                  Names can be reserved without an underlying model configured in the pool.
+                  This can be done by specifying a target model and setting the weight to zero,
+                  an error will be returned specifying that no valid target model is found.
+                maxLength: 256
+                type: string
+                x-kubernetes-validations:
+                - message: modelName is immutable
+                  rule: self == oldSelf
+              poolRef:
+                description: PoolRef is a reference to the inference pool, the pool
+                  must exist in the same namespace.
+                properties:
+                  group:
+                    default: inference.networking.x-k8s.io
+                    description: Group is the group of the referent.
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    default: InferencePool
+                    description: Kind is kind of the referent. For example "InferencePool".
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the referent.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              targetModels:
+                description: |-
+                  TargetModels allow multiple versions of a model for traffic splitting.
+                  If not specified, the target model name is defaulted to the modelName parameter.
+                  modelName is often in reference to a LoRA adapter.
+                items:
+                  description: |-
+                    TargetModel represents a deployed model or a LoRA adapter. The
+                    Name field is expected to match the name of the LoRA adapter
+                    (or base model) as it is registered within the model server. Inference
+                    Gateway assumes that the model exists on the model server and it's the
+                    responsibility of the user to validate a correct match. Should a model fail
+                    to exist at request time, the error is processed by the Inference Gateway
+                    and emitted on the appropriate InferenceModel object.
+                  properties:
+                    name:
+                      description: Name is the name of the adapter or base model,
+                        as expected by the ModelServer.
+                      maxLength: 253
+                      type: string
+                    weight:
+                      description: |-
+                        Weight is used to determine the proportion of traffic that should be
+                        sent to this model when multiple target models are specified.
+
+                        Weight defines the proportion of requests forwarded to the specified
+                        model. This is computed as weight/(sum of all weights in this
+                        TargetModels list). For non-zero values, there may be some epsilon from
+                        the exact proportion defined here depending on the precision an
+                        implementation supports. Weight is not a percentage and the sum of
+                        weights does not need to equal 100.
+
+                        If a weight is set for any targetModel, it must be set for all targetModels.
+                        Conversely weights are optional, so long as ALL targetModels do not specify a weight.
+                      format: int32
+                      maximum: 1000000
+                      minimum: 1
+                      type: integer
+                  required:
+                  - name
+                  type: object
+                maxItems: 10
+                type: array
+                x-kubernetes-validations:
+                - message: Weights should be set for all models, or none of the models.
+                  rule: self.all(model, has(model.weight)) || self.all(model, !has(model.weight))
+            required:
+            - modelName
+            - poolRef
+            type: object
+          status:
+            description: InferenceModelStatus defines the observed state of InferenceModel
+            properties:
+              conditions:
+                default:
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Ready
+                description: |-
+                  Conditions track the state of the InferenceModel.
+
+                  Known condition types are:
+
+                  * "Accepted"
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
+  name: inferencepools.inference.networking.x-k8s.io
+spec:
+  group: inference.networking.x-k8s.io
+  names:
+    kind: InferencePool
+    listKind: InferencePoolList
+    plural: inferencepools
+    singular: inferencepool
+  scope: Namespaced
+  versions:
+  - name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: InferencePool is the Schema for the InferencePools API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: InferencePoolSpec defines the desired state of InferencePool
+            properties:
+              extensionRef:
+                description: Extension configures an endpoint picker as an extension
+                  service.
+                properties:
+                  failureMode:
+                    default: FailClose
+                    description: |-
+                      Configures how the gateway handles the case when the extension is not responsive.
+                      Defaults to failClose.
+                    enum:
+                    - FailOpen
+                    - FailClose
+                    type: string
+                  group:
+                    default: ""
+                    description: |-
+                      Group is the group of the referent.
+                      The default value is "", representing the Core API group.
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    default: Service
+                    description: |-
+                      Kind is the Kubernetes resource kind of the referent. For example
+                      "Service".
+
+                      Defaults to "Service" when not specified.
+
+                      ExternalName services can refer to CNAME DNS records that may live
+                      outside of the cluster and as such are difficult to reason about in
+                      terms of conformance. They also may not be safe to forward to (see
+                      CVE-2021-25740 for more information). Implementations MUST NOT
+                      support ExternalName Services.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the referent.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  portNumber:
+                    description: |-
+                      The port number on the service running the extension. When unspecified,
+                      implementations SHOULD infer a default value of 9002 when the Kind is
+                      Service.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                required:
+                - name
+                type: object
+              selector:
+                additionalProperties:
+                  description: |-
+                    LabelValue is the value of a label. This is used for validation
+                    of maps. This matches the Kubernetes label validation rules:
+                    * must be 63 characters or less (can be empty),
+                    * unless empty, must begin and end with an alphanumeric character ([a-z0-9A-Z]),
+                    * could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+
+                    Valid values include:
+
+                    * MyValue
+                    * my.name
+                    * 123-my-value
+                  maxLength: 63
+                  minLength: 0
+                  pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                  type: string
+                description: |-
+                  Selector defines a map of labels to watch model server pods
+                  that should be included in the InferencePool.
+                  In some cases, implementations may translate this field to a Service selector, so this matches the simple
+                  map used for Service selectors instead of the full Kubernetes LabelSelector type.
+                  If sepecified, it will be applied to match the model server pods in the same namespace as the InferencePool.
+                  Cross namesoace selector is not supported.
+                type: object
+              targetPortNumber:
+                description: |-
+                  TargetPortNumber defines the port number to access the selected model servers.
+                  The number must be in the range 1 to 65535.
+                format: int32
+                maximum: 65535
+                minimum: 1
+                type: integer
+            required:
+            - extensionRef
+            - selector
+            - targetPortNumber
+            type: object
+          status:
+            default:
+              parent:
+              - conditions:
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Accepted
+                parentRef:
+                  kind: Status
+                  name: default
+            description: Status defines the observed state of InferencePool.
+            properties:
+              parent:
+                description: |-
+                  Parents is a list of parent resources (usually Gateways) that are
+                  associated with the InferencePool, and the status of the InferencePool with respect to
+                  each parent.
+
+                  A maximum of 32 Gateways will be represented in this list. When the list contains
+                  `kind: Status, name: default`, it indicates that the InferencePool is not
+                  associated with any Gateway and a controller must perform the following:
+
+                   - Remove the parent when setting the "Accepted" condition.
+                   - Add the parent when the controller will no longer manage the InferencePool
+                     and no other parents exist.
+                items:
+                  description: PoolStatus defines the observed state of InferencePool
+                    from a Gateway.
+                  properties:
+                    conditions:
+                      default:
+                      - lastTransitionTime: "1970-01-01T00:00:00Z"
+                        message: Waiting for controller
+                        reason: Pending
+                        status: Unknown
+                        type: Accepted
+                      description: |-
+                        Conditions track the state of the InferencePool.
+
+                        Known condition types are:
+
+                        * "Accepted"
+                        * "ResolvedRefs"
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      maxItems: 8
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    parentRef:
+                      description: GatewayRef indicates the gateway that observed
+                        state of InferencePool.
+                      properties:
+                        group:
+                          default: gateway.networking.k8s.io
+                          description: Group is the group of the referent.
+                          maxLength: 253
+                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                        kind:
+                          default: Gateway
+                          description: Kind is kind of the referent. For example "Gateway".
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          type: string
+                        name:
+                          description: Name is the name of the referent.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace is the namespace of the referent.  If not present,
+                            the namespace of the referent is assumed to be the same as
+                            the namespace of the referring object.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  required:
+                  - parentRef
+                  type: object
+                maxItems: 32
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

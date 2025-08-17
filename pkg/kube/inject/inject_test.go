@@ -21,6 +21,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -51,24 +52,69 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+type mockInjector struct {
+	client kube.Client
+}
+
+func (m *mockInjector) Inject(pod *corev1.Pod, namespace string) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *mockInjector) GetKubeClient() kube.Client {
+	return m.client
+}
+
 // TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
 // test files and running through the two different code paths.
 func TestInjection(t *testing.T) {
-	multi := multicluster.NewFakeController()
-	client := kube.NewFakeClient(
-		&corev1.Namespace{
+	nodes := []*corev1.Node{
+		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ns",
-				Annotations: map[string]string{
-					securityv1.UIDRangeAnnotation:           "1000620000/10000",
-					securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
+				Name: "node-1",
+			},
+			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					KubeletVersion: "v1.33.0",
 				},
 			},
-		})
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-2",
+			},
+			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					KubeletVersion: "v1.34.0",
+				},
+			},
+		},
+	}
+
+	// Convert nodes to runtime.Object
+	var objects []runtime.Object
+	for _, node := range nodes {
+		objects = append(objects, node)
+	}
+
+	objects = append(objects, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ns",
+			Annotations: map[string]string{
+				securityv1.UIDRangeAnnotation:           "1000620000/10000",
+				securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
+			},
+		},
+	})
+
+	multi := multicluster.NewFakeController()
+	client := kube.NewFakeClient(objects...)
 	multiclusterNamespaceController := multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](multi, kubetypes.Filter{})
+	multiclusterNodeController := multicluster.BuildMultiClusterKclientComponent[*corev1.Node](multi, kubetypes.Filter{})
+
 	stop := test.NewStop(t)
 	multi.Add(constants.DefaultClusterName, client, stop)
 	client.RunAndWait(stop)
+	injector := &mockInjector{client: client}
 
 	type testCase struct {
 		in            string
@@ -116,6 +162,13 @@ func TestInjection(t *testing.T) {
 			in:       "hello.yaml",
 			want:     "hello-never.yaml.injected",
 			setFlags: []string{"values.global.imagePullPolicy=Never"},
+		},
+		{
+			in:   "hello.yaml",
+			want: "hello-old-version.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
+			},
 		},
 		{
 			in:   "format-duration.yaml",
@@ -262,6 +315,49 @@ func TestInjection(t *testing.T) {
 			skipWebhook: true,
 		},
 		{
+			in:   "cronjob.yaml",
+			want: "cronjob-old-version.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
+			},
+			skipWebhook: true,
+		},
+		{
+			in:   "daemonset.yaml",
+			want: "daemonset-old-version.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
+			},
+		},
+		{
+			in:   "job.yaml",
+			want: "job-old-version.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
+			},
+		},
+		{
+			in:   "pod.yaml",
+			want: "pod-old-version.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
+			},
+		},
+		{
+			in:   "replicaset.yaml",
+			want: "replicaset-old-version.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
+			},
+		},
+		{
+			in:   "statefulset.yaml",
+			want: "statefulset-old-version.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
+			},
+		},
+		{
 			in:            "traffic-annotations-bad-includeipranges.yaml",
 			expectedError: "includeipranges",
 		},
@@ -328,9 +424,6 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "proxy-override-args.yaml",
 			want: "proxy-override-args-native.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
-			},
 		},
 		{
 			in:   "gateway.yaml",
@@ -339,43 +432,38 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "gateway.yaml",
 			want: "gateway.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
-			},
 		},
 		{
 			in:   "native-sidecar.yaml",
 			want: "native-sidecar.yaml.injected",
+		},
+		{
+			in:   "native-sidecar.yaml",
+			want: "native-sidecar-old-version.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
 			in:   "native-sidecar-opt-in.yaml",
 			want: "native-sidecar-opt-in.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
-			},
 		},
 		{
 			in:   "native-sidecar-opt-in.yaml",
 			want: "native-sidecar-opt-in.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "false")
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
 			in:   "native-sidecar-opt-out.yaml",
 			want: "native-sidecar-opt-out.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
-			},
 		},
 		{
 			in:   "native-sidecar-opt-out.yaml",
 			want: "native-sidecar-opt-out.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "false")
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
@@ -440,6 +528,17 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:   "hello-openshift-tproxy.yaml",
+			want: "hello-openshift-tproxy.yaml.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+			},
+			skipInjection: true,
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, platform.Platform.Name, platform.OpenShift)
+			},
+		},
+		{
 			// Validates localhost probes get injected correctly
 			in:   "hello-probes-localhost.yaml",
 			want: "hello-probes-localhost.yaml.injected",
@@ -448,6 +547,16 @@ func TestInjection(t *testing.T) {
 					Mode: meshapi.MeshConfig_InboundTrafficPolicy_LOCALHOST,
 				}
 			},
+		},
+		{
+			in:         "sidecar-spire.yaml",
+			want:       "sidecar-spire.yaml.injected",
+			inFilePath: "spire-template.iop.yaml",
+		},
+		{
+			in:         "gateway-spire.yaml",
+			want:       "gateway-spire.yaml.injected",
+			inFilePath: "spire-template.iop.yaml",
 		},
 	}
 	// Keep track of tests we add options above
@@ -537,7 +646,7 @@ func TestInjection(t *testing.T) {
 					logs = append(logs, s)
 					t.Log(s)
 				}
-				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
+				if err = IntoResourceFile(injector, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
 					if c.expectedError != "" {
 						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
 							t.Fatalf("expected error %q got %q", c.expectedError, err)
@@ -592,6 +701,7 @@ func TestInjection(t *testing.T) {
 					valuesConfig: valuesConfig,
 					revision:     "default",
 					namespaces:   multiclusterNamespaceController,
+					nodes:        multiclusterNodeController,
 				}
 
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
@@ -612,6 +722,223 @@ func TestInjection(t *testing.T) {
 	}
 	if len(allOutputFiles) != 0 {
 		t.Fatalf("stale golden files found: %v", allOutputFiles.UnsortedList())
+	}
+}
+
+func TestInjectionOlderVersion(t *testing.T) {
+	nodes := []*corev1.Node{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-1",
+			},
+			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					KubeletVersion: "v1.33.0",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-2",
+			},
+			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					KubeletVersion: "v1.28.0",
+				},
+			},
+		},
+	}
+
+	// Convert nodes to runtime.Object
+	var objects []runtime.Object
+	for _, node := range nodes {
+		objects = append(objects, node)
+	}
+
+	objects = append(objects, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ns",
+			Annotations: map[string]string{
+				securityv1.UIDRangeAnnotation:           "1000620000/10000",
+				securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
+			},
+		},
+	})
+
+	multi := multicluster.NewFakeController()
+	client := kube.NewFakeClient(objects...)
+	multiclusterNamespaceController := multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](multi, kubetypes.Filter{})
+	multiclusterNodeController := multicluster.BuildMultiClusterKclientComponent[*corev1.Node](multi, kubetypes.Filter{})
+
+	stop := test.NewStop(t)
+	multi.Add(constants.DefaultClusterName, client, stop)
+	client.RunAndWait(stop)
+	injector := &mockInjector{client: client}
+
+	type testCase struct {
+		in            string
+		want          string
+		setFlags      []string
+		inFilePath    string
+		mesh          func(m *meshapi.MeshConfig)
+		skipWebhook   bool
+		skipInjection bool
+		expectedError string
+		expectedLog   string
+		setup         func(t test.Failer)
+	}
+
+	// Test cases where an older version of nodes keep istio-proxy as a container
+	cases := []testCase{
+		{
+			in:   "native-sidecar.yaml",
+			want: "native-sidecar-old-version.yaml.injected",
+		},
+		{
+			in:          "cronjob.yaml",
+			want:        "cronjob-old-version.yaml.injected",
+			skipWebhook: true,
+		},
+		{
+			in:   "daemonset.yaml",
+			want: "daemonset-old-version.yaml.injected",
+		},
+		{
+			in:   "job.yaml",
+			want: "job-old-version.yaml.injected",
+		},
+		{
+			in:   "pod.yaml",
+			want: "pod-old-version.yaml.injected",
+		},
+		{
+			in:   "replicaset.yaml",
+			want: "replicaset-old-version.yaml.injected",
+		},
+		{
+			in:   "statefulset.yaml",
+			want: "statefulset-old-version.yaml.injected",
+		},
+		{
+			in:   "hello.yaml",
+			want: "hello-old-version.yaml.injected",
+		},
+	}
+
+	defaultTemplate, defaultValues, defaultMesh := getInjectionSettings(t, nil, "")
+	for i, c := range cases {
+		testName := fmt.Sprintf("[%02d] %s", i, c.want)
+		if c.expectedError != "" {
+			testName = fmt.Sprintf("[%02d] %s", i, c.in)
+		}
+		t.Run(testName, func(t *testing.T) {
+			if c.setup != nil {
+				c.setup(t)
+			} else {
+				// Tests with custom setup modify global state and cannot run in parallel
+				t.Parallel()
+			}
+
+			mc, err := mesh.DeepCopyMeshConfig(defaultMesh)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sidecarTemplate, valuesConfig := defaultTemplate, defaultValues
+			if c.setFlags != nil || c.inFilePath != "" {
+				sidecarTemplate, valuesConfig, mc = getInjectionSettings(t, c.setFlags, c.inFilePath)
+			}
+			if c.mesh != nil {
+				c.mesh(mc)
+			}
+
+			inputFilePath := "testdata/inject/" + c.in
+			wantFilePath := "testdata/inject/" + c.want
+			in, err := os.Open(inputFilePath)
+			if err != nil {
+				t.Fatalf("Failed to open %q: %v", inputFilePath, err)
+			}
+			t.Cleanup(func() {
+				_ = in.Close()
+			})
+			t.Run("kube-inject", func(t *testing.T) {
+				if c.skipInjection {
+					return
+				}
+
+				var got bytes.Buffer
+				logs := make([]string, 0)
+				warn := func(s string) {
+					logs = append(logs, s)
+					t.Log(s)
+				}
+				if err = IntoResourceFile(injector, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
+					if c.expectedError != "" {
+						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
+							t.Fatalf("expected error %q got %q", c.expectedError, err)
+						}
+						return
+					}
+					t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
+				}
+				if c.expectedError != "" {
+					t.Fatal("expected error but got none")
+				}
+				if c.expectedLog != "" {
+					hasExpectedLog := false
+					for _, log := range logs {
+						if strings.Contains(log, c.expectedLog) {
+							hasExpectedLog = true
+							break
+						}
+					}
+					if !hasExpectedLog {
+						t.Fatal("expected log but got none")
+					}
+				}
+
+				// The version string is a maintenance pain for this test. Strip the version string before comparing.
+				gotBytes := util.StripVersion(got.Bytes())
+				wantBytes := util.ReadGoldenFile(t, gotBytes, wantFilePath)
+
+				util.CompareBytes(t, gotBytes, wantBytes, wantFilePath)
+			})
+
+			// Exit early if we don't need to test webhook. We can skip errors since its redundant
+			// and painful to test here.
+			if c.expectedError != "" || c.skipWebhook {
+				return
+			}
+			// Next run the webhook test. This one is a bit trickier as the webhook operates
+			// on Pods, but the inputs are Deployments/StatefulSets/etc. As a result, we need
+			// to convert these to pods, then run the injection. This test will *not*
+			// overwrite golden files, as we do not have identical textual output as
+			// kube-inject. Instead, we just compare the desired/actual pod specs.
+			t.Run("webhook", func(t *testing.T) {
+				env := &model.Environment{}
+				env.SetPushContext(&model.PushContext{
+					ProxyConfigs: &model.ProxyConfigs{},
+				})
+
+				webhook := &Webhook{
+					Config:       sidecarTemplate,
+					meshConfig:   mc,
+					env:          env,
+					valuesConfig: valuesConfig,
+					revision:     "default",
+					namespaces:   multiclusterNamespaceController,
+					nodes:        multiclusterNodeController,
+				}
+
+				// Split multi-part yaml documents. Input and output will have the same number of parts.
+				inputYAMLs := splitYamlFile(inputFilePath, t)
+				wantYAMLs := splitYamlFile(wantFilePath, t)
+				for i := 0; i < len(inputYAMLs); i++ {
+					t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
+						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], true)
+					})
+				}
+			})
+		})
 	}
 }
 
@@ -1254,6 +1581,136 @@ func BenchmarkInjection(b *testing.B) {
 						Namespace: tt.in.Namespace,
 					},
 				}, "")
+			}
+		})
+	}
+}
+
+func TestNativeSidecarAnnotationOverride(t *testing.T) {
+	funcMap := template.FuncMap{
+		"default": func(defaultVal, val string) string {
+			if val == "" {
+				return defaultVal
+			}
+			return val
+		},
+	}
+
+	tmpl := template.Must(template.New("inject").Funcs(funcMap).Parse(`
+{{- $nativeSidecar := ne (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/nativeSidecar` + "`" + ` | default (printf "%t" .NativeSidecars)) "false" }}
+{{- if $nativeSidecar }}
+spec:
+  initContainers:
+  - name: istio-proxy
+    image: proxy
+{{- else }}
+spec:
+  containers:
+  - name: istio-proxy
+    image: proxy
+{{- end }}
+`))
+
+	cases := []struct {
+		name            string
+		annotations     map[string]string
+		nativeSidecar   bool
+		expectContainer string
+	}{
+		{
+			name:            "global flag enabled, no annotation",
+			annotations:     map[string]string{},
+			nativeSidecar:   true,
+			expectContainer: "initContainers",
+		},
+		{
+			name: "global flag enabled, annotation disabled",
+			annotations: map[string]string{
+				"sidecar.istio.io/nativeSidecar": "false",
+			},
+			nativeSidecar:   true,
+			expectContainer: "containers",
+		},
+		{
+			name: "global flag enabled, annotation enabled",
+			annotations: map[string]string{
+				"sidecar.istio.io/nativeSidecar": "true",
+			},
+			nativeSidecar:   true,
+			expectContainer: "initContainers",
+		},
+		{
+			name: "global flag disabled, annotation enabled",
+			annotations: map[string]string{
+				"sidecar.istio.io/nativeSidecar": "true",
+			},
+			nativeSidecar:   false,
+			expectContainer: "initContainers",
+		},
+		{
+			name:            "global flag disabled, no annotation",
+			annotations:     map[string]string{},
+			nativeSidecar:   false,
+			expectContainer: "containers",
+		},
+		{
+			name: "global flag disabled, annotation disabled",
+			annotations: map[string]string{
+				"sidecar.istio.io/nativeSidecar": "false",
+			},
+			nativeSidecar:   false,
+			expectContainer: "containers",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.annotations,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "app",
+						},
+						{
+							Name: "istio-proxy",
+						},
+					},
+				},
+			}
+			_, valuesConfig, meshConfig := getInjectionSettings(t, nil, "")
+
+			params := InjectionParameters{
+				pod:             pod,
+				templates:       Templates{SidecarTemplateName: tmpl},
+				defaultTemplate: []string{SidecarTemplateName},
+				meshConfig:      meshConfig,
+				valuesConfig:    valuesConfig,
+				nativeSidecar:   tc.nativeSidecar,
+				proxyConfig:     mesh.DefaultProxyConfig(),
+			}
+
+			mergedPod, _, err := RunTemplate(params)
+			if err != nil {
+				t.Fatalf("RunTemplate() error = %v", err)
+			}
+
+			if tc.expectContainer == "initContainers" {
+				if FindContainer(ProxyContainerName, mergedPod.Spec.InitContainers) == nil {
+					t.Errorf("Expected to find istio-proxy in initContainers")
+				}
+				if FindContainer(ProxyContainerName, mergedPod.Spec.Containers) != nil {
+					t.Errorf("Expected not to find istio-proxy in containers")
+				}
+			} else {
+				if FindContainer(ProxyContainerName, mergedPod.Spec.Containers) == nil {
+					t.Errorf("Expected to find istio-proxy in containers")
+				}
+				if FindContainer(ProxyContainerName, mergedPod.Spec.InitContainers) != nil {
+					t.Errorf("Expected not to find istio-proxy in initContainers")
+				}
 			}
 		})
 	}

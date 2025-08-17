@@ -57,7 +57,8 @@ type Config struct {
 	method                  string
 	secure                  bool
 
-	hboneTLSConfig       *tls.Config
+	hboneTLSConfig *tls.Config
+	// TODO(jaellio): What is the difference between this and hboneTLSConfig?
 	hboneClientConfig    func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
 	innerHboneTLSConfig  *tls.Config
 	hboneHeaders         http.Header

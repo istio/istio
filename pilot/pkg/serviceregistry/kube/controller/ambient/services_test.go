@@ -25,10 +25,12 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
+	meshConfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/ptr"
@@ -436,6 +438,143 @@ func TestServiceEntryServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "prefer same node traffic distribution",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Annotations: map[string]string{
+						"networking.istio.io/traffic-distribution": "PreferSameNode",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "name",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						RoutingPreference: []workloadapi.LoadBalancing_Scope{
+							workloadapi.LoadBalancing_NETWORK,
+							workloadapi.LoadBalancing_REGION,
+							workloadapi.LoadBalancing_ZONE,
+							workloadapi.LoadBalancing_SUBZONE,
+							workloadapi.LoadBalancing_NODE,
+						},
+						Mode: workloadapi.LoadBalancing_FAILOVER,
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+				},
+			},
+		},
+		{
+			name:   "prefer same zone distribution",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Annotations: map[string]string{
+						"networking.istio.io/traffic-distribution": "PreferSameZone",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "name",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						RoutingPreference: []workloadapi.LoadBalancing_Scope{
+							workloadapi.LoadBalancing_NETWORK,
+							workloadapi.LoadBalancing_REGION,
+							workloadapi.LoadBalancing_ZONE,
+						},
+						Mode: workloadapi.LoadBalancing_FAILOVER,
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+				},
+			},
+		},
+		{
+			name:   "prefer close traffic distribution",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Annotations: map[string]string{
+						"networking.istio.io/traffic-distribution": "PreferClose",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "name",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						RoutingPreference: []workloadapi.LoadBalancing_Scope{
+							workloadapi.LoadBalancing_NETWORK,
+							workloadapi.LoadBalancing_REGION,
+							workloadapi.LoadBalancing_ZONE,
+						},
+						Mode: workloadapi.LoadBalancing_FAILOVER,
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -581,7 +720,7 @@ func TestServiceServices(t *testing.T) {
 			},
 		},
 		{
-			name:   "traffic distribution",
+			name:   "traffic distribution prefer close",
 			inputs: []any{},
 			svc: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -610,7 +749,86 @@ func TestServiceServices(t *testing.T) {
 						workloadapi.LoadBalancing_NETWORK,
 						workloadapi.LoadBalancing_REGION,
 						workloadapi.LoadBalancing_ZONE,
+					},
+					Mode: workloadapi.LoadBalancing_FAILOVER,
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+				}},
+			},
+		},
+
+		{
+			name:   "traffic distribution prefer same zone",
+			inputs: []any{},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: v1.ServiceSpec{
+					TrafficDistribution: ptr.Of(v1.ServiceTrafficDistributionPreferSameZone),
+					ClusterIP:           "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				LoadBalancing: &workloadapi.LoadBalancing{
+					RoutingPreference: []workloadapi.LoadBalancing_Scope{
+						workloadapi.LoadBalancing_NETWORK,
+						workloadapi.LoadBalancing_REGION,
+						workloadapi.LoadBalancing_ZONE,
+					},
+					Mode: workloadapi.LoadBalancing_FAILOVER,
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+				}},
+			},
+		},
+
+		{
+			name:   "traffic distribution prefer same node",
+			inputs: []any{},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: v1.ServiceSpec{
+					TrafficDistribution: ptr.Of(v1.ServiceTrafficDistributionPreferSameNode),
+					ClusterIP:           "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				LoadBalancing: &workloadapi.LoadBalancing{
+					RoutingPreference: []workloadapi.LoadBalancing_Scope{
+						workloadapi.LoadBalancing_NETWORK,
+						workloadapi.LoadBalancing_REGION,
+						workloadapi.LoadBalancing_ZONE,
 						workloadapi.LoadBalancing_SUBZONE,
+						workloadapi.LoadBalancing_NODE,
 					},
 					Mode: workloadapi.LoadBalancing_FAILOVER,
 				},
@@ -770,6 +988,7 @@ func TestServiceServices(t *testing.T) {
 			builder := a.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
+				krttest.GetMockSingleton[MeshConfig](mock),
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
 			if res == nil {
@@ -904,9 +1123,446 @@ func TestServiceConditions(t *testing.T) {
 			builder := a.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
+				krttest.GetMockSingleton[MeshConfig](mock),
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
 			assert.Equal(t, res.GetConditions(), tt.conditions)
+		})
+	}
+}
+
+func TestMatchServiceScope(t *testing.T) {
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName:      "ns",
+				"istio.io/dataplane-mode": "ambient",
+			},
+		},
+	}
+
+	svcGlobal := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-global",
+			Namespace: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "svc-global",
+				"istio.io/global":    "true",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+
+	svcLocal := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-local",
+			Namespace: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "svc-local",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+
+	svcLocalLabel := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-no-label",
+			Namespace: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "svc-local-label",
+				"istio.io/local":     "true",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+
+	tests := []struct {
+		name    string
+		inputs  []any
+		meshCfg *MeshConfig
+		svc     *v1.Service
+		want    model.ServiceScope
+	}{
+		{
+			name: "explicit service opt-in - no match",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/global",
+										Operator: string(metav1.LabelSelectorOpIn),
+										Values:   []string{"true"},
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocal,
+			want: model.Local,
+		},
+		{
+			name: "services global by default, opt out by namespace - no match",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/local": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocal,
+			want: model.Local,
+		},
+		{
+			name: "explicit namespace opt-in - no match",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/global": "false",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocal,
+			want: model.Local,
+		},
+		{
+			name: "explicit service opt-in - match global",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "services global by default, opt out by namespace - match global",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "namespace opt-in - match global",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/global": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "service and namespace opt-in - match global",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/global": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "service without istio.io/global label - match local",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocal,
+			want: model.Local,
+		},
+		{
+			name: "Services global by default, opt out by namespace and opt out by service - match local",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/local": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Local,
+		},
+		{
+			name: "Services global by default, opt out by namespace and opt out by service - match local on svc",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocalLabel,
+			want: model.Local,
+		},
+		{
+			name: "Services global by default, opt out by namespace and opt out by service - no match global",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "Explicit namespace opt-in, opt out by service - no match local",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/global": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/global",
+										Operator: string(metav1.LabelSelectorOpIn),
+										Values:   []string{"true"},
+									},
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocalLabel,
+			want: model.Local,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := krt.TestingDummyContext{}
+			mock := krttest.NewMock(t, tt.inputs)
+			got := matchServiceScope(ctx, tt.meshCfg, krttest.GetMockCollection[*v1.Namespace](mock), tt.svc)
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }

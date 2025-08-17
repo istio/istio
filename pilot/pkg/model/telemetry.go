@@ -93,6 +93,7 @@ type loggingKey struct {
 	telemetryKey
 	Class    networking.ListenerClass
 	Protocol networking.ListenerProtocol
+	Version  string
 }
 
 // metricsKey defines a key into the computedMetricsFilters cache.
@@ -248,6 +249,7 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 	key := loggingKey{
 		telemetryKey: ct.telemetryKey,
 		Class:        class,
+		Version:      proxy.GetIstioVersion(),
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -920,7 +922,7 @@ func getMatches(match *tpb.MetricSelector) []string {
 // telemetryFilterHandled contains the number of providers we handle below.
 // This is to ensure this stays in sync as new handlers are added
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING buildHTTPTelemetryFilter and buildTCPTelemetryFilter.
-const telemetryFilterHandled = 14
+const telemetryFilterHandled = 15
 
 func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))

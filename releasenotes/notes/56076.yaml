@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** Support for configuring `additionalContainers` and `initContainers` on the Gateway Helm Chart.

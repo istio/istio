@@ -54,7 +54,7 @@ type CAServer struct {
 }
 
 func NewCAServerWithKeyCert(port int, key, cert []byte, opts ...grpc.ServerOption) (*CAServer, error) {
-	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
+	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert, nil)
 	if err != nil {
 		caServerLog.Errorf("failed to create CA KeyCertBundle: %+v", err)
 		return nil, err
@@ -196,4 +196,8 @@ func (s *CAServer) Check(ctx context.Context, in *ghc.HealthCheckRequest) (*ghc.
 // Watch handles health check streams.
 func (s *CAServer) Watch(_ *ghc.HealthCheckRequest, _ ghc.Health_WatchServer) error {
 	return nil
+}
+
+func (s *CAServer) List(_ context.Context, _ *ghc.HealthListRequest) (*ghc.HealthListResponse, error) {
+	return &ghc.HealthListResponse{}, nil
 }

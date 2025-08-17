@@ -24,14 +24,24 @@ _internal_defaults_do_not_set:
   cniConfFileName: ""
   cniNetnsDir: "/var/run/netns"
 
+  # If Istio owned CNI config is enabled, defaults to 02-istio-cni.conflist
+  istioOwnedCNIConfigFileName: ""
+  istioOwnedCNIConfig: false
+
   excludeNamespaces:
     - kube-system
 
   # Allows user to set custom affinity for the DaemonSet
   affinity: {}
 
+  # Additional labels to apply on the daemonset level
+  daemonSetLabels: {}
+
   # Custom annotations on pod level, if you need them
   podAnnotations: {}
+
+  # Additional labels to apply on the pod level
+  podLabels: {}
 
   # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
   # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
@@ -45,6 +55,15 @@ _internal_defaults_do_not_set:
   ambient:
     # If enabled, ambient redirection will be enabled
     enabled: false
+    # If ambient is enabled, this selector will be used to identify the ambient-enabled pods
+    enablementSelectors: 
+    - podSelector:
+        matchLabels: {istio.io/dataplane-mode: ambient}
+    - podSelector:
+        matchExpressions:
+        - { key: istio.io/dataplane-mode, operator: NotIn, values: [none] }
+      namespaceSelector:
+        matchLabels: {istio.io/dataplane-mode: ambient}
     # Set ambient config dir path: defaults to /etc/ambient-config
     configDir: ""
     # If enabled, and ambient is enabled, DNS redirection will be enabled
@@ -98,12 +117,22 @@ _internal_defaults_do_not_set:
     enabled: false
     pods: 5000
 
-  # The number of pods that can be unavailable during rolling update (see
-  # `updateStrategy.rollingUpdate.maxUnavailable` here:
+  tolerations:
+    # Make sure istio-cni-node gets scheduled on all nodes.
+    - effect: NoSchedule
+      operator: Exists
+    # Mark the pod as a critical add-on for rescheduling.
+    - key: CriticalAddonsOnly
+      operator: Exists
+    - effect: NoExecute
+      operator: Exists
+
+  # K8s DaemonSet update strategy.
   # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
-  # May be specified as a number of pods or as a percent of the total number
-  # of pods at the start of the update.
-  rollingMaxUnavailable: 1
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
 
   # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
   revision: ""
@@ -147,6 +176,9 @@ _internal_defaults_do_not_set:
       requests:
         cpu: 100m
         memory: 100Mi
+
+    # In order to use native nftable rules instead of iptable rules, set this flag to true.
+    nativeNftables: false
 
   # A `key: value` mapping of environment variables to add to the pod
   env: {}

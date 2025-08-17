@@ -1,342 +1,294 @@
-# WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
-#
-# The original version of this file is located in the https://github.com/istio/common-files repo.
-# If you're looking at this file in a different repo and want to make a change, please go to the
-# common-files repo, make the change there and check it in. Then come back to this repo and run
-# "make update-common".
-
+version: "2"
 run:
-  # Timeout for analysis, e.g. 30s, 5m.
-  # Default: 1m
-  timeout: 20m
   build-tags:
     - integ
     - integfuzz
 linters:
-  disable-all: true
+  default: none
   enable:
-    - errcheck
     - copyloopvar
     - depguard
+    - errcheck
     - gocritic
-    - gofumpt
-    - goimports
-    - revive
-    - gosimple
+    - gosec
     - govet
     - ineffassign
     - lll
     - misspell
+    - revive
     - staticcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
     - unused
-    - gci
-    - gosec
-  fast: false
-linters-settings:
-  errcheck:
-    # report about not checking of errors in type assertions: `a := b.(MyStruct)`;
-    # default is false: such cases aren't reported by default.
-    check-type-assertions: false
-    # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
-    # default is false: such cases aren't reported by default.
-    check-blank: false
-  govet:
-    disable:
-      # report about shadowed variables
-      - shadow
-  goimports:
-    # put imports beginning with prefix after 3rd-party packages;
-    # it's a comma-separated list of prefixes
-    local-prefixes: istio.io/
-  misspell:
-    # Correct spellings using locale preferences for US or UK.
-    # Default is to use a neutral variety of English.
-    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
-    locale: US
-    ignore-words:
-      - cancelled
-  lll:
-    # max line length, lines longer will be reported. Default is 120.
-    # '\t' is counted as 1 character by default, and can be changed with the tab-width option
-    line-length: 160
-    # tab width in spaces. Default to 1.
-    tab-width: 1
-  revive:
-    ignore-generated-header: false
-    severity: "warning"
-    confidence: 0.0
+  settings:
+    depguard:
+      rules:
+        DenyGogoProtobuf:
+          files:
+            - $all
+          deny:
+            - pkg: github.com/gogo/protobuf
+              desc: gogo/protobuf is deprecated, use golang/protobuf
+        AllGoFiles:
+          files:
+            - $all
+          deny:
+            - pkg: golang.org/x/net/http2/h2c
+              desc: h2c.NewHandler is unsafe; use wrapper istio.io/istio/pkg/h2c
+            - pkg: github.com/golang/protobuf/jsonpb
+              desc: don't use the jsonpb package directly; use util/protomarshal instead
+            - pkg: google.golang.org/protobuf/encoding/protojson
+              desc: don't use the protojson package directly; use util/protomarshal instead
+            - pkg: gomodules.xyz/jsonpatch/v3
+              desc: don't use v3; v2 is orders of magnitude higher performance
+            - pkg: k8s.io/apimachinery/pkg/util/sets
+              desc: use istio.io/istio/pkg/util/sets
+            - pkg: k8s.io/utils/set
+              desc: use istio.io/istio/pkg/util/sets
+            - pkg: k8s.io/utils/env
+              desc: use istio.io/istio/pkg/env
+            - pkg: k8s.io/utils/strings/slices
+              desc: use istio.io/istio/pkg/slices
+            - pkg: k8s.io/utils/pointer
+              desc: use istio.io/istio/pkg/ptr
+            - pkg: go.opencensus.io
+              desc: do not use OpenCensus; use OpenTelemetry instead
+            - pkg: golang.org/x/exp/maps
+              desc: do not use golang.org/x/exp/maps; use istio.io/istio/pkg/maps instead
+            - pkg: maps
+              desc: do not use maps; use istio.io/istio/pkg/maps instead
+            - pkg: golang.org/x/exp/slices
+              desc: do not use golang.org/x/exp/slices; use istio.io/istio/pkg/slices instead
+            - pkg: slices
+              desc: do not use slices; use istio.io/istio/pkg/slices instead
+            - pkg: gopkg.in/yaml.v2
+              desc: do not use gopkg.in/yaml.v2; use sigs.k8s.io/yaml instead
+            - pkg: gopkg.in/yaml.v3
+              desc: do not use gopkg.in/yaml.v3; use sigs.k8s.io/yaml instead
+            - pkg: github.com/ghodss/yaml
+              desc: do not use github.com/ghodss/yaml; use sigs.k8s.io/yaml instead
+        DenyOpenTelemetry:
+          files:
+            - $all
+            - '!**/pkg/monitoring/**'
+            - '!**/pkg/tracing/**'
+          deny:
+            - pkg: go.opentelemetry.io/otel
+              desc: do not use OpenTelemetry directly; use pkg/monitoring
+            - pkg: go.opentelemetry.io/otel/metric
+              desc: do not use OpenTelemetry directly; use pkg/monitoring
+        DenyOperatorAndIstioctl:
+          files:
+            - '!$test'
+            - '!**/operator/**'
+            - '!**/istioctl/**'
+            - '!**/tools/bug-report/**'
+            - '!**/pkg/kube/**'
+            - '!**/pkg/url/**'
+            - '!**/pkg/test/framework/**'
+            - '!**/tests/fuzz/**'
+          deny:
+            - pkg: istio.io/istio/operator
+              desc: operator should not be imported
+            - pkg: istio.io/istio/istioctl
+              desc: istioctl should not be imported
+        DenyProtobufV1:
+          files:
+            - $all
+          deny:
+            - pkg: github.com/golang/protobuf/ptypes
+              desc: do not use github.com/golang/protobuf/ptypes; use google.golang.org/protobuf/types/known instead
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+    gocritic:
+      disable-all: true
+      enabled-checks:
+        - appendCombine
+        - argOrder
+        - assignOp
+        - badCond
+        - boolExprSimplify
+        - builtinShadow
+        - captLocal
+        - caseOrder
+        - codegenComment
+        - commentedOutCode
+        - commentedOutImport
+        - defaultCaseOrder
+        - deprecatedComment
+        - docStub
+        - dupArg
+        - dupBranchBody
+        - dupCase
+        - dupSubExpr
+        - elseif
+        - emptyFallthrough
+        - equalFold
+        - flagDeref
+        - flagName
+        - hexLiteral
+        - indexAlloc
+        - initClause
+        - methodExprCall
+        - nilValReturn
+        - octalLiteral
+        - offBy1
+        - rangeExprCopy
+        - regexpMust
+        - sloppyLen
+        - stringXbytes
+        - switchTrue
+        - typeAssertChain
+        - typeSwitchVar
+        - typeUnparen
+        - underef
+        - unlambda
+        - unnecessaryBlock
+        - unslice
+        - valSwap
+        - weakCond
+    gosec:
+      includes:
+        - G401
+        - G402
+        - G404
+    govet:
+      disable:
+        - shadow
+    lll:
+      line-length: 160
+      tab-width: 1
+    misspell:
+      locale: US
+      ignore-rules:
+        - cancelled
+    revive:
+      confidence: 0
+      severity: warning
+      rules:
+        - name: blank-imports
+        - name: context-keys-type
+        - name: time-naming
+        - name: var-declaration
+        - name: unexported-return
+        - name: errorf
+        - name: context-as-argument
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: var-naming
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: indent-error-flow
+        - name: superfluous-else
+        - name: modifies-parameter
+        - name: unreachable-code
+        - name: struct-tag
+        - name: constant-logical-expr
+        - name: bool-literal-in-expr
+        - name: redefines-builtin-id
+        - name: imports-blocklist
+        - name: range-val-in-closure
+        - name: range-val-address
+        - name: waitgroup-by-value
+        - name: atomic
+        - name: call-to-gc
+        - name: duplicated-imports
+        - name: string-of-int
+        - name: defer
+          arguments:
+            - - call-chain
+        - name: unconditional-recursion
+        - name: identical-branches
+    unparam:
+      check-exported: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: blank-imports
-      - name: context-keys-type
-      - name: time-naming
-      - name: var-declaration
-      - name: unexported-return
-      - name: errorf
-      - name: context-as-argument
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: increment-decrement
-      - name: var-naming
-      - name: package-comments
-      - name: range
-      - name: receiver-naming
-      - name: indent-error-flow
-      - name: superfluous-else
-      - name: modifies-parameter
-      - name: unreachable-code
-      - name: struct-tag
-      - name: constant-logical-expr
-      - name: bool-literal-in-expr
-      - name: redefines-builtin-id
-      - name: imports-blocklist
-      - name: range-val-in-closure
-      - name: range-val-address
-      - name: waitgroup-by-value
-      - name: atomic
-      - name: call-to-gc
-      - name: duplicated-imports
-      - name: string-of-int
-      - name: defer
-        arguments:
-          - - "call-chain"
-      - name: unconditional-recursion
-      - name: identical-branches
-        # the following rules can be enabled in the future
-        # - name: empty-lines
-        # - name: confusing-results
-        # - name: empty-block
-        # - name: get-return
-        # - name: confusing-naming
-        # - name: unexported-naming
-        # - name: early-return
-        # - name: unused-parameter
-        # - name: unnecessary-stmt
-        # - name: deep-exit
-        # - name: import-shadowing
-        # - name: modifies-value-receiver
-        # - name: unused-receiver
-        # - name: bare-return
-        # - name: flag-parameter
-        # - name: unhandled-error
-        # - name: if-return
-  unparam:
-    # Inspect exported functions, default is false. Set to true if no external program/library imports your code.
-    # XXX: if you enable this setting, unparam will report a lot of false-positives in text editors:
-    # if it's called for subdir of a project it can't find external interfaces. All text editor integrations
-    # with golangci-lint call it on a directory with the changed file.
-    check-exported: false
-  gci:
-    sections:
-      - standard # Captures all standard packages if they do not match another section.
-      - default # Contains all imports that could not be matched to another section type.
-      - prefix(istio.io/) # Groups all imports with the specified Prefix.
-  gocritic:
-    # Disable all checks.
-    # Default: false
-    disable-all: true
-    # Which checks should be enabled in addition to default checks. Since we don't want
-    # all of the default checks, we do the disable-all first.
-    enabled-checks:
-      - appendCombine
-      - argOrder
-      - assignOp
-      - badCond
-      - boolExprSimplify
-      - builtinShadow
-      - captLocal
-      - caseOrder
-      - codegenComment
-      - commentedOutCode
-      - commentedOutImport
-      - defaultCaseOrder
-      - deprecatedComment
-      - docStub
-      - dupArg
-      - dupBranchBody
-      - dupCase
-      - dupSubExpr
-      - elseif
-      - emptyFallthrough
-      - equalFold
-      - flagDeref
-      - flagName
-      - hexLiteral
-      - indexAlloc
-      - initClause
-      - methodExprCall
-      - nilValReturn
-      - octalLiteral
-      - offBy1
-      - rangeExprCopy
-      - regexpMust
-      - sloppyLen
-      - stringXbytes
-      - switchTrue
-      - typeAssertChain
-      - typeSwitchVar
-      - typeUnparen
-      - underef
-      - unlambda
-      - unnecessaryBlock
-      - unslice
-      - valSwap
-      - weakCond
-  depguard:
-    rules:
-      DenyGogoProtobuf:
-        files:
-          - $all
-        deny:
-          - pkg: github.com/gogo/protobuf
-            desc: "gogo/protobuf is deprecated, use golang/protobuf"
-      # deny for all go files
-      AllGoFiles:
-        files:
-          - $all
-        deny:
-          - pkg: golang.org/x/net/http2/h2c
-            desc: "h2c.NewHandler is unsafe; use wrapper istio.io/istio/pkg/h2c"
-          - pkg: github.com/golang/protobuf/jsonpb
-            desc: "don't use the jsonpb package directly; use util/protomarshal instead"
-          - pkg: google.golang.org/protobuf/encoding/protojson
-            desc: "don't use the protojson package directly; use util/protomarshal instead"
-          - pkg: gomodules.xyz/jsonpatch/v3
-            desc: "don't use v3; v2 is orders of magnitude higher performance"
-          - pkg: k8s.io/apimachinery/pkg/util/sets
-            desc: "use istio.io/istio/pkg/util/sets"
-          - pkg: k8s.io/utils/set
-            desc: "use istio.io/istio/pkg/util/sets"
-          - pkg: k8s.io/utils/env
-            desc: "use istio.io/istio/pkg/env"
-          - pkg: k8s.io/utils/strings/slices
-            desc: "use istio.io/istio/pkg/slices"
-          - pkg: k8s.io/utils/pointer
-            desc: "use istio.io/istio/pkg/ptr"
-          - pkg: go.opencensus.io
-            desc: "do not use OpenCensus; use OpenTelemetry instead"
-          - pkg: golang.org/x/exp/maps
-            desc: "do not use golang.org/x/exp/maps; use istio.io/istio/pkg/maps instead"
-          - pkg: maps
-            desc: "do not use maps; use istio.io/istio/pkg/maps instead"
-          - pkg: golang.org/x/exp/slices
-            desc: "do not use golang.org/x/exp/slices; use istio.io/istio/pkg/slices instead"
-          - pkg: slices
-            desc: "do not use slices; use istio.io/istio/pkg/slices instead"
-          - pkg: gopkg.in/yaml.v2
-            desc: "do not use gopkg.in/yaml.v2; use sigs.k8s.io/yaml instead"
-          - pkg: gopkg.in/yaml.v3
-            desc: "do not use gopkg.in/yaml.v3; use sigs.k8s.io/yaml instead"
-          - pkg: github.com/ghodss/yaml
-            desc: "do not use github.com/ghodss/yaml; use sigs.k8s.io/yaml instead"
-      DenyOperatorAndIstioctl:
-        files:
-          # Tests can do anything
-          - "!$test"
-          # Main code should only be used by appropriate binaries
-          - "!**/operator/**"
-          - "!**/istioctl/**"
-          - "!**/tools/bug-report/**"
-          # This should only really import operator API, but that is hard to express without a larger refactoring
-          - "!**/pkg/kube/**"
-          - "!**/pkg/url/**"
-          - "!**/pkg/test/framework/**"
-          - "!**/tests/fuzz/**"
-        deny:
-          - pkg: istio.io/istio/operator
-            desc: "operator should not be imported"
-          - pkg: istio.io/istio/istioctl
-            desc: "istioctl should not be imported"
-      DenyOpenTelemetry:
-        files:
-          - $all
-          - "!**/pkg/monitoring/**"
-          - "!**/pkg/tracing/**"
-        deny:
-          - pkg: go.opentelemetry.io/otel
-            desc: "do not use OpenTelemetry directly; use pkg/monitoring"
-          - pkg: go.opentelemetry.io/otel/metric
-            desc: "do not use OpenTelemetry directly; use pkg/monitoring"
-      DenyProtobufV1:
-        files:
-          - $all
-        deny:
-          - pkg: github.com/golang/protobuf/ptypes
-            desc: "do not use github.com/golang/protobuf/ptypes; use google.golang.org/protobuf/types/known instead"
-  gosec:
-    includes:
-      - G401
-      - G402
-      - G404
+      - linters:
+          - errcheck
+          - maligned
+        path: _test\.go$|tests/|samples/
+      - path: _test\.go$
+        text: 'dot-imports: should not use dot imports'
+      - linters:
+          - staticcheck
+        text: 'SA1019: package github.com/golang/protobuf/jsonpb'
+      - linters:
+          - staticcheck
+        text: 'SA1019: "github.com/golang/protobuf/jsonpb"'
+      - linters:
+          - staticcheck
+        text: 'SA1019: grpc.Dial is deprecated: use NewClient instead'
+      - linters:
+          - staticcheck
+        text: 'SA1019: grpc.DialContext is deprecated: use NewClient instead'
+      - linters:
+          - staticcheck
+        text: 'SA1019: grpc.WithBlock is deprecated'
+      - linters:
+          - staticcheck
+        text: 'SA1019: grpc.FailOnNonTempDialError'
+      - linters:
+          - staticcheck
+        text: 'SA1019: grpc.WithReturnConnectionError'
+      - path: (.+)\.go$
+        text: composite literal uses unkeyed fields
+      # TODO: remove following rule in the future
+      - linters:
+          - staticcheck
+        text: 'QF'
+      - linters:
+          - staticcheck
+        text: 'ST1005'
+      - linters:
+          - staticcheck
+        text: 'S1007'
+      # TODO: remove once we have updated package names
+      - linters:
+          - revive
+        text: "var-naming: avoid meaningless package names"
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - vendor$
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  # List of regexps of issue texts to exclude, empty list by default.
-  # But independently from this option we use default exclude patterns,
-  # it can be disabled by `exclude-use-default: false`. To list all
-  # excluded by default patterns execute `golangci-lint run --help`
-  exclude:
-    - composite literal uses unkeyed fields
-  # Which dirs to exclude: issues from them won't be reported.
-  # Can use regexp here: `generated.*`, regexp is applied on full path,
-  # including the path prefix if one is set.
-  # Default dirs are skipped independently of this option's value (see exclude-dirs-use-default).
-  # "/" will be replaced by current OS file path separator to properly work on Windows.
-  # Default: []
-  exclude-dirs:
-    - genfiles$
-    - vendor$
-  # Which files to exclude: they will be analyzed, but issues from them won't be reported.
-  # There is no need to include all autogenerated files,
-  # we confidently recognize autogenerated files.
-  # If it's not, please let us know.
-  # "/" will be replaced by current OS file path separator to properly work on Windows.
-  # Default: []
-  exclude-files:
-    - ".*\\.pb\\.go"
-    - ".*\\.gen\\.go"
-  exclude-rules:
-    # Exclude some linters from running on test files.
-    - path: _test\.go$|^tests/|^samples/
-      linters:
-        - errcheck
-        - maligned
-    - path: _test\.go$
-      text: "dot-imports: should not use dot imports"
-    # We need to use the deprecated module since the jsonpb replacement is not backwards compatible.
-    - linters:
-        - staticcheck
-      text: "SA1019: package github.com/golang/protobuf/jsonpb"
-    - linters:
-        - staticcheck
-      text: 'SA1019: "github.com/golang/protobuf/jsonpb"'
-    # This is not helpful. The new function is not very usable and the current function will not be removed
-    - linters:
-        - staticcheck
-      text: 'SA1019: grpc.Dial is deprecated: use NewClient instead'
-    - linters:
-        - staticcheck
-      text: 'SA1019: grpc.DialContext is deprecated: use NewClient instead'
-    - linters:
-        - staticcheck
-      text: "SA1019: grpc.WithBlock is deprecated"
-    - linters:
-        - staticcheck
-      text: "SA1019: grpc.FailOnNonTempDialError"
-    - linters:
-        - staticcheck
-      text: "SA1019: grpc.WithReturnConnectionError"
-  # Independently from option `exclude` we use default exclude patterns,
-  # it can be disabled by this option. To list all
-  # excluded by default patterns execute `golangci-lint run --help`.
-  # Default value for this option is true.
-  exclude-use-default: true
-  # Maximum issues count per one linter.
-  # Set to 0 to disable.
-  # Default: 50
   max-issues-per-linter: 0
-  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
   max-same-issues: 0
+formatters:
+  enable:
+    - gci
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(istio.io/)
+    goimports:
+      local-prefixes:
+        - istio.io/
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - vendor$
+      - third_party$
+      - builtin$
+      - examples$

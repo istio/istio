@@ -20,6 +20,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	admitv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -60,6 +61,32 @@ func GetWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, r
 	return webhooks.Items, nil
 }
 
+// GetServicesWithRevision returns services tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
+// This retrieves the services created at revision installation rather than tag services.
+func GetServicesWithRevision(ctx context.Context, client kubernetes.Interface, istioNS, rev string) ([]corev1.Service, error) {
+	services, err := client.CoreV1().Services(istioNS).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,!%s,%s=%s",
+			label.IoIstioRev.Name, rev,
+			label.IoIstioTag.Name,
+			"app", "istiod"),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return services.Items, nil
+}
+
+// GetServicesWithTag returns services tagged with istio.io/tag=<tag>.
+func GetServicesWithTag(ctx context.Context, client kubernetes.Interface, istioNS, tag string) ([]corev1.Service, error) {
+	services, err := client.CoreV1().Services(istioNS).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioTag.Name, tag),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return services.Items, nil
+}
+
 // GetNamespacesWithTag retrieves all namespaces pointed at the given tag.
 func GetNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]string, error) {
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
@@ -89,6 +116,30 @@ func GetWebhookRevision(wh admitv1.MutatingWebhookConfiguration) (string, error)
 	return "", fmt.Errorf("could not extract tag revision from webhook")
 }
 
+// GetRevisionServices retrieves all services with the istio.io/rev label within a given namespace.
+func GetRevisionServices(ctx context.Context, client kubernetes.Interface, istioNS string) ([]corev1.Service, error) {
+	services, err := client.CoreV1().Services(istioNS).List(ctx, metav1.ListOptions{
+		LabelSelector: label.IoIstioRev.Name, // Select services that have the tag label
+	})
+	if err != nil {
+		return nil, err
+	}
+	return services.Items, nil
+}
+
+// GetServiceTagName extracts tag name from service object.
+func GetServiceTagName(svc corev1.Service) string {
+	return svc.ObjectMeta.Labels[label.IoIstioTag.Name]
+}
+
+// GetServiceRevision extracts tag target revision from service object.
+func GetServiceRevision(svc corev1.Service) (string, error) {
+	if revName, ok := svc.ObjectMeta.Labels[label.IoIstioRev.Name]; ok {
+		return revName, nil
+	}
+	return "", fmt.Errorf("could not extract tag revision from service %s/%s", svc.Namespace, svc.Name)
+}
+
 // DeleteTagWebhooks deletes the given webhooks.
 func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag string) error {
 	webhooks, err := GetWebhooksWithTag(ctx, client, tag)
@@ -102,11 +153,24 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag str
 	return result
 }
 
+// DeleteTagServices deletes the given tag services
+func DeleteTagServices(ctx context.Context, client kubernetes.Interface, istioNS, tag string) error {
+	services, err := GetServicesWithTag(ctx, client, istioNS, tag)
+	if err != nil {
+		return err
+	}
+	var result error
+	for _, svc := range services {
+		result = multierror.Append(result, client.CoreV1().Services(istioNS).Delete(ctx, svc.Name, metav1.DeleteOptions{})).ErrorOrNil()
+	}
+	return result
+}
+
 // PreviousInstallExists checks whether there is an existing Istio installation. Should be used in installer when deciding
 // whether to make an installation the default.
 func PreviousInstallExists(ctx context.Context, client kubernetes.Interface) bool {
 	mwhs, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
-		LabelSelector: "app=sidecar-injector",
+		LabelSelector: "app=sidecar-injector, istio.io/tag=default",
 	})
 	if err != nil {
 		return false

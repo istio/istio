@@ -64,7 +64,7 @@ spec:
       serviceAccountName: bookinfo-details
       containers:
       - name: details
-        image: docker.io/istio/examples-bookinfo-details-v1:1.20.2
+        image: docker.io/istio/examples-bookinfo-details-v1:1.20.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -121,7 +121,7 @@ spec:
       serviceAccountName: bookinfo-ratings
       containers:
       - name: ratings
-        image: docker.io/istio/examples-bookinfo-ratings-v1:1.20.2
+        image: docker.io/istio/examples-bookinfo-ratings-v1:1.20.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -178,7 +178,7 @@ spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v1:1.20.2
+        image: docker.io/istio/examples-bookinfo-reviews-v1:1.20.3
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -224,7 +224,7 @@ spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v2:1.20.2
+        image: docker.io/istio/examples-bookinfo-reviews-v2:1.20.3
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -270,7 +270,7 @@ spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v3:1.20.2
+        image: docker.io/istio/examples-bookinfo-reviews-v3:1.20.3
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -344,7 +344,7 @@ spec:
       serviceAccountName: bookinfo-productpage
       containers:
       - name: productpage
-        image: docker.io/istio/examples-bookinfo-productpage-v1:1.20.2
+        image: docker.io/istio/examples-bookinfo-productpage-v1:1.20.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

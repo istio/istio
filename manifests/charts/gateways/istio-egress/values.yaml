@@ -241,11 +241,6 @@ _internal_defaults_do_not_set:
     mountMtlsCerts: false
 
     multiCluster:
-      # Set to true to connect two kubernetes clusters via their respective
-      # ingressgateway services when pods in each cluster cannot directly
-      # talk to one another. All clusters should be using Istio mTLS and must
-      # have a shared root CA for this model to work.
-      enabled: false
       # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
       # to properly label proxies
       clusterName: ""
@@ -271,6 +266,10 @@ _internal_defaults_do_not_set:
       # The service port used by Security Token Service (STS) server to handle token exchange requests.
       # Setting this port to a non-zero value enables STS server.
       servicePort: 0
+
+    # When enabled, a default NetworkPolicy for gateways will be created
+    networkPolicy:
+      enabled: false
 
   meshConfig:
     enablePrometheusMerge: true

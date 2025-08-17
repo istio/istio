@@ -456,10 +456,6 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 // AppendLbEndpointMetadata adds metadata values to a lb endpoint using the passed in metadata as base.
 func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetadata *core.Metadata,
 ) {
-	if !features.EndpointTelemetryLabel || !features.EnableTelemetryLabel {
-		return
-	}
-
 	if envoyMetadata.FilterMetadata == nil {
 		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
 	}
@@ -477,7 +473,7 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separated string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
-	if features.EndpointTelemetryLabel {
+	if features.EnableTelemetryLabel && features.EndpointTelemetryLabel {
 		// allow defaulting for non-injected cases
 		canonicalName, canonicalRevision := kubelabels.CanonicalService(istioMetadata.Labels, istioMetadata.WorkloadName)
 
@@ -882,10 +878,6 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 	ret.Tunnel = original.Tunnel
 	ret.ProxyProtocol = original.ProxyProtocol
 	return ret
-}
-
-func VersionGreaterOrEqual124(proxy *model.Proxy) bool {
-	return proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1})
 }
 
 func DelimitedStatsPrefix(statPrefix string) string {

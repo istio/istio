@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"math/rand"
 	"net"
@@ -110,7 +111,20 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 			},
 			MinVersion: tls.VersionTLS12,
 		}
+		if s.Port.RequireClientCert {
+			config.ClientAuth = tls.RequireAndVerifyClientCert
+			caCert, err := os.ReadFile(s.TLSCACert)
+			if err != nil {
+				return fmt.Errorf("could not load TLS CA certificate: %v", err)
+			}
+			caCertPool := x509.NewCertPool()
+			if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+				return fmt.Errorf("could not append TLS CA certificate")
+			}
+			config.ClientCAs = caCertPool
+		}
 		// Listen on the given port and update the port if it changed from what was passed in.
+		//nolint:ineffassign,staticcheck // not true, we check all branches for error conditions below
 		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)
 		// Store the actual listening port back to the argument.
 		s.Port.Port = port
@@ -121,6 +135,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		s.Port.Port = port
 	}
 
+	// check error for all branches here!
 	if err != nil {
 		return err
 	}
@@ -170,6 +185,23 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, address string) {
 	} else if s.Port.TLS {
 		url = fmt.Sprintf("https://%s", address)
 		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // nolint: gosec // test only code
+		if s.Port.RequireClientCert {
+			clientCert, err := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
+			if err != nil {
+				epLog.Errorf("could not load TLS keys: %v", err)
+			}
+			client.Transport.(*http.Transport).TLSClientConfig.Certificates = []tls.Certificate{clientCert}
+			caCert, err := os.ReadFile(s.TLSCACert)
+			if err != nil {
+				epLog.Errorf("could not load TLS CA certificate: %v", err)
+			}
+			if client.Transport.(*http.Transport).TLSClientConfig.RootCAs == nil {
+				client.Transport.(*http.Transport).TLSClientConfig.RootCAs = x509.NewCertPool()
+			}
+			if ok := client.Transport.(*http.Transport).TLSClientConfig.RootCAs.AppendCertsFromPEM(caCert); !ok {
+				epLog.Errorf("could not append TLS CA certificate: %v", err)
+			}
+		}
 	} else {
 		url = fmt.Sprintf("http://%s", address)
 	}
@@ -339,13 +371,17 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	echo.IPField.Write(body, ip)
 
-	// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
-	// not supported by the server (ie one of h2,http/1.1,http/1.0)
-	var alpn string
 	if r.TLS != nil {
-		alpn = r.TLS.NegotiatedProtocol
+		// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
+		// not supported by the server (ie one of h2,http/1.1,http/1.0)
+		echo.AlpnField.WriteNonEmpty(body, r.TLS.NegotiatedProtocol)
+		echo.SNIField.WriteNonEmpty(body, r.TLS.ServerName)
+		// If the client cert is present, write the subject to the response
+		if len(r.TLS.PeerCertificates) > 0 {
+			echo.ClientCertSubjectField.WriteNonEmpty(body, r.TLS.PeerCertificates[0].Subject.String())
+			echo.ClientCertSerialNumberField.WriteNonEmpty(body, r.TLS.PeerCertificates[0].SerialNumber.String())
+		}
 	}
-	echo.AlpnField.WriteNonEmpty(body, alpn)
 
 	if conn := GetConn(r); conn != nil {
 		if p, ok := conn.(*proxyproto.Conn); ok && p.ProxyHeader() != nil {

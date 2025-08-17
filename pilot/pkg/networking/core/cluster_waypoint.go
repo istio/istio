@@ -32,6 +32,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	sec_model "istio.io/istio/pilot/pkg/security/model"
@@ -48,7 +49,7 @@ import (
 )
 
 // buildInternalUpstreamCluster builds a single endpoint cluster to the internal listener.
-func buildInternalUpstreamCluster(name string, internalListener string) *cluster.Cluster {
+func buildInternalUpstreamCluster(name string, internalListener string, h2 bool) *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
@@ -58,9 +59,12 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 			Endpoints:   util.BuildInternalEndpoint(internalListener, nil),
 		},
 		TransportSocket: util.DefaultInternalUpstreamTransportSocket,
-		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+	}
+
+	if h2 {
+		c.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
-		},
+		}
 	}
 
 	c.AltStatName = util.DelimitedStatsPrefix(name)
@@ -70,11 +74,17 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 
 var (
 	GetMainInternalCluster = func() *cluster.Cluster {
-		return buildInternalUpstreamCluster(MainInternalName, MainInternalName)
+		return buildInternalUpstreamCluster(MainInternalName, MainInternalName, true)
 	}
 
-	GetEncapCluster = func() *cluster.Cluster {
-		return buildInternalUpstreamCluster(EncapClusterName, ConnectOriginate)
+	GetEncapCluster = func(p *model.Proxy) *cluster.Cluster {
+		name := ConnectOriginate
+		h2 := true
+		if isEastWestGateway(p) {
+			name = ForwardInnerConnect
+			h2 = false
+		}
+		return buildInternalUpstreamCluster(EncapClusterName, name, h2)
 	}
 )
 
@@ -91,11 +101,17 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	clusters := make([]*cluster.Cluster, 0)
 	// Creates "main_internal" cluster to route to the main internal listener.
 	// Creates "encap" cluster to route to the encap listener.
-	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster())
+	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster(proxy))
 	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
+
 	// Upstream of the "encap" listener.
-	clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
+	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
+		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
+		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
+	} else {
+		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
+	}
 
 	for _, c := range clusters {
 		if c.TransportSocket != nil && c.TransportSocketMatches != nil {
@@ -115,6 +131,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	policy *networking.TrafficPolicy,
 	drConfig *config.Config,
 ) *cluster.Cluster {
+	// TODO: is this enough? Probably since we validate no extra listeners are present in the conversion layer
+	terminate := isEastWestGateway(proxy)
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	discoveryType := convertResolution(cb.proxyType, svc)
@@ -144,7 +162,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
 
 	// Apply DestinationRule configuration for the service
-	connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol := selectTrafficPolicyComponents(policy)
+	connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol, retryBudget := selectTrafficPolicyComponents(policy)
 	// Add applicable metadata to the cluster to identify which config is applied for tooling
 	if policy != nil {
 		util.AddConfigInfoMetadata(localCluster.cluster.Metadata, drConfig.Meta)
@@ -156,8 +174,27 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		connectionPool = &networking.ConnectionPoolSettings{}
 	}
 
+	if terminate {
+		// We're tunneling double HBONE as raw TCP, so no need for HTTP settings
+		// or h2 upgrade
+		connectionPool.Http = nil
+		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
+		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+		// TODO: Decide if we want to support this
+		if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
+			log.Warnf("Passthrough on the east/west gateway isn't expected")
+			localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+		}
+		maybeApplyEdsConfig(localCluster.cluster)
+		// Set a transport socket since we're going to an internal listener
+		transportSocket := util.RawBufferTransport()
+		localCluster.cluster.TransportSocket = util.FullMetadataPassthroughInternalUpstreamTransportSocket(transportSocket)
+		return localCluster.build()
+	}
+
 	// For these policies, we have the standard logic apply
-	cb.applyConnectionPool(mesh, localCluster, connectionPool)
+	cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
 	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
 	applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
@@ -246,6 +283,12 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 			if port.Protocol == protocol.UDP {
 				continue
 			}
+			if isEastWestGateway(proxy) {
+				// East-west gateways don't respect DestinationRule, so don't read it here
+				// TODO: Confirm this decision
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
+				continue
+			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			dr := CastDestinationRule(cfg)
 			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
@@ -276,6 +319,42 @@ func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push
 		Prefix: spiffe.URIPrefix + push.Mesh.GetTrustDomain() + "/ns/" + proxy.Metadata.Namespace + "/sa/",
 	}
 	return cb.buildConnectOriginate(proxy, push, m)
+}
+
+func (cb *ClusterBuilder) buildWaypointForwardInnerConnect() *cluster.Cluster {
+	return cb.buildForwardInnerConnect()
+}
+
+// Create a cluster to replace connect_originate when we're forwarding a double-hbone request.
+func (cb *ClusterBuilder) buildForwardInnerConnect() *cluster.Cluster {
+	c := &cluster.Cluster{
+		Name:                 ForwardInnerConnect,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:       protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
+		CleanupInterval:      durationpb.New(60 * time.Second),
+		CircuitBreakers:      &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UpstreamPortOverride: &wrappers.UInt32Value{
+					Value: model.HBoneInboundListenPort, // Should be fine whether we're sending to destination or waypoint
+				},
+				// Used to override destination pods with waypoints.
+				MetadataKey: &metadata.MetadataKey{
+					Key: util.OriginalDstMetadataKey,
+					Path: []*metadata.MetadataKey_PathSegment{{
+						Segment: &metadata.MetadataKey_PathSegment_Key{
+							Key: "waypoint",
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	c.AltStatName = util.DelimitedStatsPrefix(ForwardInnerConnect)
+
+	return c
 }
 
 func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatchers ...*matcher.StringMatcher) *cluster.Cluster {

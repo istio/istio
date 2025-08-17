@@ -37,7 +37,7 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 2
 			Args:           strings.Split("controlz --browser=false", " "),
-			ExpectedRegexp: regexp.MustCompile(".*Error: specify a pod or --selector"),
+			ExpectedRegexp: regexp.MustCompile(".*Error: specify a pod, --selector, or --revision"),
 			WantException:  true,
 		},
 		{ // case 3
@@ -97,7 +97,7 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 14
 			Args:           strings.Split("--browser=false controlz --selector app=example pod-123456-7890", " "),
-			ExpectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
+			ExpectedRegexp: regexp.MustCompile(".*Error: only one of name, --selector, or --revision can be specified"),
 			WantException:  true,
 		},
 		{ // case 16

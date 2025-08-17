@@ -17,6 +17,7 @@ package krt
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,10 +25,45 @@ import (
 	acmetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 )
+
+type ObjectWithCluster[T any] struct {
+	ClusterID cluster.ID
+	Object    *T
+}
+
+// Don't include the cluster in the key so that mapped collections aren't affected.
+// This is really just a performance optimization so we don't have to coppy the inner
+// object by doing NewCollection.
+func (o ObjectWithCluster[T]) ResourceName() string {
+	if o.Object == nil {
+		return ""
+	}
+	return GetKey(*o.Object)
+}
+
+func (o *ObjectWithCluster[T]) Equals(o2 *ObjectWithCluster[T]) bool {
+	if o.ClusterID != o2.ClusterID {
+		return false
+	}
+
+	if o.Object == nil && o2.Object == nil {
+		return true
+	}
+
+	if (o.Object == nil && o2.Object != nil) || (o.Object != nil && o2.Object == nil) {
+		return false
+	}
+
+	a := *o.Object
+	b := *o2.Object
+	return Equal(a, b)
+}
 
 func getTypedKey[O any](a O) Key[O] {
 	return Key[O](GetKey(a))
@@ -57,6 +93,16 @@ func GetKey[O any](a O) string {
 	if ok {
 		return arn.ResourceName()
 	}
+	auid, ok := any(a).(uidable)
+	if ok {
+		return strconv.FormatUint(uint64(auid.uid()), 10)
+	}
+
+	akclient, ok := any(a).(kube.Client)
+	if ok {
+		return string(akclient.ClusterID())
+	}
+
 	ack := GetApplyConfigKey(a)
 	if ack != nil {
 		return *ack

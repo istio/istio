@@ -46,10 +46,13 @@ func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
 	meshHolder := mockMeshConfigHolder{"testdomain.com"}
-	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, constants.DefaultClusterName, nil)
+	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, constants.DefaultClusterName, map[string]string{"alias": "cluster"}, nil)
 	expectedAuthenticator := &KubeJWTAuthenticator{
 		meshHolder: meshHolder,
 		clusterID:  constants.DefaultClusterName,
+		clusterAliases: map[cluster.ID]cluster.ID{
+			cluster.ID("alias"): cluster.ID("cluster"),
+		},
 	}
 	if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
 		t.Errorf("Unexpected authentication result: want %v but got %v",
@@ -66,14 +69,20 @@ func (f fakeRemoteGetter) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.I
 }
 
 func (f fakeRemoteGetter) ListClusters() []cluster.ID {
-	return []cluster.ID{"test-remote"}
+	return []cluster.ID{"remote"}
 }
 
 var _ RemoteKubeClientGetter = fakeRemoteGetter{}
 
 func TestAuthenticate(t *testing.T) {
 	primaryCluster := constants.DefaultClusterName
+	primaryClusterAlias := cluster.ID("primaryAlias")
 	remoteCluster := cluster.ID("remote")
+	remoteClusterAlias := cluster.ID("remoteAlias")
+	clusterAliases := map[string]string{
+		primaryClusterAlias.String(): primaryCluster,
+		remoteClusterAlias.String():  remoteCluster.String(),
+	}
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
 
@@ -103,10 +112,45 @@ func TestAuthenticate(t *testing.T) {
 			},
 			expectedErrMsg: `failed to validate the JWT from cluster "Kubernetes": the token is not authenticated`,
 		},
-		"token authenticated": {
+		"token authenticated - local cluster": {
 			token: "bearer-token",
 			metadata: metadata.MD{
 				"clusterid": []string{primaryCluster},
+				"authorization": []string{
+					"Basic callername",
+				},
+			},
+			expectedID:     spiffe.MustGenSpiffeURIForTrustDomain("example.com", "default", "example-pod-sa"),
+			expectedErrMsg: "",
+		},
+		"token authenticated - local cluster alias": {
+			token: "bearer-token",
+			metadata: metadata.MD{
+				"clusterid": []string{primaryClusterAlias.String()},
+				"authorization": []string{
+					"Basic callername",
+				},
+			},
+			expectedID:     spiffe.MustGenSpiffeURIForTrustDomain("example.com", "default", "example-pod-sa"),
+			expectedErrMsg: "",
+		},
+		"token authenticated - remote cluster": {
+			remoteCluster: true,
+			token:         "bearer-token",
+			metadata: metadata.MD{
+				"clusterid": []string{remoteCluster.String()},
+				"authorization": []string{
+					"Basic callername",
+				},
+			},
+			expectedID:     spiffe.MustGenSpiffeURIForTrustDomain("example.com", "default", "example-pod-sa"),
+			expectedErrMsg: "",
+		},
+		"token authenticated - remote cluster alias": {
+			remoteCluster: true,
+			token:         "bearer-token",
+			metadata: metadata.MD{
+				"clusterid": []string{remoteClusterAlias.String()},
 				"authorization": []string{
 					"Basic callername",
 				},
@@ -123,7 +167,7 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			expectedErrMsg: `client claims to be in cluster "non-exist", but we only know about local cluster "Kubernetes" and remote clusters [test-remote]`,
+			expectedErrMsg: `client claims to be in cluster "non-exist", but we only know about local cluster "Kubernetes" and remote clusters [remote]`,
 		},
 	}
 
@@ -168,11 +212,17 @@ func TestAuthenticate(t *testing.T) {
 							return true, tokenReview, nil
 						})
 					}
+					return client
 				}
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, fakeRemoteGetter{remoteKubeClientGetter})
+			authenticator := NewKubeJWTAuthenticator(
+				meshHolder,
+				client,
+				constants.DefaultClusterName,
+				clusterAliases,
+				fakeRemoteGetter{remoteKubeClientGetter})
 			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {

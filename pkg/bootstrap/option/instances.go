@@ -231,6 +231,10 @@ func EnvoyStatusPort(value int) Instance {
 	return newOption("envoy_status_port", value)
 }
 
+func EnvoyStatusPortEnableProxyProtocol(value bool) Instance {
+	return newOption("envoy_status_port_enable_proxy_protocol", value)
+}
+
 func EnvoyPrometheusPort(value int) Instance {
 	return newOption("envoy_prometheus_port", value)
 }
@@ -269,14 +273,6 @@ func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
 		return newOption("metrics_localhost_access_only", true)
 	}
 	return newOption("metrics_localhost_access_only", false)
-}
-
-func DeferredStatsCreation(deferred bool) Instance {
-	return newOption("deferred_stats_creation", deferred)
-}
-
-func BypassOverloadManagerForStaticListeners(bypass bool) Instance {
-	return newOption("bypass_overload_manager", bypass)
 }
 
 func LoadStatsConfigJSONStr(node *model.Node) Instance {

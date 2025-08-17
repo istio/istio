@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 )
 
@@ -45,8 +46,7 @@ type flagState interface {
 
 var (
 	_ flagState = (*resetState)(nil)
-	_ flagState = (*logLevelState)(nil)
-	_ flagState = (*stackTraceLevelState)(nil)
+	_ flagState = (*levelState)(nil)
 	_ flagState = (*getAllLogLevelsState)(nil)
 )
 
@@ -79,34 +79,83 @@ func (rs *resetState) run(_ io.Writer) error {
 	return nil
 }
 
-type logLevelState struct {
-	client         *ControlzClient
-	outputLogLevel string
+type logResetState struct {
+	client *ControlzClient
 }
 
-func (ll *logLevelState) run(_ io.Writer) error {
-	scopeInfos, err := newScopeInfosFromScopeLevelPairs(ll.outputLogLevel)
+func (rs *logResetState) run(_ io.Writer) error {
+	const (
+		defaultOutputLevel = "info"
+	)
+	allScopes, err := rs.client.GetScopes()
+	if err != nil {
+		return fmt.Errorf("could not get all scopes: %v", err)
+	}
+	var defaultScopes []*ScopeInfo
+	for _, scope := range allScopes {
+		defaultScopes = append(defaultScopes, &ScopeInfo{
+			Name:        scope.Name,
+			OutputLevel: defaultOutputLevel,
+		})
+	}
+	err = rs.client.PutScopes(defaultScopes)
 	if err != nil {
 		return err
 	}
-	err = ll.client.PutScopes(scopeInfos)
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
 
-type stackTraceLevelState struct {
-	client          *ControlzClient
-	stackTraceLevel string
+type stackTraceResetState struct {
+	client *ControlzClient
 }
 
-func (stl *stackTraceLevelState) run(_ io.Writer) error {
-	scopeInfos, err := newScopeInfosFromScopeStackTraceLevelPairs(stl.stackTraceLevel)
+func (rs *stackTraceResetState) run(_ io.Writer) error {
+	const (
+		defaultStackTraceLevel = "none"
+	)
+	allScopes, err := rs.client.GetScopes()
+	if err != nil {
+		return fmt.Errorf("could not get all scopes: %v", err)
+	}
+	var defaultScopes []*ScopeInfo
+	for _, scope := range allScopes {
+		defaultScopes = append(defaultScopes, &ScopeInfo{
+			Name:            scope.Name,
+			StackTraceLevel: defaultStackTraceLevel,
+		})
+	}
+	err = rs.client.PutScopes(defaultScopes)
 	if err != nil {
 		return err
 	}
-	err = stl.client.PutScopes(scopeInfos)
+
+	return nil
+}
+
+type levelState struct {
+	client          *ControlzClient
+	outputLogLevel  string
+	stackTraceLevel string
+}
+
+func (ll *levelState) run(_ io.Writer) error {
+	var scopeInfos []*ScopeInfo
+	if ll.outputLogLevel != "" {
+		scopeLogInfos, err := newScopeInfosFromScopeLevelPairs(ll.outputLogLevel)
+		if err != nil {
+			return err
+		}
+		scopeInfos = append(scopeInfos, scopeLogInfos...)
+	}
+	if ll.stackTraceLevel != "" {
+		scopeStackInfos, err := newScopeInfosFromScopeStackTraceLevelPairs(ll.stackTraceLevel)
+		if err != nil {
+			return err
+		}
+		scopeInfos = append(scopeInfos, scopeStackInfos...)
+	}
+	err := ll.client.PutScopes(scopeInfos)
 	if err != nil {
 		return err
 	}
@@ -120,9 +169,10 @@ type getAllLogLevelsState struct {
 
 func (ga *getAllLogLevelsState) run(out io.Writer) error {
 	type scopeLogLevel struct {
-		ScopeName   string `json:"scope_name"`
-		LogLevel    string `json:"log_level"`
-		Description string `json:"description"`
+		ScopeName       string `json:"scope_name"`
+		LogLevel        string `json:"log_level"`
+		StackTraceLevel string `json:"stack_trace_level"`
+		Description     string `json:"description"`
 	}
 	allScopes, err := ga.client.GetScopes()
 	sort.Slice(allScopes, func(i, j int) bool {
@@ -135,18 +185,19 @@ func (ga *getAllLogLevelsState) run(out io.Writer) error {
 	for _, scope := range allScopes {
 		resultScopeLogLevel = append(resultScopeLogLevel,
 			&scopeLogLevel{
-				ScopeName:   scope.Name,
-				LogLevel:    scope.OutputLevel,
-				Description: scope.Description,
+				ScopeName:       scope.Name,
+				LogLevel:        scope.OutputLevel,
+				StackTraceLevel: scope.StackTraceLevel,
+				Description:     scope.Description,
 			},
 		)
 	}
 	switch ga.outputFormat {
 	case "short":
 		w := new(tabwriter.Writer).Init(out, 0, 8, 3, ' ', 0)
-		_, _ = fmt.Fprintln(w, "ACTIVE SCOPE\tDESCRIPTION\tLOG LEVEL")
+		_, _ = fmt.Fprintln(w, "ACTIVE SCOPE\tDESCRIPTION\tLOG LEVEL\tSTACK TRACE LEVEL")
 		for _, sll := range resultScopeLogLevel {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", sll.ScopeName, sll.Description, sll.LogLevel)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", sll.ScopeName, sll.Description, sll.LogLevel, sll.StackTraceLevel)
 		}
 		return w.Flush()
 	case "json", "yaml":
@@ -175,24 +226,26 @@ func (id *istiodConfigLog) execute(out io.Writer) error {
 	return id.state.run(out)
 }
 
-func chooseClientFlag(ctrzClient *ControlzClient, reset bool, outputLogLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
-	if reset {
+func chooseClientFlag(ctrzClient *ControlzClient, logReset, stackTraceReset, reset bool, logLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
+	switch {
+	case reset || (logReset && stackTraceReset):
 		return &istiodConfigLog{state: &resetState{ctrzClient}}
-	} else if outputLogLevel != "" {
-		return &istiodConfigLog{state: &logLevelState{
-			client:         ctrzClient,
-			outputLogLevel: outputLogLevel,
-		}}
-	} else if stackTraceLevel != "" {
-		return &istiodConfigLog{state: &stackTraceLevelState{
+	case logReset:
+		return &istiodConfigLog{state: &logResetState{ctrzClient}}
+	case stackTraceReset:
+		return &istiodConfigLog{state: &stackTraceResetState{ctrzClient}}
+	case logLevel != "" || stackTraceLevel != "":
+		return &istiodConfigLog{state: &levelState{
 			client:          ctrzClient,
+			outputLogLevel:  logLevel,
 			stackTraceLevel: stackTraceLevel,
 		}}
+	default:
+		return &istiodConfigLog{state: &getAllLogLevelsState{
+			client:       ctrzClient,
+			outputFormat: outputFormat,
+		}}
 	}
-	return &istiodConfigLog{state: &getAllLogLevelsState{
-		client:       ctrzClient,
-		outputFormat: outputFormat,
-	}}
 }
 
 type ScopeInfo struct {
@@ -371,7 +424,9 @@ func (c *ControlzClient) GetScope(scope string) (*ScopeInfo, error) {
 var (
 	istiodLabelSelector = ""
 	istiodReset         = false
-	validationPattern   = `^[\w ]+:(debug|error|warn|info|debug)`
+	logReset            = false
+	stackTraceReset     = false
+	validationPattern   = `^[\w\- ]+:(none|error|warn|info|debug)`
 )
 
 func istiodLogCmd(ctx cli.Context) *cobra.Command {
@@ -384,7 +439,7 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 	outputFormat := "short"
 
 	logCmd := &cobra.Command{
-		Use:   "log [<pod-name>]|[-r|--revision] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[--reset]|[--output|-o short|json|yaml]",
+		Use:   "log [<pod-name>]|[-r|--revision] [--level <scope>:<level>][--stack-trace-level <scope>:<level>]|[--reset|--log-reset|--stack-trace-reset]|[--output|-o short|json|yaml]", // nolint: lll
 		Short: "Manage istiod logging.",
 		Long:  "Retrieve or update logging levels of istiod components.",
 		Example: `  # Retrieve information about istiod logging levels.
@@ -393,42 +448,47 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
   # Retrieve information about istiod logging levels on a specific control plane pod.
   istioctl admin l istiod-5c868d8bdd-pmvgg
 
-  # Update levels of the specified loggers.
-  istioctl admin log --level ads:debug,authorization:debug
+  # Update levels of the specified loggers and stack trace.
+  istioctl admin log --level ads:debug,authorization:debug --stack-trace-level ads:debug,adsc:debug
 
   # Retrieve information about istiod logging levels for a specified revision.
   istioctl admin log --revision v1
 
   # Reset levels of all the loggers to default value (info).
-  istioctl admin log --reset
+  istioctl admin log --log-reset
+
+  # Reset all stack stace levels to default value. (none)
+  istioctl admin log --stack-trace-reset
+
+  # Reset levels of all the loggers and stack stace to default value.
+  istioctl admin log --log-reset
 `,
 		Aliases: []string{"l"},
 		Args: func(logCmd *cobra.Command, args []string) error {
-			if istiodReset && outputLogLevel != "" {
+			if istiodReset && logReset && outputLogLevel != "" {
 				logCmd.Println(logCmd.UsageString())
-				return fmt.Errorf("--level cannot be combined with --reset")
+				return fmt.Errorf("--level cannot be combined with --reset, --log-reset")
 			}
-			if istiodReset && stackTraceLevel != "" {
+			if istiodReset && stackTraceReset && stackTraceLevel != "" {
 				logCmd.Println(logCmd.UsageString())
-				return fmt.Errorf("--stack-trace-level cannot be combined with --reset")
+				return fmt.Errorf("--stack-trace-level cannot be combined with --reset, --stack-trace-reset")
 			}
 			return nil
 		},
 		RunE: func(logCmd *cobra.Command, args []string) error {
-			client, err := ctx.CLIClientWithRevision(opts.Revision)
+			resolvedRevision := ctx.RevisionOrDefault(opts.Revision)
+			client, err := ctx.CLIClientWithRevision(resolvedRevision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
 			if len(args) == 0 {
-				if opts.Revision == "" {
-					opts.Revision = "default"
-				}
+				// resolvedRevision is already set by ctx.RevisionOrDefault(opts.Revision)
 				if len(istiodLabelSelector) > 0 {
-					istiodLabelSelector = fmt.Sprintf("%s,%s=%s", istiodLabelSelector, label.IoIstioRev.Name, opts.Revision)
+					istiodLabelSelector = fmt.Sprintf("%s,%s=%s", istiodLabelSelector, label.IoIstioRev.Name, resolvedRevision)
 				} else {
-					istiodLabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, opts.Revision)
+					istiodLabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, resolvedRevision)
 				}
 				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.IstioNamespace()), istiodLabelSelector)
 				if err != nil {
@@ -468,7 +528,7 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 				},
 				httpClient: &http.Client{},
 			}
-			istiodConfigCmd := chooseClientFlag(ctrlzClient, istiodReset, outputLogLevel, stackTraceLevel, outputFormat)
+			istiodConfigCmd := chooseClientFlag(ctrlzClient, logReset, stackTraceReset, istiodReset, outputLogLevel, stackTraceLevel, outputFormat)
 			err = istiodConfigCmd.execute(logCmd.OutOrStdout())
 			if err != nil {
 				return err
@@ -478,8 +538,10 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 	opts.AttachControlPlaneFlags(logCmd)
-	logCmd.PersistentFlags().BoolVar(&istiodReset, "reset", istiodReset, "Reset levels to default value. (info)")
-	logCmd.PersistentFlags().IntVar(&controlzPort, "ctrlz_port", 9876, "ControlZ port")
+	logCmd.PersistentFlags().BoolVar(&istiodReset, "reset", istiodReset, "Reset all levels to default value. (info)")
+	logCmd.PersistentFlags().BoolVar(&logReset, "log-reset", logReset, "Reset log levels to default value. (info)")
+	logCmd.PersistentFlags().BoolVar(&stackTraceReset, "stack-trace-reset", stackTraceReset, "Reset stack stace levels to default value. (none)")
+	logCmd.PersistentFlags().IntVar(&controlzPort, "ctrlz_port", ctrlz.DefaultControlZPort, "ControlZ port")
 	logCmd.PersistentFlags().StringVar(&outputLogLevel, "level", outputLogLevel,
 		"Comma-separated list of output logging level for scopes in the format of <scope>:<level>[,<scope>:<level>,...]. "+
 			"Possible values for <level>: none, error, warn, info, debug")

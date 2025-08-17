@@ -107,6 +107,11 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	if metadataDiscovery != nil && *metadataDiscovery {
 		mDiscovery = true
 	}
+	if mDiscovery && xdsType == "GRPC" {
+		log.Warnf("disabling metadata discovery; not supported on SotW XDS")
+		// Not supported on legacy SotW protocol
+		mDiscovery = false
+	}
 	customSDSPath := ""
 	if _, f := cfg.RawMetadata[security.CredentialFileMetaDataName]; f {
 		customSDSPath = security.FileCredentialNameSocketPath
@@ -123,8 +128,6 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.XdsType(xdsType),
 		option.MetadataDiscovery(mDiscovery),
 		option.MetricsLocalhostAccessOnly(cfg.Metadata.ProxyConfig.ProxyMetadata),
-		option.DeferredStatsCreation(features.EnableDeferredStatsCreation),
-		option.BypassOverloadManagerForStaticListeners(features.BypassOverloadManagerForStaticListeners),
 	)
 
 	// Add GCPProjectNumber to access in bootstrap template.
@@ -196,6 +199,10 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 				option.Wildcard(option.WildcardIPv4),
 				option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
 		}
+	}
+
+	if features.EnvoyStatusPortEnableProxyProtocol {
+		opts = append(opts, option.EnvoyStatusPortEnableProxyProtocol(true))
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)

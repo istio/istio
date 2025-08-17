@@ -32,7 +32,7 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "gateway.istio.io/managed" "istio.io-mesh-controller"
+        "gateway.istio.io/managed" .ControllerLabel
       ) | nindent 4 }}
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -65,7 +65,7 @@ spec:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "gateway.istio.io/managed" "istio.io-mesh-controller"
+            "gateway.istio.io/managed" .ControllerLabel
           ) | nindent 8}}
     spec:
       {{- if .Values.global.waypoint.affinity }}
@@ -286,9 +286,17 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istio-ca-root-cert
-        name: istiod-ca-cert
+      - name: istiod-ca-cert
+      {{- if eq (.Values.pilot.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+              path: root-cert.pem
+      {{- else }}
+        configMap:
+          name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
+      {{- end }}
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- range .Values.global.imagePullSecrets }}

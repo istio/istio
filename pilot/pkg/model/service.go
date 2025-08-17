@@ -35,8 +35,10 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -123,6 +125,13 @@ type Service struct {
 
 	// ResourceVersion represents the internal version of this object.
 	ResourceVersion string
+}
+
+// UseInferenceSemantics determines which logic we should use for Service
+// This allows InferencePools and Services to both be represented by Service, but have different
+// semantics.
+func (s *Service) UseInferenceSemantics() bool {
+	return s.Attributes.Labels[constants.InternalServiceSemantics] == constants.ServiceSemanticsInferencePool
 }
 
 func (s *Service) NamespacedName() types.NamespacedName {
@@ -791,9 +800,36 @@ type TrafficDistribution int
 const (
 	// TrafficDistributionAny allows any destination
 	TrafficDistributionAny TrafficDistribution = iota
-	// TrafficDistributionPreferClose prefers traffic in same region/zone/network if possible, with failover allowed.
-	TrafficDistributionPreferClose TrafficDistribution = iota
+	// TrafficDistributionPreferPreferSameZone prefers traffic in same zone, failing over to same region and then network.
+	TrafficDistributionPreferSameZone
+	// TrafficDistributionPreferNode prefers traffic in same node, failing over to same subzone, then zone, region, and network.
+	TrafficDistributionPreferSameNode
 )
+
+func GetTrafficDistribution(specValue *string, annotations map[string]string) TrafficDistribution {
+	if specValue != nil {
+		switch *specValue {
+		case corev1.ServiceTrafficDistributionPreferSameZone, corev1.ServiceTrafficDistributionPreferClose:
+			return TrafficDistributionPreferSameZone
+		case corev1.ServiceTrafficDistributionPreferSameNode:
+			return TrafficDistributionPreferSameNode
+		}
+	}
+	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
+	// This also has some custom types
+	trafficDistributionAnnotationValue := strings.ToLower(annotations[annotation.NetworkingTrafficDistribution.Name])
+	switch trafficDistributionAnnotationValue {
+	case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
+		return TrafficDistributionPreferSameZone
+	case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
+		return TrafficDistributionPreferSameNode
+	default:
+		if trafficDistributionAnnotationValue != "" {
+			log.Warnf("Unknown traffic distribution annotation, defaulting to any")
+		}
+		return TrafficDistributionAny
+	}
+}
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
 func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
@@ -933,18 +969,34 @@ type WaypointKey struct {
 
 	Network   string
 	Addresses []string
+
+	IsNetworkGateway bool
 }
 
 // WaypointKeyForProxy builds a key from a proxy to lookup
 func WaypointKeyForProxy(node *Proxy) WaypointKey {
+	return waypointKeyForProxy(node, false)
+}
+
+func WaypointKeyForNetworkGatewayProxy(node *Proxy) WaypointKey {
+	return waypointKeyForProxy(node, true)
+}
+
+func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	key := WaypointKey{
-		Namespace: node.ConfigNamespace,
-		Network:   node.Metadata.Network.String(),
+		Namespace:        node.ConfigNamespace,
+		Network:          node.Metadata.Network.String(),
+		IsNetworkGateway: externalAddresses, // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 	}
 	for _, svct := range node.ServiceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
 
-		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
+		var ips []string
+		if externalAddresses {
+			ips = svct.Service.Attributes.ClusterExternalAddresses.GetAddressesFor(node.GetClusterID())
+		} else {
+			ips = svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
+		}
 		// if we find autoAllocated addresses then ips should contain constants.UnspecifiedIP which should not be used
 		foundAutoAllocated := false
 		if svct.Service.AutoAllocatedIPv4Address != "" {
@@ -1063,7 +1115,9 @@ type ServiceInfo struct {
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
-	Source   TypedObject
+	Source TypedObject
+	// Scope of the service - either local or global based on namespace or service label matching
+	Scope    ServiceScope
 	Waypoint WaypointBindingStatus
 	// MarshaledAddress contains the pre-marshaled representation.
 	// Note: this is an Address -- not a Service.
@@ -1175,6 +1229,7 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
 		i.Source == other.Source &&
+		i.Scope == other.Scope &&
 		i.Waypoint.Equals(other.Waypoint)
 }
 
@@ -1185,6 +1240,19 @@ func (i ServiceInfo) ResourceName() string {
 func serviceResourceName(s *workloadapi.Service) string {
 	return s.Namespace + "/" + s.Hostname
 }
+
+type ServiceScope string
+
+const (
+	// Local ServiceScope specifies that istiod will not automatically expose the matching services' endpoints at the
+	// cluster's east/west gateway. Istio will also not automatically share locolly matching endpoints with the
+	// cluster's local dataplane that are not within the local cluster.
+	Local ServiceScope = "LOCAL"
+	// Global ServiceScope specifies that istiod will automatically expose the matching services' endpoints at the
+	// cluster's east/west gateway. Istio will also automatically share globally matching endpoints with the cluster's
+	// local dataplane that are in the local and remote clusters.
+	Global ServiceScope = "GLOBAL"
+)
 
 type WorkloadInfo struct {
 	Workload *workloadapi.Workload
@@ -1693,6 +1761,10 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 }
 
 func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
+	if len(addresses) == 0 {
+		return nil
+	}
+
 	var ipv4Addresses []string
 	var ipv6Addresses []string
 	for _, addr := range addresses {
@@ -1717,6 +1789,34 @@ func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
 			}
 		}
 	}
+
+	if supportsV4 && supportsV6 {
+		firstAddrFamily := ""
+		if strings.Contains(addresses[0], "/") {
+			if prefix, err := netip.ParsePrefix(addresses[0]); err == nil {
+				if prefix.Addr().Is4() {
+					firstAddrFamily = "v4"
+				} else if prefix.Addr().Is6() {
+					firstAddrFamily = "v6"
+				}
+			}
+		} else {
+			if ipAddr, err := netip.ParseAddr(addresses[0]); err == nil {
+				if ipAddr.Is4() {
+					firstAddrFamily = "v4"
+				} else if ipAddr.Is6() {
+					firstAddrFamily = "v6"
+				}
+			}
+		}
+
+		if firstAddrFamily == "v4" {
+			return ipv4Addresses
+		} else if firstAddrFamily == "v6" {
+			return ipv6Addresses
+		}
+	}
+
 	if len(ipv4Addresses) > 0 {
 		return ipv4Addresses
 	}

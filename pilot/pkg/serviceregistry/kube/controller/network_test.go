@@ -261,6 +261,7 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 	s, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		SystemNamespace: systemNS,
 		NetworksWatcher: networksWatcher,
+		ConfigCluster:   true,
 	})
 
 	tracker := assert.NewTracker[string](t)
@@ -402,6 +403,14 @@ func TestAmbientSync(t *testing.T) {
 							"gateway.istio.io/listener-protocol": "auto-passthrough",
 						},
 					},
+				},
+			},
+		},
+		Status: v1beta1.GatewayStatus{
+			Addresses: []k8sv1.GatewayStatusAddress{
+				{
+					Type:  ptr.Of(v1beta1.IPAddressType),
+					Value: "172.18.1.45",
 				},
 			},
 		},

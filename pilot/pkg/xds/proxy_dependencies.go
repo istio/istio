@@ -27,7 +27,7 @@ var UnAffectedConfigKinds = map[model.NodeType]sets.Set[kind.Kind]{
 	// For Gateways, we do not care about the following configs for example Sidecar.
 	model.Router: sets.New(kind.Sidecar),
 	// For Sidecar, we do not care about the following configs for example Gateway.
-	model.SidecarProxy: sets.New(kind.Gateway, kind.KubernetesGateway),
+	model.SidecarProxy: sets.New(kind.Gateway),
 }
 
 // filterRelevantUpdates filters PushRequest.ConfigsUpdated so that only configs relevant to the proxy are included,

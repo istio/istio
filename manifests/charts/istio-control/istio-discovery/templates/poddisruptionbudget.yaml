@@ -1,5 +1,5 @@
 # Not created if istiod is running remotely
-{{- if not .Values.istiodRemote.enabled }}
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -16,7 +16,14 @@ metadata:
     app.kubernetes.io/name: "istiod"
     {{- include "istio.labels" . | nindent 4 }}
 spec:
-  minAvailable: 1
+  {{- if and .Values.pdb.minAvailable (not (hasKey .Values.pdb "maxUnavailable")) }}
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  {{- else if .Values.pdb.maxUnavailable }}
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  {{- end }}
+  {{- if .Values.pdb.unhealthyPodEvictionPolicy }}
+  unhealthyPodEvictionPolicy: {{ .Values.pdb.unhealthyPodEvictionPolicy }}
+  {{- end }}
   selector:
     matchLabels:
       app: istiod

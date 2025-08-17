@@ -21,11 +21,13 @@
       "ambient_enabled": false,
       "cni_agent_run_dir": "/path/to/kubeconfig",
       "dns": {},
+      "enablement_selectors": [],
       "exclude_namespaces": [
         ""
       ],
       "ipam": {},
       "name": "istio-cni",
+      "native_nftables": false,
       "plugin_log_level": "debug",
       "pod_namespace": "my-namespace",
       "type": "istio-cni"

@@ -16,11 +16,12 @@ package krt
 
 import (
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 )
 
 var log = istiolog.RegisterScope("krt", "")
+
+type Metadata map[string]any
 
 // Collection is the core resource type for krt, representing a collection of objects. Items can be listed, or fetched
 // directly. Most importantly, consumers can subscribe to events when objects change.
@@ -32,7 +33,14 @@ type Collection[T any] interface {
 	// Order of the list is undefined.
 	List() []T
 
+	// EventStream provides event handling capabilities for the collection, allowing clients to subscribe to changes
+	// and receive notifications when objects are added, modified, or removed.
 	EventStream[T]
+
+	// Metadata returns the metadata associated with this collection.
+	// This can be used to store and retrieve arbitrary key-value pairs
+	// that provide additional context or configuration for the collection.
+	Metadata() Metadata
 }
 
 // EventStream provides a link between the underlying collection
@@ -82,7 +90,15 @@ type internalCollection[T any] interface {
 	augment(any) any
 
 	// Create a new index into the collection
-	index(extract func(o T) []string) kclient.RawIndexer
+	index(name string, extract func(o T) []string) indexer[T]
+}
+
+type indexer[T any] interface {
+	Lookup(key string) []T
+}
+
+type uidable interface {
+	uid() collectionUID
 }
 
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,
@@ -93,6 +109,7 @@ type Singleton[T any] interface {
 	// Register adds an event watcher to the object. Any time it changes, the handler will be called
 	Register(f func(o Event[T])) HandlerRegistration
 	AsCollection() Collection[T]
+	Metadata() Metadata
 }
 
 // Event represents a point in time change for a collection.

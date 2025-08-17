@@ -39,6 +39,7 @@ import (
 	"fmt"
 	"html"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -712,12 +713,13 @@ func (g *generator) genVars(root *cobra.Command, selectFn SelectEnvFn) {
 			continue
 		}
 
+		id := slugifyID(html.EscapeString(v.Name))
 		if v.Deprecated {
-			g.emit("<tr class='deprecated'>")
+			g.emit(fmt.Sprintf("<tr id='%s' class='deprecated'>", id))
 		} else {
-			g.emit("<tr>")
+			g.emit(fmt.Sprintf("<tr id='%s'>", id))
 		}
-		g.emit("<td><code>", html.EscapeString(v.Name), "</code></td>")
+		g.emit(fmt.Sprintf("<td><a href='#%s'><code>%s</code></a></td>", id, html.EscapeString(v.Name)))
 
 		switch v.Type {
 		case env.STRING:
@@ -764,4 +766,14 @@ func (g *generator) genMetrics(selectFn SelectMetricFn) {
 
 	g.emit(`</tbody>
 </table>`)
+}
+
+func slugifyID(text string) string {
+	text = strings.ToLower(text)
+
+	// Replace non-alphanumeric characters with dashes
+	re := regexp.MustCompile(`[^a-z0-9]+`)
+	text = re.ReplaceAllString(text, "-")
+
+	return strings.Trim(text, "-")
 }

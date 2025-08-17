@@ -46,7 +46,9 @@ func TestStatusCollections(t *testing.T) {
 		Status: "hello world",
 	}
 	fakeCol := krt.NewStaticCollection[Status](nil, []Status{obj1}, krt.WithStop(stop))
-	registerStatus(c, fakeCol)
+	status.RegisterStatus(c.status, fakeCol, func(i *v1.ConfigMap) string {
+		return ""
+	})
 
 	sq1 := &TestStatusQueue{state: map[status.Resource]any{}}
 	setAndWait(t, c, sq1)

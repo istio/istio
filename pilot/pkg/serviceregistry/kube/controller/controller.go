@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -51,6 +52,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
@@ -79,8 +81,9 @@ const (
 var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")
 
 var (
-	typeTag  = monitoring.CreateLabel("type")
-	eventTag = monitoring.CreateLabel("event")
+	typeTag   = monitoring.CreateLabel("type")
+	eventTag  = monitoring.CreateLabel("event")
+	reasonTag = monitoring.CreateLabel("reason")
 
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
@@ -98,6 +101,14 @@ var (
 		"pilot_k8s_endpoints_pending_pod",
 		"Number of endpoints that do not currently have any corresponding pods.",
 	)
+
+	proxyNoSvcTarget = monitoring.NewSum(
+		"pilot_k8s_proxies_with_no_service_targets",
+		"Number of proxies that do not have any corresponding service targets.",
+	)
+	proxyNoSvcTargetWrongCluster   = proxyNoSvcTarget.With(reasonTag.Value("incorrect_cluster"))
+	proxyNoSvcTargetMissingService = proxyNoSvcTarget.With(reasonTag.Value("no_matching_services"))
+	proxyNoSvcTargetFromMetadata   = proxyNoSvcTarget.With(reasonTag.Value("no_matching_metadata"))
 )
 
 // Options stores the configurable attributes of a Controller.
@@ -245,7 +256,10 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 	c.networkManager = initNetworkManager(c, options)
 
-	c.namespaces = kclient.NewFiltered[*v1.Namespace](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
+	// currently NOT using kubeClient.ObjectFilter() here as we only care about the system namespace
+	// if in the future we want to watch other namespaces here, we will need to alter the discoveryNamespacesFilter
+	// to have an exception for the system namespace
+	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
@@ -283,29 +297,32 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
-	if features.EnableAmbient {
+	if features.EnableAmbient && options.ConfigCluster {
 		c.ambientIndex = ambient.New(ambient.Options{
 			Client:          kubeClient,
 			SystemNamespace: options.SystemNamespace,
 			DomainSuffix:    options.DomainSuffix,
 			ClusterID:       options.ClusterID,
+			IsConfigCluster: options.ConfigCluster,
 			Revision:        options.Revision,
 			XDSUpdater:      options.XDSUpdater,
 			MeshConfig:      options.MeshWatcher,
-			LookupNetwork:   c.Network,
-			LookupNetworkGateways: func() []model.NetworkGateway {
-				return slices.Filter(c.NetworkGateways(), func(g model.NetworkGateway) bool {
-					return g.HBONEPort != 0
-				})
-			},
-			StatusNotifier: options.StatusWritingEnabled,
-			Debugger:       options.KrtDebugger,
+			StatusNotifier:  options.StatusWritingEnabled,
+			Debugger:        options.KrtDebugger,
 			Flags: ambient.FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 			},
+			ClientBuilder: multicluster.DefaultBuildClientsFromConfig,
+			RemoteClientConfigOverrides: []func(*rest.Config){
+				func(r *rest.Config) {
+					r.QPS = options.KubernetesAPIQPS
+					r.Burst = options.KubernetesAPIBurst
+				},
+			},
 		})
 	}
+
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
@@ -840,6 +857,7 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
 	if !c.isControllerForProxy(proxy) {
 		log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.Cluster())
+		proxyNoSvcTargetWrongCluster.Increment()
 		return nil
 	}
 
@@ -866,7 +884,11 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 				return out
 			}
 			// 2. Headless service without selector
-			return c.endpoints.GetProxyServiceTargets(proxy)
+			out := c.endpoints.GetProxyServiceTargets(proxy)
+			if len(out) == 0 {
+				proxyNoSvcTargetMissingService.Increment()
+			}
+			return out
 		}
 
 		// 3. The pod is not present when this is called
@@ -876,7 +898,10 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 		// attempt to read the real pod.
 		out, err := c.GetProxyServiceTargetsFromMetadata(proxy)
 		if err != nil {
-			log.Warnf("GetProxyServiceTargetsFromMetadata for %v failed: %v", proxy.ID, err)
+			log.Errorf("failed to get proxy service targets from metadata: %v", err)
+		}
+		if len(out) == 0 {
+			proxyNoSvcTargetFromMetadata.Increment()
 		}
 		return out
 	}

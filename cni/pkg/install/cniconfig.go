@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/containernetworking/cni/libcni"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/plugin"
@@ -32,12 +33,18 @@ import (
 )
 
 func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
+	selectors := []util.EnablementSelector{}
+	if err := yaml.Unmarshal([]byte(cfg.AmbientEnablementSelector), &selectors); err != nil {
+		return "", fmt.Errorf("failed to parse ambient enablement selector: %v", err)
+	}
 	pluginConfig := plugin.Config{
-		PluginLogLevel:    cfg.PluginLogLevel,
-		CNIAgentRunDir:    cfg.CNIAgentRunDir,
-		AmbientEnabled:    cfg.AmbientEnabled,
-		ExcludeNamespaces: strings.Split(cfg.ExcludeNamespaces, ","),
-		PodNamespace:      cfg.PodNamespace,
+		PluginLogLevel:      cfg.PluginLogLevel,
+		CNIAgentRunDir:      cfg.CNIAgentRunDir,
+		AmbientEnabled:      cfg.AmbientEnabled,
+		EnablementSelectors: selectors,
+		ExcludeNamespaces:   strings.Split(cfg.ExcludeNamespaces, ","),
+		PodNamespace:        cfg.PodNamespace,
+		NativeNftables:      cfg.NativeNftables,
 	}
 
 	pluginConfig.Name = "istio-cni"
@@ -54,16 +61,25 @@ func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string
 }
 
 // writeCNIConfig will
-// 1. read in the existing CNI config file
+// 1. read in the existing CNI config file from the primary config
 // 2. append the `istio`-specific entry
-// 3. write the combined result back out to the same path, overwriting the original.
+// 3. write the combined result back out to the same path (or
+// to the istio owned CNI config path if enabled), overwriting the original
 func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.InstallConfig) (string, error) {
+	// if useIstioOwnedCNIConfig is true, cfg.CNIConfigName should not be empty
+	if len(cfg.CNIConfName) == 0 && useIstioOwnedCNIConfig(cfg) {
+		// primary CNI config name is not specified, undefined behavior
+		return "", fmt.Errorf("primary CNI config name is not specified, cannot write CNI config")
+	}
+	// get the CNI config file path for the primary CNI config
 	cniConfigFilepath, err := getCNIConfigFilepath(ctx, cfg.CNIConfName, cfg.MountedCNINetDir, cfg.ChainedCNIPlugin)
 	if err != nil {
 		return "", err
 	}
 
 	if cfg.ChainedCNIPlugin {
+		// If useIstioOwnedCNIConfig is true then we are copying the configuration from the primary CNI config file
+		// otherwise, we are overwriting the existing primary cni config
 		if !file.Exists(cniConfigFilepath) {
 			return "", fmt.Errorf("CNI config file %s removed during configuration", cniConfigFilepath)
 		}
@@ -76,6 +92,11 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 		if err != nil {
 			return "", err
 		}
+	}
+
+	if useIstioOwnedCNIConfig(cfg) {
+		// If useIstioOwnedCNIConfig is true, write to the istio owned CNI config path
+		cniConfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.IstioOwnedCNIConfigFilename)
 	}
 
 	if err = file.AtomicWrite(cniConfigFilepath, pluginConfig, os.FileMode(0o644)); err != nil {
@@ -94,8 +115,7 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 		cniConfigFilepath += "list"
 	}
 
-	installLog.Infof("created CNI config %s", cniConfigFilepath)
-	installLog.Debugf("CNI config: %s", pluginConfig)
+	installLog.Infof("Wrote CNI config to %s", cniConfigFilepath)
 	return cniConfigFilepath, nil
 }
 
@@ -116,8 +136,9 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 	defer watcher.Close()
 
 	for len(cniConfName) == 0 {
-		cniConfName, err = getDefaultCNINetwork(mountedCNINetDir)
-		if err == nil {
+		cniConfNames, err := getConfigFilenames(mountedCNINetDir)
+		if err == nil || len(cniConfNames) > 0 {
+			cniConfName = cniConfNames[0]
 			break
 		}
 		installLog.Warnf("Istio CNI is configured as chained plugin, but cannot find existing CNI network config: %v", err)
@@ -149,18 +170,21 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 	return cniConfigFilepath, err
 }
 
-// Follows the same semantics as kubelet
+// Follows similar semantics as kubelet
+// Will return all CNI config filenames in the given directory with .conf or .conflist extensions
 // https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
-func getDefaultCNINetwork(confDir string) (string, error) {
+func getConfigFilenames(confDir string) ([]string, error) {
 	files, err := libcni.ConfFiles(confDir, []string{".conf", ".conflist"})
 	switch {
 	case err != nil:
-		return "", err
+		return nil, err
 	case len(files) == 0:
-		return "", fmt.Errorf("no networks found in %s", confDir)
+		return nil, fmt.Errorf("no networks found in %s", confDir)
 	}
 
 	sort.Strings(files)
+
+	var validFiles []string
 	for _, confFile := range files {
 		var confList *libcni.NetworkConfigList
 		if strings.HasSuffix(confFile, ".conflist") {
@@ -170,6 +194,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 				continue
 			}
 		} else {
+			//nolint:staticcheck
 			conf, err := libcni.ConfFromFile(confFile)
 			if err != nil {
 				installLog.Warnf("Error loading CNI config file %s: %v", confFile, err)
@@ -182,6 +207,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 				continue
 			}
 
+			//nolint:staticcheck
 			confList, err = libcni.ConfListFromConf(conf)
 			if err != nil {
 				installLog.Warnf("Error converting CNI config file %s to list: %v", confFile, err)
@@ -192,11 +218,14 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 			installLog.Warnf("CNI config list %s has no networks, skipping", confList.Name)
 			continue
 		}
-
-		return filepath.Base(confFile), nil
+		validFiles = append(validFiles, filepath.Base(confFile))
 	}
 
-	return "", fmt.Errorf("no valid networks found in %s", confDir)
+	if len(validFiles) == 0 {
+		return nil, fmt.Errorf("no valid networks found in %s", confDir)
+	}
+
+	return validFiles, nil
 }
 
 // insertCNIConfig will append newCNIConfig to existingCNIConfig

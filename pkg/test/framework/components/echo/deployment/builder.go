@@ -311,7 +311,7 @@ func (b *builder) deployServices() (err error) {
 		} else {
 			cfg.IPFamilyPolicy = string(corev1.IPFamilyPolicyRequireDualStack)
 		}
-		svc, err := kube.GenerateService(cfg)
+		svc, err := kube.GenerateService(cfg, b.ctx.Settings().OpenShift)
 		if err != nil {
 			return err
 		}

@@ -520,13 +520,20 @@ func TestValidateTlsOptions(t *testing.T) {
 		{
 			"simple sds with client bundle",
 			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+			},
+			"", "",
+		},
+		{
+			"simple sds with client bundle but with server cert",
+			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
-				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"", "",
+			"one of credential_name, credential_names", "",
 		},
 		{
 			"simple no server cert",
@@ -543,6 +550,78 @@ func TestValidateTlsOptions(t *testing.T) {
 				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "",
+			},
+			"private key", "",
+		},
+		{
+			"simple more than 2 certs",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_SIMPLE,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+					{
+						ServerCertificate: "Lieutenant Commander Data",
+						PrivateKey:        "Lieutenant Commander Data",
+					},
+				},
+			},
+			"", "SIMPLE TLS can support up to 2 server certificates",
+		},
+		{
+			"simple with both server cert and tls certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+					},
+					{
+						ServerCertificate: "Lieutenant Commander Data",
+						PrivateKey:        "Lieutenant Commander Data",
+					},
+				},
+			},
+			"one of credential_name, credential_names", "",
+		},
+		{
+			"simple 2 certs with missing certificate",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_SIMPLE,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						PrivateKey: "Commander William T. Riker",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+				},
+			},
+			"server certificate", "",
+		},
+		{
+			"simple 2 certs with missing private key",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_SIMPLE,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+				},
 			},
 			"private key", "",
 		},
@@ -579,13 +658,37 @@ func TestValidateTlsOptions(t *testing.T) {
 		{
 			"mutual sds",
 			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Commander William T. Riker",
+				CredentialName: "sds-name",
+			},
+			"", "",
+		},
+		{
+			"mutual sds with credential name and server cert",
+			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"", "",
+			"one of credential_name, credential_names", "",
+		},
+		{
+			"mutual sds with credential name and tls certs",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Commander William T. Riker",
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+					},
+				},
+				CredentialName: "sds-name",
+			},
+			"one of credential_name, credential_names", "",
 		},
 		{
 			"mutual no server cert",
@@ -596,6 +699,45 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "Commander William T. Riker",
 			},
 			"server certificate", "",
+		},
+		{
+			"credential names and certificates",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "/etc/istio/certs/server/cert",
+				PrivateKey:        "/etc/istio/certs/server/key",
+				CredentialNames:   []string{"server-certs"},
+			},
+			"one of credential_name, credential_names", "",
+		},
+		{
+			"credential names and tls certificates",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/etc/istio/certs/server/cert",
+						PrivateKey:        "/etc/istio/certs/server/key",
+						CaCertificates:    "/etc/istio/certs/server/cacert2",
+					},
+				},
+				CredentialNames: []string{"server-certs"},
+			},
+			"one of credential_name, credential_names", "",
+		},
+		{
+			"only tls certificates",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/etc/istio/certs/server/cert",
+						PrivateKey:        "/etc/istio/certs/server/key",
+					},
+				},
+				CaCertificates: "/etc/istio/certs/server/cacert2",
+			},
+			"", "",
 		},
 		{
 			"mutual sds no server cert",
@@ -647,6 +789,99 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    "",
+			},
+			"client CA bundle", "",
+		},
+		{
+			"mutual more than 2 certs",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Commander William T. Riker",
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+					{
+						ServerCertificate: "Lieutenant Commander Data",
+						PrivateKey:        "Lieutenant Commander Data",
+					},
+				},
+			},
+			"", "MUTUAL TLS can support up to 2 server certificates",
+		},
+		{
+			"mutual with both server cert and tls certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+					},
+					{
+						ServerCertificate: "Lieutenant Commander Data",
+						PrivateKey:        "Lieutenant Commander Data",
+					},
+				},
+			},
+			"one of credential_name, credential_names", "",
+		},
+		{
+			"mutual 2 certs with missing certificate",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Lieutenant Commander Data",
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						PrivateKey: "Commander William T. Riker",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+				},
+			},
+			"server certificate", "",
+		},
+		{
+			"mutual 2 certs with missing private key",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Lieutenant Commander Data",
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+				},
+			},
+			"private key", "",
+		},
+		{
+			"mutual 2 certs with missing CA certificate",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+				},
 			},
 			"client CA bundle", "",
 		},
@@ -802,6 +1037,34 @@ func TestValidateTlsOptions(t *testing.T) {
 				Mode:           networking.ServerTLSSettings_SIMPLE,
 				CaCrl:          "crl",
 				CredentialName: "credential",
+			},
+			"", "",
+		},
+		{
+			"mutual no server cert",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+			},
+			"MUTUAL TLS requires a server certificate", "",
+		},
+		{
+			"mutual no private key",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "Khan Noonien Singh",
+				PrivateKey:        "",
+				CaCertificates:    "Commander William T. Riker",
+			},
+			"MUTUAL TLS requires a private key", "",
+		},
+		{
+			"with CredentialNames",
+			&networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialNames: []string{"credential1", "credential2"},
 			},
 			"", "",
 		},
@@ -3057,7 +3320,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := validateTrafficPolicy(c.in).Err; (got == nil) != c.valid {
+		if got := validateTrafficPolicy("", c.in).Err; (got == nil) != c.valid {
 			t.Errorf("ValidateTrafficPolicy failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -6204,6 +6467,88 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
+		{"ingress tls credentialNames is not supported in IPv4", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:            networking.ServerTLSSettings_SIMPLE,
+						CredentialNames: []string{"secret-name"},
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls credentialNames is not supported in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:            networking.ServerTLSSettings_SIMPLE,
+						CredentialNames: []string{"secret-name"},
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls tlsCertificates is not supported in IPv4", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_SIMPLE,
+						TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+							{
+								ServerCertificate: "/etc/istio/ingress-certs/tls.crt",
+								PrivateKey:        "/etc/istio/ingress-certs/tls.key",
+							},
+							{
+								ServerCertificate: "/etc/istio/ingress-certs/tls2.crt",
+								PrivateKey:        "/etc/istio/ingress-certs/tls2.key",
+							},
+						},
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls tlsCertificates is not supported in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_SIMPLE,
+						TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+							{
+								ServerCertificate: "/etc/istio/ingress-certs/tls.crt",
+								PrivateKey:        "/etc/istio/ingress-certs/tls.key",
+							},
+							{
+								ServerCertificate: "/etc/istio/ingress-certs/tls2.crt",
+								PrivateKey:        "/etc/istio/ingress-certs/tls2.key",
+							},
+						},
+					},
+				},
+			},
+		}, false, false},
 		// We're using the same validation code as DestinationRule, so we're really trusting the TrafficPolicy
 		// validation code's testing. Here we just want to exercise the edge cases around Sidecar specifically.
 		{"valid inbound connection pool", &networking.Sidecar{
@@ -6372,7 +6717,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "empty issuer",
+			name:       "empty issuer and jwksUri",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
@@ -6382,6 +6727,19 @@ func TestValidateRequestAuthentication(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+		{
+			name:       "empty issuer and set jwksUri",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: true,
 		},
 		{
 			name:       "bad JwksUri - no protocol",

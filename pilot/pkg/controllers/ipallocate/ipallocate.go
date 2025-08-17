@@ -27,6 +27,7 @@ import (
 
 	apiv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingv1 "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/features"
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	cfghost "istio.io/istio/pkg/config/host"
@@ -95,9 +96,6 @@ func newConflictDetectedEvent(id types.NamespacedName, addresses []netip.Addr) c
 
 const (
 	controllerName = "IP Autoallocator"
-	// these are the ranges of the v1 logic, do we need to choose new ranges?
-	IPV4Prefix = "240.240.0.0/16"
-	IPV6Prefix = "2001:2::/48"
 )
 
 func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
@@ -105,7 +103,7 @@ func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 		ObjectFilter: c.ObjectFilter(),
 	})
 	writer := kclient.NewWriteClient[*networkingv1.ServiceEntry](c)
-	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
+	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, "address", func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
 		addresses := autoallocate.GetAddressesFromServiceEntry(serviceentry)
 		for _, addr := range serviceentry.Spec.Addresses {
 			a, err := netip.ParseAddr(addr)
@@ -122,8 +120,8 @@ func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 		index:              index,
 		stopChan:           stop,
 		// MustParsePrefix is OK because these are const. If we allow user configuration we must not use this function.
-		v4allocator: newPrefixUse(netip.MustParsePrefix(IPV4Prefix)),
-		v6allocator: newPrefixUse(netip.MustParsePrefix(IPV6Prefix)),
+		v4allocator: newPrefixUse(netip.MustParsePrefix(features.IPAutoallocateIPv4Prefix)),
+		v6allocator: newPrefixUse(netip.MustParsePrefix(features.IPAutoallocateIPv6Prefix)),
 	}
 	allocator.queue = controllers.NewQueue(controllerName, controllers.WithGenericReconciler(allocator.reconcile), controllers.WithMaxAttempts(5))
 	client.AddEventHandler(controllers.ObjectHandler(allocator.queue.AddObject))

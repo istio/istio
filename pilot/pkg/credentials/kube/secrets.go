@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/credentials"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -60,8 +61,10 @@ const (
 )
 
 type CredentialsController struct {
-	secrets kclient.Client[*v1.Secret]
-	sar     authorizationv1client.SubjectAccessReviewInterface
+	secrets         kclient.Client[*v1.Secret]
+	configMaps      kclient.Client[*v1.ConfigMap]
+	sar             authorizationv1client.SubjectAccessReviewInterface
+	isConfigCluster bool
 
 	mu                 sync.RWMutex
 	authorizationCache map[authorizationKey]authorizationResponse
@@ -88,32 +91,57 @@ var SecretsFieldSelector = fields.AndSelectors(
 	fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
 	fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 
-func NewCredentialsController(kc kube.Client, handlers []func(name string, namespace string)) *CredentialsController {
+func NewCredentialsController(kc kube.Client, handlers []func(typ kind.Kind, name string, namespace string), isConfigCluster bool) *CredentialsController {
 	secrets := kclient.NewFiltered[*v1.Secret](kc, kclient.Filter{
 		FieldSelector: SecretsFieldSelector,
 		ObjectFilter:  kc.ObjectFilter(),
 	})
 
+	var configMaps kclient.Client[*v1.ConfigMap]
+	if isConfigCluster {
+		configMaps = kclient.NewFiltered[*v1.ConfigMap](kc, kclient.Filter{
+			ObjectFilter: kc.ObjectFilter(),
+		})
+	}
+
 	for _, h := range handlers {
 		// register handler before informer starts
 		secrets.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-			h(o.GetName(), o.GetNamespace())
+			h(kind.Secret, o.GetName(), o.GetNamespace())
 		}))
+		if configMaps != nil {
+			configMaps.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+				_, err := ExtractRootFromString(o.(*v1.ConfigMap).Data)
+				if err == nil {
+					// Only trigger updates for ConfigMaps that are actually possibly used
+					h(kind.ConfigMap, o.GetName(), o.GetNamespace())
+				}
+			}))
+		}
 	}
 
 	return &CredentialsController{
 		secrets:            secrets,
+		configMaps:         configMaps,
 		sar:                kc.Kube().AuthorizationV1().SubjectAccessReviews(),
+		isConfigCluster:    isConfigCluster,
 		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
 }
 
 func (s *CredentialsController) Close() {
 	s.secrets.ShutdownHandlers()
+	if s.configMaps != nil {
+		s.configMaps.ShutdownHandlers()
+	}
 }
 
 func (s *CredentialsController) HasSynced() bool {
-	return s.secrets.HasSynced()
+	synced := s.secrets.HasSynced()
+	if s.configMaps != nil {
+		synced = synced && s.configMaps.HasSynced()
+	}
+	return synced
 }
 
 const cacheTTL = time.Minute
@@ -206,9 +234,22 @@ func (s *CredentialsController) GetCaCert(name, namespace string) (certInfo *cre
 		if k8sSecret == nil {
 			return nil, fmt.Errorf("secret %v/%v not found", namespace, strippedName)
 		}
-		return ExtractRoot(k8sSecret)
+		return ExtractRoot(k8sSecret.Data)
 	}
-	return ExtractRoot(k8sSecret)
+	return ExtractRoot(k8sSecret.Data)
+}
+
+func (s *CredentialsController) GetConfigMapCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
+	if !s.isConfigCluster {
+		return nil, fmt.Errorf("configmap access not enabled for remote clusters")
+	}
+	strippedName := strings.TrimSuffix(name, securitymodel.SdsCaSuffix)
+	cm := s.configMaps.Get(strippedName, namespace)
+	if cm == nil {
+		return nil, fmt.Errorf("configmap %v/%v not found", namespace, strippedName)
+	}
+
+	return ExtractRootFromString(cm.Data)
 }
 
 func (s *CredentialsController) GetDockerCredential(name, namespace string) ([]byte, error) {
@@ -285,27 +326,36 @@ func truncatedKeysMessage(data map[string][]byte) string {
 	return fmt.Sprintf("%s, and %d more...", strings.Join(keys[:3], ", "), len(keys)-3)
 }
 
+// ExtractRootFromString extracts the root certificate
+func ExtractRootFromString(data map[string]string) (certInfo *credentials.CertInfo, err error) {
+	conv := make(map[string][]byte, len(data))
+	for k, v := range data {
+		conv[k] = []byte(v)
+	}
+	return ExtractRoot(conv)
+}
+
 // ExtractRoot extracts the root certificate
-func ExtractRoot(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error) {
+func ExtractRoot(data map[string][]byte) (certInfo *credentials.CertInfo, err error) {
 	ret := &credentials.CertInfo{}
-	if hasValue(scrt.Data, GenericScrtCaCert) {
-		ret.Cert = scrt.Data[GenericScrtCaCert]
-		ret.CRL = scrt.Data[GenericScrtCRL]
+	if hasValue(data, GenericScrtCaCert) {
+		ret.Cert = data[GenericScrtCaCert]
+		ret.CRL = data[GenericScrtCRL]
 		return ret, nil
 	}
-	if hasValue(scrt.Data, TLSSecretCaCert) {
-		ret.Cert = scrt.Data[TLSSecretCaCert]
-		ret.CRL = scrt.Data[TLSSecretCrl]
+	if hasValue(data, TLSSecretCaCert) {
+		ret.Cert = data[TLSSecretCaCert]
+		ret.CRL = data[TLSSecretCrl]
 		return ret, nil
 	}
 	// No cert found. Try to generate a helpful error message
-	if hasKeys(scrt.Data, GenericScrtCaCert) {
+	if hasKeys(data, GenericScrtCaCert) {
 		return nil, fmt.Errorf("found key %q, but it was empty", GenericScrtCaCert)
 	}
-	if hasKeys(scrt.Data, TLSSecretCaCert) {
+	if hasKeys(data, TLSSecretCaCert) {
 		return nil, fmt.Errorf("found key %q, but it was empty", TLSSecretCaCert)
 	}
-	found := truncatedKeysMessage(scrt.Data)
+	found := truncatedKeysMessage(data)
 	return nil, fmt.Errorf("found secret, but didn't have expected keys %s or %s; found: %s",
 		GenericScrtCaCert, TLSSecretCaCert, found)
 }

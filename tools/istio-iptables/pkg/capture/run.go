@@ -15,13 +15,12 @@ package capture
 
 import (
 	"fmt"
-	"net/netip"
 	"os"
 	"strings"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tools/common/config"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -64,46 +63,6 @@ func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) (*Iptable
 	}, nil
 }
 
-type NetworkRange struct {
-	IsWildcard    bool
-	CIDRs         []netip.Prefix
-	HasLoopBackIP bool
-}
-
-func split(s string) []string {
-	return config.Split(s)
-}
-
-func (cfg *IptablesConfigurator) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
-	if cidrList == "*" {
-		return NetworkRange{IsWildcard: true}, NetworkRange{IsWildcard: true}, nil
-	}
-	ipv6Ranges := NetworkRange{}
-	ipv4Ranges := NetworkRange{}
-	for _, ipRange := range split(cidrList) {
-		ipp, err := netip.ParsePrefix(ipRange)
-		if err != nil {
-			_, err = fmt.Fprintf(os.Stderr, "Ignoring error for bug compatibility with istio-iptables: %s\n", err.Error())
-			if err != nil {
-				return ipv4Ranges, ipv6Ranges, err
-			}
-			continue
-		}
-		if ipp.Addr().Is4() {
-			ipv4Ranges.CIDRs = append(ipv4Ranges.CIDRs, ipp)
-			if ipp.Addr().IsLoopback() {
-				ipv4Ranges.HasLoopBackIP = true
-			}
-		} else {
-			ipv6Ranges.CIDRs = append(ipv6Ranges.CIDRs, ipp)
-			if ipp.Addr().IsLoopback() {
-				ipv6Ranges.HasLoopBackIP = true
-			}
-		}
-	}
-	return ipv4Ranges, ipv6Ranges, nil
-}
-
 func (cfg *IptablesConfigurator) logConfig() {
 	// Dump out our environment for debugging purposes.
 	var b strings.Builder
@@ -125,7 +84,7 @@ func (cfg *IptablesConfigurator) logConfig() {
 
 func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
-	// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
+	// to the local service. If InboundPortsInclude is not set, no inbound ports will be intercepted by Istio iptables.
 	var table string
 	if cfg.cfg.InboundPortsInclude != "" {
 		if cfg.cfg.InboundInterceptionMode == "TPROXY" {
@@ -157,7 +116,7 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 		if cfg.cfg.InboundPortsInclude == "*" {
 			// Apply any user-specified port exclusions.
 			if cfg.cfg.InboundPortsExclude != "" {
-				for _, port := range split(cfg.cfg.InboundPortsExclude) {
+				for _, port := range config.Split(cfg.cfg.InboundPortsExclude) {
 					cfg.ruleBuilder.AppendRule(constants.ISTIOINBOUND, table, "-p", "tcp",
 						"--dport", port, "-j", "RETURN")
 				}
@@ -177,7 +136,7 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			}
 		} else {
 			// User has specified a non-empty list of ports to be redirected to Envoy.
-			for _, port := range split(cfg.cfg.InboundPortsInclude) {
+			for _, port := range config.Split(cfg.cfg.InboundPortsInclude) {
 				if cfg.cfg.InboundInterceptionMode == "TPROXY" {
 					cfg.ruleBuilder.AppendRule(constants.ISTIOINBOUND, "mangle", "-p", "tcp",
 						"--dport", port, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", constants.ISTIODIVERT)
@@ -193,7 +152,7 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 }
 
 func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
-	rangeInclude NetworkRange,
+	rangeInclude config.NetworkRange,
 	appendRule func(chain string, table string, params ...string) *builder.IptablesRuleBuilder,
 	insert func(chain string, table string, position int, params ...string) *builder.IptablesRuleBuilder,
 ) {
@@ -201,14 +160,14 @@ func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 	if rangeInclude.IsWildcard {
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
 		appendRule(constants.ISTIOOUTPUT, "nat", "-j", constants.ISTIOREDIRECT)
-		for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
+		for _, internalInterface := range config.Split(cfg.cfg.RerouteVirtualInterfaces) {
 			insert(
 				"PREROUTING", "nat", 1, "-i", internalInterface, "-j", constants.ISTIOREDIRECT)
 		}
 	} else if len(rangeInclude.CIDRs) > 0 {
 		// User has specified a non-empty list of cidrs to be redirected to Envoy.
 		for _, cidr := range rangeInclude.CIDRs {
-			for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
+			for _, internalInterface := range config.Split(cfg.cfg.RerouteVirtualInterfaces) {
 				insert("PREROUTING", "nat", 1, "-i", internalInterface,
 					"-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 			}
@@ -219,35 +178,25 @@ func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 }
 
 func (cfg *IptablesConfigurator) shortCircuitKubeInternalInterface() {
-	for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
+	for _, internalInterface := range config.Split(cfg.cfg.RerouteVirtualInterfaces) {
 		cfg.ruleBuilder.InsertRule("PREROUTING", "nat", 1, "-i", internalInterface, "-j", "RETURN")
 	}
 }
 
 func (cfg *IptablesConfigurator) shortCircuitExcludeInterfaces() {
-	for _, excludeInterface := range split(cfg.cfg.ExcludeInterfaces) {
+	for _, excludeInterface := range config.Split(cfg.cfg.ExcludeInterfaces) {
 		cfg.ruleBuilder.AppendRule(
 			"PREROUTING", "nat", "-i", excludeInterface, "-j", "RETURN")
 		cfg.ruleBuilder.AppendRule("OUTPUT", "nat", "-o", excludeInterface, "-j", "RETURN")
 	}
 	if cfg.cfg.InboundInterceptionMode == "TPROXY" {
-		for _, excludeInterface := range split(cfg.cfg.ExcludeInterfaces) {
+		for _, excludeInterface := range config.Split(cfg.cfg.ExcludeInterfaces) {
 
 			cfg.ruleBuilder.AppendRule(
 				"PREROUTING", "mangle", "-i", excludeInterface, "-j", "RETURN")
 			cfg.ruleBuilder.AppendRule("OUTPUT", "mangle", "-o", excludeInterface, "-j", "RETURN")
 		}
 	}
-}
-
-func ignoreExists(err error) error {
-	if err == nil {
-		return nil
-	}
-	if strings.Contains(strings.ToLower(err.Error()), "file exists") {
-		return nil
-	}
-	return err
 }
 
 func (cfg *IptablesConfigurator) Run() error {
@@ -266,7 +215,7 @@ func (cfg *IptablesConfigurator) Run() error {
 	// Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
 	// need to split them in different arrays one for ipv4 and one for ipv6
 	// in order to not to fail
-	ipv4RangesExclude, ipv6RangesExclude, err := cfg.separateV4V6(cfg.cfg.OutboundIPRangesExclude)
+	ipv4RangesExclude, ipv6RangesExclude, err := config.SeparateV4V6(cfg.cfg.OutboundIPRangesExclude)
 	if err != nil {
 		return err
 	}
@@ -275,7 +224,7 @@ func (cfg *IptablesConfigurator) Run() error {
 	}
 	// FixMe: Do we need similar check for ipv6RangesExclude as well ??
 
-	ipv4RangesInclude, ipv6RangesInclude, err := cfg.separateV4V6(cfg.cfg.OutboundIPRangesInclude)
+	ipv4RangesInclude, ipv6RangesInclude, err := config.SeparateV4V6(cfg.cfg.OutboundIPRangesInclude)
 	if err != nil {
 		return err
 	}
@@ -328,17 +277,17 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if cfg.cfg.OutboundPortsExclude != "" {
-		for _, port := range split(cfg.cfg.OutboundPortsExclude) {
+		for _, port := range config.Split(cfg.cfg.OutboundPortsExclude) {
 			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-p", "tcp", "--dport", port, "-j", "RETURN")
 			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-p", "udp", "--dport", port, "-j", "RETURN")
 		}
 	}
 
-	// 127.0.0.6/::7 is bind connect from inbound passthrough cluster
+	// 127.0.0.6/::6 is bind connect from inbound passthrough cluster
 	cfg.ruleBuilder.AppendVersionedRule("127.0.0.6/32", "::6/128", constants.ISTIOOUTPUT, "nat",
 		"-o", "lo", "-s", constants.IPVersionSpecific, "-j", "RETURN")
 
-	for _, uid := range split(cfg.cfg.ProxyUID) {
+	for _, uid := range config.Split(cfg.cfg.ProxyUID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		// nolint: lll
@@ -389,7 +338,7 @@ func (cfg *IptablesConfigurator) Run() error {
 			"-m", "owner", "--uid-owner", uid, "-j", "RETURN")
 	}
 
-	for _, gid := range split(cfg.cfg.ProxyGID) {
+	for _, gid := range config.Split(cfg.cfg.ProxyGID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", constants.ISTIOOUTPUT, "nat",
@@ -462,14 +411,14 @@ func (cfg *IptablesConfigurator) Run() error {
 		// If the packet is already marked with 1337, then return. This is to prevent mark envoy --> app traffic again.
 		cfg.ruleBuilder.AppendRule("OUTPUT", "mangle",
 			"-p", "tcp", "-o", "lo", "-m", "mark", "--mark", cfg.cfg.InboundTProxyMark, "-j", "RETURN")
-		for _, uid := range split(cfg.cfg.ProxyUID) {
+		for _, uid := range config.Split(cfg.cfg.ProxyUID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
 			cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", "OUTPUT", "mangle",
 				"!", "-d", constants.IPVersionSpecific, "-p", "tcp", "-o", "lo",
 				"-m", "owner", "--uid-owner", uid, "-j", "MARK", "--set-mark", constants.OutboundMark)
 		}
-		for _, gid := range split(cfg.cfg.ProxyGID) {
+		for _, gid := range config.Split(cfg.cfg.ProxyGID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
 			cfg.ruleBuilder.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", "OUTPUT", "mangle",
@@ -585,14 +534,13 @@ func SetupDNSRedir(iptables *builder.IptablesRuleBuilder, proxyUID, proxyGID str
 func addDNSConntrackZones(
 	iptables *builder.IptablesRuleBuilder, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
 ) {
-	// TODO: add ip6 as well
-	for _, uid := range split(proxyUID) {
+	for _, uid := range config.Split(proxyUID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
 		iptables.AppendRule(constants.ISTIOOUTPUTDNS, "raw", "-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", "CT", "--zone", "1")
 		// Packets with src port 15053 from istio to zone 2. These are Istio response packets to application clients
 		iptables.AppendRule(constants.ISTIOOUTPUTDNS, "raw", "-p", "udp", "--sport", "15053", "-m", "owner", "--uid-owner", uid, "-j", "CT", "--zone", "2")
 	}
-	for _, gid := range split(proxyGID) {
+	for _, gid := range config.Split(proxyGID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
 		iptables.AppendRule(constants.ISTIOOUTPUTDNS, "raw", "-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", "CT", "--zone", "1")
 		// Packets with src port 15053 from istio to zone 2. These are Istio response packets to application clients
@@ -646,7 +594,7 @@ func addDNSConntrackZones(
 
 func (cfg *IptablesConfigurator) handleOutboundPortsInclude() {
 	if cfg.cfg.OutboundPortsInclude != "" {
-		for _, port := range split(cfg.cfg.OutboundPortsInclude) {
+		for _, port := range config.Split(cfg.cfg.OutboundPortsInclude) {
 			cfg.ruleBuilder.AppendRule(
 				constants.ISTIOOUTPUT, "nat", "-p", "tcp", "--dport", port, "-j", constants.ISTIOREDIRECT)
 		}

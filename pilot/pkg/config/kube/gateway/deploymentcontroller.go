@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -54,8 +55,10 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -87,13 +90,15 @@ import (
 //   - SSA using standard API types doesn't work well either: https://github.com/kubernetes-sigs/controller-runtime/issues/1669
 //   - This leaves YAML templates, converted to unstructured types and Applied with the dynamic client.
 type DeploymentController struct {
-	client         kube.Client
-	clusterID      cluster.ID
-	env            *model.Environment
-	queue          controllers.Queue
-	patcher        patcher
-	gateways       kclient.Client[*gateway.Gateway]
-	gatewayClasses kclient.Client[*gateway.GatewayClass]
+	client              kube.Client
+	clusterID           cluster.ID
+	env                 *model.Environment
+	queue               controllers.Queue
+	patcher             patcher
+	gateways            kclient.Client[*gateway.Gateway]
+	gatewayClasses      kclient.Client[*gateway.GatewayClass]
+	listenerSets        kclient.Informer[*gatewayx.XListenerSet]
+	listenerSetByParent kclient.Index[types.NamespacedName, *gatewayx.XListenerSet]
 
 	clients         map[schema.GroupVersionResource]getter
 	injectConfig    func() inject.WebhookConfig
@@ -116,6 +121,8 @@ type patcher func(gvr schema.GroupVersionResource, name string, namespace string
 type classInfo struct {
 	// controller name for this class
 	controller string
+	// controller label for this class
+	controllerLabel string
 	// description for this class
 	description string
 	// The key in the templates to use for this class
@@ -126,6 +133,9 @@ type classInfo struct {
 
 	// disableRouteGeneration, if set, will make it so the controller ignores this class.
 	disableRouteGeneration bool
+
+	// supportsListenerSet declares whether a given class supports ListenerSet
+	supportsListenerSet bool
 
 	// disableNameSuffix, if set, will avoid appending -<class> to names
 	disableNameSuffix bool
@@ -150,17 +160,25 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 	if features.EnableAmbientWaypoints {
 		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
 	}
+
+	// N.B Ambient e/w gateways are just fancy waypoints, but we want a different
+	// GatewayClass for better UX
+	if features.EnableAmbientMultiNetwork {
+		res[constants.EastWestGatewayClassName] = constants.ManagedGatewayEastWestController
+	}
 	return res
 }
 
 func getClassInfos() map[gateway.GatewayController]classInfo {
 	m := map[gateway.GatewayController]classInfo{
 		gateway.GatewayController(features.ManagedGatewayController): {
-			controller:         features.ManagedGatewayController,
-			description:        "The default Istio GatewayClass",
-			templates:          "kube-gateway",
-			defaultServiceType: corev1.ServiceTypeLoadBalancer,
-			addressType:        gateway.HostnameAddressType,
+			controller:          features.ManagedGatewayController,
+			description:         "The default Istio GatewayClass",
+			templates:           "kube-gateway",
+			defaultServiceType:  corev1.ServiceTypeLoadBalancer,
+			addressType:         gateway.HostnameAddressType,
+			controllerLabel:     constants.ManagedGatewayControllerLabel,
+			supportsListenerSet: true,
 		},
 	}
 
@@ -172,18 +190,33 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			description:            "Remote to this cluster. Does not deploy or affect configuration.",
 			disableRouteGeneration: true,
 			addressType:            gateway.HostnameAddressType,
+			supportsListenerSet:    false,
 		}
 	}
 	if features.EnableAmbientWaypoints {
 		m[constants.ManagedGatewayMeshController] = classInfo{
-			controller:         constants.ManagedGatewayMeshController,
-			description:        "The default Istio waypoint GatewayClass",
-			templates:          "waypoint",
-			disableNameSuffix:  true,
-			defaultServiceType: corev1.ServiceTypeClusterIP,
+			controller:          constants.ManagedGatewayMeshController,
+			description:         "The default Istio waypoint GatewayClass",
+			templates:           "waypoint",
+			disableNameSuffix:   true,
+			defaultServiceType:  corev1.ServiceTypeClusterIP,
+			supportsListenerSet: false,
 			// Report both. Consumers of the gateways can choose which they want.
 			// In particular, Istio across different versions consumes different address types, so this retains compat
-			addressType: "",
+			addressType:     "",
+			controllerLabel: constants.ManagedGatewayMeshControllerLabel,
+		}
+	}
+
+	if features.EnableAmbientMultiNetwork {
+		m[constants.ManagedGatewayEastWestController] = classInfo{
+			controller:         constants.ManagedGatewayEastWestController,
+			description:        "The default GatewayClass for Istio East West Gateways",
+			templates:          "waypoint",
+			disableNameSuffix:  true,
+			defaultServiceType: corev1.ServiceTypeLoadBalancer,
+			addressType:        "",
+			controllerLabel:    constants.ManagedGatewayEastWestControllerLabel,
 		}
 	}
 	return m
@@ -225,7 +258,7 @@ func NewDeploymentController(
 		revision:        revision,
 		systemNamespace: systemNamespace,
 	}
-	gatewaysByParamsRef := kclient.CreateIndex(gateways, func(o *gateway.Gateway) []types.NamespacedName {
+	gatewaysByParamsRef := kclient.CreateIndex(gateways, "parametersRef", func(o *gateway.Gateway) []types.NamespacedName {
 		p, err := fetchParameters(o)
 		if p == nil || err != nil {
 			return nil
@@ -235,6 +268,16 @@ func NewDeploymentController(
 	dc.queue = controllers.NewQueue("gateway deployment",
 		controllers.WithReconciler(dc.Reconcile),
 		controllers.WithMaxAttempts(5))
+
+	if features.EnableAlphaGatewayAPI {
+		dc.listenerSets = kclient.NewDelayedInformer[*gatewayx.XListenerSet](client, gvr.XListenerSet, kubetypes.StandardInformer, filter)
+		dc.listenerSetByParent = kclient.CreateIndex(dc.listenerSets, "parent", func(o *gatewayx.XListenerSet) []types.NamespacedName {
+			return []types.NamespacedName{extractListenerSetParent(o)}
+		})
+		dc.listenerSets.AddEventHandler(controllers.TypedObjectHandler(func(o *gatewayx.XListenerSet) {
+			dc.queue.Add(extractListenerSetParent(o))
+		}))
+	}
 
 	// Set up a handler that will add the parent Gateway object onto the queue.
 	// The queue will only handle Gateway objects; if child resources (Service, etc) are updated we re-add
@@ -288,7 +331,35 @@ func NewDeploymentController(
 		}
 	}))
 
-	gateways.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	// we check if the generation has changed on a gateway, or if the annotations or labels have been updated
+	// reconciliation is expensive, so status updates for attachedRoutes can be skipped.
+
+	gateways.AddEventHandler(
+		controllers.FromEventHandler(func(o controllers.Event) {
+			switch o.Event {
+			case controllers.EventAdd:
+				dc.queue.AddObject(o.New)
+			case controllers.EventUpdate:
+				if o.New.GetGeneration() != o.Old.GetGeneration() {
+					dc.queue.AddObject(o.New)
+					break
+				}
+				if !maps.Equal(o.New.GetLabels(), o.Old.GetLabels()) {
+					dc.queue.AddObject(o.New)
+					break
+				}
+				if !maps.Equal(o.New.GetAnnotations(), o.Old.GetAnnotations()) {
+					dc.queue.AddObject(o.New)
+					break
+				}
+				log.Debugf("skip unchanged gateway %s", o.New.GetName())
+			case controllers.EventDelete:
+				dc.queue.AddObject(o.Old)
+			default:
+				log.Errorf("unhandled event for gateway object %v", o)
+			}
+		}))
+
 	gatewayClasses.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		for _, g := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 			if string(g.Spec.GatewayClassName) == o.GetName() {
@@ -307,6 +378,15 @@ func NewDeploymentController(
 	dc.tagWatcher.AddHandler(dc.HandleTagChange)
 
 	return dc
+}
+
+func extractListenerSetParent(o *gatewayx.XListenerSet) types.NamespacedName {
+	n := o.Spec.ParentRef.Name
+	ns := ptr.OrDefault(o.Spec.ParentRef.Namespace, gatewayx.Namespace(o.Namespace))
+	return types.NamespacedName{
+		Namespace: string(ns),
+		Name:      string(n),
+	}
 }
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
@@ -364,6 +444,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 		log.Debugf("skipping unknown controller %q", controller)
 		return nil
 	}
+	log.Infof("reconciling gateway with controller %s", ci.controller)
 
 	// find the tag or revision indicated by the object
 	if !d.tagWatcher.IsMine(gw.ObjectMeta) {
@@ -406,16 +487,39 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	if o, f := gw.Annotations[annotation.NetworkingServiceType.Name]; f {
 		serviceType = corev1.ServiceType(o)
 	}
+	listenersFromListenerSets := []gateway.Listener{}
+	if d.listenerSets != nil {
+		sets := d.listenerSetByParent.Lookup(config.NamespacedName(&gw))
+		for _, set := range sets {
+			if !namespaceAcceptedByAllowListeners(set.Namespace, &gw, func(s string) *corev1.Namespace {
+				return d.namespaces.Get(s, "")
+			}) {
+				continue
+			}
+			for _, listener := range set.Spec.Listeners {
+				s := convertListenerSetToListener(listener)
+				listenersFromListenerSets = append(listenersFromListenerSets, s)
+			}
+		}
+	}
+
+	var nativeSidecarModeEnabled bool
+	if features.EnableNativeSidecars == features.NativeSidecarModeDisabled {
+		nativeSidecarModeEnabled = false
+	} else {
+		nativeSidecarModeEnabled = true
+	}
 
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[annotation.GatewayNameOverride.Name], defaultName),
 		ServiceAccount: model.GetOrDefault(gw.Annotations[annotation.GatewayServiceAccount.Name], defaultName),
-		Ports:          extractServicePorts(gw),
+		Ports:          extractServicePorts(gw, listenersFromListenerSets),
 		ClusterID:      d.clusterID.String(),
 
 		KubeVersion:               kube.GetVersionAsInt(d.client),
 		Revision:                  d.revision,
+		NativeSidecars:            nativeSidecarModeEnabled,
 		ServiceType:               serviceType,
 		ProxyUID:                  proxyUID,
 		ProxyGID:                  proxyGID,
@@ -423,7 +527,10 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		InfrastructureLabels:      gw.GetLabels(),
 		InfrastructureAnnotations: gw.GetAnnotations(),
 		GatewayNameLabel:          label.IoK8sNetworkingGatewayGatewayName.Name,
+		IsEastWestGateway:         features.EnableAmbientMultiNetwork && gi.controller == constants.ManagedGatewayEastWestController,
+		ControllerLabel:           gi.controllerLabel,
 	}
+
 	// Default to the gateway labels/annotations and overwrite if infrastructure labels/annotations are set
 	input.InfrastructureLabels = extractInfrastructureLabels(gw)
 	input.InfrastructureAnnotations = extractInfrastructureAnnotations(gw)
@@ -455,8 +562,8 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 }
 
 func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input TemplateInput) {
-	// TODO: Codify this API (i.e how to know if a specific gateway is an Istio waypoint gateway)
 	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
+	isEastWestGateway := strings.Contains(string(gw.Spec.GatewayClassName), "east-west")
 
 	var hasAmbientLabel bool
 	if _, ok := gw.Labels[label.IoIstioDataplaneMode.Name]; ok {
@@ -467,13 +574,13 @@ func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input Templ
 	}
 	// If no ambient redirection label is set explicitly, explicitly disable.
 	// TODO this sprays ambient annotations/labels all over EVER gateway resource (serviceaccts, services, etc)
-	if features.EnableAmbientWaypoints && !isWaypointGateway && !hasAmbientLabel {
+	if features.EnableAmbientWaypoints && !isWaypointGateway && !isEastWestGateway && !hasAmbientLabel {
 		input.InfrastructureLabels[label.IoIstioDataplaneMode.Name] = constants.DataplaneModeNone
 	}
 
 	// Default the network label for waypoints if not explicitly set in gateway's labels
 	network := d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
-	if _, ok := gw.GetLabels()[label.TopologyNetwork.Name]; !ok && network != "" && isWaypointGateway {
+	if _, ok := gw.GetLabels()[label.TopologyNetwork.Name]; !ok && network != "" && (isWaypointGateway || isEastWestGateway) {
 		input.InfrastructureLabels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
 	}
 }
@@ -503,6 +610,9 @@ func extractInfrastructureMetadata(gwInfra *gatewayv1.GatewayInfrastructure, isL
 	}
 	if gwInfra != nil && !isLabel && gwInfra.Annotations != nil {
 		return translateInfraMeta(gwInfra.Annotations)
+	}
+	if !features.EnableGatewayAPICopyLabelsAnnotations {
+		return make(map[string]string)
 	}
 	if isLabel {
 		if gw.GetLabels() == nil {
@@ -842,24 +952,28 @@ type TemplateInput struct {
 	ClusterID                 string
 	KubeVersion               int
 	Revision                  string
+	NativeSidecars            bool
 	ProxyUID                  int64
 	ProxyGID                  int64
 	CompliancePolicy          string
 	InfrastructureLabels      map[string]string
 	InfrastructureAnnotations map[string]string
 	GatewayNameLabel          string
+	IsEastWestGateway         bool
+	ControllerLabel           string
 }
 
-func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
+func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []corev1.ServicePort {
 	tcp := strings.ToLower(string(protocol.TCP))
-	svcPorts := make([]corev1.ServicePort, 0, len(gw.Spec.Listeners)+1)
+	svcPorts := make([]corev1.ServicePort, 0, len(listenerSets)+len(gw.Spec.Listeners)+1)
 	svcPorts = append(svcPorts, corev1.ServicePort{
 		Name:        "status-port",
 		Port:        int32(15021),
 		AppProtocol: &tcp,
 	})
 	portNums := sets.New[int32]()
-	for i, l := range gw.Spec.Listeners {
+	allListeners := append(slices.Clone(gw.Spec.Listeners), listenerSets...)
+	for i, l := range allListeners {
 		if portNums.Contains(int32(l.Port)) {
 			continue
 		}

@@ -24,7 +24,6 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
@@ -43,16 +42,12 @@ func DefaultPolicy() *route.RetryPolicy {
 }
 
 func defaultPolicy() *route.RetryPolicy {
-	policy := route.RetryPolicy{
+	return &route.RetryPolicy{
 		NumRetries: &wrappers.UInt32Value{Value: 2},
 		RetryOn:    "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
 		// TODO: allow this to be configured via API.
 		HostSelectionRetryMaxAttempts: 5,
 	}
-	if !features.Exclude503FromDefaultRetries {
-		policy.RetriableStatusCodes = []uint32{http.StatusServiceUnavailable}
-	}
-	return &policy
 }
 
 // DefaultConsistentHashPolicy gets a copy of the default retry policy without previous host predicate.

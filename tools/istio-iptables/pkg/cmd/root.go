@@ -22,11 +22,13 @@ import (
 
 	"istio.io/istio/pkg/flag"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tools/common/config"
+	"istio.io/istio/tools/common/tproxy"
 	"istio.io/istio/tools/istio-iptables/pkg/capture"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 	"istio.io/istio/tools/istio-iptables/pkg/validation"
+	nftables "istio.io/istio/tools/istio-nftables/pkg/nft"
 )
 
 const InvalidDropByIptables = "INVALID_DROP"
@@ -103,8 +105,6 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	flag.BindEnv(fs, constants.DryRun, "n", "Do not call any external dependencies like iptables.",
 		&cfg.DryRun)
 
-	flag.BindEnv(fs, constants.TraceLogging, "", "Insert tracing logs for each iptables rules, using the LOG chain.", &cfg.TraceLogging)
-
 	flag.BindEnv(fs, constants.IptablesProbePort, "", "Set listen port for failure detection.", &cfg.IptablesProbePort)
 
 	flag.BindEnv(fs, constants.ProbeTimeout, "", "Failure detection timeout.", &cfg.ProbeTimeout)
@@ -145,6 +145,10 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	// Consider removing it after several releases with no reported issues.
 	flag.BindEnv(fs, constants.ForceApply, "", "Apply iptables changes even if they appear to already be in place.",
 		&cfg.ForceApply)
+
+	// This mode is an alternative for iptables. It uses nftables rules for traffic redirection.
+	flag.BindEnv(fs, constants.NativeNftables, "", "Use native nftables instead of iptables rules.",
+		&cfg.NativeNftables)
 }
 
 func GetCommand(logOpts *log.Options) *cobra.Command {
@@ -166,7 +170,14 @@ func GetCommand(logOpts *log.Options) *cobra.Command {
 			if err := cfg.Validate(); err != nil {
 				handleErrorWithCode(err, 1)
 			}
-			if err := ProgramIptables(cfg); err != nil {
+			runMethod := ProgramIptables
+
+			// If nftables is enabled, use nft rules for traffic redirection.
+			if cfg.NativeNftables {
+				runMethod = nftables.ProgramNftables
+			}
+
+			if err := runMethod(cfg); err != nil {
 				handleErrorWithCode(err, 1)
 			}
 
@@ -215,7 +226,7 @@ func ProgramIptables(cfg *config.Config) error {
 		if err := iptConfigurator.Run(); err != nil {
 			return err
 		}
-		if err := capture.ConfigureRoutes(cfg); err != nil {
+		if err := tproxy.ConfigureRoutes(cfg); err != nil {
 			return fmt.Errorf("failed to configure routes: %v", err)
 		}
 	}

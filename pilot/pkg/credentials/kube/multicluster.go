@@ -19,13 +19,14 @@ import (
 
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/multicluster"
 )
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
 	configCluster  cluster.ID
-	secretHandlers []func(name string, namespace string)
+	secretHandlers []func(k kind.Kind, name string, namespace string)
 	component      *multicluster.Component[*CredentialsController]
 }
 
@@ -37,7 +38,9 @@ func NewMulticluster(configCluster cluster.ID, controller multicluster.Component
 	}
 
 	m.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *CredentialsController {
-		return NewCredentialsController(cluster.Client, m.secretHandlers)
+		// Only enable ConfigMaps for the config cluster, not for remote clusters
+		isConfigCluster := cluster.ID == m.configCluster
+		return NewCredentialsController(cluster.Client, m.secretHandlers, isConfigCluster)
 	})
 	return m
 }
@@ -62,7 +65,7 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 	return agg, nil
 }
 
-func (m *Multicluster) AddSecretHandler(h func(name string, namespace string)) {
+func (m *Multicluster) AddSecretHandler(h func(k kind.Kind, name string, namespace string)) {
 	// Intentionally no lock. The controller today requires that handlers are registered before execution and not in parallel.
 	m.secretHandlers = append(m.secretHandlers, h)
 }
@@ -103,6 +106,22 @@ func (a *AggregateController) GetCaCert(name, namespace string) (certInfo *crede
 			}
 		} else {
 			return k, nil
+		}
+	}
+	return nil, firstError
+}
+
+func (a *AggregateController) GetConfigMapCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
+	// Search through all clusters, find first non-empty result
+	var firstError error
+	for _, c := range a.controllers {
+		certInfo, err := c.GetConfigMapCaCert(name, namespace)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+		} else {
+			return certInfo, nil
 		}
 	}
 	return nil, firstError

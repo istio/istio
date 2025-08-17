@@ -22,7 +22,7 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"initContainers":["istio-validation"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-validation","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: '*'
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -42,6 +42,47 @@ spec:
         - containerPort: 80
           name: http
         resources: {}
+      initContainers:
+      - args:
+        - istio-iptables
+        - -p
+        - "15001"
+        - -z
+        - "15006"
+        - -u
+        - "1000629999"
+        - -m
+        - REDIRECT
+        - -i
+        - '*'
+        - -x
+        - ""
+        - -b
+        - '*'
+        - -d
+        - 15090,15021,15020
+        - --log_output_level=default:info
+        - --run-validation
+        - --skip-rule-apply
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: istio-validation
+        resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1000629999
+          runAsNonRoot: true
+          runAsUser: 1000629999
       - args:
         - proxy
         - sidecar
@@ -117,6 +158,15 @@ spec:
         - name: TRUST_DOMAIN
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - pilot-agent
+              - request
+              - --debug-port=15020
+              - POST
+              - drain
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -136,6 +186,7 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        restartPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -162,6 +213,8 @@ spec:
           name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/run/secrets/istio/crl
+          name: istio-ca-crl
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
@@ -170,47 +223,6 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-      initContainers:
-      - args:
-        - istio-iptables
-        - -p
-        - "15001"
-        - -z
-        - "15006"
-        - -u
-        - "1000629999"
-        - -m
-        - REDIRECT
-        - -i
-        - '*'
-        - -x
-        - ""
-        - -b
-        - '*'
-        - -d
-        - 15090,15021,15020
-        - --log_output_level=default:info
-        - --run-validation
-        - --skip-rule-apply
-        image: gcr.io/istio-testing/proxyv2:latest
-        name: istio-validation
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsGroup: 1000629999
-          runAsNonRoot: true
-          runAsUser: 1000629999
       volumes:
       - name: workload-socket
       - name: credential-socket
@@ -239,5 +251,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
+      - configMap:
+          name: istio-ca-crl
+          optional: true
+        name: istio-ca-crl
 status: {}
 ---

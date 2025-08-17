@@ -52,8 +52,6 @@ const (
 	summaryOutput          = "short"
 	prometheusOutput       = "prom"
 	prometheusMergedOutput = "prom-merged"
-
-	defaultProxyAdminPort = 15000
 )
 
 var (
@@ -108,9 +106,9 @@ const (
 	// edsPath get eds info
 	edsPath = "?include_eds=true"
 	// secretPath get secrets info
-	secretPath = "?mask=dynamic_active_secrets"
+	secretPath = "?mask=dynamic_active_secrets,dynamic_warming_secrets"
 	// clusterPath get cluster info
-	clusterPath = "?mask=dynamic_active_clusters,static_clusters"
+	clusterPath = "?mask=dynamic_active_clusters,dynamic_warming_clusters,static_clusters"
 	// listenerPath get listener info
 	listenerPath = "?mask=dynamic_listeners,static_listeners"
 	// routePath get route info
@@ -706,7 +704,7 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short|prom|prom-merged")
 	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
 	statsConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	statsConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	statsConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", istioctlutil.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	return statsConfigCmd
 }
@@ -1359,7 +1357,7 @@ func ProxyConfig(ctx cli.Context) *cobra.Command {
 	}
 
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", istioctlutil.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	configCmd.AddCommand(clusterConfigCmd(ctx))
 	configCmd.AddCommand(allConfigCmd(ctx))

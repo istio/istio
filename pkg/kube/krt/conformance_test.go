@@ -17,16 +17,20 @@ package krt_test
 import (
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
+	krtfiles "istio.io/istio/pkg/kube/krt/files"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -72,6 +76,8 @@ func (r *joinRig) CreateObject(key string) {
 	r.inner[idx].UpdateObject(Named{Namespace: ns, Name: name})
 }
 
+// TODO: Add conformance for nested join collection
+
 type manyRig struct {
 	krt.Collection[Named]
 	names      krt.StaticCollection[string]
@@ -86,13 +92,23 @@ func (r *manyRig) CreateObject(key string) {
 }
 
 type fileRig struct {
-	krt.FileCollection[Named]
+	krtfiles.FileCollection[Named]
 	rootPath string
+	t        test.Failer
 }
 
+var metadata = krt.Metadata{"foo": "bar"}
+
 // CreateObject is a stub
-// TODO(https://github.com/istio/istio/issues/54731) implement this
 func (r *fileRig) CreateObject(key string) {
+	fp := filepath.Join(r.rootPath, strings.ReplaceAll(key, "/", "_")+".yaml")
+	ns, name, _ := strings.Cut(key, "/")
+	contents, _ := yaml.Marshal(Named{
+		Namespace: ns,
+		Name:      name,
+	})
+	err := os.WriteFile(fp, contents, 0o600)
+	assert.NoError(r.t, err)
 }
 
 // TestConformance aims to provide a 'conformance' suite for Collection implementations to ensure each collection behaves
@@ -104,7 +120,7 @@ func TestConformance(t *testing.T) {
 	t.Run("informer", func(t *testing.T) {
 		fc := kube.NewFakeClient()
 		kc := kclient.New[*corev1.ConfigMap](fc)
-		col := krt.WrapClient(kc, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		col := krt.WrapClient(kc, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithMetadata(metadata))
 		rig := &informerRig{
 			Collection: col,
 			client:     kc,
@@ -113,7 +129,7 @@ func TestConformance(t *testing.T) {
 		runConformance[*corev1.ConfigMap](t, rig)
 	})
 	t.Run("static list", func(t *testing.T) {
-		col := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		col := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithMetadata(metadata))
 		rig := &staticRig{
 			StaticCollection: col,
 		}
@@ -122,7 +138,12 @@ func TestConformance(t *testing.T) {
 	t.Run("join", func(t *testing.T) {
 		col1 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
 		col2 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
-		j := krt.JoinCollection[Named]([]krt.Collection[Named]{col1, col2}, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		j := krt.JoinCollection(
+			[]krt.Collection[Named]{col1, col2},
+			krt.WithStop(test.NewStop(t)),
+			krt.WithDebugging(krt.GlobalDebugHandler),
+			krt.WithMetadata(metadata),
+		)
 		rig := &joinRig{
 			Collection: j,
 			inner:      [2]krt.StaticCollection[Named]{col1, col2},
@@ -137,7 +158,7 @@ func TestConformance(t *testing.T) {
 			return slices.Map(names, func(e string) Named {
 				return Named{Namespace: ns, Name: e}
 			})
-		}, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		}, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithMetadata(metadata))
 		rig := &manyRig{
 			Collection: col,
 			namespaces: namespaces,
@@ -146,11 +167,24 @@ func TestConformance(t *testing.T) {
 		runConformance[Named](t, rig)
 	})
 	t.Run("files", func(t *testing.T) {
-		t.Skip("https://github.com/istio/istio/issues/54731")
-		col := krt.NewFileCollection[Named](krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		stop := test.NewStop(t)
+		root := t.TempDir()
+		fw, err := krtfiles.NewFolderWatch[[]byte](root, func(bytes []byte) ([][]byte, error) {
+			return [][]byte{bytes}, nil
+		}, stop)
+		assert.NoError(t, err)
+		col := krtfiles.NewFileCollection[[]byte, Named](fw, func(f []byte) *Named {
+			var res Named
+			err := yaml.Unmarshal(f, &res)
+			if err != nil {
+				return nil
+			}
+			return &res
+		}, krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithMetadata(metadata))
 		rig := &fileRig{
 			FileCollection: col,
-			rootPath:       t.TempDir(),
+			rootPath:       root,
+			t:              t,
 		}
 		runConformance[Named](t, rig)
 	})
@@ -160,6 +194,8 @@ func runConformance[T any](t *testing.T, collection Rig[T]) {
 	stop := test.NewStop(t)
 	// Collection should start empty...
 	assert.Equal(t, len(collection.List()), 0)
+	// Collection should have its metadata
+	assert.Equal(t, collection.Metadata(), metadata)
 
 	// Register a handler at the start of the collection
 	earlyHandler := assert.NewTracker[string](t)

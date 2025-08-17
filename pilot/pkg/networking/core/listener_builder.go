@@ -24,8 +24,10 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -88,6 +90,13 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 	return builder
 }
 
+func maxConnectionsToAcceptPerSocketEvent() *wrappers.UInt32Value {
+	if features.MaxConnectionsToAcceptPerSocketEvent > 0 {
+		return &wrappers.UInt32Value{Value: uint32(features.MaxConnectionsToAcceptPerSocketEvent)}
+	}
+	return nil
+}
+
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
 	lb.inboundListeners = lb.buildInboundListeners()
 	if lb.node.EnableHBONEListen() {
@@ -127,12 +136,13 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
-		Name:             model.VirtualOutboundListenerName,
-		Address:          util.BuildAddress(actualWildcards[0], uint32(lb.push.Mesh.ProxyListenPort)),
-		Transparent:      isTransparentProxy,
-		UseOriginalDst:   proto.BoolTrue,
-		FilterChains:     filterChains,
-		TrafficDirection: core.TrafficDirection_OUTBOUND,
+		Name:                                 model.VirtualOutboundListenerName,
+		Address:                              util.BuildAddress(actualWildcards[0], uint32(lb.push.Mesh.ProxyListenPort)),
+		Transparent:                          isTransparentProxy,
+		UseOriginalDst:                       proto.BoolTrue,
+		FilterChains:                         filterChains,
+		TrafficDirection:                     core.TrafficDirection_OUTBOUND,
+		MaxConnectionsToAcceptPerSocketEvent: maxConnectionsToAcceptPerSocketEvent(),
 	}
 	// add extra addresses for the listener
 	if features.EnableDualStack && len(actualWildcards) > 1 {
@@ -163,10 +173,6 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 
 func (lb *ListenerBuilder) patchListeners() {
-	if lb.node.IsWaypointProxy() {
-		// EnvoyFilter is not implemented for waypoints
-		return
-	}
 	lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
 	if lb.envoyFilterWrapper == nil {
 		return
@@ -315,14 +321,17 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		connectionManager.CodecType = hcm.HttpConnectionManager_AUTO
 	}
 
+	ph := lb.node.Metadata.ProxyConfigOrDefault(lb.push.Mesh.GetDefaultConfig()).GetProxyHeaders()
+
 	// Preserve HTTP/1.x traffic header case
-	if lb.node.Metadata.ProxyConfigOrDefault(lb.push.Mesh.GetDefaultConfig()).GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue() {
+	if ph.GetPreserveHttp1HeaderCase().GetValue() {
 		// This value only affects HTTP/1.x traffic
 		connectionManager.HttpProtocolOptions = preserveCaseFormatterConfig
 	}
 
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.StatPrefix = httpOpts.statPrefix
+	connectionManager.AppendXForwardedPort = ph.GetXForwardedPort().GetEnabled().GetValue()
 
 	// Setup normalization
 	connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_KEEP_UNCHANGED
@@ -399,6 +408,12 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_STATS)
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+		// Add ExtProc per listener only if the Gateway has any inferencePool attached to it
+		if kubeGwName, ok := lb.node.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]; ok {
+			if lb.push.GatewayAPIController.HasInferencePool(types.NamespacedName{Name: kubeGwName, Namespace: lb.node.GetNamespace()}) {
+				filters = append(filters, xdsfilters.InferencePoolExtProc)
+			}
+		}
 	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {

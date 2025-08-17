@@ -299,8 +299,16 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
       {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
+      {{- if eq ((.Values.pilot).env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+              path: root-cert.pem
+      {{- else }}
         configMap:
-          name: istio-ca-root-cert
+          name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
+      {{- end }}
       {{- end }}
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:

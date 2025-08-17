@@ -920,7 +920,7 @@ var testGrid = []testCase{
 	{
 		name:       "Analyze invalid telemetry",
 		inputFiles: []string{"testdata/telemetry-invalid-provider.yaml"},
-		analyzer:   &telemetry.ProdiverAnalyzer{},
+		analyzer:   &telemetry.ProviderAnalyzer{},
 		expected: []message{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
@@ -928,7 +928,7 @@ var testGrid = []testCase{
 	{
 		name:       "Analyze invalid telemetry",
 		inputFiles: []string{"testdata/telemetry-disable-provider.yaml"},
-		analyzer:   &telemetry.ProdiverAnalyzer{},
+		analyzer:   &telemetry.ProviderAnalyzer{},
 		expected:   []message{},
 	},
 	{
@@ -1002,6 +1002,29 @@ var testGrid = []testCase{
 			{msg.NegativeConditionStatus, "GRPCRoute default/negative-condition-grpcroute"},
 			{msg.NegativeConditionStatus, "AuthorizationPolicy default/negative-condition-authz-partially-invalid"},
 		},
+	},
+	{
+		name:       "DestinationRuleWithFakeHost",
+		inputFiles: []string{"testdata/destinationrule-with-fake-host.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			{msg.UnknownDestinationRuleHost, "DestinationRule default/fake-host"},
+		},
+	},
+	{
+		name:       "DestinationRuleSubsetsNotSelectPods",
+		inputFiles: []string{"testdata/destinationrule-subsets-not-select-pods.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			{msg.DestinationRuleSubsetNotSelectPods, "DestinationRule default/subsets-not-select-pods"},
+		},
+	},
+	{
+		name:           "ServiceEntry Addresses Allocated",
+		inputFiles:     []string{"testdata/serviceentry-address-allocated.yaml"},
+		meshConfigFile: "testdata/serviceentry-address-allocated-mesh-cfg.yaml",
+		analyzer:       &serviceentry.ProtocolAddressesAnalyzer{},
+		expected:       []message{},
 	},
 }
 

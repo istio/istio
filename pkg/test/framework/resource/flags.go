@@ -223,6 +223,19 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.OpenShift, "istio.test.openshift", settingsFromCommandLine.OpenShift,
 		"Indicate the tests run in an OpenShift platform rather than in plain Kubernetes.")
 
+	flag.BoolVar(&settingsFromCommandLine.AmbientMultiNetwork, "istio.test.ambient.multinetwork", settingsFromCommandLine.AmbientMultiNetwork,
+		"Indicate the use of ambient multicluster.")
+
+	flag.BoolVar(&settingsFromCommandLine.IstioOwnedCNIConfig, "istio.test.ambient.istioOwnedCNIConfig", settingsFromCommandLine.IstioOwnedCNIConfig,
+		"Indicate the use of an Istio owned CNI configuration.")
+
+	flag.BoolVar(
+		&settingsFromCommandLine.GatewayConformanceAllowCRDsMismatch,
+		"istio.test.GatewayConformanceAllowCRDsMismatch",
+		settingsFromCommandLine.GatewayConformanceAllowCRDsMismatch,
+		"If set, gateway conformance tests will run even if the environment has pre-installed Gateway API CRDs that differ from the current Gateway API version.",
+	)
+
 	initGatewayConformanceTimeouts()
 }
 

@@ -85,8 +85,22 @@ message CNIConfig {
   // K8s affinity to set on the istio-cni Pods. Can be used to exclude istio-cni from being scheduled on specified nodes.
   k8s.io.api.core.v1.Affinity affinity = 20;
 
+  // Environment variables passed to the CNI container.
+  //
+  // Examples:
+  // env:
+  //   ENV_VAR_1: value1
+  //   ENV_VAR_2: value2
+  google.protobuf.Struct env = 32;
+
+  // Additional labels to apply to the istio-cni DaemonSet.
+  google.protobuf.Struct daemonSetLabels = 33;
+
   // Additional annotations to apply to the istio-cni Pods.
   google.protobuf.Struct podAnnotations = 10 [deprecated = true];
+
+  // Additional labels to apply to the istio-cni Pods.
+  google.protobuf.Struct podLabels = 34;
 
   // PodSecurityPolicy cluster role. No longer used anywhere.
   string psp_cluster_role = 11;
@@ -133,6 +147,11 @@ message CNIConfig {
   // May be specified as a number of pods or as a percent of the total number
   // of pods at the start of the update.
   IntOrString rollingMaxUnavailable = 23;
+
+  // Specifies if an Istio owned CNI config should be created.
+  google.protobuf.BoolValue istioOwnedCNIConfig = 35;
+  
+  string istioOwnedCNIConfigFileName = 36;
 }
 
 message CNIUsageConfig {
@@ -348,9 +367,6 @@ message EgressGatewayConfig {
   //
   // See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   string type = 18;
-
-  // Enables cross-cluster access using SNI matching.
-  ZeroVPNConfig zvpn = 19;
 
   repeated k8s.io.api.core.v1.Toleration tolerations = 20 [deprecated = true];
 
@@ -620,7 +636,16 @@ message GlobalConfig {
 
   // Specifies how waypoints are configured within Istio.
   WaypointConfig waypoint = 72;
-  // The next available key is 73
+
+  // Select a custom name for istiod's CA Root Cert ConfigMap.
+  string trustBundleName = 73;
+
+  // Specifies whether native nftables rules should be used instead of iptables rules for traffic redirection.
+  google.protobuf.BoolValue nativeNftables = 74;
+
+  // Settings related to Kubernetes NetworkPolicy.
+  NetworkPolicyConfig networkPolicy = 75;
+  // The next available key is 76
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -718,9 +743,6 @@ message IngressGatewayConfig {
   // See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   string type = 29;
 
-  // Enables cross-cluster access using SNI matching.
-  IngressGatewayZvpnConfig zvpn = 30;
-
   // K8s rolling update strategy
   IntOrString rollingMaxSurge = 31 [deprecated = true];
 
@@ -758,14 +780,6 @@ message IngressGatewayConfig {
   // More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
   string ipFamilyPolicy = 49;
   // Next available 50.
-}
-
-// IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
-message IngressGatewayZvpnConfig {
-  // Controls whether ZeroVPN is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  string suffix = 2;
 }
 
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
@@ -964,10 +978,13 @@ message PilotConfig {
 
   // Configuration for the istio-discovery chart when istiod is running in a remote cluster (e.g. "remote control plane").
   IstiodRemoteConfig istiodRemote = 61;
+
+  // Configuration for the istio-discovery chart
+  repeated google.protobuf.Struct envVarFrom = 62;
 }
 
 message PilotTaintControllerConfig {
-  // Enable the untaint controller for new nodes. This aims to solve a race for CNI installation on 
+  // Enable the untaint controller for new nodes. This aims to solve a race for CNI installation on
   // new nodes. For this to work, the newly added nodes need to have the istio CNI taint as they are
   // added to the cluster. This is usually done by configuring the cluster infra provider.
   bool enabled = 1;
@@ -1352,7 +1369,9 @@ message IstiodRemoteConfig {
   string injectionCABundle = 3;
   // Indicates if this cluster/install should consume a "remote" istiod instance,
   google.protobuf.BoolValue enabled = 5;
-
+  // If `true`, indicates that this cluster/install should consume a "local istiod" installation,
+  // local istiod inject sidecars
+  google.protobuf.BoolValue enabledLocalInjectorIstiod = 6;
 }
 
 message Values {
@@ -1420,14 +1439,6 @@ message Values {
   google.protobuf.Value gatewayClasses = 45;
 }
 
-// ZeroVPNConfig enables cross-cluster access using SNI matching.
-message ZeroVPNConfig {
-  // Controls whether ZeroVPN is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  string suffix = 2;
-}
-
 // ExperimentalConfig is a placeholder for experimental installation features.
 message ExperimentalConfig {
   // Controls whether the experimental feature is enabled.
@@ -1477,4 +1488,10 @@ message WaypointConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
   repeated k8s.io.api.core.v1.Toleration toleration = 5;
+}
+
+// Configuration for NetworkPolicy
+message NetworkPolicyConfig {
+  // Controls whether default NetworkPolicy resources will be created.
+  google.protobuf.BoolValue enabled = 1;
 }

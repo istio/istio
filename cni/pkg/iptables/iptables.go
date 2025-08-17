@@ -25,9 +25,9 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	iptablesconfig "istio.io/istio/tools/common/config"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablescapture "istio.io/istio/tools/istio-iptables/pkg/capture"
-	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -92,11 +92,10 @@ type IptablesConfigurator struct {
 
 func ipbuildConfig(c *IptablesConfig) *iptablesconfig.Config {
 	return &iptablesconfig.Config{
-		TraceLogging: c.TraceLogging,
-		EnableIPv6:   c.EnableIPv6,
-		RedirectDNS:  c.RedirectDNS,
-		Reconcile:    c.Reconcile,
-		ForceApply:   c.ForceApply,
+		EnableIPv6:  c.EnableIPv6,
+		RedirectDNS: c.RedirectDNS,
+		Reconcile:   c.Reconcile,
+		ForceApply:  c.ForceApply,
 	}
 }
 
@@ -652,9 +651,9 @@ func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder 
 	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
 
 	// For easier cleanup, insert a jump into an owned chain
-	// -A POSTROUTING -p tcp -j ISTIO_POSTRT
-	iptablesBuilder.AppendRule(
-		"POSTROUTING", "nat",
+	// -I POSTROUTING 1 -p tcp -j ISTIO_POSTRT
+	iptablesBuilder.InsertRule(
+		"POSTROUTING", "nat", 1,
 		"-j", ChainHostPostrouting,
 	)
 

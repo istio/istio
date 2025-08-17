@@ -40,6 +40,7 @@ type informer[I controllers.ComparableObject] struct {
 	augmentation  func(a any) any
 	synced        chan struct{}
 	baseSyncer    Syncer
+	metadata      Metadata
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -104,6 +105,10 @@ func (i *informer[I]) GetKey(k string) *I {
 	return nil
 }
 
+func (i *informer[I]) Metadata() Metadata {
+	return i.metadata
+}
+
 func (i *informer[I]) Register(f func(o Event[I])) HandlerRegistration {
 	return registerHandlerAsBatched[I](i, f)
 }
@@ -140,9 +145,23 @@ func (i informerHandlerRegistration) UnregisterHandler() {
 }
 
 // nolint: unused // (not true)
-func (i *informer[I]) index(extract func(o I) []string) kclient.RawIndexer {
-	idx := i.inf.Index(extract)
-	return idx
+type informerIndex[I any] struct {
+	idx kclient.RawIndexer
+}
+
+// nolint: unused // (not true)
+func (ii *informerIndex[I]) Lookup(key string) []I {
+	return slices.Map(ii.idx.Lookup(key), func(i any) I {
+		return i.(I)
+	})
+}
+
+// nolint: unused // (not true)
+func (i *informer[I]) index(name string, extract func(o I) []string) indexer[I] {
+	idx := i.inf.Index(name, extract)
+	return &informerIndex[I]{
+		idx: idx,
+	}
 }
 
 func informerEventHandler[I controllers.ComparableObject](handler func(o Event[I], initialSync bool)) cache.ResourceEventHandler {
@@ -191,6 +210,10 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 	h.baseSyncer = channelSyncer{
 		name:   h.collectionName,
 		synced: h.synced,
+	}
+
+	if o.metadata != nil {
+		h.metadata = o.metadata
 	}
 
 	go func() {

@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -162,6 +163,18 @@ var (
 		"If enabled, pilot will start a controller that assigns IP addresses to ServiceEntry which do not have a user-supplied IP. "+
 			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.").Get()
 
+	IPAutoallocateIPv4Prefix = env.Register(
+		"PILOT_IP_AUTOALLOCATE_IPV4_PREFIX",
+		"240.240.0.0/16",
+		"The CIDR range/prefix to use for auto-allocated IPv4 addresses. "+
+			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
+
+	IPAutoallocateIPv6Prefix = env.Register(
+		"PILOT_IP_AUTOALLOCATE_IPV6_PREFIX",
+		"2001:2::/48",
+		"The CIDR range/prefix to use for auto-allocated IPv6 addresses. "+
+			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
+
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
 	EnableUnsafeAssertions = env.Register(
@@ -252,20 +265,72 @@ var (
 	ManagedGatewayController = env.Register("PILOT_GATEWAY_API_CONTROLLER_NAME", "istio.io/gateway-controller",
 		"Gateway API controller name. istiod will only reconcile Gateway API resources referencing a GatewayClass with this controller name").Get()
 
-	EnableInboundRetryPolicy = env.Register("ENABLE_INBOUND_RETRY_POLICY", true,
-		"If true, enables retry policy for inbound routes which automatically retries requests that were reset before it reaches the service.").Get()
-
-	Exclude503FromDefaultRetries = env.Register("EXCLUDE_UNSAFE_503_FROM_DEFAULT_RETRY", true,
-		"If true, excludes unsafe retry on 503 from default retry policy.").Get()
-
 	PreferDestinationRulesTLSForExternalServices = env.Register("PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES", true,
 		"If true, external services will prefer the TLS settings from DestinationRules over the metadata TLS settings.").Get()
 
 	EnableGatewayAPIManualDeployment = env.Register("ENABLE_GATEWAY_API_MANUAL_DEPLOYMENT", true,
 		"If true, allows users to bind Gateway API resources to existing gateway deployments.").Get()
+
+	MaxConnectionsToAcceptPerSocketEvent = env.Register("MAX_CONNECTIONS_PER_SOCKET_EVENT_LOOP", 1,
+		"The maximum number of connections to accept from the kernel per socket event. Set this to '0' to accept unlimited connections.").Get()
+
+	EnableClusterTrustBundles = env.Register("ENABLE_CLUSTER_TRUST_BUNDLE_API", false,
+		"If enabled, uses the ClusterTrustBundle API instead of ConfigMaps to store the root certificate in the cluster.").Get()
+
+	// EnableAbsoluteFqdnVhostDomain controls whether the absolute FQDN (hostname followed by a dot,)
+	// e.g. my-service.my-ns.svc.cluster.local. / google.com. is added to the VirtualHost domains list.
+	// Setting this to false disables the addition.
+	// See https://github.com/istio/istio/issues/56007 for more details of this feature with examples.
+	EnableAbsoluteFqdnVhostDomain = env.Register(
+		"PILOT_ENABLE_ABSOLUTE_FQDN_VHOST_DOMAIN", // Environment variable name
+		true, // Default value (true = feature enabled by default)
+		"If set to false, Istio will not add the absolute FQDN variant"+
+			" (e.g., my-service.my-ns.svc.cluster.local.) to the domains"+
+			" list for VirtualHost entries.",
+	).Get()
+
+	EnableProxyFindPodByIP = env.Register("ENABLE_PROXY_FIND_POD_BY_IP", false,
+		"If enabled, the pod controller will allow finding pods matching proxies by IP if it fails to find them by name.").Get()
+
+	EnableLazySidecarEvaluation = env.Register("ENABLE_LAZY_SIDECAR_EVALUATION", true,
+		"If enabled, pilot will only compute sidecar resources when actually used").Get()
+
+	// EnableCACRL ToDo (nilekh): remove this feature flag once it's stable
+	EnableCACRL = env.Register(
+		"PILOT_ENABLE_CA_CRL",
+		true, // Default value (true = feature enabled by default)
+		"If set to false, Istio will not watch for the ca-crl.pem file in the /etc/cacerts directory "+
+			"and will not distribute CRL data to namespaces for proxies to consume.",
+	).Get()
+
+	EnableNativeSidecars = func() NativeSidecarMode {
+		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
+			"If set to true, use Kubernetes native sidecar container support. Requires SidecarContainer feature flag. "+
+				"Set to true to unconditionally enable, false to unconditionally disable. "+
+				"Set to auto to automatically enable for supported scenarios").Get()
+		switch v {
+		case "false":
+			return NativeSidecarModeDisabled
+		case "true":
+			return NativeSidecarModeEnabled
+		case "auto":
+			return NativeSidecarModeAuto
+		default:
+			log.Warnf("Unknown value for ENABLE_NATIVE_SIDECARS: %s, defaulting to false", v)
+			return NativeSidecarModeDisabled
+		}
+	}()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
 	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions || EnableUnsafeDeltaTest
 }
+
+type NativeSidecarMode int
+
+const (
+	NativeSidecarModeEnabled  NativeSidecarMode = iota
+	NativeSidecarModeDisabled                   = iota
+	NativeSidecarModeAuto                       = iota
+)

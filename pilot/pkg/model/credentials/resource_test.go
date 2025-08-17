@@ -16,6 +16,8 @@ package credentials
 
 import (
 	"testing"
+
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 func TestParseResourceName(t *testing.T) {
@@ -32,6 +34,7 @@ func TestParseResourceName(t *testing.T) {
 			defaultNamespace: "default",
 			expected: SecretResource{
 				ResourceType: KubernetesSecretType,
+				ResourceKind: kind.Secret,
 				Name:         "cert",
 				Namespace:    "default",
 				ResourceName: "kubernetes://cert",
@@ -44,6 +47,7 @@ func TestParseResourceName(t *testing.T) {
 			defaultNamespace: "default",
 			expected: SecretResource{
 				ResourceType: KubernetesSecretType,
+				ResourceKind: kind.Secret,
 				Name:         "cert",
 				Namespace:    "namespace",
 				ResourceName: "kubernetes://namespace/cert",
@@ -56,11 +60,31 @@ func TestParseResourceName(t *testing.T) {
 			defaultNamespace: "default",
 			expected: SecretResource{
 				ResourceType: KubernetesGatewaySecretType,
+				ResourceKind: kind.Secret,
 				Name:         "cert",
 				Namespace:    "namespace",
 				ResourceName: "kubernetes-gateway://namespace/cert",
 				Cluster:      "config",
 			},
+		},
+		{
+			name:             "configmap",
+			resource:         "configmap://namespace/cert",
+			defaultNamespace: "default",
+			expected: SecretResource{
+				ResourceType: KubernetesConfigMapType,
+				ResourceKind: kind.ConfigMap,
+				Name:         "cert",
+				Namespace:    "namespace",
+				ResourceName: "configmap://namespace/cert",
+				Cluster:      "config",
+			},
+		},
+		{
+			name:             "configmap-without-namespace",
+			resource:         "configmap://cert",
+			defaultNamespace: "default",
+			err:              true,
 		},
 		{
 			name:             "kubernetes-gateway without namespace",

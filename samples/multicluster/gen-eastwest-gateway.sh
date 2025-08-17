@@ -18,6 +18,7 @@ set -euo pipefail
 
 SINGLE_CLUSTER=0
 REVISION=""
+AMBIENT=0
 while (( "$#" )); do
   case "$1" in
     --single-cluster)
@@ -40,6 +41,10 @@ while (( "$#" )); do
       REVISION=$2
       shift 2
     ;;
+    --ambient)
+      AMBIENT=1
+      shift
+    ;;
     -*)
       echo "Error: Unsupported flag $1" >&2
       exit 1
@@ -56,6 +61,37 @@ if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
     echo "Must specify either --single-cluster or --network."
     exit 1
   fi
+fi
+
+# when ambient is enabled, we don't need to create an istioOperator resource
+# but we still need to create the gateway deployment
+if [[ "${AMBIENT}" -eq 1 ]]; then
+  if [[ -z "${NETWORK}" ]]; then
+    echo "Must specify --network with --ambient."
+    exit 1
+  fi
+GW=$(cat <<EOF
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: istio-eastwestgateway
+  namespace: istio-system
+  labels:
+    topology.istio.io/network: "${NETWORK}"
+spec:
+  gatewayClassName: "istio-east-west"
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
+      tls:
+        mode: Terminate
+        options:
+          gateway.istio.io/tls-terminate-mode: ISTIO_MUTUAL
+EOF
+)
+  echo "$GW"
+  exit 0
 fi
 
 # base

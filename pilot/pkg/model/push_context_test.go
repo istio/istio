@@ -17,7 +17,6 @@ package model
 import (
 	"fmt"
 	"reflect"
-	"regexp"
 	"sort"
 	"sync"
 	"testing"
@@ -51,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -161,40 +161,102 @@ func TestConcurrentMerge(t *testing.T) {
 }
 
 func TestEnvoyFilters(t *testing.T) {
-	proxyVersionRegex := regexp.MustCompile(`1\.4.*`)
 	envoyFilters := []*EnvoyFilterWrapper{
-		{
-			Name:             "ef1",
-			workloadSelector: map[string]string{"app": "v1"},
-			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
-				networking.EnvoyFilter_LISTENER: {
+		convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{
+				Name:      "ef1",
+				Namespace: "test-ns",
+			},
+			Spec: &networking.EnvoyFilter{
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{"app": "v1"},
+				},
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 					{
+						ApplyTo: networking.EnvoyFilter_LISTENER,
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 							Proxy: &networking.EnvoyFilter_ProxyMatch{
 								ProxyVersion: "1\\.4.*",
 							},
 						},
-						ProxyVersionRegex: proxyVersionRegex,
+						// we don't care about the patch content in this test, but it must be non-nil
+						Patch: &networking.EnvoyFilter_Patch{},
 					},
 				},
 			},
-		},
-		{
-			Name:             "ef2",
-			workloadSelector: map[string]string{"app": "v1"},
-			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
-				networking.EnvoyFilter_CLUSTER: {
+		}),
+		convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{
+				Name:      "ef2",
+				Namespace: "test-ns",
+			},
+			Spec: &networking.EnvoyFilter{
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{"app": "v1"},
+				},
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 					{
+						ApplyTo: networking.EnvoyFilter_CLUSTER,
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 							Proxy: &networking.EnvoyFilter_ProxyMatch{
-								ProxyVersion: `1\\.4.*`,
+								ProxyVersion: "1\\.4.*",
 							},
 						},
-						ProxyVersionRegex: proxyVersionRegex,
+						// we don't care about the patch content in this test, but it must be non-nil
+						Patch: &networking.EnvoyFilter_Patch{},
 					},
 				},
 			},
-		},
+		}),
+		convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{
+				Name:      "ef-with-target-ref",
+				Namespace: "test-ns",
+			},
+			Spec: &networking.EnvoyFilter{
+				TargetRefs: []*selectorpb.PolicyTargetReference{
+					{
+						Group: "gateway.networking.k8s.io",
+						Kind:  "Gateway",
+						Name:  "gateway-1",
+					},
+				},
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_CLUSTER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{
+								ProxyVersion: "1\\.4.*",
+							},
+						},
+						// we don't care about the patch content in this test, but it must be non-nil
+						Patch: &networking.EnvoyFilter_Patch{},
+					},
+				},
+			},
+		}),
+		convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{
+				Name:      "ef-for-waypoint",
+				Namespace: "test-ns",
+			},
+			Spec: &networking.EnvoyFilter{
+				TargetRefs: []*selectorpb.PolicyTargetReference{
+					{
+						Group: "gateway.networking.k8s.io",
+						Kind:  "Gateway",
+						Name:  "waypoint",
+					},
+				},
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_CLUSTER,
+						// we don't care about the patch content in this test, but it must be non-nil
+						Patch: &networking.EnvoyFilter_Patch{},
+					},
+				},
+			},
+		}),
 	}
 
 	push := &PushContext{
@@ -240,7 +302,6 @@ func TestEnvoyFilters(t *testing.T) {
 			expectedListenerPatches: 1,
 			expectedClusterPatches:  1,
 		},
-
 		{
 			name: "proxy matches no envoyfilter",
 			proxy: &Proxy{
@@ -270,6 +331,27 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 			expectedListenerPatches: 0,
 			expectedClusterPatches:  0,
+		},
+		{
+			name: "proxy matched target ref",
+			proxy: &Proxy{
+				Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "gateway-1"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
+				ConfigNamespace: "test-ns",
+			},
+			expectedListenerPatches: 0,
+			expectedClusterPatches:  2,
+		},
+		{
+			name: "waypoint matched",
+			proxy: &Proxy{
+				Type:            model.Waypoint,
+				Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
+				ConfigNamespace: "test-ns",
+			},
+			expectedListenerPatches: 0,
+			expectedClusterPatches:  2,
 		},
 	}
 
@@ -1626,6 +1708,12 @@ func TestInitPushContext(t *testing.T) {
 	old := NewPushContext()
 	old.InitContext(env, nil, nil)
 
+	for _, sidecars := range old.sidecarIndex.sidecarsByNamespace {
+		for _, sidecar := range sidecars {
+			sidecar.initFunc()
+		}
+	}
+
 	// Create a new one, copying from the old one
 	// Pass a ConfigsUpdated otherwise we would just copy it directly
 	newPush := NewPushContext()
@@ -1634,6 +1722,12 @@ func TestInitPushContext(t *testing.T) {
 			{Kind: kind.Secret}: {},
 		},
 	})
+
+	for _, sidecars := range newPush.sidecarIndex.sidecarsByNamespace {
+		for _, sidecar := range sidecars {
+			sidecar.initFunc()
+		}
+	}
 
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
@@ -1644,7 +1738,7 @@ func TestInitPushContext(t *testing.T) {
 			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{},
 			ClusterLocalHosts{}),
 		// These are not feasible/worth comparing
-		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
+		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}, func() {}),
 		cmpopts.IgnoreUnexported(IstioEndpoint{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
 		protocmp.Transform(),
