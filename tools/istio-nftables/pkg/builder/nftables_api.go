@@ -15,9 +15,10 @@ package builder
 
 import (
 	"context"
-	"istio.io/istio/pkg/log"
 
 	"sigs.k8s.io/knftables"
+
+	"istio.io/istio/pkg/log"
 )
 
 // NftablesAPI defines the interface for interacting with nftables.
