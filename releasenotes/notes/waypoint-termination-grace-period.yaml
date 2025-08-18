@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** waypoint deployments to use the default Kubernetes terminationGracePeriodSeconds (30s) instead of a hardcoded 2 seconds value.
