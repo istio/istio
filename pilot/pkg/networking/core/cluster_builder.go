@@ -732,7 +732,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	isExplicitHTTP := port.Protocol.IsHTTP()
 	isAutoProtocol := port.Protocol.IsUnsupported()
 
-	if isExplicitHTTP || isAutoProtocol {
+	if (isExplicitHTTP || isAutoProtocol) && shouldPreserveHeaderCase(cb) {
 		// Apply the stateful formatter for HTTP/1.x headers
 		if cluster.httpProtocolOptions == nil {
 			cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
