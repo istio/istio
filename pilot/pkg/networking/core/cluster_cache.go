@@ -181,7 +181,6 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) clusterCache {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	dr := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
-	preserveHeaderCase := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig()).GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
 	var eb *endpoints.EndpointBuilder
 	if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
 		eb = endpoints.NewCDSEndpointBuilder(
@@ -196,7 +195,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		clusterName:             clusterName,
 		proxyVersion:            cb.proxyVersion.String(),
 		locality:                cb.locality,
-		preserveHTTP1HeaderCase: preserveHeaderCase,
+		preserveHTTP1HeaderCase: shouldPreserveHeaderCase(cb),
 		proxyClusterID:          cb.clusterID,
 		proxySidecar:            cb.sidecarProxy(),
 		proxyView:               cb.proxyView,

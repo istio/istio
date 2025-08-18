@@ -57,20 +57,25 @@ var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) 
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
 // revive:disable-next-line
-var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
-	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-		IdleTimeout: durationpb.New(5 * time.Minute),
-	},
-	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
-		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
-			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
-			Http2ProtocolOptions: http2ProtocolOptions(),
+var passthroughHttpProtocolOptions = func(cb *ClusterBuilder) *anypb.Any {
+	return protoconv.MessageToAny(&http.HttpProtocolOptions{
+		CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+			IdleTimeout: durationpb.New(5 * time.Minute),
 		},
-	},
-})
+		UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+			UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+				HttpProtocolOptions:  httpProtocolOptions(cb),
+				Http2ProtocolOptions: http2ProtocolOptions(),
+			},
+		},
+	})
+}
 
-var preserveCaseFormatterConfig = &core.Http1ProtocolOptions{
-	HeaderKeyFormat: &core.Http1ProtocolOptions_HeaderKeyFormat{
+var applyPreserveCaseFormatterConfig = func(httpOpts *core.Http1ProtocolOptions) *core.Http1ProtocolOptions {
+	if httpOpts == nil {
+		httpOpts = &core.Http1ProtocolOptions{}
+	}
+	httpOpts.HeaderKeyFormat = &core.Http1ProtocolOptions_HeaderKeyFormat{
 		HeaderFormat: &core.Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter{
 			StatefulFormatter: &core.TypedExtensionConfig{
 				Name: "preserve_case",
@@ -79,7 +84,8 @@ var preserveCaseFormatterConfig = &core.Http1ProtocolOptions{
 				},
 			},
 		},
-	},
+	}
+	return httpOpts
 }
 
 // clusterWrapper wraps Cluster object along with upstream protocol options.
@@ -636,7 +642,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
-			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
+			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions(cb),
 		},
 	}
 	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
@@ -690,6 +696,21 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *clusterWrapper) {
 	}
 }
 
+func shouldPreserveHeaderCase(cb *ClusterBuilder) bool {
+	effectiveProxyConfig := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig())
+	return effectiveProxyConfig.GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
+}
+
+func httpProtocolOptions(cb *ClusterBuilder) *core.Http1ProtocolOptions {
+	options := &core.Http1ProtocolOptions{}
+	if cb != nil {
+		if shouldPreserveHeaderCase(cb) {
+			options = applyPreserveCaseFormatterConfig(options)
+		}
+	}
+	return options
+}
+
 func http2ProtocolOptions() *core.Http2ProtocolOptions {
 	return &core.Http2ProtocolOptions{}
 }
@@ -710,10 +731,8 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	// Preserve HTTP/1.x traffic header case
 	isExplicitHTTP := port.Protocol.IsHTTP()
 	isAutoProtocol := port.Protocol.IsUnsupported()
-	effectiveProxyConfig := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig())
-	preserveHeaderCase := effectiveProxyConfig.GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
 
-	if (isExplicitHTTP || isAutoProtocol) && preserveHeaderCase {
+	if isExplicitHTTP || isAutoProtocol {
 		// Apply the stateful formatter for HTTP/1.x headers
 		if cluster.httpProtocolOptions == nil {
 			cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
@@ -722,7 +741,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
 			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
-					HttpProtocolOptions: preserveCaseFormatterConfig,
+					HttpProtocolOptions: httpProtocolOptions(cb),
 				},
 			},
 		}
