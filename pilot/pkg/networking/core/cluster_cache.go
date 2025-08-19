@@ -195,7 +195,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		clusterName:             clusterName,
 		proxyVersion:            cb.proxyVersion.String(),
 		locality:                cb.locality,
-		preserveHTTP1HeaderCase: shouldPreserveHeaderCase(cb),
+		preserveHTTP1HeaderCase: shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push),
 		proxyClusterID:          cb.clusterID,
 		proxySidecar:            cb.sidecarProxy(),
 		proxyView:               cb.proxyView,

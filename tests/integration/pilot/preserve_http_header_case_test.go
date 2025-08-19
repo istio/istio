@@ -18,6 +18,7 @@
 package pilot
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -75,6 +76,18 @@ proxyHeaders:
 			assert.Contains(t, output,
 				`"@type": "type.googleapis.com/envoy.extensions.http.header_formatters.preserve_case.v3.PreserveCaseFormatterConfig"`,
 				"preserve_case type configuration not found in cluster")
+
+			// Verify Passthrough Cluster
+			clusters := []map[string]json.RawMessage{}
+			assert.NoError(t, json.Unmarshal([]byte(output), &clusters), "failed to unmarshal clusters")
+			for _, c := range clusters {
+				if string(c["name"]) == "PassthroughCluster" {
+					assert.Contains(t, string(c["typedExtensionProtocolOptions"]),
+						`"@type": "type.googleapis.com/envoy.extensions.http.header_formatters.preserve_case.v3.PreserveCaseFormatterConfig"`,
+						"preserve_case type configuration not found in passthrough cluster")
+					break
+				}
+			}
 
 			// Verify Listener Configuration
 			output, _ = istioctl.NewOrFail(ctx, istioctl.Config{}).InvokeOrFail(ctx,

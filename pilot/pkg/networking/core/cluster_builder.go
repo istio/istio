@@ -54,28 +54,23 @@ import (
 
 var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) // 9223372035, which is about 292 years.
 
-// passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
+// defaultPassthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
 // revive:disable-next-line
-var passthroughHttpProtocolOptions = func(cb *ClusterBuilder) *anypb.Any {
-	return protoconv.MessageToAny(&http.HttpProtocolOptions{
-		CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-			IdleTimeout: durationpb.New(5 * time.Minute),
+var defaultPassthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
+	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+		IdleTimeout: durationpb.New(5 * time.Minute),
+	},
+	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+			Http2ProtocolOptions: http2ProtocolOptions(),
 		},
-		UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
-			UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
-				HttpProtocolOptions:  httpProtocolOptions(cb),
-				Http2ProtocolOptions: http2ProtocolOptions(),
-			},
-		},
-	})
-}
+	},
+})
 
-var applyPreserveCaseFormatterConfig = func(httpOpts *core.Http1ProtocolOptions) *core.Http1ProtocolOptions {
-	if httpOpts == nil {
-		httpOpts = &core.Http1ProtocolOptions{}
-	}
-	httpOpts.HeaderKeyFormat = &core.Http1ProtocolOptions_HeaderKeyFormat{
+var defaultPreserveCaseFormatterConfig = &core.Http1ProtocolOptions{
+	HeaderKeyFormat: &core.Http1ProtocolOptions_HeaderKeyFormat{
 		HeaderFormat: &core.Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter{
 			StatefulFormatter: &core.TypedExtensionConfig{
 				Name: "preserve_case",
@@ -84,8 +79,7 @@ var applyPreserveCaseFormatterConfig = func(httpOpts *core.Http1ProtocolOptions)
 				},
 			},
 		},
-	}
-	return httpOpts
+	},
 }
 
 // clusterWrapper wraps Cluster object along with upstream protocol options.
@@ -696,17 +690,49 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *clusterWrapper) {
 	}
 }
 
-func shouldPreserveHeaderCase(cb *ClusterBuilder) bool {
-	effectiveProxyConfig := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig())
-	return effectiveProxyConfig.GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
+// nolint
+// revive:disable-next-line
+func passthroughHttpProtocolOptions(cb *ClusterBuilder) *anypb.Any {
+	return protoconv.MessageToAny(&http.HttpProtocolOptions{
+		CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+			IdleTimeout: durationpb.New(5 * time.Minute),
+		},
+		UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+			UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+				HttpProtocolOptions:  httpProtocolOptions(cb),
+				Http2ProtocolOptions: http2ProtocolOptions(),
+			},
+		},
+	})
+}
+
+func applyPreserveCaseFormatterConfig(httpOpts *core.Http1ProtocolOptions) *core.Http1ProtocolOptions {
+	httpOpts.HeaderKeyFormat = &core.Http1ProtocolOptions_HeaderKeyFormat{
+		HeaderFormat: &core.Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter{
+			StatefulFormatter: &core.TypedExtensionConfig{
+				Name: "preserve_case",
+				TypedConfig: &anypb.Any{
+					TypeUrl: "type.googleapis.com/envoy.extensions.http.header_formatters.preserve_case.v3.PreserveCaseFormatterConfig",
+				},
+			},
+		},
+	}
+	return httpOpts
+}
+
+func shouldPreserveHeaderCase(proxyMetadata *model.NodeMetadata, push *model.PushContext) bool {
+	return proxyMetadata.ProxyConfigOrDefault(push.Mesh.GetDefaultConfig()).
+		GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
 }
 
 func httpProtocolOptions(cb *ClusterBuilder) *core.Http1ProtocolOptions {
 	options := &core.Http1ProtocolOptions{}
-	if cb != nil {
-		if shouldPreserveHeaderCase(cb) {
-			options = applyPreserveCaseFormatterConfig(options)
-		}
+	if cb == nil {
+		return options
+	}
+
+	if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
+		options = applyPreserveCaseFormatterConfig(options)
 	}
 	return options
 }
@@ -732,7 +758,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	isExplicitHTTP := port.Protocol.IsHTTP()
 	isAutoProtocol := port.Protocol.IsUnsupported()
 
-	if (isExplicitHTTP || isAutoProtocol) && shouldPreserveHeaderCase(cb) {
+	if (isExplicitHTTP || isAutoProtocol) && shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
 		// Apply the stateful formatter for HTTP/1.x headers
 		if cluster.httpProtocolOptions == nil {
 			cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
@@ -741,7 +767,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
 			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
-					HttpProtocolOptions: httpProtocolOptions(cb),
+					HttpProtocolOptions: defaultPreserveCaseFormatterConfig,
 				},
 			},
 		}

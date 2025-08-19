@@ -63,7 +63,7 @@ func buildInternalUpstreamCluster(name string, internalListener string, h2 bool)
 
 	if h2 {
 		c.TypedExtensionProtocolOptions = map[string]*anypb.Any{
-			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions(nil),
+			v3.HttpProtocolOptionsType: defaultPassthroughHttpProtocolOptions,
 		}
 	}
 
