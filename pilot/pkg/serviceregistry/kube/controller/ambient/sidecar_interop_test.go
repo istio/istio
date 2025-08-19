@@ -57,11 +57,13 @@ func TestWaypointInterop(t *testing.T) {
 			edsUpdate := s.hostnameForService
 			assertServicesWithWaypoint := func(want ...string) {
 				t.Helper()
-				got := s.ServicesWithWaypoint(s.svcXdsName("svc1"))
-				gots := slices.Map(got, func(e model.ServiceWaypointInfo) string {
-					return e.Service.Hostname + "/" + e.WaypointHostname
-				})
-				assert.Equal(t, want, gots)
+				fetch := func() []string {
+					got := s.ServicesWithWaypoint(s.svcXdsName("svc1"))
+					return slices.Map(got, func(e model.ServiceWaypointInfo) string {
+						return e.Service.Hostname + "/" + e.WaypointHostname
+					})
+				}
+				assert.EventuallyEqual(t, fetch, want)
 			}
 
 			s.addService(t, "svc1",
@@ -79,14 +81,14 @@ func TestWaypointInterop(t *testing.T) {
 				map[string]string{},
 				map[string]string{},
 				[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
-			s.assertEvent(t, edsUpdate("svc1"))
+			s.assertEvent(t, addressUpdate("wp-svc"), addressUpdate("svc1"), edsUpdate("svc1"))
 			assertServicesWithWaypoint(s.hostnameForService("svc1") + "/" + s.hostnameForService("wp-svc"))
 
 			// add a waypoint instance... we should get an EDS update
 			s.addPods(t, "127.0.0.4", "wp-pod1", "wp-sa", map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning)
-			s.assertEvent(t, edsUpdate("svc1"))
+			s.assertEvent(t, s.podXdsName("wp-pod1"), edsUpdate("svc1"))
 			s.addPods(t, "127.0.0.5", "wp-pod2", "wp-sa", map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning)
-			s.assertEvent(t, edsUpdate("svc1"))
+			s.assertEvent(t, s.podXdsName("wp-pod2"), edsUpdate("svc1"))
 			assertServicesWithWaypoint(s.hostnameForService("svc1") + "/" + s.hostnameForService("wp-svc"))
 
 			// now we are going to change to a different waypoint, this will be hostname based
@@ -95,7 +97,7 @@ func TestWaypointInterop(t *testing.T) {
 				maps.MergeCopy(map[string]string{label.IoIstioUseWaypoint.Name: "wp-svc-host"}, tt.serviceLabels),
 				map[string]string{},
 				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
-			s.assertEvent(t, edsUpdate("svc1"))
+			s.assertEvent(t, addressUpdate("svc1"), edsUpdate("svc1"))
 			assertServicesWithWaypoint(s.hostnameForService("svc1") + "/" + "example.com")
 		})
 	}
