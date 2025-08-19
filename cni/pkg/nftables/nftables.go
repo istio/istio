@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/scopes"
+	"istio.io/istio/cni/pkg/util"
 	istiolog "istio.io/istio/pkg/log"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 	"istio.io/istio/tools/istio-nftables/pkg/builder"
@@ -408,19 +409,59 @@ func (cfg *NftablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
 
 // CreateHostRulesForHealthChecks creates host-level nftables rules for health check handling
 func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
-	log.Info("configuring host-level nftables rules (healthchecks, etc)")
+	log := log.WithLabels("component", "host")
+	log.Info("Adding nftable rules on the host network namespace")
 
-	// TODO: Implement host-level nftables rules for health check handling
-	log.Info("host-level nftables rules creation completed")
-	return nil
+	// TODO: Investigate how to support "-m owner --socket-exists" with nftable rules.
+	cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "ip", "daddr", "@istio-inpod-probes-v4",
+		"meta l4proto tcp", "snat", "to", cfg.cfg.HostProbeSNATAddress.String())
+
+	// For V6 we have to use a different set and a different SNAT IP
+	cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "ip6", "daddr", "@istio-inpod-probes-v6",
+		"meta l4proto tcp", "snat", "to", cfg.cfg.HostProbeV6SNATAddress.String())
+
+	return util.RunAsHost(func() error {
+		tx, err := cfg.executeHostCommands()
+		if err != nil {
+			log.Errorf("failed to program nftable rules in the host network namespace: %v", err)
+			return err
+		}
+		builder.LogNftRules(tx)
+		return nil
+	})
 }
 
 // DeleteHostRules removes host-level nftables rules
 func (cfg *NftablesConfigurator) DeleteHostRules() {
-	log.Debug("Attempting to delete hostside nftables rules (if they exist)")
+	log := log.WithLabels("component", "host")
+	log.Debug("Attempting to delete hostside nftables rules")
 
-	// TODO: Implement host-level nftables rule deletion
-	log.Debug("hostside nftables rules deletion completed")
+	nft, err := cfg.nftProvider("", "")
+	if err != nil {
+		log.Errorf("error creating the nftProvider while deleting the host rules: %v", err)
+		return
+	}
+
+	tx := nft.NewTransaction()
+
+	// TODO: REVISIT: Ensure that the table exists, so that delete does not return any error.
+	tx.Add(&knftables.Table{Name: AmbientNatTable, Family: knftables.InetFamily})
+
+	// nftables delete command will delete the table along with the chains and rules.
+	tx.Delete(&knftables.Table{Name: AmbientNatTable, Family: knftables.InetFamily})
+
+	err = util.RunAsHost(func() error {
+		if err := nft.Run(context.TODO(), tx); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("error while trying to delete the ambient nftable rules from the host network: %w", err)
+		return
+	}
+
+	log.Debug("hostside nftables rules successfully deleted")
 }
 
 // ReconcileModeEnabled returns true if reconciliation mode is enabled
@@ -458,6 +499,40 @@ func (cfg *NftablesConfigurator) executeCommands() (*knftables.Transaction, erro
 	tx = cfg.addIstioRawTableRules(tx)
 
 	// If there are any transactions to apply, run them in a batch.
+	if tx.NumOperations() > 0 {
+		if err := nft.Run(context.TODO(), tx); err != nil {
+			return tx, fmt.Errorf("nftables run failed: %w", err)
+		}
+	}
+	return tx, nil
+}
+
+// executeCommands creates a transaction including all needed modifications and runs it.
+func (cfg *NftablesConfigurator) executeHostCommands() (*knftables.Transaction, error) {
+	nft, err := cfg.nftProvider("", "")
+	if err != nil {
+		return nil, err
+	}
+
+	tx := nft.NewTransaction()
+
+	if len(cfg.ruleBuilder.Rules[AmbientNatTable]) == 0 {
+		return tx, nil
+	}
+
+	chains := []knftables.Chain{
+		{
+			Name:     PostroutingChain,
+			Table:    AmbientNatTable,
+			Family:   knftables.InetFamily,
+			Type:     knftables.PtrTo(knftables.NATType),
+			Hook:     knftables.PtrTo(knftables.PostroutingHook),
+			Priority: knftables.PtrTo(knftables.SNATPriority),
+		},
+	}
+
+	rules := cfg.ruleBuilder.Rules[AmbientNatTable]
+	tx = cfg.addIstioTableRules(tx, AmbientNatTable, chains, rules)
 	if tx.NumOperations() > 0 {
 		if err := nft.Run(context.TODO(), tx); err != nil {
 			return tx, fmt.Errorf("nftables run failed: %w", err)
