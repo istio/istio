@@ -164,8 +164,8 @@ func (a *index) deleteCluster(secretKey string, cluster *multicluster.Cluster) {
 	cluster.Stop()
 	// The delete event will be processed within the ClusterStore
 	a.cs.Delete(secretKey, cluster.ID)
-
-	log.Infof("Number of remote clusters: %d", a.cs.Len())
+	// And now shutdown all of the informers for this cluster
+	cluster.Client.Shutdown()
 }
 
 func (a *index) processSecretEvent(key types.NamespacedName) error {
