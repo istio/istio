@@ -324,7 +324,6 @@ func (c *Cluster) Stop() {
 	case <-c.stop:
 		return
 	default:
-		log.Infof("Closing cluster stop channel %s", c.ID)
 		close(c.stop)
 	}
 }
