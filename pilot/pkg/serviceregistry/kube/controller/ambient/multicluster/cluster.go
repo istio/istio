@@ -211,59 +211,53 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	}
 
 	Namespaces := krt.WrapClient(namespaces, opts.With(
-		append(opts.WithName("informer/Namespaces"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: c.ID,
-			}),
-		)...,
+		krt.WithName("informer/Namespaces"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: c.ID,
+		}),
 	)...)
 	Pods := krt.NewInformerFiltered[*corev1.Pod](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
 	}, opts.With(
-		append(opts.WithName("informer/Pods"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: c.ID,
-			}),
-		)...,
+		krt.WithName("informer/Pods"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: c.ID,
+		}),
 	)...)
 
 	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](c.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, defaultFilter)
 	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.With(
-		append(opts.WithName("informer/Gateways"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: c.ID,
-			}),
-		)...,
+		krt.WithName("informer/Gateways"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: c.ID,
+		}),
 	)...)
 	servicesClient := kclient.NewFiltered[*corev1.Service](c.Client, defaultFilter)
 	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
-		append(opts.WithName("informer/Services"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: c.ID,
-			}),
-		)...,
+		krt.WithName("informer/Services"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: c.ID,
+		}),
 	)...)
 
 	Nodes := krt.NewInformerFiltered[*corev1.Node](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripNodeUnusedFields,
 	}, opts.With(
-		append(opts.WithName("informer/Nodes"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: c.ID,
-			}),
-		)...,
+		krt.WithName("informer/Nodes"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: c.ID,
+		}),
 	)...)
 
 	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](c.Client, kclient.Filter{
 		ObjectFilter: c.Client.ObjectFilter(),
 	}, opts.With(
-		append(opts.WithName("informer/EndpointSlices"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: c.ID,
-			}),
-		)...,
+		krt.WithName("informer/EndpointSlices"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: c.ID,
+		}),
 	)...)
 
 	c.RemoteClusterCollections = &RemoteClusterCollections{
@@ -330,6 +324,7 @@ func (c *Cluster) Stop() {
 	case <-c.stop:
 		return
 	default:
+		log.Infof("Closing cluster stop channel %s", c.ID)
 		close(c.stop)
 	}
 }

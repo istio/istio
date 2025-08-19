@@ -121,7 +121,6 @@ func NewMulticluster(
 		if !configCluster {
 			options.SyncTimeout = features.RemoteClusterTimeout
 		}
-		options.Stop = stop
 		log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 		options.ConfigCluster = configCluster
 		kubeRegistry := NewController(client, options)
