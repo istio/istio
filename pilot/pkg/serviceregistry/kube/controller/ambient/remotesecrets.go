@@ -164,8 +164,7 @@ func (a *index) deleteCluster(secretKey string, cluster *multicluster.Cluster) {
 	cluster.Stop()
 	// The delete event will be processed within the ClusterStore
 	a.cs.Delete(secretKey, cluster.ID)
-	// And now shutdown all of the informers for this cluster
-	cluster.Client.Shutdown()
+	cluster.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 }
 
 func (a *index) processSecretEvent(key types.NamespacedName) error {
