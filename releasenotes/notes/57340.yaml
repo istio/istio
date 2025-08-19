@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 57339
+releaseNotes:
+- |
+  **Fixed** the behavior change of `istioctl proxy-status` when no proxy is present will breaks foreign tooling calling.

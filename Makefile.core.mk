@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2025-07-10T19-01-16
+BASE_VERSION ?= master-2025-07-30T19-02-17
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -330,8 +330,14 @@ copy-templates:
 
 	# gateway charts
 	cp -r manifests/charts/gateways/istio-ingress/templates/* manifests/charts/gateways/istio-egress/templates
-	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/ingress/egress/g' {} \;
-	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/Ingress/Egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f -name "*.yaml" ! -name "networkpolicy.yaml" -exec sed -i -e 's/ingress/egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f -name "*.yaml" ! -name "networkpolicy.yaml" -exec sed -i -e 's/Ingress/Egress/g' {} \;
+	if [ -f ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml ]; then \
+		sed -i -e 's/"IngressGateways"/"EgressGateways"/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/istio-ingress/istio-egress/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/app: istio-ingress/app: istio-egress/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/istio: ingressgateway/istio: egressgateway/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+	fi
 
 	# copy istio-discovery values, but apply some local customizations
 	warning=$$(cat manifests/helm-profiles/warning-edit.txt | sed ':a;N;$$!ba;s/\n/\\n/g') ; \

@@ -287,6 +287,10 @@ _internal_defaults_do_not_set:
     logging:
       level: "default:info"
 
+    # When enabled, default NetworkPolicy resources will be created
+    networkPolicy:
+      enabled: false
+
     omitSidecarInjectorConfigMap: false
 
     # Configure whether Operator manages webhook configurations. The current behavior
@@ -355,6 +359,8 @@ _internal_defaults_do_not_set:
 
       #If set to true, istio-proxy container will have privileged securityContext
       privileged: false
+      
+      seccompProfile: {}
 
       # The number of successive failed probes before indicating readiness failure.
       readinessFailureThreshold: 4

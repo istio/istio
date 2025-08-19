@@ -392,37 +392,46 @@ func (sc *SecretManagerClient) keyCertificateExist(certPath, keyPath string) boo
 	return true
 }
 
-// Generate a root certificate item from the passed in rootCertPath
+// Generate a root certificates item from the passed in rootCertPath,
+// but ignore certificates that are not valid.
+// This might happen if a root certificate has a negativeSerialNumber.
+// Although rfc5280 does not allow negative serial numbers, but does require graceful handling
+// (https://datatracker.ietf.org/doc/html/rfc5280#section-4.1.2.2)
+// If there is an invalid cert, we ignore it and only error if there are no valid certs.
 func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, resourceName string, workload bool) (*security.SecretItem, error) {
-	var rootCert []byte
-	var err error
+	var validRootCertBytes []byte
 	o := backoff.DefaultOption()
 	o.InitialInterval = sc.configOptions.FileDebounceDuration
 	b := backoff.NewExponentialBackOff(o)
-	certValid := func() error {
-		rootCert, err = os.ReadFile(rootCertPath)
+	parseCerts := func() error {
+		rootCert, err := os.ReadFile(rootCertPath)
 		if err != nil {
 			return err
 		}
-		_, _, err := pkiutil.ParsePemEncodedCertificateChain(rootCert)
-		if err != nil {
-			return err
+
+		var errs []error
+		validRootCertBytes, errs = pkiutil.ParseRootCerts(rootCert)
+		if len(validRootCertBytes) == 0 {
+			return fmt.Errorf("failed to parse root certs from file %s: %v", rootCertPath, errs)
+		}
+		if len(errs) > 0 {
+			cacheLog.Errorf("failed to parse some certs from file %s: %v", rootCertPath, errs)
 		}
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), totalTimeout)
 	defer cancel()
-	if err := b.RetryWithContext(ctx, certValid); err != nil {
+	if err := b.RetryWithContext(ctx, parseCerts); err != nil {
 		return nil, err
 	}
 
 	// Set the rootCert only if it is workload root cert.
 	if workload {
-		sc.cache.SetRoot(rootCert)
+		sc.cache.SetRoot(validRootCertBytes)
 	}
 	return &security.SecretItem{
 		ResourceName: resourceName,
-		RootCert:     rootCert,
+		RootCert:     validRootCertBytes,
 	}, nil
 }
 

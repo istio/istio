@@ -17,6 +17,7 @@ package gateway
 import (
 	"cmp"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"net/netip"
@@ -40,6 +41,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/credentials"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -443,9 +445,9 @@ func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 }
 
 func parentMeta(obj controllers.Object, sectionName *k8s.SectionName) map[string]string {
-	name := fmt.Sprintf("%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), obj.GetNamespace())
+	name := schematypes.GvkFromObject(obj).Kind + "/" + obj.GetName() + "." + obj.GetNamespace() // %s/%s.%s
 	if sectionName != nil {
-		name = fmt.Sprintf("%s/%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), *sectionName, obj.GetNamespace())
+		name = schematypes.GvkFromObject(obj).Kind + "/" + obj.GetName() + "/" + string(*sectionName) + "." + obj.GetNamespace() //
 	}
 	return map[string]string{
 		constants.InternalParentNames: name,
@@ -1041,7 +1043,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		if strings.Contains(string(to.Name), ".") {
 			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "service name invalid; the name of the Service must be used, not the hostname."}
 		}
-		hostname = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.DomainSuffix)
+		hostname = string(to.Name) + "." + namespace + ".svc." + ctx.DomainSuffix
 		key := namespace + "/" + string(to.Name)
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
 		if svc == nil {
@@ -1056,11 +1058,11 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case config.GroupVersionKind{Group: features.MCSAPIGroup, Kind: "ServiceImport"}:
-		hostname = fmt.Sprintf("%s.%s.svc.clusterset.local", to.Name, namespace)
+		hostname = string(to.Name) + "." + namespace + ".svc.clusterset.local"
 		if !features.EnableMCSHost {
 			// They asked for ServiceImport, but actually don't have full support enabled...
 			// No problem, we can just treat it as Service, which is already cross-cluster in this mode anyways
-			hostname = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.DomainSuffix)
+			hostname = string(to.Name) + "." + namespace + ".svc." + ctx.DomainSuffix
 		}
 		// TODO: currently we are always looking for Service. We should be looking for ServiceImport when features.EnableMCSHost
 		key := namespace + "/" + string(to.Name)
@@ -1069,10 +1071,10 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case gvk.InferencePool:
-		if !features.SupportGatewayAPIInferenceExtension {
-			return nil, nil, &ConfigError{
+		if !features.EnableGatewayAPIInferenceExtension {
+			return &istio.Destination{}, nil, &ConfigError{
 				Reason:  InvalidDestinationKind,
-				Message: "InferencePool is not enabled. To enable, set SUPPORT_GATEWAY_API_INFERENCE_EXTENSION to true in istiod",
+				Message: "InferencePool is not enabled. To enable, set ENABLE_GATEWAY_API_INFERENCE_EXTENSION to true in istiod",
 			}
 		}
 		if strings.Contains(string(to.Name), ".") {
@@ -1088,7 +1090,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			return &istio.Destination{}, nil, invalidBackendErr
 		}
 		inferencePoolServiceName, _ := InferencePoolServiceName(string(to.Name))
-		hostname := fmt.Sprintf("%s.%s.svc.%s", inferencePoolServiceName, namespace, ctx.DomainSuffix)
+		hostname := inferencePoolServiceName + "." + namespace + ".svc." + ctx.DomainSuffix
 		svc := ctx.LookupHostname(hostname, namespace)
 		if svc == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
@@ -1103,7 +1105,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			enableExtProc: true,
 		}
 		if dst, ok := svc.Attributes.Labels[InferencePoolExtensionRefSvc]; ok {
-			ipCfg.endpointPickerDst = fmt.Sprintf("%s.%s.svc.%s", dst, infPool.Namespace, ctx.DomainSuffix)
+			ipCfg.endpointPickerDst = dst + "." + infPool.Namespace + ".svc." + ctx.DomainSuffix
 		}
 		if p, ok := svc.Attributes.Labels[InferencePoolExtensionRefPort]; ok {
 			ipCfg.endpointPickerPort = p
@@ -1280,7 +1282,7 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 		case k8s.FullPathHTTPPathModifier:
 			resp.Uri = *filter.Path.ReplaceFullPath
 		case k8s.PrefixMatchHTTPPathModifier:
-			resp.Uri = fmt.Sprintf("%%PREFIX()%%%s", *filter.Path.ReplacePrefixMatch)
+			resp.Uri = "%PREFIX()%" + *filter.Path.ReplacePrefixMatch
 		}
 	}
 	return resp
@@ -1441,30 +1443,30 @@ func createGRPCURIMatch(match k8s.GRPCRouteMatch) (*istio.StringMatch, *ConfigEr
 	case k8s.GRPCMethodMatchExact:
 		if m.Method == nil {
 			return &istio.StringMatch{
-				MatchType: &istio.StringMatch_Prefix{Prefix: fmt.Sprintf("/%s/", *m.Service)},
+				MatchType: &istio.StringMatch_Prefix{Prefix: "/" + *m.Service + "/"},
 			}, nil
 		}
 		if m.Service == nil {
 			return &istio.StringMatch{
-				MatchType: &istio.StringMatch_Regex{Regex: fmt.Sprintf("/[^/]+/%s", *m.Method)},
+				MatchType: &istio.StringMatch_Regex{Regex: "/[^/]+/" + *m.Method},
 			}, nil
 		}
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Exact{Exact: fmt.Sprintf("/%s/%s", *m.Service, *m.Method)},
+			MatchType: &istio.StringMatch_Exact{Exact: "/" + *m.Service + "/" + *m.Method},
 		}, nil
 	case k8s.GRPCMethodMatchRegularExpression:
 		if m.Method == nil {
 			return &istio.StringMatch{
-				MatchType: &istio.StringMatch_Regex{Regex: fmt.Sprintf("/%s/.+", *m.Service)},
+				MatchType: &istio.StringMatch_Regex{Regex: "/" + *m.Service + "/.+"},
 			}, nil
 		}
 		if m.Service == nil {
 			return &istio.StringMatch{
-				MatchType: &istio.StringMatch_Regex{Regex: fmt.Sprintf("/[^/]+/%s", *m.Method)},
+				MatchType: &istio.StringMatch_Regex{Regex: "/[^/]+/" + *m.Method},
 			}, nil
 		}
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Regex{Regex: fmt.Sprintf("/%s/%s", *m.Service, *m.Method)},
+			MatchType: &istio.StringMatch_Regex{Regex: "/" + *m.Service + "/" + *m.Method},
 		}, nil
 	default:
 		// Should never happen, unless a new field is added
@@ -1961,6 +1963,7 @@ func extractGatewayServices(domainSuffix string, kgw *k8sbeta.Gateway, info clas
 
 func buildListener(
 	ctx krt.HandlerContext,
+	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
 	namespaces krt.Collection[*corev1.Namespace],
@@ -1992,7 +1995,7 @@ func buildListener(
 	}
 
 	ok := true
-	tls, err := buildTLS(ctx, secrets, grants, l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
+	tls, err := buildTLS(ctx, configMaps, secrets, grants, l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
 		listenerConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
@@ -2085,6 +2088,7 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 
 func buildTLS(
 	ctx krt.HandlerContext,
+	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
 	tls *k8s.GatewayTLSConfig,
@@ -2164,6 +2168,30 @@ func buildTLS(
 		} else {
 			out.CredentialNames = credNames
 		}
+		if tls.FrontendValidation != nil && len(tls.FrontendValidation.CACertificateRefs) > 0 {
+			if len(tls.FrontendValidation.CACertificateRefs) > 1 {
+				return out, &ConfigError{
+					Reason:  InvalidTLS,
+					Message: "only one caCertificateRef is supported",
+				}
+			}
+			caCertRef := tls.FrontendValidation.CACertificateRefs[0]
+			cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
+			if err != nil {
+				return out, err
+			}
+			if cred.Namespace != namespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw), cred.ResourceName, namespace) {
+				return out, &ConfigError{
+					Reason: InvalidListenerRefNotPermitted,
+					Message: fmt.Sprintf(
+						"caCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+						cred.Namespace, caCertRef.Name, namespace,
+					),
+				}
+			}
+			out.Mode = istio.ServerTLSSettings_MUTUAL
+			out.CaCertCredentialName = cred.ResourceName
+		}
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
 		if isAutoPassthrough {
@@ -2180,7 +2208,10 @@ func buildSecretReference(
 	secrets krt.Collection[*corev1.Secret],
 ) (string, *ConfigError) {
 	if normalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
-		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", objectReferenceString(ref))}
+		return "", &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", secretObjectReferenceString(ref)),
+		}
 	}
 
 	secret := model.ConfigKey{
@@ -2194,26 +2225,101 @@ func buildSecretReference(
 	if scrt == nil {
 		return "", &ConfigError{
 			Reason:  InvalidTLS,
-			Message: fmt.Sprintf("invalid certificate reference %v, secret %v not found", objectReferenceString(ref), key),
+			Message: fmt.Sprintf("invalid certificate reference %v, secret %v not found", secretObjectReferenceString(ref), key),
 		}
 	}
 	certInfo, err := kubecreds.ExtractCertInfo(scrt)
 	if err != nil {
 		return "", &ConfigError{
 			Reason:  InvalidTLS,
-			Message: fmt.Sprintf("invalid certificate reference %v, %v", objectReferenceString(ref), err),
+			Message: fmt.Sprintf("invalid certificate reference %v, %v", secretObjectReferenceString(ref), err),
 		}
 	}
 	if _, err = tls.X509KeyPair(certInfo.Cert, certInfo.Key); err != nil {
 		return "", &ConfigError{
 			Reason:  InvalidTLS,
-			Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err),
+			Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", secretObjectReferenceString(ref), err),
 		}
 	}
 	return creds.ToKubernetesGatewayResource(secret.Namespace, secret.Name), nil
 }
 
-func objectReferenceString(ref k8s.SecretObjectReference) string {
+func buildCaCertificateReference(
+	ctx krt.HandlerContext,
+	ref k8s.ObjectReference,
+	gw controllers.Object,
+	configMaps krt.Collection[*corev1.ConfigMap],
+	secrets krt.Collection[*corev1.Secret],
+) (*creds.SecretResource, *ConfigError) {
+	var resourceType string
+	var resourceKind kind.Kind
+	var certInfo *credentials.CertInfo
+	var certInfoErr error
+
+	namespace := ptr.OrDefault((*string)(ref.Namespace), gw.GetNamespace())
+	name := string(ref.Name)
+
+	switch normalizeReference(&ref.Group, &ref.Kind, config.GroupVersionKind{}) {
+	case gvk.ConfigMap:
+		resourceType = creds.KubernetesConfigMapType
+		resourceKind = kind.ConfigMap
+
+		key := namespace + "/" + name
+		cm := ptr.Flatten(krt.FetchOne(ctx, configMaps, krt.FilterKey(key)))
+		if cm == nil {
+			return nil, &ConfigError{
+				Reason:  InvalidTLS,
+				Message: fmt.Sprintf("invalid CA certificate reference %v, configmap %v not found", objectReferenceString(ref), key),
+			}
+		}
+		certInfo, certInfoErr = kubecreds.ExtractRootFromString(cm.Data)
+	case gvk.Secret:
+		resourceType = creds.KubernetesGatewaySecretType
+		resourceKind = kind.Secret
+
+		key := namespace + "/" + name
+		scrt := ptr.Flatten(krt.FetchOne(ctx, secrets, krt.FilterKey(key)))
+		if scrt == nil {
+			return nil, &ConfigError{
+				Reason:  InvalidTLS,
+				Message: fmt.Sprintf("invalid CA certificate reference %v, secret %v not found", objectReferenceString(ref), key),
+			}
+		}
+		certInfo, certInfoErr = kubecreds.ExtractRoot(scrt.Data)
+	default:
+		return nil, &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid CA certificate reference %v, only secret and configmap are allowed", objectReferenceString(ref)),
+		}
+	}
+	if certInfoErr != nil {
+		return nil, &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid CA certificate reference %v, %v", objectReferenceString(ref), certInfoErr),
+		}
+	}
+	if !x509.NewCertPool().AppendCertsFromPEM(certInfo.Cert) {
+		return nil, &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid CA certificate reference %v, the bundle is malformed", objectReferenceString(ref)),
+		}
+	}
+	log.Warnf("buildCaCertificateReference %s://%s/%s%s", resourceType, namespace, ref.Name, creds.SdsCaSuffix)
+	return &creds.SecretResource{
+		ResourceType: resourceType,
+		ResourceKind: resourceKind,
+		Name:         name + creds.SdsCaSuffix,
+		Namespace:    namespace,
+		ResourceName: fmt.Sprintf("%s://%s/%s%s", resourceType, namespace, ref.Name, creds.SdsCaSuffix),
+		Cluster:      "",
+	}, nil
+}
+
+func objectReferenceString(ref k8s.ObjectReference) string {
+	return fmt.Sprintf("%s/%s/%s.%s", ref.Group, ref.Kind, ref.Name, ptr.OrEmpty(ref.Namespace))
+}
+
+func secretObjectReferenceString(ref k8s.SecretObjectReference) string {
 	return fmt.Sprintf("%s/%s/%s.%s",
 		ptr.OrEmpty(ref.Group),
 		ptr.OrEmpty(ref.Kind),

@@ -47,13 +47,22 @@ func (n NetworkGateway) ResourceName() string {
 }
 
 type networkCollections struct {
-	LocalSystemNamespace          krt.Singleton[string]
-	RemoteSystemNamespaceNetworks krt.Collection[krt.Singleton[string]]
+	LocalSystemNamespace          krt.Singleton[ClusterNetwork]
+	RemoteSystemNamespaceNetworks krt.Collection[ClusterNetwork]
 	// SystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
 	// for that cluster.
-	SystemNamespaceNetworkByCluster krt.Index[cluster.ID, krt.Singleton[string]]
+	SystemNamespaceNetworkByCluster krt.Index[cluster.ID, ClusterNetwork]
 	NetworkGateways                 krt.Collection[NetworkGateway]
 	GatewaysByNetwork               krt.Index[network.ID, NetworkGateway]
+}
+
+type ClusterNetwork struct {
+	ClusterID cluster.ID
+	Network   network.ID
+}
+
+func (c ClusterNetwork) ResourceName() string {
+	return fmt.Sprintf("%s/%s", c.ClusterID, c.Network)
 }
 
 func (c networkCollections) HasSynced() bool {
@@ -65,12 +74,12 @@ func buildGlobalNetworkCollections(
 	clusters krt.Collection[*multicluster.Cluster],
 	localNamespaces krt.Collection[*v1.Namespace],
 	localGateways krt.Collection[*v1beta1.Gateway],
-	gateways krt.Collection[krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
-	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
+	gateways krt.Collection[krt.Collection[krt.ObjectWithCluster[*v1beta1.Gateway]]],
+	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[krt.ObjectWithCluster[*v1beta1.Gateway]]],
 	options Options,
 	opts krt.OptionsBuilder,
 ) networkCollections {
-	LocalSystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+	LocalSystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
 		ns := ptr.Flatten(krt.FetchOne(ctx, localNamespaces, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
 			return nil
@@ -79,60 +88,47 @@ func buildGlobalNetworkCollections(
 		if !f {
 			return nil
 		}
-		return &nw
+		return &ClusterNetwork{
+			ClusterID: options.ClusterID,
+			Network:   network.ID(nw),
+		}
 	}, opts.WithName("LocalSystemNamespaceNetwork")...)
-	RemoteSystemNamespaceNetworks := krt.NewCollection(
-		clusters,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Singleton[string] {
-			singletonOpts := opts.With(
-				krt.WithName(fmt.Sprintf("SystemNamespaceNetwork[%s]", c.ID)),
-				krt.WithMetadata(krt.Metadata{
-					multicluster.ClusterKRTMetadataKey: c.ID,
-				}),
-			)
-			if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster[%s] namespaces", c.ID), opts.Stop(), c.HasSynced) {
-				log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
-				return nil
+	RemoteSystemNamespaceNetworks := krt.NewCollection(clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *ClusterNetwork {
+		if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster[%s] namespaces", c.ID), opts.Stop(), c.HasSynced) {
+			log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
+			return nil
+		}
+		ns := ptr.Flatten(krt.FetchOne(ctx, c.Namespaces(), krt.FilterKey(options.SystemNamespace)))
+		if ns == nil {
+			// If the namespace for the remote cluster is not found, we default to the empty string
+			// to indicate that this cluster is a part of the default network
+			return &ClusterNetwork{
+				ClusterID: c.ID,
+				Network:   "",
 			}
-			ns := ptr.Flatten(krt.FetchOne(ctx, c.Namespaces(), krt.FilterKey(options.SystemNamespace)))
-			if ns == nil {
-				// If the namespace for the remote cluster is not found, we default to the empty string
-				// to indicate that this cluster is a part of the default network
-				return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-					return ptr.Of("")
-				}, singletonOpts...))
-			}
-			nw, f := ns.Labels[label.TopologyNetwork.Name]
-			if !f {
-				nw = ""
-			}
-			return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-				return ptr.Of(nw)
-			}, singletonOpts...))
-		},
-		opts.WithName("RemoteSystemNamespaceNetworks")...,
-	)
+		}
+		nw, f := ns.Labels[label.TopologyNetwork.Name]
+		if !f {
+			nw = ""
+		}
+		return &ClusterNetwork{
+			ClusterID: c.ID,
+			Network:   network.ID(nw),
+		}
+	}, opts.WithName("RemoteSystemNamespaceNetworks")...)
 
-	RemoteSystemNamespaceNetworksByCluster := krt.NewIndex(RemoteSystemNamespaceNetworks, "cluster", func(o krt.Singleton[string]) []cluster.ID {
-		val, ok := o.Metadata()[multicluster.ClusterKRTMetadataKey]
-		if !ok {
-			panic(fmt.Sprintf("Cluster metadata not set on network collection %v", o))
-		}
-		id, ok := val.(cluster.ID)
-		if !ok {
-			panic(fmt.Sprintf("Invalid cluster metadata set on collection %v: %v", o, val))
-		}
-		return []cluster.ID{id}
+	RemoteSystemNamespaceNetworksByCluster := krt.NewIndex(RemoteSystemNamespaceNetworks, "cluster", func(o ClusterNetwork) []cluster.ID {
+		return []cluster.ID{o.ClusterID}
 	})
 
-	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []config.ObjectWithCluster[NetworkGateway] {
+	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []krt.ObjectWithCluster[NetworkGateway] {
 		return k8sGatewayToNetworkGatewaysWithCluster(options.ClusterID, gw, options.ClusterID)
 	}, opts.WithName("LocalNetworkGateways")...)
 
 	GlobalNetworkGateways := nestedCollectionFromLocalAndRemote(
 		localNetworkGateways,
 		clusters,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[config.ObjectWithCluster[NetworkGateway]] {
+		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[NetworkGateway]] {
 			gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
 			if gatewaysPtr == nil {
 				log.Warnf("No gateways found for cluster %s", c.ID)
@@ -143,7 +139,7 @@ func buildGlobalNetworkCollections(
 			// sync.Once to ensure we only create the collection once and return that same value
 			nwGateways := krt.NewManyCollection(
 				gateways,
-				func(ctx krt.HandlerContext, gw config.ObjectWithCluster[*v1beta1.Gateway]) []config.ObjectWithCluster[NetworkGateway] {
+				func(ctx krt.HandlerContext, gw krt.ObjectWithCluster[*v1beta1.Gateway]) []krt.ObjectWithCluster[NetworkGateway] {
 					innerGw := ptr.Flatten(gw.Object)
 					if innerGw == nil {
 						return nil
@@ -165,7 +161,7 @@ func buildGlobalNetworkCollections(
 	)
 	MergedNetworkGatewaysWithCluster := krt.NestedJoinWithMergeCollection(
 		GlobalNetworkGateways,
-		func(gateways []config.ObjectWithCluster[NetworkGateway]) *config.ObjectWithCluster[NetworkGateway] {
+		func(gateways []krt.ObjectWithCluster[NetworkGateway]) *krt.ObjectWithCluster[NetworkGateway] {
 			if len(gateways) == 0 {
 				return nil
 			}
@@ -207,7 +203,7 @@ func buildNetworkCollections(
 	options Options,
 	opts krt.OptionsBuilder,
 ) networkCollections {
-	SystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+	SystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
 		ns := ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
 			return nil
@@ -216,7 +212,10 @@ func buildNetworkCollections(
 		if !f {
 			return nil
 		}
-		return &nw
+		return &ClusterNetwork{
+			ClusterID: options.ClusterID,
+			Network:   network.ID(nw),
+		}
 	}, opts.WithName("SystemNamespaceNetwork")...)
 	NetworkGateways := krt.NewManyCollection(
 		gateways,
@@ -238,11 +237,11 @@ func k8sGatewayToNetworkGatewaysWithCluster(
 	clusterID cluster.ID,
 	gw *v1beta1.Gateway,
 	localClusterID cluster.ID,
-) []config.ObjectWithCluster[NetworkGateway] {
+) []krt.ObjectWithCluster[NetworkGateway] {
 	gateways := k8sGatewayToNetworkGateways(clusterID, gw, localClusterID)
-	var networkGateways []config.ObjectWithCluster[NetworkGateway]
+	var networkGateways []krt.ObjectWithCluster[NetworkGateway]
 	for _, gateway := range gateways {
-		networkGateways = append(networkGateways, config.ObjectWithCluster[NetworkGateway]{
+		networkGateways = append(networkGateways, krt.ObjectWithCluster[NetworkGateway]{
 			ClusterID: clusterID,
 			Object:    &gateway,
 		})

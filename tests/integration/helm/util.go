@@ -200,8 +200,6 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 	// Handle Ambient profile override if set
 	if isAmbient {
 		values["profile"] = "ambient"
-		// Remove revision for ambient profile
-		delete(values, "revision")
 	}
 
 	// Marshal the map to a YAML string
@@ -480,7 +478,7 @@ func SetRevisionTagWithVersion(ctx framework.TestContext, h *helm.Helm, revision
 		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--version", "~"+version, "--repo", ctx.Settings().HelmRepo, "--set",
 		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
 	if err != nil {
-		ctx.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
+		ctx.Fatalf("failed to template istio %s chart", DiscoveryChartsDir)
 	}
 
 	err = ctx.ConfigIstio().YAML(IstioNamespace, template).Apply()
@@ -494,7 +492,7 @@ func SetRevisionTagWithVersion(ctx framework.TestContext, h *helm.Helm, revision
 func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revision, revisionTag, relPath, version string) {
 	scopes.Framework.Infof("=== setting revision tag === ")
 	template, err := h.Template(IstiodReleaseName+"-"+revision, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChartsDir)+fileSuffix,
-		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--set",
+		IstioNamespace, "templates/revision-tags-mwc.yaml", Timeout, "--set",
 		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
 	if err != nil {
 		ctx.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)

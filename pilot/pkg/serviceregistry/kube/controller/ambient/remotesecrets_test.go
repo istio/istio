@@ -440,6 +440,15 @@ func (i *informerHandler[T]) ResourceName() string {
 	return i.clusterID.String()
 }
 
+func (i *informerHandler[T]) Equals(o *informerHandler[T]) bool {
+	if (o == nil && i != nil) || (o != nil && i == nil) {
+		return false
+	}
+
+	// Test cluster ID and pointer equality
+	return i.clusterID == o.clusterID && i.client == o.client
+}
+
 // Test our (lack of) ability to do seamless updates of a cluster.
 // Tracking improvements in https://github.com/istio/istio/issues/49349
 func TestSeamlessMigration(t *testing.T) {

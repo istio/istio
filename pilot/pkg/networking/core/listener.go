@@ -124,7 +124,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, mesh *meshconfig.MeshConfig, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
+	proxy *model.Proxy, push *model.PushContext, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
 ) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
@@ -167,7 +167,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			[]string{}, validateClient, nil)
 	// If credential name(s) are specified at gateway config, create SDS config for gateway to fetch key/cert from Istiod.
 	case len(serverTLSSettings.GetCredentialNames()) > 0 || serverTLSSettings.CredentialName != "":
-		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
+		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist, push)
 	default:
 		certProxy := &model.Proxy{}
 		certProxy.IstioVersion = proxy.IstioVersion
@@ -185,7 +185,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
 		// If Mesh TLSDefaults are set, use them.
-		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
+		applyDownstreamTLSDefaults(push.Mesh.GetTlsDefaults(), ctx.CommonTlsContext)
 		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
 
@@ -673,7 +673,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	if httpProxyPort == 0 {
 		return nil
 	}
-	ph := GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound)
+	ph := util.GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound)
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	_, actualLocalHosts := getWildcardsAndLocalHost(node.GetIPMode())
@@ -729,7 +729,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 			rdsName = strconv.Itoa(opts.port.Port)
 		}
 	}
-	ph := GetProxyHeaders(opts.proxy, opts.push, istionetworking.ListenerClassSidecarOutbound)
+	ph := util.GetProxyHeaders(opts.proxy, opts.push, istionetworking.ListenerClassSidecarOutbound)
 	httpOpts := &httpListenerOpts{
 		// Set useRemoteAddress to true for sidecar outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers

@@ -339,11 +339,11 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 			if !ambient.IsZtunnelPod(client, pod, namespace) {
 				getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
 				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
-				getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				getFromCluster(content.GetProxyInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			} else {
 				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
-				getFromCluster(content.GetZtunnelInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				getFromCluster(content.GetZtunnelInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			}
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):

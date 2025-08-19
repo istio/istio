@@ -441,6 +441,7 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 			Data: map[string][]byte{
 				"tls.crt": []byte(rsaCertPEM),
 				"tls.key": []byte(rsaKeyPEM),
+				"ca.crt":  []byte(rsaCertPEM),
 			},
 		},
 		&corev1.Secret{
@@ -505,6 +506,33 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 				// and the certificate and the key are identical
 				"tls.crt": []byte("SGVsbG8gd29ybGQK"),
 				"tls.key": []byte("SGVsbG8gd29ybGQK"),
+			},
+		},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "malformed",
+				Namespace: "istio-system",
+			},
+			Data: map[string]string{
+				"not-ca.crt": "hello",
+			},
+		},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "malformed-trustbundle",
+				Namespace: "istio-system",
+			},
+			Data: map[string]string{
+				"ca.crt": "hello",
+			},
+		},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-cert-http",
+				Namespace: "istio-system",
+			},
+			Data: map[string]string{
+				"ca.crt": rsaCertPEM,
 			},
 		},
 		&corev1.ConfigMap{
@@ -680,7 +708,7 @@ func TestConvertResources(t *testing.T) {
 		},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
-	test.SetForTest(t, &features.SupportGatewayAPIInferenceExtension, true)
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

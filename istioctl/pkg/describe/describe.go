@@ -81,8 +81,6 @@ type myProtoValue struct {
 }
 
 const (
-	defaultProxyAdminPort = 15000
-
 	k8sSuffix = ".svc." + constants.DefaultClusterLocalDomain
 
 	printLevel0 = 0
@@ -165,7 +163,7 @@ the configuration objects that affect that pod.`,
 			}
 			// TODO look for port collisions between services targeting this pod
 
-			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 			if err != nil {
 				return err
 			}
@@ -196,7 +194,7 @@ the configuration objects that affect that pod.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", istioctlutil.DefaultProxyAdminPort, "Envoy proxy admin port")
 	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }
@@ -1054,7 +1052,7 @@ func printIngressInfo(
 	recordGateways := map[string]bool{}
 
 	for _, pod := range pods.Items {
-		byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump")
+		byConfigDump, err := client.EnvoyDoWithPort(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump", proxyAdminPort)
 		if err != nil {
 			return fmt.Errorf("failed to execute command on ingress gateway sidecar: %v", err)
 		}
@@ -1286,7 +1284,7 @@ the configuration objects that affect that service.`,
 				return nil
 			}
 
-			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 			if err != nil {
 				return err
 			}
@@ -1321,7 +1319,7 @@ the configuration objects that affect that service.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
-	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", istioctlutil.DefaultProxyAdminPort, "Envoy proxy admin port")
 	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }

@@ -6,5 +6,5 @@ issue:
 
 releaseNotes:
 - |
-  **Added** support for Gateway API Inference Extension https://gateway-api-inference-extension.sigs.k8s.io/.
-  This feature is off by default and can be turned on with the `SUPPORT_GATEWAY_API_INFERENCE_EXTENSION` environment variable.
+  **Added** support for the [Gateway API Inference Extension](https://gateway-api-inference-extension.sigs.k8s.io/).
+  This feature is off by default and can be turned on with the `ENABLE_GATEWAY_API_INFERENCE_EXTENSION` environment variable.

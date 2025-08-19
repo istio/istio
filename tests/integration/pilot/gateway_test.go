@@ -124,8 +124,11 @@ spec:
 			return fmt.Errorf("failed to find gateway")
 		}
 		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8sv1.GatewayConditionProgrammed))
-		if cond.Status != metav1.ConditionTrue {
+		if cond == kstatus.EmptyCondition {
 			return fmt.Errorf("failed to find programmed condition: %+v", cond)
+		}
+		if cond.Status != metav1.ConditionTrue {
+			return fmt.Errorf("gateway not programmed: %+v", cond)
 		}
 		if cond.ObservedGeneration != gw.Generation {
 			return fmt.Errorf("stale GWC generation: %+v", cond)

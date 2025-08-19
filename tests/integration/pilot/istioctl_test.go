@@ -31,6 +31,7 @@ import (
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -329,7 +330,7 @@ func TestProxyStatus(t *testing.T) {
 				d := t.TempDir()
 				filename := filepath.Join(d, "ps-configdump.json")
 				cs := t.Clusters().Default()
-				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
+				dump, err := cs.EnvoyDoWithPort(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", util.DefaultProxyAdminPort)
 				if err != nil {
 					return err
 				}

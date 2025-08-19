@@ -6,39 +6,39 @@ add chain inet istio-proxy-nat istio-redirect
 add chain inet istio-proxy-nat istio-in-redirect
 add chain inet istio-proxy-nat istio-output
 add chain inet istio-proxy-nat istio-output-dns
-add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 15008 return
-add rule inet istio-proxy-nat istio-redirect meta l4proto tcp redirect to :15001
-add rule inet istio-proxy-nat istio-in-redirect meta l4proto tcp redirect to :15006
-add rule inet istio-proxy-nat output jump istio-output
-add rule inet istio-proxy-nat istio-output oifname lo ip saddr 127.0.0.6/32 return
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != { 53, 15008 } skuid 3 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output skuid 3 return
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != { 53, 15008 } skuid 4 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output skuid 4 return
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 1 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output skgid 1 return
-add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 2 jump istio-in-redirect
-add rule inet istio-proxy-nat istio-output skgid 2 return
-add rule inet istio-proxy-nat istio-output jump istio-output-dns
-add rule inet istio-proxy-nat istio-output-dns ip daddr 127.0.0.53/32 tcp dport 53 redirect to :15053
-add rule inet istio-proxy-nat istio-output-dns ip daddr 127.0.0.53/32 udp dport 53 redirect to :15053
-add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 return
-add rule inet istio-proxy-nat istio-output ip daddr 127.1.2.3/32 jump istio-redirect
+add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 15008 counter return
+add rule inet istio-proxy-nat istio-redirect meta l4proto tcp counter redirect to :15001
+add rule inet istio-proxy-nat istio-in-redirect meta l4proto tcp counter redirect to :15006
+add rule inet istio-proxy-nat output counter jump istio-output
+add rule inet istio-proxy-nat istio-output oifname lo ip saddr 127.0.0.6/32 counter return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != { 53, 15008 } skuid 3 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output skuid 3 counter return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != { 53, 15008 } skuid 4 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output skuid 4 counter return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 1 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output skgid 1 counter return
+add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 tcp dport != 15008 skgid 2 counter jump istio-in-redirect
+add rule inet istio-proxy-nat istio-output skgid 2 counter return
+add rule inet istio-proxy-nat istio-output counter jump istio-output-dns
+add rule inet istio-proxy-nat istio-output-dns ip daddr 127.0.0.53/32 tcp dport 53 counter redirect to :15053
+add rule inet istio-proxy-nat istio-output-dns ip daddr 127.0.0.53/32 udp dport 53 counter redirect to :15053
+add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 counter return
+add rule inet istio-proxy-nat istio-output ip daddr 127.1.2.3/32 counter jump istio-redirect
 add table inet istio-proxy-raw
 flush table inet istio-proxy-raw
 add chain inet istio-proxy-raw prerouting { type filter hook prerouting priority -300 ; }
 add chain inet istio-proxy-raw output { type filter hook output priority -300 ; }
 add chain inet istio-proxy-raw istio-inbound
 add chain inet istio-proxy-raw istio-output-dns
-add rule inet istio-proxy-raw output jump istio-output-dns
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skuid 3 ct zone set 1
-add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skuid 3 ct zone set 2
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skuid 4 ct zone set 1
-add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skuid 4 ct zone set 2
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skgid 1 ct zone set 1
-add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skgid 1 ct zone set 2
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skgid 2 ct zone set 1
-add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skgid 2 ct zone set 2
-add rule inet istio-proxy-raw prerouting jump istio-inbound
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 ip daddr 127.0.0.53/32 ct zone set 2
-add rule inet istio-proxy-raw istio-inbound udp sport 53 ip daddr 127.0.0.53/32 ct zone set 1
+add rule inet istio-proxy-raw output counter jump istio-output-dns
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skuid 3 counter ct zone set 1
+add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skuid 3 counter ct zone set 2
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skuid 4 counter ct zone set 1
+add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skuid 4 counter ct zone set 2
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skgid 1 counter ct zone set 1
+add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skgid 1 counter ct zone set 2
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skgid 2 counter ct zone set 1
+add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skgid 2 counter ct zone set 2
+add rule inet istio-proxy-raw prerouting counter jump istio-inbound
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 ip daddr 127.0.0.53/32 counter ct zone set 2
+add rule inet istio-proxy-raw istio-inbound udp sport 53 ip saddr 127.0.0.53/32 counter ct zone set 1

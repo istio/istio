@@ -165,7 +165,7 @@ func NewController(
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "gateway", options.KrtDebugger)
 
-	tw := revisions.NewTagWatcher(kc, options.Revision)
+	tw := revisions.NewTagWatcher(kc, options.Revision, options.SystemNamespace)
 	c := &Controller{
 		client:         kc,
 		cluster:        options.ClusterID,
@@ -186,18 +186,18 @@ func NewController(
 
 	inputs := Inputs{
 		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("informer/Namespaces")...),
-		Secrets: krt.WrapClient[*corev1.Secret](
+		Secrets: krt.WrapClient(
 			kclient.NewFiltered[*corev1.Secret](kc, kubetypes.Filter{
 				FieldSelector: kubesecrets.SecretsFieldSelector,
 				ObjectFilter:  kc.ObjectFilter(),
 			}),
 			opts.WithName("informer/Secrets")...,
 		),
-		ConfigMaps: krt.WrapClient[*corev1.ConfigMap](
+		ConfigMaps: krt.WrapClient(
 			kclient.NewFiltered[*corev1.ConfigMap](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("informer/ConfigMaps")...,
 		),
-		Services:       krt.WrapClient[*corev1.Service](svcClient, opts.WithName("informer/Services")...),
+		Services:       krt.WrapClient(svcClient, opts.WithName("informer/Services")...),
 		GatewayClasses: buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
 		Gateways:       buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
 		HTTPRoutes:     buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
@@ -221,7 +221,7 @@ func NewController(
 		inputs.ListenerSets = krt.NewStaticCollection[*gatewayx.XListenerSet](nil, nil, opts.WithName("disable/XListenerSet")...)
 	}
 
-	if features.SupportGatewayAPIInferenceExtension {
+	if features.EnableGatewayAPIInferenceExtension {
 		inputs.InferencePools = buildClient[*inferencev1alpha2.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
 		// If disabled, still build a collection but make it always empty
@@ -248,6 +248,7 @@ func NewController(
 		GatewayClasses,
 		inputs.Namespaces,
 		ReferenceGrants,
+		inputs.ConfigMaps,
 		inputs.Secrets,
 		options.DomainSuffix,
 		c.gatewayContext,
@@ -273,6 +274,7 @@ func NewController(
 		GatewayClasses,
 		inputs.Namespaces,
 		ReferenceGrants,
+		inputs.ConfigMaps,
 		inputs.Secrets,
 		c.domainSuffix,
 		c.gatewayContext,
@@ -296,7 +298,7 @@ func NewController(
 		controllers.WithReconciler(c.reconcileShadowService(svcClient, InferencePools, inputs.Services)),
 		controllers.WithMaxAttempts(5))
 
-	if features.SupportGatewayAPIInferenceExtension {
+	if features.EnableGatewayAPIInferenceExtension {
 		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
 	}
 

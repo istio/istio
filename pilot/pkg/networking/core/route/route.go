@@ -38,6 +38,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/route/retry"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -113,7 +114,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService)
 		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
 		wrappers := buildSidecarVirtualHostsForVirtualService(
-			node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, mostSpecificWildcardVsIndex,
+			node, virtualService, serviceRegistry, hashByDestination, listenPort, push, mostSpecificWildcardVsIndex,
 		)
 		out = append(out, wrappers...)
 	}
@@ -140,7 +141,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
 				}
 				// append default hosts for the service missing virtual Services.
-				out = append(out, buildSidecarVirtualHostForService(svc, port, hash, push.Mesh))
+				out = append(out, buildSidecarVirtualHostForService(svc, port, hash, push))
 			}
 		}
 	}
@@ -242,7 +243,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination DestinationHashMap,
 	listenPort int,
-	mesh *meshconfig.MeshConfig,
+	push *model.PushContext,
 	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	meshGateway := sets.New(constants.IstioMeshGateway)
@@ -254,7 +255,8 @@ func buildSidecarVirtualHostsForVirtualService(
 		IsTLS: false,
 		// Sidecar is never doing H3 (yet)
 		IsHTTP3AltSvcHeaderNeeded: false,
-		Mesh:                      mesh,
+		Mesh:                      push.Mesh,
+		Push:                      push,
 		LookupService: func(name host.Name) *model.Service {
 			return serviceRegistry[name]
 		},
@@ -325,11 +327,11 @@ func buildSidecarVirtualHostsForVirtualService(
 func buildSidecarVirtualHostForService(svc *model.Service,
 	port *model.Port,
 	hash *networking.LoadBalancerSettings_ConsistentHashLB,
-	mesh *meshconfig.MeshConfig,
+	push *model.PushContext,
 ) VirtualHostWrapper {
 	cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 	traceOperation := telemetry.TraceOperation(string(svc.Hostname), port.Port)
-	httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, mesh)
+	httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, push.Mesh)
 
 	// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
 	hashPolicy := consistentHashToHashPolicy(hash)
@@ -378,6 +380,7 @@ type RouteOptions struct {
 	// IsHTTP3AltSvcHeaderNeeded indicates if HTTP3 alt-svc header needs to be inserted
 	IsHTTP3AltSvcHeaderNeeded bool
 	Mesh                      *meshconfig.MeshConfig
+	Push                      *model.PushContext
 	LookupService             func(name host.Name) *model.Service
 	LookupDestinationCluster  func(destination *networking.Destination, service *model.Service, listenerPort int) string
 	LookupHash                func(*networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB
@@ -528,10 +531,14 @@ func TranslateRoute(
 					ProcessingMode: &extproc.ProcessingMode{
 						RequestHeaderMode: extproc.ProcessingMode_SEND,
 						// open AI standard includes the model and other information the ext_proc server needs in the request body
-						RequestBodyMode:    extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+						RequestBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+						// If the ext_proc server has the request_body_mode set to FULL_DUPLEX_STREAMED, then the request_trailer_mode has to be set to SEND
+						RequestTrailerMode: extproc.ProcessingMode_SEND,
 						ResponseHeaderMode: extproc.ProcessingMode_SEND,
 						// GIE collects statistics present in the open AI standard response message
 						ResponseBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+						// If the ext_proc server has the response_body_mode set to FULL_DUPLEX_STREAMED, then the response_trailer_mode has to be set to SEND
+						ResponseTrailerMode: extproc.ProcessingMode_SEND,
 					},
 				},
 			},
@@ -615,9 +622,12 @@ func applyHTTPRouteDestination(
 	out.Action = &route.Route_Route{Route: action}
 
 	if in.Rewrite != nil {
+		ph := util.GetProxyHeaders(node, opts.Push, istionetworking.ListenerClassSidecarOutbound)
+		appendXForwardedHost := ph.XForwardedHost
 		action.ClusterSpecifier = &route.RouteAction_Cluster{
 			Cluster: in.Name,
 		}
+		action.AppendXForwardedHost = appendXForwardedHost
 
 		if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
 			action.RegexRewrite = &matcher.RegexMatchAndSubstitute{

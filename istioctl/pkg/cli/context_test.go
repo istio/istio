@@ -50,3 +50,33 @@ func Test_handleNamespace(t *testing.T) {
 		})
 	}
 }
+
+func TestRevisionOrDefault(t *testing.T) {
+	tests := []struct {
+		description    string
+		inputRevision  string
+		expectedResult string
+	}{
+		{
+			description:    "return provided revision when non-empty",
+			inputRevision:  "test-revision",
+			expectedResult: "test-revision",
+		},
+		{
+			description:    "return empty string when no revision provided and no default available",
+			inputRevision:  "",
+			expectedResult: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			// Create a fake context
+			ctx := NewFakeContext(&NewFakeContextOption{})
+			got := ctx.RevisionOrDefault(tt.inputRevision)
+			if got != tt.expectedResult {
+				t.Fatalf("unexpected result: wanted %v got %v", tt.expectedResult, got)
+			}
+		})
+	}
+}

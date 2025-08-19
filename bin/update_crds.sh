@@ -78,7 +78,7 @@ rm -f "${ROOTDIR}/tests/integration/pilot/testdata/gateway-api-crd.yaml"
 cp "${API_TMP}/gateway-api-crd.yaml" "${ROOTDIR}/tests/integration/pilot/testdata/gateway-api-crd.yaml"
 
 GATEWAY_API_INFERENCE_VERSION=$(grep "gateway-api-inference-extension" go.mod | awk '{ print $2 }')
-if [[ ${GATEWAY_API_INFERENCE_VERSION} == *"-"* && ! ${GATEWAY_API_INFERENCE_VERSION} =~ -rc[0-9]$ ]]; then
+if [[ ${GATEWAY_API_INFERENCE_VERSION} == *"-"* && ! ${GATEWAY_API_INFERENCE_VERSION} =~ -rc.?[0-9]$ ]]; then
   # not an official release or release candidate, so get the commit sha
   SHORT_SHA=$(echo "${GATEWAY_API_INFERENCE_VERSION}" | awk -F '-' '{ print $NF }')
   GATEWAY_API_INFERENCE_VERSION=$(curl -s -L -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/kubernetes-sigs/gateway-api-inference-extension/commits/${SHORT_SHA}" | jq -r .sha)
