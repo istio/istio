@@ -113,6 +113,9 @@ _internal_defaults_do_not_set:
   trustedZtunnelName: ""
 
   sidecarInjectorWebhook:
+    # prefix - Optionally set a prefix on the MutatingWebhookConfiguration resource, allows you to somewhat control when the istio sidecar is injected, e.g. before or after some other MutatingWebhookConfiguration.
+    prefix: ""
+
     # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
     # always skip the injection on pods that match that label selector, regardless of the global policy.
     # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
