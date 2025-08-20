@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 57380
+releaseNotes:
+- |
+  **Fixed** iptables detection logic to fall back to `iptables-nft` when the `iptable_nat` module is missing. 
