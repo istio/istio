@@ -120,7 +120,7 @@ func Test_KubeSecretController(t *testing.T) {
 		// 2. MeshConfig event handler for the remote cluster
 		// Unfortunately, the test versions of these singletons
 		// use static collections which don't have the same event
-		// handler semantics as the prodcution code. So just spawn
+		// handler semantics as the production code. So just spawn
 		// two goroutines to simulate the leak.
 		stop = test.NewStop(t)
 		leak.Check(t, leak.WithAllowedLeaks(2))
