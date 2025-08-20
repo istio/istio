@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 57412
+
+releaseNotes:
+  - |
+    **Fixed** an issue where `istioctl install --set values.defaultRevision=""` was creating default validation webhooks, ignoring the user's explicit intent to disable the default revision.
+    Now when `defaultRevision` is explicitly set to empty string, no default webhooks are created.
