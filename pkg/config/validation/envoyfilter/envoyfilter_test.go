@@ -265,6 +265,59 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "Envoy filter: applyTo for cluster class objects cannot have non cluster match"},
+		{name: "upstream http filter with invalid match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+							Listener: &networking.EnvoyFilter_ListenerMatch{},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: applyTo for cluster class objects cannot have non cluster match"},
+		{name: "cluster with invalid filter match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{
+								Filter: &networking.EnvoyFilter_ClusterMatch_UpstreamFilterMatch{
+									Name: "random",
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: upstream filter match has no effect when used with CLUSTER"},
+		{name: "upstream http filter with invalid filter match", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_UPSTREAM_HTTP_FILTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{
+								Filter: &networking.EnvoyFilter_ClusterMatch_UpstreamFilterMatch{
+									Name: "",
+								},
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: upstream filter match has no name to match on"},
 		{name: "invalid patch value", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
