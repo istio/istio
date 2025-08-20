@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 43966
+docs:
+  - '[usage] https://istio.io/latest/docs/tasks/traffic-management/ingress/secure-ingress/#configure-a-mutual-tls-ingress-gateway'
+  - '[reference] https://gateway-api.sigs.k8s.io/reference/spec/#frontendtlsvalidation'
+releaseNotes:
+  - |
+    **Added** Support Gateway API FrontendTLSValidation (GEP-91)

@@ -477,6 +477,12 @@ func TestIPAllocateWithEnvCIDR(t *testing.T) {
 	features.IPAutoallocateIPv6Prefix = TestNonDefaultIPV6PrefixCIDR
 
 	rig := setupIPAllocateTest(t, TestNonDefaultIPV4Prefix, TestNonDefaultIPV6Prefix)
+
+	assert.EventuallyEqual(t, func() int {
+		se := rig.se.Get("pre-existing", "default")
+		return len(autoallocate.GetAddressesFromServiceEntry(se))
+	}, 2, retry.Converge(10), retry.Delay(time.Millisecond*5))
+
 	se := rig.se.Get("pre-existing", "default")
 	// test that the non-default CIDR prefixes are used
 	se.Spec.Hosts = append(se.Spec.Hosts, "added.testing.io")

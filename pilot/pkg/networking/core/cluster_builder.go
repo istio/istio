@@ -69,6 +69,20 @@ var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOp
 	},
 })
 
+// nolint
+// revive:disable-next-line
+var passthroughHttpProtocolOptionsWithPreserveHeaderCase = protoconv.MessageToAny(&http.HttpProtocolOptions{
+	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+		IdleTimeout: durationpb.New(5 * time.Minute),
+	},
+	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  preserveCaseFormatterConfig,
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
+	},
+})
+
 var preserveCaseFormatterConfig = &core.Http1ProtocolOptions{
 	HeaderKeyFormat: &core.Http1ProtocolOptions_HeaderKeyFormat{
 		HeaderFormat: &core.Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter{
@@ -630,13 +644,17 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 // generates a cluster that sends traffic to the original destination.
 // This cluster is used to catch all traffic to unknown listener ports
 func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
+	httpProtocolOptions := passthroughHttpProtocolOptions
+	if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
+		httpProtocolOptions = passthroughHttpProtocolOptionsWithPreserveHeaderCase
+	}
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
-			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
+			v3.HttpProtocolOptionsType: httpProtocolOptions,
 		},
 	}
 	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
@@ -715,6 +733,11 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *clusterWrapper) {
 	}
 }
 
+func shouldPreserveHeaderCase(proxyMetadata *model.NodeMetadata, push *model.PushContext) bool {
+	return proxyMetadata.ProxyConfigOrDefault(push.Mesh.GetDefaultConfig()).
+		GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
+}
+
 func http2ProtocolOptions() *core.Http2ProtocolOptions {
 	return &core.Http2ProtocolOptions{}
 }
@@ -735,9 +758,8 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	// Preserve HTTP/1.x traffic header case
 	isExplicitHTTP := port.Protocol.IsHTTP()
 	isAutoProtocol := port.Protocol.IsUnsupported()
-	effectiveProxyConfig := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig())
-	preserveHeaderCase := effectiveProxyConfig.GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
 
+	preserveHeaderCase := shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push)
 	if isExplicitHTTP || (isAutoProtocol && preserveHeaderCase) {
 		setHTTP1Options(cluster, preserveHeaderCase)
 	}

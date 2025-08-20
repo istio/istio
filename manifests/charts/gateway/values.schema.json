@@ -105,7 +105,7 @@
           "type": "object",
           "properties": {
             "limits": {
-              "type": "object",
+              "type": ["object", "null"],
               "properties": {
                 "cpu": {
                   "type": ["string", "null"]
@@ -116,7 +116,7 @@
               }
             },
             "requests": {
-              "type": "object",
+              "type": ["object", "null"],
               "properties": {
                 "cpu": {
                   "type": ["string", "null"]

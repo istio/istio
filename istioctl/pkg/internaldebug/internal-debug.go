@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
+func HandlerForRetrieveDebugList(list bool, kubeClient kube.CLIClient,
 	centralOpts clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
 	istioNamespace string,
@@ -52,7 +52,9 @@ func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 	if respErr != nil {
 		return xdsResponses, respErr
 	}
-	_, _ = fmt.Fprint(writer, "error: according to below command list, please check all supported internal debug commands\n")
+	if !list {
+		_, _ = fmt.Fprint(writer, "error: according to below command list, please check all supported internal debug commands\n")
+	}
 	return xdsResponses, nil
 }
 
@@ -71,7 +73,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 					"edsz?proxyID=istio-ingressgateway")
 
 			case strings.Contains(eString, "404 page not found"):
-				return HandlerForRetrieveDebugList(kubeClient, *centralOpts, writer, istioNamespace)
+				return HandlerForRetrieveDebugList(false, kubeClient, *centralOpts, writer, istioNamespace)
 			}
 		}
 	}
@@ -94,6 +96,9 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 
   # Retrieve sync diff for a single Envoy and Istiod
   istioctl x internal-debug syncz istio-egressgateway-59585c5b9c-ndc59.istio-system
+
+  # List all supported debug types
+  istioctl x internal-debug --list
 
   # SECURITY OPTIONS
 
@@ -118,9 +123,20 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			if err != nil {
 				return err
 			}
+			sw := DebugWriter{
+				Writer:                 c.OutOrStdout(),
+				InternalDebugAllIstiod: internalDebugAllIstiod,
+			}
 			if len(args) == 0 {
+				if list {
+					xdsResponses, err := HandlerForRetrieveDebugList(list, kubeClient, centralOpts, c.OutOrStdout(), ctx.IstioNamespace())
+					if err != nil {
+						return err
+					}
+					return sw.PrintAll(xdsResponses)
+				}
 				return util.CommandParseError{
-					Err: fmt.Errorf("debug type is required"),
+					Err: fmt.Errorf("debug type is required, you can specify --list flag to list supported debug types"),
 				}
 			}
 			var xdsRequest discovery.DiscoveryRequest
@@ -139,10 +155,6 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			if err != nil {
 				return err
 			}
-			sw := DebugWriter{
-				Writer:                 c.OutOrStdout(),
-				InternalDebugAllIstiod: internalDebugAllIstiod,
-			}
 			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), ctx.IstioNamespace(), xdsResponses)
 			if err != nil {
 				return err
@@ -158,12 +170,17 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 	opts.AttachControlPlaneFlags(debugCommand)
 	centralOpts.AttachControlPlaneFlags(debugCommand)
 	debugCommand.Long += "\n\n" + util.ExperimentalMsg
+	debugCommand.PersistentFlags().BoolVarP(&list, "list", "L", false,
+		"List all supported debug types.")
 	debugCommand.PersistentFlags().BoolVar(&internalDebugAllIstiod, "all", false,
 		"Send the same request to all instances of Istiod. Only applicable for in-cluster deployment.")
 	return debugCommand
 }
 
-var internalDebugAllIstiod bool
+var (
+	internalDebugAllIstiod bool
+	list                   bool
+)
 
 type DebugWriter struct {
 	Writer                 io.Writer

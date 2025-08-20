@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
-var testRuleAdd = []string{"-t", "filter", "-A", "INPUT", "-p", "255", "-j", "DROP", "-m", "comment", "--comment", `"Istio no-op iptables capability probe"`}
+var testRuleAdd = []string{"-t", "nat", "-A", "INPUT", "-p", "255", "-j", "RETURN", "-m", "comment", "--comment", `"Istio no-op iptables capability probe"`}
 
 // TODO the entire `istio-iptables` package is linux-specific, I'm not sure we really need
 // platform-differentiators for the `dependencies` package itself.
