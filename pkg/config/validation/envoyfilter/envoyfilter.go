@@ -152,6 +152,7 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 			if cp.Match != nil && cp.Match.ObjectTypes != nil {
 				if cp.Match.GetCluster() == nil {
 					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: stylecheck
+					continue
 				}
 				clusterMatch := cp.Match.GetCluster()
 				if clusterMatch.Filter != nil {
