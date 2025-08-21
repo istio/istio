@@ -2,6 +2,11 @@
   "$schema": "http://json-schema.org/schema#",
   "type": "object",
   "additionalProperties": false,
+  "properties": {
+    "_internal_defaults_do_not_set": {
+      "type": "object"
+    }
+  },
   "$defs": {
     "values": {
       "type": "object",
