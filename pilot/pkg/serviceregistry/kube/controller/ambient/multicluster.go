@@ -189,6 +189,7 @@ func (a *index) buildGlobalCollections(
 		LocalNamespaces,
 		LocalMeshConfig,
 		opts,
+		false, // Don't precompute here; these will just get merged into the global collection later
 	)
 	// All of this is local only, but we need to do it here so we don't have to rebuild collections in ambientindex
 	if features.EnableAmbientStatus {
@@ -675,8 +676,13 @@ func mergeServiceInfosWithCluster(
 			return nil
 		}
 
+		// Precompute the svc info here
 		if svcInfosLen == 1 {
-			return &serviceInfos[0]
+			obj := serviceInfos[0]
+			return &krt.ObjectWithCluster[model.ServiceInfo]{
+				ClusterID: obj.ClusterID,
+				Object:    precomputeServicePtr(obj.Object),
+			}
 		}
 
 		// If we can't find a local serviceinfo, we just take the first one.
