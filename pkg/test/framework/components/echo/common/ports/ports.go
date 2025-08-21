@@ -38,6 +38,8 @@ var (
 	HTTPWorkloadOnly = echo.Port{Name: "http-wl-only", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 18083}
 	TCPForHTTP       = echo.Port{Name: "tcp-for-http", Protocol: protocol.HTTP, ServicePort: 86, WorkloadPort: 18086}
 	HTTPWithProxy    = echo.Port{Name: "tcp-proxy", Protocol: protocol.HTTP, ServicePort: 87, WorkloadPort: 18087, ProxyProtocol: true}
+	// MTLS is a special port, which induces requirements most "in-mesh" pods don't meet presently. It will not be added to our default "All" list as a result.
+	MTLS = echo.Port{Name: "mtls", Protocol: protocol.HTTPS, ServicePort: 4443, WorkloadPort: 18444, MTLS: true}
 )
 
 // All the common ports.
