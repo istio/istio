@@ -1,11 +1,13 @@
 {
   "$schema": "http://json-schema.org/schema#",
-  "type": "object",
-  "additionalProperties": false,
   "$defs": {
     "values": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
+        "_internal_defaults_do_not_set": {
+          "type": "object"
+        },
         "global": {
           "type": "object"
         },
