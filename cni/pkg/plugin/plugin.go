@@ -69,6 +69,7 @@ type Config struct {
 	EnablementSelectors []util.EnablementSelector `json:"enablement_selectors"`
 	ExcludeNamespaces   []string                  `json:"exclude_namespaces"`
 	PodNamespace        string                    `json:"pod_namespace"`
+	NativeNftables      bool                      `json:"native_nftables"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -165,12 +166,30 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 
 	// Create a kube client
 	client, err := newK8sClient(*conf)
+	// If creation of a kube client fails, check if the pod is a CNI pod.
+	// It is possible that the kubeconfig is not available if it hasn't been written yet
+	// by the CNI pod which could be unable to start if we failed here. We skip this
+	// failure for the CNI pod to avoid a deadlock.
 	if err != nil {
-		return err
+		if conf.AmbientEnabled {
+			k8sArgs := K8sArgs{}
+			if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
+				return fmt.Errorf("failed to load args after failed attempt to get client: %v", err)
+			}
+			if isCNIPod(conf, &k8sArgs) {
+				// If we are in a degraded state and this is our own agent pod, skip
+				return pluginResponse(conf)
+			}
+		}
+		return fmt.Errorf("failed to createNewK8sClient: %v", err)
 	}
 
 	// Actually do the add
-	if err := doAddRun(args, conf, client, IptablesInterceptRuleMgr()); err != nil {
+	mgr := IptablesInterceptRuleMgr()
+	if conf.NativeNftables {
+		mgr = NftablesInterceptRuleMgr()
+	}
+	if err := doAddRun(args, conf, client, mgr); err != nil {
 		return err
 	}
 	return pluginResponse(conf)
@@ -242,8 +261,6 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 	}
 	// End ambient plugin logic
 
-	maybeCNIPod := string(k8sArgs.K8S_POD_NAME)
-	maybeCNINS := string(k8sArgs.K8S_POD_NAMESPACE)
 	pi := &PodInfo{}
 	var k8sErr error
 	for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
@@ -272,9 +289,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		// as the hard query we would otherwise make against the API.
 		//
 		// TODO NRI could probably give us more identifying information here OOB from k8s.
-		if strings.HasPrefix(maybeCNIPod, "istio-cni-node-") &&
-			maybeCNINS == conf.PodNamespace {
-			log.Infof("in a degraded state and %v looks like our own agent pod, skipping", maybeCNIPod)
+		if isCNIPod(conf, &k8sArgs) {
 			return nil
 		}
 
@@ -381,4 +396,14 @@ func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, sel
 	}
 
 	return compiledSelectors.Matches(pod.Labels, pod.Annotations, ns.Labels), nil
+}
+
+func isCNIPod(conf *Config, k8sArgs *K8sArgs) bool {
+	if strings.HasPrefix(string(k8sArgs.K8S_POD_NAME), "istio-cni-node-") &&
+		string(k8sArgs.K8S_POD_NAMESPACE) == conf.PodNamespace {
+		log.Infof("in a degraded state and %v looks like our own agent pod, skipping", k8sArgs.K8S_POD_NAME)
+		return true
+	}
+	log.Warnf("not a CNI pod, podName: %s, podNamespace: %s", k8sArgs.K8S_POD_NAME, k8sArgs.K8S_POD_NAMESPACE)
+	return false
 }

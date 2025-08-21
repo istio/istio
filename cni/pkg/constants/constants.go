@@ -27,6 +27,8 @@ const (
 	ChainedCNIPlugin                  = "chained-cni-plugin"
 	CNINetworkConfigFile              = "cni-network-config-file"
 	CNINetworkConfig                  = "cni-network-config"
+	IstioOwnedCNIConfig               = "istio-owned-cni-config"
+	IstioOwnedCNIConfigFilename       = "istio-owned-cni-config-filename"
 	LogLevel                          = "log-level"
 	KubeconfigMode                    = "kubeconfig-mode"
 	KubeCAFile                        = "kube-ca-file"
@@ -44,6 +46,8 @@ const (
 	AmbientIPv6                       = "ambient-ipv6"
 	AmbientDisableSafeUpgrade         = "ambient-disable-safe-upgrade"
 	AmbientReconcilePodRulesOnStartup = "ambient-reconcile-pod-rules-on-startup"
+
+	NativeNftables = "native-nftables"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"
@@ -74,11 +78,12 @@ const (
 	RollingLogMaxSizeMB   = 10
 	CNIPluginKubeconfName = "istio-cni-kubeconfig"
 	// K8s liveness and readiness endpoints
-	LivenessEndpoint   = "/healthz"
-	ReadinessEndpoint  = "/readyz"
-	ReadinessPort      = "8000"
-	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
-	SelfNetNSPath      = "/proc/self/ns/net"
+	LivenessEndpoint                   = "/healthz"
+	ReadinessEndpoint                  = "/readyz"
+	ReadinessPort                      = "8000"
+	ServiceAccountPath                 = "/var/run/secrets/kubernetes.io/serviceaccount"
+	SelfNetNSPath                      = "/proc/self/ns/net"
+	DefaultIstioOwnedCNIConfigFilename = "02-istio-cni.conflist"
 )
 
 // Exposed for testing "constants"

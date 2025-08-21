@@ -127,6 +127,13 @@ type Service struct {
 	ResourceVersion string
 }
 
+// UseInferenceSemantics determines which logic we should use for Service
+// This allows InferencePools and Services to both be represented by Service, but have different
+// semantics.
+func (s *Service) UseInferenceSemantics() bool {
+	return s.Attributes.Labels[constants.InternalServiceSemantics] == constants.ServiceSemanticsInferencePool
+}
+
 func (s *Service) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: s.Attributes.Name, Namespace: s.Attributes.Namespace}
 }
@@ -962,6 +969,8 @@ type WaypointKey struct {
 
 	Network   string
 	Addresses []string
+
+	IsNetworkGateway bool
 }
 
 // WaypointKeyForProxy builds a key from a proxy to lookup
@@ -975,8 +984,9 @@ func WaypointKeyForNetworkGatewayProxy(node *Proxy) WaypointKey {
 
 func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	key := WaypointKey{
-		Namespace: node.ConfigNamespace,
-		Network:   node.Metadata.Network.String(),
+		Namespace:        node.ConfigNamespace,
+		Network:          node.Metadata.Network.String(),
+		IsNetworkGateway: externalAddresses, // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 	}
 	for _, svct := range node.ServiceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
@@ -1105,7 +1115,9 @@ type ServiceInfo struct {
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
-	Source   TypedObject
+	Source TypedObject
+	// Scope of the service - either local or global based on namespace or service label matching
+	Scope    ServiceScope
 	Waypoint WaypointBindingStatus
 	// MarshaledAddress contains the pre-marshaled representation.
 	// Note: this is an Address -- not a Service.
@@ -1217,6 +1229,7 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
 		i.Source == other.Source &&
+		i.Scope == other.Scope &&
 		i.Waypoint.Equals(other.Waypoint)
 }
 
@@ -1227,6 +1240,19 @@ func (i ServiceInfo) ResourceName() string {
 func serviceResourceName(s *workloadapi.Service) string {
 	return s.Namespace + "/" + s.Hostname
 }
+
+type ServiceScope string
+
+const (
+	// Local ServiceScope specifies that istiod will not automatically expose the matching services' endpoints at the
+	// cluster's east/west gateway. Istio will also not automatically share locolly matching endpoints with the
+	// cluster's local dataplane that are not within the local cluster.
+	Local ServiceScope = "LOCAL"
+	// Global ServiceScope specifies that istiod will automatically expose the matching services' endpoints at the
+	// cluster's east/west gateway. Istio will also automatically share globally matching endpoints with the cluster's
+	// local dataplane that are in the local and remote clusters.
+	Global ServiceScope = "GLOBAL"
+)
 
 type WorkloadInfo struct {
 	Workload *workloadapi.Workload

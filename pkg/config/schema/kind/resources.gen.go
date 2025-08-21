@@ -23,6 +23,7 @@ const (
 	GatewayClass
 	HTTPRoute
 	HorizontalPodAutoscaler
+	InferencePool
 	Ingress
 	IngressClass
 	KubernetesGateway
@@ -54,6 +55,7 @@ const (
 	WorkloadEntry
 	WorkloadGroup
 	XBackendTrafficPolicy
+	XListenerSet
 )
 
 func (k Kind) String() string {
@@ -96,6 +98,8 @@ func (k Kind) String() string {
 		return "HTTPRoute"
 	case HorizontalPodAutoscaler:
 		return "HorizontalPodAutoscaler"
+	case InferencePool:
+		return "InferencePool"
 	case Ingress:
 		return "Ingress"
 	case IngressClass:
@@ -158,6 +162,8 @@ func (k Kind) String() string {
 		return "WorkloadGroup"
 	case XBackendTrafficPolicy:
 		return "XBackendTrafficPolicy"
+	case XListenerSet:
+		return "XListenerSet"
 	default:
 		return "Unknown"
 	}
@@ -203,6 +209,8 @@ func FromString(s string) Kind {
 		return HTTPRoute
 	case "HorizontalPodAutoscaler":
 		return HorizontalPodAutoscaler
+	case "InferencePool":
+		return InferencePool
 	case "Ingress":
 		return Ingress
 	case "IngressClass":
@@ -265,6 +273,8 @@ func FromString(s string) Kind {
 		return WorkloadGroup
 	case "XBackendTrafficPolicy":
 		return XBackendTrafficPolicy
+	case "XListenerSet":
+		return XListenerSet
 	default:
 		return Unknown
 	}

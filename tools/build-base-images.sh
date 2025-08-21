@@ -74,11 +74,13 @@ unexpectedFiles="$(
     # Allow all libraries - maybe we should lock down more though
     grep -v '^usr/bin/xtables' | \
     grep -v '^usr/bin/ldconfig$' | \
+    grep -v '^usr/bin/nft' | \
     grep -v '^etc/apk/commit_hooks.d/ldconfig-commit.sh$' | \
     grep -v '.*\.so[0-9\.]*' || true
 )"
 expectedFiles=(
   "usr/bin/xtables-legacy-multi"
+  "usr/bin/nft"
 )
 for want in "${expectedFiles[@]}"; do
   if ! grep -q "${want}" <<<"${exefiles}"; then
@@ -90,7 +92,7 @@ if [[ "${unexpectedFiles}" != "" ]]; then
   echo "Found unexpected binaries: ${unexpectedFiles}"
   exit 1
 fi
-
+popd > /dev/null
 # Now actually build it
 # shellcheck disable=SC2086
 apko publish --arch="${APKO_ARCHES}" docker/iptables.yaml ${APKO_IMAGES}

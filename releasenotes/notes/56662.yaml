@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 56651
+releaseNotes:
+- |
+  **Added** recording secret's namespace and name when certificate is invalid.

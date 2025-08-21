@@ -174,6 +174,20 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 			err = multierror.Append(err, e)
 		}
 
+		// Delete the revision tags service that were created similarly to MutatingWebhookConfigurations
+		services, e := c.Kube().CoreV1().Services(i.cfg.SystemNamespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: "istio.io/tag",
+		})
+		if e != nil {
+			err = multierror.Append(err, e)
+		} else {
+			for _, svc := range services.Items {
+				if e := c.Kube().CoreV1().Services(i.cfg.SystemNamespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{}); e != nil {
+					err = multierror.Append(err, e)
+				}
+			}
+		}
+
 		// We deleted all resources, but don't report cleanup finished until all Istio pods
 		// in the system namespace have actually terminated.
 		cleanErr := retry.UntilSuccess(func() error {
@@ -200,6 +214,11 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 			}
 			res := fmt.Sprintf("Still waiting for %d pods and %d services to terminate in %s ", len(fetchedPod), len(fetchedSvc), i.cfg.SystemNamespace)
 			scopes.Framework.Infof(res)
+
+			for _, svc := range fetchedSvc {
+				scopes.Framework.Infof("Service still present: namespace=%s, name=%s", svc.Namespace, svc.Name)
+			}
+
 			return errors.New(res)
 		}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
 

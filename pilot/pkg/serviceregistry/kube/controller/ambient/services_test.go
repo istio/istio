@@ -25,10 +25,12 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
+	meshConfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/ptr"
@@ -986,6 +988,8 @@ func TestServiceServices(t *testing.T) {
 			builder := a.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
+				krttest.GetMockSingleton[MeshConfig](mock),
+				true,
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
 			if res == nil {
@@ -1120,9 +1124,447 @@ func TestServiceConditions(t *testing.T) {
 			builder := a.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
+				krttest.GetMockSingleton[MeshConfig](mock),
+				true,
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
 			assert.Equal(t, res.GetConditions(), tt.conditions)
+		})
+	}
+}
+
+func TestMatchServiceScope(t *testing.T) {
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName:      "ns",
+				"istio.io/dataplane-mode": "ambient",
+			},
+		},
+	}
+
+	svcGlobal := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-global",
+			Namespace: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "svc-global",
+				"istio.io/global":    "true",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+
+	svcLocal := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-local",
+			Namespace: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "svc-local",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+
+	svcLocalLabel := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-no-label",
+			Namespace: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "svc-local-label",
+				"istio.io/local":     "true",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+
+	tests := []struct {
+		name    string
+		inputs  []any
+		meshCfg *MeshConfig
+		svc     *v1.Service
+		want    model.ServiceScope
+	}{
+		{
+			name: "explicit service opt-in - no match",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/global",
+										Operator: string(metav1.LabelSelectorOpIn),
+										Values:   []string{"true"},
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocal,
+			want: model.Local,
+		},
+		{
+			name: "services global by default, opt out by namespace - no match",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/local": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocal,
+			want: model.Local,
+		},
+		{
+			name: "explicit namespace opt-in - no match",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/global": "false",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocal,
+			want: model.Local,
+		},
+		{
+			name: "explicit service opt-in - match global",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "services global by default, opt out by namespace - match global",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "namespace opt-in - match global",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/global": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "service and namespace opt-in - match global",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/global": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "service without istio.io/global label - match local",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchLabels: map[string]string{
+									"istio.io/global": "true",
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocal,
+			want: model.Local,
+		},
+		{
+			name: "Services global by default, opt out by namespace and opt out by service - match local",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/local": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Local,
+		},
+		{
+			name: "Services global by default, opt out by namespace and opt out by service - match local on svc",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocalLabel,
+			want: model.Local,
+		},
+		{
+			name: "Services global by default, opt out by namespace and opt out by service - no match global",
+			inputs: []any{
+				ns,
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcGlobal,
+			want: model.Global,
+		},
+		{
+			name: "Explicit namespace opt-in, opt out by service - no match local",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							"istio.io/global": "true",
+						},
+					},
+				},
+			},
+			meshCfg: &meshwatcher.MeshConfigResource{
+				MeshConfig: &meshConfig.MeshConfig{
+					ServiceScopeConfigs: []*meshConfig.MeshConfig_ServiceScopeConfigs{
+						{
+							NamespaceSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/global",
+										Operator: string(metav1.LabelSelectorOpIn),
+										Values:   []string{"true"},
+									},
+								},
+							},
+							ServicesSelector: &meshConfig.LabelSelector{
+								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+									{
+										Key:      "istio.io/local",
+										Operator: string(metav1.LabelSelectorOpDoesNotExist),
+									},
+								},
+							},
+							Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+						},
+					},
+				},
+			},
+			svc:  svcLocalLabel,
+			want: model.Local,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := krt.TestingDummyContext{}
+			mock := krttest.NewMock(t, tt.inputs)
+			got := matchServiceScope(ctx, tt.meshCfg, krttest.GetMockCollection[*v1.Namespace](mock), tt.svc)
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }

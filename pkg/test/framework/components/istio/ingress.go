@@ -191,6 +191,11 @@ func (c *ingressImpl) HTTPSAddresses() ([]string, []int) {
 	return c.AddressesForPort(443)
 }
 
+// HBONEAddresses returns the externally reachable HBONE hosts and port (15008) of the component.
+func (c *ingressImpl) HBONEAddresses() ([]string, []int) {
+	return c.AddressesForPort(15008)
+}
+
 // DiscoveryAddresses returns the externally reachable discovery addresses (15012) of the component.
 func (c *ingressImpl) DiscoveryAddresses() []netip.AddrPort {
 	hosts, ports := c.AddressesForPort(discoveryPort)

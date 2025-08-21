@@ -1239,6 +1239,26 @@ spec:
                               - V2
                               type: string
                           type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -2104,6 +2124,26 @@ spec:
                         - V1
                         - V2
                         type: string
+                    type: object
+                  retryBudget:
+                    description: Specifies a limit on concurrent retries in relation
+                      to the number of active requests.
+                    properties:
+                      minRetryConcurrency:
+                        description: Specifies the minimum retry concurrency allowed
+                          for the retry budget.
+                        maximum: 4294967295
+                        minimum: 0
+                        type: integer
+                      percent:
+                        description: Specifies the limit on concurrent retries as
+                          a percentage of the sum of active requests and active pending
+                          requests.
+                        format: double
+                        maximum: 100
+                        minimum: 0
+                        nullable: true
+                        type: number
                     type: object
                   tls:
                     description: TLS related settings for connections to the upstream
@@ -3138,6 +3178,26 @@ spec:
                               - V2
                               type: string
                           type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -4003,6 +4063,26 @@ spec:
                         - V1
                         - V2
                         type: string
+                    type: object
+                  retryBudget:
+                    description: Specifies a limit on concurrent retries in relation
+                      to the number of active requests.
+                    properties:
+                      minRetryConcurrency:
+                        description: Specifies the minimum retry concurrency allowed
+                          for the retry budget.
+                        maximum: 4294967295
+                        minimum: 0
+                        type: integer
+                      percent:
+                        description: Specifies the limit on concurrent retries as
+                          a percentage of the sum of active requests and active pending
+                          requests.
+                        format: double
+                        maximum: 100
+                        minimum: 0
+                        nullable: true
+                        type: number
                     type: object
                   tls:
                     description: TLS related settings for connections to the upstream
@@ -5037,6 +5117,26 @@ spec:
                               - V2
                               type: string
                           type: object
+                        retryBudget:
+                          description: Specifies a limit on concurrent retries in
+                            relation to the number of active requests.
+                          properties:
+                            minRetryConcurrency:
+                              description: Specifies the minimum retry concurrency
+                                allowed for the retry budget.
+                              maximum: 4294967295
+                              minimum: 0
+                              type: integer
+                            percent:
+                              description: Specifies the limit on concurrent retries
+                                as a percentage of the sum of active requests and
+                                active pending requests.
+                              format: double
+                              maximum: 100
+                              minimum: 0
+                              nullable: true
+                              type: number
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -5903,6 +6003,26 @@ spec:
                         - V2
                         type: string
                     type: object
+                  retryBudget:
+                    description: Specifies a limit on concurrent retries in relation
+                      to the number of active requests.
+                    properties:
+                      minRetryConcurrency:
+                        description: Specifies the minimum retry concurrency allowed
+                          for the retry budget.
+                        maximum: 4294967295
+                        minimum: 0
+                        type: integer
+                      percent:
+                        description: Specifies the limit on concurrent retries as
+                          a percentage of the sum of active requests and active pending
+                          requests.
+                        format: double
+                        maximum: 100
+                        minimum: 0
+                        nullable: true
+                        type: number
+                    type: object
                   tls:
                     description: TLS related settings for connections to the upstream
                       service.
@@ -6576,6 +6696,10 @@ spec:
                       description: Set of TLS related options that govern the server's
                         behavior.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -6847,6 +6971,10 @@ spec:
                       description: Set of TLS related options that govern the server's
                         behavior.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -7118,6 +7246,10 @@ spec:
                       description: Set of TLS related options that govern the server's
                         behavior.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -8739,6 +8871,10 @@ spec:
                         termination on the sidecar for requests originating from outside
                         the mesh.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -9313,6 +9449,10 @@ spec:
                         termination on the sidecar for requests originating from outside
                         the mesh.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
@@ -9887,6 +10027,10 @@ spec:
                         termination on the sidecar for requests originating from outside
                         the mesh.
                       properties:
+                        caCertCredentialName:
+                          description: For mutual TLS, the name of the secret or the
+                            configmap that holds CA certificates.
+                          type: string
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string

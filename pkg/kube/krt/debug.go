@@ -50,10 +50,12 @@ type InputDump struct {
 type DebugCollection struct {
 	name string
 	dump func() CollectionDump
+	uid  collectionUID
 }
 
 func (p DebugCollection) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
+		"uid":   p.uid,
 		"name":  p.name,
 		"state": p.dump(),
 	})
@@ -70,6 +72,7 @@ func maybeRegisterCollectionForDebugging[T any](c Collection[T], handler *DebugH
 	handler.debugCollections = append(handler.debugCollections, DebugCollection{
 		name: cc.name(),
 		dump: cc.dump,
+		uid:  cc.uid(),
 	})
 }
 

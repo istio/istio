@@ -264,8 +264,8 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 	return tmpl.Execute(deploy, params)
 }
 
-func GenerateService(cfg echo.Config) (string, error) {
-	params := serviceParams(cfg)
+func GenerateService(cfg echo.Config, isOpenShift bool) (string, error) {
+	params := serviceParams(cfg, isOpenShift)
 	return tmpl.Execute(getTemplate(serviceTemplateFile), params)
 }
 
@@ -395,6 +395,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient,
 		"Ambient":                 settings.Ambient,
 		"BindFamily":              cfg.BindFamily,
+		"OpenShift":               settings.OpenShift,
 	}
 
 	vmIstioHost, vmIstioIP := "", ""
@@ -422,7 +423,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	return params, nil
 }
 
-func serviceParams(cfg echo.Config) map[string]any {
+func serviceParams(cfg echo.Config, isOpenShift bool) map[string]any {
 	if cfg.ServiceWaypointProxy != "" {
 		if cfg.ServiceLabels == nil {
 			cfg.ServiceLabels = make(map[string]string)
@@ -438,6 +439,8 @@ func serviceParams(cfg echo.Config) map[string]any {
 		"IPFamilies":         cfg.IPFamilies,
 		"IPFamilyPolicy":     cfg.IPFamilyPolicy,
 		"ServiceAnnotations": cfg.ServiceAnnotations,
+		"Namespace":          cfg.Namespace.Name(),
+		"OpenShift":          isOpenShift,
 	}
 }
 
@@ -662,14 +665,15 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	for _, p := range ports {
 		// Add the port to the set of application ports.
 		cport := &echoCommon.Port{
-			Name:          p.Name,
-			Protocol:      p.Protocol,
-			Port:          p.WorkloadPort,
-			TLS:           p.TLS,
-			ServerFirst:   p.ServerFirst,
-			InstanceIP:    p.InstanceIP,
-			LocalhostIP:   p.LocalhostIP,
-			ProxyProtocol: p.ProxyProtocol,
+			Name:              p.Name,
+			Protocol:          p.Protocol,
+			Port:              p.WorkloadPort,
+			TLS:               p.TLS,
+			RequireClientCert: p.MTLS,
+			ServerFirst:       p.ServerFirst,
+			InstanceIP:        p.InstanceIP,
+			LocalhostIP:       p.LocalhostIP,
+			ProxyProtocol:     p.ProxyProtocol,
 		}
 		containerPorts = append(containerPorts, cport)
 

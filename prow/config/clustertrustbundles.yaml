@@ -31,4 +31,4 @@ featureGates:
   "ClusterTrustBundle": true
   "ClusterTrustBundleProjection": true
 runtimeConfig:
-  "certificates.k8s.io/v1alpha1/clustertrustbundles": true
+  "certificates.k8s.io/v1beta1/clustertrustbundles": true

@@ -370,14 +370,19 @@ func TestWaypointChanges(t *testing.T) {
 			}
 			return false
 		}
-		// check that waypoint deployment is unmodified
+		// check that waypoint deployment uses default grace period (30s)
 		retry.UntilOrFail(t, func() bool {
-			return getGracePeriod(2)
+			return getGracePeriod(30)
 		})
-		// change the waypoint template
+		// change the waypoint template to add custom terminationGracePeriodSeconds
 		istio.GetOrFail(t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
 			mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
-			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(mainTemplate, "terminationGracePeriodSeconds: 2", "terminationGracePeriodSeconds: 3")
+			// Add terminationGracePeriodSeconds: 3 after serviceAccountName
+			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(
+				mainTemplate,
+				"serviceAccountName: {{.ServiceAccount | quote}}",
+				"serviceAccountName: {{.ServiceAccount | quote}}\n      terminationGracePeriodSeconds: 3",
+			)
 			return nil
 		}, cleanup.Always)
 
@@ -631,9 +636,10 @@ kind: EnvoyFilter
 metadata:
   name: inbound
 spec:
-  workloadSelector:
-    labels:
-      gateway.networking.k8s.io/gateway-name: "{{.Destination}}"
+  targetRefs:
+  - kind: Gateway
+    name: waypoint
+    group: gateway.networking.k8s.io
   configPatches:
   - applyTo: HTTP_FILTER
     match:
@@ -1558,6 +1564,7 @@ func TestL7JWT(t *testing.T) {
 						WithAuthz(jwt.TokenIssuer1).
 						Build()
 					opt.Check = check.OK()
+					src.CallOrFail(t, opt)
 				})
 
 				t.NewSubTest("deny with sub-3 token due to ignored RequestAuthentication").Run(func(t framework.TestContext) {
@@ -2152,7 +2159,17 @@ spec:
 `).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
+			rawIPs, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
+			var ips []string
+			for _, ip := range rawIPs {
+				// Resolve ingress domain name into ip address
+				addr, err := kubetest.WaitUntilReachableIngress(ip)
+				if err != nil {
+					t.Fatalf("unable to resolve domain name to ip address - %q: %v", ip, err)
+				}
+				t.Logf("Resolved ingress %q to %q", ip, addr)
+				ips = append(ips, addr)
+			}
 			for _, tc := range testCases {
 				for i, ip := range ips {
 					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
@@ -2291,7 +2308,17 @@ spec:
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
 			ingress := istio.DefaultIngressOrFail(t, t)
-			ips, ports := ingress.HTTPAddresses()
+			rawIPs, ports := ingress.HTTPAddresses()
+			var ips []string
+			for _, ip := range rawIPs {
+				// Resolve ingress domain name into ip address
+				addr, err := kubetest.WaitUntilReachableIngress(ip)
+				if err != nil {
+					t.Fatalf("unable to resolve domain name to ip address - %q: %v", ip, err)
+				}
+				t.Logf("Resolved ingress %q to %q", ip, addr)
+				ips = append(ips, addr)
+			}
 			for _, tc := range testCases {
 				for i, ip := range ips {
 					t.Logf("run %s test with ingress IP %s", tc.resolution, ip)
@@ -3291,6 +3318,64 @@ func TestDirect(t *testing.T) {
 				Check: check.Status(503),
 			})
 		})
+		t.NewSubTest("east west gateway").Run(func(t framework.TestContext) {
+			if !t.Settings().AmbientMultiNetwork {
+				t.Skip("only test east west gateway service scope in multi-network mode")
+			}
+			c := common.NewCaller()
+			cluster := t.Clusters().Default() // TODO: support multicluster
+			ewginstance := i.EastWestGatewayForAmbient(cluster)
+			run := func(name string, options echo.CallOptions) {
+				t.NewSubTest(name).Run(func(t framework.TestContext) {
+					_, err := c.CallEcho(nil, options)
+					if err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+			i := istio.GetOrFail(t)
+			ewgaddresses, ewgports := ewginstance.HBONEAddresses()
+			if len(ewgaddresses) == 0 || len(ewgports) == 0 {
+				t.Fatal("east-west gateway address or ports not found")
+			}
+			ewgaddr := ewgaddresses[0]
+			ewgport := ewgports[0]
+			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			hbsvc := echo.HBONE{
+				Address:            fmt.Sprintf("%s:%v", ewgaddr, ewgport),
+				Headers:            nil,
+				Cert:               string(cert.ClientCert),
+				Key:                string(cert.Key),
+				CaCert:             string(cert.RootCert),
+				InsecureSkipVerify: true,
+			}
+			run("local service", echo.CallOptions{
+				To:          apps.Captured.ForCluster(cluster.Name()),
+				Count:       1,
+				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:        echo.Port{Name: ports.HTTP.Name},
+				HBONE:       hbsvc,
+				DoubleHBONE: hbsvc,
+				// Local services are not expected to be reachable via the east-west gateway
+				Check: check.Error(),
+			})
+
+			capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
+			labelService(t, capturedSvc, "istio.io/global", "true")
+			run("global service", echo.CallOptions{
+				To:          apps.Captured.ForCluster(cluster.Name()),
+				Count:       1,
+				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:        echo.Port{Name: ports.HTTP.Name},
+				HBONE:       hbsvc,
+				DoubleHBONE: hbsvc,
+				// Global services are expected to be reachable via the east-west gateway
+				Check: check.OK(),
+			})
+		})
 	})
 }
 
@@ -3445,6 +3530,19 @@ func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
 	}
 }
 
+func labelService(t framework.TestContext, svcName, k, v string) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
+	if v == "" {
+		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
+	}
+	s := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name())
+	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func restartZtunnel(t framework.TestContext) {
 	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{
@@ -3582,5 +3680,95 @@ spec:
 					),
 				})
 			}
+		})
+}
+
+func TestZtunnelSecureMetrics(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(tc framework.TestContext) {
+			clientInstance := apps.Captured[0]
+			if clientInstance == nil {
+				tc.Fatal("No captured client instance found for ZtunnelSecureMetrics test")
+			}
+
+			istioSystemNS := i.Settings().SystemNamespace
+			k8sPods := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS)
+
+			// Get ztunnel pod info
+			ztunnelPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
+			if err != nil || len(ztunnelPods.Items) == 0 {
+				tc.Fatalf("Failed to list ztunnel pods or none found: %v", err)
+			}
+			ztunnelPod := ztunnelPods.Items[0] // Pick the first ztunnel pod
+			ztunnelPodIP := ztunnelPod.Status.PodIP
+			ztunnelMetricsPort := 15020 // Default ztunnel metrics port
+			ztunnelServiceAccount := ztunnelPod.Spec.ServiceAccountName
+			trustDomain := util.GetTrustDomain(tc.Clusters().Default(), istioSystemNS)
+			// Extract ztunnel app labels for canonical service/revision
+			ztunnelAppLabel := ztunnelPod.Labels["app"]
+			ztunnelVersionLabel := ztunnelPod.Labels["app.kubernetes.io/version"]
+
+			tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d. Expecting transport HBONE.",
+				clientInstance.Config().Service, clientInstance.WorkloadsOrFail(tc)[0].PodName(), ztunnelPod.Name, ztunnelPodIP, ztunnelMetricsPort)
+
+			// Client calls ztunnel's `/metrics` endpoint.
+			// This request should be intercepted by clientInstance's ztunnel,
+			// and an HBONE connection made to the target ztunnel's inbound (15008),
+			// which then proxies to its internal metrics server (15020).
+			opts := echo.CallOptions{
+				Address: ztunnelPodIP,
+				Port:    echo.Port{ServicePort: ztunnelMetricsPort, Name: "http-ztunnel-metrics", Protocol: protocol.HTTP},
+				Scheme:  scheme.HTTP,
+				HTTP:    echo.HTTP{Path: "/metrics"},
+				Check:   check.And(check.OK(), check.BodyContains("# TYPE")), // Check for Prometheus format
+			}
+			clientInstance.CallOrFail(tc, opts)
+			tc.Logf("Successfully called ztunnel /metrics endpoint via HTTP from %s", clientInstance.WorkloadsOrFail(tc)[0].PodName())
+
+			// Verify Prometheus L4 telemetry for the HBONE connection to ztunnel
+			// The ztunnel pod itself is the destination workload for this specific HBONE connection.
+			// sourceWorkloadPodName := clientInstance.WorkloadsOrFail(tc)[0].PodName() // For istio_tcp_connections_opened_total, source_workload is pod name
+			sourceNamespace := clientInstance.Config().Namespace.Name()
+			sourceSA := clientInstance.Config().AccountName()
+			sourceWorkloadLabel := clientInstance.Config().Service + "-" + clientInstance.Config().Version
+
+			query := prometheus.Query{
+				Metric: "istio_tcp_connections_opened_total",
+				Labels: map[string]string{
+					"reporter":                       "destination",
+					"connection_security_policy":     "mutual_tls",
+					"destination_workload_namespace": istioSystemNS,
+					"destination_workload":           "ztunnel",
+					"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, istioSystemNS, ztunnelServiceAccount),
+					"destination_canonical_service":  ztunnelAppLabel,
+					"destination_canonical_revision": ztunnelVersionLabel,
+					"source_workload_namespace":      sourceNamespace,
+					"source_workload":                sourceWorkloadLabel,
+					"source_principal":               fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, sourceNamespace, sourceSA),
+					"source_canonical_service":       clientInstance.Config().Service,
+					"source_canonical_revision":      clientInstance.Config().Version,
+				},
+			}
+
+			tc.Logf("Prometheus query for ztunnel secure metrics: %#v", query)
+
+			retry.UntilSuccessOrFail(tc, func() error {
+				clientInstance.CallOrFail(tc, opts)
+				count, err := prom.QuerySum(tc.Clusters().Default(), query)
+				if err != nil {
+					tc.Logf("Prometheus query failed (will retry for query %s): %v", query.String(), err)
+					// Attempt to dump metrics related to the query for easier debugging during retries.
+					util.PromDump(tc.Clusters().Default(), prom, query)
+					return err
+				}
+				if count < 1 {
+					tc.Logf("Expected at least 1 connection for query %s, got %f (will retry)", query.String(), count)
+					// Attempt to dump metrics related to the query for easier debugging during retries.
+					util.PromDump(tc.Clusters().Default(), prom, query)
+					return fmt.Errorf("expected at least 1 connection for query %s, got %f", query.String(), count)
+				}
+				tc.Logf("Successfully validated prometheus query %s, count: %f", query.String(), count)
+				return nil
+			}, retry.Timeout(30*time.Second), retry.BackoffDelay(time.Second))
 		})
 }

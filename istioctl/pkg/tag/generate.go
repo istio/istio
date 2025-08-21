@@ -23,12 +23,15 @@ import (
 	"strings"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/values"
@@ -48,6 +51,7 @@ const (
 
 // tagWebhookConfig holds config needed to render a tag webhook.
 type tagWebhookConfig struct {
+	WebHookService string
 	Tag            string
 	Revision       string
 	URL            string
@@ -85,45 +89,33 @@ type GenerateOptions struct {
 	// UserManaged indicates whether the revision tag is user managed.
 	// If true, the revision tag will not be affected by the installer.
 	UserManaged bool
+	// IstioNamespace indicates the namespace of the istio installation.
+	IstioNamespace string
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
-func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, istioNS string) (string, error) {
+func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (string, error) {
 	// abort if there exists a revision with the target tag name
-	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Tag)
+	err := checkTagNameCollidesWithRevisionName(ctx, client.Kube(), opts)
 	if err != nil {
 		return "", err
 	}
-	if !opts.Generate && !opts.Overwrite &&
-		len(revWebhookCollisions) > 0 && opts.Tag != DefaultRevisionName {
-		return "", fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", opts.Tag)
-	}
 
-	// find canonical revision webhook to base our tag webhook off of
-	revWebhooks, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Revision)
+	canonWebhook, err := checkControlPlaneExistenceOrDuplicate(ctx, client.Kube(), opts)
 	if err != nil {
 		return "", err
 	}
-	if len(revWebhooks) == 0 {
-		return "", fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration with revision %q", opts.Revision)
-	}
-	if len(revWebhooks) > 1 {
-		return "", fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", opts.Revision)
-	}
-
-	whs, err := GetWebhooksWithTag(ctx, client.Kube(), opts.Tag)
+	err = checkTagDuplicate(ctx, client.Kube(), opts)
 	if err != nil {
 		return "", err
 	}
-	if len(whs) > 0 && !opts.Overwrite {
-		return "", fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
-	}
 
-	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], opts.Tag, istioNS)
+	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(*canonWebhook, opts.Tag, opts.IstioNamespace)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook config: %w", err)
 	}
 	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts)
+	var vwhYAML string
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook: %w", err)
 	}
@@ -145,16 +137,103 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 			return "", fmt.Errorf("failed to create validating webhook config: %w", err)
 		}
 
-		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts)
+		vwhYAML, err = generateValidatingWebhook(validationWhConfig, opts)
 		if err != nil {
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
-		tagWhYAML = fmt.Sprintf(`%s
----
-%s`, tagWhYAML, vwhYAML)
+	}
+	tagServiceYAML, err := generateTagService(opts)
+	if err != nil {
+		return "", err
 	}
 
-	return tagWhYAML, nil
+	resources := []string{
+		tagWhYAML,
+		vwhYAML,
+		tagServiceYAML,
+	}
+	resourcesStrings := []string{}
+	for _, resource := range resources {
+		if resource == "" {
+			continue
+		}
+		resourcesStrings = append(resourcesStrings, resource)
+	}
+
+	return strings.Join(resourcesStrings, "\n---\n"), nil
+}
+
+// checkTagNameCollidesWithRevisionName returns an error if user attempts to
+// override a revision using a tag name
+func checkTagNameCollidesWithRevisionName(
+	ctx context.Context,
+	client kubernetes.Interface,
+	opts *GenerateOptions,
+) error {
+	if opts.Generate || opts.Overwrite || opts.Tag == DefaultRevisionName {
+		return nil
+	}
+	revServiceCollisions, err := GetServicesWithRevision(ctx, client, opts.IstioNamespace, opts.Tag)
+	if err != nil {
+		return err
+	}
+	// abort if there exists a revision with the target tag name
+	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client, opts.Tag)
+	if err != nil {
+		return err
+	}
+	if len(revWebhookCollisions) > 0 || len(revServiceCollisions) > 0 {
+		return fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", opts.Tag)
+	}
+	return nil
+}
+
+func checkControlPlaneExistenceOrDuplicate(
+	ctx context.Context,
+	client kubernetes.Interface,
+	opts *GenerateOptions,
+) (*admitv1.MutatingWebhookConfiguration, error) {
+	revServices, err := GetServicesWithRevision(ctx, client, opts.IstioNamespace, opts.Revision)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(revServices) > 1 {
+		return nil, fmt.Errorf("cannot modify tag: found multiple canonical services with revision %q in namespace %q", opts.Revision, opts.IstioNamespace)
+	}
+	revWebhooks, err := GetWebhooksWithRevision(ctx, client, opts.Revision)
+	if err != nil {
+		return nil, err
+	}
+	if len(revWebhooks) == 0 && len(revServices) == 0 {
+		return nil, fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration or Service with revision %q", opts.Revision)
+	}
+	if len(revWebhooks) > 1 || len(revServices) > 1 {
+		return nil, fmt.Errorf("cannot modify tag: found multiple canonical webhooks or services with revision %q", opts.Revision)
+	}
+	return &revWebhooks[0], nil
+}
+
+func checkTagDuplicate(
+	ctx context.Context,
+	client kubernetes.Interface,
+	opts *GenerateOptions,
+) error {
+	if opts.Overwrite {
+		return nil
+	}
+	tagServices, err := GetServicesWithTag(ctx, client, opts.IstioNamespace, opts.Tag)
+	if err != nil {
+		return err
+	}
+	whs, err := GetWebhooksWithTag(ctx, client, opts.Tag)
+	if err != nil {
+		return err
+	}
+	if len(whs) > 0 || len(tagServices) > 0 {
+		return fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
+	}
+	return nil
 }
 
 func fixWhConfig(client kube.Client, whConfig *tagWebhookConfig) (*tagWebhookConfig, error) {
@@ -249,7 +328,6 @@ func generateValidatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) 
 			decodedWh.Webhooks[i].FailurePolicy = failurePolicy
 		}
 	}
-
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
 		return "", err
@@ -269,6 +347,60 @@ func generateLabels(whLabels, curLabels, customLabels map[string]string, userMan
 		}
 	}
 	return whLabels
+}
+
+func generateTagService(opts *GenerateOptions) (string, error) {
+	flags := []string{
+		"installPackagePath=" + opts.ManifestsPath,
+		"profile=empty",
+		"components.pilot.enabled=true",
+		"revision=" + opts.Revision,
+		"values.revisionTags.[0]=" + opts.Tag,
+		"values.global.istioNamespace=" + opts.IstioNamespace,
+	}
+
+	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
+	if err != nil {
+		return "", err
+	}
+	var tagServiceYaml string
+	for _, mf := range mfs {
+		for _, m := range mf.Manifests {
+			tag := m.GetLabels()[label.IoIstioTag.Name]
+			if m.GetKind() == "Service" && tag == opts.Tag {
+				tagServiceYaml = m.Content
+				break
+			}
+		}
+	}
+	if tagServiceYaml == "" {
+		return "", fmt.Errorf("could not find Service tag in manifests")
+	}
+
+	scheme := runtime.NewScheme()
+	codecFactory := serializer.NewCodecFactory(scheme)
+	deserializer := codecFactory.UniversalDeserializer()
+	serializer := json.NewSerializerWithOptions(
+		json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
+			Yaml:   true,
+			Pretty: true,
+			Strict: true,
+		})
+
+	whService, _, err := deserializer.Decode([]byte(tagServiceYaml), nil, &corev1.Service{})
+	if err != nil {
+		return "", fmt.Errorf("could not decode generated webhook: %w", err)
+	}
+	decodedSvc := whService.(*corev1.Service)
+
+	decodedSvc.Labels = generateLabels(decodedSvc.Labels, map[string]string{}, opts.CustomLabels, opts.UserManaged)
+
+	svcBuf := new(bytes.Buffer)
+	if err = serializer.Encode(decodedSvc, svcBuf); err != nil {
+		return "", err
+	}
+
+	return svcBuf.String(), nil
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
@@ -322,6 +454,8 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 		if decodedWh.Webhooks[i].ClientConfig.Service != nil {
 			decodedWh.Webhooks[i].ClientConfig.Service.Path = &config.Path
+			// if profile=remote, need specify service istiod-remote to compatibility
+			decodedWh.Webhooks[i].ClientConfig.Service.Name = config.WebHookService
 		}
 	}
 	if opts.WebhookName != "" {
@@ -348,7 +482,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		rev = ""
 	}
 
-	var injectionURL, caBundle, path, reinvocationPolicy string
+	var injectionURL, caBundle, path, reinvocationPolicy, service string
 	found := false
 	for _, w := range wh.Webhooks {
 		if strings.HasSuffix(w.Name, istioInjectionWebhookSuffix) {
@@ -361,6 +495,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 				if w.ClientConfig.Service.Path != nil {
 					path = *w.ClientConfig.Service.Path
 				}
+				service = w.ClientConfig.Service.Name
 			}
 			if w.ReinvocationPolicy != nil {
 				reinvocationPolicy = string(*w.ReinvocationPolicy)
@@ -385,6 +520,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 	}
 
 	return &tagWebhookConfig{
+		WebHookService:     service,
 		Tag:                tagName,
 		Revision:           rev,
 		URL:                injectionURL,

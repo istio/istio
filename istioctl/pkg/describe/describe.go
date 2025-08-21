@@ -97,17 +97,25 @@ var (
 	ignoreUnmeshed = false
 
 	describeNamespace string
+
+	proxyAdminPort int
 )
 
 func podDescribeCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:     "pod <pod>",
+		Use:     "pod <pod-name>[.<namespace>]",
 		Aliases: []string{"po"},
 		Short:   "Describe pods and their Istio configuration [kube-only]",
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that pod.`,
-		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
+		Example: `  # Pod query with inferred namespace (current context's namespace)
+  istioctl experimental describe pod helloworld-v1-676yyy3y5r-d8hdl
+
+  # Pod query with explicit namespace 
+  istioctl experimental describe pod istio-eastwestgateway-7f4b4f44b-6zd95.istio-system
+  or
+  istioctl experimental describe pod istio-eastwestgateway-7f4b4f44b-6zd95 -n istio-system`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
 			if len(args) != 1 {
@@ -155,7 +163,7 @@ the configuration objects that affect that pod.`,
 			}
 			// TODO look for port collisions between services targeting this pod
 
-			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 			if err != nil {
 				return err
 			}
@@ -164,7 +172,7 @@ the configuration objects that affect that pod.`,
 
 			podsLabels := []klabels.Set{klabels.Set(pod.ObjectMeta.Labels)}
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels)
+			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels, proxyAdminPort)
 			if err != nil {
 				return err
 			}
@@ -186,6 +194,7 @@ the configuration objects that affect that pod.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", istioctlutil.DefaultProxyAdminPort, "Envoy proxy admin port")
 	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }
@@ -1043,7 +1052,7 @@ func printIngressInfo(
 	recordGateways := map[string]bool{}
 
 	for _, pod := range pods.Items {
-		byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump")
+		byConfigDump, err := client.EnvoyDoWithPort(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump", proxyAdminPort)
 		if err != nil {
 			return fmt.Errorf("failed to execute command on ingress gateway sidecar: %v", err)
 		}
@@ -1197,12 +1206,18 @@ func printIngressService(writer io.Writer, initPrintNum int,
 func svcDescribeCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:     "service <svc>",
+		Use:     "service <svc-name>[.<namespace>]",
 		Aliases: []string{"svc"},
 		Short:   "Describe services and their Istio configuration [kube-only]",
 		Long: `Analyzes service, pods, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that service.`,
-		Example: `  istioctl experimental describe service productpage`,
+		Example: `  # Service query with inferred namespace (current context's namespace)
+  istioctl experimental describe service productpage
+
+  # Service query with explicit namespace
+  istioctl experimental describe service istio-ingressgateway.istio-system
+  or
+  istioctl experimental describe service istio-ingressgateway -n istio-system`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				cmd.Println(cmd.UsageString())
@@ -1212,7 +1227,7 @@ the configuration objects that affect that service.`,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
-			svcName, ns := handlers.InferPodInfo(args[0], ctx.NamespaceOrDefault(ctx.Namespace()))
+			svcName, ns := handlers.InferPodInfo(args[0], describeNamespace)
 
 			client, err := ctx.CLIClient()
 			if err != nil {
@@ -1269,7 +1284,7 @@ the configuration objects that affect that service.`,
 				return nil
 			}
 
-			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 			if err != nil {
 				return err
 			}
@@ -1289,7 +1304,7 @@ the configuration objects that affect that service.`,
 			// Only consider the service invoked with this command, not other services that might select the pod
 			svcs := []corev1.Service{*svc}
 
-			err = describePodServices(writer, kubeClient, configClient, &pod, svcs, podsLabels)
+			err = describePodServices(writer, kubeClient, configClient, &pod, svcs, podsLabels, proxyAdminPort)
 			if err != nil {
 				return err
 			}
@@ -1304,12 +1319,13 @@ the configuration objects that affect that service.`,
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
 		"Suppress warnings for unmeshed pods")
+	cmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", istioctlutil.DefaultProxyAdminPort, "Envoy proxy admin port")
 	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *corev1.Pod, matchingServices []corev1.Service, podsLabels []klabels.Set) error { // nolint: lll
-	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
+func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *corev1.Pod, matchingServices []corev1.Service, podsLabels []klabels.Set, proxyAdminPort int) error { // nolint: lll
+	byConfigDump, err := kubeClient.EnvoyDoWithPort(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump", proxyAdminPort)
 	if err != nil {
 		if ignoreUnmeshed {
 			return nil

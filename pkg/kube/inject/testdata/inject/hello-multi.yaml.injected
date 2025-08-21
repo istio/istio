@@ -21,7 +21,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: hello
@@ -39,6 +39,48 @@ spec:
         - containerPort: 80
           name: http
         resources: {}
+      initContainers:
+      - args:
+        - istio-iptables
+        - -p
+        - "15001"
+        - -z
+        - "15006"
+        - -u
+        - "1337"
+        - -m
+        - REDIRECT
+        - -i
+        - '*'
+        - -x
+        - ""
+        - -b
+        - '*'
+        - -d
+        - 15090,15021,15020
+        - --log_output_level=default:info
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: istio-init
+        resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       - args:
         - proxy
         - sidecar
@@ -114,6 +156,15 @@ spec:
         - name: TRUST_DOMAIN
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - pilot-agent
+              - request
+              - --debug-port=15020
+              - POST
+              - drain
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -133,6 +184,7 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        restartPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -159,6 +211,8 @@ spec:
           name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/run/secrets/istio/crl
+          name: istio-ca-crl
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
@@ -167,6 +221,81 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      volumes:
+      - name: workload-socket
+      - name: credential-socket
+      - name: workload-certs
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - emptyDir: {}
+        name: istio-data
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: istio-podinfo
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - configMap:
+          name: istio-ca-root-cert
+        name: istiod-ca-cert
+      - configMap:
+          name: istio-ca-crl
+          optional: true
+        name: istio-ca-crl
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: hello-v2
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+      version: v2
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        istio.io/rev: default
+        kubectl.kubernetes.io/default-container: hello
+        kubectl.kubernetes.io/default-logs-container: hello
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
+      creationTimestamp: null
+      labels:
+        app: hello
+        security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hello
+        service.istio.io/canonical-revision: v2
+        tier: backend
+        track: stable
+        version: v2
+    spec:
+      containers:
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 81
+          name: http
+        resources: {}
       initContainers:
       - args:
         - istio-iptables
@@ -209,77 +338,6 @@ spec:
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
-      volumes:
-      - name: workload-socket
-      - name: credential-socket
-      - name: workload-certs
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
-      - emptyDir: {}
-        name: istio-data
-      - downwardAPI:
-          items:
-          - fieldRef:
-              fieldPath: metadata.labels
-            path: labels
-          - fieldRef:
-              fieldPath: metadata.annotations
-            path: annotations
-        name: istio-podinfo
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: istio-ca
-              expirationSeconds: 43200
-              path: istio-token
-      - configMap:
-          name: istio-ca-root-cert
-        name: istiod-ca-cert
-status: {}
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  creationTimestamp: null
-  name: hello-v2
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: hello
-      tier: backend
-      track: stable
-      version: v2
-  strategy: {}
-  template:
-    metadata:
-      annotations:
-        istio.io/rev: default
-        kubectl.kubernetes.io/default-container: hello
-        kubectl.kubernetes.io/default-logs-container: hello
-        prometheus.io/path: /stats/prometheus
-        prometheus.io/port: "15020"
-        prometheus.io/scrape: "true"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
-      creationTimestamp: null
-      labels:
-        app: hello
-        security.istio.io/tlsMode: istio
-        service.istio.io/canonical-name: hello
-        service.istio.io/canonical-revision: v2
-        tier: backend
-        track: stable
-        version: v2
-    spec:
-      containers:
-      - image: fake.docker.io/google-samples/hello-go-gke:1.0
-        name: hello
-        ports:
-        - containerPort: 81
-          name: http
-        resources: {}
       - args:
         - proxy
         - sidecar
@@ -355,6 +413,15 @@ spec:
         - name: TRUST_DOMAIN
           value: cluster.local
         image: gcr.io/istio-testing/proxyv2:latest
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - pilot-agent
+              - request
+              - --debug-port=15020
+              - POST
+              - drain
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -374,6 +441,7 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        restartPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -400,6 +468,8 @@ spec:
           name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/run/secrets/istio/crl
+          name: istio-ca-crl
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
@@ -408,48 +478,6 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-      initContainers:
-      - args:
-        - istio-iptables
-        - -p
-        - "15001"
-        - -z
-        - "15006"
-        - -u
-        - "1337"
-        - -m
-        - REDIRECT
-        - -i
-        - '*'
-        - -x
-        - ""
-        - -b
-        - '*'
-        - -d
-        - 15090,15021,15020
-        - --log_output_level=default:info
-        image: gcr.io/istio-testing/proxyv2:latest
-        name: istio-init
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
       volumes:
       - name: workload-socket
       - name: credential-socket
@@ -478,5 +506,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
+      - configMap:
+          name: istio-ca-crl
+          optional: true
+        name: istio-ca-crl
 status: {}
 ---

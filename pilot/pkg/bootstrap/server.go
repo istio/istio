@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"strings"
 	"sync"
@@ -79,6 +80,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
+	xdspkg "istio.io/istio/pkg/xds"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
 	caserver "istio.io/istio/security/pkg/server/ca"
@@ -231,7 +233,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.DomainSuffix = args.RegistryOptions.KubeOptions.DomainSuffix
 
 	ac := aggregate.NewController(aggregate.Options{
-		MeshHolder: e,
+		MeshHolder:      e,
+		ConfigClusterID: getClusterID(args),
 	})
 	e.ServiceDiscovery = ac
 
@@ -756,7 +759,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 		// setup server prometheus monitoring (as final interceptor in chain)
 		grpcprom.UnaryServerInterceptor,
 	}
-	grpcOptions := istiogrpc.ServerOptions(options, interceptors...)
+	grpcOptions := istiogrpc.ServerOptions(options, xdspkg.RecordRecvSize, interceptors...)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
@@ -779,6 +782,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 		return nil
 	}
 	log.Info("initializing secure discovery service")
+
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
@@ -804,7 +808,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 		// setup server prometheus monitoring (as final interceptor in chain)
 		grpcprom.UnaryServerInterceptor,
 	}
-	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, interceptors...)
+	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, xdspkg.RecordRecvSize, interceptors...)
 	opts = append(opts, grpc.Creds(tlsCreds))
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
@@ -1143,6 +1147,13 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	}
 
 	if features.EnableIPAutoallocate {
+		// validate the IP autoallocate CIDR prefixes for IPv4 and IPv6
+		if _, err := netip.ParsePrefix(features.IPAutoallocateIPv4Prefix); err != nil {
+			return fmt.Errorf("invalid IPv4 prefix %s: %v", features.IPAutoallocateIPv4Prefix, err)
+		}
+		if _, err := netip.ParsePrefix(features.IPAutoallocateIPv6Prefix); err != nil {
+			return fmt.Errorf("invalid IPv6 prefix %s: %v", features.IPAutoallocateIPv6Prefix, err)
+		}
 		s.initIPAutoallocateController(args)
 	}
 

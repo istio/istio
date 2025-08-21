@@ -7,13 +7,14 @@ import (
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
-	k8sioapicertificatesv1alpha1 "k8s.io/api/certificates/v1alpha1"
+	k8sioapicertificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	sigsk8siogatewayapiinferenceextensionapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -46,7 +47,7 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.BackendTLSPolicy, true
 	case *k8sioapicertificatesv1.CertificateSigningRequest:
 		return gvk.CertificateSigningRequest, true
-	case *k8sioapicertificatesv1alpha1.ClusterTrustBundle:
+	case *k8sioapicertificatesv1beta1.ClusterTrustBundle:
 		return gvk.ClusterTrustBundle, true
 	case *k8sioapicorev1.ConfigMap:
 		return gvk.ConfigMap, true
@@ -80,6 +81,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.HTTPRoute, true
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return gvk.HorizontalPodAutoscaler, true
+	case *sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool:
+		return gvk.InferencePool, true
 	case *k8sioapinetworkingv1.Ingress:
 		return gvk.Ingress, true
 	case *k8sioapinetworkingv1.IngressClass:
@@ -162,6 +165,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.WorkloadGroup, true
 	case *sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy:
 		return gvk.XBackendTrafficPolicy, true
+	case *sigsk8siogatewayapiapisxv1alpha1.XListenerSet:
+		return gvk.XListenerSet, true
 	default:
 		return config.GroupVersionKind{}, false
 	}

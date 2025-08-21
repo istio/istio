@@ -43,15 +43,18 @@ type External struct {
 }
 
 func (e External) Build(t resource.Context, b deployment.Builder) deployment.Builder {
+	// External is a good case where MTLS makes sense, so add the port to default "All" list.
+	withMTLS := append(ports.All(), ports.MTLS)
 	config := echo.Config{
 		Service:           ExternalSvc,
 		Namespace:         e.Namespace,
 		DefaultHostHeader: ExternalHostname,
-		Ports:             ports.All(),
+		Ports:             withMTLS,
 		// Set up TLS certs on the server. This will make the server listen with these credentials.
 		TLSSettings: &common.TLSSettings{
 			// Echo has these test certs baked into the docker image
-			RootCert:   file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+			RootCert: file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+			// Note: this certificate has the subject "CN=server.default.svc.cluster.local"
 			ClientCert: file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
 			Key:        file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
 			// Override hostname to match the SAN in the cert we are using

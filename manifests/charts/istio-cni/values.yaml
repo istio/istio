@@ -24,14 +24,24 @@ _internal_defaults_do_not_set:
   cniConfFileName: ""
   cniNetnsDir: "/var/run/netns"
 
+  # If Istio owned CNI config is enabled, defaults to 02-istio-cni.conflist
+  istioOwnedCNIConfigFileName: ""
+  istioOwnedCNIConfig: false
+
   excludeNamespaces:
     - kube-system
 
   # Allows user to set custom affinity for the DaemonSet
   affinity: {}
 
+  # Additional labels to apply on the daemonset level
+  daemonSetLabels: {}
+
   # Custom annotations on pod level, if you need them
   podAnnotations: {}
+
+  # Additional labels to apply on the pod level
+  podLabels: {}
 
   # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
   # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
@@ -166,6 +176,9 @@ _internal_defaults_do_not_set:
       requests:
         cpu: 100m
         memory: 100Mi
+
+    # In order to use native nftable rules instead of iptable rules, set this flag to true.
+    nativeNftables: false
 
   # A `key: value` mapping of environment variables to add to the pod
   env: {}

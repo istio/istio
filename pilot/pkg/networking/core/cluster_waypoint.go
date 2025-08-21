@@ -107,7 +107,8 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 
 	// Upstream of the "encap" listener.
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
-		clusters = append(clusters, cb.buildWaypointForwardInnerConnect())
+		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
+		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
 	} else {
 		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 	}
@@ -161,7 +162,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
 
 	// Apply DestinationRule configuration for the service
-	connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol := selectTrafficPolicyComponents(policy)
+	connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol, retryBudget := selectTrafficPolicyComponents(policy)
 	// Add applicable metadata to the cluster to identify which config is applied for tooling
 	if policy != nil {
 		util.AddConfigInfoMetadata(localCluster.cluster.Metadata, drConfig.Meta)
@@ -177,7 +178,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		// We're tunneling double HBONE as raw TCP, so no need for HTTP settings
 		// or h2 upgrade
 		connectionPool.Http = nil
-		cb.applyConnectionPool(mesh, localCluster, connectionPool)
+		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
 		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
 		// TODO: Decide if we want to support this
@@ -193,7 +194,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	}
 
 	// For these policies, we have the standard logic apply
-	cb.applyConnectionPool(mesh, localCluster, connectionPool)
+	cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
 	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
 	applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)

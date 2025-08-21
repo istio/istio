@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -179,6 +180,11 @@ type SidecarScope struct {
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
 	configDependencies sets.Set[ConfigHash]
+
+	// Function that will initialize the sidecar scope. This is used to
+	// defer the initialization of the sidecar scope until the first time
+	// it is used
+	initFunc func()
 }
 
 // MarshalJSON implements json.Marshaller
@@ -263,89 +269,7 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
 	}
 	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
-
-	return out
-}
-
-// DefaultSidecarScopeForNamespace is a sidecar scope object with a default catch all egress listener
-// that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
-// We use this scope when the user has not set any sidecar Config for a given config namespace.
-func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *SidecarScope {
-	if features.UnifiedSidecarScoping {
-		// Modern way: treat no Sidecar the same as having a Sidecar with a single egress listener for `*/*`
-		return convertToSidecarScope(ps, nil, configNamespace)
-	}
-	// Legacy way, for compatibility: disjoint logic for Sidecar vs no Sidecar. This has minor differences in the face of
-	// overlapping hostnames across services.
-	defaultEgressListener := &IstioEgressListenerWrapper{
-		IstioListener: &networking.IstioEgressListener{
-			Hosts: []string{"*/*"},
-		},
-	}
-	services := ps.servicesExportedToNamespace(configNamespace)
-	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
-	defaultEgressListener.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(
-		defaultEgressListener.virtualServices, services)
-
-	out := &SidecarScope{
-		Name:                    defaultSidecar,
-		Namespace:               configNamespace,
-		EgressListeners:         []*IstioEgressListenerWrapper{defaultEgressListener},
-		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
-		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
-		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies:      make(sets.Set[ConfigHash]),
-		Version:                 ps.PushVersion,
-	}
-
-	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, s := range services {
-		out.appendSidecarServices(servicesAdded, s)
-	}
-	defaultEgressListener.services = out.services
-
-	// add dependencies on delegate virtual services
-	delegates := ps.DelegateVirtualServices(defaultEgressListener.virtualServices)
-	for _, delegate := range delegates {
-		out.AddConfigDependencies(delegate)
-	}
-	for _, vs := range defaultEgressListener.virtualServices {
-		out.AddConfigDependencies(ConfigKey{
-			Kind:      kind.VirtualService,
-			Namespace: vs.Namespace,
-			Name:      vs.Name,
-		}.HashCode())
-	}
-
-	// Now that we have all the services that sidecars using this scope (in
-	// this config namespace) will see, identify all the destinationRules
-	// that these services need
-	for _, s := range out.services {
-		if dr := ps.destinationRule(configNamespace, s); dr != nil {
-			out.destinationRules[s.Hostname] = dr
-			for _, cdr := range dr {
-				for _, from := range cdr.from {
-					out.destinationRulesByNames[from] = cdr.rule
-					out.AddConfigDependencies(ConfigKey{
-						Kind:      kind.DestinationRule,
-						Name:      from.Name,
-						Namespace: from.Namespace,
-					}.HashCode())
-				}
-			}
-		}
-		out.AddConfigDependencies(ConfigKey{
-			Kind:      kind.ServiceEntry,
-			Name:      string(s.Hostname),
-			Namespace: s.Attributes.Namespace,
-		}.HashCode())
-	}
-
-	if ps.Mesh.OutboundTrafficPolicy != nil {
-		out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-			Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
-		}
-	}
+	out.initFunc = func() {}
 
 	return out
 }
@@ -372,37 +296,48 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 	}
 
-	egressConfigs := sidecar.GetEgress()
+	out.initFunc = sync.OnceFunc(func() {
+		initSidecarScopeInternalIndexes(ps, out, configNamespace)
+	})
+
+	if features.ConvertSidecarScopeConcurrency > 1 || !features.EnableLazySidecarEvaluation {
+		out.initFunc()
+	}
+
+	return out
+}
+
+// initSidecarScopeInternalIndexes initializes SidecarScope's internal indexes derived from PushContext
+func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope, configNamespace string) {
+	egressConfigs := sidecarScope.Sidecar.GetEgress()
 	// If egress not set, setup a default listener
 	if len(egressConfigs) == 0 {
 		egressConfigs = append(egressConfigs, &networking.IstioEgressListener{Hosts: []string{"*/*"}})
 	}
-	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0, len(egressConfigs))
+	sidecarScope.EgressListeners = make([]*IstioEgressListenerWrapper, 0, len(egressConfigs))
 	for _, e := range egressConfigs {
-		out.EgressListeners = append(out.EgressListeners,
+		sidecarScope.EgressListeners = append(sidecarScope.EgressListeners,
 			convertIstioListenerToWrapper(ps, configNamespace, e))
 	}
 
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
-	out.collectImportedServices(ps, configNamespace)
+	sidecarScope.collectImportedServices(ps, configNamespace)
 
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.selectDestinationRules(ps, configNamespace)
+	sidecarScope.selectDestinationRules(ps, configNamespace)
 
-	if sidecar.GetOutboundTrafficPolicy() == nil {
+	if sidecarScope.Sidecar.GetOutboundTrafficPolicy() == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
-			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
+			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
 			}
 		}
 	} else {
-		out.OutboundTrafficPolicy = sidecar.GetOutboundTrafficPolicy()
+		sidecarScope.OutboundTrafficPolicy = sidecarScope.Sidecar.GetOutboundTrafficPolicy()
 	}
-
-	return out
 }
 
 func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace string) {

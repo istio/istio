@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -61,6 +62,7 @@ type BackendPolicy struct {
 	Target       TypedNamedspacedName
 	TLS          *networking.ClientTLSSettings
 	LoadBalancer *networking.LoadBalancerSettings
+	RetryBudget  *networking.TrafficPolicy_RetryBudget
 	CreationTime time.Time
 }
 
@@ -71,7 +73,8 @@ func (b BackendPolicy) ResourceName() string {
 func (b BackendPolicy) Equals(other BackendPolicy) bool {
 	return b.Source == other.Source &&
 		protoconv.Equals(b.TLS, other.TLS) &&
-		protoconv.Equals(b.LoadBalancer, other.LoadBalancer)
+		protoconv.Equals(b.LoadBalancer, other.LoadBalancer) &&
+		protoconv.Equals(b.RetryBudget, other.RetryBudget)
 }
 
 // DestinationRuleCollection returns a collection of DestinationRule objects. These are built from a few different
@@ -85,10 +88,10 @@ func DestinationRuleCollection(
 	opts krt.OptionsBuilder,
 ) krt.Collection[*config.Config] {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, opts)
-	status.RegisterStatus(c.status, trafficPolicyStatus)
+	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus)
 
 	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, references, opts)
-	status.RegisterStatus(c.status, tlsPolicyStatus)
+	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus)
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})
@@ -125,8 +128,9 @@ func DestinationRuleCollection(
 			})
 			tlsSet := false
 			lbSet := false
+			rbSet := false
 			spec := &networking.DestinationRule{
-				Host:          fmt.Sprintf("%s.%s.svc.%v", svc.Name, svc.Namespace, domainSuffix),
+				Host:          svc.Name + "." + svc.Namespace + ".svc." + domainSuffix, // "%s.%s.svc.%v"
 				TrafficPolicy: &networking.TrafficPolicy{},
 			}
 			parents := make([]string, 0, len(pols))
@@ -147,12 +151,20 @@ func DestinationRuleCollection(
 					lbSet = true
 					spec.TrafficPolicy.LoadBalancer = pol.LoadBalancer
 				}
-				parents = append(parents, fmt.Sprintf("%s/%s.%s", pol.Source.Kind, pol.Source.Namespace, pol.Source.Name))
+				if pol.RetryBudget != nil {
+					if rbSet {
+						// We only allow 1. TODO: report status if there are multiple
+						continue
+					}
+					rbSet = true
+					spec.TrafficPolicy.RetryBudget = pol.RetryBudget
+				}
+				parents = append(parents, pol.Source.Kind.String()+"/"+pol.Source.Namespace+"."+pol.Source.Name)
 			}
 			cfg := &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
-					Name:             fmt.Sprintf("%s-%s", svc.Name, constants.KubernetesGatewayName),
+					Name:             svc.Name + "-" + constants.KubernetesGatewayName,
 					Namespace:        svc.Namespace,
 					Annotations: map[string]string{
 						constants.InternalParentNames: strings.Join(parents, ","),
@@ -211,7 +223,7 @@ func BackendTLSPolicyCollection(
 			if err != nil {
 				conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
 					Reason:  string(gatewayalpha2.PolicyReasonTargetNotFound),
-					Message: fmt.Sprintf("targetRefs invalid: %v", err),
+					Message: "targetRefs invalid: " + err.Error(),
 				}
 			} else {
 				// Only create an object if we can resolve the target
@@ -289,7 +301,7 @@ func getBackendTLSCredentialName(
 	if err != nil {
 		conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
 			Reason:  string(gatewayalpha2.PolicyReasonInvalid),
-			Message: fmt.Sprintf("Certificate reference invalid: %v", err),
+			Message: "Certificate reference invalid: " + err.Error(),
 		}
 		// Generate an invalid reference. This ensures traffic is blocked.
 		// See https://github.com/kubernetes-sigs/gateway-api/issues/3516 for upstream clarification on desired behavior here.
@@ -312,6 +324,7 @@ func BackendTrafficPolicyCollection(
 		ancestors := make([]gatewayalpha2.PolicyAncestorStatus, 0, len(i.Spec.TargetRefs))
 
 		lb := &networking.LoadBalancerSettings{}
+		var retryBudget *networking.TrafficPolicy_RetryBudget
 
 		conds := map[string]*condition{
 			string(gatewayalpha2.PolicyConditionAccepted): {
@@ -325,9 +338,16 @@ func BackendTrafficPolicyCollection(
 		if i.Spec.SessionPersistence != nil {
 			unsupported = append(unsupported, "sessionPersistence")
 		}
-		// TODO(https://github.com/istio/istio/issues/55838): implement i.Spec.RetryConstraint. This doesn't have upstream Envoy support
 		if i.Spec.RetryConstraint != nil {
-			unsupported = append(unsupported, "retryConstraint")
+			// TODO: add support for interval.
+			retryBudget = &networking.TrafficPolicy_RetryBudget{}
+			if i.Spec.RetryConstraint.Budget.Percent != nil {
+				retryBudget.Percent = &wrapperspb.DoubleValue{Value: float64(*i.Spec.RetryConstraint.Budget.Percent)}
+			}
+			retryBudget.MinRetryConcurrency = 10 // Gateway API default
+			if i.Spec.RetryConstraint.MinRetryRate != nil {
+				retryBudget.MinRetryConcurrency = uint32(*i.Spec.RetryConstraint.MinRetryRate.Count)
+			}
 		}
 		if len(unsupported) > 0 {
 			msg := fmt.Sprintf("Configuration is valid, but Istio does not support the following fields: %v", humanReadableJoin(unsupported))
@@ -347,7 +367,7 @@ func BackendTrafficPolicyCollection(
 			if err != nil {
 				conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
 					Reason:  string(gatewayalpha2.PolicyReasonTargetNotFound),
-					Message: fmt.Sprintf("targetRefs invalid: %v", err),
+					Message: "targetRefs invalid: " + err.Error(),
 				}
 			} else {
 				// Only create an object if we can resolve the target
@@ -366,6 +386,7 @@ func BackendTrafficPolicyCollection(
 					},
 					TLS:          nil,
 					LoadBalancer: lb,
+					RetryBudget:  retryBudget,
 					CreationTime: i.CreationTimestamp.Time,
 				})
 			}

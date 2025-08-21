@@ -40,7 +40,8 @@ var (
 
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
-	meshHolder mesh.Holder
+	meshHolder      mesh.Holder
+	configClusterID cluster.ID
 
 	// The lock is used to protect the registries and controller's running status.
 	storeLock  sync.RWMutex
@@ -60,6 +61,11 @@ func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceI
 	}
 	var res []model.ServiceInfo
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = append(res, p.ServicesForWaypoint(key)...)
 	}
 	return res
@@ -71,6 +77,11 @@ func (c *Controller) ServicesWithWaypoint(key string) []model.ServiceWaypointInf
 	}
 	var res []model.ServiceWaypointInfo
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = append(res, p.ServicesWithWaypoint(key)...)
 	}
 	return res
@@ -82,6 +93,11 @@ func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.Workloa
 	}
 	var res []model.WorkloadInfo
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = append(res, p.WorkloadsForWaypoint(key)...)
 	}
 	return res
@@ -93,6 +109,11 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 	}
 	res := sets.New[string]()
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
 	}
 	return res
@@ -104,6 +125,11 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []model.Workl
 		return res
 	}
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = append(res, p.Policies(requested)...)
 	}
 	return res
@@ -117,6 +143,10 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressI
 	var removed sets.String
 	foundRegistryCount := 0
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			continue
+		}
 		wis, r := p.AddressInformation(addresses)
 		if len(wis) == 0 && len(r) == 0 {
 			continue
@@ -151,13 +181,15 @@ type registryEntry struct {
 }
 
 type Options struct {
-	MeshHolder mesh.Holder
+	MeshHolder      mesh.Holder
+	ConfigClusterID cluster.ID
 }
 
 // NewController creates a new Aggregate controller
 func NewController(opt Options) *Controller {
 	return &Controller{
 		registries:        make([]*registryEntry, 0),
+		configClusterID:   opt.ConfigClusterID,
 		meshHolder:        opt.MeshHolder,
 		running:           false,
 		handlersByCluster: map[cluster.ID]*model.ControllerHandlers{},
@@ -386,6 +418,11 @@ func (c *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTa
 		if len(instances) > 0 {
 			out = append(out, instances...)
 		}
+	}
+
+	if len(out) == 0 {
+		log.Debugf("GetProxyServiceTargets(): no service targets found for proxy %s with clusterID %s",
+			node.ID, nodeClusterID.String())
 	}
 
 	return out

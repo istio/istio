@@ -23,6 +23,7 @@ import (
 
 // MapCollection is just a light facade on top of another collection
 // that uses a map function to trasform T into U
+// The transformation function MUST keep the name consistent
 type mapCollection[T any, U any] struct {
 	collectionName string
 	id             collectionUID
@@ -31,13 +32,13 @@ type mapCollection[T any, U any] struct {
 	metadata       Metadata
 }
 
-var _ Collection[int] = &mapCollection[bool, int]{}
-
 // nolint: unused // (not true, used in func declared to implement an interface)
 type mappedIndexer[T any, U any] struct {
 	indexer indexer[T]
 	mapFunc func(T) U
 }
+
+var _ Collection[any] = &mapCollection[any, any]{}
 
 // nolint: unused // (not true, its to implement an interface)
 func (m *mappedIndexer[T, U]) Lookup(k string) []U {
@@ -62,22 +63,20 @@ func (m *mapCollection[T, U]) List() []U {
 	for _, obj := range vals {
 		res = append(res, m.mapFunc(obj))
 	}
+	if EnableAssertions {
+		for _, obj := range vals {
+			ok := GetKey(obj)
+			nk := GetKey(m.mapFunc(obj))
+			if nk != ok {
+				panic(fmt.Sprintf("Input and output key must be the same for MapCollection %q %q", ok, nk))
+			}
+		}
+	}
 	return res
 }
 
 func (m *mapCollection[T, U]) Register(handler func(Event[U])) HandlerRegistration {
-	return m.collection.Register(func(t Event[T]) {
-		e := Event[U]{
-			Event: t.Event,
-		}
-		if t.Old != nil {
-			e.Old = ptr.Of(m.mapFunc(*t.Old))
-		}
-		if t.New != nil {
-			e.New = ptr.Of(m.mapFunc(*t.New))
-		}
-		handler(e)
-	})
+	return registerHandlerAsBatched(m, handler)
 }
 
 func (m *mapCollection[T, U]) RegisterBatch(handler func([]Event[U]), runExistingState bool) HandlerRegistration {

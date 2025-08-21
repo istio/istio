@@ -49,6 +49,8 @@ var (
 	waitReady     bool
 	allNamespaces bool
 
+	waypointTimeout time.Duration
+
 	deleteAll bool
 
 	trafficType       = ""
@@ -282,7 +284,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					if programmed {
 						break
 					}
-					if time.Since(startTime) > waitTimeout {
+					if time.Since(startTime) > waypointTimeout {
 						return errorWithMessage("timed out while waiting for waypoint", gwc, err)
 					}
 				}
@@ -404,9 +406,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				filteredGws = append(filteredGws, gw)
 			}
 			if allNamespaces {
-				fmt.Fprintln(w, "NAMESPACE\tNAME\tREVISION\tPROGRAMMED")
+				fmt.Fprintln(w, "NAMESPACE\tNAME\tREVISION\tTRAFFIC TYPE\tPROGRAMMED")
 			} else {
-				fmt.Fprintln(w, "NAME\tREVISION\tPROGRAMMED")
+				fmt.Fprintln(w, "NAME\tREVISION\tTRAFFIC TYPE\tPROGRAMMED")
 			}
 			for _, gw := range filteredGws {
 				programmed := kstatus.StatusFalse
@@ -414,15 +416,19 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				if rev == "" {
 					rev = "default"
 				}
+				typeTraffic := gw.Labels[label.IoIstioWaypointFor.Name]
+				if typeTraffic == "" {
+					typeTraffic = "none"
+				}
 				for _, cond := range gw.Status.Conditions {
 					if cond.Type == string(gateway.GatewayConditionProgrammed) {
 						programmed = string(cond.Status)
 					}
 				}
 				if allNamespaces {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, rev, programmed)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, rev, typeTraffic, programmed)
 				} else {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", gw.Name, rev, programmed)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Name, rev, typeTraffic, programmed)
 				}
 			}
 			return w.Flush()
@@ -456,7 +462,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 
 	waypointApplyCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointApplyCmd.Flags().BoolVarP(&waitReady, "wait", "w", false, "Wait for the waypoint to be ready")
+	waypointApplyCmd.Flags().DurationVar(&waypointTimeout, "waypoint-timeout", waitTimeout, "Timeout for waiting for waypoint ready")
 	waypointGenerateCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
+	waypointStatusCmd.Flags().DurationVar(&waypointTimeout, "waypoint-timeout", waitTimeout, "Timeout for retrieving status for waypoint")
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
@@ -624,7 +632,8 @@ func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.C
 			if programmed {
 				break
 			}
-			if time.Since(startTime) > waitTimeout {
+
+			if time.Since(startTime) > waypointTimeout {
 				return errorWithMessage("timed out while retrieving status for waypoint", gwc, err)
 			}
 		}

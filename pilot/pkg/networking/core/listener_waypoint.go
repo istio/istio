@@ -81,26 +81,27 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// 3. One of two options based on the type of waypoint:
 	//    a. East-West Gateway: Forward the inner CONNECT to the backend ztunnel or waypoint.
 	//    b. Regular Waypoint: Encapsulate the inner CONNECT and forward to the ztunnel.
-	var wls []model.WorkloadInfo
-	var wps *waypointServices
 	var forwarder *listener.Listener
+	var orderedWPS []*model.Service
+	wls, wps := findWaypointResources(lb.node, lb.push)
+	if wps != nil {
+		orderedWPS = wps.orderedServices
+	}
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
-		wps = nil // TODO: implement service export functionality
 		forwarder = buildWaypointForwardInnerConnectListener(lb.push, lb.node)
 	} else {
-		wls, wps = findWaypointResources(lb.node, lb.push)
 		forwarder = buildWaypointConnectOriginateListener(lb.push, lb.node)
 	}
 	listeners = append(listeners,
 		lb.buildWaypointInboundConnectTerminate(),
-		lb.buildWaypointInternal(wls, wps.orderedServices),
+		lb.buildWaypointInternal(wls, orderedWPS),
 		forwarder)
 
 	return listeners
 }
 
 func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) []*listener.Filter {
-	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
+	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	h := &hcm.HttpConnectionManager{
 		StatPrefix: ConnectTerminate,
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
@@ -538,6 +539,23 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	if tlsInspector != nil {
 		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
 	}
+
+	if features.EnableAmbientMultiNetwork && isEastWestGateway {
+		// If there are no filter chains, populate a dummy one that never matches
+		if len(l.FilterChains) == 0 {
+			l.FilterChains = []*listener.FilterChain{{
+				Name: model.VirtualInboundBlackholeFilterChainName,
+				Filters: []*listener.Filter{{
+					Name: wellknown.TCPProxy,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+						StatPrefix:       util.BlackHoleCluster,
+						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+					})},
+				}},
+			}}
+		}
+	}
+
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	return l
 }
@@ -638,7 +656,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
 	pre, post := lb.buildWaypointHTTPFilters(svc)
-	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
+	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	var filters []*listener.Filter
 	httpOpts := &httpListenerOpts{
 		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
@@ -648,6 +666,7 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 			ServerName:                 ph.ServerName,
 			ServerHeaderTransformation: ph.ServerHeaderTransformation,
 			GenerateRequestId:          ph.GenerateRequestID,
+			AppendXForwardedPort:       ph.XForwardedPort,
 		},
 		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
 		protocol:                  cc.port.Protocol,
@@ -928,6 +947,7 @@ func (lb *ListenerBuilder) translateWaypointRoute(
 		IsTLS:                     false,
 		IsHTTP3AltSvcHeaderNeeded: false,
 		Mesh:                      lb.push.Mesh,
+		Push:                      lb.push,
 		LookupService:             lb.serviceForHostname,
 		LookupDestinationCluster:  lb.getWaypointDestinationCluster,
 		LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {

@@ -6,10 +6,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.36.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.3"
 automountServiceAccountToken: true
 ---
 # Source: loki/templates/config.yaml
@@ -19,10 +19,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.36.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.3"
 data:
   config.yaml: |
     
@@ -36,7 +36,7 @@ data:
         addresses: ""
       enabled: false
     common:
-      compactor_address: 'http://loki:3100'
+      compactor_grpc_address: 'loki.istio-system.svc.cluster.local:9095'
       path_prefix: /var/loki
       replication_factor: 1
       storage:
@@ -98,9 +98,7 @@ data:
       tsdb_shipper:
         index_gateway_client:
           server_address: ""
-    table_manager:
-      retention_deletes_enabled: false
-      retention_period: 0
+      use_thanos_objstore: false
     tracing:
       enabled: false
 ---
@@ -111,10 +109,10 @@ metadata:
   name: loki-runtime
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.36.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.3"
 data:
   runtime-config.yaml: |
     {}
@@ -124,10 +122,10 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.36.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.3"
   name: loki-clusterrole
 rules:
 - apiGroups: [""] # "" indicates the core API group
@@ -140,10 +138,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: loki-clusterrolebinding
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.36.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.3"
 subjects:
   - kind: ServiceAccount
     name: loki
@@ -160,10 +158,10 @@ metadata:
   name: loki-memberlist
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.36.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.3"
   annotations:
 spec:
   type: ClusterIP
@@ -185,10 +183,10 @@ metadata:
   name: loki-headless
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.36.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.3"
     variant: headless
     prometheus.io/service-monitor: "false"
   annotations:
@@ -210,10 +208,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.36.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.3"
   annotations:
 spec:
   type: ClusterIP
@@ -238,10 +236,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.36.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.3"
     app.kubernetes.io/component: single-binary
     app.kubernetes.io/part-of: memberlist
 spec:
@@ -264,7 +262,8 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 0b5ca2c2498eddb3bb0b5158b8d74a9c136b34fe934d99fcca138fb25bfda2be
+        checksum/config: fdcc5248480ea8034dd68b13ed46221bdbe14d322ebb850b174638892cdb95ad
+        kubectl.kubernetes.io/default-container: "loki"
       labels:
         app.kubernetes.io/name: loki
         app.kubernetes.io/instance: loki
@@ -282,35 +281,8 @@ spec:
         runAsUser: 10001
       terminationGracePeriodSeconds: 30
       containers:
-        - name: loki-sc-rules
-          image: "kiwigrid/k8s-sidecar:1.30.2"
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: METHOD
-              value: WATCH
-            - name: LABEL
-              value: "loki_rule"
-            - name: FOLDER
-              value: "/rules"
-            - name: RESOURCE
-              value: "both"
-            - name: WATCH_SERVER_TIMEOUT
-              value: "60"
-            - name: WATCH_CLIENT_TIMEOUT
-              value: "60"
-            - name: LOG_LEVEL
-              value: "INFO"
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            readOnlyRootFilesystem: true
-          volumeMounts:
-            - name: sc-rules-volume
-              mountPath: "/rules"
         - name: loki
-          image: docker.io/grafana/loki:3.4.2
+          image: docker.io/grafana/loki:3.5.3
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/loki/config/config.yaml
@@ -350,6 +322,33 @@ spec:
               mountPath: "/rules"
           resources:
             {}
+        - name: loki-sc-rules
+          image: "kiwigrid/k8s-sidecar:1.30.7"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: METHOD
+              value: WATCH
+            - name: LABEL
+              value: "loki_rule"
+            - name: FOLDER
+              value: "/rules"
+            - name: RESOURCE
+              value: "both"
+            - name: WATCH_SERVER_TIMEOUT
+              value: "60"
+            - name: WATCH_CLIENT_TIMEOUT
+              value: "60"
+            - name: LOG_LEVEL
+              value: "INFO"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: sc-rules-volume
+              mountPath: "/rules"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

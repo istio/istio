@@ -72,6 +72,7 @@ func TestWaypointList(t *testing.T) {
 				makeGateway("bookinfo-valid", "bookinfo", true, true),
 				makeGateway("no-name-convention", "default", true, true),
 				makeGatewayWithRevision("bookinfo-rev", "bookinfo", true, true, "rev1"),
+				makeGatewayWithTrafficType("bookinfo-traffic-type", "bookinfo", true, true, constants.AllTraffic),
 			},
 			expectedOutFile: "combined-gateway",
 		},
@@ -153,5 +154,14 @@ func makeGatewayWithRevision(name, namespace string, programmed, isWaypoint bool
 		gw.Labels = make(map[string]string)
 	}
 	gw.Labels[label.IoIstioRev.Name] = rev
+	return gw
+}
+
+func makeGatewayWithTrafficType(name, namespace string, programmed, isWaypoint bool, trafficType string) *gateway.Gateway {
+	gw := makeGateway(name, namespace, programmed, isWaypoint)
+	if gw.Labels == nil {
+		gw.Labels = make(map[string]string)
+	}
+	gw.Labels[label.IoIstioWaypointFor.Name] = trafficType
 	return gw
 }

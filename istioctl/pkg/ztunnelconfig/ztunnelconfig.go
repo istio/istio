@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/istioctl/pkg/util"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
 	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
 	"istio.io/istio/pkg/config"
@@ -45,8 +46,6 @@ const (
 	jsonOutput    = "json"
 	yamlOutput    = "yaml"
 	summaryOutput = "short"
-
-	defaultProxyAdminPort = 15000
 )
 
 func ZtunnelConfig(ctx cli.Context) *cobra.Command {
@@ -241,7 +240,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl ztunnel-config workloads --file ztunnel-config.json
 
   # Retrieve workload summary for a specific namespace
-  istioctl ztunnel-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
+  istioctl ztunnel-config workloads <ztunnel-name[.namespace]> --workload-namespace foo
 `,
 		Aliases: []string{"w", "workloads"},
 		Args:    common.validateArgs,
@@ -689,7 +688,7 @@ type commonFlags struct {
 }
 
 func (c *commonFlags) attach(cmd *cobra.Command) {
-	cmd.PersistentFlags().IntVar(&c.proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Ztunnel proxy admin port")
+	cmd.PersistentFlags().IntVar(&c.proxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort, "Ztunnel proxy admin port")
 	cmd.PersistentFlags().StringVarP(&c.outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	cmd.PersistentFlags().StringVar(&c.node, "node", "", "Filter workloads by node field")
 	cmd.PersistentFlags().StringVarP(&c.configDumpFile, "file", "f", "",

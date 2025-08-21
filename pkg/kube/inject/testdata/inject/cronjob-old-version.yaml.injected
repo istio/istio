@@ -1,0 +1,241 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  creationTimestamp: null
+  name: hellocron
+spec:
+  jobTemplate:
+    metadata:
+      annotations:
+        istio.io/rev: default
+        kubectl.kubernetes.io/default-container: hello
+        kubectl.kubernetes.io/default-logs-container: hello
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
+      creationTimestamp: null
+      labels:
+        security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hellocron
+        service.istio.io/canonical-revision: latest
+    spec:
+      template:
+        metadata:
+          creationTimestamp: null
+        spec:
+          containers:
+          - args:
+            - /bin/sh
+            - -c
+            - date; echo Hello from the Kubernetes cluster
+            image: busybox
+            name: hello
+            resources: {}
+          - args:
+            - proxy
+            - sidecar
+            - --domain
+            - $(POD_NAMESPACE).svc.cluster.local
+            - --proxyLogLevel=warning
+            - --proxyComponentLogLevel=misc:error
+            - --log_output_level=default:info
+            env:
+            - name: PILOT_CERT_PROVIDER
+              value: istiod
+            - name: CA_ADDR
+              value: istiod.istio-system.svc:15012
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: ISTIO_CPU_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  divisor: "0"
+                  resource: limits.cpu
+            - name: PROXY_CONFIG
+              value: |
+                {}
+            - name: ISTIO_META_POD_PORTS
+              value: |-
+                [
+                ]
+            - name: ISTIO_META_APP_CONTAINERS
+              value: hello
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  divisor: "0"
+                  resource: limits.memory
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  divisor: "0"
+                  resource: limits.cpu
+            - name: ISTIO_META_CLUSTER_ID
+              value: Kubernetes
+            - name: ISTIO_META_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: ISTIO_META_INTERCEPTION_MODE
+              value: REDIRECT
+            - name: ISTIO_META_WORKLOAD_NAME
+              value: hellocron
+            - name: ISTIO_META_OWNER
+              value: kubernetes://apis/batch/v1/namespaces/default/cronjobs/hellocron
+            - name: ISTIO_META_MESH_ID
+              value: cluster.local
+            - name: TRUST_DOMAIN
+              value: cluster.local
+            image: gcr.io/istio-testing/proxyv2:latest
+            name: istio-proxy
+            ports:
+            - containerPort: 15090
+              name: http-envoy-prom
+              protocol: TCP
+            readinessProbe:
+              failureThreshold: 4
+              httpGet:
+                path: /healthz/ready
+                port: 15021
+              periodSeconds: 15
+              timeoutSeconds: 3
+            resources:
+              limits:
+                cpu: "2"
+                memory: 1Gi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsGroup: 1337
+              runAsNonRoot: true
+              runAsUser: 1337
+            startupProbe:
+              failureThreshold: 600
+              httpGet:
+                path: /healthz/ready
+                port: 15021
+              periodSeconds: 1
+              timeoutSeconds: 3
+            volumeMounts:
+            - mountPath: /var/run/secrets/workload-spiffe-uds
+              name: workload-socket
+            - mountPath: /var/run/secrets/credential-uds
+              name: credential-socket
+            - mountPath: /var/run/secrets/workload-spiffe-credentials
+              name: workload-certs
+            - mountPath: /var/run/secrets/istio
+              name: istiod-ca-cert
+            - mountPath: /var/run/secrets/istio/crl
+              name: istio-ca-crl
+            - mountPath: /var/lib/istio/data
+              name: istio-data
+            - mountPath: /etc/istio/proxy
+              name: istio-envoy
+            - mountPath: /var/run/secrets/tokens
+              name: istio-token
+            - mountPath: /etc/istio/pod
+              name: istio-podinfo
+          initContainers:
+          - args:
+            - istio-iptables
+            - -p
+            - "15001"
+            - -z
+            - "15006"
+            - -u
+            - "1337"
+            - -m
+            - REDIRECT
+            - -i
+            - '*'
+            - -x
+            - ""
+            - -b
+            - '*'
+            - -d
+            - 15090,15021,15020
+            - --log_output_level=default:info
+            image: gcr.io/istio-testing/proxyv2:latest
+            name: istio-init
+            resources:
+              limits:
+                cpu: "2"
+                memory: 1Gi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                add:
+                - NET_ADMIN
+                - NET_RAW
+                drop:
+                - ALL
+              privileged: false
+              readOnlyRootFilesystem: false
+              runAsGroup: 0
+              runAsNonRoot: false
+              runAsUser: 0
+          restartPolicy: OnFailure
+          volumes:
+          - name: workload-socket
+          - name: credential-socket
+          - name: workload-certs
+          - emptyDir:
+              medium: Memory
+            name: istio-envoy
+          - emptyDir: {}
+            name: istio-data
+          - downwardAPI:
+              items:
+              - fieldRef:
+                  fieldPath: metadata.labels
+                path: labels
+              - fieldRef:
+                  fieldPath: metadata.annotations
+                path: annotations
+            name: istio-podinfo
+          - name: istio-token
+            projected:
+              sources:
+              - serviceAccountToken:
+                  audience: istio-ca
+                  expirationSeconds: 43200
+                  path: istio-token
+          - configMap:
+              name: istio-ca-root-cert
+            name: istiod-ca-cert
+          - configMap:
+              name: istio-ca-crl
+              optional: true
+            name: istio-ca-crl
+  schedule: '*/1 * * * *'
+status: {}
+---

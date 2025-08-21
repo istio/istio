@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
@@ -54,6 +55,10 @@ func DeployGatewayAPIOrSkip(ctx framework.TestContext) {
 }
 
 func DeployGatewayAPI(ctx resource.Context) error {
+	cfg, _ := istio.DefaultConfig(ctx)
+	if !cfg.DeployGatewayAPI {
+		return nil
+	}
 	if !SupportsGatewayAPI(ctx) {
 		return errSkip
 	}

@@ -1,0 +1,40 @@
+{{- if and .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
+# if the remotePilotAddress is an IP addr
+{{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  {{- if .Values.istiodRemote.enabledLocalInjectorIstiod }}
+  # This file is only used for remote `istiod` installs.
+  # only primary `istiod` to xds and local `istiod` injection installs.
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
+  {{- else }}
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
+  {{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- if .Values.istiodRemote.enabledLocalInjectorIstiod }}
+    # only primary `istiod` to xds and local `istiod` injection installs.
+    kubernetes.io/service-name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
+    {{- else }}
+    kubernetes.io/service-name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
+    {{- end }}
+    {{- if .Release.Service }}
+    endpointslice.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    {{- end }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
+addressType: IPv4
+endpoints:
+- addresses:
+  - {{ .Values.global.remotePilotAddress }}
+ports:
+- port: 15012
+  name: tcp-istiod
+  protocol: TCP
+- port: 15017
+  name: tcp-webhook
+  protocol: TCP
+---
+{{- end }}
+{{- end }}

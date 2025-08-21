@@ -21,6 +21,10 @@ data:
   {{- if .Values.cniConfFileName }} # K8S < 1.24 doesn't like empty values
   CNI_CONF_NAME: {{ .Values.cniConfFileName }} # Name of the CNI config file to create. Only override if you know the exact path your CNI requires..
   {{- end }}
+  ISTIO_OWNED_CNI_CONFIG: {{ .Values.istioOwnedCNIConfig | quote }}
+  {{- if .Values.istioOwnedCNIConfig }}
+  ISTIO_OWNED_CNI_CONF_FILENAME: {{ .Values.istioOwnedCNIConfigFileName | quote }}
+  {{- end }}
   CHAINED_CNI_PLUGIN: {{ .Values.chained | quote }}
   EXCLUDE_NAMESPACES: "{{ range $idx, $ns := .Values.excludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"
   REPAIR_ENABLED: {{ .Values.repair.enabled | quote }}
@@ -30,6 +34,7 @@ data:
   REPAIR_INIT_CONTAINER_NAME: {{ .Values.repair.initContainerName | quote }}
   REPAIR_BROKEN_POD_LABEL_KEY: {{ .Values.repair.brokenPodLabelKey | quote }}
   REPAIR_BROKEN_POD_LABEL_VALUE: {{ .Values.repair.brokenPodLabelValue | quote }}
+  NATIVE_NFTABLES: {{ .Values.global.nativeNftables | quote }}
   {{- with .Values.env }}
   {{- range $key, $val := . }}
   {{ $key }}: "{{ $val }}"

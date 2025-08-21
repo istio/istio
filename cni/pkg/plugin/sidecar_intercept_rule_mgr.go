@@ -24,3 +24,8 @@ type InterceptRuleMgr interface {
 func IptablesInterceptRuleMgr() InterceptRuleMgr {
 	return newIPTables()
 }
+
+// Constructor for nftables InterceptRuleMgr
+func NftablesInterceptRuleMgr() InterceptRuleMgr {
+	return newNFTables()
+}

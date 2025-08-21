@@ -16,17 +16,25 @@
 package ambient
 
 import (
+	"fmt"
 	"net/netip"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 
+	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -34,31 +42,147 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
 )
 
 func (a *index) ServicesCollection(
+	clusterID cluster.ID,
 	services krt.Collection[*v1.Service],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
 	opts krt.OptionsBuilder,
+	precompute bool,
 ) krt.Collection[model.ServiceInfo] {
-	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces),
-		opts.WithName("ServicesInfo")...)
+	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces, meshConfig, precompute),
+		append(
+			opts.WithName("ServicesInfo"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: clusterID,
+			}),
+		)...)
 	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
-		opts.WithName("ServiceEntriesInfo")...)
-	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, opts.WithName("WorkloadService")...)
+		append(
+			opts.WithName("ServiceEntriesInfo"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: clusterID,
+			}),
+		)...)
+	WorkloadServices := krt.JoinCollection(
+		[]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo},
+		append(opts.WithName("WorkloadService"), krt.WithMetadata(
+			krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: clusterID,
+			},
+		))...)
 	return WorkloadServices
 }
 
-func (a *index) serviceServiceBuilder(
+func GlobalMergedWorkloadServicesCollection(
+	localCluster *multicluster.Cluster,
+	localServiceInfos krt.Collection[model.ServiceInfo],
+	localWaypoints krt.Collection[Waypoint],
+	clusters krt.Collection[*multicluster.Cluster],
+	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	globalServices krt.Collection[krt.Collection[*v1.Service]],
+	servicesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Service]],
+	globalWaypoints krt.Collection[krt.Collection[Waypoint]],
+	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
+	globalNamespaces krt.Collection[krt.Collection[*v1.Namespace]],
+	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
+	meshConfig krt.Singleton[MeshConfig],
+	globalNetworks networkCollections,
+	domainSuffix string,
+	opts krt.OptionsBuilder,
+) krt.Collection[krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]]] {
+	// This will contain the serviceinfos derived from Services AND ServiceEntries
+	LocalServiceInfosWithCluster := krt.MapCollection(
+		localServiceInfos,
+		wrapObjectWithCluster[model.ServiceInfo](localCluster.ID),
+		opts.WithName("LocalServiceInfosWithCluster")...)
+
+	checkServiceScope := features.EnableAmbientMultiNetwork
+
+	// This will contain the serviceinfos derived from ServiceEntries only
+	return nestedCollectionFromLocalAndRemote(
+		LocalServiceInfosWithCluster,
+		clusters,
+		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]] {
+			services := cluster.Services()
+			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
+			if waypointsPtr == nil {
+				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
+				return nil
+			}
+			waypoints := *waypointsPtr
+			namespaces := cluster.Namespaces()
+			// N.B Never precompute the service info for remote clusters; the merge function will do that
+			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(
+				waypoints,
+				namespaces,
+				meshConfig,
+				domainSuffix,
+				false,
+				checkServiceScope,
+				func(ctx krt.HandlerContext) network.ID {
+					nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
+					if nw == nil {
+						log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
+						ctx.DiscardResult()
+						return ""
+					}
+					return nw.Network
+				}, false), opts.With(
+				append(
+					opts.WithName(fmt.Sprintf("ServiceServiceInfos[%s]", cluster.ID)),
+					krt.WithMetadata(krt.Metadata{
+						multicluster.ClusterKRTMetadataKey: cluster.ID,
+					}),
+				)...,
+			)...)
+
+			servicesInfoWithCluster := krt.MapCollection(
+				servicesInfo,
+				func(o model.ServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
+					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
+				},
+				opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...,
+			)
+			return ptr.Of(servicesInfoWithCluster)
+		},
+		"ServiceInfosWithCluster",
+		opts,
+	)
+}
+
+func serviceServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
+	domainSuffix string,
+	localCluster bool,
+	checkServiceScope bool,
+	networkGetter func(ctx krt.HandlerContext) network.ID,
+	precompute bool,
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
+		serviceScope := model.Local
+		if checkServiceScope {
+			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+			if meshCfg != nil {
+				serviceScope = matchServiceScope(ctx, meshCfg, namespaces, s)
+			}
+			if !localCluster && serviceScope != model.Global {
+				// If this is a remote service, we only want to return it if it is globally scoped.
+				// This is because we do not want to expose local services from other clusters.
+				log.Debugf("Skipping non-global service %s/%s in remote cluster", s.Namespace, s.Name)
+				return nil
+			}
+		}
 		if s.Spec.Type == v1.ServiceTypeExternalName {
 			// ExternalName services are not implemented by ambient (but will still work).
 			// The DNS requests will forward to the upstream DNS server, then Ztunnel can handle the request based on the target
@@ -87,15 +211,130 @@ func (a *index) serviceServiceBuilder(
 		}
 		waypointStatus.Error = wperr
 
-		svc := a.constructService(ctx, s, waypoint)
-		return precomputeServicePtr(&model.ServiceInfo{
+		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
+
+		svcInfo := &model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
 			Source:        MakeSource(s),
 			Waypoint:      waypointStatus,
-		})
+			Scope:         serviceScope,
+		}
+		if precompute {
+			return precomputeServicePtr(svcInfo)
+		}
+
+		return svcInfo
 	}
+}
+
+// LabelSelectorAsSelector converts a mesh api LabelSelector to a labels.Selector.
+func LabelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error) {
+	if ps == nil {
+		return labels.Nothing(), nil
+	}
+	if len(ps.MatchLabels)+len(ps.MatchExpressions) == 0 {
+		return labels.Everything(), nil
+	}
+	requirements := make([]labels.Requirement, 0, len(ps.MatchLabels)+len(ps.MatchExpressions))
+	for k, v := range ps.MatchLabels {
+		r, err := labels.NewRequirement(k, selection.Equals, []string{v})
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+	for _, expr := range ps.MatchExpressions {
+		var op selection.Operator
+		switch metav1.LabelSelectorOperator(expr.Operator) {
+		case metav1.LabelSelectorOpIn:
+			op = selection.In
+		case metav1.LabelSelectorOpNotIn:
+			op = selection.NotIn
+		case metav1.LabelSelectorOpExists:
+			op = selection.Exists
+		case metav1.LabelSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		default:
+			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
+		}
+		r, err := labels.NewRequirement(expr.Key, op, append([]string(nil), expr.Values...))
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+	selector := labels.NewSelector()
+	selector = selector.Add(requirements...)
+	return selector, nil
+}
+
+func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namespace], s *v1.Service) model.ServiceScope {
+	// Apply label selectors from the MeshConfig's servieScopeConfig to determine the scope of the service based on the namespace
+	// or service label matches
+	// Check if the service matches any label selectors defined in the meshConfig's serviceScopeConfig.
+	for _, scopeConfig := range meshCfg.ServiceScopeConfigs {
+		// Match namespace labels
+		// Treat Nothing selectors as Everything selectors
+		nss, err := LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
+		if err != nil {
+			log.Warnf("failed to convert namespace selector: %v", err)
+			continue
+		}
+		if nss.String() == labels.Nothing().String() {
+			nss = labels.Everything()
+		}
+		ss, err := LabelSelectorAsSelector(scopeConfig.ServicesSelector)
+		if err != nil {
+			log.Warnf("failed to convert service selector: %v", err)
+			continue
+		}
+		if ss.String() == labels.Nothing().String() {
+			ss = labels.Everything()
+		}
+
+		// Get labels from the service and service's namespace
+		namespace := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
+		if namespace == nil || *namespace == nil {
+			log.Warnf("namespace %s not found for service %s/%s in namespaces %v", s.Namespace, s.Name, s.UID, namespaces.List())
+			continue
+		}
+		namespaceLabels := labels.Set((*namespace).Labels)
+		serviceLabels := labels.Set(s.Labels)
+
+		if nss.Matches(namespaceLabels) && ss.Matches(serviceLabels) {
+			// If the service matches a global scope config, return global scope
+			if scopeConfig.GetScope() == meshapi.MeshConfig_ServiceScopeConfigs_GLOBAL {
+				log.Debugf("service %s/%s is globally scoped", s.Namespace, s.Name)
+				return model.Global
+			}
+		}
+	}
+
+	// Default to local scope if no match is found
+	log.Debugf("service %s/%s is locally scoped", s.Namespace, s.Name)
+	return model.Local
+}
+
+func (a *index) serviceServiceBuilder(
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
+	precompute bool,
+) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
+	return serviceServiceBuilder(
+		waypoints,
+		namespaces,
+		meshConfig,
+		a.DomainSuffix,
+		true,
+		features.EnableAmbientMultiNetwork,
+		func(ctx krt.HandlerContext) network.ID {
+			return a.Network(ctx)
+		},
+		precompute,
+	)
 }
 
 // MakeSource is a helper to turn an Object into a model.TypedObject.
@@ -112,11 +351,19 @@ func (a *index) serviceEntryServiceBuilder(
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		return a.serviceEntriesInfo(ctx, s, waypoint, waypointError)
+		return serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
+			return a.Network(ctx)
+		})
 	}
 }
 
-func (a *index) serviceEntriesInfo(ctx krt.HandlerContext, s *networkingclient.ServiceEntry, w *Waypoint, wperr *model.StatusMessage) []model.ServiceInfo {
+func serviceEntriesInfo(
+	ctx krt.HandlerContext,
+	s *networkingclient.ServiceEntry,
+	w *Waypoint,
+	wperr *model.StatusMessage,
+	networkGetter func(ctx krt.HandlerContext) network.ID,
+) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
 	portNames := map[int32]model.ServicePortName{}
 	for _, p := range s.Spec.Ports {
@@ -135,7 +382,7 @@ func (a *index) serviceEntriesInfo(ctx krt.HandlerContext, s *networkingclient.S
 	if wperr != nil {
 		waypoint.Error = wperr
 	}
-	return slices.Map(a.constructServiceEntries(ctx, s, w), func(e *workloadapi.Service) model.ServiceInfo {
+	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
@@ -146,10 +393,15 @@ func (a *index) serviceEntriesInfo(ctx krt.HandlerContext, s *networkingclient.S
 	})
 }
 
-func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
+func constructServiceEntries(
+	ctx krt.HandlerContext,
+	svc *networkingclient.ServiceEntry,
+	w *Waypoint,
+	networkGetter func(ctx krt.HandlerContext) network.ID,
+) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
 	addresses, err := slices.MapErr(svc.Spec.Addresses, func(e string) (*workloadapi.NetworkAddress, error) {
-		return a.toNetworkAddressFromCidr(ctx, e)
+		return toNetworkAddressFromCidr(e, networkGetter(ctx))
 	})
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
@@ -190,7 +442,7 @@ func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingc
 		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
 			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
 				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
-					return a.toNetworkAddressFromIP(ctx, e)
+					return toNetworkAddressFromIP(e, networkGetter(ctx))
 				})
 			}
 		}
@@ -208,7 +460,14 @@ func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingc
 	return res
 }
 
-func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Waypoint) *workloadapi.Service {
+// Construct a workload API service
+func constructService(
+	ctx krt.HandlerContext,
+	svc *v1.Service,
+	w *Waypoint,
+	domainSuffix string,
+	networkGetter func(krt.HandlerContext) network.ID,
+) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, &workloadapi.Port{
@@ -218,7 +477,7 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 	}
 
 	addresses, err := slices.MapErr(getVIPs(svc), func(e string) (*workloadapi.NetworkAddress, error) {
-		return a.toNetworkAddress(ctx, e)
+		return toNetworkAddress(ctx, e, networkGetter)
 	})
 	if err != nil {
 		log.Warnf("fail to parse service %v: %v", config.NamespacedName(svc), err)
@@ -265,11 +524,12 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 			ipFamily = workloadapi.IPFamilies_IPV6_ONLY
 		}
 	}
-	// TODO: this is only checking one controller - we may be missing service vips for instances in another cluster
+	// This is only checking one cluster - we'll merge later in the nested join to make sure
+	// we get service VIPs from other clusters
 	return &workloadapi.Service{
 		Name:          svc.Name,
 		Namespace:     svc.Namespace,
-		Hostname:      string(kube.ServiceHostname(svc.Name, svc.Namespace, a.DomainSuffix)),
+		Hostname:      string(kube.ServiceHostname(svc.Name, svc.Namespace, domainSuffix)),
 		Addresses:     addresses,
 		Ports:         ports,
 		Waypoint:      w.GetAddress(),

@@ -1,5 +1,5 @@
 # Not created if istiod is running remotely
-{{- if not .Values.istiodRemote.enabled }}
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -50,6 +50,9 @@ spec:
   {{- range .Values.ipFamilies }}
   - {{ . }}
   {{- end }}
+  {{- end }}
+  {{- if .Values.trafficDistribution }}
+  trafficDistribution: {{ .Values.trafficDistribution }}
   {{- end }}
 ---
 {{- end }}

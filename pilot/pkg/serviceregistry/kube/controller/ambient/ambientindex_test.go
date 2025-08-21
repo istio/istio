@@ -31,6 +31,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
@@ -197,7 +198,7 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, testC, testNW)
+			s := newAmbientTestServer(t, testC, testNW, "")
 			// These steps happen for every test regardless of traffic type.
 			// It involves creating a waypoint for the specified traffic type
 			// then creating a workload and a service with no annotations set
@@ -271,7 +272,7 @@ func TestAmbientIndex_NetworkAndClusterIDs(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, c.cluster, c.network)
+			s := newAmbientTestServer(t, c.cluster, c.network, "")
 			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 			s.assertEvent(t, s.podXdsName("pod1"))
 			s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
@@ -297,7 +298,7 @@ func TestAmbientIndex_WorkloadNotFound(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, testC, testNW)
+			s := newAmbientTestServer(t, testC, testNW, "")
 			// Add a pod.
 			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 
@@ -325,7 +326,7 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, testC, testNW)
+			s := newAmbientTestServer(t, testC, testNW, "")
 			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 			s.assertAddresses(t, "", "pod1")
 			s.assertEvent(t, s.podXdsName("pod1"))
@@ -335,6 +336,8 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 			s.assertAddresses(t, "", "pod1", "pod2", "pod3")
 			s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
 			s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "pod2")
+
+			// TODO(jaellio): Add test to lookup by service key
 			for _, key := range []string{s.podXdsName("pod3"), s.addrXdsName("127.0.0.3")} {
 				assert.Equal(t, s.lookup(key), []model.AddressInfo{
 					{
@@ -384,7 +387,7 @@ func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, testC, testNW)
+			s := newAmbientTestServer(t, testC, testNW, "")
 			s.addWaypoint(t, "10.0.0.10", "test-wp", "default", true)
 
 			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
@@ -427,7 +430,7 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, testC, testNW)
+			s := newAmbientTestServer(t, testC, testNW, "")
 			// Add 2 pods with the "a" label, and one without.
 			// We should get an event for the new Service and the two *Pod* IPs impacted
 			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
@@ -520,7 +523,7 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, testC, testNW)
+			s := newAmbientTestServer(t, testC, testNW, "")
 			s.addPods(t,
 				"127.0.0.1",
 				"pod1",
@@ -553,7 +556,7 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 }
 
 func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServer(t, testC, testNW, "")
 
 	s.ns.Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -751,7 +754,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 }
 
 func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServer(t, testC, testNW, "")
 	s.gwcls.Update(&k8sbeta.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.WaypointGatewayClassName,
@@ -783,7 +786,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		Network:   testNW,
 	}
 	t.Run("hostname", func(t *testing.T) {
-		s := newAmbientTestServer(t, testC, testNW)
+		s := newAmbientTestServer(t, testC, testNW, "")
 		s.addService(t, "svc1",
 			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
 			map[string]string{},
@@ -804,7 +807,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		}, svc1Host)
 	})
 	t.Run("ip", func(t *testing.T) {
-		s := newAmbientTestServer(t, testC, testNW)
+		s := newAmbientTestServer(t, testC, testNW, "")
 
 		s.addService(t, "svc1",
 			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
@@ -826,75 +829,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		}, svc1Host)
 	})
 	t.Run("mixed", func(t *testing.T) {
-		s := newAmbientTestServer(t, testC, testNW)
-		s.addService(t, "svc1",
-			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		s.addWaypointSpecificAddress(t, "10.0.0.1", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
-		s.addService(t, "wp",
-			map[string]string{},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
-		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
-			return s.ServicesForWaypoint(wpKey)
-		}, svc1Host)
-	})
-
-	t.Run("hostname (multicluster but unused)", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-		s := newAmbientTestServer(t, testC, testNW)
-		s.addService(t, "svc1",
-			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
-		s.addService(t, "wp",
-			map[string]string{},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
-		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
-			return s.ServicesForWaypoint(wpKey)
-		}, svc1Host)
-	})
-	t.Run("ip (multicluster but unused)", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-		s := newAmbientTestServer(t, testC, testNW)
-
-		s.addService(t, "svc1",
-			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		s.addWaypointSpecificAddress(t, "10.0.0.1", "", "wp", constants.AllTraffic, true)
-		s.addService(t, "wp",
-			map[string]string{},
-			map[string]string{},
-			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
-		s.assertEvent(s.t, s.svcXdsName("svc1"))
-
-		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
-		assert.Equal(t, len(svc1Host), 1)
-		assert.EventuallyEqual(t, func() []model.ServiceInfo {
-			return s.ServicesForWaypoint(wpKey)
-		}, svc1Host)
-	})
-	t.Run("mixed (multicluster but unused)", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-		s := newAmbientTestServer(t, testC, testNW)
+		s := newAmbientTestServer(t, testC, testNW, "")
 		s.addService(t, "svc1",
 			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
 			map[string]string{},
@@ -963,6 +898,50 @@ func setupPolicyTest(t *testing.T, s *ambientTestServer) {
 	s.assertUnorderedEvent(t, s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
 }
 
+func TestAuthorizationPolicyRevisionFiltering(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW, "some-rev")
+	policyName := "test-authz"
+
+	t.Run("no revision label: policy is present", func(t *testing.T) {
+		s.addPolicy(t, policyName, testNS, nil, gvk.AuthorizationPolicy, nil)
+		s.assertEvent(t, policyName)
+
+		// Should be present in s.authorizationPolicies
+		pol := s.authorizationPolicies.GetKey(testNS + "/" + policyName)
+		if pol == nil {
+			t.Errorf("AuthorizationPolicy without revision label should be present, but was not")
+		}
+	})
+
+	t.Run("with non-matching revision label: policy is ignored", func(t *testing.T) {
+		s.addPolicy(t, policyName+"-rev", testNS, nil, gvk.AuthorizationPolicy, func(obj controllers.Object) {
+			p := obj.(*clientsecurityv1beta1.AuthorizationPolicy)
+			if p.Labels == nil {
+				p.Labels = map[string]string{}
+			}
+			p.Labels[label.IoIstioRev.Name] = "non-matching-rev"
+		})
+		s.assertNoEvent(t)
+	})
+
+	t.Run("with matching revision label: policy is present", func(t *testing.T) {
+		s.addPolicy(t, policyName+"-rev", testNS, nil, gvk.AuthorizationPolicy, func(obj controllers.Object) {
+			p := obj.(*clientsecurityv1beta1.AuthorizationPolicy)
+			if p.Labels == nil {
+				p.Labels = map[string]string{}
+			}
+			p.Labels[label.IoIstioRev.Name] = "some-rev"
+		})
+		s.assertEvent(t, policyName+"-rev")
+
+		// Should be present in s.authorizationPolicies
+		pol := s.authorizationPolicies.GetKey(testNS + "/" + policyName + "-rev")
+		if pol == nil {
+			t.Errorf("AuthorizationPolicy without revision label should be present, but was not")
+		}
+	})
+}
+
 // TODO(nmittler): Consider splitting this into multiple, smaller tests.
 func TestAmbientIndex_Policy(t *testing.T) {
 	cases := []struct {
@@ -982,7 +961,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, testC, testNW)
+			s := newAmbientTestServer(t, testC, testNW, "")
 			setupPolicyTest(t, s)
 			selectorPolicyName := "selector"
 
@@ -1427,7 +1406,7 @@ func TestDefaultAllowWaypointPolicy(t *testing.T) {
 			s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
 				DefaultAllowFromWaypoint:              true,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-			})
+			}, "")
 			setupPolicyTest(t, s)
 
 			t.Run("policy with service accounts", func(t *testing.T) {
@@ -1477,7 +1456,7 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, "", "")
+			s := newAmbientTestServer(t, "", "", "")
 
 			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 			s.assertEvent(t, "//Pod/ns1/pod1")
@@ -1516,7 +1495,7 @@ func TestAddressInformation(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, testC, testNW)
+			s := newAmbientTestServer(t, testC, testNW, "")
 			// Add 2 pods with the "a" label, and one without.
 			// We should get an event for the new Service and the two *Pod* IPs impacted
 			s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
@@ -1753,7 +1732,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, "", "")
+			s := newAmbientTestServer(t, "", "", "")
 
 			// add our waypoints but they won't be used until annotations are added
 			// add a new waypoint
@@ -1854,7 +1833,7 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, "", testNW)
+			s := newAmbientTestServer(t, "", testNW, "")
 
 			assertWaypoint := func(t *testing.T, waypointHostname string, expected ...string) {
 				t.Helper()
@@ -1925,7 +1904,7 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, "", testNW)
+			s := newAmbientTestServer(t, "", testNW, "")
 
 			assertOrderedWaypoint := func(t *testing.T, hostname string, expected ...string) {
 				t.Helper()
@@ -1998,7 +1977,7 @@ func TestPolicyAfterPod(t *testing.T) {
 			if c.multicluster {
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
-			s := newAmbientTestServer(t, testC, testNW)
+			s := newAmbientTestServer(t, testC, testNW, "")
 
 			s.addService(t, "svc1",
 				map[string]string{},
@@ -2014,19 +1993,6 @@ func TestPolicyAfterPod(t *testing.T) {
 	}
 }
 
-type ambientclients struct {
-	pc    clienttest.TestClient[*corev1.Pod]
-	sc    clienttest.TestClient[*corev1.Service]
-	sec   clienttest.TestWriter[*corev1.Secret]
-	ns    clienttest.TestWriter[*corev1.Namespace]
-	grc   clienttest.TestWriter[*k8sbeta.Gateway]
-	gwcls clienttest.TestWriter[*k8sbeta.GatewayClass]
-	se    clienttest.TestWriter[*apiv1alpha3.ServiceEntry]
-	we    clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]
-	pa    clienttest.TestWriter[*clientsecurityv1beta1.PeerAuthentication]
-	authz clienttest.TestWriter[*clientsecurityv1beta1.AuthorizationPolicy]
-}
-
 type ambientTestServer struct {
 	*index
 	*ambientclients
@@ -2036,11 +2002,11 @@ type ambientTestServer struct {
 	t         *testing.T
 }
 
-func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.ID) *ambientTestServer {
+func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.ID, revision string) *ambientTestServer {
 	return newAmbientTestServerWithFlags(t, clusterID, networkID, FeatureFlags{
 		DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 		EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-	})
+	}, revision)
 }
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
@@ -2083,7 +2049,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	}
 
 	if options.ClientBuilder == nil && features.EnableAmbientMultiNetwork {
-		options.ClientBuilder = testingBuildClientsFromConfig
+		options.ClientBuilder = testingBuildClientsFromConfig(t)
 	}
 
 	// The index is always for the config cluster
@@ -2121,6 +2087,14 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 			ControllerName: constants.ManagedGatewayMeshController,
 		},
 	})
+	a.gwcls.Create(&k8sbeta.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.EastWestGatewayClassName,
+		},
+		Spec: k8sv1.GatewayClassSpec{
+			ControllerName: constants.ManagedGatewayMeshController,
+		},
+	})
 
 	// ns is more important now that we want to be able to annotate ns for svc, wl waypoint selection
 	// always create the testNS enabled for ambient
@@ -2145,18 +2119,16 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	return a
 }
 
-func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID network.ID, flags FeatureFlags) *ambientTestServer {
+func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID network.ID, flags FeatureFlags, revision string) *ambientTestServer {
 	up := xdsfake.NewFakeXDS()
 	up.SplitEvents = true
 	cl := kubeclient.NewFakeClient()
 	t.Cleanup(cl.Shutdown)
 	var clientBuilder multicluster.ClientBuilder
-	if features.EnableAmbientMultiNetwork {
-		clientBuilder = testingBuildClientsFromConfig
-	}
 
 	debugger := krt.GlobalDebugHandler
 	o := Options{
+		Revision:        revision,
 		Client:          cl,
 		SystemNamespace: systemNS,
 		DomainSuffix:    "company.com",
@@ -2169,6 +2141,34 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		ClientBuilder:   clientBuilder,
 	}
 
+	if features.EnableAmbientMultiNetwork {
+		o.ClientBuilder = testingBuildClientsFromConfig(t)
+		o.MeshConfig.Mesh().ServiceScopeConfigs = []*v1alpha1.MeshConfig_ServiceScopeConfigs{
+			{
+				ServicesSelector: &v1alpha1.LabelSelector{
+					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
+						{
+							Key:      "istio.io/global",
+							Operator: "Exists",
+						},
+					},
+				},
+				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
+			},
+			{
+				NamespaceSelector: &v1alpha1.LabelSelector{
+					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
+						{
+							Key:      "istio.io/global",
+							Operator: "Exists",
+						},
+					},
+				},
+				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
+			},
+		}
+	}
+
 	return newAmbientTestServerFromOptions(t, networkID, o, true)
 }
 
@@ -2179,6 +2179,71 @@ func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 			t.Log(string(b))
 		}
 	})
+}
+
+func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+	t.Helper()
+	grc.Delete(name, testNS)
+}
+
+func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, network string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+	s.addNetworkGatewaySpecificAddressForClient(t, ip, "", "east-west", network, true, grc)
+}
+
+func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
+	t *testing.T,
+	ip, hostname, name, network string,
+	ready bool,
+	grc clienttest.TestWriter[*k8sbeta.Gateway],
+) {
+	t.Helper()
+	gatewaySpec := k8sbeta.GatewaySpec{
+		GatewayClassName: constants.EastWestGatewayClassName,
+		Listeners: []k8sbeta.Listener{
+			{
+				Name:     "mesh",
+				Port:     15008,
+				Protocol: "HBONE",
+				TLS: &k8sbeta.GatewayTLSConfig{
+					Mode: ptr.Of(k8sv1.TLSModeTerminate),
+					Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
+						"gateway.istio.io/tls-terminate-mode": "ISTIO_MUTUAL",
+					},
+				},
+			},
+		},
+	}
+
+	gateway := k8sbeta.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       gvk.KubernetesGateway.Kind,
+			APIVersion: gvk.KubernetesGateway.GroupVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testNS,
+			Labels: map[string]string{
+				"topology.istio.io/network": network,
+			},
+		},
+		Spec:   gatewaySpec,
+		Status: k8sbeta.GatewayStatus{},
+	}
+
+	if ready {
+		addr := []k8sv1.GatewayStatusAddress{}
+		if ip != "" {
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.IPAddressType), Value: ip})
+		}
+		if hostname != "" {
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.HostnameAddressType), Value: hostname})
+		}
+		gateway.Status = k8sbeta.GatewayStatus{
+			Addresses: addr,
+		}
+	}
+
+	grc.CreateOrUpdate(&gateway)
 }
 
 func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType string, ready bool) {
@@ -2591,6 +2656,11 @@ func (s *ambientTestServer) assertUnorderedEvent(t *testing.T, ip ...string) {
 		ev = append(ev, xdsfake.Event{Type: "xds", ID: i})
 	}
 	s.fx.MatchOrFail(t, ev...)
+}
+
+func (s *ambientTestServer) assertNoMatchingEvent(t *testing.T, ip string) {
+	t.Helper()
+	s.fx.AssertNoMatch(t, time.Millisecond*10, xdsfake.EventMatcher{Type: "xds", IDPrefix: ip})
 }
 
 func (s *ambientTestServer) assertNoEvent(t *testing.T) {

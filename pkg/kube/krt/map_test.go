@@ -242,8 +242,11 @@ func TestNestedMapCollection(t *testing.T) {
 		[]krt.Collection[SimplePod]{simplePods},
 		opts.WithName("MultiPods")...,
 	)
-	AllPods := krt.NestedJoinCollection(
+	AllPods := krt.NestedJoinWithMergeCollection(
 		MultiPods,
+		func(ts []SimplePod) *SimplePod {
+			return &ts[0]
+		},
 		opts.WithName("AllPods")...,
 	)
 	c.RunAndWait(opts.Stop())

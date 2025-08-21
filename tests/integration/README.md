@@ -16,9 +16,6 @@ This folder contains Istio integration tests that use the test framework checked
     1. [Test Parallelism and Kubernetes](#test-parellelism-and-kubernetes)
     1. [Test Selection](#test-selection)
     1. [Running Tests on CI](#running-tests-on-ci)
-        1. [Step 1: Add a Test Script](#step-1-add-a-test-script)
-        1. [Step 2: Add a Prow Job](#step-2-add-a-prow-job)
-        1. [Step 3: Update TestGrid](#step-3-update-testgrid)
 1. [Environments](#environments)
 1. [Diagnosing Failures](#diagnosing-failures)
     1. [Working Directory](#working-directory)
@@ -27,7 +24,6 @@ This folder contains Istio integration tests that use the test framework checked
     1. [Additional Logging](#additional-logging)
     1. [Running Tests Under Debugger](#running-tests-under-debugger-goland)
 1. [Reference](#reference)
-    1. [Helm Values Overrides](#helm-values-overrides)
     1. [Commandline Flags](#command-line-flags)
 1. [Notes](#notes)
     1. [Running on a Mac](#running-on-a-mac)
@@ -560,12 +556,14 @@ The test framework supports the following command-line flags:
 | --istio.test.kube.helm.values | string | Manual overrides for Helm values file. Only valid when deploying Istio. |
 | --istio.test.kube.helm.iopFile | string | IstioOperator spec file. This can be an absolute path or relative to the repository root. Defaults to "tests/integration/iop-integration-test-defaults.yaml". |
 | --istio.test.kube.loadbalancer | bool | Used to obtain the right IP address for ingress gateway. This should be false for any environment that doesn't support a LoadBalancer type. |
+| --istio.test.kube.deployGatewayAPI | bool | Deploy gateway API during tests execution. (default is "true"). |
 | --istio.test.revision | string | Overwrite the default namespace label (istio-enabled=true) with revision lable (istio.io/rev=XXX). (default is no overwrite). |
 | --istio.test.skip | []string | Skip tests matching the regular expression. This follows the semantics of -test.run. |
 | --istio.test.skipVM | bool | Skip all the VM related parts in all the tests. (default is "false"). |
 | --istio.test.helmRepo | string | Overwrite the default helm Repo used for the tests. |
 | --istio.test.ambient | bool | Indicate the use of ambient mesh. |
 | --istio.test.openshift | bool | Set to `true` when running the tests in an OpenShift cluster, rather than in KinD. |
+| --istio.test.stableNamespaces | bool | Set to `true` to use stable namespaces for the test. Useful with nocleanup to develop tests |
 
 ## Notes
 

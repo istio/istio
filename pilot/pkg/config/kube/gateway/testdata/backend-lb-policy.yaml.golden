@@ -10,4 +10,7 @@ spec:
   host: echo.default.svc.domain.suffix
   trafficPolicy:
     loadBalancer: {}
+    retryBudget:
+      minRetryConcurrency: 5
+      percent: 30
 ---

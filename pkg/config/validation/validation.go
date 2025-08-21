@@ -211,6 +211,14 @@ func validateMetadata(f ValidateFunc) ValidateFunc {
 		if _, f := config.Annotations[constants.AlwaysReject]; f {
 			return nil, fmt.Errorf("%q annotation found, rejecting", constants.AlwaysReject)
 		}
+		if _, f := config.Annotations[constants.InternalParentNamespace]; f {
+			// This internal annotation escalations privileges; ban it from use for external resources.
+			return nil, fmt.Errorf("%q annotation found, this may not be set by users", constants.InternalParentNamespace)
+		}
+		if _, f := config.Annotations[constants.InternalParentNames]; f {
+			// This internal annotation escalations privileges; ban it from use for external resources.
+			return nil, fmt.Errorf("%q annotation found, this may not be set by users", constants.InternalParentNames)
+		}
 		return f(config)
 	}
 }
@@ -1043,7 +1051,8 @@ func validateTrafficPolicy(configNamespace string, policy *networking.TrafficPol
 		return Validation{}
 	}
 	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
-		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil && policy.Tunnel == nil && policy.ProxyProtocol == nil {
+		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil && policy.Tunnel == nil && policy.ProxyProtocol == nil &&
+		policy.RetryBudget == nil {
 		return WrapError(fmt.Errorf("traffic policy must have at least one field"))
 	}
 
@@ -1587,13 +1596,14 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if rule == nil {
 		return nil
 	}
-	if len(rule.Issuer) == 0 {
-		errs = multierror.Append(errs, errors.New("issuer must be set"))
-	}
 	for _, audience := range rule.Audiences {
 		if len(audience) == 0 {
 			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
 		}
+	}
+
+	if len(rule.Issuer) == 0 && len(rule.JwksUri) == 0 {
+		errs = multierror.Append(errs, errors.New("issuer or jwksUri must be non-empty string"))
 	}
 
 	if len(rule.JwksUri) != 0 {

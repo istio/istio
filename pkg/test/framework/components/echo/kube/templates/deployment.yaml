@@ -76,6 +76,7 @@ spec:
   (ne (index $subset.Annotations "sidecar.istio.io/inject") "false")
   (ne (index $subset.Annotations "inject.istio.io/templates") "grpc")
   ($.OverlayIstioProxy)
+  (not (and $.OpenShift (eq $.Service "tproxy")))
 }}
       - name: istio-proxy
         image: auto
@@ -118,6 +119,9 @@ spec:
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
 {{- end }}
+{{- if $p.RequireClientCert }}
+          - --mtls={{ $p.Port }}
+{{- end }}
 {{- if $p.ServerFirst }}
           - --server-first={{ $p.Port }}
 {{- end }}
@@ -136,12 +140,14 @@ spec:
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
+          - --ca=/etc/certs/custom/root-cert.pem
 {{- if $.TLSSettings.AcceptAnyALPN}}
           - --disable-alpn
 {{- end }}
 {{- else }}
           - --crt=/cert.crt
           - --key=/cert.key
+          - --ca=/root-cert.pem
 {{- end }}
         ports:
 {{- range $i, $p := $appContainer.ContainerPorts }}

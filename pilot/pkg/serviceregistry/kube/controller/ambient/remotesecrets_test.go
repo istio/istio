@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -210,8 +212,21 @@ func TestKubeConfigOverride(t *testing.T) {
 	})
 }
 
-func testingBuildClientsFromConfig(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
-	return kube.NewFakeClient(), nil
+func testingBuildClientsFromConfig(t test.Failer) func([]byte, cluster.ID, ...func(*rest.Config)) (kube.Client, error) {
+	return func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		client := kube.NewFakeClient()
+		for _, crd := range []schema.GroupVersionResource{
+			gvr.AuthorizationPolicy,
+			gvr.PeerAuthentication,
+			gvr.KubernetesGateway,
+			gvr.GatewayClass,
+			gvr.WorkloadEntry,
+			gvr.ServiceEntry,
+		} {
+			clienttest.MakeCRD(t, client, crd)
+		}
+		return client, nil
+	}
 }
 
 type testController struct {
@@ -235,7 +250,7 @@ func buildTestControllerBase(t *testing.T, startClient bool) testController {
 		SystemNamespace: "istio-system",
 		DomainSuffix:    "company.com",
 		MeshConfig:      watcher,
-		ClientBuilder:   testingBuildClientsFromConfig,
+		ClientBuilder:   testingBuildClientsFromConfig(t),
 	}
 	t.Cleanup(options.Client.Shutdown)
 	a := newAmbientTestServerFromOptions(t, testNW, options, startClient)
@@ -425,6 +440,15 @@ func (i *informerHandler[T]) ResourceName() string {
 	return i.clusterID.String()
 }
 
+func (i *informerHandler[T]) Equals(o *informerHandler[T]) bool {
+	if (o == nil && i != nil) || (o != nil && i == nil) {
+		return false
+	}
+
+	// Test cluster ID and pointer equality
+	return i.clusterID == o.clusterID && i.client == o.client
+}
+
 // Test our (lack of) ability to do seamless updates of a cluster.
 // Tracking improvements in https://github.com/istio/istio/issues/49349
 func TestSeamlessMigration(t *testing.T) {
@@ -432,18 +456,18 @@ func TestSeamlessMigration(t *testing.T) {
 
 	tt := assert.NewTracker[string](t)
 	initial := kube.NewFakeClient(
-		&corev1.ConfigMap{
+		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{Name: "initial"},
 		},
-		&corev1.ConfigMap{
+		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{Name: "common"},
 		},
 	)
 	later := kube.NewFakeClient(
-		&corev1.ConfigMap{
+		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{Name: "later"},
 		},
-		&corev1.ConfigMap{
+		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{Name: "common"},
 		},
 	)
@@ -474,16 +498,16 @@ func TestSeamlessMigration(t *testing.T) {
 	tc.mesh = watcher
 	tc.secrets = a.sec
 
-	infs := krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster *multicluster.Cluster) **informerHandler[*corev1.ConfigMap] {
-		cl := kclient.New[*corev1.ConfigMap](cluster.Client)
+	infs := krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster *multicluster.Cluster) **informerHandler[*corev1.Service] {
+		cl := kclient.New[*corev1.Service](cluster.Client)
 		cl.AddEventHandler(clienttest.TrackerHandler(tt))
-		return ptr.Of(&informerHandler[*corev1.ConfigMap]{client: cl, clusterID: cluster.ID})
+		return ptr.Of(&informerHandler[*corev1.Service]{client: cl, clusterID: cluster.ID})
 	})
 	tc.AddSecret("s0", "c0")
 
 	retry.UntilOrFail(t, tc.clusters.HasSynced, retry.Timeout(2*time.Second))
 	retry.UntilOrFail(t, infs.HasSynced, retry.Timeout(2*time.Second))
-	var c0Client *informerHandler[*corev1.ConfigMap]
+	var c0Client *informerHandler[*corev1.Service]
 	assert.EventuallyEqual(t, func() bool {
 		c0Client = ptr.Flatten(infs.GetKey("c0"))
 		return c0Client != nil
@@ -499,7 +523,7 @@ func TestSeamlessMigration(t *testing.T) {
 	tc.AddSecret("s0", "c0")
 	var fatal error
 	retry.UntilOrFail(t, func() bool {
-		var c0Client *informerHandler[*corev1.ConfigMap]
+		var c0Client *informerHandler[*corev1.Service]
 		assert.EventuallyEqual(t, func() bool {
 			c0Client = ptr.Flatten(infs.GetKey("c0"))
 			return c0Client != nil

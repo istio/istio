@@ -24,7 +24,9 @@
     {{- end }}
   {{- end }}
 {{- end }}
-{{ $nativeSidecar := (or (and (not (isset .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar`)) (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true")) (eq (index .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar`) "true")) }}
+{{ $tproxy := (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) }}
+{{ $capNetBindService := (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) }}
+{{ $nativeSidecar := ne (index .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar` | default (printf "%t" .NativeSidecars)) "false" }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
@@ -94,7 +96,7 @@ spec:
     - "-z"
     - {{ .MeshConfig.ProxyInboundListenPort | default "15006" | quote }}
     - "-u"
-    - {{ .ProxyUID | default "1337" | quote }}
+    - {{ if $tproxy }} "1337" {{ else }} {{ .ProxyUID | default "1337" | quote }} {{ end }}
     - "-m"
     - "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
     - "-i"
@@ -139,6 +141,9 @@ spec:
     {{ else if .Values.global.proxy_init.forceApplyIptables -}}
     - "--force-apply"
     {{ end -}}
+    {{ if .Values.global.nativeNftables -}}
+    - "--native-nftables"
+    {{ end -}}
     {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
   {{- if .ProxyConfig.ProxyMetadata }}
     env:
@@ -167,9 +172,13 @@ spec:
       runAsUser: 0
     {{- else }}
       readOnlyRootFilesystem: true
-      runAsGroup: {{ .ProxyGID | default "1337" }}
-      runAsUser: {{ .ProxyUID | default "1337" }}
+      runAsGroup: {{ if $tproxy }} 1337 {{ else }} {{ .ProxyGID | default "1337" }} {{ end }}
+      runAsUser: {{ if $tproxy }} 1337 {{ else }} {{ .ProxyUID | default "1337" }} {{ end }}
       runAsNonRoot: true
+    {{- end }}
+    {{- if .Values.global.proxy.seccompProfile }}
+      seccompProfile:
+    {{- toYaml .Values.global.proxy.seccompProfile | nindent 8 }}
     {{- end }}
   {{ end -}}
   {{ end -}}
@@ -375,12 +384,12 @@ spec:
       {{- else }}
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
+        {{ if or $tproxy $capNetBindService -}}
         add:
-        {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
+        {{ if $tproxy -}}
         - NET_ADMIN
         {{- end }}
-        {{ if eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true` -}}
+        {{ if $capNetBindService -}}
         - NET_BIND_SERVICE
         {{- end }}
         {{- end }}
@@ -388,15 +397,20 @@ spec:
         - ALL
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: true
-      runAsGroup: {{ .ProxyGID | default "1337" }}
-      {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
+      {{ if or $tproxy $capNetBindService -}}
       runAsNonRoot: false
       runAsUser: 0
+      runAsGroup: 1337
       {{- else -}}
       runAsNonRoot: true
       runAsUser: {{ .ProxyUID | default "1337" }}
+      runAsGroup: {{ .ProxyGID | default "1337" }}
       {{- end }}
       {{- end }}
+    {{- if .Values.global.proxy.seccompProfile }}
+      seccompProfile:
+    {{- toYaml .Values.global.proxy.seccompProfile | nindent 8 }}
+    {{- end }}
     resources:
   {{ template "resources" . }}
     volumeMounts:
@@ -415,6 +429,8 @@ spec:
     {{- if eq .Values.global.pilotCertProvider "istiod" }}
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
+    - mountPath: /var/run/secrets/istio/crl
+      name: istio-ca-crl
     {{- end }}
     - mountPath: /var/lib/istio/data
       name: istio-data
@@ -492,13 +508,17 @@ spec:
     projected:
       sources:
       - clusterTrustBundle:
-        name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
-        path: root-cert.pem
+          name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+          path: root-cert.pem
   {{- else }}
     configMap:
       name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
   {{- end }}
   {{- end }}
+  - name: istio-ca-crl
+    configMap:
+      name: istio-ca-crl
+      optional: true
   {{- if .Values.global.mountMtlsCerts }}
   # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
   - name: istio-certs

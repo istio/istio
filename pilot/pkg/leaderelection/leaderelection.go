@@ -56,6 +56,7 @@ const (
 	// * This type is per-revision, so it is higher cost. Leases are cheaper
 	// * Other types use "prioritized leader election", which isn't implemented for Lease
 	GatewayDeploymentController = "istio-gateway-deployment"
+	InferencePoolController     = "istio-gateway-inferencepool"
 	NodeUntaintController       = "istio-node-untaint"
 	IPAutoallocateController    = "istio-ip-autoallocate"
 )

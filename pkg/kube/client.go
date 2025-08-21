@@ -64,6 +64,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	gatewayapiinferenceclient "sigs.k8s.io/gateway-api-inference-extension/client-go/clientset/versioned"
+	gatewayapiinferencefake "sigs.k8s.io/gateway-api-inference-extension/client-go/clientset/versioned/fake"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapialpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -128,6 +131,9 @@ type Client interface {
 	// GatewayAPI returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
 
+	// GatewayAPIInference returns the gateway-api kube client.
+	GatewayAPIInference() gatewayapiinferenceclient.Interface
+
 	// Informers returns an informer factory
 	Informers() informerfactory.InformerFactory
 
@@ -163,9 +169,6 @@ type CLIClient interface {
 	Client
 	// Revision of the Istio control plane.
 	Revision() string
-
-	// EnvoyDo makes a http request to the Envoy in the specified pod.
-	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
 	// EnvoyDoWithPort makes a http request to the Envoy in the specified pod and port.
 	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
@@ -254,6 +257,9 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 		if strings.Contains(g, "istio.io") {
 			return group == "istio"
 		}
+		if strings.Contains(g, "inference.networking.x-k8s.io") {
+			return group == "inference"
+		}
 		if strings.Contains(g, "gateway.networking.k8s.io") {
 			return group == "gateway"
 		}
@@ -307,6 +313,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
 	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)
+	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
 	c.extSet = extfake.NewClientset()
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
@@ -351,6 +358,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		c.kube.(*fake.Clientset),
 		c.istio.(*istiofake.Clientset),
 		c.gatewayapi.(*gatewayapifake.Clientset),
+		c.gatewayapiinference.(*gatewayapiinferencefake.Clientset),
 		c.dynamic.(*dynamicfake.FakeDynamicClient),
 		c.metadata.(*metadatafake.FakeMetadataClient),
 	} {
@@ -390,12 +398,13 @@ type client struct {
 
 	informerFactory informerfactory.InformerFactory
 
-	extSet     kubeExtClient.Interface
-	kube       kubernetes.Interface
-	dynamic    dynamic.Interface
-	metadata   metadata.Interface
-	istio      istioclient.Interface
-	gatewayapi gatewayapiclient.Interface
+	extSet              kubeExtClient.Interface
+	kube                kubernetes.Interface
+	dynamic             dynamic.Interface
+	metadata            metadata.Interface
+	istio               istioclient.Interface
+	gatewayapi          gatewayapiclient.Interface
+	gatewayapiinference gatewayapiinferenceclient.Interface
 
 	started atomic.Bool
 	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
@@ -470,6 +479,11 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 	}
 
 	c.gatewayapi, err = gatewayapiclient.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+
+	c.gatewayapiinference, err = gatewayapiinferenceclient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
@@ -603,6 +617,10 @@ func (c *client) GatewayAPI() gatewayapiclient.Interface {
 	return c.gatewayapi
 }
 
+func (c *client) GatewayAPIInference() gatewayapiinferenceclient.Interface {
+	return c.gatewayapiinference
+}
+
 func (c *client) Informers() informerfactory.InformerFactory {
 	return c.informerFactory
 }
@@ -717,7 +735,7 @@ func WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.Inf
 	attempt := 0
 	defer func() {
 		if r {
-			log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Debugf("sync complete")
+			log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Infof("sync complete")
 		} else {
 			log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Errorf("sync failed")
 		}
@@ -902,10 +920,6 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 		return result, nil
 	}
 	return nil, nil
-}
-
-func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
-	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
 }
 
 func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
@@ -1364,6 +1378,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(gatewayapibeta.Install(scheme))
 	utilruntime.Must(gatewayapiv1.Install(scheme))
 	utilruntime.Must(gatewayx.Install(scheme))
+	utilruntime.Must(inferencev1alpha2.Install(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
 }

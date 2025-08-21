@@ -1,0 +1,257 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.istio.io/controller-version: "5"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    fizz: buzz
+  labels:
+    foo: bar
+    gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
+    istio.io/enable-inference-extproc: "true"
+  name: default-istio
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: default
+    uid: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    fizz: buzz
+  labels:
+    foo: bar
+    gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
+    istio.io/enable-inference-extproc: "true"
+  name: default-istio
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: default
+    uid: ""
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: default
+  template:
+    metadata:
+      annotations:
+        fizz: buzz
+        istio.io/rev: default
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+      labels:
+        foo: bar
+        gateway.istio.io/managed: istio.io-gateway-controller
+        gateway.networking.k8s.io/gateway-name: default
+        istio.io/dataplane-mode: none
+        istio.io/enable-inference-extproc: "true"
+        service.istio.io/canonical-name: default-istio
+        service.istio.io/canonical-revision: latest
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - args:
+        - proxy
+        - router
+        - --domain
+        - $(POD_NAMESPACE).svc.<no value>
+        - --proxyLogLevel
+        - <nil>
+        - --proxyComponentLogLevel
+        - <nil>
+        - --log_output_level
+        - <nil>
+        env:
+        - name: PILOT_CERT_PROVIDER
+          value: <no value>
+        - name: CA_ADDR
+          value: istiod-<no value>.<no value>.svc:15012
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: PROXY_CONFIG
+          value: |
+            {}
+        - name: ISTIO_META_POD_PORTS
+          value: '[]'
+        - name: ISTIO_META_APP_CONTAINERS
+          value: ""
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
+        - name: ISTIO_META_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: REDIRECT
+        - name: ISTIO_META_WORKLOAD_NAME
+          value: default-istio
+        - name: ISTIO_META_OWNER
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/default-istio
+        - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
+        image: test/proxyv2:test
+        name: istio-proxy
+        ports:
+        - containerPort: 15020
+          name: metrics
+          protocol: TCP
+        - containerPort: 15021
+          name: status-port
+          protocol: TCP
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 4
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        startupProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          initialDelaySeconds: 1
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 1
+        volumeMounts:
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
+        - mountPath: /var/run/secrets/credential-uds
+          name: credential-socket
+        - mountPath: /var/run/secrets/workload-spiffe-credentials
+          name: workload-certs
+        - mountPath: /var/lib/istio/data
+          name: istio-data
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        - mountPath: /etc/istio/pod
+          name: istio-podinfo
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      serviceAccountName: default-istio
+      volumes:
+      - emptyDir: {}
+        name: workload-socket
+      - emptyDir: {}
+        name: credential-socket
+      - emptyDir: {}
+        name: workload-certs
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - emptyDir: {}
+        name: istio-data
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: istio-podinfo
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: <no value>
+              expirationSeconds: 43200
+              path: istio-token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    fizz: buzz
+  labels:
+    foo: bar
+    gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
+    istio.io/enable-inference-extproc: "true"
+  name: default-istio
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: default
+    uid: null
+spec:
+  ipFamilyPolicy: PreferDualStack
+  ports:
+  - appProtocol: tcp
+    name: status-port
+    port: 15021
+    protocol: TCP
+  selector:
+    gateway.networking.k8s.io/gateway-name: default
+  type: LoadBalancer
+---

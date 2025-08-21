@@ -85,8 +85,22 @@ message CNIConfig {
   // K8s affinity to set on the istio-cni Pods. Can be used to exclude istio-cni from being scheduled on specified nodes.
   k8s.io.api.core.v1.Affinity affinity = 20;
 
+  // Environment variables passed to the CNI container.
+  //
+  // Examples:
+  // env:
+  //   ENV_VAR_1: value1
+  //   ENV_VAR_2: value2
+  google.protobuf.Struct env = 32;
+
+  // Additional labels to apply to the istio-cni DaemonSet.
+  google.protobuf.Struct daemonSetLabels = 33;
+
   // Additional annotations to apply to the istio-cni Pods.
   google.protobuf.Struct podAnnotations = 10 [deprecated = true];
+
+  // Additional labels to apply to the istio-cni Pods.
+  google.protobuf.Struct podLabels = 34;
 
   // PodSecurityPolicy cluster role. No longer used anywhere.
   string psp_cluster_role = 11;
@@ -133,6 +147,11 @@ message CNIConfig {
   // May be specified as a number of pods or as a percent of the total number
   // of pods at the start of the update.
   IntOrString rollingMaxUnavailable = 23;
+
+  // Specifies if an Istio owned CNI config should be created.
+  google.protobuf.BoolValue istioOwnedCNIConfig = 35;
+  
+  string istioOwnedCNIConfigFileName = 36;
 }
 
 message CNIUsageConfig {
@@ -620,7 +639,13 @@ message GlobalConfig {
 
   // Select a custom name for istiod's CA Root Cert ConfigMap.
   string trustBundleName = 73;
-  // The next available key is 74
+
+  // Specifies whether native nftables rules should be used instead of iptables rules for traffic redirection.
+  google.protobuf.BoolValue nativeNftables = 74;
+
+  // Settings related to Kubernetes NetworkPolicy.
+  NetworkPolicyConfig networkPolicy = 75;
+  // The next available key is 76
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -954,12 +979,12 @@ message PilotConfig {
   // Configuration for the istio-discovery chart when istiod is running in a remote cluster (e.g. "remote control plane").
   IstiodRemoteConfig istiodRemote = 61;
 
-  // Configuration for the istio-discovery chart 
+  // Configuration for the istio-discovery chart
   repeated google.protobuf.Struct envVarFrom = 62;
 }
 
 message PilotTaintControllerConfig {
-  // Enable the untaint controller for new nodes. This aims to solve a race for CNI installation on 
+  // Enable the untaint controller for new nodes. This aims to solve a race for CNI installation on
   // new nodes. For this to work, the newly added nodes need to have the istio CNI taint as they are
   // added to the cluster. This is usually done by configuring the cluster infra provider.
   bool enabled = 1;
@@ -1344,7 +1369,9 @@ message IstiodRemoteConfig {
   string injectionCABundle = 3;
   // Indicates if this cluster/install should consume a "remote" istiod instance,
   google.protobuf.BoolValue enabled = 5;
-
+  // If `true`, indicates that this cluster/install should consume a "local istiod" installation,
+  // local istiod inject sidecars
+  google.protobuf.BoolValue enabledLocalInjectorIstiod = 6;
 }
 
 message Values {
@@ -1461,4 +1488,10 @@ message WaypointConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
   repeated k8s.io.api.core.v1.Toleration toleration = 5;
+}
+
+// Configuration for NetworkPolicy
+message NetworkPolicyConfig {
+  // Controls whether default NetworkPolicy resources will be created.
+  google.protobuf.BoolValue enabled = 1;
 }

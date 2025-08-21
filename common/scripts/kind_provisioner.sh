@@ -32,7 +32,7 @@ set -x
 ####################################################################
 
 # DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
-DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.32.0"
+DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.33.1"
 
 # the default kind cluster should be ipv4 if not otherwise specified
 KIND_IP_FAMILY="${KIND_IP_FAMILY:-ipv4}"

@@ -28,6 +28,7 @@ metadata:
     operator.istio.io/component: "Cni"
     app.kubernetes.io/name: {{ template "name" . }}
     {{- include "istio.labels" . | nindent 4 }}
+    {{ with .Values.daemonSetLabels -}}{{ toYaml . | nindent 4}}{{ end }}
 spec:
   selector:
     matchLabels:
@@ -44,6 +45,7 @@ spec:
         istio.io/dataplane-mode: none
         app.kubernetes.io/name: {{ template "name" . }}
         {{- include "istio.labels" . | nindent 8 }}
+        {{ with .Values.podLabels -}}{{ toYaml . | nindent 8}}{{ end }}
       annotations:
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations
@@ -172,10 +174,12 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.memory
+                  divisor: '1'
             - name: GOMAXPROCS
               valueFrom:
                 resourceFieldRef:
                   resource: limits.cpu
+                  divisor: '1'
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -184,6 +188,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            {{- if .Values.env }}
+            {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: "{{ $val }}"
+            {{- end }}
+            {{- end }}
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir

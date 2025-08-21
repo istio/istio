@@ -49,7 +49,7 @@ func NewMockCAClient(certLifetime time.Duration, mockTrustAnchor bool) (*CAClien
 		certLifetime:    certLifetime,
 		mockTrustAnchor: mockTrustAnchor,
 	}
-	bundle, err := util.NewVerifiedKeyCertBundleFromFile(caCertPath, caKeyPath, certChainPath, rootCertPath)
+	bundle, err := util.NewVerifiedKeyCertBundleFromFile(caCertPath, caKeyPath, certChainPath, rootCertPath, "")
 	if err != nil {
 		return nil, fmt.Errorf("mock ca client creation error: %v", err)
 	}

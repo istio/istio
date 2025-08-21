@@ -47,6 +47,15 @@ type SimpleSizedPod struct {
 	Size string
 }
 
+type RenamedSimplePod struct {
+	Key string
+	SimplePod
+}
+
+func (r RenamedSimplePod) ResourceName() string {
+	return r.Key
+}
+
 type SimplePod struct {
 	Named
 	Labeled
@@ -98,6 +107,10 @@ func NewNamed(n config.Namer) Named {
 type Named struct {
 	Namespace string
 	Name      string
+}
+
+func (s Named) GetNamespace() string {
+	return s.Namespace
 }
 
 func (s Named) ResourceName() string {
@@ -187,6 +200,15 @@ func SimpleEndpointsCollection(pods krt.Collection[SimplePod], services krt.Coll
 			}
 		})
 	}, opts.WithName("SimpleEndpoints")...)
+}
+
+type NamespaceIPs struct {
+	Namespace string
+	IPs       []string
+}
+
+func (n NamespaceIPs) ResourceName() string {
+	return n.Namespace
 }
 
 func init() {
