@@ -104,6 +104,15 @@ func (a *index) WorkloadsCollection(
 		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces),
 		opts.WithName("ServiceEntryWorkloads")...,
 	)
+
+	// Workloads coming from serviceEntries with resolution NONE. In this case we need to treat the addresses in the SE
+	// as both the front-end service and back-end workload in ztunnel.
+	ServiceEntryNoneWorkloads := krt.NewManyCollection(
+		serviceEntries,
+		a.serviceEntryNoneWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces),
+		opts.WithName("ServiceEntryNoneWorkloads")...,
+	)
+
 	// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
 	// into the EndpointSlice. This is because Kubernetes has 3 APIs in its model: Service, Pod, and EndpointSlice.
 	// In our API, we only have two: Service and Workload.
@@ -123,6 +132,7 @@ func (a *index) WorkloadsCollection(
 			PodWorkloads,
 			WorkloadEntryWorkloads,
 			ServiceEntryWorkloads,
+			ServiceEntryNoneWorkloads,
 			EndpointSliceWorkloads,
 			NetworkGatewayWorkloads,
 		},
@@ -1143,6 +1153,96 @@ func (a *index) serviceEntryWorkloadBuilder(
 		a.networks.GatewaysByNetwork,
 		a.Flags,
 	)
+}
+
+func (a *index) serviceEntryNoneWorkloadBuilder(
+	meshConfig krt.Singleton[MeshConfig],
+	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
+	return serviceEntryNoneWorkloadBuilder(
+		meshConfig,
+		func(ctx krt.HandlerContext) network.ID {
+			return a.Network(ctx)
+		},
+		func(ctx krt.HandlerContext) cluster.ID {
+			return a.ClusterID
+		},
+	)
+}
+
+func serviceEntryNoneWorkloadBuilder(
+	meshConfig krt.Singleton[MeshConfig],
+	networkGetter func(krt.HandlerContext) network.ID,
+	clusterGetter func(krt.HandlerContext) cluster.ID,
+) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
+	return func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
+		if se.Spec.Resolution != networkingv1alpha3.ServiceEntry_NONE {
+			// We will only produce workloads if the resolution is NONE.
+			return nil
+		}
+		if len(se.Spec.Addresses) == 0 {
+			// We will only produce workloads if the addresses are set.
+			return nil
+		}
+
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+		network := networkGetter(ctx)
+		cluster := clusterGetter(ctx)
+
+		workloadAddresses := [][]byte{}
+
+		for _, address := range se.Spec.Addresses {
+			addr, err := netip.ParseAddr(address)
+			if err != nil {
+				log.Warnf("invalid address in serviceentry %v: %v", address, err)
+				continue
+			}
+			workloadAddresses = append(workloadAddresses, addr.AsSlice())
+		}
+		wi := model.WorkloadInfo{
+			Workload: &workloadapi.Workload{
+				Uid:          generateServiceEntryUID(cluster, se.Namespace, se.Name, "vip-passthrough"),
+				Name:         "vip-passthrough",
+				Namespace:    se.Namespace,
+				Addresses:    workloadAddresses,
+				Network:      network.String(),
+				TrustDomain:  pickTrustDomain(meshCfg),
+				Services:     constructServicesFromServiceEntry(se),
+				Status:       workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:    cluster.String(),
+				WorkloadType: workloadapi.WorkloadType_POD,
+			},
+			Labels:       nil,
+			Source:       kind.ServiceEntry,
+			CreationTime: se.CreationTimestamp.Time,
+		}
+		return []model.WorkloadInfo{precomputeWorkload(wi)}
+	}
+}
+
+func constructServicesFromServiceEntry(se *networkingclient.ServiceEntry) map[string]*workloadapi.PortList {
+	services := map[string]*workloadapi.PortList{}
+	portList := &workloadapi.PortList{
+		Ports: []*workloadapi.Port{},
+	}
+	for _, port := range se.Spec.Ports {
+		servicePort := port.Number
+		targetPort := port.TargetPort
+		if targetPort == 0 {
+			targetPort = port.Number
+		}
+		portList.Ports = append(portList.Ports, &workloadapi.Port{
+			ServicePort: servicePort,
+			TargetPort:  targetPort,
+		})
+	}
+	for _, host := range se.Spec.Hosts {
+		services[namespacedHostname(se.Namespace, host)] = portList
+	}
+	return services
 }
 
 func endpointSlicesBuilder(
