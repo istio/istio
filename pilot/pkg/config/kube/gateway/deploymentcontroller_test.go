@@ -1005,7 +1005,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			d.queue = controllers.NewQueue("fake gateway queue",
 				controllers.WithReconciler(dummyReconcile))
 			go d.queue.Run(stop)
-			kube.WaitForCacheSync("test", stop, d.queue.HasSynced, d.gateways.HasSynced)
+			kube.WaitForCacheSync("test", stop, d.queue.HasSynced, d.gateways.HasSynced, tw.HasSynced)
 
 			switch tt.event.Event {
 			case controllers.EventAdd:
