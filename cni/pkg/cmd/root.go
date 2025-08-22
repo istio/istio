@@ -132,25 +132,28 @@ var rootCmd = &cobra.Command{
 			// if it is, we do NOT remove the plugin, and do
 			// NOT do ambient watch server cleanup
 			defer func() {
-				var isUpgrade bool
+				var shouldStopCleanup bool
+				// TODO(jaellio): Should we block cleanup if safe upgrade is disabled but istioOwnedCNIConfig is
+				// enabled? At this point we can't distinguish if this is being triggered as a result of a
+				// node reboot, an upgrade, or an uninstall
 				if cfg.InstallConfig.AmbientDisableSafeUpgrade {
 					log.Info("Ambient node agent safe upgrade explicitly disabled via env")
-					isUpgrade = false
+					shouldStopCleanup = false
 				} else {
-					isUpgrade = ambientAgent.ShouldStopForUpgrade("istio-cni", nodeagent.PodNamespace)
+					shouldStopCleanup = ambientAgent.ShouldStopCleanup("istio-cni", nodeagent.PodNamespace)
 				}
-				log.Infof("Ambient node agent shutting down - is upgrade shutdown? %t", isUpgrade)
+				log.Infof("Ambient node agent shutting down - is upgrade shutdown? %t", shouldStopCleanup)
 				// if we are doing an "upgrade shutdown", then
 				// we do NOT want to remove/cleanup the CNI plugin.
 				//
 				// This is important - we want it to remain in place to "stall"
 				// new ambient-enabled pods while our replacement spins up.
-				if !isUpgrade {
+				if !shouldStopCleanup {
 					if cleanErr := installer.Cleanup(); cleanErr != nil {
 						log.Error(cleanErr.Error())
 					}
 				}
-				ambientAgent.Stop(isUpgrade)
+				ambientAgent.Stop(shouldStopCleanup)
 			}()
 
 			ambientAgent.Start()
