@@ -21,7 +21,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
@@ -31,7 +33,10 @@ import (
 
 const defaultZTunnelKeepAliveCheckInterval = 5 * time.Second
 
-var log = scopes.CNIAgent
+var (
+	log = scopes.CNIAgent
+	tokenWaitBackoff = time.Second
+)
 
 type MeshDataplane interface {
 	// MUST be called first, (even before Start()).
@@ -119,18 +124,36 @@ func (s *Server) Stop(skipCleanup bool) {
 	s.dataplane.Stop(skipCleanup)
 }
 
-func (s *Server) ShouldStopForUpgrade(selfName, selfNamespace string) bool {
+// ShouldStopCleanup of istio-cni config and binary when upgrading or on node reboot
+func (s *Server) ShouldStopCleanup(selfName, selfNamespace string) bool {
 	dsName := fmt.Sprintf("%s-node", selfName)
-	cniDS, err := s.kubeClient.Kube().AppsV1().DaemonSets(selfNamespace).Get(context.Background(), dsName, metav1.GetOptions{})
-	log.Debugf("Daemonset %s has deletion timestamp?: %+v", dsName, cniDS.DeletionTimestamp)
-	if err == nil && cniDS != nil && cniDS.DeletionTimestamp == nil {
-		log.Infof("terminating, but parent DS %s is still present, this is an upgrade, leaving plugin in place", dsName)
-		return true
-	}
+	shouldStopCleanup := true
+	err := backoff.Retry(
+		func() error {
+			cniDS, err := s.kubeClient.Kube().AppsV1().DaemonSets(selfNamespace).Get(context.Background(), dsName, metav1.GetOptions{})
 
-	// If the DS is gone, it's definitely not an upgrade, so carry on like normal.
-	log.Infof("parent DS %s is gone or marked for deletion, this is not an upgrade, shutting down normally %s", dsName, err)
-	return false
+			log.Debugf("Daemonset %s has deletion timestamp?: %+v", dsName, cniDS.DeletionTimestamp)
+			if err == nil && cniDS != nil && cniDS.DeletionTimestamp == nil {
+				log.Infof("terminating, but parent DS %s is still present, this is an upgrade or a node reboot, leaving plugin in place", dsName)
+				shouldStopCleanup = true
+				return nil
+			}
+			// TODO(jaellio): Not certain "not found" error can be interpreted as not a node reboot
+			if errors.IsNotFound(err) || (cniDS != nil && cniDS.DeletionTimestamp != nil) {
+				// If the DS is gone, or marked for deletion, this is not an upgrade.
+				// We can safely shut down the plugin.
+				log.Infof("parent DS %s is not found or marked for deletion, this is not an upgrade, shutting down normally", dsName)
+				shouldStopCleanup = false
+				return nil
+			}
+			log.Infof("failed to get parent DS %s, retrying: %v", dsName, err)
+			return err
+		},
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), 5))
+	if err != nil {
+		log.Infof("failed to get parent DS %s, returning %s: %v", dsName, shouldStopCleanup, err)
+	}
+	return shouldStopCleanup
 }
 
 // buildKubeClient creates the kube client
