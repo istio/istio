@@ -62,6 +62,16 @@
         "env": {
           "type": "object"
         },
+        "envVarFrom": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "valueFrom": { "type": "object" }
+            }
+          }
+        },
         "strategy": {
           "type": "object"
         },
@@ -298,6 +308,14 @@
           "items": {
             "type": "object"
           }
+        },
+        "initContainers": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "additionalContainers": {
+          "type": "array",
+          "items": { "type": "object" }
         },
         "priorityClassName": {
           "type": "string"
