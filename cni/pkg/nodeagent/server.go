@@ -34,7 +34,7 @@ import (
 const defaultZTunnelKeepAliveCheckInterval = 5 * time.Second
 
 var (
-	log = scopes.CNIAgent
+	log              = scopes.CNIAgent
 	tokenWaitBackoff = time.Second
 )
 
@@ -168,7 +168,7 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 	}
 
 	client, err := kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig), "")
-	if err != nil {
+	if err != nil { 
 		return nil, fmt.Errorf("failed creating kube client: %v", err)
 	}
 
