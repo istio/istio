@@ -19,10 +19,12 @@ import (
 	"os"
 	"path/filepath"
 
+	set "istio.io/istio/cni/pkg/addressset"
 	"istio.io/istio/cni/pkg/config"
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/trafficmanager"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/kube"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -44,10 +46,10 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		Reconcile:              args.ReconcilePodRulesOnStartup,
 	}
 
-	log.Debug("creating ipsets in the node netns")
-	set, err := createHostsideProbeIpset(hostCfg.EnableIPv6)
+	log.Infof("creating host addressSet manager in the node netns")
+	setManager, err := createHostNetworkAddrSetManager(args.NativeNftables, hostCfg.EnableIPv6)
 	if err != nil {
-		return nil, fmt.Errorf("error initializing hostside probe ipset: %w", err)
+		return nil, fmt.Errorf("error initializing host addressSet manager: %w", err)
 	}
 
 	podNsMap := newPodNetnsCache(openNetnsInRoot(pconstants.HostMountsPath))
@@ -85,8 +87,26 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		kubeClient:         client.Kube(),
 		netServer:          netServer,
 		hostTrafficManager: hostTrafficManager,
-		hostsideProbeIPSet: set,
+		hostAddrSet:        setManager,
 	}, nil
+}
+
+// createHostNetworkAddrSetManager creates a host network addressSet manager. This is designed to be called from the host netns.
+// Note that if the set already exists by name, Create will not return an error.
+//
+// We will unconditionally flush our set before use here, so it shouldn't matter.
+func createHostNetworkAddrSetManager(useNftables bool, isV6 bool) (set.AddressSetManager, error) {
+	var setManager set.AddressSetManager
+	runErr := util.RunAsHost(func() error {
+		var err error
+		setManager, err = set.New(useNftables, isV6)
+		if err != nil {
+			return err
+		}
+		setManager.Flush()
+		return nil
+	})
+	return setManager, runErr
 }
 
 func realDependenciesHost() *dep.RealDependencies {

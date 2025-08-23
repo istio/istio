@@ -22,8 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/cni/pkg/config"
-	"istio.io/istio/cni/pkg/ipset"
+	set "istio.io/istio/cni/pkg/addressset"
 	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/util/sets"
@@ -33,7 +32,7 @@ type meshDataplane struct {
 	kubeClient         kubernetes.Interface
 	netServer          MeshDataplane
 	hostTrafficManager trafficmanager.TrafficRuleManager
-	hostsideProbeIPSet ipset.IPSet
+	hostAddrSet        set.AddressSetManager
 }
 
 // ConstructInitialSnapshot is always called first, before Start.
@@ -41,8 +40,8 @@ type meshDataplane struct {
 // and constructs various required "state" (adding the pods to the host-level node ipset,
 // building the state of the world snapshot send to connecting ztunnels)
 func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) error {
-	if err := s.syncHostIPSets(existingAmbientPods); err != nil {
-		log.Errorf("failed to sync host IPset: %v", err)
+	if err := s.syncHostAddrSets(existingAmbientPods); err != nil {
+		log.Errorf("failed to sync host addressSet: %v", err)
 		return err
 	}
 
@@ -65,10 +64,11 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 		log.Debug("removing host traffic rules")
 		s.hostTrafficManager.DeleteHostRules()
 		_ = util.RunAsHost(func() error {
-			log.Debug("destroying host ipset")
-			s.hostsideProbeIPSet.Flush()
-			if err := s.hostsideProbeIPSet.DestroySet(); err != nil {
-				log.Warnf("could not destroy host ipset on shutdown")
+			log.Debug("destroying host addressSet")
+			s.hostAddrSet.Flush()
+			// SGM: TODO: Verify that we delete the table as well as we are not deleting it as part of DeleteHostRules.
+			if err := s.hostAddrSet.DestroySet(); err != nil {
+				log.Warnf("could not destroy host addressSet on shutdown")
 			}
 			return nil
 		})
@@ -121,8 +121,8 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 	}
 
 	// Handle node healthcheck probe rewrites
-	if _, err := s.addPodToHostNSIpset(pod, podIPs); err != nil {
-		log.Errorf("failed to add pod to ipset, pod will fail healthchecks: %v", err)
+	if _, err := s.addPodToHostAddrSet(pod, podIPs); err != nil {
+		log.Errorf("failed to add pod to addressSet, pod will fail healthchecks: %v", err)
 		// Adding pod to ipset should always be an upsert, so should not fail
 		// unless we have a kernel incompatibility - thus it should either
 		// never fail, or isn't usefully retryable.
@@ -158,8 +158,8 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, 
 
 	// Remove the hostside ipset entry first, and unconditionally - if later failures happen, we never
 	// want to leave stale entries (and the pod healthchecks will start to fail, which is a good signal)
-	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
-		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
+	if err := removePodFromHostAddrSet(pod, s.hostAddrSet); err != nil {
+		log.Errorf("failed to remove pod %s from host addressSet, error was: %v", pod.Name, err)
 		// Removing pod from ipset should never fail, even if the IP is no longer there
 		// (unless we have a kernel incompatibility).
 		// - so while retrying on ipser remove error is safe from an eventing perspective,
@@ -193,13 +193,13 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, 
 	return nil
 }
 
-// syncHostIPSets is called after the host node ipset has been created (or found + flushed)
+// syncHostAddrSets is called after the host node ipset has been created (or found + flushed)
 // during initial snapshot creation, it will insert every snapshotted pod's IP into the set.
 //
 // The set does not allow dupes (obviously, that would be undefined) - but in the real world due to misconfigured
 // IPAM or other things, we may see two pods with the same IP on the same node - we will skip the dupes,
 // which is all we can do - these pods will fail healthcheck until the IPAM issue is resolved (which seems reasonable)
-func (s *meshDataplane) syncHostIPSets(ambientPods []*corev1.Pod) error {
+func (s *meshDataplane) syncHostAddrSets(ambientPods []*corev1.Pod) error {
 	var addedIPSnapshot []netip.Addr
 
 	for _, pod := range ambientPods {
@@ -207,7 +207,7 @@ func (s *meshDataplane) syncHostIPSets(ambientPods []*corev1.Pod) error {
 		if len(podIPs) == 0 {
 			log.Warnf("pod %s does not appear to have any assigned IPs, not syncing with ipset", pod.Name)
 		} else {
-			addedIps, err := s.addPodToHostNSIpset(pod, podIPs)
+			addedIps, err := s.addPodToHostAddrSet(pod, podIPs)
 			if err != nil {
 				log.Errorf("pod %s has IP collision (%v), pod will be skipped and will fail healthchecks: %v", pod.Name, podIPs, err)
 			}
@@ -215,10 +215,10 @@ func (s *meshDataplane) syncHostIPSets(ambientPods []*corev1.Pod) error {
 		}
 
 	}
-	return pruneHostIPset(sets.New(addedIPSnapshot...), &s.hostsideProbeIPSet)
+	return pruneHostAddrSet(sets.New(addedIPSnapshot...), s.hostAddrSet)
 }
 
-// addPodToHostNSIpset:
+// addPodToHostAddrSet:
 // 1. get pod manifest
 // 2. Get all pod ips (might be several, v6/v4)
 // 3. update ipsets accordingly
@@ -240,12 +240,12 @@ func (s *meshDataplane) syncHostIPSets(ambientPods []*corev1.Pod) error {
 // -> we no longer have an entry for either, which is bad (pod fails healthchecks)
 //
 // So "add" always overwrites, and remove only removes if the pod IP AND the pod UID match.
-func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr) ([]netip.Addr, error) {
+func (s *meshDataplane) addPodToHostAddrSet(pod *corev1.Pod, podIPs []netip.Addr) ([]netip.Addr, error) {
 	// Add the pod UID as an ipset entry comment, so we can (more) easily find and delete
 	// all relevant entries for a pod later.
 	podUID := string(pod.ObjectMeta.UID)
 	ipProto := uint8(unix.IPPROTO_TCP)
-	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", s.hostsideProbeIPSet.Prefix)
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", s.hostAddrSet.GetPrefix())
 
 	var ipsetAddrErrs []error
 	var addedIps []netip.Addr
@@ -254,10 +254,10 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 		// For each pod IP
 		for _, pip := range podIPs {
 			// Add to host ipset
-			log.Debugf("adding probe ip %s to set", pip)
-			if err := s.hostsideProbeIPSet.AddIP(pip, ipProto, podUID, true); err != nil {
+			log.Debugf("adding probe ip %s to addressSet", pip)
+			if err := s.hostAddrSet.AddIP(pip, ipProto, podUID, true); err != nil {
 				ipsetAddrErrs = append(ipsetAddrErrs, err)
-				log.Errorf("failed adding ip %s to set, error was %s", pip, err)
+				log.Errorf("failed adding ip %s to addressSet, error was %s", pip, err)
 			} else {
 				addedIps = append(addedIps, pip)
 			}
@@ -271,51 +271,34 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 	return addedIps, errors.Join(ipsetAddrErrs...)
 }
 
-// createHostsideProbeIpset creates an ipset. This is designed to be called from the host netns.
-// Note that if the ipset already exist by name, Create will not return an error.
-//
-// We will unconditionally flush our set before use here, so it shouldn't matter.
-func createHostsideProbeIpset(isV6 bool) (ipset.IPSet, error) {
-	var probeSet ipset.IPSet
-	runErr := util.RunAsHost(func() error {
-		var err error
-		linDeps := ipset.RealNlDeps()
-		probeSet, err = ipset.NewIPSet(config.ProbeIPSet, isV6, linDeps)
-		if err != nil {
-			return err
-		}
-		probeSet.Flush()
-		return nil
-	})
-	return probeSet, runErr
-}
-
-// removePodFromHostNSIpset will remove (v4, v6) pod IPs from the host IP set(s).
+// removePodFromHostAddrSet will remove (v4, v6) pod IPs from the host IP set(s).
 // Note that unlike when we add the IP to the set, on removal we will simply
 // skip removing the IP if the IP matches, but the UID comment does not match our pod.
-func removePodFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPSet) error {
+func removePodFromHostAddrSet(pod *corev1.Pod, hostsideProbeSet set.AddressSetManager) error {
 	podUID := string(pod.ObjectMeta.UID)
-	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", hostsideProbeSet.Prefix)
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", hostsideProbeSet.GetPrefix())
 
 	podIPs := util.GetPodIPsIfPresent(pod)
 	return util.RunAsHost(func() error {
 		for _, pip := range podIPs {
+			// SGM: TODO Verify if we have to implement this API for nftable sets.
 			if uidMismatch, err := hostsideProbeSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
 				return err
 			} else if uidMismatch != "" {
-				log.Warnf("pod ip %s could not be removed from ipset, found entry with pod UID %s instead", pip, uidMismatch)
+				log.Warnf("pod ip %s could not be removed from addressSet, found entry with pod UID %s instead", pip, uidMismatch)
 			}
-			log.Debugf("removed pod from host ipset by ip %s", pip)
+			log.Debugf("removed pod from host addressSet by ip %s", pip)
 		}
 		return nil
 	})
 }
 
-func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet) error {
+func pruneHostAddrSet(expected sets.Set[netip.Addr], hostsideProbeSet set.AddressSetManager) error {
 	return util.RunAsHost(func() error {
+		// SGM: TODO Verify if we have to implement this API for nftable sets.
 		actualIPSetContents, err := hostsideProbeSet.ListEntriesByIP()
 		if err != nil {
-			log.Warnf("unable to list IPSet: %v", err)
+			log.Warnf("unable to list addressSet: %v", err)
 			return err
 		}
 		actual := sets.New(actualIPSetContents...)
@@ -325,7 +308,7 @@ func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet
 			if err := hostsideProbeSet.ClearEntriesWithIP(staleIP); err != nil {
 				return err
 			}
-			log.Debugf("removed stale ip %s from host ipset %s", staleIP, hostsideProbeSet.Prefix)
+			log.Debugf("removed stale ip %s from host addressSet %s", staleIP, hostsideProbeSet.GetPrefix())
 		}
 		return nil
 	})
