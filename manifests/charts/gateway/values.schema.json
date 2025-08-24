@@ -146,6 +146,12 @@
         "compatibilityVersion": {
           "type": "string"
         },
+        "profile": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
         "runAsRoot": {
           "type": "boolean"
         },
