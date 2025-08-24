@@ -152,6 +152,9 @@
         "platform": {
           "type": "string"
         },
+        "pilot": {
+          "type": "object"
+        },
         "runAsRoot": {
           "type": "boolean"
         },
