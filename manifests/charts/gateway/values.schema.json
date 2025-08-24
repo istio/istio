@@ -143,6 +143,9 @@
         "revision": {
           "type": "string"
         },
+        "defaultRevision": {
+          "type": "string"
+        },
         "compatibilityVersion": {
           "type": "string"
         },
