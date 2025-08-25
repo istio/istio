@@ -42,7 +42,7 @@ var _ MeshDataplane = &NetServer{}
 // ConstructInitialSnapshot is always called first, before Start.
 // It takes a "snapshot" of ambient pods that were already running when the server started, and:
 //
-// - initializes a an internal cache of pod info and netns handles with these existing pods.
+// - initializes an internal cache of pod info and netns handles with these existing pods.
 // This cache will also be updated when the K8S informer gets a new pod.
 // This cache represents the "state of the world" of all enrolled pods on the node this agent
 // knows about, and will be sent to any connecting ztunnel as a startup message.
