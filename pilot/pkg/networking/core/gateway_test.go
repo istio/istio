@@ -2527,6 +2527,137 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	// Gateway with wildcard host to replicate issue #57404
+	gatewayWildcardHost := config.Config{
+		Meta: config.Meta{
+			Name:             "gateway-wildcard",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"*"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				},
+			},
+		},
+	}
+	// VirtualService with wildcard host (replicates vs-any-host from issue #57404)
+	virtualServiceWildcardHost := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service-wildcard-host",
+			Namespace:        "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*"},
+			Gateways: []string{"gateway-wildcard"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+						},
+					},
+					Rewrite: &networking.HTTPRewrite{
+						Uri: "/",
+					},
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "nginx.default.svc.cluster.local",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// VirtualService with specific host (replicates vs-with-host from issue #57404)
+	virtualServiceSpecificHost := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service-specific-host",
+			Namespace:        "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"gateway-wildcard"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/foo",
+								},
+							},
+						},
+					},
+					Rewrite: &networking.HTTPRewrite{
+						Uri: "/",
+					},
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "nginx.default.svc.cluster.local",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// VirtualService with wildcard *.com host to test wildcard-to-wildcard merging
+	virtualServiceWildcardCom := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service-wildcard-com",
+			Namespace:        "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.com"},
+			Gateways: []string{"gateway-wildcard"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/com",
+								},
+							},
+						},
+					},
+					Rewrite: &networking.HTTPRewrite{
+						Uri: "/",
+					},
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "nginx.default.svc.cluster.local",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	cases := []struct {
 		name                              string
 		virtualServices                   []config.Config
@@ -2794,6 +2925,41 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			redirect:              true,
 			expectStatefulSession: false,
 		},
+		{
+			// This test case replicates the issue described in:
+			// https://github.com/istio/istio/issues/57404
+			// where conflicting VirtualServices with wildcard (*) and specific host (foo.bar)
+			// create separate virtual hosts instead of merging properly
+			// The fix should merge them into a single virtual host
+			name:            "conflicting virtual services with wildcard and specific host",
+			virtualServices: []config.Config{virtualServiceWildcardHost, virtualServiceSpecificHost},
+			gateways:        []config.Config{gatewayWildcardHost},
+			routeName:       "http.80",
+			expectedVirtualHosts: map[string][]string{
+				"*:80": {"*", "foo.bar"},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
+				"*:80": {"*", "foo.bar"},
+			},
+			expectedHTTPRoutes:    map[string]int{"*:80": 2},
+			expectStatefulSession: false,
+		},
+		{
+			// Test case for wildcard-to-wildcard merging using Matches() function
+			// This demonstrates the improved logic that can handle wildcard merging
+			name:            "wildcard to wildcard merging using Matches function",
+			virtualServices: []config.Config{virtualServiceWildcardHost, virtualServiceWildcardCom},
+			gateways:        []config.Config{gatewayWildcardHost},
+			routeName:       "http.80",
+			expectedVirtualHosts: map[string][]string{
+				"*:80": {"*", "*.com"},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
+				"*:80": {"*", "*.com"},
+			},
+			expectedHTTPRoutes:    map[string]int{"*:80": 2},
+			expectStatefulSession: false,
+		},
 	}
 	exampleService := &pilot_model.Service{
 		Hostname: host.Name("example.org"),
@@ -2807,6 +2973,18 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			Labels:    map[string]string{"istio.io/persistent-session": "session-cookie"},
 		},
 	}
+	// Service for the nginx destination in the conflicting VirtualServices test
+	nginxService := &pilot_model.Service{
+		Hostname: host.Name("nginx.default.svc.cluster.local"),
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     80,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2816,6 +2994,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				Configs: cfgs,
 				Services: []*pilot_model.Service{
 					exampleService,
+					nginxService,
 				},
 			})
 			r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)

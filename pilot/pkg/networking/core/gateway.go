@@ -472,37 +472,61 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 			for _, hostname := range intersectingHosts {
 				hostname = host.Name(strings.ToLower(hostname.String()))
+
+				// Check if we already have a virtual host for this hostname
+				// This is direct host match - fast path.
 				if vHost, exists := vHostDedupMap[hostname]; exists {
+					// Append routes to existing virtual host
 					vHost.Routes = append(vHost.Routes, routes...)
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						vHost.RequireTls = route.VirtualHost_ALL
 					}
 				} else {
-					gatewayService := nameToServiceMap[hostname]
-					perRouteFilters := map[string]*anypb.Any{}
-					if gatewayService != nil {
-						// Build StatefulSession Filter if gateway service has persistence session label.
-						if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(gatewayService); statefulConfig != nil {
-							perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
-								Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
-									StatefulSession: statefulConfig,
-								},
-							}
-							perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
+					// Check if we can merge with an existing virtual host with wildcards
+					canMergeWithExisting := false
+					for existingHostname, existingVHost := range vHostDedupMap {
+						// Merge if the existing hostname can match our current hostname
+						// This handles:
+						// - wildcard + specific: *.com + foo.com
+						// - wildcard + wildcard: * + *.com, *.com + *.foo.com
+						if existingHostname.Matches(hostname) {
+							// Merge routes into the existing virtual host
+							existingVHost.Routes = append(existingVHost.Routes, routes...)
+							// Add the new hostname to domains so Envoy knows to route it here
+							existingVHost.Domains = append(existingVHost.Domains, hostname.String())
+							canMergeWithExisting = true
+							break
 						}
 					}
-					newVHost := &route.VirtualHost{
-						Name:    util.DomainName(string(hostname), port),
-						Domains: []string{hostname.String()},
-						// Route will be appended to during deduplication, so make sure we are operating on a copy
-						Routes:                     slices.Clone(routes),
-						TypedPerFilterConfig:       perRouteFilters,
-						IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
+
+					if !canMergeWithExisting {
+						// Create new virtual host only if we couldn't merge
+						gatewayService := nameToServiceMap[hostname]
+						perRouteFilters := map[string]*anypb.Any{}
+						if gatewayService != nil {
+							// Build StatefulSession Filter if gateway service has persistence session label.
+							if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(gatewayService); statefulConfig != nil {
+								perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
+									Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+										StatefulSession: statefulConfig,
+									},
+								}
+								perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
+							}
+						}
+						newVHost := &route.VirtualHost{
+							Name:    util.DomainName(string(hostname), port),
+							Domains: []string{hostname.String()},
+							// Route will be appended to during deduplication, so make sure we are operating on a copy
+							Routes:                     slices.Clone(routes),
+							TypedPerFilterConfig:       perRouteFilters,
+							IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
+						}
+						if server.Tls != nil && server.Tls.HttpsRedirect {
+							newVHost.RequireTls = route.VirtualHost_ALL
+						}
+						vHostDedupMap[hostname] = newVHost
 					}
-					if server.Tls != nil && server.Tls.HttpsRedirect {
-						newVHost.RequireTls = route.VirtualHost_ALL
-					}
-					vHostDedupMap[hostname] = newVHost
 				}
 			}
 		}
