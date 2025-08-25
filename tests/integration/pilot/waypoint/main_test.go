@@ -23,6 +23,9 @@ import (
 	"testing"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	ilabel "istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
@@ -38,13 +41,9 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	i istio.Instance
-)
+var i istio.Instance
 
 func TestMain(m *testing.M) {
 	framework.
@@ -199,7 +198,7 @@ spec:
 				t.Fatal(err)
 			}
 
-			//wait for waypoint configuration to be successfully applied
+			// wait for waypoint configuration to be successfully applied
 			retry.UntilSuccessOrFail(t, func() error {
 				s, err := t.Clusters().Default().Kube().CoreV1().Services(server.NamespaceName()).Get(context.Background(), server.ServiceName(), metav1.GetOptions{})
 				if err != nil {
