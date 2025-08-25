@@ -152,6 +152,10 @@ _internal_defaults_do_not_set:
     # Default tag for Istio images.
     tag: latest
 
+    # Variant of the image to use.
+    # Currently supported are: [debug, distroless]
+    variant: ""
+
     # Specify image pull policy if default behavior isn't desired.
     # Default behavior: latest images will be Always else IfNotPresent.
     imagePullPolicy: ""
@@ -280,7 +284,7 @@ _internal_defaults_do_not_set:
 
     defaultConfig:
       proxyMetadata: {}
-      tracing:
+      tracing: {}
       #      tlsSettings:
       #        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
       #        clientCertificate: # example: /etc/istio/tracer/cert-chain.pem

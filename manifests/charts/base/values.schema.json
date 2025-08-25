@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "_internal_defaults_do_not_set": {
+    "$ref": "#/$defs"
+    },
+    "values": {
+      "$ref": "#/$defs"
+    }
+  },
+  "$defs": {
+    "type": "object",
+    "properties": {
+      "global": {
+        "type": "object",
+        "properties": {
+          "imagePullSecrets": {
+            "type": "array",
+            "items": {}
+          },
+          "istioNamespace": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "base": {
+        "type": "object",
+        "properties": {
+          "excludedCRDs": {
+            "type": "array",
+            "items": {}
+          },
+          "enableCRDTemplates": {
+            "type": "boolean"
+          },
+          "validationURL": {
+            "type": "string"
+          },
+          "validationCABundle": {
+            "type": "string"
+          },
+          "enableIstioConfigCRDs": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "defaultRevision": {
+        "type": "string"
+      },
+      "experimental": {
+        "type": "object",
+        "properties": {
+          "stableValidationPolicy": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "compatibilityVersion": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  }
+}

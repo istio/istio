@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "_internal_defaults_do_not_set": {
+    "$ref": "#/$defs"
+    },
+    "values": {
+      "$ref": "#/$defs"
+    }
+  },
+  "$defs": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "global": {
+        "type": "object",
+        "properties": {
+          "istioNamespace": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "base": {
+        "type": "object",
+        "properties": {
+          "validationURL": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "istiodRemote": {
+        "type": "object",
+        "properties": {
+          "injectionURL": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "revision": {
+        "type": "string"
+      },
+      "sidecarInjectorWebhook": {
+        "type": "object",
+        "properties": {
+          "enableNamespacesByDefault": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
+      },
+      "compatibilityVersion": {
+        "type": "string"
+      },
+      "ownerName": {
+        "type": "string"
+      }
+    }
+  }
+}
