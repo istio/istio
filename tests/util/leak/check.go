@@ -67,6 +67,12 @@ type TestingM interface {
 	Run() int
 }
 
+type checkOptions struct {
+	allowedLeaks int
+}
+
+type CheckOption func(c *checkOptions)
+
 type TestingTB interface {
 	Cleanup(func())
 	Errorf(format string, args ...any)
@@ -74,7 +80,19 @@ type TestingTB interface {
 
 var gracePeriod = time.Second * 5
 
-func check(filter func(in []*goroutine) []*goroutine) error {
+func WithAllowedLeaks(n int) CheckOption {
+	return func(c *checkOptions) {
+		c.allowedLeaks = n
+	}
+}
+
+func check(filter func(in []*goroutine) []*goroutine, options ...CheckOption) error {
+	checkOpts := &checkOptions{
+		allowedLeaks: 0, // Default to no leaks
+	}
+	for _, opt := range options {
+		opt(checkOpts)
+	}
 	// Loop, waiting for goroutines to shut down.
 	// Wait up to timeout, but finish as quickly as possible.
 	// The timeout here is not super sensitive, since if we hit this we will fail; a happy case will finish quickly
@@ -91,6 +109,10 @@ func check(filter func(in []*goroutine) []*goroutine) error {
 			leaked = filter(leaked)
 		}
 		if len(leaked) == 0 {
+			return nil // No leaks, we are done
+		}
+		if len(leaked) <= checkOpts.allowedLeaks {
+			fmt.Printf("leaked %d goroutines, but allowed %d; passing\n", len(leaked), checkOpts.allowedLeaks)
 			return nil
 		}
 		time.Sleep(delay)
@@ -110,7 +132,7 @@ func check(filter func(in []*goroutine) []*goroutine) error {
 // Any existing goroutines before the test starts are filtered out. This ensures a single test failing doesn't
 // cause all future tests to fail. However, it is still possible another test influences the result when t.Parallel is used.
 // Where possible, CheckMain is preferred.
-func Check(t TestingTB) {
+func Check(t TestingTB, options ...CheckOption) {
 	existingRaw, err := interestingGoroutines()
 	if err != nil {
 		t.Errorf("failed to fetch pre-test goroutines: %v", err)
@@ -131,7 +153,7 @@ func Check(t TestingTB) {
 		return res
 	}
 	t.Cleanup(func() {
-		if err := check(filter); err != nil {
+		if err := check(filter, options...); err != nil {
 			t.Errorf("goroutine leak: %v", err)
 		}
 	})
