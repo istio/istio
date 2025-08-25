@@ -5,6 +5,6 @@ issue:
 - 57075
 releaseNotes:
 - |
-  **Added** `--wait` flag to `istioctl waypoint status` to wait for waypoint to be ready.
+  **Added** `--no-wait` flag to `istioctl waypoint status` to not wait for waypoint to be ready.
 
-  By default, no longer wait for waypoint to be ready, and directly display the status of waypoint.
+  Specifying this flag will not wait for the waypoint to be ready, and will directly display the status of waypoint.
