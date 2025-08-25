@@ -715,7 +715,10 @@ func mergeServiceInfosWithCluster(
 				return nil
 			}
 			// otherwise, skip merging
-			return &base
+			return &krt.ObjectWithCluster[model.ServiceInfo]{
+				ClusterID: base.ClusterID,
+				Object:    precomputeServicePtr(base.Object),
+			}
 		}
 
 		vips := sets.NewWithLength[simpleNetworkAddress](svcInfosLen)
