@@ -140,14 +140,18 @@ spec:
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
+{{- if not $appContainer.DisableCAFlag }}
           - --ca=/etc/certs/custom/root-cert.pem
+{{- end }}
 {{- if $.TLSSettings.AcceptAnyALPN}}
           - --disable-alpn
 {{- end }}
 {{- else }}
           - --crt=/cert.crt
           - --key=/cert.key
+{{- if not $appContainer.DisableCAFlag }}
           - --ca=/root-cert.pem
+{{- end}}
 {{- end }}
         ports:
 {{- range $i, $p := $appContainer.ContainerPorts }}
