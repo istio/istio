@@ -106,6 +106,10 @@ func (c *ConfigWriter) PrintFullSummary() error {
 	if err := c.PrintSecretSummary(); err != nil {
 		return err
 	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	if err := c.PrintConnectionsSummary(ConnectionsFilter{}); err != nil {
+		return err
+	}
 	return nil
 }
 
