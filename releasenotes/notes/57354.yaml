@@ -5,4 +5,4 @@ issue:
   - 57354
 releaseNotes:
   - |
-    **Fixed** an issue where the Helm 3.18.5 switched to a new JSON schema validator that is more strict and caused installation failures in the Gateway chart.
+    **Fixed** an issue causing Gateway chart installation failures with Helm v3.18.5 due to a stricter JSON schema validator. The chart's schema has been updated to be compatible.
