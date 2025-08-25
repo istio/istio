@@ -432,12 +432,20 @@ func constructServiceEntries(
 
 	var lb *workloadapi.LoadBalancing
 
-	trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations)
-	switch trafficDistribution {
-	case model.TrafficDistributionPreferSameZone:
-		lb = preferSameZoneLoadBalancer
-	case model.TrafficDistributionPreferSameNode:
-		lb = preferSameNodeLoadBalancer
+	// When resolution is NONE, we want to passthrough traffic to the destination address.
+	// In this case, we can skip attempting to get a traffic distribution because it is not applicable.
+	if svc.Spec.Resolution == v1alpha3.ServiceEntry_NONE {
+		lb = &workloadapi.LoadBalancing{
+			Mode: workloadapi.LoadBalancing_PASSTHROUGH,
+		}
+	} else {
+		trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations)
+		switch trafficDistribution {
+		case model.TrafficDistributionPreferSameZone:
+			lb = preferSameZoneLoadBalancer
+		case model.TrafficDistributionPreferSameNode:
+			lb = preferSameNodeLoadBalancer
+		}
 	}
 
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
