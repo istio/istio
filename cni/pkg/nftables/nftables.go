@@ -415,12 +415,12 @@ func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 	cfg.ruleBuilder = builder.NewNftablesRuleBuilder(config.GetConfig(cfg.cfg))
 
 	// TODO: Investigate how to support "-m owner --socket-exists" with nftable rules.
-	cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "ip", "daddr", fmt.Sprintf("@%s-v4", config.ProbeIPSet),
-		"meta l4proto tcp", Counter, "snat", "to", cfg.cfg.HostProbeSNATAddress.String())
+	// cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "ip", "daddr", fmt.Sprintf("@%s-v4", config.ProbeIPSet),
+	//	"meta l4proto tcp", Counter, "snat", "to", cfg.cfg.HostProbeSNATAddress.String())
 
 	// For V6 we have to use a different set and a different SNAT IP
-	cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "ip6", "daddr", fmt.Sprintf("@%s-v6", config.ProbeIPSet),
-		"meta l4proto tcp", Counter, "snat", "to", cfg.cfg.HostProbeV6SNATAddress.String())
+	// cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "ip6", "daddr", fmt.Sprintf("@%s-v6", config.ProbeIPSet),
+	//	"meta l4proto tcp", Counter, "snat", "to", cfg.cfg.HostProbeV6SNATAddress.String())
 
 	return util.RunAsHost(func() error {
 		tx, err := cfg.executeHostCommands()
