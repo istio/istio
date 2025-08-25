@@ -33,6 +33,7 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -1126,6 +1128,18 @@ func TestBuildDefaultCluster(t *testing.T) {
 		Protocol: protocol.HTTP,
 	}
 
+	typedExtensionProtocolOpts := map[string]*anypb.Any{
+		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+				},
+			},
+		}),
+	}
+
 	cases := []struct {
 		name            string
 		clusterName     string
@@ -1190,6 +1204,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 						ResourceApiVersion:  core.ApiVersion_V3,
 					},
 				},
+				TypedExtensionProtocolOptions: typedExtensionProtocolOpts,
 			},
 		},
 		{
@@ -1247,6 +1262,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 						ResourceApiVersion:  core.ApiVersion_V3,
 					},
 				},
+				TypedExtensionProtocolOptions: typedExtensionProtocolOpts,
 			},
 		},
 		{
@@ -1340,6 +1356,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 						}},
 					},
 				},
+				TypedExtensionProtocolOptions: typedExtensionProtocolOpts,
 			},
 		},
 	}

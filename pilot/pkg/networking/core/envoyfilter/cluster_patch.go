@@ -19,12 +19,15 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
@@ -68,7 +71,41 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Merg
 		}
 		IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
 	}
+	patchUpstreamHTTPFilters(pctx, efw.Patches, c, hosts)
 	return c
+}
+
+func patchUpstreamHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
+	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
+	c *cluster.Cluster,
+	hosts []host.Name,
+) {
+	// If there are no upstream http filter patches, return early to avoid unmarshal cost.
+	if len(patches[networking.EnvoyFilter_UPSTREAM_HTTP_FILTER]) == 0 {
+		return
+	}
+
+	opts := &http.HttpProtocolOptions{}
+	if ext, exists := c.GetTypedExtensionProtocolOptions()[v3.HttpProtocolOptionsType]; exists {
+		if err := proto.Unmarshal(ext.Value, opts); err != nil {
+			return
+			// todo: figure out a non noisy logging option here
+			//  as this loop will be called very frequently
+		}
+	}
+	opts.HttpFilters = patchHTTPFilters(patchContext, UpstreamHttpFilter, patches[networking.EnvoyFilter_UPSTREAM_HTTP_FILTER],
+		opts.HttpFilters,
+		func(p *model.EnvoyFilterConfigPatchWrapper) bool {
+			return clusterMatch(c, p, hosts)
+		},
+		func(p *model.EnvoyFilterConfigPatchWrapper) string {
+			// assumes that the cluster was already matched
+			return p.Match.GetCluster().GetFilter().GetName()
+		},
+	)
+	if _, exists := c.GetTypedExtensionProtocolOptions()[v3.HttpProtocolOptionsType]; exists {
+		c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = protoconv.MessageToAny(opts)
+	}
 }
 
 // Test if the patch contains a config for TransportSocket
