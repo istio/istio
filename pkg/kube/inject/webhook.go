@@ -400,6 +400,7 @@ type InjectionParameters struct {
 	revision            string
 	proxyEnvs           map[string]string
 	injectedAnnotations map[string]string
+	ambientInject       bool
 }
 
 func checkPreconditions(params InjectionParameters) {
@@ -461,6 +462,8 @@ func getInjectionStatus(podSpec corev1.PodSpec, revision string) string {
 // handle cases that cannot feasibly be covered in the template, such as
 // re-ordering pods, rewriting readiness probes, etc.
 func injectPod(req InjectionParameters) ([]byte, error) {
+	// TODO(jaellio): skip for ambient injection?
+	log.Infof("jaellio: injecting pod %s/%s with %s template", req.pod.Namespace, req.pod.Name, req.defaultTemplate[0])
 	checkPreconditions(req)
 
 	// The patch will be built relative to the initial pod, capture its current state
@@ -1126,24 +1129,39 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
 	wh.mu.RLock()
-	if !injectRequired(IgnoredNamespaces.UnsortedList(), wh.Config, &pod.Spec, pod.ObjectMeta) {
+	injectAmbientInit := ambientInjectRequired(IgnoredNamespaces.UnsortedList(), wh.Config, &pod.Spec, pod.ObjectMeta)
+	injectSidecar := injectRequired(IgnoredNamespaces.UnsortedList(), wh.Config, &pod.Spec, pod.ObjectMeta)
+	if !injectAmbientInit && !injectSidecar {
 		log.Infof("Skipping due to policy check")
 		totalSkippedInjections.Increment()
 		wh.mu.RUnlock()
 		return &kube.AdmissionResponse{
 			Allowed: true,
 		}
+	} else if injectAmbientInit && injectSidecar {
+		log.Warn("Both ambient and sidecar injection are specified. Only one of them can be specified at a time. Defaulting to ambient injection.")
+		injectAmbientInit = true
+        injectSidecar = false
+	} else if injectAmbientInit {
+		log.Info("Injecting ambient init container, not injecting sidecar")
+	} else {
+		log.Info("Injecting sidecar container")
 	}
 
 	proxyConfig := wh.env.GetProxyConfigOrDefault(pod.Namespace, pod.Labels, pod.Annotations, wh.meshConfig)
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
+
+	defaultTemplates := wh.Config.DefaultTemplates
+	if injectAmbientInit {
+		defaultTemplates = []string{AmbientValidationTemplateName}
+	}
 
 	params := InjectionParameters{
 		pod:                 &pod,
 		deployMeta:          deploy,
 		typeMeta:            typeMeta,
 		templates:           wh.Config.Templates,
-		defaultTemplate:     wh.Config.DefaultTemplates,
+		defaultTemplate:     defaultTemplates,
 		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
 		proxyConfig:         proxyConfig,
@@ -1151,6 +1169,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
+		ambientInject:       injectAmbientInit,
 	}
 
 	clusterID, _ := extractClusterAndNetwork(params)
@@ -1174,7 +1193,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		// interception fails for the pod. Here, we ignore the RunAsUser value on the sidecar proxy if it matches the
 		// application container's value. At the same time, if user explicitly configures a RunAsUser in the istio-proxy
 		// container which is different to the application container's value, that setting is still honored.
-		if sideCarProxy := FindSidecar(params.pod); sideCarProxy != nil && sideCarProxy.SecurityContext != nil {
+		if sideCarProxy := FindSidecar(params.pod); sideCarProxy != nil && sideCarProxy.SecurityContext != nil && !injectAmbientInit {
 			if isSidecarUserMatchingAppUser(params.pod) {
 				log.Infof("Resetting the UserID of sideCar proxy as it matches with the app container for Pod %q", params.pod.Name)
 				sideCarProxy.SecurityContext.RunAsUser = nil
@@ -1185,6 +1204,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 
 	var nodes kclient.Client[*corev1.Node]
 
+	// TODO(jaellio): skip for ambient injection
 	if wh.nodes != nil {
 		nodes = wh.nodes.ForCluster(cluster.ID(clusterID))
 		params.nativeSidecar = DetectNativeSidecar(nodes, pod.Spec.NodeName)
@@ -1195,6 +1215,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 
 	wh.mu.RUnlock()
 
+	log.Debugf("jaellio: injecting pod - injectAmbientInit=%v, injectSidecar=%v", injectAmbientInit, injectSidecar)
 	patchBytes, err := injectPod(params)
 	if err != nil {
 		handleError(log, fmt.Sprintf("Pod injection failed: %v", err))
