@@ -70,6 +70,8 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 		wantOutputSecret   string
 		wantOutputWorkload string
 		wantOutputPolicies string
+		wantOutputAll      string
+		wantOutputConn     string
 		configNamespace    string
 	}{
 		{
@@ -88,6 +90,14 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 		{
 			name:               "policies",
 			wantOutputPolicies: "testdata/policies.txt",
+		},
+		{
+			name:           "connections",
+			wantOutputConn: "testdata/connectionsummary.txt",
+		},
+		{
+			name:          "all",
+			wantOutputAll: "testdata/allsummary.txt",
 		},
 	}
 	for _, tt := range tests {
@@ -108,6 +118,14 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 			if tt.wantOutputPolicies != "" {
 				assert.NoError(t, cw.PrintPolicySummary(PolicyFilter{}))
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputPolicies)
+			}
+			if tt.wantOutputAll != "" {
+				assert.NoError(t, cw.PrintFullSummary())
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputAll)
+			}
+			if tt.wantOutputConn != "" {
+				assert.NoError(t, cw.PrintConnectionsSummary(ConnectionsFilter{}))
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputConn)
 			}
 		})
 	}

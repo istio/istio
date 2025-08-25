@@ -1060,5 +1060,133 @@
       ],
       "scope": "WorkloadSelector"
     }
-  ]
+  ],
+  "workloadState": {
+    "54ce2023-7c77-4bb8-b6c3-eccf619cd6f2": {
+      "connections": {
+        "inbound": [
+          {
+            "actualDst": "10.233.97.129:9080",
+            "originalDst": null,
+            "protocol": "HBONE",
+            "src": "10.233.97.150:35078"
+          },
+          {
+            "actualDst": "10.233.97.129:9080",
+            "originalDst": null,
+            "protocol": "HBONE",
+            "src": "10.233.97.150:35068"
+          }
+        ],
+        "outbound": [
+          {
+            "actualDst": "10.233.97.136:15008",
+            "originalDst": "10.233.25.246:9080",
+            "protocol": "HBONE",
+            "src": "10.233.97.129:35380"
+          }
+        ]
+      },
+      "info": {
+        "name": "productpage-v1-796f87b58-97bjk",
+        "namespace": "bookinfo",
+        "serviceAccount": "bookinfo-productpage"
+      },
+      "state": "Up"
+    },
+    "5f17bcc7-968b-4f1d-b593-9f5cda26c7d1": {
+      "connections": {
+        "inbound": [
+          {
+            "actualDst": "10.233.97.188:9080",
+            "originalDst": "ratings.am.svc.cluster.local",
+            "protocol": "HBONE",
+            "src": "10.233.97.141:40780"
+          },
+          {
+            "actualDst": "10.233.97.188:9080",
+            "originalDst": "ratings.am.svc.cluster.local",
+            "protocol": "HBONE",
+            "src": "10.233.97.144:50504"
+          }
+        ],
+        "outbound": []
+      },
+      "info": {
+        "name": "ratings-v1-779dfc6dc5-5q5wz",
+        "namespace": "bookinfo",
+        "serviceAccount": "bookinfo-ratings"
+      },
+      "state": "Up"
+    },
+    "62d0d161-ef83-4e96-bf9e-7badc7064c47": {
+      "connections": {
+        "inbound": [
+          {
+            "actualDst": "10.233.97.136:9080",
+            "originalDst": "details.am.svc.cluster.local",
+            "protocol": "HBONE",
+            "src": "10.233.97.129:55018"
+          }
+        ],
+        "outbound": []
+      },
+      "info": {
+        "name": "details-v1-7f85d59cff-bmpln",
+        "namespace": "bookinfo",
+        "serviceAccount": "bookinfo-details"
+      },
+      "state": "Up"
+    },
+    "6a33b128-b70b-45d8-82a4-359f702b264c": {
+      "connections": {
+        "inbound": [],
+        "outbound": [
+          {
+            "actualDst": "10.233.97.188:15008",
+            "originalDst": "10.233.52.25:9080",
+            "protocol": "HBONE",
+            "src": "10.233.97.141:52898"
+          }
+        ]
+      },
+      "info": {
+        "name": "reviews-v3-b84b7f64f-vdnsx",
+        "namespace": "bookinfo",
+        "serviceAccount": "bookinfo-reviews"
+      },
+      "state": "Up"
+    },
+    "832ecf37-f0a4-4b56-ad97-4ef750e2cca4": {
+      "connections": {
+        "inbound": [],
+        "outbound": []
+      },
+      "info": {
+        "name": "reviews-v1-6df857445-4fhrb",
+        "namespace": "bookinfo",
+        "serviceAccount": "bookinfo-reviews"
+      },
+      "state": "Up"
+    },
+    "c5cab169-d3b0-428a-9dad-26ad3ffabc69": {
+      "connections": {
+        "inbound": [],
+        "outbound": [
+          {
+            "actualDst": "10.233.97.188:15008",
+            "originalDst": "10.233.52.25:9080",
+            "protocol": "HBONE",
+            "src": "10.233.97.144:43960"
+          }
+        ]
+      },
+      "info": {
+        "name": "reviews-v2-76c648db77-lrkkx",
+        "namespace": "bookinfo",
+        "serviceAccount": "bookinfo-reviews"
+      },
+      "state": "Up"
+    }
+  }
 }
