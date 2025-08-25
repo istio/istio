@@ -159,7 +159,7 @@ func (h *HostNftSetManager) DeleteIP(ip netip.Addr, ipProto uint8) error {
 	})
 
 	if err := nft.Run(context.TODO(), tx); err != nil {
-		return fmt.Errorf("failed to delete IP %s from nftables set %s: %w", ip, setName, err)
+		return fmt.Errorf("failed to delete IP %s from the nftables set %s: %w", ip, setName, err)
 	}
 
 	builder.LogNftRules(tx)
@@ -217,7 +217,22 @@ func (h *HostNftSetManager) DestroySet() error {
 
 // ClearEntriesWithComment removes all entries with the specified comment
 func (h *HostNftSetManager) ClearEntriesWithComment(comment string) error {
-	// TODO: For nftables, we need to list elements and delete those with matching comments
+	nft, err := h.nftProvider(knftables.InetFamily, AmbientNatTable)
+	if err != nil {
+		return err
+	}
+
+	// A pod can have multiple IPs, so we have to clear it from both v4 and v6 sets.
+	if err := h.clearEntriesFromSetWithComment(nft, h.v4SetName, comment); err != nil {
+		return fmt.Errorf("failed to clear entries from IPv4 address set: %w", err)
+	}
+
+	// Clear from IPv6 set if enabled
+	if h.enableIPv6 {
+		if err := h.clearEntriesFromSetWithComment(nft, h.v6SetName, comment); err != nil {
+			return fmt.Errorf("failed to clear entries from IPv6 address set: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -227,17 +242,141 @@ func (h *HostNftSetManager) ClearEntriesWithIP(ip netip.Addr) error {
 	return h.DeleteIP(ip, 0)
 }
 
-// ClearEntriesWithIPAndComment removes entries with both IP and comment match
+// clearEntriesWithIPAndComment takes an IP and a comment string and deletes any entries where both match the entry.
+//
+// Returns a non-nil error if listing or deletion fails.
+// For the first matching IP found in the list, *only* removes the entry if *both* the IP and comment match.
+// If the IP matches but the comment does not, returns the actual comment found to the caller, and does not remove any entries.
+// Otherwise, returns an empty string.
 func (h *HostNftSetManager) ClearEntriesWithIPAndComment(ip netip.Addr, comment string) (string, error) {
-	// TODO: Implement this method properly. For now, just using DeleteIP()
-	err := h.DeleteIP(ip, 0)
-	return "", err
+	nft, err := h.nftProvider(knftables.InetFamily, AmbientNatTable)
+	if err != nil {
+		return "", err
+	}
+
+	ipToCheck := ip.Unmap()
+	setName := h.v4SetName
+	if ipToCheck.Is6() {
+		if !h.enableIPv6 {
+			return "", fmt.Errorf("request to delete %s from the set, but ipv6 is not enabled", ipToCheck.String())
+		}
+		setName = h.v6SetName
+	}
+
+	elements, err := nft.ListElements(context.TODO(), "set", setName)
+	if err != nil {
+		return "", fmt.Errorf("failed to list elements from set %s: %w", setName, err)
+	}
+
+	// Find the element with matching IP
+	for _, elem := range elements {
+		if len(elem.Key) > 0 && elem.Key[0] == ipToCheck.String() {
+			// Element exists, but we have to look at the comment as well
+			if elem.Comment == nil {
+				log.Errorf("element %s exists in set %s but has no comment", ipToCheck.String(), setName)
+				continue
+			}
+
+			if *elem.Comment != comment {
+				// pod ip matches with an element from the set, but the comment does not match.
+				return *elem.Comment, nil
+			}
+
+			// Both the pod IP and comment matches, we can now delete the element
+			tx := nft.NewTransaction()
+			tx.Delete(&knftables.Element{
+				Set: setName,
+				Key: elem.Key,
+			})
+
+			if err := nft.Run(context.TODO(), tx); err != nil {
+				return "", fmt.Errorf("failed to delete element with IP %s: %w", ip, err)
+			}
+
+			builder.LogNftRules(tx)
+			return "", nil
+		}
+	}
+
+	return "", fmt.Errorf("element with IP %s not found in set %s", ip, setName)
 }
 
 // ListEntriesByIP returns all IP addresses currently in both sets
 func (h *HostNftSetManager) ListEntriesByIP() ([]netip.Addr, error) {
-	// TODO: Implement this method properly. For now, just using DeleteIP()
-	return []netip.Addr{}, nil
+	nft, err := h.nftProvider(knftables.InetFamily, AmbientNatTable)
+	if err != nil {
+		return nil, err
+	}
+
+	var allIPs []netip.Addr
+
+	// List elements from IPv4 set
+	v4Elements, err := nft.ListElements(context.TODO(), "set", h.v4SetName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list elements from IPv4 set %s: %w", h.v4SetName, err)
+	}
+
+	for _, elem := range v4Elements {
+		if len(elem.Key) > 0 {
+			if ip, err := netip.ParseAddr(elem.Key[0]); err == nil {
+				allIPs = append(allIPs, ip)
+			} else {
+				log.Warnf("Failed to parse IPv4 address %s: %v", elem.Key[0], err)
+			}
+		}
+	}
+
+	// List elements from IPv6 set if enabled
+	if h.enableIPv6 {
+		v6Elements, err := nft.ListElements(context.TODO(), "set", h.v6SetName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list elements from IPv6 set %s: %w", h.v6SetName, err)
+		}
+
+		for _, elem := range v6Elements {
+			if len(elem.Key) > 0 {
+				if ip, err := netip.ParseAddr(elem.Key[0]); err == nil {
+					allIPs = append(allIPs, ip)
+				} else {
+					log.Warnf("Failed to parse IPv6 address %s: %v", elem.Key[0], err)
+				}
+			}
+		}
+	}
+
+	return allIPs, nil
+}
+
+// clearEntriesFromSetWithComment is a helper function to clear entries with a specific comment from a set
+func (h *HostNftSetManager) clearEntriesFromSetWithComment(nft builder.NftablesAPI, setName, comment string) error {
+	elements, err := nft.ListElements(context.TODO(), "set", setName)
+	if err != nil {
+		return fmt.Errorf("failed to list elements from set %s: %w", setName, err)
+	}
+
+	// Collect elements to delete in a single transaction
+	tx := nft.NewTransaction()
+	elementsToDelete := 0
+
+	for _, elem := range elements {
+		if elem.Comment != nil && *elem.Comment == comment {
+			tx.Delete(&knftables.Element{
+				Set: setName,
+				Key: elem.Key,
+			})
+			elementsToDelete++
+		}
+	}
+
+	// Only run the transaction if there are elements to delete
+	if elementsToDelete > 0 {
+		if err := nft.Run(context.TODO(), tx); err != nil {
+			return fmt.Errorf("failed to delete %d elements from set %s: %w", elementsToDelete, setName, err)
+		}
+		builder.LogNftRules(tx)
+	}
+
+	return nil
 }
 
 // GetPrefix returns the set name prefix for logging purposes

@@ -22,11 +22,13 @@ import (
 )
 
 // NftablesAPI defines the interface for interacting with nftables.
-// It supports creating a transaction, running it, and optionally dumping the config (mainly for testing).
+// It supports creating a transaction, running it, listing elements, and optionally dumping the config (mainly for testing).
 type NftablesAPI interface {
 	NewTransaction() *knftables.Transaction
 	Run(ctx context.Context, tx *knftables.Transaction) error
 	Dump(tx *knftables.Transaction) string
+	// ListElements returns a list of the elements in a set or map. (objectType should be "set" or "map".)
+	ListElements(ctx context.Context, objectType, name string) ([]*knftables.Element, error)
 }
 
 // NftImpl is the real implementation of NftablesAPI using the actual knftables backend.
@@ -59,6 +61,11 @@ func (r *NftImpl) Run(ctx context.Context, tx *knftables.Transaction) error {
 	return r.nft.Run(ctx, tx)
 }
 
+// ListElements returns a list of the elements in a set or map using the real knftables interface.
+func (r *NftImpl) ListElements(ctx context.Context, objectType, name string) ([]*knftables.Element, error) {
+	return r.nft.ListElements(ctx, objectType, name)
+}
+
 // MockNftables is a mock implementation of NftablesAPI for use in unit tests.
 // It uses knftables.Fake to simulate nftables behavior without making changes to the system.
 type MockNftables struct {
@@ -78,6 +85,11 @@ func NewMockNftables(family knftables.Family, table string) *MockNftables {
 // We don't want to sort objects in the Dump result so we are not using the Fake.Dump method.
 func (m *MockNftables) Dump(tx *knftables.Transaction) string {
 	return tx.String()
+}
+
+// ListElements returns a list of the elements in a set or map using the mock knftables interface.
+func (m *MockNftables) ListElements(ctx context.Context, objectType, name string) ([]*knftables.Element, error) {
+	return m.Fake.ListElements(ctx, objectType, name)
 }
 
 func LogNftRules(rules *knftables.Transaction) {
