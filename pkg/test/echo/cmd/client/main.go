@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
+	"istio.io/istio/pkg/tracing"
 )
 
 var (
@@ -87,6 +88,10 @@ where the network configuration doesn't support gRPC to the source pod.'
 		Args:              cobra.ExactArgs(1),
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
+			if tracing.Enabled() {
+				shutdownTracing, _ := tracing.Initialize("echo-client")
+				defer shutdownTracing()
+			}
 			expectSet = cmd.Flags().Changed("expect")
 			// Create a request from the flags.
 			request, err := getRequest(args[0])
