@@ -6,6 +6,9 @@
     "values": {
       "type": "object",
       "properties": {
+        "_internal_defaults_do_not_set": {
+          "type": "object"
+        },
         "global": {
           "type": "object"
         },
