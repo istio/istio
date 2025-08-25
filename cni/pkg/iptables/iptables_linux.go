@@ -106,7 +106,7 @@ func forEachLoopbackRoute(cfg *IptablesConfig, operation string, f func(*netlink
 		if v != "1" {
 			// If we got an error, we will proceed. Maybe it will work anyways
 			if err != nil {
-				log.Warnf("attempted to read %q got error: %v; attemping to continue", ipv6DisabledLo, err)
+				log.Warnf("attempted to read %q got error: %v; attempting to continue", ipv6DisabledLo, err)
 			}
 			cidrs = append(cidrs, "0::0/0")
 		} else {

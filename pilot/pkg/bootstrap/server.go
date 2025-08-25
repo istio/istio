@@ -999,7 +999,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 		// In Istio 1.22 - we return nil here - the old code in s.initDNSCerts used to have
 		// an 'else' to handle the unknown providers by not initializing the TLS certs but
-		// still seting the root from /etc/certs/root-cert.pem for distribution in the
+		// still setting the root from /etc/certs/root-cert.pem for distribution in the
 		// namespace controller.
 		// The new behavior appears safer - IMO we may also do a fatal unless provider is
 		// set to "none" because it is not clear what the user intends.

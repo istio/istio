@@ -342,7 +342,7 @@ type CNIConfig struct {
 	// Configure the plugin as a chained CNI plugin. When true, the configuration is added to the CNI chain; when false,
 	// the configuration is added as a standalone file in the CNI configuration directory.
 	Chained *wrapperspb.BoolValue `protobuf:"bytes,14,opt,name=chained,proto3" json:"chained,omitempty"`
-	// The resource quotas configration for the CNI DaemonSet.
+	// The resource quotas configuration for the CNI DaemonSet.
 	ResourceQuotas *ResourceQuotas `protobuf:"bytes,16,opt,name=resource_quotas,json=resourceQuotas,proto3" json:"resource_quotas,omitempty"`
 	// The k8s resource requests and limits for the istio-cni Pods.
 	Resources *Resources `protobuf:"bytes,17,opt,name=resources,proto3" json:"resources,omitempty"`

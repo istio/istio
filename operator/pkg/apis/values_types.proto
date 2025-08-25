@@ -119,7 +119,7 @@ message CNIConfig {
   // the configuration is added as a standalone file in the CNI configuration directory.
   google.protobuf.BoolValue chained = 14;
 
-  // The resource quotas configration for the CNI DaemonSet.
+  // The resource quotas configuration for the CNI DaemonSet.
   ResourceQuotas resource_quotas = 16;
 
   // The k8s resource requests and limits for the istio-cni Pods.
