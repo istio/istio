@@ -172,8 +172,14 @@ func filterOutBasedOnResources(messages diag.Messages, names sets.Set[string]) d
 }
 
 func detectIfTagWebhookIsNeeded(iop values.Map, exists bool) bool {
+	if operatorManageWebhooks := iop.GetPathBool("spec.values.global.operatorManageWebhooks"); operatorManageWebhooks {
+		return false
+	}
+	defaultRevision, hasDefaultRevision := iop.GetPath("spec.values.defaultRevision")
+	if hasDefaultRevision && defaultRevision == "" {
+		return false
+	}
 	rev := iop.GetPathString("spec.values.revision")
-	operatorManageWebhooks := iop.GetPathBool("spec.values.global.operatorManageWebhooks")
 	isDefaultInstallation := rev == ""
-	return !operatorManageWebhooks && (!exists || isDefaultInstallation)
+	return !exists || isDefaultInstallation
 }
