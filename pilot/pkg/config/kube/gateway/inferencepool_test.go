@@ -19,7 +19,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
@@ -31,24 +31,25 @@ import (
 
 func TestReconcileInferencePool(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
-	pool := &inferencev1alpha2.InferencePool{
+	pool := &inferencev1.InferencePool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pool",
 			Namespace: "default",
 		},
-		Spec: inferencev1alpha2.InferencePoolSpec{
-			TargetPortNumber: 8080,
-			Selector: map[inferencev1alpha2.LabelKey]inferencev1alpha2.LabelValue{
-				"app": "test",
-			},
-			EndpointPickerConfig: inferencev1alpha2.EndpointPickerConfig{
-				ExtensionRef: &inferencev1alpha2.Extension{
-					ExtensionReference: inferencev1alpha2.ExtensionReference{
-						Name: "dummy",
-						// Kind:       &inferencev1alpha2.Kind(),
-						PortNumber: ptr.Of(inferencev1alpha2.PortNumber(5421)),
-					},
+		Spec: inferencev1.InferencePoolSpec{
+			TargetPorts: []inferencev1.Port{
+				{
+					Number: inferencev1.PortNumber(8080),
 				},
+			},
+			Selector: inferencev1.LabelSelector{
+				MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
+					"app": "test",
+				},
+			},
+			EndpointPickerRef: inferencev1.EndpointPickerRef{
+				Name:       "dummy",
+				PortNumber: ptr.Of(inferencev1.PortNumber(5421)),
 			},
 		},
 	}

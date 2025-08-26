@@ -96,18 +96,18 @@ require (
 	helm.sh/helm/v3 v3.18.5
 	istio.io/api v1.26.0-alpha.0.0.20250820113222-47f832b86cdd
 	istio.io/client-go v1.26.0-alpha.0.0.20250820113822-8b883d128bac
-	k8s.io/api v0.33.3
-	k8s.io/apiextensions-apiserver v0.33.3
-	k8s.io/apimachinery v0.33.3
-	k8s.io/apiserver v0.33.3
+	k8s.io/api v0.33.4
+	k8s.io/apiextensions-apiserver v0.33.4
+	k8s.io/apimachinery v0.33.4
+	k8s.io/apiserver v0.33.4
 	k8s.io/cli-runtime v0.33.3
-	k8s.io/client-go v0.33.3
+	k8s.io/client-go v0.33.4
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.33.3
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/gateway-api v1.3.0
-	sigs.k8s.io/gateway-api-inference-extension v0.5.1
+	sigs.k8s.io/gateway-api-inference-extension v1.0.0-rc.1
 	sigs.k8s.io/knftables v0.0.19-0.20250623122614-e4307300abb5
 	sigs.k8s.io/mcs-api v0.2.0
 	sigs.k8s.io/yaml v1.6.0
@@ -211,13 +211,13 @@ require (
 	go.yaml.in/yaml/v3 v3.0.3 // indirect
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
-	golang.org/x/mod v0.26.0 // indirect
+	golang.org/x/mod v0.27.0 // indirect
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
-	golang.org/x/tools v0.35.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/component-base v0.33.3 // indirect
+	k8s.io/component-base v0.33.4 // indirect
 	k8s.io/component-helpers v0.33.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1 // indirect

@@ -255,12 +255,12 @@ resources:
 
   - kind: "InferencePool"
     plural: "inferencepools"
-    group: "inference.networking.x-k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
-    proto: "x-k8s.io.gateway-api-inference-extension.api.v1alpha2.InferencePoolSpec"
-    statusProto: "x-k8s.io.gateway-api-inference-extension.api.v1alpha2.InferencePoolStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+    group: "inference.networking.k8s.io"
+    version: "v1"
+    protoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+    proto: "x-k8s.io.gateway-api-inference-extension.api.v1.InferencePoolSpec"
+    statusProto: "x-k8s.io.gateway-api-inference-extension.api.v1.InferencePoolStatus"
+    statusProtoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1"
     
   - kind: "GRPCRoute"
     plural: "grpcroutes"

@@ -31,7 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -2558,7 +2558,7 @@ func GetStatus[I, IS any](spec I) IS {
 		return any(t.Status).(IS)
 	case *gatewayx.XListenerSet:
 		return any(t.Status).(IS)
-	case *inferencev1alpha2.InferencePool:
+	case *inferencev1.InferencePool:
 		return any(t.Status).(IS)
 	default:
 		log.Fatalf("unknown type %T", t)
