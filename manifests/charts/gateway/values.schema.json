@@ -1,11 +1,13 @@
 {
   "$schema": "http://json-schema.org/schema#",
-  "type": "object",
-  "additionalProperties": false,
   "$defs": {
     "values": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
+        "_internal_defaults_do_not_set": {
+          "type": "object"
+        },
         "global": {
           "type": "object"
         },
@@ -59,6 +61,16 @@
         },
         "env": {
           "type": "object"
+        },
+        "envVarFrom": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "valueFrom": { "type": "object" }
+            }
+          }
         },
         "strategy": {
           "type": "object"
@@ -131,8 +143,20 @@
         "revision": {
           "type": "string"
         },
+        "defaultRevision": {
+          "type": "string"
+        },
         "compatibilityVersion": {
           "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "pilot": {
+          "type": "object"
         },
         "runAsRoot": {
           "type": "boolean"
@@ -296,6 +320,14 @@
           "items": {
             "type": "object"
           }
+        },
+        "initContainers": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "additionalContainers": {
+          "type": "array",
+          "items": { "type": "object" }
         },
         "priorityClassName": {
           "type": "string"
