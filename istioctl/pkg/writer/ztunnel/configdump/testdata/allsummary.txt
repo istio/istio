@@ -1,3 +1,4 @@
+
 NAMESPACE          POD NAME                                             ADDRESS     NODE                  WAYPOINT                            PROTOCOL
 bookinfo           bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg 10.244.2.59 ambient-worker2       None                                TCP
 bookinfo           details-v1-698d88b-dqrbr                             10.244.2.51 ambient-worker2       namespace-istio-waypoint            HBONE
