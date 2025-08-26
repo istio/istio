@@ -142,7 +142,7 @@ func (p *tagWatcher) IsMine(obj metav1.ObjectMeta) bool {
 	if currentDefaultRevision != nil {
 		weAreDefaultRevision = currentDefaultRevision.Labels[label.IoIstioRev.Name] == p.revision
 	}
-	return myTags.Contains(selectedTag) || (selectedTag == "" && myTags.Contains("default")) || weAreDefaultRevision
+	return myTags.Contains(selectedTag) || selectedTag == "" && (myTags.Contains("default") || weAreDefaultRevision)
 }
 
 func (p *tagWatcher) GetMyTags() sets.String {
