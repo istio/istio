@@ -408,7 +408,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
 	gatewayVirtualServices := make(map[string][]config.Config)
-	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
+
+	// Create a map to store virtual hosts per server to maintain listener isolation
+	// The key is "hostname:port" to ensure virtual hosts from different listeners are not merged
+	serverVirtualHosts := make(map[string]*route.VirtualHost)
+
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		port := int(server.Port.Number)
@@ -473,29 +477,38 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			for _, hostname := range intersectingHosts {
 				hostname = host.Name(strings.ToLower(hostname.String()))
 
-				// Check if we already have a virtual host for this hostname
+				// Create a server-scoped key to maintain listener isolation
+				serverScopedKey := fmt.Sprintf("%s:%d", hostname, port)
+
+				// Check if we already have a virtual host for this hostname on this server
 				// This is direct host match - fast path.
-				if vHost, exists := vHostDedupMap[hostname]; exists {
+				if vHost, exists := serverVirtualHosts[serverScopedKey]; exists {
 					// Append routes to existing virtual host
 					vHost.Routes = append(vHost.Routes, routes...)
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						vHost.RequireTls = route.VirtualHost_ALL
 					}
 				} else {
-					// Check if we can merge with an existing virtual host with wildcards
+					// Check if we can merge with an existing virtual host with wildcards on the same server
 					canMergeWithExisting := false
-					for existingHostname, existingVHost := range vHostDedupMap {
-						// Merge if the existing hostname can match our current hostname
-						// This handles:
-						// - wildcard + specific: *.com + foo.com
-						// - wildcard + wildcard: * + *.com, *.com + *.foo.com
-						if existingHostname.Matches(hostname) {
-							// Merge routes into the existing virtual host
-							existingVHost.Routes = append(existingVHost.Routes, routes...)
-							// Add the new hostname to domains so Envoy knows to route it here
-							existingVHost.Domains = append(existingVHost.Domains, hostname.String())
-							canMergeWithExisting = true
-							break
+					for existingKey, existingVHost := range serverVirtualHosts {
+						// Only consider merging if it's on the same server (same port)
+						if strings.HasSuffix(existingKey, fmt.Sprintf(":%d", port)) {
+							// Extract the hostname from the existing key
+							existingHostname := host.Name(strings.TrimSuffix(existingKey, fmt.Sprintf(":%d", port)))
+
+							// Merge if the existing hostname can match our current hostname
+							// This handles:
+							// - wildcard + specific: *.com + foo.com
+							// - wildcard + wildcard: * + *.com, *.com + *.foo.com
+							if existingHostname.Matches(hostname) {
+								// Merge routes into the existing virtual host
+								existingVHost.Routes = append(existingVHost.Routes, routes...)
+								// Add the new hostname to domains so Envoy knows to route it here
+								existingVHost.Domains = append(existingVHost.Domains, hostname.String())
+								canMergeWithExisting = true
+								break
+							}
 						}
 					}
 
@@ -525,20 +538,21 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						if server.Tls != nil && server.Tls.HttpsRedirect {
 							newVHost.RequireTls = route.VirtualHost_ALL
 						}
-						vHostDedupMap[hostname] = newVHost
+						serverVirtualHosts[serverScopedKey] = newVHost
 					}
 				}
 			}
 		}
 
-		// check all hostname in vHostDedupMap and if is not exist with HttpsRedirect set to true
+		// check all hostname in serverVirtualHosts and if is not exist with HttpsRedirect set to true
 		// create VirtualHost to redirect
 		for _, hostname := range server.Hosts {
 			if !server.GetTls().GetHttpsRedirect() {
 				continue
 			}
 			hostname = strings.ToLower(hostname)
-			if vHost, exists := vHostDedupMap[host.Name(hostname)]; exists {
+			serverScopedKey := fmt.Sprintf("%s:%d", hostname, port)
+			if vHost, exists := serverVirtualHosts[serverScopedKey]; exists {
 				vHost.RequireTls = route.VirtualHost_ALL
 				continue
 			}
@@ -548,7 +562,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
 				RequireTls:                 route.VirtualHost_ALL,
 			}
-			vHostDedupMap[host.Name(hostname)] = newVHost
+			serverVirtualHosts[serverScopedKey] = newVHost
+		}
+	}
+
+	// Convert serverVirtualHosts to the format expected by collapseDuplicateRoutes
+	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
+	for key, vHost := range serverVirtualHosts {
+		// Extract hostname from the key (remove the port suffix)
+		parts := strings.Split(key, ":")
+		if len(parts) == 2 {
+			hostname := host.Name(parts[0])
+			vHostDedupMap[hostname] = vHost
 		}
 	}
 
@@ -573,12 +598,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	util.SortVirtualHosts(virtualHosts)
 
+	// Initialize the route configuration
 	routeCfg := &route.RouteConfiguration{
 		// Retain the routeName as its used by EnvoyFilter patching logic
 		Name:                           routeName,
 		VirtualHosts:                   virtualHosts,
 		ValidateClusters:               proto.BoolFalse,
-		IgnorePortInHostMatching:       !node.IsProxylessGrpc(),
 		MaxDirectResponseBodySizeBytes: istio_route.DefaultMaxDirectResponseBodySizeBytes,
 	}
 
