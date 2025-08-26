@@ -2551,7 +2551,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 			}
 
 			if tt.sendUnhealthyEndpoints && c.CommonLbConfig.HealthyPanicThreshold.GetValue() != 0 {
-				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabeld")
+				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabled")
 			}
 
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {

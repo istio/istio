@@ -96,7 +96,7 @@ func shouldV2AutoAllocateIPFromPieces(meta v1.ObjectMeta, spec *apiv1.ServiceEnt
 		return false
 	}
 
-	// if the user assigned their own we don't alloate or use autoassigned addresses
+	// if the user assigned their own we don't allocate or use autoassigned addresses
 	if len(spec.Addresses) > 0 {
 		return false
 	}

@@ -227,7 +227,7 @@ func shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.Mesh
 			return false
 		}
 		// If user wants an upgrade at destination rule/port level that means he is sure that
-		// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
+		// it is a Http port - upgrade in such case. This is useful in case protocol sniffing is
 		// enabled and user wants to upgrade/preserve http protocol from client.
 		if override == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE {
 			log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
