@@ -373,7 +373,7 @@ spec:
             type: Exact
       backendRefs:
         - name: infpool-gen
-          group: inference.networking.x-k8s.io
+          group: inference.networking.k8s.io
           kind: InferencePool
           port: 80
     - matches:
@@ -386,30 +386,34 @@ spec:
             type: Exact
       backendRefs:
         - name: infpool-gen2
-          group: inference.networking.x-k8s.io
+          group: inference.networking.k8s.io
           kind: InferencePool
           port: 80
 ---
-apiVersion: inference.networking.x-k8s.io/v1alpha2
+apiVersion: inference.networking.k8s.io/v1
 kind: InferencePool
 metadata:
   name: infpool-gen
   namespace: default
 spec:
-  targetPortNumber: 8000
+  targetPorts:
+  - number: 8000
   selector:
-    app: vllm-llama3-8b-instruct
-  extensionRef:
+    matchLabels:
+      app: vllm-llama3-8b-instruct
+  endpointPickerRef:
     name: vllm-llama3-8b-instruct-epp
 ---
-apiVersion: inference.networking.x-k8s.io/v1alpha2
+apiVersion: inference.networking.k8s.io/v1
 kind: InferencePool
 metadata:
   name: infpool-gen2
   namespace: default
 spec:
-  targetPortNumber: 8000
+  targetPorts:
+  - number: 8000
   selector:
-    app: vllm-llama3-8b-instruct
-  extensionRef:
+    matchLabels:
+      app: vllm-llama3-8b-instruct
+  endpointPickerRef:
     name: vllm-llama3-8b-instruct-epp
