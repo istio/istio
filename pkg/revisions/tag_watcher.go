@@ -31,7 +31,10 @@ import (
 
 var log = istiolog.RegisterScope("tag-watcher", "Revision tags watcher")
 
-const defaultRevisionValidatingWebhookName = "istiod-default-validator"
+const (
+	defaultRevisionValidatingWebhookName = "istiod-default-validator"
+	defaultTagMutatingWebhookName        = "istio-revision-tag-default"
+)
 
 // TagWatcher keeps track of the current tags and can notify watchers
 // when the tags change.
@@ -137,12 +140,20 @@ func (p *tagWatcher) IsMine(obj metav1.ObjectMeta) bool {
 		selectedTag = ns.Labels[label.IoIstioRev.Name]
 	}
 	myTags := p.GetMyTags()
+	// Figure out if there is a default tag that doesn't point to us
+	var otherDefaultTagExists bool
+	if !myTags.Contains("default") {
+		defaultTag := p.webhooks.Get(defaultTagMutatingWebhookName, "")
+		otherDefaultTagExists = defaultTag != nil
+	}
 	var weAreDefaultRevision bool
 	currentDefaultRevision := p.vWebhooks.Get(defaultRevisionValidatingWebhookName, "")
 	if currentDefaultRevision != nil {
 		weAreDefaultRevision = currentDefaultRevision.Labels[label.IoIstioRev.Name] == p.revision
 	}
-	return myTags.Contains(selectedTag) || selectedTag == "" && (myTags.Contains("default") || weAreDefaultRevision)
+	return myTags.Contains(selectedTag) ||
+		selectedTag == "" && (myTags.Contains("default") ||
+			(weAreDefaultRevision && !otherDefaultTagExists)) // Default tag takes precedence over default revision if they differ
 }
 
 func (p *tagWatcher) GetMyTags() sets.String {
@@ -173,6 +184,15 @@ func (p *tagWatcher) notifyHandlers() {
 		log.Debugf("No default revision webhook found")
 	} else {
 		log.Debugf("Default revision is %s", currentDefaultRevision.Labels[label.IoIstioRev.Name])
+		if !myTags.Contains("default") && currentDefaultRevision.Labels[label.IoIstioRev.Name] == p.revision {
+			// Check and see if there is a tag named "default" that doesn't point to us
+			// This isn't valid (except maybe for a short time during a transition), so log a warning
+			defaultTag := p.webhooks.Get(defaultTagMutatingWebhookName, "")
+			if defaultTag != nil {
+				log.Warnf("Default revision is %s, but there is a tag named 'default' pointing to revision %s. " +
+					"If using a default tag, do not set the default revision to a different value")
+			}
+		}
 	}
 
 	for _, handler := range p.handlers {
