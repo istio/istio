@@ -107,6 +107,10 @@ func (a *index) buildGlobalCollections(
 				log.Warnf("Failed to sync gateways informer for cluster %s", c.ID)
 				return nil
 			}
+
+			// N.B we're not using the opts.WithXXX pattern here since we want to be very obvious about which
+			// stop is being used to shutdown the collection (it should always be the cluster stop, NEVER
+			// the top-level stop associated with the ambient controller)
 			opts := []krt.CollectionOption{
 				krt.WithName(fmt.Sprintf("ambient/GatewaysWithCluster[%s]", c.ID)),
 				krt.WithDebugging(opts.Debugger()),
