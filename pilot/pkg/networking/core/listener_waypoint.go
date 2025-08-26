@@ -620,7 +620,7 @@ func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, 
 }
 
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
-// Authn/authz filters are pre-pended. Telemetry filters are appended.
+// Authn/authz filters are prepended. Telemetry filters are appended.
 func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*hcm.HttpFilter, post []*hcm.HttpFilter) {
 	authzCustomBuilder := lb.authzCustomBuilder
 	authzBuilder := lb.authzBuilder

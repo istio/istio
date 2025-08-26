@@ -104,7 +104,7 @@ func ApplyLocalityLoadBalancer(
 		if len(localityLB.FailoverPriority) > 0 {
 			// Apply user defined priority failover settings.
 			applyFailoverPriorities(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
-			// If failover is expliciltly configured with failover priority, apply failover settings also.
+			// If failover is explicitly configured with failover priority, apply failover settings also.
 			if len(localityLB.Failover) != 0 {
 				applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
 			}
@@ -208,7 +208,7 @@ func applyLocalityFailover(
 		// priority is calculated using the already assigned priority using failoverPriority.
 		// Since there are at most 5 priorities can be assigned using locality failover(0-4),
 		// we multiply the priority by 5 for maintaining the priorities already assigned.
-		// Afterwards the final priorities can be calculted from 0 (highest) to N (lowest) without skipping.
+		// Afterwards the final priorities can be calculated from 0 (highest) to N (lowest) without skipping.
 		priorityInt := int(loadAssignment.Endpoints[i].Priority*5) + priority
 		loadAssignment.Endpoints[i].Priority = uint32(priorityInt)
 		priorityMap[priorityInt] = append(priorityMap[priorityInt], i)

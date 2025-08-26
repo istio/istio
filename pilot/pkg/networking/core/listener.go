@@ -820,7 +820,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				svcListenAddress = constants.UnspecifiedIPv6
 			}
 
-			// For dualstack proxies we need to add the unspecifed ipv6 address to the list of extra listen addresses
+			// For dualstack proxies we need to add the unspecified ipv6 address to the list of extra listen addresses
 			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDualStack() &&
 				svcListenAddress == constants.UnspecifiedIP {
 				svcExtraListenAddresses = append(svcExtraListenAddresses, constants.UnspecifiedIPv6)
