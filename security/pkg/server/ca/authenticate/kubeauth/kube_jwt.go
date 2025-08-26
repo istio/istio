@@ -119,8 +119,12 @@ func (a *KubeJWTAuthenticator) authenticateGrpc(ctx context.Context) (*security.
 func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.ID) (*security.Caller, error) {
 	kubeClient := a.getKubeClient(clusterID)
 	if kubeClient == nil {
+		var clusterList []cluster.ID
+		if a.remoteKubeClientGetter != nil {
+			clusterList = a.remoteKubeClientGetter.ListClusters()
+		}
 		return nil, fmt.Errorf("client claims to be in cluster %q, but we only know about local cluster %q and remote clusters %v",
-			clusterID, a.clusterID, a.remoteKubeClientGetter.ListClusters())
+			clusterID, a.clusterID, clusterList)
 	}
 
 	id, err := tokenreview.ValidateK8sJwt(kubeClient, targetJWT, security.TokenAudiences)
