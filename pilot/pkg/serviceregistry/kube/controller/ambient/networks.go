@@ -340,7 +340,7 @@ func localK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway)
 
 func k8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway, localClusterID cluster.ID) []NetworkGateway {
 	if clusterID != localClusterID {
-		// This is a gateway in a remote cluster, use differnet logic
+		// This is a gateway in a remote cluster, use different logic
 		return remoteK8sGatewayToNetworkGateways(clusterID, gw)
 	}
 

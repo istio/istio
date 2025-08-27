@@ -1154,7 +1154,7 @@ func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHas
 // by checking the sidecarScope.Config field, that contains the user provided config
 func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Instance) *SidecarScope {
 	sidecar := ps.doGetSidecarScope(proxy, workloadLabels)
-	// we need to make sure sidecar scope is initiaized before returning
+	// we need to make sure sidecar scope is initialized before returning
 	if sidecar != nil && features.EnableLazySidecarEvaluation {
 		sidecar.initFunc()
 	}
@@ -1540,7 +1540,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		shards, ok := env.EndpointIndex.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
 		if ok {
 			instancesByPort := shards.CopyEndpoints(portMap, ports)
-			// Iterate over the instances and add them to the service index to avoid overiding the existing port instances.
+			// Iterate over the instances and add them to the service index to avoid overriding the existing port instances.
 			for port, instances := range instancesByPort {
 				ps.ServiceIndex.instancesByPort[svcKey][port] = instances
 			}
