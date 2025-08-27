@@ -298,7 +298,7 @@ func (h *HostNftSetManager) ClearEntriesWithIPAndComment(ip netip.Addr, comment 
 		}
 	}
 
-	return "", fmt.Errorf("element with IP %s not found in set %s", ip, setName)
+	return "", nil
 }
 
 // ListEntriesByIP returns all IP addresses currently in both sets
