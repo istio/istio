@@ -4,5 +4,5 @@ area: istioctl
 issue: [55221]
 releaseNotes:
 - |
-  Improved performance of `istioctl analyze` when reading large input files by avoiding unnecessary string conversions.
+  **Fixed** performance of `istioctl analyze` when reading large input files by avoiding unnecessary string conversions.
 
