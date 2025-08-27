@@ -66,7 +66,6 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 		_ = util.RunAsHost(func() error {
 			log.Debug("destroying host addressSet")
 			s.hostAddrSet.Flush()
-			// SGM: TODO: Verify that we delete the table as well as we are not deleting it as part of DeleteHostRules.
 			if err := s.hostAddrSet.DestroySet(); err != nil {
 				log.Warnf("could not destroy host addressSet on shutdown")
 			}
@@ -281,7 +280,6 @@ func removePodFromHostAddrSet(pod *corev1.Pod, hostsideProbeSet set.AddressSetMa
 	podIPs := util.GetPodIPsIfPresent(pod)
 	return util.RunAsHost(func() error {
 		for _, pip := range podIPs {
-			// SGM: TODO Verify if we have to implement this API for nftable sets.
 			if uidMismatch, err := hostsideProbeSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
 				return err
 			} else if uidMismatch != "" {
@@ -295,7 +293,6 @@ func removePodFromHostAddrSet(pod *corev1.Pod, hostsideProbeSet set.AddressSetMa
 
 func pruneHostAddrSet(expected sets.Set[netip.Addr], hostsideProbeSet set.AddressSetManager) error {
 	return util.RunAsHost(func() error {
-		// SGM: TODO Verify if we have to implement this API for nftable sets.
 		actualIPSetContents, err := hostsideProbeSet.ListEntriesByIP()
 		if err != nil {
 			log.Warnf("unable to list addressSet: %v", err)

@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"sigs.k8s.io/knftables"
 
@@ -656,10 +657,22 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 		chainRuleCount[rule.Chain]++
 	}
 
-	// Let's filter out the chains that have rules
+	// Let's filter out the chains that have rules or are referenced by jump rules
 	chainsWithRules := []knftables.Chain{}
+	referencedChains := make(map[string]bool)
+
+	// Check for jump rules that reference chains
+	for _, rule := range rules {
+		ruleFragments := strings.Fields(rule.Rule)
+		for i, fragment := range ruleFragments {
+			if fragment == "jump" && i+1 < len(ruleFragments) {
+				referencedChains[ruleFragments[i+1]] = true
+			}
+		}
+	}
+
 	for _, chain := range chains {
-		if chainRuleCount[chain.Name] > 0 {
+		if chainRuleCount[chain.Name] > 0 || referencedChains[chain.Name] {
 			chainsWithRules = append(chainsWithRules, chain)
 		}
 	}
