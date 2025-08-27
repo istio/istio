@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -181,15 +180,23 @@ func (s *KubeSource) Clear() {
 
 // ContentNames returns the names known to this source.
 func (s *KubeSource) ContentNames() map[string]struct{} {
+	result := make(map[string]struct{})
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	result := sets.New[string]()
 	for n := range s.byFile {
-		result.Insert(n)
+		result[n] = struct{}{}
 	}
 
 	return result
+}
+
+// ApplyContentReader applies the given YAML content from an io.Reader to this source.
+// Content is tracked with the given name; repeated calls with the same name overwrite/remove prior content.
+// Returns an error if any were encountered, but that still may represent a partial success.
+func (s *KubeSource) ApplyContentReader(name string, r io.Reader) error {
+	// Parse without holding the write lock to minimize contention
+	resources, parseErrs := s.parseContentReader(s.schemas, name, bufio.NewReader(r))
+	return s.applyContent(name, resources, parseErrs)
 }
 
 // ApplyContent applies the given yamltext to this source. The content is tracked with the given name. If ApplyContent
@@ -197,11 +204,14 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 // or removed, depending on the new content.
 // Returns an error if any were encountered, but that still may represent a partial success
 func (s *KubeSource) ApplyContent(name, yamlText string) error {
+	// Parse without holding the write lock to minimize contention
+	resources, parseErrs := s.parseContent(s.schemas, name, yamlText)
+	return s.applyContent(name, resources, parseErrs)
+}
+
+func (s *KubeSource) applyContent(name string, resources []kubeResource, parseErrs error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	// We hold off on dealing with parseErr until the end, since partial success is possible
-	resources, parseErrs := s.parseContent(s.schemas, name, yamlText)
 
 	oldKeys := s.byFile[name]
 	newKeys := make(map[kubeResourceKey]config.GroupVersionKind)
@@ -245,7 +255,6 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	return nil
 }
 
-// RemoveContent removes the content for the given name
 func (s *KubeSource) RemoveContent(name string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -266,10 +275,13 @@ func (s *KubeSource) RemoveContent(name string) {
 }
 
 func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) ([]kubeResource, error) {
+	return s.parseContentReader(r, name, bufio.NewReader(strings.NewReader(yamlText)))
+}
+
+func (s *KubeSource) parseContentReader(r *collection.Schemas, name string, reader *bufio.Reader) ([]kubeResource, error) {
 	var resources []kubeResource
 	var errs error
 
-	reader := bufio.NewReader(strings.NewReader(yamlText))
 	decoder := kubeyaml2.NewYAMLReader(reader)
 	chunkCount := -1
 
@@ -282,7 +294,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		if err != nil {
 			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
 			scope.Warnf("%v - skipping", e)
-			scope.Debugf("Failed to parse yamlText chunk: %v", yamlText)
+			scope.Debugf("Failed to parse yamlText chunk")
 			errs = multierror.Append(errs, e)
 			break
 		}
@@ -299,7 +311,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 			} else {
 				e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
 				scope.Warnf("%v - skipping", e)
-				scope.Debugf("Failed to parse yaml chunk: %v", string(chunk))
+				scope.Debugf("Failed to parse yaml chunk")
 				errs = multierror.Append(errs, e)
 			}
 			continue
