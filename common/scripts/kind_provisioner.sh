@@ -413,6 +413,7 @@ function install_metallb() {
   if [ -z "${METALLB_IPS4+x}" ]; then
     # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
     DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[0].Subnet' -r)"
+    set +x
     METALLB_IPS4=()
     while read -r ip; do
       METALLB_IPS4+=("$ip")
@@ -425,6 +426,7 @@ function install_metallb() {
         METALLB_IPS6+=("$ip")
       done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
     fi
+    set -x
   fi
 
   # Give this cluster of those IPs
