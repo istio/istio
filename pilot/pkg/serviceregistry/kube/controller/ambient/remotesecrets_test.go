@@ -752,3 +752,33 @@ func (h testHandler) HasSynced() bool {
 func (h testHandler) ResourceName() string {
 	return h.ID.String()
 }
+
+func TestRemoteSecrets_TokenRotation_DuplicateSecretsIgnored(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	// Base controller setup
+	tc := buildTestController(t)
+
+	// First secret for cluster c0
+	secretA := makeSecret(secretNamespace, "rot-a", clusterCredential{"c0", []byte("kubeconfig-a")})
+	// Second secret simulating rotation for same cluster c0 (different kubeconfig content)
+	secretB := makeSecret(secretNamespace, "rot-b", clusterCredential{"c0", []byte("kubeconfig-b")})
+
+	// Create first secret: should add c0 once
+	tc.secrets.Create(secretA)
+	assert.EventuallyEqual(t, func() bool { return tc.clusters.GetKey("c0") != nil }, true)
+	initialLen := len(tc.clusters.List())
+	assert.Equal(t, initialLen, 1)
+
+	// Create second secret for same cluster ID: controller should ignore duplicate cluster ID
+	tc.secrets.Create(secretB)
+	assert.EventuallyEqual(t, func() int { return len(tc.clusters.List()) }, 1)
+
+	// Delete one of the secrets (rot-a). Cluster should remain since rot-b still exists
+	tc.secrets.Delete(secretA.Name, secretA.Namespace)
+	assert.EventuallyEqual(t, func() int { return len(tc.clusters.List()) }, 1)
+	assert.Equal(t, tc.clusters.GetKey("c0") != nil, true)
+
+	// Delete the remaining secret. Now cluster should be removed
+	tc.secrets.Delete(secretB.Name, secretB.Namespace)
+	assert.EventuallyEqual(t, func() int { return len(tc.clusters.List()) }, 0)
+}
