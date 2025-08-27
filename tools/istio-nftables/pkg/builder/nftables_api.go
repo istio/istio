@@ -70,14 +70,12 @@ func (r *NftImpl) ListElements(ctx context.Context, objectType, name string) ([]
 // It uses knftables.Fake to simulate nftables behavior without making changes to the system.
 type MockNftables struct {
 	*knftables.Fake
-	DumpResults []string
 }
 
 // NewMockNftables creates a new mock object with a fake backend. It is used in the unit tests.
 func NewMockNftables(family knftables.Family, table string) *MockNftables {
 	return &MockNftables{
-		Fake:        knftables.NewFake(family, table),
-		DumpResults: make([]string, 0),
+		Fake: knftables.NewFake(family, table),
 	}
 }
 
@@ -98,13 +96,8 @@ func LogNftRules(rules *knftables.Transaction) {
 		return
 	}
 
-	nftProvider, err := NewNftImpl("", "")
-	if err != nil {
-		log.Errorf("Error creating NftImpl interface: %v", err)
-		return
-	}
-
-	dump := nftProvider.Dump(rules)
+	// For logging purposes, we can just use the transaction's String() method
+	dump := rules.String()
 	if dump != "" {
 		log.Infof("nftables rules programmed:\n%s \n", dump)
 	} else {
