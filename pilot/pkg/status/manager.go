@@ -93,14 +93,6 @@ func (m *Manager) CreateGenericController(fn UpdateFunc) *Controller {
 	return result
 }
 
-func (m *Manager) CreateIstioStatusController(fn func(status Manipulator, context any)) *Controller {
-	result := &Controller{
-		fn:      fn,
-		workers: m.workers,
-	}
-	return result
-}
-
 // UpdateFunc is called on each object before it is written to allow mutating any status
 type UpdateFunc func(status Manipulator, context any)
 

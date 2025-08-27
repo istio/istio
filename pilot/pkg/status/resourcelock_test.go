@@ -34,7 +34,7 @@ func TestLockLoop(t *testing.T) {
 	fakefunc := func(status Manipulator, context any) {
 	}
 	allowWork := make(chan struct{})
-	c1 := mgr.CreateIstioStatusController(fakefunc)
+	c1 := mgr.CreateGenericController(fakefunc)
 	wp := NewWorkerPool(func(c *config.Config) {
 		g <- struct{}{}
 		<-allowWork
@@ -107,8 +107,8 @@ func TestResourceLock_Lock(t *testing.T) {
 		atomic.AddInt32(&runCount, 1)
 		y <- struct{}{}
 	}
-	c1 := mgr.CreateIstioStatusController(fakefunc)
-	c2 := mgr.CreateIstioStatusController(fakefunc)
+	c1 := mgr.CreateGenericController(fakefunc)
+	c2 := mgr.CreateGenericController(fakefunc)
 	workers := NewWorkerPool(func(_ *config.Config) {
 	}, func(resource Resource) *config.Config {
 		return &config.Config{
