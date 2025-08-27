@@ -1164,6 +1164,8 @@ func (a *index) serviceEntryNoneWorkloadBuilder(
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
 	return serviceEntryNoneWorkloadBuilder(
 		meshConfig,
+		waypoints,
+		namespaces,
 		func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		},
@@ -1175,6 +1177,8 @@ func (a *index) serviceEntryNoneWorkloadBuilder(
 
 func serviceEntryNoneWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
 	networkGetter func(krt.HandlerContext) network.ID,
 	clusterGetter func(krt.HandlerContext) cluster.ID,
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
@@ -1193,6 +1197,11 @@ func serviceEntryNoneWorkloadBuilder(
 		cluster := clusterGetter(ctx)
 
 		workloadAddresses := [][]byte{}
+
+		// This is... weird. We are adding a serviceentry-attached waypoint to a workload. It's being done because
+		// we want to be able to use the waypoint for passthrough traffic but we preferentially match IPs to workloads
+		// in ztunnel. In passthrough the workload being created is roughly for the service VIPs so it's probably OK.
+		targetWaypoint, _ := fetchWaypointForService(ctx, waypoints, namespaces, se.ObjectMeta)
 
 		for _, address := range se.Spec.Addresses {
 			addr, err := netip.ParseAddr(address)
@@ -1214,6 +1223,7 @@ func serviceEntryNoneWorkloadBuilder(
 				Status:       workloadapi.WorkloadStatus_HEALTHY,
 				ClusterId:    cluster.String(),
 				WorkloadType: workloadapi.WorkloadType_POD,
+				Waypoint:     targetWaypoint.GetAddress(),
 			},
 			Labels:       nil,
 			Source:       kind.ServiceEntry,
