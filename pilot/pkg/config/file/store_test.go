@@ -17,6 +17,7 @@
 package file
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -71,4 +72,30 @@ items:
 - apiVersion: networking.istio.io/v1
   kind: WoKnows
 `))
+}
+
+func TestApplyContentReader_Store(t *testing.T) {
+	g := NewWithT(t)
+	src := NewKubeSource(collections.Istio)
+
+	config := []byte(`apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: productpage
+  labels:
+    version: v1
+spec:
+  host: productpage
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  subsets:
+  - name: v1
+    labels:
+      version: v1`)
+
+	g.Expect(src.ApplyContentReader("test-reader", bytes.NewReader(config))).To(BeNil())
+	existing := src.Get(gvk.DestinationRule, "productpage", "")
+	g.Expect(existing).ToNot(BeNil())
+	g.Expect(existing.Labels["version"]).To(Equal("v1"))
 }
