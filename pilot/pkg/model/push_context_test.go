@@ -3268,7 +3268,7 @@ func TestInstancesByPort(t *testing.T) {
 		svc5_1.Hostname.String(): {
 			svc5_1.Attributes.Namespace: {
 				Shards: map[ShardKey][]*IstioEndpoint{
-					{Cluster: "Kubernets", Provider: provider.External}: {
+					{Cluster: "Kubernetes", Provider: provider.External}: {
 						&IstioEndpoint{
 							Addresses:       []string{"1.1.1.1"},
 							EndpointPort:    7000,

@@ -727,7 +727,7 @@ func mergeServiceInfosWithCluster(
 				clusterID: obj.ClusterID,
 			}] = sets.New(slices.Map(obj.Object.Service.Ports, workloadPortsToSimplePort)...)
 			// This flat merge is ok because the VIPs themselves are per-network and we require
-			// VIP uniquness within a network
+			// VIP uniqueness within a network
 			vips.InsertAll(slices.Map(obj.Object.Service.GetAddresses(), func(a *workloadapi.NetworkAddress) simpleNetworkAddress {
 				// We can ignore the err because we know the address is valid
 				addr, _ := netip.AddrFromSlice(a.Address)
@@ -764,7 +764,7 @@ func mergeServiceInfosWithCluster(
 		})
 		base.Object.Service.SubjectAltNames = sans.UnsortedList()
 
-		// Rememeber, we have to re-precompute the serviceinfo since we changed it
+		// Remember, we have to re-precompute the serviceinfo since we changed it
 		return &krt.ObjectWithCluster[model.ServiceInfo]{
 			ClusterID: base.ClusterID,
 			Object:    precomputeServicePtr(base.Object),

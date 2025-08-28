@@ -98,7 +98,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			},
 		},
 		{
-			name: "should keep the status of the gateway parentRefs from antoher controller",
+			name: "should keep the status of the gateway parentRefs from another controller",
 			givens: []runtime.Object{
 				NewGateway("gateway-1", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
 				NewGateway("gateway-2", InNamespace(DefaultTestNS), WithGatewayClass("other-class")),
