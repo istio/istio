@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** gateway service has only option to set the externalTrafficPolicy, but some applications requires to change the 
+  internalTrafficPolicy as well (for example when you try to install Argocd with gateway which is internal application)
+  
