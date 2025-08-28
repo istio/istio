@@ -294,7 +294,30 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	}
 
 	if installGateway {
-		err = h.InstallChart(IngressReleaseName, gatewayChartPath, nsConfig.Get(IngressReleaseName), gatewayOverrideValuesFile, Timeout, versionArgs)
+		// Why we skip schema validation when installing old gateway charts
+		//
+		// Context:
+		// - Our GetValuesOverrides() generates a values file with top-level keys that exist on current
+		//   charts (global, revision, profile, _internal_defaults_do_not_set, platform, ...).
+		// - Older gateway charts (the “previous minor” we install from the Helm repo here) have a
+		//   values.schema.json with additionalProperties=false at the root and do not permit those keys.
+		//   This causes Helm to fail at validation before rendering.
+		//
+		// Why this is safe:
+		// - In real upgrades, users already have 1.(n-1) installed with values that were valid for that
+		//   release; they do not re-install old charts with “future” (n) values. The test is unique in
+		//   that it installs the previous release while using a values file shaped by current code.
+		// - Skipping schema validation here avoids a false-negative in test setup and better matches the
+		//   real-world flow (old install with old-compatible values, then upgrade to new charts).
+		// - We only skip validation for this legacy gateway install (when version != ""), and we continue
+		//   to validate all installs/upgrades of the charts under test (master) as usual.
+		gwArgs := versionArgs
+		if version != "" {
+			gwArgs = gwArgs + " --skip-schema-validation"
+		}
+		err = h.InstallChart(
+			IngressReleaseName, gatewayChartPath, nsConfig.Get(IngressReleaseName),
+			gatewayOverrideValuesFile, Timeout, gwArgs)
 		if err != nil {
 			t.Fatalf("failed to install istio %s chart: %v", GatewayChartsDir, err)
 		}
