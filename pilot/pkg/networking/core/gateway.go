@@ -493,7 +493,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 							// Merge routes into the existing virtual host
 							existingVHost.Routes = append(existingVHost.Routes, routes...)
 							// Add the new hostname to domains so Envoy knows to route it here
-							existingVHost.Domains = append(existingVHost.Domains, hostname.String())
+							// existingVHost.Domains = append(existingVHost.Domains, hostname.String())
 							canMergeWithExisting = true
 							break
 						}
