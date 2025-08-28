@@ -134,9 +134,6 @@ var rootCmd = &cobra.Command{
 			// NOT do ambient watch server cleanup
 			defer func() {
 				var shouldStopCleanup bool
-				// TODO(jaellio): Should we block cleanup if safe upgrade is disabled but istioOwnedCNIConfig is
-				// enabled? At this point we can't distinguish if this is being triggered as a result of a
-				// node reboot, an upgrade, or an uninstall
 				if cfg.InstallConfig.AmbientDisableSafeUpgrade {
 					log.Info("Ambient node agent safe upgrade explicitly disabled via env")
 					shouldStopCleanup = false
