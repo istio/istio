@@ -138,7 +138,6 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string) bool {
 				shouldStopCleanup = true
 				return nil
 			}
-			// TODO(jaellio): Not certain "not found" error can be interpreted as not a node reboot
 			if errors.IsNotFound(err) || (cniDS != nil && cniDS.DeletionTimestamp != nil) {
 				// If the DS is gone, or marked for deletion, this is not an upgrade.
 				// We can safely shut down the plugin.
@@ -149,7 +148,8 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string) bool {
 			log.Infof("failed to get parent DS %s, retrying: %v", dsName, err)
 			return err
 		},
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), 5))
+		// Limiting retries to 3 so other shutdown tasks can complete before the graceful shutdown period ends
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), 3))
 	if err != nil {
 		log.Infof("failed to get parent DS %s, returning %s: %v", dsName, shouldStopCleanup, err)
 	}
@@ -168,7 +168,7 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 	}
 
 	client, err := kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig), "")
-	if err != nil { 
+	if err != nil {
 		return nil, fmt.Errorf("failed creating kube client: %v", err)
 	}
 
