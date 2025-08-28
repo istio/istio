@@ -57,6 +57,18 @@ import (
 	"istio.io/istio/pkg/wellknown"
 )
 
+// VirtualHostConfig maintains shared configuration while isolating routes per listener
+type VirtualHostConfig struct {
+	// Shared across listeners
+	Domains                    []string
+	RequireTls                 route.VirtualHost_TlsRequirementType
+	IncludeRequestAttemptCount bool
+	TypedPerFilterConfig       map[string]*anypb.Any
+
+	// Isolated per listener (port)
+	ListenerRoutes map[int][]*route.Route
+}
+
 type mutableListenerOpts struct {
 	mutable   *MutableGatewayListener
 	opts      *gatewayListenerOpts
@@ -410,8 +422,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	gatewayVirtualServices := make(map[string][]config.Config)
 
 	// Create a map to store virtual hosts per server to maintain listener isolation
-	// The key is "hostname:port" to ensure virtual hosts from different listeners are not merged
-	serverVirtualHosts := make(map[string]*route.VirtualHost)
+	// We need to balance listener isolation with hostname sharing across listeners
+	// Use a hybrid approach: shared hostname config with isolated routes per listener
+	vHostConfigs := make(map[host.Name]*VirtualHostConfig)
 
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
@@ -477,38 +490,29 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			for _, hostname := range intersectingHosts {
 				hostname = host.Name(strings.ToLower(hostname.String()))
 
-				// Create a server-scoped key to maintain listener isolation
-				serverScopedKey := fmt.Sprintf("%s:%d", hostname, port)
-
-				// Check if we already have a virtual host for this hostname on this server
-				// This is direct host match - fast path.
-				if vHost, exists := serverVirtualHosts[serverScopedKey]; exists {
+				// Check if we already have a virtual host for this hostname
+				// This allows hostname sharing across listeners while maintaining route isolation
+				if vHost, exists := vHostConfigs[hostname]; exists {
 					// Append routes to existing virtual host
-					vHost.Routes = append(vHost.Routes, routes...)
+					vHost.ListenerRoutes[port] = append(vHost.ListenerRoutes[port], routes...)
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						vHost.RequireTls = route.VirtualHost_ALL
 					}
 				} else {
-					// Check if we can merge with an existing virtual host with wildcards on the same server
+					// Check if we can merge with an existing virtual host with wildcards
 					canMergeWithExisting := false
-					for existingKey, existingVHost := range serverVirtualHosts {
-						// Only consider merging if it's on the same server (same port)
-						if strings.HasSuffix(existingKey, fmt.Sprintf(":%d", port)) {
-							// Extract the hostname from the existing key
-							existingHostname := host.Name(strings.TrimSuffix(existingKey, fmt.Sprintf(":%d", port)))
-
-							// Merge if the existing hostname can match our current hostname
-							// This handles:
-							// - wildcard + specific: *.com + foo.com
-							// - wildcard + wildcard: * + *.com, *.com + *.foo.com
-							if existingHostname.Matches(hostname) {
-								// Merge routes into the existing virtual host
-								existingVHost.Routes = append(existingVHost.Routes, routes...)
-								// Add the new hostname to domains so Envoy knows to route it here
-								existingVHost.Domains = append(existingVHost.Domains, hostname.String())
-								canMergeWithExisting = true
-								break
-							}
+					for existingHostname, existingVHost := range vHostConfigs {
+						// Merge if the existing hostname can match our current hostname
+						// This handles:
+						// - wildcard + specific: *.com + foo.com
+						// - wildcard + wildcard: * + *.com, *.com + *.foo.com
+						if existingHostname.Matches(hostname) {
+							// Merge routes into the existing virtual host
+							existingVHost.ListenerRoutes[port] = append(existingVHost.ListenerRoutes[port], routes...)
+							// Add the new hostname to domains so Envoy knows to route it here
+							existingVHost.Domains = append(existingVHost.Domains, hostname.String())
+							canMergeWithExisting = true
+							break
 						}
 					}
 
@@ -527,58 +531,52 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 								perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 							}
 						}
-						newVHost := &route.VirtualHost{
-							Name:    util.DomainName(string(hostname), port),
+
+						// Create new VirtualHostConfig
+						vHostConfigs[hostname] = &VirtualHostConfig{
 							Domains: []string{hostname.String()},
-							// Route will be appended to during deduplication, so make sure we are operating on a copy
-							Routes:                     slices.Clone(routes),
-							TypedPerFilterConfig:       perRouteFilters,
+							RequireTls: func() route.VirtualHost_TlsRequirementType {
+								if server.Tls != nil && server.Tls.HttpsRedirect {
+									return route.VirtualHost_ALL
+								}
+								return route.VirtualHost_NONE
+							}(),
 							IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
+							TypedPerFilterConfig:       perRouteFilters,
+							ListenerRoutes: map[int][]*route.Route{
+								port: slices.Clone(routes),
+							},
 						}
-						if server.Tls != nil && server.Tls.HttpsRedirect {
-							newVHost.RequireTls = route.VirtualHost_ALL
-						}
-						serverVirtualHosts[serverScopedKey] = newVHost
 					}
 				}
 			}
 		}
 
-		// check all hostname in serverVirtualHosts and if is not exist with HttpsRedirect set to true
+		// check all hostname in vHostConfigs and if is not exist with HttpsRedirect set to true
 		// create VirtualHost to redirect
-		for _, hostname := range server.Hosts {
+		for _, hostnameStr := range server.Hosts {
 			if !server.GetTls().GetHttpsRedirect() {
 				continue
 			}
-			hostname = strings.ToLower(hostname)
-			serverScopedKey := fmt.Sprintf("%s:%d", hostname, port)
-			if vHost, exists := serverVirtualHosts[serverScopedKey]; exists {
+			hostname := host.Name(strings.ToLower(hostnameStr))
+			if vHost, exists := vHostConfigs[hostname]; exists {
 				vHost.RequireTls = route.VirtualHost_ALL
 				continue
 			}
-			newVHost := &route.VirtualHost{
-				Name:                       util.DomainName(hostname, port),
-				Domains:                    []string{strings.ToLower(hostname)},
-				IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
+			vHostConfigs[hostname] = &VirtualHostConfig{
+				Domains:                    []string{hostname.String()},
 				RequireTls:                 route.VirtualHost_ALL,
+				IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
+				TypedPerFilterConfig:       make(map[string]*anypb.Any),
+				ListenerRoutes: map[int][]*route.Route{
+					port: []*route.Route{},
+				},
 			}
-			serverVirtualHosts[serverScopedKey] = newVHost
-		}
-	}
-
-	// Convert serverVirtualHosts to the format expected by collapseDuplicateRoutes
-	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
-	for key, vHost := range serverVirtualHosts {
-		// Extract hostname from the key (remove the port suffix)
-		parts := strings.Split(key, ":")
-		if len(parts) == 2 {
-			hostname := host.Name(parts[0])
-			vHostDedupMap[hostname] = vHost
 		}
 	}
 
 	var virtualHosts []*route.VirtualHost
-	if len(vHostDedupMap) == 0 {
+	if len(vHostConfigs) == 0 {
 		port := int(servers[0].Port.Number)
 		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
 		virtualHosts = []*route.VirtualHost{{
@@ -588,11 +586,27 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			Routes: []*route.Route{},
 		}}
 	} else {
-		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
-		vHostDedupMap = collapseDuplicateRoutes(vHostDedupMap)
-		for _, v := range vHostDedupMap {
-			v.Routes = istio_route.SortVHostRoutes(v.Routes)
-			virtualHosts = append(virtualHosts, v)
+		virtualHosts = make([]*route.VirtualHost, 0, len(vHostConfigs))
+		for _, v := range vHostConfigs {
+			// Combine shared and listener-specific routes
+			allRoutes := make([]*route.Route, 0)
+			for _, routes := range v.ListenerRoutes {
+				allRoutes = append(allRoutes, routes...)
+			}
+
+			// Sort routes for consistency
+			allRoutes = istio_route.SortVHostRoutes(allRoutes)
+
+			// Create a new VirtualHost with combined routes
+			newVHost := &route.VirtualHost{
+				Name:                       util.DomainName(string(v.Domains[0]), int(servers[0].Port.Number)), // Use the first domain for the name
+				Domains:                    v.Domains,
+				Routes:                     allRoutes,
+				TypedPerFilterConfig:       v.TypedPerFilterConfig,
+				IncludeRequestAttemptCount: v.IncludeRequestAttemptCount,
+				RequireTls:                 v.RequireTls,
+			}
+			virtualHosts = append(virtualHosts, newVHost)
 		}
 	}
 
