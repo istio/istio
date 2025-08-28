@@ -82,4 +82,5 @@ func TestReconcileInferencePool(t *testing.T) {
 	assert.Equal(t, service.ObjectMeta.Labels[InferencePoolRefLabel], pool.Name)
 	assert.Equal(t, service.OwnerReferences[0].Name, pool.Name)
 	assert.Equal(t, service.Spec.Ports[0].TargetPort.IntVal, int32(8080))
+	assert.Equal(t, service.Spec.Ports[0].Port, int32(54321)) // dummyPort + i
 }
