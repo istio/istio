@@ -44,7 +44,7 @@ func NewManager(store model.ConfigStore) *Manager {
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
 			if kerrors.IsConflict(err) {
-				scope.Warnf("Object changed before status update for %v: %s", m, err)
+				scope.Debugf("Object changed before status update for %v: %s", m, err)
 			} else {
 				scope.Errorf("Encountered unexpected error updating status for %v: %s", m, err)
 			}
