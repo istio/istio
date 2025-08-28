@@ -57,6 +57,9 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			ctx.Settings().SkipVMs()
 			ctx.Settings().SkipTProxy = true
+			if ctx.Settings().AmbientMultiNetwork {
+				cfg.SkipDeployCrossClusterSecrets = true
+			}
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
 			cfg.DeployGatewayAPI = true
@@ -68,6 +71,13 @@ values:
   pilot:
     env:
       PILOT_SKIP_VALIDATE_TRUST_DOMAIN: "true"
+  ztunnel:
+    terminationGracePeriodSeconds: 5
+  gateways:
+    istio-ingressgateway:
+      enabled: false
+    istio-egressgateway:
+      enabled: false
       `
 		})).
 		Run()
