@@ -40,7 +40,7 @@ type Manager struct {
 // by the caller of EnqueueStatusUpdateResource.
 func NewManager(store model.ConfigStore) *Manager {
 	writeFunc := func(m *config.Config) {
-		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
+		scope.Debugf("Writing status for resource %v", m)
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
 			if kerrors.IsConflict(err) {
