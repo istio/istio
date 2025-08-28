@@ -462,6 +462,8 @@ github.com/vishvananda/netlink v1.3.1 h1:3AEMt62VKqz90r0tmNhog0r/PpWKmrEShJU0wJW
 github.com/vishvananda/netlink v1.3.1/go.mod h1:ARtKouGSTGchR8aMwmkzC0qiNPrrWO5JS/XMVl45+b4=
 github.com/vishvananda/netns v0.0.5 h1:DfiHV+j8bA32MFM7bfEunvT8IAqQ/NzSJHtcmW5zdEY=
 github.com/vishvananda/netns v0.0.5/go.mod h1:SpkAiCQRtJ6TvvxPnOSyH3BMl6unz3xZlaprSwhNNJM=
+github.com/wtzhang23/istio-api v0.0.0-20250813015311-6c1a4cde6356 h1:ypJ78CV0pAF6ZSD8C7h0uyaXxf2A4IUTz9bNLzXSzEE=
+github.com/wtzhang23/istio-api v0.0.0-20250813015311-6c1a4cde6356/go.mod h1:r7Y4MVtb9ekbWAXt77A61vWgu9bJ5Eo9KJup4WY2ZWE=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 github.com/xlab/treeprint v1.2.0 h1:HzHnuAF1plUN2zGlAFHbSQP2qJ0ZAD3XF5XD7OesXRQ=
@@ -643,8 +645,6 @@ helm.sh/helm/v3 v3.18.5 h1:Cc3Z5vd6kDrZq9wO9KxKLNEickiTho6/H/dBNRVSos4=
 helm.sh/helm/v3 v3.18.5/go.mod h1:L/dXDR2r539oPlFP1PJqKAC1CUgqHJDLkxKpDGrWnyg=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
-istio.io/api v1.26.0-alpha.0.0.20250820113222-47f832b86cdd h1:rXbbklkrc68YSkBExYtJHYNWLNTXP3m9H6EbYgjHtQI=
-istio.io/api v1.26.0-alpha.0.0.20250820113222-47f832b86cdd/go.mod h1:BD3qv/ekm16kvSgvSpuiDawgKhEwG97wx849CednJSg=
 istio.io/client-go v1.26.0-alpha.0.0.20250820113822-8b883d128bac h1:cig/XcnMBOfb88t1qbtnGEbHLffLnv3xQGPDYson1kI=
 istio.io/client-go v1.26.0-alpha.0.0.20250820113822-8b883d128bac/go.mod h1:0XgBG5O4fXCea2bhGlxz9/tcVZvE5tegmn7ST6/hUeQ=
 k8s.io/api v0.33.4 h1:oTzrFVNPXBjMu0IlpA2eDDIU49jsuEorGHB4cvKupkk=

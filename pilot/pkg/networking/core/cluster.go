@@ -309,7 +309,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	services []*model.Service,
 ) ([]*discovery.Resource, cacheStats) {
 	resources := make([]*discovery.Resource, 0)
-	efKeys := cp.efw.KeysApplyingTo(networking.EnvoyFilter_CLUSTER)
+	efKeys := cp.efw.KeysApplyingTo(networking.EnvoyFilter_CLUSTER, networking.EnvoyFilter_UPSTREAM_HTTP_FILTER)
 	hit, miss := 0, 0
 	for _, service := range services {
 		if service.Resolution == model.Alias {
@@ -420,7 +420,7 @@ func (p clusterPatcher) insertedClusters() []*cluster.Cluster {
 }
 
 func (p clusterPatcher) hasPatches() bool {
-	return p.efw != nil && len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) > 0
+	return p.efw != nil && (len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) > 0 || len(p.efw.Patches[networking.EnvoyFilter_UPSTREAM_HTTP_FILTER]) > 0)
 }
 
 // SniDnat clusters do not have any TLS setting, as they simply forward traffic to upstream

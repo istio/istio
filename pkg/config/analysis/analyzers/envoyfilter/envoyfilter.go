@@ -143,8 +143,9 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 				relativeOperationMsg(r, c, index, ef.Priority, patchFilterNames, instanceName)
 			}
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_REPLACE {
-			// the REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER.
-			if patch.ApplyTo != network.EnvoyFilter_NETWORK_FILTER && patch.ApplyTo != network.EnvoyFilter_HTTP_FILTER {
+			// the REPLACE operation is only valid for HTTP_FILTER, UPSTREAM_HTTP_FILTER and NETWORK_FILTER.
+			if patch.ApplyTo != network.EnvoyFilter_NETWORK_FILTER && patch.ApplyTo != network.EnvoyFilter_HTTP_FILTER &&
+				patch.ApplyTo != network.EnvoyFilter_UPSTREAM_HTTP_FILTER {
 				// provide an error message indicating an invalid filter type
 				message := msg.NewEnvoyFilterUsesReplaceOperationIncorrectly(r)
 
