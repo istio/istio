@@ -113,7 +113,7 @@ func InferencePoolCollection(
 			gatewayParents := findGatewayParents(pool, routeList)
 
 			// TODO: If no gateway parents, we should not do anything
-			// 		note: we stil need to filter out our Status to clean up previous reconciliations
+			// 		note: we still need to filter out our Status to clean up previous reconciliations
 
 			// Create the InferencePool only if there are Gateways connected
 			var inferencePool *InferencePool
