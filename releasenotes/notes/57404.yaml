@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 57404
-releaseNotes:
-- |
-  **Fixed** conflicting VirtualServices with wildcard and specific hosts creating separate Envoy virtual hosts instead of merging properly.
