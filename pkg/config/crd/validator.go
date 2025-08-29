@@ -64,7 +64,7 @@ type ValidationIgnorer struct {
 	patternsByNamespace map[string]sets.String
 }
 
-// NewValidationIgnorer initializes the ignorer for the validatior, pairs are in namespace/namePattern format.
+// NewValidationIgnorer initializes the ignorer for the validator, pairs are in namespace/namePattern format.
 func NewValidationIgnorer(pairs ...string) *ValidationIgnorer {
 	vi := &ValidationIgnorer{
 		patternsByNamespace: make(map[string]sets.String),

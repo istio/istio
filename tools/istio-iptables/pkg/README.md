@@ -58,7 +58,7 @@ The reconciliation logic _primarily_ modifies rules in chains prefixed with `IST
 
 The logic of istio-iptables is primarily controlled by the `Reconcile` flag, which determines whether preexisting, incompatible iptables rules need to be reconciled when a drift from the desired state is detected.
 Depending on the value of the flag, different behaviors can be observed:
-- **`Reconcile=true`**: If reconciliation is enabled, then the `istio-iptables` may attempt to reconcile existing iptables. In particular, when the flag is enabled, the following scenario will occurr:
+- **`Reconcile=true`**: If reconciliation is enabled, then the `istio-iptables` may attempt to reconcile existing iptables. In particular, when the flag is enabled, the following scenario will occur:
   - If no existing rules are found, the wrapper will apply the new rules and chains. This is a typical first-time installation.
   - If existing rules are found and are equivalent to the desired outcome, no new rules will be applied, and the process will successfully terminate.
   - If existing rules are found but they are not equivalent to the desired outcome (could be partial or simply differents), the wrapper will attempt to reconcile them by perform the following operations:

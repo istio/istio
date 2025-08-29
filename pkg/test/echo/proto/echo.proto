@@ -91,7 +91,7 @@ message ForwardEchoRequest {
   HBONE hbone = 24;
 
   // Double HBONE communication settings. The settings here represent the outer
-  // tunnel and the inner tunnel settigns are specified in the hbone field.
+  // tunnel and the inner tunnel settings are specified in the hbone field.
   // If the inner tunnel is not specified, the inner tunnel will
   // be the same as the outer tunnel.
   HBONE double_hbone = 27;

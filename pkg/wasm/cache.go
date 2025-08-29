@@ -65,7 +65,7 @@ type LocalFileCache struct {
 	// mux is needed because stale Wasm module files will be purged periodically.
 	mux sync.Mutex
 
-	// option sets for configurating the cache.
+	// option sets for configuring the cache.
 	cacheOptions
 	// stopChan currently is only used by test
 	stopChan chan struct{}

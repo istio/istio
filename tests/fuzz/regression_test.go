@@ -151,7 +151,7 @@ func TestFuzzers(t *testing.T) {
 	}
 	for _, tt := range cases {
 		if testedFuzzers.InsertContains(tt.name) {
-			t.Fatalf("dupliate fuzzer test %v", tt.name)
+			t.Fatalf("duplicate fuzzer test %v", tt.name)
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			runRegressionTest(t, tt.name, tt.fuzzer)

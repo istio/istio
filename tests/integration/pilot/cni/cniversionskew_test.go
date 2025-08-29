@@ -50,7 +50,7 @@ const (
 // Currently only test CNI with one version behind.
 var versions = []string{NMinusOne}
 
-// TestCNIVersionSkew runs all traffic tests with older versions of CNI and lastest Istio.
+// TestCNIVersionSkew runs all traffic tests with older versions of CNI and latest Istio.
 // This is to simulate the case where CNI and Istio control plane versions are out of sync during upgrade.
 func TestCNIVersionSkew(t *testing.T) {
 	framework.

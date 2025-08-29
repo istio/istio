@@ -244,6 +244,6 @@ func logCount(instances echo.Instances, testID string) (float64, error) {
 	for _, c := range counts {
 		total += c
 	}
-	// TODO(landow) mirorr split does not always hit all clusters
+	// TODO(landow) mirror split does not always hit all clusters
 	return total, nil
 }

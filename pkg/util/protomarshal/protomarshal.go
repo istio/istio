@@ -242,7 +242,7 @@ func Clone[T proto.Message](obj T) T {
 }
 
 // MessageToStructSlow encodes a protobuf Message into a Struct.
-// It roundtrips trough JSON so it is slow.
+// It roundtrips through JSON so it is slow.
 // Copied from https://github.com/envoyproxy/go-control-plane/blob/d77bd2ea68bdbb72afd65a7ddf6fe8969e556c45/pkg/conversion/struct.go#L29
 func MessageToStructSlow(msg proto.Message) (*structpb.Struct, error) {
 	if msg == nil {
@@ -263,7 +263,7 @@ func MessageToStructSlow(msg proto.Message) (*structpb.Struct, error) {
 }
 
 // StructToMessageSlow decodes a protobuf Message from a Struct.
-// It roundtrips trough JSON so it is slow.
+// It roundtrips through JSON so it is slow.
 // Copied from https://github.com/envoyproxy/go-control-plane/blob/d77bd2ea68bdbb72afd65a7ddf6fe8969e556c45/pkg/conversion/struct.go#L48
 func StructToMessageSlow(pbst *structpb.Struct, out proto.Message) error {
 	if pbst == nil {

@@ -22,7 +22,7 @@ import (
 )
 
 // MapCollection is just a light facade on top of another collection
-// that uses a map function to trasform T into U
+// that uses a map function to transform T into U
 // The transformation function MUST keep the name consistent
 type mapCollection[T any, U any] struct {
 	collectionName string

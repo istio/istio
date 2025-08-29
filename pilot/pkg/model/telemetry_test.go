@@ -325,7 +325,7 @@ func TestTracing(t *testing.T) {
 			},
 		},
 	}
-	nonExistant := &tpb.Telemetry{
+	nonExistent := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
 				Providers: []*tpb.ProviderRef{
@@ -427,7 +427,7 @@ func TestTracing(t *testing.T) {
 		},
 		{
 			"non existing",
-			[]config.Config{newTelemetry("default", nonExistant)},
+			[]config.Config{newTelemetry("default", nonExistent)},
 			sidecar,
 			[]string{"envoy"},
 			&TracingConfig{

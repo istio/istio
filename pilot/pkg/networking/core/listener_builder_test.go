@@ -984,7 +984,7 @@ func TestAdditionalAddressesForIPv6(t *testing.T) {
 		t.Fatal("didn't find virtual outbound listener")
 	}
 	if vo.AdditionalAddresses == nil || len(vo.AdditionalAddresses) != 1 {
-		t.Fatal("expected additional ipv4 bind addresse")
+		t.Fatal("expected additional ipv4 bind addresses")
 	}
 }
 

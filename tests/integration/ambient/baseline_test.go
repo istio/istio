@@ -147,7 +147,7 @@ func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checke
 	addresses := sets.New(src.WorkloadsOrFail(t).Addresses()...)
 	return check.Each(func(response echot.Response) error {
 		if !addresses.Contains(response.IP) {
-			return fmt.Errorf("expected original source (%v) to be propogated, but got %v", addresses.UnsortedList(), response.IP)
+			return fmt.Errorf("expected original source (%v) to be propagated, but got %v", addresses.UnsortedList(), response.IP)
 		}
 		return nil
 	})

@@ -94,7 +94,7 @@ const (
 	ImageTypeDebug = "debug"
 	// ImageTypeDistroless is the suffix of the distroless image.
 	ImageTypeDistroless = "distroless"
-	// ImageTypeDefault is the type name of the default image, sufix is elided.
+	// ImageTypeDefault is the type name of the default image, suffix is elided.
 	ImageTypeDefault = "default"
 )
 

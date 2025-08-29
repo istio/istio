@@ -44,6 +44,6 @@ gRPC Go SDK, and gRPC C++ SDK. This policy is experimental.
 WARNING: Setting compliance policy in the control plane is a necessary but
 not a sufficient requirement to achieve compliance. There are additional
 steps necessary to claim compliance, including using the validated
-cryptograhic modules (please consult
+cryptographic modules (please consult
 https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/security/ssl#fips-140-2).`).Get()
 )
