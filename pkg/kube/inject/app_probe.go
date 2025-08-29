@@ -19,6 +19,7 @@ package inject
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -167,11 +168,15 @@ type Prober struct {
 // Also update the probers so that all usages of named port will be resolved to integer.
 func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 	out := KubeAppProbers{}
-	updateNamedPort := func(p *Prober, portMap map[string]int32) *Prober {
+	updateNamedPort := func(p *Prober, portMap map[int32]bool, containerName string) *Prober {
 		if p == nil {
 			return nil
 		}
 		if p.GRPC != nil {
+			grpcPort := p.GRPC.Port
+			if !isPortIncluded(grpcPort, portMap) {
+				return nil
+			}
 			// don't need to update for gRPC probe port as it only supports integer
 			return p
 		}
@@ -187,42 +192,48 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		}
 
 		if probePort.Type == intstr.String {
-			port, exists := portMap[probePort.StrVal]
-			if !exists {
+			// First, check if the string port refers to a named port in the specific container
+			portValInt, err := getPortValAsInt(pod, probePort.StrVal, containerName)
+			// could not determine the match.
+			if err != nil {
 				return nil
 			}
-			*probePort = intstr.FromInt32(port)
+			if !isPortIncluded(portValInt, portMap) {
+				return nil
+			}
+			*probePort = intstr.FromInt32(portValInt)
+		} else if probePort.Type == intstr.Int {
+			if !isPortIncluded(probePort.IntVal, portMap) {
+				return nil
+			}
+			*probePort = intstr.FromInt32(probePort.IntVal)
 		} else if probePort.IntVal == targetPort {
 			// Already is rewritten
 			return nil
 		}
 		return p
 	}
+	portMap := getPortInclusionOrExclusionList(pod)
 	for _, c := range allContainers(pod) {
 		if c.Name == ProxyContainerName {
 			continue
 		}
 		readyz, livez, startupz, prestopz, poststartz := status.FormatProberURL(c.Name)
-		portMap := map[string]int32{}
-		for _, p := range c.Ports {
-			if p.Name != "" {
-				portMap[p.Name] = p.ContainerPort
-			}
-		}
-		if h := updateNamedPort(kubeProbeToInternalProber(c.ReadinessProbe), portMap); h != nil {
+
+		if h := updateNamedPort(kubeProbeToInternalProber(c.ReadinessProbe), portMap, c.Name); h != nil {
 			out[readyz] = h
 		}
-		if h := updateNamedPort(kubeProbeToInternalProber(c.LivenessProbe), portMap); h != nil {
+		if h := updateNamedPort(kubeProbeToInternalProber(c.LivenessProbe), portMap, c.Name); h != nil {
 			out[livez] = h
 		}
-		if h := updateNamedPort(kubeProbeToInternalProber(c.StartupProbe), portMap); h != nil {
+		if h := updateNamedPort(kubeProbeToInternalProber(c.StartupProbe), portMap, c.Name); h != nil {
 			out[startupz] = h
 		}
 		if c.Lifecycle != nil {
-			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PreStop), portMap); h != nil {
+			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PreStop), portMap, c.Name); h != nil {
 				out[prestopz] = h
 			}
-			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PostStart), portMap); h != nil {
+			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PostStart), portMap, c.Name); h != nil {
 				out[poststartz] = h
 			}
 		}
@@ -239,12 +250,111 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 	return string(b)
 }
 
+func getPortValAsInt(pod *corev1.Pod, strVal string, containerName string) (portValInt int32, err error) {
+	containerPortNum := lookupNamedPort(pod, strVal, containerName)
+	if containerPortNum > 0 {
+		// Found a matching named port in container
+		portValInt = containerPortNum
+	} else {
+		// No named port found, try to parse as integer
+		var portValInt64 int64
+		portValInt64, err = strconv.ParseInt(strVal, 10, 32)
+		portValInt = int32(portValInt64)
+	}
+	return
+}
+
+// lookupNamedPort finds the port number for a named port in the pod containers
+// If containerName is specified, it will first look for the port in that container before checking other containers
+func lookupNamedPort(pod *corev1.Pod, name string, containerName string) int32 {
+	// First look in the specified container if provided
+	if containerName != "" {
+		// Check regular containers
+		for _, container := range pod.Spec.Containers {
+			if container.Name == containerName {
+				for _, port := range container.Ports {
+					if port.Name == name {
+						return port.ContainerPort
+					}
+				}
+				break // Found the container but no matching port
+			}
+		}
+
+		// Check init containers
+		for _, container := range pod.Spec.InitContainers {
+			if container.Name == containerName {
+				for _, port := range container.Ports {
+					if port.Name == name {
+						return port.ContainerPort
+					}
+				}
+				break // Found the container but no matching port
+			}
+		}
+	}
+	return 0
+}
+
+func getPortInclusionOrExclusionList(pod *corev1.Pod) map[int32]bool {
+	annotations := pod.Annotations
+	if annotations == nil {
+		// No annotations means include all ports (return empty map)
+		return make(map[int32]bool)
+	}
+
+	includePortsStr := annotations[annotation.SidecarTrafficIncludeInboundPorts.Name]
+	excludePortsStr := annotations[annotation.SidecarTrafficExcludeInboundPorts.Name]
+
+	// Include all ports by default
+	includedPorts := make(map[int32]bool)
+
+	if includePortsStr != "" {
+		if includePortsStr == "*" {
+			// Include all ports, then exclude any specified
+			return applyPortExclusion(includedPorts, excludePortsStr)
+		}
+		return parsePortList(includePortsStr, true)
+	}
+
+	// If only exclusions are specified
+	return applyPortExclusion(includedPorts, excludePortsStr)
+}
+
+func applyPortExclusion(base map[int32]bool, excludePortsStr string) map[int32]bool {
+	if excludePortsStr == "" {
+		return base
+	}
+
+	for _, portStr := range splitPorts(excludePortsStr) {
+		if port := extractPortAsInt(portStr); port != 0 {
+			base[int32(port)] = false
+		} else {
+			log.Errorf("Failed to parse port %v from excludeInboundPorts", portStr)
+		}
+	}
+	return base
+}
+
+func parsePortList(portList string, include bool) map[int32]bool {
+	ports := make(map[int32]bool)
+	for _, portStr := range splitPorts(portList) {
+		if port := extractPortAsInt(portStr); port != 0 {
+			ports[int32(port)] = include
+		} else {
+			log.Errorf("Failed to parse port %v from includeInboundPorts", portStr)
+		}
+	}
+	return ports
+}
+
 func allContainers(pod *corev1.Pod) []corev1.Container {
 	return append(slices.Clone(pod.Spec.InitContainers), pod.Spec.Containers...)
 }
 
 // patchRewriteProbe generates the patch for webhook.
 func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPort int32) {
+	includedAndExcludedPorts := getPortInclusionOrExclusionList(pod)
 	statusPort := int(defaultPort)
 	if v, f := annotations[annotation.SidecarStatusPort.Name]; f {
 		p, err := strconv.Atoi(v)
@@ -258,7 +368,7 @@ func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPo
 		if c.Name == ProxyContainerName {
 			continue
 		}
-		convertProbe(&c, statusPort)
+		convertProbe(&c, statusPort, includedAndExcludedPorts)
 		pod.Spec.Containers[i] = c
 	}
 	for i, c := range pod.Spec.InitContainers {
@@ -266,30 +376,100 @@ func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPo
 		if c.Name == ProxyContainerName {
 			continue
 		}
-		convertProbe(&c, statusPort)
+		convertProbe(&c, statusPort, includedAndExcludedPorts)
 		pod.Spec.InitContainers[i] = c
 	}
 }
 
-func convertProbe(c *corev1.Container, statusPort int) {
+func convertProbe(c *corev1.Container, statusPort int, includedAndExcludedPorts map[int32]bool) {
 	readyz, livez, startupz, prestopz, poststartz := status.FormatProberURL(c.Name)
-	if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
-		c.ReadinessProbe = probePatch
+
+	if shouldPatchProbe(c.ReadinessProbe, includedAndExcludedPorts) {
+		if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
+			c.ReadinessProbe = probePatch
+		}
 	}
-	if probePatch := convertAppProber(c.LivenessProbe, livez, statusPort); probePatch != nil {
-		c.LivenessProbe = probePatch
+
+	if shouldPatchProbe(c.LivenessProbe, includedAndExcludedPorts) {
+		if probePatch := convertAppProber(c.LivenessProbe, livez, statusPort); probePatch != nil {
+			c.LivenessProbe = probePatch
+		}
 	}
-	if probePatch := convertAppProber(c.StartupProbe, startupz, statusPort); probePatch != nil {
-		c.StartupProbe = probePatch
+
+	if shouldPatchProbe(c.StartupProbe, includedAndExcludedPorts) {
+		if probePatch := convertAppProber(c.StartupProbe, startupz, statusPort); probePatch != nil {
+			c.StartupProbe = probePatch
+		}
 	}
+
 	if c.Lifecycle != nil {
-		if lifecycleHandlerPatch := convertAppLifecycleHandler(c.Lifecycle.PreStop, prestopz, statusPort); lifecycleHandlerPatch != nil {
-			c.Lifecycle.PreStop = lifecycleHandlerPatch
+		if shouldPatchLifecycleHandler(c.Lifecycle.PreStop, includedAndExcludedPorts) {
+			if lifecycleHandlerPatch := convertAppLifecycleHandler(c.Lifecycle.PreStop, prestopz, statusPort); lifecycleHandlerPatch != nil {
+				c.Lifecycle.PreStop = lifecycleHandlerPatch
+			}
 		}
-		if lifecycleHandlerPatch := convertAppLifecycleHandler(c.Lifecycle.PostStart, poststartz, statusPort); lifecycleHandlerPatch != nil {
-			c.Lifecycle.PostStart = lifecycleHandlerPatch
+
+		if shouldPatchLifecycleHandler(c.Lifecycle.PostStart, includedAndExcludedPorts) {
+			if lifecycleHandlerPatch := convertAppLifecycleHandler(c.Lifecycle.PostStart, poststartz, statusPort); lifecycleHandlerPatch != nil {
+				c.Lifecycle.PostStart = lifecycleHandlerPatch
+			}
 		}
 	}
+}
+
+func shouldPatchProbe(probe *corev1.Probe, includedAndExcludedPorts map[int32]bool) bool {
+	if probe == nil {
+		return false
+	}
+
+	if len(includedAndExcludedPorts) == 0 {
+		return true
+	}
+
+	var probePort int32
+	if probe.HTTPGet != nil {
+		probePort = probe.HTTPGet.Port.IntVal
+	} else if probe.TCPSocket != nil {
+		probePort = probe.TCPSocket.Port.IntVal
+	} else if probe.GRPC != nil {
+		probePort = probe.GRPC.Port
+	}
+
+	return isPortIncluded(probePort, includedAndExcludedPorts)
+}
+
+// if port is specifically included
+func isPortIncluded(port int32, ports map[int32]bool) bool {
+	included, exists := ports[port]
+	if included && exists {
+		return true
+	} else if exists && !included {
+		return false
+	}
+
+	if !exists {
+		for _, val := range ports {
+			if val {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func shouldPatchLifecycleHandler(handler *corev1.LifecycleHandler, includedAndExcludedPorts map[int32]bool) bool {
+	if handler == nil {
+		return false
+	}
+
+	var handlerPort int32
+	if handler.HTTPGet != nil {
+		handlerPort = handler.HTTPGet.Port.IntVal
+	} else if handler.TCPSocket != nil {
+		handlerPort = handler.TCPSocket.Port.IntVal
+	}
+	return isPortIncluded(handlerPort, includedAndExcludedPorts)
 }
 
 // kubeProbeToInternalProber converts a Kubernetes Probe to an Istio internal Prober
@@ -339,4 +519,14 @@ func kubeLifecycleHandlerToInternalProber(lifecycelHandler *corev1.LifecycleHand
 	}
 
 	return nil
+}
+
+// extractPortAsInt extracts a port number as integer from a string
+// Returns 0 if the port string cannot be parsed as an integer
+func extractPortAsInt(portStr string) int {
+	port, err := strconv.Atoi(strings.TrimSpace(portStr))
+	if err != nil {
+		return 0
+	}
+	return port
 }
