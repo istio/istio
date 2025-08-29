@@ -1,9 +1,9 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=v1.0.0-rc.1"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=v1.0.0-rc.2"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.0.0-rc.1
+    inference.networking.k8s.io/bundle-version: v1.0.0-rc.2
   creationTimestamp: null
   name: inferenceobjectives.inference.networking.x-k8s.io
 spec:
@@ -205,7 +205,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
-    inference.networking.k8s.io/bundle-version: v1.0.0-rc.1
+    inference.networking.k8s.io/bundle-version: v1.0.0-rc.2
   creationTimestamp: null
   name: inferencepools.inference.networking.k8s.io
 spec:
@@ -291,18 +291,33 @@ spec:
                     maxLength: 253
                     minLength: 1
                     type: string
-                  portNumber:
+                  port:
                     description: |-
-                      PortNumber is the port number of the Endpoint Picker extension service. When unspecified,
-                      implementations SHOULD infer a default value of 9002 when the kind field is "Service" or
-                      unspecified (defaults to "Service").
-                    format: int32
-                    maximum: 65535
-                    minimum: 1
-                    type: integer
+                      Port is the port of the Endpoint Picker extension service.
+
+                      Port is required when the referent is a Kubernetes Service. In this
+                      case, the port number is the service port number, not the target port.
+                      For other resources, destination port might be derived from the referent
+                      resource or this field.
+                    properties:
+                      number:
+                        description: |-
+                          Number defines the port number to access the selected model server Pods.
+                          The number must be in the range 1 to 65535.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    required:
+                    - number
+                    type: object
                 required:
                 - name
                 type: object
+                x-kubernetes-validations:
+                - message: port is required when kind is 'Service' or unspecified
+                    (defaults to 'Service')
+                  rule: self.kind != 'Service' || has(self.port)
               selector:
                 description: |-
                   Selector determines which Pods are members of this inference pool.
@@ -526,7 +541,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: unapproved, experimental-only
-    inference.networking.k8s.io/bundle-version: v1.0.0-rc.1
+    inference.networking.k8s.io/bundle-version: v1.0.0-rc.2
   creationTimestamp: null
   name: inferencepools.inference.networking.x-k8s.io
 spec:
