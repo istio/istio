@@ -185,6 +185,7 @@ func policiesCmd(ctx cli.Context) *cobra.Command {
 }
 
 func allCmd(ctx cli.Context) *cobra.Command {
+	var withHeadings bool
 	common := new(commonFlags)
 	cmd := &cobra.Command{
 		Use:   "all",
@@ -200,7 +201,7 @@ func allCmd(ctx cli.Context) *cobra.Command {
 		RunE: runConfigDump(ctx, common, false, func(cw *ztunnelDump.ConfigWriter) error {
 			switch common.outputFormat {
 			case summaryOutput:
-				return cw.PrintFullSummary()
+				return cw.PrintFullSummary(withHeadings)
 			case jsonOutput, yamlOutput:
 				return cw.PrintFullDump(common.outputFormat)
 			default:
@@ -211,6 +212,7 @@ func allCmd(ctx cli.Context) *cobra.Command {
 	}
 
 	common.attach(cmd)
+	cmd.PersistentFlags().BoolVar(&withHeadings, "with-headings", false, "Print summary with headings")
 
 	return cmd
 }
