@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - 57504
-releaseNotes:
-  - |
-    **Fixed** spurious failures in Helm-based upgrade tests by skipping schema validation when installing previous-release Gateway charts that reject current values due to stricter JSON schema. Validation remains enabled for current charts under test.
