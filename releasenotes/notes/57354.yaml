@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 57354
+releaseNotes:
+  - |
+    **Fixed** an issue causing Gateway chart installation failures with Helm v3.18.5 due to a stricter JSON schema validator. The chart's schema has been updated to be compatible.
