@@ -1,5 +1,5 @@
 apiVersion: release-notes/v2
-kind: bug-fix
+kind: feature
 area: installation
 releaseNotes:
 - |
