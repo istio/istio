@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 57219
+
+releaseNotes:
+- |
+  **Removed** support for InferencePool v1.0.0-rc.1.
+  **Added** support for InferencePool v1.0.0-rc.2.
+upgradeNotes:
+- title: InferencePool
+  content: |
+    The InferencePool API v1.0.0-rc.1 has been replaced with v1.0.0-rc.2. In this version, `inferencePool.spec.endpointPickerRef.portNumber`
+    field has been replaced with `inferencePool.spec.endpointPickerRef.port.number`. The `inferencePool.spec.endpointPickerRef.port` field
+    is a non-pointer and required when `inferencePool.spec.endpointPickerRef.kind` is unset or "Service". The port number 9002 is no longer
+    inferred. Update your configurations to use the new API version.

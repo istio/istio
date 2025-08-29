@@ -28,6 +28,8 @@ spec:
     group: ""
     kind: Service
     name: endpoint-picker-svc
+    port:
+      number: 9002
   selector:
     matchLabels:
       app: model-server

@@ -136,10 +136,11 @@ func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents s
 		name: string(pool.Spec.EndpointPickerRef.Name),
 	}
 
-	extRef.port = 9002 // Default port for the inference extension
-	if pool.Spec.EndpointPickerRef.PortNumber != nil {
-		extRef.port = int32(*pool.Spec.EndpointPickerRef.PortNumber)
+	if pool.Spec.EndpointPickerRef.Port == nil {
+		log.Errorf("invalid InferencePool %s/%s; endpointPickerRef port is required", pool.Namespace, pool.Name)
+		return nil
 	}
+	extRef.port = int32(pool.Spec.EndpointPickerRef.Port.Number)
 
 	extRef.failureMode = string(inferencev1.EndpointPickerFailClose) // Default failure mode
 	if pool.Spec.EndpointPickerRef.FailureMode != inferencev1.EndpointPickerFailClose {
