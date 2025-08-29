@@ -112,6 +112,10 @@ func GlobalMergedWorkloadServicesCollection(
 		LocalServiceInfosWithCluster,
 		clusters,
 		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]] {
+			opts := []krt.CollectionOption{
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(cluster.GetStop()),
+			}
 			services := cluster.Services()
 			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
 			if waypointsPtr == nil {
@@ -136,21 +140,24 @@ func GlobalMergedWorkloadServicesCollection(
 						return ""
 					}
 					return nw.Network
-				}, false), opts.With(
+				}, false),
 				append(
-					opts.WithName(fmt.Sprintf("ServiceServiceInfos[%s]", cluster.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("ambient/ServiceServiceInfos[%s]", cluster.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: cluster.ID,
 					}),
-				)...,
-			)...)
+				)...)
 
 			servicesInfoWithCluster := krt.MapCollection(
 				servicesInfo,
 				func(o model.ServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
 					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
 				},
-				opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...,
+				append(
+					opts,
+					krt.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID)),
+				)...,
 			)
 			return ptr.Of(servicesInfoWithCluster)
 		},

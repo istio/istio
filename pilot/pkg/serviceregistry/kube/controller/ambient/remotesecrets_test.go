@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/tests/util/leak"
 )
 
 const secretNamespace string = "istio-system"
@@ -741,6 +742,54 @@ func TestSecretController(t *testing.T) {
 			}, step.want)
 		})
 	}
+}
+
+func TestRemoteClusterCollectionCleanup(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	fakeRestConfig := &rest.Config{}
+	client := kube.NewFakeClient()
+	opts := krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
+	builder := func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		for _, override := range configOverrides {
+			override(fakeRestConfig)
+		}
+		return kube.NewFakeClient(), nil
+	}
+	options := Options{
+		Client:        client,
+		ClusterID:     "local-cluster",
+		ClientBuilder: builder,
+	}
+
+	a := newAmbientTestServerFromOptions(t, testNW, options, true)
+	a.clientBuilder = builder
+	clusters := a.remoteClusters
+
+	assert.Equal(t, clusters.WaitUntilSynced(opts.Stop()), true)
+	secret0 := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-0")})
+	secrets := a.sec
+	assert.Equal(t, a.workloads.WaitUntilSynced(opts.Stop()), true)
+	assert.Equal(t, a.services.WaitUntilSynced(opts.Stop()), true)
+	assert.Equal(t, a.waypoints.WaitUntilSynced(opts.Stop()), true)
+	t.Run("test remote cluster cleanup", func(t *testing.T) {
+		// Verify that we only leak the expected number of goroutines.
+		// Currently for ambient, we leak several goroutines per cluster
+		// (see https://github.com/istio/istio/issues/57269#issuecomment-3203115068
+		// for more details). Testing has shown that the number is ~16 for 1 cluster,
+		// so we set that here to prevent that number from growing accidentally
+		// (e.g. if necessary cleanup gets removed).
+		leak.Check(t, leak.WithAllowedLeaks(16)) // Filter all goroutines that existed before the test started
+		secrets.Create(secret0)
+		assert.EventuallyEqual(t, func() int {
+			return len(a.remoteClusters.List())
+		}, 1)
+		// Now remove the secret
+		secrets.Delete(secret0.Name, secret0.Namespace)
+		assert.EventuallyEqual(t, func() int {
+			return len(a.remoteClusters.List())
+		}, 0)
+		// There shouldn't be any goroutines left from that cluster
+	})
 }
 
 type testHandler struct {
