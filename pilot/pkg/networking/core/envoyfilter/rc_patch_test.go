@@ -1043,7 +1043,7 @@ func Test_routeMatch(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "mis match by action",
+			name: "mismatch by action",
 			args: args{
 				httpRoute: &route.Route{
 					Action: &route.Route_Redirect{Redirect: &route.RedirectAction{}},
