@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	ilabel "istio.io/api/label"
@@ -132,17 +131,17 @@ func TestCrossNamespaceWaypoint(t *testing.T) {
 			testNs, client, server := setupSmallTrafficTest(t)
 
 			// step 1
-			ns, err := t.Clusters().Default().Kube().CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "waypoint",
+			wpNs := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "default",
+				Inject: false,
+				Labels: map[string]string{
+					ilabel.IoIstioDataplaneMode.Name: "ambient",
+					"istio-injection":                "disabled",
 				},
-			}, metav1.CreateOptions{})
-			if err != nil {
-				t.Fatal(err)
-			}
+			})
 
 			// step 2
-			t.ConfigIstio().YAML(ns.Name, fmt.Sprintf(`
+			t.ConfigIstio().YAML(wpNs.Name(), fmt.Sprintf(`
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -159,10 +158,10 @@ spec:
     name: mesh
     port: 15008
     protocol: HBONE
-`, ns.Name)).ApplyOrFail(t)
+`, wpNs.Name())).ApplyOrFail(t)
 
 			retry.UntilSuccessOrFail(t, func() error {
-				return checkWaypointIsReady(t, ns.Name, "crossns-waypoint")
+				return checkWaypointIsReady(t, wpNs.Name(), "crossns-waypoint")
 			}, retry.Timeout(2*time.Minute))
 
 			// apply a route that adds a custom response header when
@@ -203,7 +202,7 @@ spec:
 				t.Fatal(err)
 			}
 
-			svc.Labels[ilabel.IoIstioUseWaypointNamespace.Name] = ns.Name
+			svc.Labels[ilabel.IoIstioUseWaypointNamespace.Name] = wpNs.Name()
 			svc.Labels[ilabel.IoIstioUseWaypoint.Name] = "crossns-waypoint"
 			_, err = t.Clusters().Default().Kube().CoreV1().Services(server.NamespaceName()).Update(context.Background(), svc, metav1.UpdateOptions{})
 			if err != nil {
