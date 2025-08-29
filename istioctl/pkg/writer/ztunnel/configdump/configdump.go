@@ -91,27 +91,27 @@ func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 
 func (c *ConfigWriter) PrintFullSummary() error {
 	_, _ = c.Stdout.Write([]byte("\n"))
-	_, _ = c.Stdout.Write([]byte("------ workload info ------\n\n"))
+	_, _ = c.Stdout.Write([]byte("------ WORKLOAD INFO ------\n\n"))
 	if err := c.PrintWorkloadSummary(WorkloadFilter{}); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
-	_, _ = c.Stdout.Write([]byte("------ service info ------\n\n"))
+	_, _ = c.Stdout.Write([]byte("------ SERVICE INFO ------\n\n"))
 	if err := c.PrintServiceSummary(ServiceFilter{}); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
-	_, _ = c.Stdout.Write([]byte("------ policy info ------\n\n"))
+	_, _ = c.Stdout.Write([]byte("------ POLICY INFO ------\n\n"))
 	if err := c.PrintPolicySummary(PolicyFilter{}); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
-	_, _ = c.Stdout.Write([]byte("------ secret info ------\n\n"))
+	_, _ = c.Stdout.Write([]byte("------ SECRET INFO ------\n\n"))
 	if err := c.PrintSecretSummary(); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
-	_, _ = c.Stdout.Write([]byte("------ connections info ------\n\n"))
+	_, _ = c.Stdout.Write([]byte("------ CONNECTIONS INFO ------\n\n"))
 	if err := c.PrintConnectionsSummary(ConnectionsFilter{}); err != nil {
 		return err
 	}

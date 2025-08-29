@@ -1,5 +1,5 @@
 
------- workload info ------
+------ WORKLOAD INFO ------
 
 NAMESPACE          POD NAME                                             ADDRESS     NODE                  WAYPOINT                            PROTOCOL
 bookinfo           bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg 10.244.2.59 ambient-worker2       None                                TCP
@@ -30,7 +30,7 @@ kube-system        coredns-5dd5756b68-nzlpw                             10.244.0
 local-path-storage local-path-provisioner-6f8956fb48-vvnpn              10.244.0.4  ambient-control-plane None                                TCP
 sleep              sleep-7656cf8794-qpvbm                               10.244.1.16 ambient-worker        None                                TCP
 
------- service info ------
+------ SERVICE INFO ------
 
 NAMESPACE      SERVICE NAME                        SERVICE VIP   WAYPOINT ENDPOINTS
 bookinfo       bookinfo-productpage-istio-waypoint 10.96.71.36   None     1/1
@@ -53,13 +53,13 @@ istio-system   istiod-test                         10.96.182.227 None     1/1
 kube-system    kube-dns                            10.96.0.10    None     2/2
 sleep          sleep                               10.96.89.127  None     1/1
 
------- policy info ------
+------ POLICY INFO ------
 
 NAMESPACE POLICY NAME    ACTION SCOPE
 default   allow-nothing  Allow  Namespace
 default   allow-waypoint Allow  WorkloadSelector
 
------- secret info ------
+------ SECRET INFO ------
 
 CERTIFICATE NAME                                         TYPE     STATUS           VALID CERT     SERIAL NUMBER                        NOT AFTER                NOT BEFORE
 spiffe://cluster.local/ns/istio-system/sa/istiod         Leaf     Available        true           e5dfb59150b2ba7f108d93dcec5aa613     2033-03-22T13:04:57Z     2023-03-21T13:02:57Z
@@ -68,7 +68,7 @@ spiffe://cluster.local/ns/istio-system/sa/ztunnel        NA       Initializing  
 spiffe://cluster.local/ns/istio-system/sa/another-sa     NA       Unavailable      false          NA                                   NA                       NA
 spiffe://cluster.local/ns/istio-system/sa/istiod         NA       Unavailable      false          NA                                   NA                       NA
 
------- connections info ------
+------ CONNECTIONS INFO ------
 
 WORKLOAD                                DIRECTION LOCAL               REMOTE              REMOTE TARGET                PROTOCOL
 details-v1-7f85d59cff-bmpln.bookinfo    Inbound   10.233.97.136:9080  10.233.97.129:55018 details.am.svc.cluster.local HBONE

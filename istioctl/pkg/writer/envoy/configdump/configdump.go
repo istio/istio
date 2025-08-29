@@ -121,26 +121,32 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 }
 
 func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter, epf EndpointFilter) error {
+	_, _ = c.Stdout.Write([]byte("------ BOOTSTRAP INFO ------\n\n"))
 	if err := c.PrintBootstrapSummary(); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	_, _ = c.Stdout.Write([]byte("------ CLUSTER INFO ------\n\n"))
 	if err := c.PrintClusterSummary(cf); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	_, _ = c.Stdout.Write([]byte("------ LISTENER INFO ------\n\n"))
 	if err := c.PrintListenerSummary(lf); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	_, _ = c.Stdout.Write([]byte("------ ROUTE INFO ------\n\n"))
 	if err := c.PrintRouteSummary(rf); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	_, _ = c.Stdout.Write([]byte("------ SECRET INFO ------\n\n"))
 	if err := c.PrintSecretSummary(); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	_, _ = c.Stdout.Write([]byte("------ ENDPOINTS INFO ------\n\n"))
 	if err := c.PrintEndpointsSummary(epf); err != nil {
 		return err
 	}
