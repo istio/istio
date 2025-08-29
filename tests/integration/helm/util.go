@@ -317,7 +317,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		//   minor, we can remove this flag.
 		//
 		// TODO(istio/istio#57507): remove --skip-schema-validation once the gateway chart
-		// for the previous minor has the backported schema updates.		gwArgs := versionArgs
+		// for the previous minor has the backported schema updates.
 		gwArgs := versionArgs
 		if version != "" {
 			gwArgs += " --skip-schema-validation"
