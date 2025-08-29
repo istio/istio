@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var i istio.Instance
@@ -59,8 +60,9 @@ func TestMain(m *testing.M) {
 			ctx.Settings().SkipTProxy = true
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.SkipDeployCrossClusterSecrets = true
+				cfg.DeployEastWestGW = true
 			}
-			cfg.EnableCNI = true
+			cfg.EnableCNI = false
 			cfg.DeployEastWestGW = false
 			cfg.DeployGatewayAPI = true
 			cfg.ControlPlaneValues = `
@@ -79,7 +81,7 @@ values:
     istio-egressgateway:
       enabled: false
       `
-		})).
+		}, cert.CreateCASecretAlt)).
 		Run()
 }
 
