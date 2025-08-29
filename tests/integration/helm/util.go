@@ -297,20 +297,27 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		// Why we skip schema validation when installing old gateway charts
 		//
 		// Context:
-		// - Our GetValuesOverrides() generates a values file with top-level keys that exist on current
-		//   charts (global, revision, profile, _internal_defaults_do_not_set, platform, ...).
-		// - Older gateway charts (the “previous minor” we install from the Helm repo here) have a
-		//   values.schema.json with additionalProperties=false at the root and do not permit those keys.
-		//   This causes Helm to fail at validation before rendering.
+		// - With newer Helm versions, validation against values.schema.json is stricter. Older
+		//   gateway chart schemas (the “previous minor” we install from the Helm repo here) have
+		//   additionalProperties=false at the root and do not list newer top-level keys we include
+		//   in our test overrides (e.g., global, revision, profile, _internal_defaults_do_not_set,
+		//   platform). Newer Helm enforces this more strictly, causing the install to fail before
+		//   rendering.
+		// - This is not just a “test-only” mismatch; new Helm + old charts can fail validation in
+		//   some user scenarios as well. Backports are being prepared/applied to the older charts
+		//   to address this at the source.
 		//
-		// Why this is safe:
-		// - In real upgrades, users already have 1.(n-1) installed with values that were valid for that
-		//   release; they do not re-install old charts with “future” (n) values. The test is unique in
-		//   that it installs the previous release while using a values file shaped by current code.
-		// - Skipping schema validation here avoids a false-negative in test setup and better matches the
-		//   real-world flow (old install with old-compatible values, then upgrade to new charts).
-		// - We only skip validation for this legacy gateway install (when version != ""), and we continue
-		//   to validate all installs/upgrades of the charts under test (master) as usual.
+		// Why this is safe (and temporary):
+		// - In this test we only skip schema validation for the legacy gateway install (when
+		//   version != "") to unblock the upgrade flow. We continue to fully validate installs
+		//   and upgrades of the charts under test (master).
+		// - This does not weaken the validation of current charts, and it avoids upgrade test
+		//   failures rooted in old chart schemas plus stricter Helm behavior.
+		// - Once the backported schema fixes are published in the Helm repo for the previous
+		//   minor, we can remove this flag.
+		//
+		// TODO(istio/istio#57507): remove --skip-schema-validation once the gateway chart
+		// for the previous minor has the backported schema updates.		gwArgs := versionArgs
 		gwArgs := versionArgs
 		if version != "" {
 			gwArgs += " --skip-schema-validation"
