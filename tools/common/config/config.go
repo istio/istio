@@ -91,6 +91,7 @@ type Config struct {
 	CleanupOnly              bool       `json:"CLEANUP_ONLY"`
 	ForceApply               bool       `json:"FORCE_APPLY"`
 	NativeNftables           bool       `json:"NATIVE_NFTABLES"`
+	AmbientMode              bool       `json:"AMBIENT_MODE"`
 }
 
 type NetworkRange struct {
