@@ -313,7 +313,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		//   to validate all installs/upgrades of the charts under test (master) as usual.
 		gwArgs := versionArgs
 		if version != "" {
-			gwArgs = gwArgs + " --skip-schema-validation"
+			gwArgs += " --skip-schema-validation"
 		}
 		err = h.InstallChart(
 			IngressReleaseName, gatewayChartPath, nsConfig.Get(IngressReleaseName),
