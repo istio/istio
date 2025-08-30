@@ -12,22 +12,62 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package iptables
+package nftables
 
 import (
+	"context"
 	"net/netip"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
+	"sigs.k8s.io/knftables"
+
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/scopes"
 	testutil "istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/test/util/assert"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
+	"istio.io/istio/tools/istio-nftables/pkg/builder"
 )
 
-func TestIptablesPodOverrides(t *testing.T) {
+// MockNftablesCapture wraps the MockNftables to capture all executed transactions
+type MockNftablesCapture struct {
+	*builder.MockNftables
+	lock         sync.Mutex
+	transactions []string
+}
+
+func NewMockNftablesCapture() *MockNftablesCapture {
+	return &MockNftablesCapture{
+		MockNftables: builder.NewMockNftables("", ""),
+		transactions: make([]string, 0),
+	}
+}
+
+func (m *MockNftablesCapture) Run(ctx context.Context, tx *knftables.Transaction) error {
+	// Lets store the transaction as string before running it using the actual mock
+	m.lock.Lock()
+	if tx.NumOperations() > 0 {
+		m.transactions = append(m.transactions, tx.String())
+	}
+	m.lock.Unlock()
+
+	// Run the actual transaction through the mock
+	return m.MockNftables.Run(ctx, tx)
+}
+
+func (m *MockNftablesCapture) GetCapturedRules() []string {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	// Return a copy to avoid race conditions
+	result := make([]string, len(m.transactions))
+	copy(result, m.transactions)
+	return result
+}
+
+func TestNftablesPodOverrides(t *testing.T) {
 	cases := GetCommonInPodTestCases()
 
 	for _, tt := range cases {
@@ -37,36 +77,29 @@ func TestIptablesPodOverrides(t *testing.T) {
 				cfg.EnableIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
+
+				mock := NewMockNftablesCapture()
+				originalProvider := nftProviderVar
+				nftProviderVar = func(_ knftables.Family, table string) (builder.NftablesAPI, error) {
+					return mock, nil
+				}
+				defer func() {
+					nftProviderVar = originalProvider
+				}()
+
+				iptConfigurator, _, _ := NewNftablesConfigurator(cfg, cfg, ext, ext, iptables.EmptyNlDeps())
 				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				compareToGolden(t, ipv6, tt.name, ext.ExecutedAll)
+				compareToGolden(t, ipv6, tt.name, mock.GetCapturedRules())
 			})
 		}
 	}
 }
 
-func TestIPv6NotAvailable(t *testing.T) {
-	setup(t)
-	cfg := constructTestConfig()
-	ext := &dep.DependenciesStub{
-		ForceIPv6DetectionFail: true,
-	}
-
-	// Istio shouldn't fail if we're working with IPv4 interfaces only, and ip6tables is unavailable.
-	cfg.EnableIPv6 = false
-	_, _, err := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
-	assert.NoError(t, err)
-
-	cfg.EnableIPv6 = true
-	_, _, err = NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
-	assert.Error(t, err)
-}
-
-func TestIptablesHostRules(t *testing.T) {
+func TestNftablesHostRules(t *testing.T) {
 	cases := GetCommonHostTestCases()
 
 	for _, tt := range cases {
@@ -74,17 +107,25 @@ func TestIptablesHostRules(t *testing.T) {
 			t.Run(tt.name+"_"+ipstr(ipv6), func(t *testing.T) {
 				cfg := constructTestConfig()
 				cfg.EnableIPv6 = ipv6
-				cfg.HostProbeSNATAddress = netip.MustParseAddr("169.254.7.127")
-				cfg.HostProbeV6SNATAddress = netip.MustParseAddr("fd16:9254:7127:1337:ffff:ffff:ffff:ffff")
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
+
+				mock := NewMockNftablesCapture()
+				originalProvider := nftProviderVar
+				nftProviderVar = func(_ knftables.Family, table string) (builder.NftablesAPI, error) {
+					return mock, nil
+				}
+				defer func() {
+					nftProviderVar = originalProvider
+				}()
+
+				iptConfigurator, _, _ := NewNftablesConfigurator(cfg, cfg, ext, ext, iptables.EmptyNlDeps())
 				err := iptConfigurator.CreateHostRulesForHealthChecks()
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				compareToGolden(t, ipv6, tt.name, ext.ExecutedAll)
+				compareToGolden(t, ipv6, tt.name, mock.GetCapturedRules())
 			})
 		}
 	}
@@ -98,20 +139,35 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 			cfg := constructTestConfig()
 			tt.config(cfg)
 			ext := &dep.DependenciesStub{}
-			iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
+
+			mock := NewMockNftablesCapture()
+			originalProvider := nftProviderVar
+			nftProviderVar = func(_ knftables.Family, table string) (builder.NftablesAPI, error) {
+				return mock, nil
+			}
+			defer func() {
+				nftProviderVar = originalProvider
+			}()
+
+			iptConfigurator, _, _ := NewNftablesConfigurator(cfg, cfg, ext, ext, iptables.EmptyNlDeps())
 			err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
 			if err != nil {
 				t.Fatal(err)
 			}
-			compareToGolden(t, false, tt.name, ext.ExecutedAll)
+			compareToGolden(t, false, tt.name, mock.GetCapturedRules())
 
-			*ext = dep.DependenciesStub{}
-			// run another time to make sure we are idempotent
+			// Reset the mock to capture only the second run
+			mock = NewMockNftablesCapture()
+			nftProviderVar = func(_ knftables.Family, table string) (builder.NftablesAPI, error) {
+				return mock, nil
+			}
+
+			// run another time to make sure its idempotent
 			err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
 			if err != nil {
 				t.Fatal(err)
 			}
-			compareToGolden(t, false, tt.name, ext.ExecutedAll)
+			compareToGolden(t, false, tt.name, mock.GetCapturedRules())
 		})
 	}
 }
