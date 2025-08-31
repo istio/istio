@@ -214,22 +214,22 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 	}
 }
 
-func TestPrintProxyConfigSummaryWithHeadings(t *testing.T) {
+func TestPrintProxyConfigSummaryWithHeaders(t *testing.T) {
 	cmd := ProxyConfig(cli.NewFakeContext(&cli.NewFakeContextOption{
 		Namespace: "default",
 	}))
 	cmd.SetArgs([]string{
 		"all",
 		"-f", "testdata/config_dump.json",
-		"--with-headings",
+		"--with-headers",
 	})
 	out := bytes.Buffer{}
 	cmd.SetOut(&out)
 	assert.NoError(t, cmd.Execute())
-	expected := util.ReadFile(t, "testdata/config_dump_summary_withheadings.txt")
+	expected := util.ReadFile(t, "testdata/config_dump_summary_withHeaders.txt")
 
 	if err := assert.Compare(out.String(), string(expected)); err != nil {
-		t.Fatalf("Unexpected output for 'istioctl proxy-config all --with-headings'\n got: %q\nwant: %q", out.String(), expected)
+		t.Fatalf("Unexpected output for 'istioctl proxy-config all --with-headers'\n got: %q\nwant: %q", out.String(), expected)
 	}
 }
 
