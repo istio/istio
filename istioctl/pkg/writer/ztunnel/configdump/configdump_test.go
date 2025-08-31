@@ -102,7 +102,7 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 		},
 		{
 			name:                     "all with headers",
-			wantOutputAllwithHeaders: "testdata/allsummary_withHeaders.txt",
+			wantOutputAllwithHeaders: "testdata/allsummary_withheaders.txt",
 		},
 	}
 	for _, tt := range tests {

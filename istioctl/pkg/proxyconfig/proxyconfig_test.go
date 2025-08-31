@@ -226,7 +226,7 @@ func TestPrintProxyConfigSummaryWithHeaders(t *testing.T) {
 	out := bytes.Buffer{}
 	cmd.SetOut(&out)
 	assert.NoError(t, cmd.Execute())
-	expected := util.ReadFile(t, "testdata/config_dump_summary_withHeaders.txt")
+	expected := util.ReadFile(t, "testdata/config_dump_summary_withheaders.txt")
 
 	if err := assert.Compare(out.String(), string(expected)); err != nil {
 		t.Fatalf("Unexpected output for 'istioctl proxy-config all --with-headers'\n got: %q\nwant: %q", out.String(), expected)
