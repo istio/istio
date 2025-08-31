@@ -89,37 +89,37 @@ func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 	return nil
 }
 
-func (c *ConfigWriter) pringHeadings(summary string, withHeadings bool) {
-	if withHeadings {
+func (c *ConfigWriter) printHeaders(summary string, withHeaders bool) {
+	if withHeaders {
 		_, _ = c.Stdout.Write([]byte("------ "))
 		_, _ = c.Stdout.Write([]byte(summary))
 		_, _ = c.Stdout.Write([]byte(" ------\n\n"))
 	}
 }
 
-func (c *ConfigWriter) PrintFullSummary(withHeadings bool) error {
+func (c *ConfigWriter) PrintFullSummary(withHeaders bool) error {
 	_, _ = c.Stdout.Write([]byte("\n"))
-	c.pringHeadings("WORKLOAD INFO", withHeadings)
+	c.printHeaders("WORKLOAD INFO", withHeaders)
 	if err := c.PrintWorkloadSummary(WorkloadFilter{}); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
-	c.pringHeadings("SERVICE INFO", withHeadings)
+	c.printHeaders("SERVICE INFO", withHeaders)
 	if err := c.PrintServiceSummary(ServiceFilter{}); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
-	c.pringHeadings("POLICY INFO", withHeadings)
+	c.printHeaders("POLICY INFO", withHeaders)
 	if err := c.PrintPolicySummary(PolicyFilter{}); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
-	c.pringHeadings("SECRET INFO", withHeadings)
+	c.printHeaders("SECRET INFO", withHeaders)
 	if err := c.PrintSecretSummary(); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
-	c.pringHeadings("CONNECTIONS INFO", withHeadings)
+	c.printHeaders("CONNECTIONS INFO", withHeaders)
 	if err := c.PrintConnectionsSummary(ConnectionsFilter{}); err != nil {
 		return err
 	}
