@@ -159,11 +159,18 @@ func TestMain(m *testing.M) {
 				// features
 				cfg.SkipDeployCrossClusterSecrets = true
 			}
+			cfg.Values = map[string]string{
+				"pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION": "true",
+			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Cluster = t.Clusters().Default()
 			gatewayConformanceInputs.Client = t.Clusters().Default()
 			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
+
+			gatewayInferenceConformanceInputs.Cluster = t.Clusters().Default()
+			gatewayInferenceConformanceInputs.Client = t.Clusters().Default()
+			gatewayInferenceConformanceInputs.Cleanup = !t.Settings().NoCleanup
 
 			return nil
 		}).
