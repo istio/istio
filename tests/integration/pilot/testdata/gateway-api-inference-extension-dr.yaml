@@ -1,0 +1,24 @@
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: primary-endpoint-picker-tls
+  namespace: gateway-conformance-app-backend
+spec:
+  host: primary-endpoint-picker-svc
+  trafficPolicy:
+      tls:
+        mode: SIMPLE
+        insecureSkipVerify: true
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: secondary-endpoint-picker-tls
+  namespace: gateway-conformance-app-backend
+spec:
+  host: secondary-endpoint-picker-svc
+  trafficPolicy:
+      tls:
+        mode: SIMPLE
+        insecureSkipVerify: true
