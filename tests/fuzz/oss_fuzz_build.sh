@@ -14,51 +14,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cd "$SRC"
-git clone --depth=1 https://github.com/AdamKorcz/go-118-fuzz-build --branch=november-backup
-cd go-118-fuzz-build
-go build .
-mv go-118-fuzz-build /root/go/bin/
-cd "$SRC"/istio
-
 set -o nounset
 set -o pipefail
 set -o errexit
 set -x
 
-# Create empty file that imports "github.com/AdamKorcz/go-118-fuzz-build/testing"
-# This is a small hack to install this dependency, since it is not used anywhere,
-# and Go would therefore remove it from go.mod once we run "go mod tidy && go mod vendor".
-printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testing\"\n" > register.go
-go mod edit -replace github.com/AdamKorcz/go-118-fuzz-build="$SRC"/go-118-fuzz-build
-go mod tidy
-
+rm pkg/config/validation/openapi_test.go
+rm pkg/config/mesh/mesh_test.go
+rm pilot/pkg/model/addressmap_test.go
+rm pilot/pkg/model/cluster_local_test.go
+rm pilot/pkg/model/config_test.go
+rm pilot/pkg/model/conversion_test.go
+rm pilot/pkg/model/context_test.go
+rm pilot/pkg/model/network_test.go
+rm pilot/pkg/model/proxy_view_test.go
+rm pilot/pkg/networking/core/gateway_simulation_test.go
+rm pilot/pkg/networking/core/sidecar_simulation_test.go
+rm pilot/pkg/networking/core/peer_authentication_simulation_test.go
+rm pilot/pkg/networking/core/serviceentry_simulation_test.go
 # compile native-format fuzzers
-compile_native_go_fuzzer istio.io/istio/security/pkg/pki/ra ValidateCSR ValidateCSR
-compile_native_go_fuzzer istio.io/istio/security/pkg/pki/ca FuzzIstioCASign FuzzIstioCASign
-compile_native_go_fuzzer istio.io/istio/security/pkg/server/ca FuzzCreateCertificate FuzzCreateCertificate
-compile_native_go_fuzzer istio.io/istio/security/pkg/server/ca/authenticate FuzzBuildSecurityCaller FuzzBuildSecurityCaller
-compile_native_go_fuzzer istio.io/istio/security/pkg/k8s/chiron FuzzReadCACert FuzzReadCACert
-#compile_native_go_fuzzer istio.io/istio/pkg/config/validation FuzzCRDs FuzzCRDs
-compile_native_go_fuzzer istio.io/istio/pkg/config/validation FuzzValidateHeaderValue FuzzValidateHeaderValue
-compile_native_go_fuzzer istio.io/istio/pkg/config/mesh FuzzValidateMeshConfig FuzzValidateMeshConfig
-compile_native_go_fuzzer istio.io/istio/pkg/bootstrap FuzzWriteTo FuzzWriteTo
-compile_native_go_fuzzer istio.io/istio/pkg/kube/inject FuzzRunTemplate FuzzRunTemplate
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder FuzzBuildHTTP FuzzBuildHTTP
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder FuzzBuildTCP FuzzBuildTCP
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyService FuzzDeepCopyService
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyServiceInstance FuzzDeepCopyServiceInstance
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyWorkloadInstance FuzzDeepCopyWorkloadInstance
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyIstioEndpoint FuzzDeepCopyIstioEndpoint
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/util FuzzShallowCopyTrafficPolicy FuzzShallowCopyTrafficPolicy
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/util FuzzShallowCopyPortTrafficPolicy FuzzShallowCopyPortTrafficPolicy
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/util FuzzMergeTrafficPolicy FuzzMergeTrafficPolicy
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core/loadbalancer FuzzApplyLocalityLBSetting FuzzApplyLocalityLBSetting
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core/envoyfilter FuzzApplyClusterMerge FuzzApplyClusterMerge
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core FuzzBuildGatewayListeners FuzzBuildGatewayListeners
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core FuzzBuildSidecarOutboundHTTPRouteConfig FuzzBuildSidecarOutboundHTTPRouteConfig
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core FuzzBuildSidecarOutboundListeners FuzzBuildSidecarOutboundListeners
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/serviceregistry/kube/controller FuzzKubeController FuzzKubeController
+compile_native_go_fuzzer_v2 istio.io/istio/security/pkg/pki/ra ValidateCSR ValidateCSR
+compile_native_go_fuzzer_v2 istio.io/istio/security/pkg/pki/ca FuzzIstioCASign FuzzIstioCASign
+compile_native_go_fuzzer_v2 istio.io/istio/security/pkg/server/ca FuzzCreateCertificate FuzzCreateCertificate
+compile_native_go_fuzzer_v2 istio.io/istio/security/pkg/server/ca/authenticate FuzzBuildSecurityCaller FuzzBuildSecurityCaller
+compile_native_go_fuzzer_v2 istio.io/istio/security/pkg/k8s/chiron FuzzReadCACert FuzzReadCACert
+#compile_native_go_fuzzer_v2 istio.io/istio/pkg/config/validation FuzzCRDs FuzzCRDs
+compile_native_go_fuzzer_v2 istio.io/istio/pkg/config/validation FuzzValidateHeaderValue FuzzValidateHeaderValue
+compile_native_go_fuzzer_v2 istio.io/istio/pkg/config/mesh FuzzValidateMeshConfig FuzzValidateMeshConfig
+compile_native_go_fuzzer_v2 istio.io/istio/pkg/bootstrap FuzzWriteTo FuzzWriteTo
+compile_native_go_fuzzer_v2 istio.io/istio/pkg/kube/inject FuzzRunTemplate FuzzRunTemplate
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/security/authz/builder FuzzBuildHTTP FuzzBuildHTTP
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/security/authz/builder FuzzBuildTCP FuzzBuildTCP
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/model FuzzDeepCopyService FuzzDeepCopyService
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/model FuzzDeepCopyServiceInstance FuzzDeepCopyServiceInstance
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/model FuzzDeepCopyWorkloadInstance FuzzDeepCopyWorkloadInstance
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/model FuzzDeepCopyIstioEndpoint FuzzDeepCopyIstioEndpoint
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/networking/util FuzzShallowCopyTrafficPolicy FuzzShallowCopyTrafficPolicy
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/networking/util FuzzShallowCopyPortTrafficPolicy FuzzShallowCopyPortTrafficPolicy
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/networking/util FuzzMergeTrafficPolicy FuzzMergeTrafficPolicy
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/networking/core/loadbalancer FuzzApplyLocalityLBSetting FuzzApplyLocalityLBSetting
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/networking/core/envoyfilter FuzzApplyClusterMerge FuzzApplyClusterMerge
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/networking/core FuzzBuildGatewayListeners FuzzBuildGatewayListeners
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/networking/core FuzzBuildSidecarOutboundHTTPRouteConfig FuzzBuildSidecarOutboundHTTPRouteConfig
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/networking/core FuzzBuildSidecarOutboundListeners FuzzBuildSidecarOutboundListeners
+compile_native_go_fuzzer_v2 istio.io/istio/pilot/pkg/serviceregistry/kube/controller FuzzKubeController FuzzKubeController
 
 # Now compile fuzzers from tests/fuzz
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCRDRoundtrip fuzz_crd_roundtrip
