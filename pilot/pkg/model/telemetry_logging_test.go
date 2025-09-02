@@ -253,7 +253,7 @@ func TestAccessLogging(t *testing.T) {
 			},
 		},
 	}
-	nonExistant := &tpb.Telemetry{
+	nonExistent := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
 				Providers: []*tpb.ProviderRef{
@@ -630,7 +630,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"non existing",
-			[]config.Config{newTelemetry("default", nonExistant)},
+			[]config.Config{newTelemetry("default", nonExistent)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			[]string{"envoy"},

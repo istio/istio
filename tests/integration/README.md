@@ -355,7 +355,7 @@ Note that samples below invoking variations of ```go test ./...``` are intended 
 
 Tests are tagged with the `integ` build target to avoid accidental invocation. If this is not set, no tests will be run.
 
-### Test Parellelism and Kubernetes
+### Test Parallelism and Kubernetes
 
 By default, Go will run tests within the same package (i.e. suite) synchronously. However, tests in other packages
 may be run concurrently.
@@ -557,7 +557,7 @@ The test framework supports the following command-line flags:
 | --istio.test.kube.helm.iopFile | string | IstioOperator spec file. This can be an absolute path or relative to the repository root. Defaults to "tests/integration/iop-integration-test-defaults.yaml". |
 | --istio.test.kube.loadbalancer | bool | Used to obtain the right IP address for ingress gateway. This should be false for any environment that doesn't support a LoadBalancer type. |
 | --istio.test.kube.deployGatewayAPI | bool | Deploy gateway API during tests execution. (default is "true"). |
-| --istio.test.revision | string | Overwrite the default namespace label (istio-enabled=true) with revision lable (istio.io/rev=XXX). (default is no overwrite). |
+| --istio.test.revision | string | Overwrite the default namespace label (istio-enabled=true) with revision label (istio.io/rev=XXX). (default is no overwrite). |
 | --istio.test.skip | []string | Skip tests matching the regular expression. This follows the semantics of -test.run. |
 | --istio.test.skipVM | bool | Skip all the VM related parts in all the tests. (default is "false"). |
 | --istio.test.helmRepo | string | Overwrite the default helm Repo used for the tests. |

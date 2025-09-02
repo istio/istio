@@ -113,7 +113,7 @@ func IsDNS1123Label(value string) bool {
 }
 
 // IsWildcardDNS1123Label tests for a string that conforms to the definition of a label in DNS (RFC 1123), but allows
-// the wildcard label (`*`), and typical labels with a leading astrisk instead of alphabetic character (e.g. "*-foo")
+// the wildcard label (`*`), and typical labels with a leading asterisk instead of alphabetic character (e.g. "*-foo")
 func IsWildcardDNS1123Label(value string) bool {
 	return len(value) <= DNS1123LabelMaxLength && wildcardPrefixRegexp.MatchString(value)
 }

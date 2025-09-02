@@ -219,11 +219,11 @@ type Client struct {
 func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resource, event Event) error {
 	var res *Resource
 	if r == nil {
-		return fmt.Errorf("trigged by event %d,but resource is nil", event)
+		return fmt.Errorf("triggered by event %d,but resource is nil", event)
 	}
 	if event == EventAdd {
 		if r.Resource == nil {
-			return fmt.Errorf("trigged by EventAdd,but be added resource object is nil")
+			return fmt.Errorf("triggered by EventAdd,but be added resource object is nil")
 		}
 		entity := newProto(typeURL)
 		if entity == nil {
