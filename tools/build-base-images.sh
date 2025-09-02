@@ -75,6 +75,7 @@ unexpectedFiles="$(
     grep -v '^usr/bin/xtables' | \
     grep -v '^usr/bin/ldconfig$' | \
     grep -v '^usr/bin/nft' | \
+    grep -v '^usr/share/doc/nftables/examples/.*.nft' | \
     grep -v '^etc/apk/commit_hooks.d/ldconfig-commit.sh$' | \
     grep -v '.*\.so[0-9\.]*' || true
 )"
