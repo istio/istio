@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
-kind: feature
-area: networking
+kind: bug-fix
+area: traffic-management
+issue:
+  - 57528
 releaseNotes:
 - |
-  **Fixed** an issue that preserve header case option overrides other http options, e.g. http1.0 support.
+  **Fixed** an issue where the PreserveHeaderCase option was overriding other HTTP/1.x protocol options such as HTTP/1.0 support.
