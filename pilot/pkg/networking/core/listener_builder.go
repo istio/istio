@@ -324,7 +324,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// Preserve HTTP/1.x traffic header case
 	if lb.node.Metadata.ProxyConfigOrDefault(lb.push.Mesh.GetDefaultConfig()).GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue() {
 		// This value only affects HTTP/1.x traffic
-		connectionManager.HttpProtocolOptions = preserveCaseFormatterConfig
+		if connectionManager.HttpProtocolOptions == nil {
+			connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{}
+		}
+		connectionManager.HttpProtocolOptions.HeaderKeyFormat = preserveCaseFormatterConfig.HeaderKeyFormat
 	}
 
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
