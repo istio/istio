@@ -7,12 +7,12 @@ metadata:
   namespace: "istio-system"
   labels:
     
-    helm.sh/chart: kiali-server-2.13.0
+    helm.sh/chart: kiali-server-2.14.0
     app: kiali
     app.kubernetes.io/name: kiali
     app.kubernetes.io/instance: kiali
-    version: "v2.13.0"
-    app.kubernetes.io/version: "v2.13.0"
+    version: "v2.14.0"
+    app.kubernetes.io/version: "v2.14.0"
     app.kubernetes.io/part-of: "kiali"
 ...
 ---
@@ -24,12 +24,12 @@ metadata:
   namespace: "istio-system"
   labels:
     
-    helm.sh/chart: kiali-server-2.13.0
+    helm.sh/chart: kiali-server-2.14.0
     app: kiali
     app.kubernetes.io/name: kiali
     app.kubernetes.io/instance: kiali
-    version: "v2.13.0"
-    app.kubernetes.io/version: "v2.13.0"
+    version: "v2.14.0"
+    app.kubernetes.io/version: "v2.14.0"
     app.kubernetes.io/part-of: "kiali"
 data:
   config.yaml: |
@@ -114,7 +114,7 @@ data:
       service_type: ""
       tolerations: []
       topology_spread_constraints: []
-      version_label: v2.13.0
+      version_label: v2.14.0
       view_only_mode: false
     external_services:
       custom_dashboards:
@@ -126,7 +126,6 @@ data:
     identity:
       cert_file: ""
       private_key_file: ""
-    istio_namespace: istio-system
     kiali_feature_flags:
       disabled_features: []
       validations:
@@ -151,12 +150,12 @@ metadata:
   name: kiali
   labels:
     
-    helm.sh/chart: kiali-server-2.13.0
+    helm.sh/chart: kiali-server-2.14.0
     app: kiali
     app.kubernetes.io/name: kiali
     app.kubernetes.io/instance: kiali
-    version: "v2.13.0"
-    app.kubernetes.io/version: "v2.13.0"
+    version: "v2.14.0"
+    app.kubernetes.io/version: "v2.14.0"
     app.kubernetes.io/part-of: "kiali"
 rules:
 - apiGroups: [""]
@@ -266,12 +265,12 @@ metadata:
   name: kiali
   labels:
     
-    helm.sh/chart: kiali-server-2.13.0
+    helm.sh/chart: kiali-server-2.14.0
     app: kiali
     app.kubernetes.io/name: kiali
     app.kubernetes.io/instance: kiali
-    version: "v2.13.0"
-    app.kubernetes.io/version: "v2.13.0"
+    version: "v2.14.0"
+    app.kubernetes.io/version: "v2.14.0"
     app.kubernetes.io/part-of: "kiali"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -291,12 +290,12 @@ metadata:
   namespace: "istio-system"
   labels:
     
-    helm.sh/chart: kiali-server-2.13.0
+    helm.sh/chart: kiali-server-2.14.0
     app: kiali
     app.kubernetes.io/name: kiali
     app.kubernetes.io/instance: kiali
-    version: "v2.13.0"
-    app.kubernetes.io/version: "v2.13.0"
+    version: "v2.14.0"
+    app.kubernetes.io/version: "v2.14.0"
     app.kubernetes.io/part-of: "kiali"
   annotations:
 spec:
@@ -322,12 +321,12 @@ metadata:
   namespace: "istio-system"
   labels:
     
-    helm.sh/chart: kiali-server-2.13.0
+    helm.sh/chart: kiali-server-2.14.0
     app: kiali
     app.kubernetes.io/name: kiali
     app.kubernetes.io/instance: kiali
-    version: "v2.13.0"
-    app.kubernetes.io/version: "v2.13.0"
+    version: "v2.14.0"
+    app.kubernetes.io/version: "v2.14.0"
     app.kubernetes.io/part-of: "kiali"
 spec:
   replicas: 1
@@ -345,16 +344,16 @@ spec:
       name: kiali
       labels:
         
-        helm.sh/chart: kiali-server-2.13.0
+        helm.sh/chart: kiali-server-2.14.0
         app: kiali
         app.kubernetes.io/name: kiali
         app.kubernetes.io/instance: kiali
-        version: "v2.13.0"
-        app.kubernetes.io/version: "v2.13.0"
+        version: "v2.14.0"
+        app.kubernetes.io/version: "v2.14.0"
         app.kubernetes.io/part-of: "kiali"
         sidecar.istio.io/inject: "false"
       annotations:
-        checksum/config: 1c39c57d29555b368c7c47ed30b7e342aa7d22767b1e185ce4891a097c01a8ed
+        checksum/config: 484b40a087e92aaa1f5cb09b5f90dd7aa9a4afb2fabb85540f91a7192aab4d2b
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         kiali.io/dashboards: go,kiali
