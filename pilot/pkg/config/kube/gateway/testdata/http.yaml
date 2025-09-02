@@ -403,6 +403,8 @@ spec:
       app: vllm-llama3-8b-instruct
   endpointPickerRef:
     name: vllm-llama3-8b-instruct-epp
+    port:
+      number: 9002
 ---
 apiVersion: inference.networking.k8s.io/v1
 kind: InferencePool
@@ -417,3 +419,5 @@ spec:
       app: vllm-llama3-8b-instruct
   endpointPickerRef:
     name: vllm-llama3-8b-instruct-epp
+    port:
+      number: 9002
