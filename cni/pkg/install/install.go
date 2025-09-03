@@ -430,7 +430,7 @@ func setNotReady(isReady *atomic.Value) {
 	isReady.Store(false)
 }
 
-// installationThrottle is a small wrapper around a rate limitter. It aims to avoid excessive writes to CNI configuration,
+// installationThrottle is a small wrapper around a rate limiter. It aims to avoid excessive writes to CNI configuration,
 // and detect if there is a loop of requests, typically caused by another component constantly reverting our work.
 // Where possible, the remediate steps are logged.
 type installationThrottle struct {

@@ -147,7 +147,7 @@ func compareCSRs(orgCSR, genCSR *x509.CertificateRequest) bool {
 	if len(orgCSR.EmailAddresses) != len(genCSR.EmailAddresses) {
 		return false
 	}
-	// Expexted length is 0
+	// Expected length is 0
 	if len(orgCSR.IPAddresses) != len(genCSR.IPAddresses) {
 		return false
 	}
@@ -184,7 +184,7 @@ func NewIstioRA(opts *IstioRAOptions) (RegistrationAuthority, error) {
 func preSign(raOpts *IstioRAOptions, csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) (time.Duration, error) {
 	if forCA {
 		return requestedLifetime, raerror.NewError(raerror.CSRError,
-			fmt.Errorf("unable to generate CA certifificates"))
+			fmt.Errorf("unable to generate CA certificates"))
 	}
 	if !ValidateCSR(csrPEM, subjectIDs) {
 		return requestedLifetime, raerror.NewError(raerror.CSRError, fmt.Errorf(

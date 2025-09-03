@@ -242,7 +242,7 @@ def logout():
 async def getProductReviewsIgnoreResponse(product_id, headers):
     getProductReviews(product_id, headers)
 
-# flood reviews with unnecessary requests to demonstrate Istio rate limiting, asynchoronously
+# flood reviews with unnecessary requests to demonstrate Istio rate limiting, asynchronously
 
 
 async def floodReviewsAsynchronously(product_id, headers):
