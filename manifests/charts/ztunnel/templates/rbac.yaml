@@ -1,26 +1,4 @@
-apiVersion: v1
-kind: ServiceAccount
-  {{- with .Values.imagePullSecrets }}
-imagePullSecrets:
-  {{- range . }}
-  - name: {{ . }}
-  {{- end }}
-  {{- end }}
-metadata:
-  name: {{ include "ztunnel.release-name" . }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app.kubernetes.io/name: ztunnel
-    {{- include "istio.labels" . | nindent 4}}
-    {{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
-  annotations:
-{{- if .Values.revision }}
-    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
-    {{- toYaml $annos | nindent 4}}
-{{- else }}
-    {{- .Values.annotations | toYaml | nindent 4 }}
-{{- end }}
----
+{{- if not .Values.omitClusterResources }}
 {{- if (eq (.Values.platform | default "") "openshift") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -72,3 +50,4 @@ subjects:
   namespace: {{ .Release.Namespace }}
 {{- end }}
 ---
+{{- end }}

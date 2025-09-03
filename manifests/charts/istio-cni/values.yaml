@@ -180,5 +180,8 @@ _internal_defaults_do_not_set:
     # In order to use native nftable rules instead of iptable rules, set this flag to true.
     nativeNftables: false
 
+    # Whether to omit cluster resources for persona-based installations
+    omitClusterResources: false
+
   # A `key: value` mapping of environment variables to add to the pod
   env: {}

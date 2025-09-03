@@ -119,6 +119,9 @@ _internal_defaults_do_not_set:
   #seLinuxOptions:
   #  type: spc_t
 
+  # Whether to omit cluster resources for persona-based installations
+  omitClusterResources: false
+
   # K8s DaemonSet update strategy.
   # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
   updateStrategy:
