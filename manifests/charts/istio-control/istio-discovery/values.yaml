@@ -293,6 +293,9 @@ _internal_defaults_do_not_set:
 
     omitSidecarInjectorConfigMap: false
 
+    # Whether to omit cluster resources for persona-based installations
+    omitClusterResources: false
+
     # Configure whether Operator manages webhook configurations. The current behavior
     # of Istiod is to manage its own webhook configurations.
     # When this option is set as true, Istio Operator, instead of webhooks, manages the
