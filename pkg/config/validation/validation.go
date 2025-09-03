@@ -75,8 +75,9 @@ var (
 	tchars               = "!#$%&'*+-.^_`|~" + "A-Z" + "a-z" + "0-9"
 	validHeaderNameRegex = regexp.MustCompile("^[" + tchars + "]+$")
 
-	validProbeHeaderNameRegex  = regexp.MustCompile("^[-A-Za-z0-9]+$")
-	validStrictHeaderNameRegex = validProbeHeaderNameRegex
+	validProbeHeaderNameRegex = regexp.MustCompile("^[-A-Za-z0-9]+$")
+	// This is kept as a semi-arbitrary set of allowed characters for backwards compatibility.
+	validStrictHeaderNameRegex = regexp.MustCompile("^[-_A-Za-z0-9]+$")
 )
 
 const (
