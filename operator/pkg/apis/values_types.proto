@@ -645,7 +645,13 @@ message GlobalConfig {
 
   // Settings related to Kubernetes NetworkPolicy.
   NetworkPolicyConfig networkPolicy = 75;
-  // The next available key is 76
+
+  // Specifies whether resources such as ClusterRole and ClusterRoleBinding are installed.
+  // This is useful when Mesh Administrator and Kubernetes Administrator are different rolls
+  // and cluster-scope resources cannot be applied by a Mesh Administrator.
+  // Cluster-scope resources would need to be templated or installed using helm.
+  google.protobuf.BoolValue omitClusterResources = 76;
+  // The next available key is 77
 }
 
 // Configuration for Security Token Service (STS) server.
