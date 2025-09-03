@@ -1,6 +1,8 @@
 # Not created if istiod is running remotely
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+# a workaround for https://github.com/kubernetes/kubernetes/issues/93476
+{{- if or (and .Values.autoscaleEnabled  (gt (int .Values.autoscaleMin) 1)) (and (not .Values.autoscaleEnabled) (gt (int .Values.replicaCount) 1)) }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -33,5 +35,6 @@ spec:
       istio: pilot
       {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

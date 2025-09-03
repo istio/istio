@@ -287,7 +287,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 
 			var overrideAddresses []string
 			// If not expect a pod, it means this is not an endpointslice not managed by kubernetes.
-			// We donot add all pod ips to the istio endpoint.
+			// We do not add all pod ips to the istio endpoint.
 			if features.EnableDualStack && expectedPod && svcCore != nil && len(pod.Status.PodIPs) > 1 && len(svcCore.Spec.ClusterIPs) > 1 {
 				if epSlice.AddressType == v1.AddressTypeIPv6 {
 					// For endpointslice with targetRef and the pod has dual stack ip.

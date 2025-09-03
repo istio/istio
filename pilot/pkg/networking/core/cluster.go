@@ -99,7 +99,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		// Inbound clusters don't have svchost in its format. So don't add it to serviceClusters.
 		if dir == model.TrafficDirectionInbound {
 			// Append all inbound clusters because in both stow/delta we always build all inbound clusters.
-			// In reality, the delta building is only for outbound clusters. We need to revist here once we support delta for inbound.
+			// In reality, the delta building is only for outbound clusters. We need to revisit here once we support delta for inbound.
 			// So deletedClusters.Difference(builtClusters) would give us the correct deleted inbound clusters.
 			deletedClusters.Insert(cluster)
 		} else {

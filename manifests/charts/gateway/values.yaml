@@ -139,6 +139,9 @@ _internal_defaults_do_not_set:
   # By default, the `podDisruptionBudget` is disabled (set to `{}`),
   # which means that no PodDisruptionBudget resource will be created.
   #
+  # The PodDisruptionBudget can be only enabled if autoscaling is enabled
+  # with minReplicas > 1 or if autoscaling is disabled but replicaCount > 1.
+  #
   # To enable the PodDisruptionBudget, configure it by specifying the
   # `minAvailable` or `maxUnavailable`. For example, to set the
   # minimum number of available replicas to 1, you can update this value as follows:

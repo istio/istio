@@ -161,10 +161,10 @@ rules:
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["gatewayclasses"]
     verbs: ["create", "update", "patch", "delete"]
-  - apiGroups: ["inference.networking.x-k8s.io"]
+  - apiGroups: ["inference.networking.k8s.io"]
     resources: ["inferencepools"]
     verbs: ["get", "watch", "list"]
-  - apiGroups: ["inference.networking.x-k8s.io"]
+  - apiGroups: ["inference.networking.k8s.io"]
     resources: ["inferencepools/status"]
     verbs: ["update", "patch"]
 

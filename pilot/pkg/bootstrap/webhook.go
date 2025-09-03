@@ -54,7 +54,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	tlsConfig := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		MinVersion:     tls.VersionTLS12,
-		CipherSuites:   args.ServerOptions.TLSOptions.CipherSuits,
+		CipherSuites:   args.ServerOptions.TLSOptions.CipherSuites,
 	}
 	// Compliance for control plane validation and injection webhook server.
 	sec_model.EnforceGoCompliance(tlsConfig)

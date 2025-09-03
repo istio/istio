@@ -370,14 +370,19 @@ func TestWaypointChanges(t *testing.T) {
 			}
 			return false
 		}
-		// check that waypoint deployment is unmodified
+		// check that waypoint deployment uses default grace period (30s)
 		retry.UntilOrFail(t, func() bool {
-			return getGracePeriod(2)
+			return getGracePeriod(30)
 		})
-		// change the waypoint template
+		// change the waypoint template to add custom terminationGracePeriodSeconds
 		istio.GetOrFail(t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
 			mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
-			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(mainTemplate, "terminationGracePeriodSeconds: 2", "terminationGracePeriodSeconds: 3")
+			// Add terminationGracePeriodSeconds: 3 after serviceAccountName
+			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(
+				mainTemplate,
+				"serviceAccountName: {{.ServiceAccount | quote}}",
+				"serviceAccountName: {{.ServiceAccount | quote}}\n      terminationGracePeriodSeconds: 3",
+			)
 			return nil
 		}, cleanup.Always)
 

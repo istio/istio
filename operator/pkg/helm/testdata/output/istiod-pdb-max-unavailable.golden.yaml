@@ -1,4 +1,5 @@
 # Not created if istiod is running remotely
+# a workaround for https://github.com/kubernetes/kubernetes/issues/93476
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

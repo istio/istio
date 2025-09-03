@@ -189,6 +189,7 @@ func (a *index) buildGlobalCollections(
 		LocalNamespaces,
 		LocalMeshConfig,
 		opts,
+		false, // Don't precompute here; these will just get merged into the global collection later
 	)
 	// All of this is local only, but we need to do it here so we don't have to rebuild collections in ambientindex
 	if features.EnableAmbientStatus {
@@ -675,8 +676,13 @@ func mergeServiceInfosWithCluster(
 			return nil
 		}
 
+		// Precompute the svc info here
 		if svcInfosLen == 1 {
-			return &serviceInfos[0]
+			obj := serviceInfos[0]
+			return &krt.ObjectWithCluster[model.ServiceInfo]{
+				ClusterID: obj.ClusterID,
+				Object:    precomputeServicePtr(obj.Object),
+			}
 		}
 
 		// If we can't find a local serviceinfo, we just take the first one.
@@ -721,7 +727,7 @@ func mergeServiceInfosWithCluster(
 				clusterID: obj.ClusterID,
 			}] = sets.New(slices.Map(obj.Object.Service.Ports, workloadPortsToSimplePort)...)
 			// This flat merge is ok because the VIPs themselves are per-network and we require
-			// VIP uniquness within a network
+			// VIP uniqueness within a network
 			vips.InsertAll(slices.Map(obj.Object.Service.GetAddresses(), func(a *workloadapi.NetworkAddress) simpleNetworkAddress {
 				// We can ignore the err because we know the address is valid
 				addr, _ := netip.AddrFromSlice(a.Address)
@@ -758,7 +764,7 @@ func mergeServiceInfosWithCluster(
 		})
 		base.Object.Service.SubjectAltNames = sans.UnsortedList()
 
-		// Rememeber, we have to re-precompute the serviceinfo since we changed it
+		// Remember, we have to re-precompute the serviceinfo since we changed it
 		return &krt.ObjectWithCluster[model.ServiceInfo]{
 			ClusterID: base.ClusterID,
 			Object:    precomputeServicePtr(base.Object),
