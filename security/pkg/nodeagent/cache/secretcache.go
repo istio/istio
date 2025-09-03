@@ -360,7 +360,7 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 	var isSymlink bool
 
 	if fileInfo.Mode()&os.ModeSymlink != 0 {
-		// For symlinks, watch the parent directory to catch symlink changes
+		// For symlinks, watch the parent directory to catch all changes
 		isSymlink = true
 		watchPath = filepath.Dir(file)
 		cacheLog.Infof("adding watcher for symlink parent directory %s (symlink: %s)", watchPath, file)
@@ -427,13 +427,13 @@ func (sc *SecretManagerClient) resolveSymlink(filePath string) (string, error) {
 }
 
 // handleSymlinkChanges handles symlink changes by detecting when symlinks are modified in their parent directories.
-// Since we now watch parent directories for symlinks, this method is simplified to handle directory events.
+// Since we watch parent directories for symlinks, this method handles directory events and triggers updates when appropriate.
 func (sc *SecretManagerClient) handleSymlinkChanges(event fsnotify.Event) {
-	// Collect resource names that need updates to avoid deadlock
-	var resourcesToUpdate []string
+	// Collect resource names that need updates to avoid deadlock (use map to deduplicate)
+	resourcesToUpdate := make(map[string]bool)
 
 	sc.certMutex.Lock()
-	// Check if any of our watched symlinks might have changed
+	// Check if any of our watched symlinks might be affected by this event
 	for fc := range sc.fileCerts {
 		if !fc.IsSymlink {
 			continue // Skip non-symlink files
@@ -442,28 +442,50 @@ func (sc *SecretManagerClient) handleSymlinkChanges(event fsnotify.Event) {
 		// Check if the event is in the parent directory of this symlink
 		symlinkDir := filepath.Dir(fc.Filename)
 		if event.Name == symlinkDir || strings.HasPrefix(event.Name, symlinkDir+string(os.PathSeparator)) {
-			// The event is in the symlink's parent directory, check if the symlink itself changed
-			fileInfo, err := os.Lstat(fc.Filename)
-			if err != nil {
-				if os.IsNotExist(err) {
-					cacheLog.Infof("symlink %s no longer exists, will be cleaned up by remove event handler", fc.Filename)
-				} else {
-					cacheLog.Errorf("error checking symlink %s: %v", fc.Filename, err)
-				}
-				continue
+			// The event is in the symlink's parent directory
+
+			// For symlinks, we primarily want to detect changes to the target files
+			// Skip temporary files (they end with .tmp.*)
+			eventBase := filepath.Base(event.Name)
+			if strings.Contains(eventBase, ".tmp.") {
+				continue // Skip temporary files
 			}
 
-			// If the symlink still exists, collect the resource name for update
-			if fileInfo.Mode()&os.ModeSymlink != 0 {
-				cacheLog.Infof("symlink %s changed in directory %s, triggering certificate update", fc.Filename, symlinkDir)
-				resourcesToUpdate = append(resourcesToUpdate, fc.ResourceName)
+			// Try to resolve the symlink to see what its target is
+			targetPath, err := sc.resolveSymlink(fc.Filename)
+			if err == nil && event.Name == targetPath {
+				// Only trigger on CREATE events for target files to avoid duplicate updates
+				if isCreate(event) {
+					cacheLog.Infof("symlink target %s changed for symlink %s, triggering certificate update", targetPath, fc.Filename)
+					resourcesToUpdate[fc.ResourceName] = true
+				}
+			} else {
+				// If we can't resolve the symlink target, we need a more generic approach
+				// Check if this event might be related to our symlink by examining the event file
+				if event.Name == fc.Filename {
+					// Skip symlink change events in symlink logic since regular file logic will handle them
+					// This avoids duplicate updates when both symlink and target events occur
+					cacheLog.Debugf("skipping symlink change event for %s (will be handled by regular file logic)", fc.Filename)
+				} else {
+					// For other files in the directory, we need to be more conservative
+					// Only trigger updates if we can verify the symlink target has actually changed
+					// by attempting to resolve it again and checking if it points to the event file
+					if isCreate(event) {
+						// Try to resolve the symlink again to see if it now points to the event file
+						newTargetPath, err := sc.resolveSymlink(fc.Filename)
+						if err == nil && newTargetPath == event.Name {
+							cacheLog.Infof("symlink %s now points to %s, triggering certificate update", fc.Filename, event.Name)
+							resourcesToUpdate[fc.ResourceName] = true
+						}
+					}
+				}
 			}
 		}
 	}
 	sc.certMutex.Unlock()
 
 	// Now trigger updates outside of the mutex to avoid deadlock
-	for _, resourceName := range resourcesToUpdate {
+	for resourceName := range resourcesToUpdate {
 		sc.OnSecretUpdate(resourceName)
 	}
 }
@@ -830,10 +852,11 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
 			// The cleanup should happen first before triggering callbacks, as the callbacks are async and
 			// we may get generate call before cleanup is done and we will end up not watching the file.
+			// NOTE: Don't remove symlinks from the map, as they can be recreated and we want to keep watching them.
 			if isRemove(event) {
 				sc.certMutex.Lock()
 				for fc := range sc.fileCerts {
-					if fc.Filename == event.Name {
+					if fc.Filename == event.Name && !fc.IsSymlink {
 						cacheLog.Debugf("removing file %s from file certs", event.Name)
 						delete(sc.fileCerts, fc)
 						break

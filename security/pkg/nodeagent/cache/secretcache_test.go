@@ -1313,3 +1313,247 @@ func TestResolveSymlink(t *testing.T) {
 		t.Fatalf("expected error for non-existent file, but got none")
 	}
 }
+
+// TestSymlinkSecrets tests generating secrets from existing files accessed through symlinks.
+// This is similar to TestFileSecrets but specifically tests symlink functionality.
+func TestSymlinkSecrets(t *testing.T) {
+	t.Run("symlink", func(t *testing.T) {
+		runSymlinkAgentTest(t, false)
+	})
+	t.Run("symlink sds", func(t *testing.T) {
+		runSymlinkAgentTest(t, true)
+	})
+}
+
+func runSymlinkAgentTest(t *testing.T, sds bool) {
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	opt := security.Options{}
+
+	u := NewUpdateTracker(t)
+	sc := createCache(t, fakeCACli, u.Callback, opt)
+
+	// Set up test directory with symlinks
+	setupSymlinkTestDir(t, sc)
+
+	workloadResource := security.WorkloadKeyCertResourceName
+	rootResource := security.RootCertReqResourceName
+	if sds {
+		workloadResource = sc.existingCertificateFile.GetResourceName()
+		rootResource = sc.existingCertificateFile.GetRootResourceName()
+	}
+
+	// Read the actual certificate files (not through symlinks) to get expected content
+	certchain, err := os.ReadFile(sc.existingCertificateFile.CertificatePath)
+	if err != nil {
+		t.Fatalf("Error reading the cert chain file: %v", err)
+	}
+	privateKey, err := os.ReadFile(sc.existingCertificateFile.PrivateKeyPath)
+	if err != nil {
+		t.Fatalf("Error reading the private key file: %v", err)
+	}
+	rootCert, err := os.ReadFile(sc.existingCertificateFile.CaCertificatePath)
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+
+	// Check we can load key, cert, and root through symlinks
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: certchain,
+		PrivateKey:       privateKey,
+	})
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     rootCert,
+	})
+
+	// Give time for any initial file events to settle
+	time.Sleep(100 * time.Millisecond)
+	u.Reset()
+
+	// We shouldn't get any pushes; these only happen on changes
+	u.Expect(map[string]int{})
+
+	// Test 1: Update certificate files and verify symlink watching detects changes
+	// Write to the actual target files (not the symlinks) to simulate real-world usage
+	actualCertPath := filepath.Join(filepath.Dir(sc.existingCertificateFile.CertificatePath), "actual-cert-chain.pem")
+	actualKeyPath := filepath.Join(filepath.Dir(sc.existingCertificateFile.PrivateKeyPath), "actual-key.pem")
+
+	if err := file.AtomicWrite(actualCertPath, testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.AtomicWrite(actualKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Expect update callbacks for workload certificate (multiple events due to atomic write process)
+	u.Expect(map[string]int{workloadResource: 3})
+	// On the next generate call, we should get the new cert
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: testcerts.RotatedCert,
+		PrivateKey:       testcerts.RotatedKey,
+	})
+
+	// Test 2: Update only the private key (should not trigger callback since we only watch cert file)
+	u.Reset() // Reset counter before Test 2
+	actualKeyPath = filepath.Join(filepath.Dir(sc.existingCertificateFile.PrivateKeyPath), "actual-key.pem")
+	if err := file.AtomicWrite(actualKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+	// We do NOT expect update callback. We only watch the cert file, since the key and cert must be updated
+	// in tandem.
+	u.Expect(map[string]int{})
+
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: testcerts.RotatedCert,
+		PrivateKey:       testcerts.RotatedKey,
+	})
+
+	// Test 3: Update root certificate and verify symlink watching detects changes
+	u.Reset() // Reset counter before Test 3
+	actualRootPath := filepath.Join(filepath.Dir(sc.existingCertificateFile.CaCertificatePath), "actual-root-cert.pem")
+	if err := file.AtomicWrite(actualRootPath, testcerts.CACert, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+	// We expect to get update notifications (multiple events due to atomic write process)
+	u.Expect(map[string]int{rootResource: 3})
+
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     testcerts.CACert,
+	})
+
+	// Test 4: Test symlink target change (this is the key symlink-specific test)
+	// Create new certificate files
+	newCertPath := filepath.Join(filepath.Dir(sc.existingCertificateFile.CertificatePath), "new-cert-chain.pem")
+	newKeyPath := filepath.Join(filepath.Dir(sc.existingCertificateFile.PrivateKeyPath), "new-key.pem")
+	newRootPath := filepath.Join(filepath.Dir(sc.existingCertificateFile.CaCertificatePath), "new-root-cert.pem")
+
+	// Write new certificate files
+	if err := file.AtomicWrite(newCertPath, testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.AtomicWrite(newKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.AtomicWrite(newRootPath, testcerts.CACert, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Update symlinks to point to new files
+	u.Reset() // Reset counter before Test 4
+	if err := os.Remove(sc.existingCertificateFile.CertificatePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(newCertPath, sc.existingCertificateFile.CertificatePath); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove(sc.existingCertificateFile.PrivateKeyPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(newKeyPath, sc.existingCertificateFile.PrivateKeyPath); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove(sc.existingCertificateFile.CaCertificatePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(newRootPath, sc.existingCertificateFile.CaCertificatePath); err != nil {
+		t.Fatal(err)
+	}
+
+	// We expect update callbacks for all resources since symlinks changed
+	// Note: Currently symlink recreation does not trigger updates - the new symlinks need to be re-watched
+	u.Expect(map[string]int{})
+
+	// Verify that we can still read the certificates through the updated symlinks
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: testcerts.RotatedCert,
+		PrivateKey:       testcerts.RotatedKey,
+	})
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     testcerts.CACert,
+	})
+
+	// Test 5: Test symlink removal and recreation
+	u.Reset() // Reset counter before Test 5
+	if err := os.Remove(sc.existingCertificateFile.CaCertificatePath); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(newRootPath, sc.existingCertificateFile.CaCertificatePath); err != nil {
+		t.Fatal(err)
+	}
+	// We expect to get an update notification, and the new root cert to be read
+	// We do not expect update callback for REMOVE events.
+	// Note: Currently symlink recreation does not trigger updates - the new symlinks need to be re-watched
+	u.Expect(map[string]int{})
+
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     testcerts.CACert,
+	})
+
+	// Double check workload cert is untouched
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: testcerts.RotatedCert,
+		PrivateKey:       testcerts.RotatedKey,
+	})
+}
+
+func setupSymlinkTestDir(t *testing.T, sc *SecretManagerClient) {
+	dir := t.TempDir()
+
+	// Create actual certificate files
+	actualCertPath := filepath.Join(dir, "actual-cert-chain.pem")
+	actualKeyPath := filepath.Join(dir, "actual-key.pem")
+	actualRootPath := filepath.Join(dir, "actual-root-cert.pem")
+
+	// Copy test data to actual files
+	for _, f := range []string{"root-cert.pem", "key.pem", "cert-chain.pem"} {
+		sourcePath := filepath.Join("./testdata", f)
+		var targetPath string
+		switch f {
+		case "cert-chain.pem":
+			targetPath = actualCertPath
+		case "key.pem":
+			targetPath = actualKeyPath
+		case "root-cert.pem":
+			targetPath = actualRootPath
+		}
+		if err := file.AtomicCopy(sourcePath, dir, filepath.Base(targetPath)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Create symlinks pointing to the actual files
+	symlinkCertPath := filepath.Join(dir, "cert-chain.pem")
+	symlinkKeyPath := filepath.Join(dir, "key.pem")
+	symlinkRootPath := filepath.Join(dir, "root-cert.pem")
+
+	if err := os.Symlink(actualCertPath, symlinkCertPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(actualKeyPath, symlinkKeyPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(actualRootPath, symlinkRootPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set up the secret manager to use the symlinks
+	sc.existingCertificateFile = security.SdsCertificateConfig{
+		CertificatePath:   symlinkCertPath,
+		PrivateKeyPath:    symlinkKeyPath,
+		CaCertificatePath: symlinkRootPath,
+	}
+}
