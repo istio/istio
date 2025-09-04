@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue where HTTP/2 connection pool settings was not being applied to clusters when enabling HTTP/2 upgrade policies.
