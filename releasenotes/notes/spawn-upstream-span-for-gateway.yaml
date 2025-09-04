@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Improved** environment variable `PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY` default value to `true`,
+    enabling the spawning of upstream spans for gateway requests by default.
