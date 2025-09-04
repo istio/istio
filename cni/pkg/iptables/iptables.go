@@ -620,7 +620,7 @@ func (cfg *IptablesConfigurator) delInpodMarkIPRule() error {
 // We need to do this specifically to be able to distinguish between traffic coming from different node-level processes
 // via the nodeIP
 // - kubelet (node-local healthchecks, which we do not capture)
-// - kube-proxy (fowarded/proxied traffic from LoadBalancer-backed services, potentially with public IPs, which we must capture)
+// - kube-proxy (forwarded/proxied traffic from LoadBalancer-backed services, potentially with public IPs, which we must capture)
 func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks() error {
 	log.Info("configuring host-level iptables rules (healthchecks, etc)")
 	// Append our rules here

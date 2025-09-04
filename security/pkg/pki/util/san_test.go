@@ -22,8 +22,8 @@ import (
 	"testing"
 )
 
-func getSANExtension(identites []Identity, t *testing.T) *pkix.Extension {
-	ext, err := BuildSANExtension(identites)
+func getSANExtension(identities []Identity, t *testing.T) *pkix.Extension {
+	ext, err := BuildSANExtension(identities)
 	if err != nil {
 		t.Errorf("A unexpected error has been encountered (error: %v)", err)
 	}
