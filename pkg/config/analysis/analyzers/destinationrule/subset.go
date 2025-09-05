@@ -15,7 +15,9 @@
 package destinationrule
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"maps"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -31,18 +33,38 @@ type PodNotSelectedAnalyzer struct{}
 
 var _ analysis.Analyzer = &PodNotSelectedAnalyzer{}
 
-// istioManagedLabels contains labels that are added internally to service
-// registry endpoints but are not present on pods, causing false positives.
-var istioManagedLabels = map[string]struct{}{
-	label.LabelTopologyRegion:  {},
-	label.LabelTopologyZone:    {},
-	label.LabelTopologySubzone: {},
-	label.LabelHostname:        {},
-}
+// augmentPodLabelsWithNodeTopology augments pod labels with topology labels from the node
+// where the pod is scheduled, simulating what Istio does in the service registry
+func augmentPodLabelsWithNodeTopology(podLabels map[string]string, nodeName string, nodeLabelsMap map[string]map[string]string) map[string]string {
+	// Start with pod labels
+	augmentedLabels := make(map[string]string)
+	maps.Copy(augmentedLabels, podLabels)
 
-func isIstioManagedLabel(key string) bool {
-	_, exists := istioManagedLabels[key]
-	return exists
+	// Find the node where this pod is scheduled
+	if nodeName == "" {
+		return augmentedLabels // Pod not scheduled to a node yet
+	}
+
+	nodeLabels, exists := nodeLabelsMap[nodeName]
+	if !exists {
+		return augmentedLabels // Node not found
+	}
+
+	// Add topology labels from the node (same labels Istio adds via AugmentLabels)
+	if region, ok := nodeLabels[label.LabelTopologyRegion]; ok {
+		augmentedLabels[label.LabelTopologyRegion] = region
+	}
+	if zone, ok := nodeLabels[label.LabelTopologyZone]; ok {
+		augmentedLabels[label.LabelTopologyZone] = zone
+	}
+	if subzone, ok := nodeLabels[label.LabelTopologySubzone]; ok {
+		augmentedLabels[label.LabelTopologySubzone] = subzone
+	}
+
+	// Add hostname (node name) - this matches what pilot does
+	augmentedLabels[label.LabelHostname] = nodeName
+
+	return augmentedLabels
 }
 
 func (a *PodNotSelectedAnalyzer) Metadata() analysis.Metadata {
@@ -54,6 +76,7 @@ func (a *PodNotSelectedAnalyzer) Metadata() analysis.Metadata {
 			gvk.Pod,
 			gvk.Service,
 			gvk.ServiceEntry,
+			gvk.Node,
 		},
 	}
 }
@@ -66,6 +89,13 @@ func (a *PodNotSelectedAnalyzer) Analyze(context analysis.Context) {
 
 	subsetsMatcher := map[*resource.Instance]map[string]*matcher{}
 	services := util.InitServiceEntryHostMap(context)
+
+	// Build an index of node labels by node name for efficient lookup
+	nodeLabels := make(map[string]map[string]string)
+	context.ForEach(gvk.Node, func(resource *resource.Instance) bool {
+		nodeLabels[resource.Metadata.FullName.Name.String()] = resource.Metadata.Labels
+		return true
+	})
 
 	context.ForEach(gvk.DestinationRule, func(resource *resource.Instance) bool {
 		dr := resource.Message.(*v1alpha3.DestinationRule)
@@ -82,15 +112,7 @@ func (a *PodNotSelectedAnalyzer) Analyze(context analysis.Context) {
 
 		subsetsMatcher[resource] = map[string]*matcher{}
 		for _, subset := range dr.GetSubsets() {
-			// Filter out Istio-internal labels that are not present on pods but added to service registry endpoints
-			filteredSubsetLabels := make(map[string]string)
-			for key, value := range subset.GetLabels() {
-				if !isIstioManagedLabel(key) {
-					filteredSubsetLabels[key] = value
-				}
-			}
-
-			selector := labels.Merge(se.GetWorkloadSelector().GetLabels(), labels.Set(filteredSubsetLabels)).AsSelector()
+			selector := labels.Merge(se.GetWorkloadSelector().GetLabels(), labels.Set(subset.GetLabels())).AsSelector()
 			subsetsMatcher[resource][subset.GetName()] = &matcher{
 				selector: selector,
 				matched:  false,
@@ -100,7 +122,12 @@ func (a *PodNotSelectedAnalyzer) Analyze(context analysis.Context) {
 	})
 
 	context.ForEach(gvk.Pod, func(resource *resource.Instance) bool {
-		lbls := labels.Set(resource.Metadata.Labels)
+		podSpec := resource.Message.(*corev1.PodSpec)
+
+		// Augment pod labels with node topology labels (simulating what Istio does for service registry endpoints)
+		augmentedLabels := augmentPodLabelsWithNodeTopology(resource.Metadata.Labels, podSpec.NodeName, nodeLabels)
+		lbls := labels.Set(augmentedLabels)
+
 		for _, subsets := range subsetsMatcher {
 			for _, matcher := range subsets {
 				if matcher.matched {
