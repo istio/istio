@@ -61,7 +61,7 @@ Depending on the value of the flag, different behaviors can be observed:
 - **`Reconcile=true`**: If reconciliation is enabled, then the `istio-iptables` may attempt to reconcile existing iptables. In particular, when the flag is enabled, the following scenario will occur:
   - If no existing rules are found, the wrapper will apply the new rules and chains. This is a typical first-time installation.
   - If existing rules are found and are equivalent to the desired outcome, no new rules will be applied, and the process will successfully terminate.
-  - If existing rules are found but they are not equivalent to the desired outcome (could be partial or simply differents), the wrapper will attempt to reconcile them by perform the following operations:
+  - If existing rules are found but they are not equivalent to the desired outcome (could be partial or simply different), the wrapper will attempt to reconcile them by perform the following operations:
     - Sets up guardrails (iptables rules that drop all inbound and outbound traffic to prevent traffic escape during the update)
     - Performs cleanup of existing rules
     - Applies new rules
@@ -69,7 +69,7 @@ Depending on the value of the flag, different behaviors can be observed:
 - **`Reconcile=false`**: If reconciliation is disabled, the `istio-iptables` wrapper will not perform existing changes to preexisting rules if found. The following will occur:
   - If no existing rules are found, the wrapper will apply the new ones.
   - If existing rules are found and are equivalent to the desired outcome, no new rules will be applied, and the process will successfully terminate.
-  - If existing rules are found but they are not equivalent to the desired outcome (could be partial or simply differents), the wrapper will attempt to apply the new rules but the outcome is not guaranteed.
+  - If existing rules are found but they are not equivalent to the desired outcome (could be partial or simply different), the wrapper will attempt to apply the new rules but the outcome is not guaranteed.
 
 `istio-iptables` also offers a cleanup-only mode, controlled by the `CleanupOnly` flag. When set to true, only cleanup operations are performed, without applying new rules or setting up guardrails.
 
