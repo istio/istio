@@ -17,7 +17,6 @@ package destinationrule
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"maps"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -38,7 +37,9 @@ var _ analysis.Analyzer = &PodNotSelectedAnalyzer{}
 func augmentPodLabelsWithNodeTopology(podLabels map[string]string, nodeName string, nodeLabelsMap map[string]map[string]string) map[string]string {
 	// Start with pod labels
 	augmentedLabels := make(map[string]string)
-	maps.Copy(augmentedLabels, podLabels)
+	for k, v := range podLabels {
+		augmentedLabels[k] = v
+	}
 
 	// Find the node where this pod is scheduled
 	if nodeName == "" {
