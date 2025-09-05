@@ -12,13 +12,11 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
 1. Deploy SPIRE. For proper socket injection, this **must** be done prior to installing Istio in your cluster:
 
   ```bash
-  kubectl apply -f spire-quickstart.yaml
-  ```
-
-1. Ensure that the deployment is completed before moving to the next step. This can be verified by waiting on the `spire-agent` pod to become ready:
-
-  ```bash
-  kubectl wait pod --for=condition=ready -n spire -l app=spire-agent
+  helm upgrade --install spire-crds spiffe-hardened/spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --version 0.5.0
+  helm upgrade --install -n spire-server spire spire --repo https://spiffe.github.io/helm-charts-hardened/  --version 0.24.0 \
+    --set global.spire.trustDomain="example.org" \
+    --set spiffe-oidc-discovery-provider.enabled=false \
+    --wait
   ```
 
 1. Use the configuration profile provided to install Istio (requires istioctl v1.14+):
