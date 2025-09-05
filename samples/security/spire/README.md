@@ -77,19 +77,19 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
 
 1.  Delete all deployments and configurations for the SPIRE Agent, Server, and namespace:
 
-   ```bash
-   kubectl delete namespace spire
-   ```
+    ```bash
+    kubectl delete namespace spire
+    ```
 
 1.  Delete the ClusterRole, ClusterRoleBinding, Role, RoleBindings, ValidatingWebhookConfiguration, CSIDriver, and CustomResourceDefinition:
 
-   ```bash
-   kubectl delete clusterrole spire-server-cluster-role spire-agent-cluster-role manager-role
-   kubectl delete clusterrolebinding spire-server-cluster-role-binding spire-agent-cluster-role-binding manager-role-binding
-   kubectl delete role spire-server-role leader-election-role
-   kubectl delete rolebinding spire-server-role-binding leader-election-role-binding
-   kubectl delete ValidatingWebhookConfiguration spire-controller-manager-webhook
-   kubectl delete csidriver csi.spiffe.io
-   kubectl delete CustomResourceDefinition clusterspiffeids.spire.spiffe.io
-   kubectl delete CustomResourceDefinition clusterfederatedtrustdomains.spire.spiffe.io
-   ```
+    ```bash
+    kubectl delete clusterrole spire-server-cluster-role spire-agent-cluster-role manager-role
+    kubectl delete clusterrolebinding spire-server-cluster-role-binding spire-agent-cluster-role-binding manager-role-binding
+    kubectl delete role spire-server-role leader-election-role
+    kubectl delete rolebinding spire-server-role-binding leader-election-role-binding
+    kubectl delete ValidatingWebhookConfiguration spire-controller-manager-webhook
+    kubectl delete csidriver csi.spiffe.io
+    kubectl delete CustomResourceDefinition clusterspiffeids.spire.spiffe.io
+    kubectl delete CustomResourceDefinition clusterfederatedtrustdomains.spire.spiffe.io
+    ```
