@@ -125,9 +125,15 @@ func (s *Server) Stop(skipCleanup bool) {
 }
 
 // ShouldStopCleanup of istio-cni config and binary when upgrading or on node reboot
-func (s *Server) ShouldStopCleanup(selfName, selfNamespace string) bool {
+func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNIConfig bool) bool {
 	dsName := fmt.Sprintf("%s-node", selfName)
-	shouldStopCleanup := true
+	shouldStopCleanup := false
+	var numRetries uint64
+	// use different defaults when using an istio owned CNI config file
+	if istioOwnedCNIConfig {
+		shouldStopCleanup = true
+		numRetries = 2
+	}
 	err := backoff.Retry(
 		func() error {
 			cniDS, err := s.kubeClient.Kube().AppsV1().DaemonSets(selfNamespace).Get(context.Background(), dsName, metav1.GetOptions{})
@@ -149,7 +155,7 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string) bool {
 			return err
 		},
 		// Limiting retries to 3 so other shutdown tasks can complete before the graceful shutdown period ends
-		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), 3))
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), numRetries))
 	if err != nil {
 		log.Infof("failed to get parent DS %s, returning %s: %v", dsName, shouldStopCleanup, err)
 	}
