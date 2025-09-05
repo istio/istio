@@ -101,12 +101,11 @@ spec:
 	g.Expect(existing.Labels["version"]).To(Equal("v1"))
 }
 
-var (
-	// A large number of resources to parse, to make the benchmark meaningful.
-	benchmarkGatewayYAML = func() string {
-		var sb strings.Builder
-		for i := 0; i < 1000; i++ {
-			sb.WriteString(fmt.Sprintf(`
+// A large number of resources to parse, to make the benchmark meaningful.
+var benchmarkGatewayYAML = func() string {
+	var sb strings.Builder
+	for i := 0; i < 1000; i++ {
+		sb.WriteString(fmt.Sprintf(`
 apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
@@ -124,10 +123,9 @@ spec:
     - "httpbin.example.com"
 ---
 `, i))
-		}
-		return sb.String()
-	}()
-)
+	}
+	return sb.String()
+}()
 
 func BenchmarkApplyContent(b *testing.B) {
 	schemas := collections.Pilot
