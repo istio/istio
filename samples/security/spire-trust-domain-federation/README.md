@@ -57,6 +57,7 @@ export CTX_CLUSTER_WEST=$(kubectl config get-contexts -o name | grep kind-cluste
      sed "s/\${BUNDLE_ENDPOINT}/$spire_bundle_endpoint_west/g" |\
      kubectl --context="${CTX_CLUSTER_EAST}" apply -f -
    ```
+
    ```shell
    spire_bundle_endpoint_east=$(kubectl --context="${CTX_CLUSTER_EAST}" get svc spire-server -n spire -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
    east_bundle=$(kubectl --context="${CTX_CLUSTER_EAST}" exec -c spire-server -n spire --stdin spire-server-0  -- spire-server bundle show -format spiffe)
@@ -75,11 +76,11 @@ export CTX_CLUSTER_WEST=$(kubectl config get-contexts -o name | grep kind-cluste
    sed -e "s/\${LOCAL_CLUSTER}/east/g" \
      -e "s/\${REMOTE_CLUSTER}/west/g" \
      -e "s/\${REMOTE_BUNDLE_ENDPOINT}/$spire_bundle_endpoint_west/g" \
-     samples/security/spire-trust-domain-federation/istio.yaml | istioctl --context="${CTX_CLUSTER_EAST}" install -y -f -
+     samples/security/spire-trust-domain-federation/istio.tmpl | istioctl --context="${CTX_CLUSTER_EAST}" install -y -f -
    sed -e "s/\${LOCAL_CLUSTER}/west/g" \
      -e "s/\${REMOTE_CLUSTER}/east/g" \
      -e "s/\${REMOTE_BUNDLE_ENDPOINT}/$spire_bundle_endpoint_east/g" \
-     samples/security/spire-trust-domain-federation/istio.yaml | istioctl --context="${CTX_CLUSTER_WEST}" install -y -f -
+     samples/security/spire-trust-domain-federation/istio.tmpl | istioctl --context="${CTX_CLUSTER_WEST}" install -y -f -
    ```
 
 1. Install an E/W gateway and expose services:
@@ -105,7 +106,8 @@ export CTX_CLUSTER_WEST=$(kubectl config get-contexts -o name | grep kind-cluste
    ```shell
    istioctl --context="${CTX_CLUSTER_EAST}" remote-clusters
    ```
-   ```
+
+   ```text
    NAME     SECRET                                    STATUS     ISTIOD
    east                                               synced     istiod-8887cd9cd-zv2zf
    west     istio-system/istio-remote-secret-west     synced     istiod-8887cd9cd-zv2zf
@@ -114,7 +116,8 @@ export CTX_CLUSTER_WEST=$(kubectl config get-contexts -o name | grep kind-cluste
    ```shell
    istioctl --context="${CTX_CLUSTER_WEST}" pc secret deploy/istio-eastwestgateway -n istio-system
    ```
-   ```
+
+   ```text
    RESOURCE NAME     TYPE           STATUS     VALID CERT     SERIAL NUMBER                        NOT AFTER                NOT BEFORE               TRUST DOMAIN
    default           Cert Chain     ACTIVE     true           508823656af07c0056bae33c3c9dd26f     2025-09-05T21:43:55Z     2025-09-05T17:43:45Z     west.local
    ROOTCA            CA             ACTIVE     true           bbe128cc1365e276cd5e114a482aefee     2025-09-06T17:33:34Z     2025-09-05T17:33:24Z     east.local
@@ -127,6 +130,7 @@ export CTX_CLUSTER_WEST=$(kubectl config get-contexts -o name | grep kind-cluste
    kubectl --context="${CTX_CLUSTER_EAST}" label namespace default istio-injection=enabled
    kubectl --context="${CTX_CLUSTER_WEST}" label namespace default istio-injection=enabled
    ```
+
    ```shell
    kubectl apply --context="${CTX_CLUSTER_EAST}" \
        -f samples/helloworld/helloworld.yaml \
@@ -196,8 +200,10 @@ export CTX_CLUSTER_WEST=$(kubectl config get-contexts -o name | grep kind-cluste
    ```shell
    kubectl --context="${CTX_CLUSTER_EAST}" exec deploy/curl -c curl -- curl -v helloworld:5000/hello
    ```
-   You should see that responses come from `v1` and `v2`:
-   ```shell
+
+1. Verify logs - you should see that responses come from `v1` and `v2`:
+
+   ```text
    Hello version: v1, instance: helloworld-v1-f957bfb54-fmqbn
    Hello version: v2, instance: helloworld-v2-5f86f7755b-6rhj4
    ...
