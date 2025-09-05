@@ -19,6 +19,7 @@ package file
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -98,4 +99,53 @@ spec:
 	existing := src.Get(gvk.DestinationRule, "productpage", "")
 	g.Expect(existing).ToNot(BeNil())
 	g.Expect(existing.Labels["version"]).To(Equal("v1"))
+}
+
+var (
+	// A large number of resources to parse, to make the benchmark meaningful.
+	benchmarkGatewayYAML = func() string {
+		var sb strings.Builder
+		for i := 0; i < 1000; i++ {
+			sb.WriteString(fmt.Sprintf(`
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gateway-%d
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "httpbin.example.com"
+---
+`, i))
+		}
+		return sb.String()
+	}()
+)
+
+func BenchmarkApplyContent(b *testing.B) {
+	schemas := collections.Pilot
+	source := NewKubeSource(schemas)
+
+	b.Run("FromString", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if err := source.ApplyContent("benchmark.yaml", benchmarkGatewayYAML); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("FromReader", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if err := source.ApplyContentReader("benchmark.yaml", strings.NewReader(benchmarkGatewayYAML)); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }

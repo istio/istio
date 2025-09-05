@@ -294,7 +294,7 @@ func (s *KubeSource) parseContentReader(r *collection.Schemas, name string, read
 		if err != nil {
 			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
 			scope.Warnf("%v - skipping", e)
-			scope.Debugf("Failed to parse yamlText chunk")
+			scope.Debug("Failed to parse yamlText chunk")
 			errs = multierror.Append(errs, e)
 			break
 		}
