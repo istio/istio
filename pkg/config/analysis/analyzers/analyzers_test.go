@@ -1023,7 +1023,7 @@ var testGrid = []testCase{
 		name:       "DestinationRuleSubsetsWithTopologyLabels",
 		inputFiles: []string{"testdata/destinationrule-subsets-with-topology-labels.yaml"},
 		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
-		expected: []message{
+		expected:   []message{
 			// Should not report false positives for topology labels
 			// The subsets "region-us-west", "zone-us-west-1a" and "mixed-labels" should be ignored as they only have topology labels
 			// Only "app-v1" should match since it has a real label that exists on the pod
