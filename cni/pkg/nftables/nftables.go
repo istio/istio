@@ -173,6 +173,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	// virtual interface exclusions/redirects:
 	if len(podOverrides.VirtualInterfaces) != 0 {
 		for _, virtInterface := range podOverrides.VirtualInterfaces {
+			// CLI: nft add rule inet istio-ambient-nat istio-prerouting iifname <iface> meta l4proto tcp counter redirect to :15001
 			// DESC: For any configured virtual interfaces, treat inbound as outbound traffic (useful for kubeVirt, VMs, DinD, etc)
 			// and just shunt it directly to the outbound port of the proxy.
 			// Note that for now this explicitly excludes UDP traffic, as we can't proxy arbitrary UDP stuff,
@@ -183,6 +184,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 				"redirect to", ":"+fmt.Sprint(config.ZtunnelOutboundPort),
 			)
 
+			// CLI: nft add rule inet istio-ambient-nat istio-prerouting iifname <iface> meta l4proto tcp counter return
 			cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientNatTable,
 				"iifname", fmt.Sprint(virtInterface),
 				"meta l4proto tcp", Counter,
