@@ -1,0 +1,46 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: subsets-with-topology-labels
+  namespace: default
+spec:
+  host: httpbin.default.svc.cluster.local
+  subsets:
+  - name: region-us-west
+    labels:
+      topology.kubernetes.io/region: us-west-1
+  - name: zone-us-west-1a
+    labels:
+      topology.kubernetes.io/zone: us-west-1a
+  - name: app-v1
+    labels:
+      version: v1
+  - name: mixed-labels
+    labels:
+      version: v1
+      topology.kubernetes.io/region: us-west-1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 8000
+  selector:
+    app: httpbin
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: httpbin-pod
+  namespace: default
+  labels:
+    app: httpbin
+    version: v1
+spec:
+  containers:
+  - name: httpbin
+    image: httpbin

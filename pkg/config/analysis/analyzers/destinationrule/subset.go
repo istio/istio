@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -29,6 +30,20 @@ import (
 type PodNotSelectedAnalyzer struct{}
 
 var _ analysis.Analyzer = &PodNotSelectedAnalyzer{}
+
+// istioManagedLabels contains labels that are added internally to service
+// registry endpoints but are not present on pods, causing false positives.
+var istioManagedLabels = map[string]struct{}{
+	label.LabelTopologyRegion:  {},
+	label.LabelTopologyZone:    {},
+	label.LabelTopologySubzone: {},
+	label.LabelHostname:        {},
+}
+
+func isIstioManagedLabel(key string) bool {
+	_, exists := istioManagedLabels[key]
+	return exists
+}
 
 func (a *PodNotSelectedAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
@@ -67,7 +82,15 @@ func (a *PodNotSelectedAnalyzer) Analyze(context analysis.Context) {
 
 		subsetsMatcher[resource] = map[string]*matcher{}
 		for _, subset := range dr.GetSubsets() {
-			selector := labels.Merge(se.GetWorkloadSelector().GetLabels(), labels.Set(subset.GetLabels())).AsSelector()
+			// Filter out Istio-internal labels that are not present on pods but added to service registry endpoints
+			filteredSubsetLabels := make(map[string]string)
+			for key, value := range subset.GetLabels() {
+				if !isIstioManagedLabel(key) {
+					filteredSubsetLabels[key] = value
+				}
+			}
+
+			selector := labels.Merge(se.GetWorkloadSelector().GetLabels(), labels.Set(filteredSubsetLabels)).AsSelector()
 			subsetsMatcher[resource][subset.GetName()] = &matcher{
 				selector: selector,
 				matched:  false,
