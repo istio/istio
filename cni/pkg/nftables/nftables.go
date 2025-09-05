@@ -393,8 +393,11 @@ func (cfg *NftablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
 
 	tx := nft.NewTransaction()
 	// nftables delete command will delete the table along with the chains and rules.
+	tx.Add(&knftables.Table{Name: AmbientNatTable, Family: knftables.InetFamily})
 	tx.Delete(&knftables.Table{Name: AmbientNatTable, Family: knftables.InetFamily})
+	tx.Add(&knftables.Table{Name: AmbientMangleTable, Family: knftables.InetFamily})
 	tx.Delete(&knftables.Table{Name: AmbientMangleTable, Family: knftables.InetFamily})
+	tx.Add(&knftables.Table{Name: AmbientRawTable, Family: knftables.InetFamily})
 	tx.Delete(&knftables.Table{Name: AmbientRawTable, Family: knftables.InetFamily})
 
 	if tx.NumOperations() > 0 {

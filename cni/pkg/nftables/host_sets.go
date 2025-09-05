@@ -16,6 +16,7 @@ package nftables
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 
@@ -100,7 +101,7 @@ func (h *HostNftSetManager) initializeSets() error {
 }
 
 // AddIP adds an IP address to the appropriate set (v4 or v6)
-func (h *HostNftSetManager) AddIP(ip netip.Addr, ipProto uint8, comment string, replace bool) error {
+func (h *HostNftSetManager) AddIP(ip netip.Addr, _ uint8, comment string, replace bool) error {
 	ipToInsert := ip.Unmap()
 	setName := h.v4SetName
 	if ipToInsert.Is6() {
@@ -134,7 +135,7 @@ func (h *HostNftSetManager) AddIP(ip netip.Addr, ipProto uint8, comment string, 
 }
 
 // DeleteIP removes an IP address from the appropriate set
-func (h *HostNftSetManager) DeleteIP(ip netip.Addr, ipProto uint8) error {
+func (h *HostNftSetManager) DeleteIP(ip netip.Addr, _ uint8) error {
 	nft, err := h.nftProvider(knftables.InetFamily, AmbientNatTable)
 	if err != nil {
 		return err
@@ -223,18 +224,14 @@ func (h *HostNftSetManager) ClearEntriesWithComment(comment string) error {
 	}
 
 	// A pod can have multiple IPs, so we have to clear it from both v4 and v6 sets.
-	if err := h.clearEntriesFromSetWithComment(nft, h.v4SetName, comment); err != nil {
-		return fmt.Errorf("failed to clear entries from IPv4 address set: %w", err)
-	}
+	err = h.clearEntriesFromSetWithComment(nft, h.v4SetName, comment)
 
 	// Clear from IPv6 set if enabled
 	if h.enableIPv6 {
-		if err := h.clearEntriesFromSetWithComment(nft, h.v6SetName, comment); err != nil {
-			return fmt.Errorf("failed to clear entries from IPv6 address set: %w", err)
-		}
+		v6err := h.clearEntriesFromSetWithComment(nft, h.v6SetName, comment)
+		err = errors.Join(err, v6err)
 	}
-
-	return nil
+	return err
 }
 
 // ClearEntriesWithIP removes all entries with the specified IP address
@@ -370,6 +367,7 @@ func (h *HostNftSetManager) clearEntriesFromSetWithComment(nft builder.NftablesA
 
 	// Only run the transaction if there are elements to delete
 	if elementsToDelete > 0 {
+		log.Debugf("We have %d elements to delete from the set %s", elementsToDelete, setName)
 		if err := nft.Run(context.TODO(), tx); err != nil {
 			return fmt.Errorf("failed to delete %d elements from set %s: %w", elementsToDelete, setName, err)
 		}
