@@ -164,23 +164,26 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		return err
 	}
 
+	// Preemptively check if the pod is a CNI pod.
+	// It is possible that the kubeconfig is not available if it hasn't been written yet
+	// by the CNI pod or it is invalid which cause the CNI pod to be unable to start if
+	// on the creation of a new K8s client. We preemptively check if the pod is a CNI pod
+	// to avoid a deadlock on the kubeconfig when the k8s client is unnecessary to process
+	// the CNI add event for the CNI pod itself.
+	if conf.AmbientEnabled {
+		k8sArgs := K8sArgs{}
+		if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
+			return fmt.Errorf("failed to load args after failed attempt to get client: %v", err)
+		}
+		if isCNIPod(conf, &k8sArgs) {
+			// If we are in a degraded state and this is our own agent pod, skip
+			return pluginResponse(conf)
+		}
+	}
+
 	// Create a kube client
 	client, err := newK8sClient(*conf)
-	// If creation of a kube client fails, check if the pod is a CNI pod.
-	// It is possible that the kubeconfig is not available if it hasn't been written yet
-	// by the CNI pod which could be unable to start if we failed here. We skip this
-	// failure for the CNI pod to avoid a deadlock.
 	if err != nil {
-		if conf.AmbientEnabled {
-			k8sArgs := K8sArgs{}
-			if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
-				return fmt.Errorf("failed to load args after failed attempt to get client: %v", err)
-			}
-			if isCNIPod(conf, &k8sArgs) {
-				// If we are in a degraded state and this is our own agent pod, skip
-				return pluginResponse(conf)
-			}
-		}
 		return fmt.Errorf("failed to createNewK8sClient: %v", err)
 	}
 
@@ -404,6 +407,6 @@ func isCNIPod(conf *Config, k8sArgs *K8sArgs) bool {
 		log.Infof("in a degraded state and %v looks like our own agent pod, skipping", k8sArgs.K8S_POD_NAME)
 		return true
 	}
-	log.Warnf("not a CNI pod, podName: %s, podNamespace: %s", k8sArgs.K8S_POD_NAME, k8sArgs.K8S_POD_NAMESPACE)
+	log.Warnf("not a CNI pod, podName: %s, podNamespace: %s, conf pod namespace: %s", k8sArgs.K8S_POD_NAME, k8sArgs.K8S_POD_NAMESPACE, conf.PodNamespace)
 	return false
 }
