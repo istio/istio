@@ -15,10 +15,10 @@
 package destinationrule
 
 import (
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"istio.io/api/networking/v1alpha3"
 	networkingutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
