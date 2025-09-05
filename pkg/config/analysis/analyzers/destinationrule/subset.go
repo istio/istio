@@ -18,54 +18,40 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"istio.io/api/networking/v1alpha3"
+	networkingutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	configlabels "istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 )
 
 type PodNotSelectedAnalyzer struct{}
 
 var _ analysis.Analyzer = &PodNotSelectedAnalyzer{}
 
-// augmentPodLabelsWithNodeTopology augments pod labels with topology labels from the node
-// where the pod is scheduled, simulating what Istio does in the service registry
-func augmentPodLabelsWithNodeTopology(podLabels map[string]string, nodeName string, nodeLabelsMap map[string]map[string]string) map[string]string {
-	// Start with pod labels
-	augmentedLabels := make(map[string]string)
-	for k, v := range podLabels {
-		augmentedLabels[k] = v
+// getNodeLocalityString converts node labels to a locality string using pilot's LocalityToString function
+func getNodeLocalityString(nodeLabels map[string]string) string {
+	region := nodeLabels[label.LabelTopologyRegion]
+	zone := nodeLabels[label.LabelTopologyZone]
+	subzone := nodeLabels[label.LabelTopologySubzone]
+
+	// Create core.Locality object from node labels
+	locality := &core.Locality{
+		Region:  region,
+		Zone:    zone,
+		SubZone: subzone,
 	}
 
-	// Find the node where this pod is scheduled
-	if nodeName == "" {
-		return augmentedLabels // Pod not scheduled to a node yet
-	}
-
-	nodeLabels, exists := nodeLabelsMap[nodeName]
-	if !exists {
-		return augmentedLabels // Node not found
-	}
-
-	// Add topology labels from the node (same labels Istio adds via AugmentLabels)
-	if region, ok := nodeLabels[label.LabelTopologyRegion]; ok {
-		augmentedLabels[label.LabelTopologyRegion] = region
-	}
-	if zone, ok := nodeLabels[label.LabelTopologyZone]; ok {
-		augmentedLabels[label.LabelTopologyZone] = zone
-	}
-	if subzone, ok := nodeLabels[label.LabelTopologySubzone]; ok {
-		augmentedLabels[label.LabelTopologySubzone] = subzone
-	}
-
-	// Add hostname (node name) - this matches what pilot does
-	augmentedLabels[label.LabelHostname] = nodeName
-
-	return augmentedLabels
+	// Use pilot's LocalityToString function for exact consistency
+	return networkingutil.LocalityToString(locality)
 }
 
 func (a *PodNotSelectedAnalyzer) Metadata() analysis.Metadata {
@@ -125,9 +111,26 @@ func (a *PodNotSelectedAnalyzer) Analyze(context analysis.Context) {
 	context.ForEach(gvk.Pod, func(resource *resource.Instance) bool {
 		podSpec := resource.Message.(*corev1.PodSpec)
 
-		// Augment pod labels with node topology labels (simulating what Istio does for service registry endpoints)
-		augmentedLabels := augmentPodLabelsWithNodeTopology(resource.Metadata.Labels, podSpec.NodeName, nodeLabels)
-		lbls := labels.Set(augmentedLabels)
+		// Use the actual AugmentLabels function that Istio uses in the service registry
+		locality := ""
+		if nodeLabelsOfPod, exists := nodeLabels[podSpec.NodeName]; exists {
+			locality = getNodeLocalityString(nodeLabelsOfPod)
+		}
+
+		// Convert pod labels to configlabels.Instance type (which is what AugmentLabels expects)
+		podLabelsInstance := configlabels.Instance(resource.Metadata.Labels)
+
+		// Use pilot's AugmentLabels - but with empty cluster/network IDs for as they aren't required for this analyzer
+		augmentedLabelsInstance := label.AugmentLabels(
+			podLabelsInstance,
+			cluster.ID(""),   // Empty cluster ID for analyzer context
+			locality,         // Locality string built from node labels
+			podSpec.NodeName, // Node name for hostname label
+			network.ID(""),   // Empty network ID for analyzer context
+		)
+
+		// Convert back to the labels.Set type needed for selector matching
+		lbls := labels.Set(map[string]string(augmentedLabelsInstance))
 
 		for _, subsets := range subsetsMatcher {
 			for _, matcher := range subsets {

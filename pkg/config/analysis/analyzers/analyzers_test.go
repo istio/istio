@@ -1033,6 +1033,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "DestinationRuleEmptyTopologyLabels",
+		inputFiles: []string{"testdata/destinationrule-empty-topology-labels.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			// Should report false positive for empty string topology label since AugmentLabels won't add empty values
+			{msg.DestinationRuleSubsetNotSelectPods, "DestinationRule default/empty-topology-labels"},
+		},
+	},
+	{
 		name:           "ServiceEntry Addresses Allocated",
 		inputFiles:     []string{"testdata/serviceentry-address-allocated.yaml"},
 		meshConfigFile: "testdata/serviceentry-address-allocated-mesh-cfg.yaml",
