@@ -111,7 +111,7 @@ func (a *PodNotSelectedAnalyzer) Analyze(context analysis.Context) {
 	context.ForEach(gvk.Pod, func(resource *resource.Instance) bool {
 		podSpec := resource.Message.(*corev1.PodSpec)
 
-		// Use the actual AugmentLabels function that Istio uses in the service registry
+		// Use the actual AugmentLabels function that pilot uses in the service registry
 		locality := ""
 		if nodeLabelsOfPod, exists := nodeLabels[podSpec.NodeName]; exists {
 			locality = getNodeLocalityString(nodeLabelsOfPod)
