@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Removed** metric expiry support, please use `StatsEviction` in bootstrap configuration instead. 
