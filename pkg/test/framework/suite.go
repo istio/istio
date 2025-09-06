@@ -401,7 +401,7 @@ func (s *suiteImpl) doSkip(ctx *suiteContext) int {
 }
 
 func (s *suiteImpl) run() (errLevel int) {
-	tc, shutdown, err := tracing.InitializeFullBinary(s.testID)
+	tc, shutdown, err := tracing.InitializeFullBinary("istio-test", s.testID)
 	if err != nil {
 		return 99
 	}
