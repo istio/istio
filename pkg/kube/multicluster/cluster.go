@@ -97,7 +97,7 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 		return
 	}
 	for _, h := range syncers {
-		if !kube.WaitForCacheSync("cluster"+string(c.ID), c.stop, h.HasSynced) {
+		if !kube.WaitForCacheSync("cluster "+string(c.ID), c.stop, h.HasSynced) {
 			log.Warnf("remote cluster %s failed to sync handler", c.ID)
 			return
 		}

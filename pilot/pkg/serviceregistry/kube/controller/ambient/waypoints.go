@@ -266,6 +266,12 @@ func GlobalWaypointsCollection(
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
 	return nestedCollectionFromLocalAndRemote(localWaypoints, clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
+		opts := []krt.CollectionOption{
+			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
+			krt.WithDebugging(opts.Debugger()),
+			krt.WithStop(c.GetStop()),
+			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
+		}
 		pods := c.Pods()
 		podsByNamespace := krt.NewNamespaceIndex(pods)
 		gateways := c.Gateways()
@@ -309,10 +315,7 @@ func GlobalWaypointsCollection(
 			clusterNetwork := nw.Network
 
 			return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, clusterNetwork)
-		}, opts.With(
-			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
-			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
-		)...)
+		}, opts...)
 
 		return ptr.Of(clusterWaypoints)
 	}, "Waypoints", opts)
