@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 57324
+releaseNotes:
+  - |
+    **Added** support for native nftables when using Istio Ambient mode. This update makes it possible to use nftables
+    instead of iptables to manage network rules, offering more efficient approach to traffic redirection for pods and
+    services. To enable the nftables mode, use "--set values.global.nativeNftables=true" when installing istio-cni.
