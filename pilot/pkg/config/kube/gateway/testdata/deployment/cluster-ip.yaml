@@ -11,6 +11,7 @@ metadata:
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
   name: default-istio
@@ -28,6 +29,7 @@ metadata:
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
   name: default
@@ -51,6 +53,7 @@ spec:
         prometheus.io/scrape: "true"
       labels:
         gateway.istio.io/managed: istio.io-gateway-controller
+        gateway.networking.k8s.io/gateway-class-name: istio
         gateway.networking.k8s.io/gateway-name: default
         istio.io/dataplane-mode: none
         service.istio.io/canonical-name: default
@@ -227,6 +230,7 @@ metadata:
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
   name: default

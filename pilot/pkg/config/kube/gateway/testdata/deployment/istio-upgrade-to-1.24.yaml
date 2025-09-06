@@ -10,6 +10,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
     gateway.networking.k8s.io/gateway-name: test-upgrade
     topology.istio.io/network: network-1
   name: test-upgrade
@@ -26,6 +27,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
     gateway.networking.k8s.io/gateway-name: test-upgrade
     topology.istio.io/network: network-1
   name: test-upgrade
@@ -49,6 +51,7 @@ spec:
         prometheus.io/scrape: "true"
       labels:
         gateway.istio.io/managed: istio.io-mesh-controller
+        gateway.networking.k8s.io/gateway-class-name: istio-waypoint
         gateway.networking.k8s.io/gateway-name: test-upgrade
         istio.io/dataplane-mode: none
         istio.io/gateway-name: test-upgrade
@@ -229,6 +232,7 @@ metadata:
     networking.istio.io/traffic-distribution: PreferClose
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
     gateway.networking.k8s.io/gateway-name: test-upgrade
     topology.istio.io/network: network-1
   name: test-upgrade
