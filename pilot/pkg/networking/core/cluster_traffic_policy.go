@@ -46,9 +46,12 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 	if connectionPool == nil {
 		connectionPool = &networking.ConnectionPoolSettings{}
 	}
-	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
+	// Apply h2 upgrade s.t. h2 connection pool settings can be applied to the cluster.
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts.mutable, opts.port, opts.mesh, connectionPool)
+	}
+	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
+	if opts.direction != model.TrafficDirectionInbound {
 		applyOutlierDetection(service, opts.mutable.cluster, outlierDetection)
 		applyLoadBalancer(service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
