@@ -31,21 +31,22 @@ import (
 // an arbitrary status modification function, and then calls EnqueueStatusUpdate
 // when an individual resource is ready to be updated with the relevant data.
 type Manager struct {
-	// TODO: is Resource the right abstraction?
 	store   model.ConfigStore
 	workers WorkerQueue
 }
 
+// NewManager creates a manager for a WorkerPool with basic write and get functions. Note that the write function will
+// not retry failed writes so there is no guarantee in case of errors like conflicts. Retries must instead be handled
+// by the caller of EnqueueStatusUpdateResource.
 func NewManager(store model.ConfigStore) *Manager {
 	writeFunc := func(m *config.Config) {
-		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
+		scope.Debugf("Writing status for resource %v", m)
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
 			if kerrors.IsConflict(err) {
-				scope.Debugf("warning: object has changed %s/%s: %v", m.Namespace, m.Name, err)
+				scope.Debugf("Object changed before status update for %v: %s", m, err)
 			} else {
-				// TODO: need better error handling
-				scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", m, err)
+				scope.Errorf("Encountered unexpected error updating status for %v: %s", m, err)
 			}
 			return
 		}
@@ -93,14 +94,6 @@ func (m *Manager) CreateGenericController(fn UpdateFunc) *Controller {
 	return result
 }
 
-func (m *Manager) CreateIstioStatusController(fn func(status Manipulator, context any)) *Controller {
-	result := &Controller{
-		fn:      fn,
-		workers: m.workers,
-	}
-	return result
-}
-
 // UpdateFunc is called on each object before it is written to allow mutating any status
 type UpdateFunc func(status Manipulator, context any)
 
@@ -118,7 +111,6 @@ type Controller struct {
 // workers are ready to perform this update, the controller's UpdateFunc
 // will be called with target and context as input.
 func (c *Controller) EnqueueStatusUpdateResource(context any, target Resource) {
-	// TODO: buffer this with channel
 	c.workers.Push(target, c, context)
 }
 
