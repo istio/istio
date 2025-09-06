@@ -296,7 +296,7 @@ _internal_defaults_do_not_set:
 
     defaultConfig:
       proxyMetadata: {}
-      tracing:
+      tracing: {}
       #      tlsSettings:
       #        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
       #        clientCertificate: # example: /etc/istio/tracer/cert-chain.pem
