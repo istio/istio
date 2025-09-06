@@ -111,7 +111,7 @@ func SetupFakeClient() kube.CLIClient {
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
 // It returns an ObjectSet for each cmd type.
 // nolint: unparam
-func runManifestCommands(t test.Failer, inFile, flags string, chartSource chartSourceType, fileSelect []string) map[cmdType]*ObjectSet {
+func runManifestCommands(t test.Failer, inFile, flags string, chartSource string, fileSelect []string) map[cmdType]*ObjectSet {
 	out := make(map[cmdType]*ObjectSet)
 	for _, cmd := range testedManifestCmds {
 		log.Infof("\nRunning test command using %s\n", cmd)
@@ -134,7 +134,7 @@ func runManifestCommands(t test.Failer, inFile, flags string, chartSource chartS
 }
 
 // fakeApplyManifest runs istioctl install.
-func fakeApplyManifest(t test.Failer, inFile, flags string, chartSource chartSourceType) *ObjectSet {
+func fakeApplyManifest(t test.Failer, inFile, flags string, chartSource string) *ObjectSet {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
 	manifest, err := runManifestCommand("install", []string{inPath}, flags, chartSource, nil)
 	if err != nil {
@@ -143,7 +143,7 @@ func fakeApplyManifest(t test.Failer, inFile, flags string, chartSource chartSou
 	return NewObjectSet(getAllIstioObjects(testClient))
 }
 
-func fakeControllerReconcile(t test.Failer, inFile string, chartSource chartSourceType) *ObjectSet {
+func fakeControllerReconcile(t test.Failer, inFile string, chartSource string) *ObjectSet {
 	t.Helper()
 	c := SetupFakeClient()
 	res, err := fakeControllerReconcileInternal(c, inFile, chartSource)
@@ -153,9 +153,9 @@ func fakeControllerReconcile(t test.Failer, inFile string, chartSource chartSour
 	return res
 }
 
-func fakeControllerReconcileInternal(c kube.CLIClient, inFile string, chartSource chartSourceType) (*ObjectSet, error) {
+func fakeControllerReconcileInternal(c kube.CLIClient, inFile string, chartSource string) (*ObjectSet, error) {
 	l := clog.NewDefaultLogger()
-	manifests, values, err := render.GenerateManifest([]string{inFileAbsolutePath(inFile)}, []string{"installPackagePath=" + string(chartSource)}, false, c, nil)
+	manifests, values, err := render.GenerateManifest([]string{inFileAbsolutePath(inFile)}, []string{"installPackagePath=" + chartSource}, false, c, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func fakeControllerReconcileInternal(c kube.CLIClient, inFile string, chartSourc
 
 // runManifestCommand runs the given manifest command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestCommand(command string, filenames []string, flags string, chartSource chartSourceType, fileSelect []string) (string, error) {
+func runManifestCommand(command string, filenames []string, flags string, chartSource string, fileSelect []string) (string, error) {
 	cmd := InstallCmd
 	args := ""
 	if command != "install" {
@@ -198,7 +198,7 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 		filters = append(filters, "templates/_affinity.tpl", "templates/_helpers.tpl", "templates/zzz_profile.yaml", "zzy_descope_legacy.yaml")
 		args += " --filter " + strings.Join(filters, ",")
 	}
-	args += " --set installPackagePath=" + string(chartSource)
+	args += " --set installPackagePath=" + chartSource
 	return runCommand(cmd, args)
 }
 
