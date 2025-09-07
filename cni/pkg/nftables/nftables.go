@@ -18,11 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"sigs.k8s.io/knftables"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
@@ -53,6 +55,10 @@ var log = scopes.CNIAgent
 type NftProviderFunc func(family knftables.Family, table string) (builder.NftablesAPI, error)
 
 var nftProviderVar NftProviderFunc
+
+// kubeletUIDProvider allows tests to override the kubelet UID provider
+// Defaults to the real implementation
+var kubeletUIDProvider = getKubeletUIDFromPath
 
 // NftablesConfigurator handles nftables rule management for Ambient mode
 type NftablesConfigurator struct {
@@ -420,13 +426,51 @@ func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 
 	cfg.ruleBuilder = builder.NewNftablesRuleBuilder(config.GetConfig(cfg.cfg))
 
-	// TODO: Investigate how to support "-m owner --socket-exists" with nftable rules.
-	// cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "ip", "daddr", fmt.Sprintf("@%s-v4", config.ProbeIPSet),
-	//	"meta l4proto tcp", Counter, "snat", "to", cfg.cfg.HostProbeSNATAddress.String())
+	kubeletUID, err := kubeletUIDProvider(filepath.Join(constants.HostMountsPath, "proc"))
+	if err != nil {
+		log.Errorf("failed to get the kubelet uid: %v", err)
+		return err
+	}
+
+	// In iptables, Istio uses the "-m owner --socket-exists" match to distinguish
+	// legitimate kubelet health probes from other traffic (e.g., node traffic forwarded by kube-proxy).
+	// Packets matching this rule are SNAT’ed to 169.254.7.127 so that once inside the pod namespace,
+	// they bypass mesh interception.
+	//
+	// Challenge: In nftables, there is no direct equivalent to "--socket-exists", so we explored multiple alternatives
+	// - Option-1 (UID-based matching): Since kubelet runs as a specific process with a known UID, we can use
+	//   meta skuid to identify traffic originating from kubelet.
+	//
+	// - Option-2: Match on kubelet’s source IP (node IP). This works in theory but is a bit unsafe as
+	//   other host processes can also send traffic from the node IP, and nodes can have multiple IPs making the
+	//	 implementation error-prone.
+	//
+	// - Option-3: Use "meta cgroup". This matches based on the cgroup ID of the originating socket.
+	//   However, it only works in the output hook, not in postrouting hook where SNAT can be done.
+	//	 Additionally, cgroup IDs change whenever kubelet restarts, making the solution fragile,
+	//	 and on cgroup v2 clusters it didn’t work properly while testing.
+	//
+	// - Option-4: Use "socket cgroupv2". This supports filtering traffic by the cgroup of the socket
+	//   and works reliably with kernel >= 5.9 and nft >= 0.9.8. However, it is only usable in the output
+	//   hook, not in postrouting, so we cannot directly perform the SNAT operation using a single rule.
+	//	 Also, this works only on cgroup v2 systems.
+	//
+	// - Option-5: Combine "socket cgroupv2" in the output hook with packet marking, then perform SNAT in
+	//   postrouting hook based on the mark. This approach works, but has two downsides:
+	//   (a) it only works on cgroup v2 systems (not cgroup v1), and
+	//   (b) marking all kubelet traffic risks conflicting with CNIs or other components that also rely on packet marks.
+	//
+	//	So, we are using Option-1 (UID-based matching) with "meta skuid <kubelet_uid>". This rule allows
+	//  kubelet-generated health probes while excluding any other host traffic such as kube-proxy.
+	//	It is portable across cgroup versions and k8s distributions. Also, it's slightly stricter than
+	//  iptables "--socket-exists" match which only checks for host-originated sockets.
+
+	cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "meta l4proto tcp", "skuid", kubeletUID,
+		"ip", "daddr", fmt.Sprintf("@%s-v4", config.ProbeIPSet), Counter, "snat", "to", cfg.cfg.HostProbeSNATAddress.String())
 
 	// For V6 we have to use a different set and a different SNAT IP
-	// cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "ip6", "daddr", fmt.Sprintf("@%s-v6", config.ProbeIPSet),
-	//	"meta l4proto tcp", Counter, "snat", "to", cfg.cfg.HostProbeV6SNATAddress.String())
+	cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "meta l4proto tcp", "skuid", kubeletUID,
+		"ip6", "daddr", fmt.Sprintf("@%s-v6", config.ProbeIPSet), Counter, "snat", "to", cfg.cfg.HostProbeV6SNATAddress.String())
 
 	return util.RunAsHost(func() error {
 		tx, err := cfg.executeHostCommands()
