@@ -175,7 +175,10 @@ func DestinationRuleCollection(
 					rbSet = true
 					spec.TrafficPolicy.RetryBudget = pol.RetryBudget
 				}
-				parents = append(parents, pol.Source.Kind.String()+"/"+pol.Source.Namespace+"."+pol.Source.Name)
+				parentName := pol.Source.Kind.String() + "/" + pol.Source.Namespace + "." + pol.Source.Name
+				if !slices.Contains(parents, parentName) {
+					parents = append(parents, parentName)
+				}
 			}
 
 			if len(portLevelSettings) > 0 {
