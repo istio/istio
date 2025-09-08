@@ -120,7 +120,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha3
 kind: BackendTLSPolicy
 metadata:
   creationTimestamp: null
-  name: tls-upstream-echo-https
+  name: tls-upstream-echo-https-merged-rules
   namespace: default
 spec: null
 status:
@@ -136,16 +136,17 @@ status:
       status: "True"
       type: Accepted
     controllerName: istio.io/gateway-controller
----
-apiVersion: gateway.networking.k8s.io/v1alpha3
-kind: BackendTLSPolicy
-metadata:
-  creationTimestamp: null
-  name: tls-upstream-echo-https-invalid-section-name
-  namespace: default
-spec: null
-status:
-  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: echo-https
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
   - ancestorRef:
       group: ""
       kind: Service
