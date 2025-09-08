@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	"istio.io/istio/pilot/pkg/networking/core/match"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
@@ -862,11 +863,14 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		Routes:  routes,
 	}
 
-	return &route.RouteConfiguration{
-		Name:             cc.clusterName,
-		VirtualHosts:     []*route.VirtualHost{inboundVHost},
-		ValidateClusters: proto.BoolFalse,
-	}
+	// Serviceentries should be patched when virtualservice exists.
+	return envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node,
+		lb.push.EnvoyFilters(lb.node),
+		&route.RouteConfiguration{
+			Name:             cc.clusterName,
+			VirtualHosts:     []*route.VirtualHost{inboundVHost},
+			ValidateClusters: proto.BoolFalse,
+		})
 }
 
 // Select the config pertaining to the service being processed.
