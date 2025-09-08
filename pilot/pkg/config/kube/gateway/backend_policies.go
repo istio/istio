@@ -249,19 +249,19 @@ func BackendTLSPolicyCollection(
 			refo, err := references.LocalPolicyTargetRef(t.LocalPolicyTargetReference, i.Namespace)
 			var sectionName *string
 			if err == nil {
-				switch svc := refo.(type) {
+				switch refType := refo.(type) {
 				case *v1.Service:
 					if t.SectionName != nil && *t.SectionName != "" {
 						sectionName = ptr.Of(string(*t.SectionName))
 						portExists := false
-						for _, port := range svc.Spec.Ports {
+						for _, port := range refType.Spec.Ports {
 							if port.Name == *sectionName {
 								portExists = true
 								break
 							}
 						}
 						if !portExists {
-							err = fmt.Errorf("sectionName %q does not exist in Service %s/%s", *sectionName, svc.Namespace, svc.Name)
+							err = fmt.Errorf("sectionName %q does not exist in Service %s/%s", *sectionName, refType.Namespace, refType.Name)
 						}
 					}
 				default:
