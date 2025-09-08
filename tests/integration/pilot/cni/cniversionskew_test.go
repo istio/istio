@@ -42,8 +42,9 @@ var (
 )
 
 const (
-	// TODO: replace this with official 1.11 release once available.
-	NMinusOne    = "1.11.0-beta.1"
+	// This should technically be bumped on every release, but in practice, only changes to CNI assumptions
+	// wil require an update (e.g. CNI expects 2 containers in the pod but there's only 1 with native sidecars)
+	NMinusOne    = "1.27.1"
 	CNIConfigDir = "tests/integration/pilot/testdata/upgrade"
 )
 
