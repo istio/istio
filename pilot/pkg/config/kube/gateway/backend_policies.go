@@ -177,7 +177,7 @@ func DestinationRuleCollection(
 				}
 				parentName := pol.Source.Kind.String() + "/" + pol.Source.Namespace + "." + pol.Source.Name
 				if !slices.Contains(parents, parentName) {
-					parents = append(parents, pol.Source.Kind.String()+"/"+pol.Source.Namespace+"."+pol.Source.Name)
+					parents = append(parents, parentName)
 				}
 			}
 
