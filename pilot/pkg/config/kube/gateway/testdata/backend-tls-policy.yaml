@@ -1,3 +1,20 @@
+# echo-https must be created by the kube-client, because it's used in a test
+# that verifies `sectionName`, which is internally read from krt,
+# so it could be just a `model.ServiceInstance`
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-https
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    protocol: TCP
+---
 apiVersion: gateway.networking.k8s.io/v1alpha3
 kind: BackendTLSPolicy
 metadata:
@@ -8,6 +25,24 @@ spec:
     - kind: Service
       name: echo
       group: ""
+  validation:
+    caCertificateRefs:
+      - kind: ConfigMap
+        name: auth-cert
+        group: ""
+    hostname: auth.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: tls-upstream-echo-https
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: echo-https
+      group: ""
+      sectionName: https
   validation:
     caCertificateRefs:
       - kind: ConfigMap
