@@ -141,6 +141,28 @@ apiVersion: gateway.networking.k8s.io/v1alpha3
 kind: BackendTLSPolicy
 metadata:
   creationTimestamp: null
+  name: tls-upstream-echo-https-invalid-section-name
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: echo-https
+    conditions:
+    - lastTransitionTime: fake
+      message: 'targetRefs invalid: sectionName "non-existing-port-name" does not
+        exist in Service default/echo-https'
+      reason: TargetNotFound
+      status: "False"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  creationTimestamp: null
   name: unknown-configmap
   namespace: default
 spec: null

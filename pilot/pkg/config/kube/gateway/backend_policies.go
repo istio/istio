@@ -191,11 +191,8 @@ func DestinationRuleCollection(
 							}
 						}
 					}
-					// If we couldn't resolve the port number, keep the empty port selector
-					// This shouldn't happen since we validate port names earlier
 					spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 				}
-				// TODO(jewertow): verify what happens if a port selector leaves unresolved (port number 0)
 			}
 
 			cfg := &config.Config{
