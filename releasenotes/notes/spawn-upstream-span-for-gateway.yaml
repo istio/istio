@@ -5,3 +5,11 @@ releaseNotes:
   - |
     **Improved** environment variable `PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY` default value to `true`,
     enabling the spawning of upstream spans for gateway requests by default.
+
+upgradeNodes:
+  - title: enable PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY by default
+    content: |
+        The environment variable `PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY` is now set to `true` by default.
+        This change enables the spawning of upstream spans for gateway requests by default, enhancing
+        observability for services behind the gateway. Users who prefer the previous behavior can
+        explicitly set this variable to `false` in their configuration.
