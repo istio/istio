@@ -37,7 +37,7 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
    ```bash
    kubectl apply -f clusterspiffeid.yaml
    ```
-   
+
 1. Add the `spiffe.io/spire-managed-identity: true` label to the Ingress-gateway Deployment:
 
    ```bash
