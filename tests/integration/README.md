@@ -39,7 +39,7 @@ practices, see [Writing Good Integration Tests](https://github.com/istio/istio/w
 ## Writing Tests
 
 The test framework is designed to work with standard go tooling and allows developers
-to write environment-agnostics tests in a high-level fashion.
+to write environment-agnostic tests in a high-level fashion.
 
 ### Adding a Test Suite
 
