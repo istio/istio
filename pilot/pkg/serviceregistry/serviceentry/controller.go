@@ -886,6 +886,7 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 // The current algorithm to allocate IPs is deterministic across all istiods.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// if we are using the IP Autoallocate controller then we can short circuit this
+	log.Infof("jaellio: autoAllocateIPs called for %d services", len(services))
 	if features.EnableIPAutoallocate {
 		return services
 	}
@@ -902,13 +903,21 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// - Calculate new hash iteratively till we find an empty slot with (h1(k) + i*h2(k)) % MAXIPS
 	j := 0
 	for _, svc := range services {
+		// TODO(jaellio): we never make it here since this is legacy behavior. We return
+		// after the first conditional check
+		log.Debugf("jaellio: autoAllocateIPs processing service %s/%s with resolution %v and "+
+			"default address %s", svc.Attributes.Namespace, svc.Hostname, svc.Resolution, svc.DefaultAddress)
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
 		//   for NONE because we will not know the original DST IP that the application requested.
 		// 2. the address is not set (0.0.0.0)
 		// 3. the hostname is not a wildcard
-		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
-			svc.Resolution != model.Passthrough {
+		// TODO(jaellio): Here we need to support allocating a VIP for the a wildcard IP in ambient mode
+		// (at first) only when resolution is DNS (or its own type). Add this logic instead of commenting
+		// out the wildcard check.
+		// if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
+		//    svc.Resolution != model.Passthrough {
+		if svc.DefaultAddress == constants.UnspecifiedIP && svc.Resolution != model.Passthrough {
 			if j >= maxIPs {
 				log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
 				break
