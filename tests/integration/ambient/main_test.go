@@ -144,9 +144,7 @@ func TestMain(m *testing.M) {
 				cfg.DeployEastWestGW = true
 				cfg.DeployGatewayAPI = true
 				cfg.ControlPlaneValues = ambientMultiNetworkControlPlaneValues
-				// TODO: Remove once we're actually ready to test the multi-cluster
-				// features
-				cfg.SkipDeployCrossClusterSecrets = true
+				cfg.SkipDeployCrossClusterSecrets = false
 			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
