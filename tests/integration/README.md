@@ -13,7 +13,7 @@ This folder contains Istio integration tests that use the test framework checked
     1. [Using Components](#using-components)
     1. [Writing Components](#writing-components)
 1. [Running Tests](#running-tests)
-    1. [Test Parallelism and Kubernetes](#test-parellelism-and-kubernetes)
+    1. [Test Parallelism and Kubernetes](#test-parallelism-and-kubernetes)
     1. [Test Selection](#test-selection)
     1. [Running Tests on CI](#running-tests-on-ci)
 1. [Environments](#environments)
@@ -39,7 +39,7 @@ practices, see [Writing Good Integration Tests](https://github.com/istio/istio/w
 ## Writing Tests
 
 The test framework is designed to work with standard go tooling and allows developers
-to write environment-agnostics tests in a high-level fashion.
+to write environment-agnostic tests in a high-level fashion.
 
 ### Adding a Test Suite
 
