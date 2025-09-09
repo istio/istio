@@ -509,6 +509,7 @@ func translateShadowServiceToService(existingLabels map[string]string, shadow sh
 	dummyPort := int32(54320) // Dummy port, not used for anything
 	for i, port := range shadow.targetPorts {
 		ports = append(ports, corev1.ServicePort{
+			Name:       "port" + intstr.FromInt(i),
 			Protocol:   corev1.ProtocolTCP,
 			Port:       dummyPort + int32(i),
 			TargetPort: intstr.FromInt(int(port.port)),
