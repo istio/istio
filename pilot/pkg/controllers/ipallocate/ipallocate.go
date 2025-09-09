@@ -129,6 +129,7 @@ func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 }
 
 func (c *IPAllocator) Run(stop <-chan struct{}) {
+	// TODO(jaellio): This isn't running - what is allocating the IP?
 	log.Debugf("starting %s controller", controllerName)
 	kubelib.WaitForCacheSync(controllerName, stop, c.serviceEntryClient.HasSynced)
 	// it is important that we always warm cache before we try to run the queue
@@ -168,7 +169,7 @@ func (c *IPAllocator) reconcile(a any) error {
 
 func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 	log := log.WithLabels("service entry", se)
-	log.Debugf("reconciling")
+	log.Debugf("jaellio: reconciling")
 	serviceentry := c.serviceEntryClient.Get(se.Name, se.Namespace)
 	if serviceentry == nil {
 		log.Debugf("not found, no action required")
