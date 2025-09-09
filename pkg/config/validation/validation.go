@@ -2986,10 +2986,15 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 		case networking.ServiceEntry_DNS, networking.ServiceEntry_DNS_ROUND_ROBIN:
 			if len(serviceEntry.Endpoints) == 0 {
 				for _, hostname := range serviceEntry.Hosts {
-					if err := agent.ValidateFQDN(hostname); err != nil {
+					// TODO(jaellio): Don't error for wildcard hosts in ambient mode and
+					// the resolution type is DNS or DNS_ROUND_ROBIN. Commenting out for
+					// now to allow wildcard hosts in ambient mode.
+					// TODO(jaellio): Add a unique resolution type to support this behavior in ambient mode
+					/*if err := agent.ValidateFQDN(hostname); err != nil {
 						errs = AppendValidation(errs,
-							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode %s", serviceEntry.Resolution))
-					}
+							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode %s, %v", serviceEntry.Resolution, err))
+					}*/
+					log.Infof("jaellio: skipping validation of host %s for testing", hostname)
 				}
 			}
 			if serviceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN && len(serviceEntry.Endpoints) > 1 {
