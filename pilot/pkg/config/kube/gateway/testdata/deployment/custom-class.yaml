@@ -10,6 +10,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-class-name: custom
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
   name: default-custom
@@ -26,6 +27,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-class-name: custom
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
   name: default-custom
@@ -48,6 +50,7 @@ spec:
         prometheus.io/scrape: "true"
       labels:
         gateway.istio.io/managed: istio.io-gateway-controller
+        gateway.networking.k8s.io/gateway-class-name: custom
         gateway.networking.k8s.io/gateway-name: default
         istio.io/dataplane-mode: none
         service.istio.io/canonical-name: default-custom
@@ -223,6 +226,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-class-name: custom
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
   name: default-custom
