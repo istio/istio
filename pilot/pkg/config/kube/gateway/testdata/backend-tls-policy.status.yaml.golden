@@ -115,6 +115,101 @@ status:
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
+  name: multi-host-service-entry
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: multi-host-service
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: multi-host-service-entry-section-name
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: multi-host-service
+      sectionName: tls
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: tls-external-service-https
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: external-service
+      sectionName: https
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+  - ancestorRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: external-service
+      sectionName: non-existing-port-name
+    conditions:
+    - lastTransitionTime: fake
+      message: 'targetRefs invalid: sectionName "non-existing-port-name" does not
+        exist in ServiceEntry default/external-service'
+      reason: TargetNotFound
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
   name: tls-upstream-echo
   namespace: default
 spec: null
@@ -196,23 +291,6 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
-  - ancestorRef:
-      group: gateway.networking.k8s.io
-      kind: Gateway
-      name: gateway
-    conditions:
-    - lastTransitionTime: fake
-      message: 'targetRefs invalid: sectionName "non-existing-port-name" does not
-        exist in Service default/echo-https'
-      reason: TargetNotFound
-      status: "False"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: Configuration is valid
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
