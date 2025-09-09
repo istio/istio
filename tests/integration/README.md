@@ -13,7 +13,7 @@ This folder contains Istio integration tests that use the test framework checked
     1. [Using Components](#using-components)
     1. [Writing Components](#writing-components)
 1. [Running Tests](#running-tests)
-    1. [Test Parallelism and Kubernetes](#test-parellelism-and-kubernetes)
+    1. [Test Parallelism and Kubernetes](#test-parallelism-and-kubernetes)
     1. [Test Selection](#test-selection)
     1. [Running Tests on CI](#running-tests-on-ci)
 1. [Environments](#environments)
