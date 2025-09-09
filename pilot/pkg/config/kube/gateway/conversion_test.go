@@ -693,6 +693,8 @@ func TestConvertResources(t *testing.T) {
 			name: "backend-tls-policy",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
 				"default/echo-https",
+				"default/external-service",
+				"default/multi-host-service",
 			),
 		},
 		{name: "mix-backend-policy"},

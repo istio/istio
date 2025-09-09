@@ -99,6 +99,81 @@ apiVersion: gateway.networking.k8s.io/v1alpha3
 kind: BackendTLSPolicy
 metadata:
   creationTimestamp: null
+  name: multi-host-service-entry
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: multi-host-service
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  creationTimestamp: null
+  name: multi-host-service-entry-section-name
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: multi-host-service
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  creationTimestamp: null
+  name: tls-external-service-https
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: external-service
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+  - ancestorRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: external-service
+    conditions:
+    - lastTransitionTime: fake
+      message: 'targetRefs invalid: sectionName "non-existing-port-name" does not
+        exist in ServiceEntry default/external-service'
+      reason: TargetNotFound
+      status: "False"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  creationTimestamp: null
   name: tls-upstream-echo
   namespace: default
 spec: null
