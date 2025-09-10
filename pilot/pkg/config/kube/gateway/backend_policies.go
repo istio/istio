@@ -124,6 +124,8 @@ func DestinationRuleCollection(
 	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
 	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus)
+
+	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})
 	byTargetAndHost := krt.NewIndex(allPolicies, "targetAndHost", func(o BackendPolicy) []TargetWithHost {
 		return []TargetWithHost{{Target: o.Target, Host: o.Host}}
