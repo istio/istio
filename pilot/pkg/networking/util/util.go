@@ -724,6 +724,16 @@ func BuildTunnelMetadataStruct(address string, port int, waypoint string) *struc
 	return st
 }
 
+func BuildDoubleTunnelMetadataStruct(service string, port int) *structpb.Struct {
+	m := map[string]interface{}{
+		// the actual service domain name and port that we want to connect to, these are used
+		// in the HTTP2 CONNECT request :authority
+		"hbone_target_address": DomainName(service, port),
+	}
+	st, _ := structpb.NewStruct(m)
+	return st
+}
+
 func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
 	filterConfig := MaybeBuildStatefulSessionFilterConfig(svc)
 	if filterConfig == nil {

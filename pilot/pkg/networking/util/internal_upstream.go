@@ -30,16 +30,28 @@ func RawBufferTransport() *core.TransportSocket {
 	}
 }
 
-// DefaultInternalUpstreamTransportSocket provides an internal_upstream transport that does not passthrough any metadata.
-var DefaultInternalUpstreamTransportSocket = &core.TransportSocket{
-	Name: "internal_upstream",
-	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-		TransportSocket: RawBufferTransport(),
-	})},
+// InternalUpstreamTransportSocket wraps provided transport socket into Envoy InteralUpstreamTransport.
+func InternalUpstreamTransportSocket(name string, transport *core.TransportSocket) *core.TransportSocket {
+	return &core.TransportSocket{
+		Name: name,
+		ConfigType: &core.TransportSocket_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(
+				&internalupstream.InternalUpstreamTransport{
+					TransportSocket: transport,
+				},
+			),
+		},
+	}
 }
 
+// DefaultInternalUpstreamTransportSocket provides an internal_upstream transport that does not passthrough any metadata.
+var DefaultInternalUpstreamTransportSocket = InternalUpstreamTransportSocket("internal_upstream", RawBufferTransport())
+
+// WaypointMetadataKey is the name of the dynamic metadata structure in Envoy containing authority for double-HBONE connections.
+const WaypointMetadataKey = "waypoint"
+
 // WaypointInternalUpstreamTransportSocket builds an internal upstream transport socket suitable for usage in a waypoint
-// This will passthrough the OrigDst key
+// This will passthrough the OrigDst key and HBONE destination address.
 func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.TransportSocket {
 	return &core.TransportSocket{
 		Name: "internal_upstream",
@@ -48,6 +60,10 @@ func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.
 				{
 					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
 					Name: OriginalDstMetadataKey,
+				},
+				{
+					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+					Name: WaypointMetadataKey,
 				},
 			},
 

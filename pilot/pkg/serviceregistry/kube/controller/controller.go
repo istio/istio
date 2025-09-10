@@ -76,6 +76,9 @@ const (
 	// DefaultNetworkGatewayPort is the port used by default for cross-network traffic if not otherwise specified
 	// by meshNetworks or "networking.istio.io/gatewayPort"
 	DefaultNetworkGatewayPort = 15443
+	// DefaultNetworkGatewayPort is the port used by default for cross-network traffic in ambient mode (when
+	// double-HBONE protocol is used for communication).
+	DefaultNetworkGatewayHBONEPort = 15008
 )
 
 var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")

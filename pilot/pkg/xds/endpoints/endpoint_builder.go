@@ -926,3 +926,16 @@ func isEastWestGateway(node *model.Proxy) bool {
 
 	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
 }
+
+// isWaypointProxy checks if the proxy is an actual waypoint and not a say E/W gateway.
+// We need it because as you can see by looking at isEastWestGateway above, E/W gateway is also
+// considered a waypoint proxy, so to tell if it's actually a waypoint just checking node type
+// isn't enough
+func isWaypointProxy(node *model.Proxy) bool {
+	if node == nil || node.Type != model.Waypoint {
+		return false
+	}
+	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
+
+	return isManagedGateway && controller == constants.ManagedGatewayMeshControllerLabel
+}
