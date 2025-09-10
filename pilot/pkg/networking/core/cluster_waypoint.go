@@ -262,59 +262,58 @@ func (cb *ClusterBuilder) buildWaypointInboundDFPCluster(
 	// do I need to know if this came from a serviceEntry?
 	// terminate := isEastWestGateway(proxy)
 	// Should this be hostname specific?
-	clusterName := "dynamic_forward_proxy_cluster"
-	localCluster := cb.buildDFPCluster(clusterName)
+	localCluster := cb.buildDFPCluster(svc)
 
 	// TODO(jaellio): What metadata (if any) do we need to set up?)
 	// TODO(jaellio): Apply any additional configuration from the DestinationRule if it exists for this wildcard host? or is this specific configuration for the DNS resolution?
 	/*
-	// Ensure VIP cluster has services metadata for stats filter usage
-	im := getOrCreateIstioMetadata(localCluster.cluster)
-	im.Fields["services"] = &structpb.Value{
-		Kind: &structpb.Value_ListValue{
-			ListValue: &structpb.ListValue{
-				Values: []*structpb.Value{},
+		// Ensure VIP cluster has services metadata for stats filter usage
+		im := getOrCreateIstioMetadata(localCluster.cluster)
+		im.Fields["services"] = &structpb.Value{
+			Kind: &structpb.Value_ListValue{
+				ListValue: &structpb.ListValue{
+					Values: []*structpb.Value{},
+				},
 			},
-		},
-	}
-	svcMetaList := im.Fields["services"].GetListValue()
-	svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
+		}
+		svcMetaList := im.Fields["services"].GetListValue()
+		svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
 
-	// Apply DestinationRule configuration for the service
-	connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol, retryBudget := selectTrafficPolicyComponents(policy)
-	// Add applicable metadata to the cluster to identify which config is applied for tooling
-	if policy != nil {
-		util.AddConfigInfoMetadata(localCluster.cluster.Metadata, drConfig.Meta)
-	}
-	if subset != "" {
-		util.AddSubsetToMetadata(localCluster.cluster.Metadata, subset)
-	}
-	if connectionPool == nil {
-		connectionPool = &networking.ConnectionPoolSettings{}
-	}
+		// Apply DestinationRule configuration for the service
+		connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol, retryBudget := selectTrafficPolicyComponents(policy)
+		// Add applicable metadata to the cluster to identify which config is applied for tooling
+		if policy != nil {
+			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, drConfig.Meta)
+		}
+		if subset != "" {
+			util.AddSubsetToMetadata(localCluster.cluster.Metadata, subset)
+		}
+		if connectionPool == nil {
+			connectionPool = &networking.ConnectionPoolSettings{}
+		}
 
-	// For these policies, we have the standard logic apply
-	cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
-	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
-	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
-	applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+		// For these policies, we have the standard logic apply
+		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
+		cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
+		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
 
-	// Setup EDS config after apply LoadBalancer, since it can impact the result
-	if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
-		localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
-	}
-	maybeApplyEdsConfig(localCluster.cluster)
+		// Setup EDS config after apply LoadBalancer, since it can impact the result
+		if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
+			localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+		}
+		maybeApplyEdsConfig(localCluster.cluster)
 
-	// TLS and PROXY are more involved, since these impact the transport socket which is customized for HBONE.
-	opts := &buildClusterOpts{
-		mesh:           cb.req.Push.Mesh,
-		mutable:        localCluster,
-		policy:         policy,
-		port:           &port,
-		serviceTargets: cb.serviceTargets,
-		clusterMode:    DefaultClusterMode,
-		direction:      model.TrafficDirectionInboundVIP,
-	}*/
+		// TLS and PROXY are more involved, since these impact the transport socket which is customized for HBONE.
+		opts := &buildClusterOpts{
+			mesh:           cb.req.Push.Mesh,
+			mutable:        localCluster,
+			policy:         policy,
+			port:           &port,
+			serviceTargets: cb.serviceTargets,
+			clusterMode:    DefaultClusterMode,
+			direction:      model.TrafficDirectionInboundVIP,
+		}*/
 	// TODO(jaellio): Do we need to define a transport socket if we're just doing unencrypted DNS?
 	/*transportSocket := util.RawBufferTransport()
 	if tlsContext := buildWaypointTLSContext(opts, tls); tlsContext != nil {
@@ -378,7 +377,7 @@ func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSe
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
 func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
-
+	log.Infof("jaellio buildWaypointInboundVIP with %d services", len(svcs))
 	for _, svc := range svcs {
 		log.Infof("jaellio buildWaypointInboundVIP for proxy %s with %s service", proxy.ID, svc.Hostname)
 		for _, port := range svc.Ports {
@@ -452,9 +451,9 @@ func (cb *ClusterBuilder) buildWaypointInboundDFP(proxy *model.Proxy, svcs map[h
 			}
 			// TODO(jaellio): allow destinationRules
 			//if isEastWestGateway(proxy) {
-				// East-west gateways don't respect DestinationRule, so don't read it here
-				// TODO: Confirm this decision
-				// clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
+			// East-west gateways don't respect DestinationRule, so don't read it here
+			// TODO: Confirm this decision
+			// clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
 			//	continue
 			//}
 
