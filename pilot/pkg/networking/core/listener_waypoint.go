@@ -232,6 +232,45 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 }
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
+// TODO(jaellio-gustavo): Handle listener creation for wildcard service. Potentially have a seperate function call (other than buildWaypointInternal) to handle this case.
+// The listener should look something like this with the wildcard VIP and port
+/*
+listeners:
+    - name: listener_0
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 9000
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: wildcard_host
+                      domains:
+                        - "*.example.com"
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: dynamic_forward_proxy_cluster
+                            host_rewrite_header: "host"
+                http_filters:
+                  - name: envoy.filters.http.dynamic_forward_proxy
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig
+                      dns_cache_config:
+                        name: dynamic_forward_proxy_cache_config
+                        dns_lookup_family: V4_ONLY
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+*/
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	isEastWestGateway := isEastWestGateway(lb.node)
 	ipMatcher := &matcher.IPMatcher{}
@@ -968,6 +1007,7 @@ func (lb *ListenerBuilder) translateWaypointRoute(
 
 // getWaypointDestinationCluster generates a cluster name for the route. If the destination is invalid
 // or cannot be found, "UnknownService" is returned.
+// TODO(jaellio-gustavo): get the DFP cluster for services
 func (lb *ListenerBuilder) getWaypointDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
 	if len(destination.GetHost()) == 0 {
 		// only happens when the gateway-api BackendRef is invalid
