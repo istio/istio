@@ -213,39 +213,51 @@ func DestinationRuleCollection(
 				}
 			}
 
+			type servicePort struct {
+				Name   string
+				Number uint32
+			}
+			var servicePorts []servicePort
+
 			target := targetWithHost.Target
-			if len(portLevelSettings) > 0 {
-				for portName, portPolicy := range portLevelSettings {
-					if target.Kind == kind.Service {
-						serviceKey := target.Namespace + "/" + target.Name
-						service := ptr.Flatten(krt.FetchOne(ctx, services, krt.FilterKey(serviceKey)))
-						if service != nil {
-							for _, port := range service.Spec.Ports {
-								if port.Name == portName {
-									portPolicy.Port = &networking.PortSelector{Number: uint32(port.Port)}
-									break
-								}
-							}
-						}
-					} else if target.Kind == kind.ServiceEntry {
-						serviceEntryObj, err := references.LocalPolicyTargetRef(gw.LocalPolicyTargetReference{
-							Group: "networking.istio.io",
-							Kind:  "ServiceEntry",
-							Name:  gw.ObjectName(target.Name),
-						}, target.Namespace)
-						if err == nil {
-							if serviceEntryPtr, ok := serviceEntryObj.(*networkingclient.ServiceEntry); ok {
-								for _, port := range serviceEntryPtr.Spec.Ports {
-									if port.Name == portName {
-										portPolicy.Port = &networking.PortSelector{Number: port.Number}
-										break
-									}
-								}
-							}
+			switch target.Kind {
+			case kind.Service:
+				serviceKey := target.Namespace + "/" + target.Name
+				service := ptr.Flatten(krt.FetchOne(ctx, services, krt.FilterKey(serviceKey)))
+				if service != nil {
+					for _, port := range service.Spec.Ports {
+						servicePorts = append(servicePorts, servicePort{
+							Name:   port.Name,
+							Number: uint32(port.Port),
+						})
+					}
+				}
+			case kind.ServiceEntry:
+				serviceEntryObj, err := references.LocalPolicyTargetRef(gw.LocalPolicyTargetReference{
+					Group: "networking.istio.io",
+					Kind:  "ServiceEntry",
+					Name:  gw.ObjectName(target.Name),
+				}, target.Namespace)
+				if err == nil {
+					if serviceEntryPtr, ok := serviceEntryObj.(*networkingclient.ServiceEntry); ok {
+						for _, port := range serviceEntryPtr.Spec.Ports {
+							servicePorts = append(servicePorts, servicePort{
+								Name:   port.Name,
+								Number: port.Number,
+							})
 						}
 					}
-					spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 				}
+			}
+
+			for portName, portPolicy := range portLevelSettings {
+				for _, port := range servicePorts {
+					if port.Name == portName {
+						portPolicy.Port = &networking.PortSelector{Number: port.Number}
+						break
+					}
+				}
+				spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 			}
 
 			cfg := &config.Config{
