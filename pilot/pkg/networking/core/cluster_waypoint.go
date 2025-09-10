@@ -270,6 +270,11 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 }
 
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+	// needed to enable cross-namespace waypoints when SkipValidateTrustDomain is set
+	// this ensures the match_typed_subject_alt_names list for the envoy config cluster is always empty
+	if features.SkipValidateTrustDomain {
+		return cb.buildConnectOriginate(proxy, push, nil)
+	}
 	m := &matcher.StringMatcher{}
 
 	m.MatchPattern = &matcher.StringMatcher_Prefix{
