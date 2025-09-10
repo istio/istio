@@ -70,9 +70,13 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		return nil, fmt.Errorf("error creating traffic managers: %w", err)
 	}
 
-	// Create hostprobe rules now, in the host netns
-	hostTrafficManager.DeleteHostRules()
+	if !args.NativeNftables {
+		// The nftables implementation will automatically flush any pre-existing chains when programming
+		// the rules, so we skip the DeleteHostRules for nftables backend.
+		hostTrafficManager.DeleteHostRules()
+	}
 
+	// Create hostprobe rules now, in the host netns
 	if err := hostTrafficManager.CreateHostRulesForHealthChecks(); err != nil {
 		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
 	}

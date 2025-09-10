@@ -400,7 +400,11 @@ func (cfg *NftablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
 	}
 
 	tx := nft.NewTransaction()
-	// nftables delete command will delete the table along with the chains and rules.
+
+	// In nftables, all transactions are atomic. If any operation fails, the entire transaction is rolled back.
+	// A delete operation fails if the target object doesn’t exist, which can cause the whole transaction to fail.
+	// On the other hand, tx.Add() is idempotent. So, to make sure the transaction goes through successfully, we call
+	// tx.Add() before tx.Delete() calls.
 	tx.Add(&knftables.Table{Name: AmbientNatTable, Family: knftables.InetFamily})
 	tx.Delete(&knftables.Table{Name: AmbientNatTable, Family: knftables.InetFamily})
 	tx.Add(&knftables.Table{Name: AmbientMangleTable, Family: knftables.InetFamily})
@@ -496,10 +500,12 @@ func (cfg *NftablesConfigurator) DeleteHostRules() {
 
 	tx := nft.NewTransaction()
 
-	// TODO: REVISIT: Ensure that the table exists, so that delete does not return any error.
 	tx.Add(&knftables.Table{Name: AmbientNatTable, Family: knftables.InetFamily})
 
-	// nftables delete command will delete the table along with the sets, chains and rules.
+	// We use Flush instead of Delete due to the differences between iptables and nftables.
+	// In iptables, ipsets are global and can be shared across tables, but in nftables sets are local to the
+	// table where they are created (no global sets). If we invoke Delete, we’d lose both the chains and the sets;
+	// by using Flush, we only clear the chains and keep the set elements intact, which is the behavior we want here.
 	tx.Flush(&knftables.Table{Name: AmbientNatTable, Family: knftables.InetFamily})
 
 	err = util.RunAsHost(func() error {
