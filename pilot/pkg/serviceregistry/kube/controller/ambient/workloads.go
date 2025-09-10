@@ -323,6 +323,10 @@ func MergedGlobalWorkloadsCollection(
 	RemoteWorkloadInfosWithCluster := krt.NewManyCollection(
 		clusters,
 		func(ctx krt.HandlerContext, c *multicluster.Cluster) []krt.Collection[krt.ObjectWithCluster[model.WorkloadInfo]] {
+			opts := []krt.CollectionOption{
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(c.GetStop()),
+			}
 			endpointSlices := c.EndpointSlices()
 			pods := c.Pods()
 			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, c.ID))
@@ -375,14 +379,18 @@ func MergedGlobalWorkloadsCollection(
 			}
 
 			// Now we create everything anew
-			nodes := krt.MapCollection(clusteredNodes, unwrapObjectWithCluster, opts.WithName(fmt.Sprintf("NodeLocality[%s]", c.ID))...)
+			nodes := krt.MapCollection(clusteredNodes, unwrapObjectWithCluster, append(
+				opts,
+				krt.WithName(fmt.Sprintf("NodeLocality[%s]", c.ID)),
+			)...)
 
 			globalWorkloadServicesWithCluster := *workloadServicesPtr
 			globalWorkloadServices := krt.MapCollection(
 				globalWorkloadServicesWithCluster,
 				unwrapObjectWithCluster[model.ServiceInfo],
 				append(
-					opts.WithName(fmt.Sprintf("WorkloadServices[%s]", c.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("WorkloadServices[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
 					}),
@@ -424,7 +432,8 @@ func MergedGlobalWorkloadsCollection(
 					flags,
 				),
 				append(
-					opts.WithName(fmt.Sprintf("PodWorkloads[%s]", c.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("PodWorkloads[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
 					}),
@@ -434,7 +443,8 @@ func MergedGlobalWorkloadsCollection(
 				PodWorkloads,
 				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
 				append(
-					opts.WithName(fmt.Sprintf("PodWorkloadsWithCluster[%s]", c.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("PodWorkloadsWithCluster[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
 					}),
@@ -469,7 +479,8 @@ func MergedGlobalWorkloadsCollection(
 					flags,
 				),
 				append(
-					opts.WithName(fmt.Sprintf("WorkloadEntryWorkloads[%s]", c.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("WorkloadEntryWorkloads[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
 					}),
@@ -479,7 +490,8 @@ func MergedGlobalWorkloadsCollection(
 				WorkloadEntryWorkloads,
 				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
 				append(
-					opts.WithName(fmt.Sprintf("WorkloadEntryWorkloadsWithCluster[%s]", c.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("WorkloadEntryWorkloadsWithCluster[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
 					}),
@@ -512,7 +524,8 @@ func MergedGlobalWorkloadsCollection(
 					flags,
 				),
 				append(
-					opts.WithName(fmt.Sprintf("ServiceEntryWorkloads[%s]", c.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("ServiceEntryWorkloads[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
 					}),
@@ -522,7 +535,8 @@ func MergedGlobalWorkloadsCollection(
 				ServiceEntryWorkloads,
 				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
 				append(
-					opts.WithName(fmt.Sprintf("ServiceEntryWorkloadsWithCluster[%s]", c.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("ServiceEntryWorkloadsWithCluster[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
 					}),
@@ -552,7 +566,8 @@ func MergedGlobalWorkloadsCollection(
 					},
 				),
 				append(
-					opts.WithName(fmt.Sprintf("EndpointSliceWorkloads[%s]", c.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("EndpointSliceWorkloads[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
 					}),
@@ -561,7 +576,8 @@ func MergedGlobalWorkloadsCollection(
 				EndpointSliceWorkloads,
 				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
 				append(
-					opts.WithName(fmt.Sprintf("EndpointSliceWorkloadsWithCluster[%s]", c.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("EndpointSliceWorkloadsWithCluster[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
 					}),
