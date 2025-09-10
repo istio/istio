@@ -556,8 +556,8 @@ func deployWaypointsAndWaitForReady(t framework.TestContext, servers echo.Instan
 	}
 }
 
-func buildWaypointsOrFail(t framework.TestContext, echos echo.Instances) map[types.NamespacedName]ambient.WaypointProxy {
-	waypoints := make(map[types.NamespacedName]ambient.WaypointProxy)
+func buildWaypointsOrFail(t framework.TestContext, echos echo.Instances) map[types.NamespacedName]ambient.Waypoints {
+	waypoints := make(map[types.NamespacedName]ambient.Waypoints)
 	for _, echo := range echos {
 		svcwp := types.NamespacedName{
 			Name:      echo.Config().ServiceWaypointProxy,

@@ -130,7 +130,7 @@ type EchoDeployments struct {
 	MockExternal echo.Instances
 
 	// WaypointProxies by
-	WaypointProxies map[string]ambient.WaypointProxy
+	WaypointProxies map[string]ambient.Waypoints
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -388,7 +388,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 
 	if apps.WaypointProxies == nil {
-		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
+		apps.WaypointProxies = make(map[string]ambient.Waypoints)
 	}
 
 	for _, echo := range echos {
