@@ -109,7 +109,7 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 	changedInputKeys := sets.Set[Key[I]]{}
 	// Check old and new
 	for _, ev := range events {
-		// We have a possibly dependant object changed. For each input object, see if it depends on the object.
+		// We have a possibly dependent object changed. For each input object, see if it depends on the object.
 		// Naively, we can look through every item in this collection and check if it matches the filter. However, this is
 		// inefficient, especially when the dependency changes frequently and the collection is large.
 		// Where possible, we utilize the reverse-indexing to get the precise list of potentially changed objects.

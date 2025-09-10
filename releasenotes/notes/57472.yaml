@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 57472
+
+releaseNotes:
+- |
+  **Fixed** shadow Service port number for an InferencePool to start with `54321`
+  as is did before https://github.com/istio/istio/pull/57295 merged.

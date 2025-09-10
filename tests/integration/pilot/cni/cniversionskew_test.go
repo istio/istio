@@ -42,15 +42,16 @@ var (
 )
 
 const (
-	// TODO: replace this with official 1.11 release once available.
-	NMinusOne    = "1.11.0-beta.1"
+	// This should technically be bumped on every release, but in practice, only changes to CNI assumptions
+	// wil require an update (e.g. CNI expects 2 containers in the pod but there's only 1 with native sidecars)
+	NMinusOne    = "1.27.1"
 	CNIConfigDir = "tests/integration/pilot/testdata/upgrade"
 )
 
 // Currently only test CNI with one version behind.
 var versions = []string{NMinusOne}
 
-// TestCNIVersionSkew runs all traffic tests with older versions of CNI and lastest Istio.
+// TestCNIVersionSkew runs all traffic tests with older versions of CNI and latest Istio.
 // This is to simulate the case where CNI and Istio control plane versions are out of sync during upgrade.
 func TestCNIVersionSkew(t *testing.T) {
 	framework.

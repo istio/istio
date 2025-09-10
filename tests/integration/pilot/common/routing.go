@@ -5224,8 +5224,8 @@ func createService(t TrafficContext, name, ns, appLabelValue string, instances i
 	return clusterIPs
 }
 
-func getSupportedIPFamilies(t framework.TestContext, instace echo.Instance) (v4 bool, v6 bool) {
-	for _, a := range instace.WorkloadsOrFail(t).Addresses() {
+func getSupportedIPFamilies(t framework.TestContext, instance echo.Instance) (v4 bool, v6 bool) {
+	for _, a := range instance.WorkloadsOrFail(t).Addresses() {
 		ip, err := netip.ParseAddr(a)
 		assert.NoError(t, err)
 		if ip.Is4() {
@@ -5235,7 +5235,7 @@ func getSupportedIPFamilies(t framework.TestContext, instace echo.Instance) (v4 
 		}
 	}
 	if !v4 && !v6 {
-		t.Fatalf("pod is neither v4 nor v6? %v", instace.WorkloadsOrFail(t).Addresses())
+		t.Fatalf("pod is neither v4 nor v6? %v", instance.WorkloadsOrFail(t).Addresses())
 	}
 	return
 }

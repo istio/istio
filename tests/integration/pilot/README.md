@@ -15,7 +15,7 @@ Scenarios in which one might want to add a VM test in this doc:
 1. Supporting new OS images for VMs
 1. Testing onboarding tools (iptables, certs, istio-sidecar, etc.) and workflows (services, DNS, etc.) to enmesh a VM
 
-## Secenario 1: Testing VM-related Istio Code
+## Scenario 1: Testing VM-related Istio Code
 
 Most integration tests in Istio use the Echo application. To test connectivity, security and telemetry for a VM
 in the mesh, we deploy an instance of the Echo application as a VM resource. A VM Echo instance will simulate a VM,

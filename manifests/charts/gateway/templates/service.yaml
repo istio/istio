@@ -41,6 +41,9 @@ spec:
 {{- with .Values.service.externalTrafficPolicy }}
   externalTrafficPolicy: "{{ . }}"
 {{- end }}
+{{- with .Values.service.internalTrafficPolicy }}
+  internalTrafficPolicy: "{{ . }}"
+{{- end }}
   type: {{ .Values.service.type }}
   ports:
 {{- if .Values.networkGateway }}

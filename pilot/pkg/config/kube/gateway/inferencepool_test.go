@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -48,8 +47,10 @@ func TestReconcileInferencePool(t *testing.T) {
 				},
 			},
 			EndpointPickerRef: inferencev1.EndpointPickerRef{
-				Name:       "dummy",
-				PortNumber: ptr.Of(inferencev1.PortNumber(5421)),
+				Name: "dummy",
+				Port: &inferencev1.Port{
+					Number: inferencev1.PortNumber(5421),
+				},
 			},
 		},
 	}
@@ -82,4 +83,5 @@ func TestReconcileInferencePool(t *testing.T) {
 	assert.Equal(t, service.ObjectMeta.Labels[InferencePoolRefLabel], pool.Name)
 	assert.Equal(t, service.OwnerReferences[0].Name, pool.Name)
 	assert.Equal(t, service.Spec.Ports[0].TargetPort.IntVal, int32(8080))
+	assert.Equal(t, service.Spec.Ports[0].Port, int32(54321)) // dummyPort + i
 }

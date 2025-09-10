@@ -689,7 +689,12 @@ func TestConvertResources(t *testing.T) {
 		{name: "waypoint"},
 		{name: "isolation"},
 		{name: "backend-lb-policy"},
-		{name: "backend-tls-policy"},
+		{
+			name: "backend-tls-policy",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"default/echo-https",
+			),
+		},
 		{name: "mix-backend-policy"},
 		{name: "listenerset"},
 		{name: "listenerset-cross-namespace"},
