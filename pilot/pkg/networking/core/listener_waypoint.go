@@ -23,10 +23,13 @@ import (
 	xds "github.com/cncf/xds/go/xds/core/v3"
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	dnscache "github.com/envoyproxy/go-control-plane/envoy/extensions/common/dynamic_forward_proxy/v3"
 	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
+	dfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
 	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
@@ -351,7 +354,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 			var tcpChain, httpChain *listener.FilterChain
 			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
-			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
+			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, svc.Ports[0].Port)
 			var filters []*listener.Filter
 			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !isEastWestGateway {
 				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
@@ -385,6 +388,12 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					portMapper.Map[portString] = protocolMatcher
 					svcHostnameMap.Map[authorityKey] = protocolMatcher
 					portProtocols[port.Port] = protocol.Unsupported
+				} else if svc.Hostname.IsWildCarded() {
+					dfpChain := &listener.FilterChain{
+						Filters: append(slices.Clone(filters), lb.buildWaypointInboundDFPFilters(svc, cc)...),
+						Name:    cc.clusterName,
+					}
+					chains = append(chains, dfpChain)
 				} else if port.Protocol.IsHTTP() {
 					// Otherwise, just insert HTTP/TCP
 					chains = append(chains, httpChain)
@@ -689,6 +698,69 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return pre, post
+}
+
+func (lb *ListenerBuilder) buildWaypointInboundDFPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
+	// TODO(grnmeira-jaellio): we need to double check if all of these pre and post filters make sense here.
+	pre, post := lb.buildWaypointHTTPFilters(svc)
+	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
+	var filters []*listener.Filter
+	httpOpts := &httpListenerOpts{
+		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
+		rds:              "", // no RDS for inbound traffic
+		useRemoteAddress: false,
+		connectionManager: &hcm.HttpConnectionManager{
+			ServerName:                 ph.ServerName,
+			ServerHeaderTransformation: ph.ServerHeaderTransformation,
+			GenerateRequestId:          ph.GenerateRequestID,
+			AppendXForwardedPort:       ph.XForwardedPort,
+		},
+		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+		protocol:                  cc.port.Protocol,
+		class:                     istionetworking.ListenerClassSidecarInbound,
+		statPrefix:                cc.StatPrefix(),
+		isWaypoint:                true,
+		policySvc:                 svc,
+	}
+	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
+	if cc.port.Protocol.IsHTTP2() {
+		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+	}
+
+	if features.HTTP10 || enableHTTP10(lb.node.Metadata.HTTP10) {
+		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+			AcceptHttp_10: true,
+		}
+	}
+	h := lb.buildHTTPConnectionManager(httpOpts)
+
+	// TODO(jaellio-grnmeira) We have a builder pattern for creating these filters,
+	// we need to refactor this later using the builder pattern.
+	typedConfig := &dfp.FilterConfig{
+		ImplementationSpecifier: &dfp.FilterConfig_DnsCacheConfig{
+			DnsCacheConfig: &dnscache.DnsCacheConfig{
+				Name:            svc.Hostname.String() + "_dns_cache",
+				DnsLookupFamily: clusterv3.Cluster_V4_ONLY,
+			},
+		},
+	}
+	dfpFilter := &hcm.HttpFilter{
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(typedConfig)},
+		Name:       svc.Hostname.String() + "_dfp",
+	}
+
+	// Last filter must be router.
+	router := h.HttpFilters[len(h.HttpFilters)-1]
+	h.HttpFilters = append(pre, h.HttpFilters[:len(h.HttpFilters)-1]...)
+	h.HttpFilters = append(h.HttpFilters, dfpFilter)
+	h.HttpFilters = append(h.HttpFilters, post...)
+	h.HttpFilters = append(h.HttpFilters, router)
+
+	filters = append(filters, &listener.Filter{
+		Name:       wellknown.HTTPConnectionManager,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
+	})
+	return filters
 }
 
 // buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.

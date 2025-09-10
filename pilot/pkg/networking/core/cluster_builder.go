@@ -488,16 +488,16 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 
 // buildCluster builds the default cluster and also applies global options.
 // It is used for building both inbound and outbound cluster.
-func (cb *ClusterBuilder) buildDFPCluster(name string) *cluster.Cluster {
+func (cb *ClusterBuilder) buildDFPCluster(svc *model.Service) *cluster.Cluster {
 	c := &cluster.Cluster{
-		Name:                 name,
-		LbPolicy:       cluster.Cluster_CLUSTER_PROVIDED,
+		Name:     model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, svc.Ports[0].Port),
+		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
 		ClusterDiscoveryType: &cluster.Cluster_ClusterType{ClusterType: &cluster.Cluster_CustomClusterType{
 			Name: "envoy.clusters.dynamic_forward_proxy",
 			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
 				ClusterImplementationSpecifier: &dfpcluster.ClusterConfig_DnsCacheConfig{
 					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
-						Name: "dynamic_forward_proxy_cache_config",
+						Name:            svc.Hostname.String() + "_dfp_dns_cache",
 						DnsLookupFamily: cluster.Cluster_V4_ONLY,
 					},
 				},
