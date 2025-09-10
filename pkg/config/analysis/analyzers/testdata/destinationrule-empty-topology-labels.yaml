@@ -44,6 +44,4 @@ kind: Node
 metadata:
   name: test-node
   labels:
-    kubernetes.io/hostname: test-node
-    topology.kubernetes.io/region: us-west-1
-    topology.kubernetes.io/zone: us-west-1a
+    topology.kubernetes.io/region: ""

@@ -1037,7 +1037,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/destinationrule-empty-topology-labels.yaml"},
 		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
 		expected: []message{
-			// Should report false positive for empty string topology label since AugmentLabels won't add empty values
+			// Istio doesn't match on empty node locality labels.
 			{msg.DestinationRuleSubsetNotSelectPods, "DestinationRule default/empty-topology-labels"},
 		},
 	},
