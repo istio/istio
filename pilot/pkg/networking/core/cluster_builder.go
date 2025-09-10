@@ -22,6 +22,8 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	dfpcluster "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
+	dfpcommon "github.com/envoyproxy/go-control-plane/envoy/extensions/common/dynamic_forward_proxy/v3"
 	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
 	roundrobin "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/round_robin/v3"
 	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
@@ -482,6 +484,27 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	}
 
 	return ec
+}
+
+// buildCluster builds the default cluster and also applies global options.
+// It is used for building both inbound and outbound cluster.
+func (cb *ClusterBuilder) buildDFPCluster(name string) *cluster.Cluster {
+	c := &cluster.Cluster{
+		Name:                 name,
+		LbPolicy:       cluster.Cluster_CLUSTER_PROVIDED,
+		ClusterDiscoveryType: &cluster.Cluster_ClusterType{ClusterType: &cluster.Cluster_CustomClusterType{
+			Name: "envoy.clusters.dynamic_forward_proxy",
+			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
+				ClusterImplementationSpecifier: &dfpcluster.ClusterConfig_DnsCacheConfig{
+					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
+						Name: "dynamic_forward_proxy_cache_config",
+						DnsLookupFamily: cluster.Cluster_V4_ONLY,
+					},
+				},
+			}),
+		}},
+	}
+	return c
 }
 
 // buildInboundCluster constructs a single inbound cluster. The cluster will be bound to

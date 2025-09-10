@@ -675,6 +675,7 @@ func (s *Controller) HasSynced() bool {
 func (s *Controller) Services() []*model.Service {
 	s.mutex.Lock()
 	allServices := s.services.getAllServices()
+	log.Infof("jaellio: getting all services")
 	if s.services.allocateNeeded {
 		autoAllocateIPs(allServices)
 		s.services.allocateNeeded = false
@@ -905,7 +906,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	for _, svc := range services {
 		// TODO(jaellio): we never make it here since this is legacy behavior. We return
 		// after the first conditional check
-		log.Debugf("jaellio: autoAllocateIPs processing service %s/%s with resolution %v and "+
+		log.Infof("jaellio: autoAllocateIPs processing service %s/%s with resolution %v and "+
 			"default address %s", svc.Attributes.Namespace, svc.Hostname, svc.Resolution, svc.DefaultAddress)
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
@@ -947,6 +948,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			j++
 		}
 	}
+	log.Infof("jaellio: finally allocating IP. Number of services to allocate IPs for: %d or %v", j, len(services))
 
 	x := 0
 	hnMap := make(map[string]octetPair)
@@ -983,6 +985,7 @@ func makeServiceKey(svc *model.Service) string {
 }
 
 func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {
+	log.Infof("jaellio: allocating IPs for service %s/%s", svc.Attributes.Namespace, svc.Hostname.String())
 	a := octets.thirdOctet
 	b := octets.fourthOctet
 	svc.AutoAllocatedIPv4Address = fmt.Sprintf("240.240.%d.%d", a, b)

@@ -333,14 +333,18 @@ type jsonPatch struct {
 }
 
 // filter out any wildcarded hosts
+// TODO(jaellio): make this behavior conditional on ambient mode and resolution type
 func removeWildCarded(h string) bool {
-	return !cfghost.Name(h).IsWildCarded()
+	log.Infof("jaellio: would remove wildcarded host %s: %v. Keeping regardless", h, !cfghost.Name(h).IsWildCarded())
+	return true
+	//return !cfghost.Name(h).IsWildCarded()
 }
 
 func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
 	if se == nil {
 		return nil, nil, nil
 	}
+	log.Infof("jaellio: constructing status patch for service entry %s/%s", se.Namespace, se.Name)
 
 	existingHostAddresses := autoallocate.GetHostAddressesFromServiceEntry(se)
 	hostsWithAddresses := sets.New[string]()
@@ -366,6 +370,8 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 
 	// nothing to patch
 	if hostsInSpec.Equals(hostsWithAddresses) && !forcedReassign {
+		log.Infof("jaellio: nothing to patch")
+		log.Infof("jaellio: %#v, %#v", hostsWithAddresses, hostsInSpec)
 		return nil, nil, nil
 	}
 
@@ -389,6 +395,8 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 			assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String(), Host: host})
 		}
 	}
+
+	log.Infof("jaellio: assigned addresses: %#v", assignedAddresses)
 
 	replaceAddresses, err := json.Marshal([]jsonPatch{
 		// Ensure the existing status we are acting on has not changed since we decided to allocate.
