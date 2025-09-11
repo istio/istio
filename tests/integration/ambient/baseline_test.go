@@ -175,7 +175,6 @@ func hboneClient(instance echo.Instance) bool {
 }
 
 func TestServices(t *testing.T) {
-	t.Parallel()
 	runAllCallsTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		if supportsL7(opt, src, dst) {
 			opt.Check = httpValidator
@@ -237,13 +236,13 @@ func TestServices(t *testing.T) {
 			return
 		}
 
-		if src.Config().Cluster != dst.Config().Cluster {
+		if src.Config().Cluster.StableName() != dst.Config().Cluster.StableName() {
 			// test is for cross-cluster traffic
 			if !t.Settings().AmbientMultiNetwork {
 				// If MC is disabled, we do not expect cross-cluster traffic to work
 				return
 			}
-			if !(src.Config().HasProxyCapabilities() || dst.Config().HasProxyCapabilities()) {
+			if !(src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities()) {
 				// If neither side has proxy capabilities, cross-cluster traffic is not expected to work
 				return
 			}
@@ -3245,13 +3244,14 @@ func TestDirect(t *testing.T) {
 					Check:   check.Error(),
 				})
 				run("Waypoint destination", echo.CallOptions{
-					To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
-					Count:   1,
-					Address: apps.WaypointProxies[apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).Config().ServiceWaypointProxy].ForCluster(cluster.Name())[0].PodIP(),
-					Port:    echo.Port{ServicePort: 15000},
-					Scheme:  scheme.HTTP,
-					HBONE:   hbsvc,
-					Check:   check.Error(),
+					To:    apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
+					Count: 1,
+					Address: apps.WaypointProxies[apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).Config().
+						ServiceWaypointProxy].ForCluster(cluster.Name())[0].PodIP(),
+					Port:   echo.Port{ServicePort: 15000},
+					Scheme: scheme.HTTP,
+					HBONE:  hbsvc,
+					Check:  check.Error(),
 				})
 			}
 		})
