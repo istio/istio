@@ -325,6 +325,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 
 // inboundChainForOpts builds a set of filter chains
 func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
+	log.Debugf("jaellio: creating inbound chains")
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {
 		var filterChain *listener.FilterChain
