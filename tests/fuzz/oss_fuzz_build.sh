@@ -19,6 +19,12 @@ set -o pipefail
 set -o errexit
 set -x
 
+# These currently break the build because of how
+# OSS-Fuzz builds the fuzzers. There are upstream
+# plans to fix this soon, and this should be
+# considered a temporary requirement. Istio
+# should not make any more efforts than deleting
+# the files here for now.
 rm pkg/config/validation/openapi_test.go
 rm pkg/config/mesh/mesh_test.go
 rm pilot/pkg/model/addressmap_test.go
