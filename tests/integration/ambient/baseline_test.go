@@ -2753,6 +2753,12 @@ func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Inst
 			for _, app := range apps.Mesh {
 				labelService(t, app.ServiceName(), "istio.io/global", "true", app.Config().Cluster)
 			}
+			t.Cleanup(func() {
+				// cleanup services which other tests expect to be local
+				for _, app := range apps.Mesh {
+					labelService(t, app.ServiceName(), "istio.io/global", "false", app.Config().Cluster)
+				}
+			})
 		}
 		runAllTests(t, f)
 	})
