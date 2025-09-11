@@ -2748,7 +2748,7 @@ var CheckDeny = check.Or(
 
 // runTest runs a given function against every src/dst pair
 func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
-	framework.NewTest(t).RunParallel(func(t framework.TestContext) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
 		if t.Settings().AmbientMultiNetwork {
 			// all meshed services need to be labeled as global for the reachability tests.
 			for _, app := range apps.Mesh {
@@ -3155,7 +3155,6 @@ func TestDirect(t *testing.T) {
 						}
 					})
 				}
-				// istio.CreateCertificate(t, i, apps.Captured.ForCluster(cluster.Name()).ServiceName(), apps.Namespace.Name())
 				cert, err := istio.CreateCertificateForCluster(t, i, apps.Captured.ForCluster(cluster.Name()).ServiceName(),
 					apps.Namespace.Name(), cluster)
 				if err != nil {
@@ -3541,9 +3540,6 @@ func TestServiceDynamicEnroll(t *testing.T) {
 	successThreshold := 0.5
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		if t.Settings().AmbientMultiNetwork {
-			// t.Skip("https://github.com/istio/istio/issues/54245")
-		}
 		generators := []traffic.Generator{}
 		for _, c := range t.Clusters() {
 			dst := apps.Captured.ForCluster(c.Name())
