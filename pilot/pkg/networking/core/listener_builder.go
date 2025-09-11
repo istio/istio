@@ -443,6 +443,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	if features.EnablePersistentSessionFilter.Load() && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
+
+	// Create DFP filter for wildcard hosts
+	if httpOpts.policySvc != nil && httpOpts.policySvc.Hostname.IsWildCarded() && httpOpts.class == istionetworking.ListenerClassSidecarInbound {
+		filters = append(filters, xdsfilters.WaypointInboundDFPFilter)
+	}
+
+	// jaellio - router filter must be last
 	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
 		SuppressDebugHeaders: httpOpts.suppressEnvoyDebugHeaders,
 	}))
