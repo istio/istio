@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -351,7 +352,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 			var tcpChain, httpChain *listener.FilterChain
 			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
-			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, svc.Ports[0].Port)
+			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			var filters []*listener.Filter
 			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !isEastWestGateway {
 				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
@@ -385,12 +386,6 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					portMapper.Map[portString] = protocolMatcher
 					svcHostnameMap.Map[authorityKey] = protocolMatcher
 					portProtocols[port.Port] = protocol.Unsupported
-				/*} else if svc.Hostname.IsWildCarded() {
-					dfpChain := &listener.FilterChain{
-						Filters: append(slices.Clone(filters), lb.buildWaypointInboundDFPFilters(svc, cc)...),
-						Name:    "dynamic_forward_proxy_cluster",
-					}
-					chains = append(chains, dfpChain)*/
 				} else if port.Protocol.IsHTTP() {
 					// Otherwise, just insert HTTP/TCP
 					chains = append(chains, httpChain)
@@ -530,12 +525,21 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 		nonInspectorPorts := nonTLSPorts.DeleteAll(tlsPorts.UnsortedList()...).UnsortedList()
+		// TODO(grnmeira-jaellio) I'm not a 100% sure why this logic works like this. We
+		// only add a TLS Inspector when there's at least one "non inspector" port... Sounds
+		// like a bug to me. We need to clarify this because we need the TLS inspector for
+		// DFP using TLS.
 		if len(nonInspectorPorts) > 0 {
 			slices.Sort(nonInspectorPorts)
 			return &listener.ListenerFilter{
 				Name:           wellknown.TLSInspector,
 				ConfigType:     xdsfilters.TLSInspector.ConfigType,
 				FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
+			}
+		} else if len(tlsPorts) > 0 {
+			return &listener.ListenerFilter{
+				Name:       wellknown.TLSInspector,
+				ConfigType: xdsfilters.TLSInspector.ConfigType,
 			}
 		}
 		return nil
@@ -788,6 +792,8 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 	var svcHostname host.Name
 	var subsetName string
 
+	log.Debugf("jaellio: building network filters for protocol %v", fcc.port.Protocol)
+
 	statPrefix := fcc.clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
@@ -799,6 +805,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 	}
 	var destinationRule *networking.DestinationRule
 	if svc != nil {
+		log.Debugf("jaellio: building filters for service %v", svc.Hostname)
 		svcHostname = svc.Hostname
 		virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 		routes := getWaypointTCPRoutes(virtualServices, svcHostname.String(), fcc.port.Port)
@@ -916,8 +923,11 @@ func getTCPRouteMatch(tcp []*networking.TCPRoute, port int) []*networking.RouteD
 	return nil
 }
 
-/* For DFP
+/*
+	For DFP
+
 route_config:
+
 	name: local_route
 	virtual_hosts:
 	- name: wildcard_host
