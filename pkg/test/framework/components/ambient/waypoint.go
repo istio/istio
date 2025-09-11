@@ -198,8 +198,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 		}
 	}
 
-	cls := ctx.Clusters().Default()
-	for _, cls = range ctx.AllClusters() {
+	for _, cls := range ctx.AllClusters() {
 		server := &kubeComponent{
 			ns:          ns,
 			clusterName: cls.Name(),
