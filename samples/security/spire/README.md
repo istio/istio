@@ -11,14 +11,14 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
 
 1. Deploy SPIRE. For proper socket injection, this **must** be done prior to installing Istio in your cluster:
 
-   ```bash
-   helm upgrade --install spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --version 0.5.0
-   helm upgrade --install spire spire --repo https://spiffe.github.io/helm-charts-hardened/  --version 0.24.0 \
-    -n spire-server --create-namespace \
-    --set global.spire.trustDomain="example.org" \
-    --set spiffe-oidc-discovery-provider.enabled=false \
-    --wait
-   ```
+    ```bash
+    helm upgrade --install spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --version 0.5.0
+    helm upgrade --install spire spire --repo https://spiffe.github.io/helm-charts-hardened/  --version 0.24.0 \
+        -n spire-server --create-namespace \
+        --set global.spire.trustDomain="example.org" \
+        --set spiffe-oidc-discovery-provider.enabled=false \
+        --wait
+    ```
 
 1. Ensure that the deployment is completed before moving to the next step. This can be verified by waiting on the `spire-agent` pod to become ready:
 
@@ -26,19 +26,21 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
    kubectl wait pod --for=condition=ready -l app.kubernetes.io/instance=spire -l app.kubernetes.io/name=agent -n spire-server
    ```
 
-1. Use the configuration profile provided to install Istio (requires istioctl v1.14+):
-
 > [!IMPORTANT]
 > If you are using Kubernetes 1.33+ and have not disabled [native sidecars](https://istio.io/latest/blog/2023/native-sidecars/),
 > you must modify the injection template to use `initContainers`.
 
-```bash
-sed -i 's/containers:/initContainers:/' istio-spire-config.yaml
-```
+1. Modify the injection template if needed:
 
-```bash
-istioctl install -f istio-spire-config.yaml
-```
+    ```bash
+    sed -i 's/containers:/initContainers:/' istio-spire-config.yaml
+    ```
+
+1. Use the configuration profile provided to install Istio (requires istioctl v1.14+):
+
+    ```bash
+    istioctl install -f istio-spire-config.yaml
+    ```
 
 1. Create a ClusterSPIFFEID to create a registration entry for all workloads with the `spiffe.io/spire-managed-identity: true` label:
 
@@ -54,13 +56,13 @@ istioctl install -f istio-spire-config.yaml
 
 1. Deploy the `sleep-spire.yaml` version of the [sleep](/samples/sleep/README.md) service, which injects the custom istio-agent template defined in `istio-spire-config.yaml` and has the `spiffe.io/spire-managed-identity: true` label.
 
-  If you have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection) enabled:
+   If you have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection) enabled:
 
    ```bash
    kubectl apply -f sleep-spire.yaml
    ```
 
-  Otherwise, manually inject the sidecar before applying:
+   Otherwise, manually inject the sidecar before applying:
 
    ```bash
    kubectl apply -f <(istioctl kube-inject -f sleep-spire.yaml)
