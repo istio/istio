@@ -12,7 +12,7 @@ spec:
       templates:
         spire: |
           spec:
-            initContainers:
+            containers:
             - name: istio-proxy
               volumeMounts:
               - name: workload-socket

@@ -28,9 +28,17 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
 
 1. Use the configuration profile provided to install Istio (requires istioctl v1.14+):
 
-   ```bash
-   istioctl install -f istio-spire-config.yaml
-   ```
+    > [!IMPORTANT]
+    > If you are using Kubernetes 1.33+ and have not disabled [native sidecars](https://istio.io/latest/blog/2023/native-sidecars/),
+    > you must modify the injection template to use `initContainers`.
+
+    ```bash
+    sed -i 's/containers:/initContainers:/' istio-spire-config.yaml
+    ```
+
+    ```bash
+    istioctl install -f istio-spire-config.yaml
+    ```
 
 1. Create a ClusterSPIFFEID to create a registration entry for all workloads with the `spiffe.io/spire-managed-identity: true` label:
 
