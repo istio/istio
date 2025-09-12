@@ -41,7 +41,7 @@ is hard coded as 200-240. As you might have guessed, for each k8s cluster one ca
 create at most 40 public IP v4 addresses.
 
 The `ip-space` parameter is not required when you create just one cluster, however, when
-running multiple k8s clusters it is important to proivde different values for each cluster
+running multiple k8s clusters it is important to provide different values for each cluster
 to avoid overlapping addresses.
 
 For example, to create two clusters, run the script two times with the following
