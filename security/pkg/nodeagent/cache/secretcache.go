@@ -324,7 +324,10 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
 	// Try adding file watcher and if it fails start a retry loop.
 	if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
+		cacheLog.Infof("added file watcher for %s", file)
 		return
+	} else {
+		cacheLog.Infof("failed to add file watcher for %s: %v", file, err)
 	}
 	// RetryWithContext file watcher as some times it might fail to add and we will miss change
 	// notifications on those files. For now, retry for ever till the watcher is added.
@@ -649,10 +652,12 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate():
+			cacheLog.Infof("generating root certificate from existing file: %s for resource: %s", cfg.CaCertificatePath, resourceName)
 			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, resourceName, false); err == nil {
 				sc.addFileWatcher(cfg.CaCertificatePath, resourceName)
 			}
 		case ok && cfg.IsKeyCertificate():
+			cacheLog.Infof("generating key certificate from existing file: %s for resource: %s", cfg.CertificatePath, resourceName)
 			if sitem, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, resourceName); err == nil {
 				// Adding cert is sufficient here as key can't change without changing the cert.
 				sc.addFileWatcher(cfg.CertificatePath, resourceName)
@@ -668,6 +673,19 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 			return sdsFromFile, nil, err
 		}
 		cacheLog.WithLabels("resource", resourceName).Info("read certificate from file")
+
+		// Log certificate serial number for debugging
+		if sitem != nil {
+			if len(sitem.CertificateChain) > 0 {
+				if cert, err := pkiutil.ParsePemEncodedCertificate(sitem.CertificateChain); err == nil {
+					cacheLog.Infof("loaded certificate with serial number: %s for resource: %s", cert.SerialNumber.String(), resourceName)
+				}
+			} else if len(sitem.RootCert) > 0 {
+				if cert, err := pkiutil.ParsePemEncodedCertificate(sitem.RootCert); err == nil {
+					cacheLog.Infof("loaded certificate with serial number: %s for resource: %s", cert.SerialNumber.String(), resourceName)
+				}
+			}
+		}
 		// We do not register the secret. Unlike on-demand CSRs, there is nothing we can do if a file
 		// cert expires; there is no point sending an update when its near expiry. Instead, a
 		// separate file watcher will ensure if the file changes we trigger an update.
@@ -853,10 +871,11 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				}
 				sc.certMutex.Unlock()
 			}
+
 			// Trigger callbacks for all resources referencing this file. This is practically always
-			// a single resource.
+			// a single resource. Skip symlink files as they are handled by handleSymlinkChanges above.
 			for k := range resources {
-				if k.Filename == event.Name {
+				if k.Filename == event.Name && !k.IsSymlink {
 					sc.OnSecretUpdate(k.ResourceName)
 				}
 			}

@@ -1034,9 +1034,9 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 		t.Fatal(err)
 	}
 
-	// Expect update callbacks for workload certificate (multiple events due to atomic write process)
-	// Direct symlink watching detects target content changes via WRITE/CHMOD events
-	u.Expect(map[string]int{workloadResource: 4})
+	// Expect update callbacks for workload certificate (REMOVE and CREATE events from atomic write)
+	// Direct symlink watching detects target content changes via REMOVE/CREATE events from rename
+	u.Expect(map[string]int{workloadResource: 2})
 	// On the next generate call, we should get the new cert
 	checkSecret(t, sc, workloadResource, security.SecretItem{
 		ResourceName:     workloadResource,
@@ -1066,9 +1066,9 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	if err := file.AtomicWrite(actualRootPath, testcerts.CACert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
-	// We expect to get update notifications (multiple events due to atomic write process)
-	// Direct symlink watching detects target content changes via WRITE/CHMOD events
-	u.Expect(map[string]int{rootResource: 4})
+	// We expect to get update notifications (REMOVE and CREATE events from atomic write)
+	// Direct symlink watching detects target content changes via REMOVE/CREATE events from rename
+	u.Expect(map[string]int{rootResource: 2})
 
 	checkSecret(t, sc, rootResource, security.SecretItem{
 		ResourceName: rootResource,
