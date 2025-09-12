@@ -236,6 +236,9 @@ func init() {
 		"If set, gateway conformance tests will run even if the environment has pre-installed Gateway API CRDs that differ from the current Gateway API version.",
 	)
 
+	flag.BoolVar(&settingsFromCommandLine.NativeNftables, "istio.test.nativeNftables", settingsFromCommandLine.NativeNftables,
+		"If set, native nftable rules will be used instead of iptable rules for traffic redirection.")
+
 	initGatewayConformanceTimeouts()
 }
 
