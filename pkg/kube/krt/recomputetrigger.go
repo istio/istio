@@ -31,7 +31,7 @@ func (c RecomputeProtected[T]) Get(ctx HandlerContext) T {
 	return c.data
 }
 
-// TriggerRecomputation tells all dependants to recompute
+// TriggerRecomputation tells all dependents to recompute
 func (c RecomputeProtected[T]) TriggerRecomputation() {
 	c.trigger.TriggerRecomputation()
 }
@@ -82,7 +82,7 @@ func NewRecomputeTrigger(startSynced bool, opts ...CollectionOption) *RecomputeT
 	return &RecomputeTrigger{inner: inner, i: atomic.NewInt32(0)}
 }
 
-// TriggerRecomputation tells all dependants to recompute
+// TriggerRecomputation tells all dependents to recompute
 func (r *RecomputeTrigger) TriggerRecomputation() {
 	v := r.i.Inc()
 	r.inner.Set(ptr.Of(v))

@@ -86,7 +86,7 @@ func GlobalNodesCollection(
 
 // NodesCollection maps a node to it's locality.
 // In many environments, nodes change frequently causing excessive recomputation of workloads.
-// By making an intermediate collection we can reduce the times we need to trigger dependants (locality should ~never change).
+// By making an intermediate collection we can reduce the times we need to trigger dependents (locality should ~never change).
 func NodesCollection(nodes krt.Collection[*v1.Node], opts ...krt.CollectionOption) krt.Collection[Node] {
 	return krt.NewCollection(nodes, func(ctx krt.HandlerContext, k *v1.Node) *Node {
 		node := &Node{

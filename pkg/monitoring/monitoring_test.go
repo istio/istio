@@ -102,7 +102,7 @@ func TestRegisterIfSum(t *testing.T) {
 	mt.Assert(testConditionalSum.Name(), map[string]string{"name": "foo", "kind": "bar"}, monitortest.Exactly(1))
 }
 
-// Create distinct metrics for this test, otherwise we are order-dependant since they are globals
+// Create distinct metrics for this test, otherwise we are order-dependent since they are globals
 var (
 	testEmptyGauge = monitoring.NewGauge(
 		"test_empty_gauge",
