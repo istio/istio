@@ -1,0 +1,853 @@
+{
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "istio-control-plane",
+    "createdAt": "2025-08-04T14:25:09.718542082Z",
+    "updatedAt": "2025-08-05T09:02:31.148763852Z",
+    "version": 493,
+    "project": "istio"
+  },
+  "spec": {
+    "display": {
+      "name": "Istio Control Plane Dashboard"
+    },
+    "panels": {
+      "PushSize": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Push Size",
+            "description": "Size of each xDS push."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {}
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum(rate(pilot_xds_config_size_bytes_bucket{}[1m])) by (le)",
+                    "seriesNameFormat": "{{le}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "PushTime": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Push Time",
+            "description": "Count of active and pending proxies managed by each instance. Pending is expected to converge to zero."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {}
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum(rate(pilot_xds_push_time_bucket{}[1m])) by (le)",
+                    "seriesNameFormat": "{{le}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "connections": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Connections",
+            "description": "Total number of XDS connections\n"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum(envoy_cluster_upstream_cx_active{cluster_name=\"xds-grpc\"})",
+                    "seriesNameFormat": "Connections (client reported)"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum (pilot_xds)",
+                    "seriesNameFormat": "Connections (server reported)"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "cpuusage": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "CPU Usage",
+            "description": "CPU usage of each running instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (pod) (irate(container_cpu_usage_seconds_total{container=\"discovery\",pod=~\"istiod-.*\"}[$__rate_interval]))",
+                    "seriesNameFormat": "Container ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "events": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Events",
+            "description": "Size of each xDS push.\n"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (type,event) (rate(pilot_k8s_reg_events[$__rate_interval]))",
+                    "seriesNameFormat": "{{event}} {{type}}"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (type,event) (rate(pilot_k8s_cfg_events[$__rate_interval]))",
+                    "seriesNameFormat": "{{event}} {{type}}"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (type) (rate(pilot_push_triggers[$__rate_interval]))",
+                    "seriesNameFormat": "Push {{type}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "goroutines": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Goroutines",
+            "description": "Goroutine count for each running instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (pod) (go_goroutines{app=\"istiod\"})",
+                    "seriesNameFormat": "Goroutines ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "memoryallocations": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Memory Allocations",
+            "description": "Details about memory allocations"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "bytes/sec"
+                }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (pod) (rate(go_memstats_alloc_bytes_total{app=\"istiod\"}[$__rate_interval]))",
+                    "seriesNameFormat": "Bytes ({{pod}})"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (rate(go_memstats_mallocs_total{app=\"istiod\"}[$__rate_interval]))",
+                    "seriesNameFormat": "Objects ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "memoryusage": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Memory Usage",
+            "description": "Memory usage of each running instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "bytes"
+                }
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (pod) (container_memory_working_set_bytes{container=\"discovery\",pod=~\"istiod-.*\"})",
+                    "seriesNameFormat": "Container ({{pod}})"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (pod) (go_memstats_stack_inuse_bytes{app=\"istiod\"})",
+                    "seriesNameFormat": "Stack ({{pod}})"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (pod) (go_memstats_heap_inuse_bytes{app=\"istiod\"})",
+                    "seriesNameFormat": "Heap (In Use) ({{pod}})"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (pod) (go_memstats_heap_alloc_bytes{app=\"istiod\"})",
+                    "seriesNameFormat": "Heap (Allocated) ({{pod}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "pilotversions": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Pilot Versions",
+            "description": "Version number of each running instance"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom",
+                "values": []
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (tag) (istio_build{component=\"pilot\"})",
+                    "seriesNameFormat": "Version ({{tag}})"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "pusherrors": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Push Errors",
+            "description": "Number of push errors. Many of these are at least potentional fatal and should be explored in-depth via Istiod logs.\nNote: metrics here do not use rate() to avoid missing transition from \"No series\"; series are not reported if there are no errors at all.\n"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "bottom",
+                "values": [
+                  "last",
+                  "max"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (type) (pilot_total_xds_rejects)",
+                    "seriesNameFormat": "Rejected Config ({{type}})"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "pilot_total_xds_internal_errors",
+                    "seriesNameFormat": "Internal Errors"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "sizexdspush": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Injection",
+            "description": "Size of each xDS push.\n"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom",
+                "values": []
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum (rate(sidecar_injection_success_total[$__rate_interval]))",
+                    "seriesNameFormat": "Success"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum (rate(sidecar_injection_failure_total[$__rate_interval]))",
+                    "seriesNameFormat": "Failure"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "validation": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Validation",
+            "description": "Rate of XDS push operations, by type. This is incremented on a per-proxy basis.\n"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom",
+                "values": []
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineWidth": 1
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum (rate(galley_validation_passed[$__rate_interval]))",
+                    "seriesNameFormat": "Success"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum (rate(galley_validation_failed[$__rate_interval]))",
+                    "seriesNameFormat": "Failure"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "xdspushes": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "XDS Pushes"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom",
+                "values": []
+              },
+              "visual": {
+                "areaOpacity": 1,
+                "connectNulls": false,
+                "display": "bar",
+                "lineWidth": 1,
+                "stack": "all"
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource",
+                      "name": "prometheus"
+                    },
+                    "query": "sum by (type) (irate(pilot_xds_pushes[$__rate_interval]))",
+                    "seriesNameFormat": "{{type}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Deployed Versions",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 5,
+              "content": {
+                "$ref": "#/spec/panels/pilotversions"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Resource Usage",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/memoryusage"
+              }
+            },
+            {
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/memoryallocations"
+              }
+            },
+            {
+              "x": 12,
+              "y": 0,
+              "width": 6,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/cpuusage"
+              }
+            },
+            {
+              "x": 18,
+              "y": 0,
+              "width": 6,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/goroutines"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Push Information",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 8,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/xdspushes"
+              }
+            },
+            {
+              "x": 8,
+              "y": 0,
+              "width": 8,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/events"
+              }
+            },
+            {
+              "x": 16,
+              "y": 0,
+              "width": 8,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/connections"
+              }
+            },
+            {
+              "x": 0,
+              "y": 10,
+              "width": 8,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/pusherrors"
+              }
+            },
+            {
+              "x": 8,
+              "y": 10,
+              "width": 8,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/PushTime"
+              }
+            },
+            {
+              "x": 16,
+              "y": 10,
+              "width": 8,
+              "height": 10,
+              "content": {
+                "$ref": "#/spec/panels/PushSize"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Webhooks",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/validation"
+              }
+            },
+            {
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/sizexdspush"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "variables": [],
+    "duration": "1h",
+    "refreshInterval": "0s"
+  }
+}

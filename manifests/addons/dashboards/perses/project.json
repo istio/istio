@@ -1,0 +1,12 @@
+{
+  "kind": "Project",
+  "metadata": {
+    "name": "istio"
+  },
+  "spec": {
+    "display": {
+      "name": "istio",
+      "description": "Observability dashboards for Istio service mesh"
+    }
+  }
+}
