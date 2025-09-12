@@ -161,6 +161,7 @@ var _ security.SecretManager = &SecretManagerClient{}
 type FileCert struct {
 	ResourceName string
 	Filename     string
+	IsSymlink    bool // Indicates whether this file is a symlink
 }
 
 // NewSecretManagerClient creates a new SecretManagerClient.
@@ -187,6 +188,7 @@ func NewSecretManagerClient(caClient security.Client, options *security.Options)
 
 	go ret.queue.Run(ret.stop)
 	go ret.handleFileWatch()
+
 	return ret, nil
 }
 
@@ -322,7 +324,10 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
 	// Try adding file watcher and if it fails start a retry loop.
 	if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
+		cacheLog.Infof("added file watcher for %s", file)
 		return
+	} else {
+		cacheLog.Infof("failed to add file watcher for %s: %v", file, err)
 	}
 	// RetryWithContext file watcher as some times it might fail to add and we will miss change
 	// notifications on those files. For now, retry for ever till the watcher is added.
@@ -347,9 +352,62 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 		cacheLog.Errorf("%v: error finding absolute path of %s, retrying watches: %v", resourceName, file, err)
 		return err
 	}
+
+	// Check if the file is a symlink or if any parent directory is a symlink
+	originalFile := file
+	fileInfo, err := os.Lstat(originalFile)
+	if err != nil {
+		cacheLog.Errorf("%v: error checking file %s: %v", resourceName, originalFile, err)
+		return err
+	}
+
+	var watchPath string
+	var isSymlink bool
+
+	// Check if the file itself is a symlink
+	if fileInfo.Mode()&os.ModeSymlink != 0 {
+		isSymlink = true
+		watchPath = originalFile
+		cacheLog.Infof("adding watcher for symlink file %s", originalFile)
+	} else {
+		// Check if any parent directory is a symlink (but not system directories like /var)
+		dir := filepath.Dir(originalFile)
+		parentIsSymlink := false
+		symlinkDir := ""
+		for dir != "/" && dir != "." && dir != filepath.Dir(dir) {
+			dirInfo, err := os.Lstat(dir)
+			if err != nil {
+				break
+			}
+			if dirInfo.Mode()&os.ModeSymlink != 0 {
+				// Skip system directories that are commonly symlinks (like /var on macOS)
+				if dir == "/var" || dir == "/tmp" || dir == "/usr" {
+					dir = filepath.Dir(dir)
+					continue
+				}
+				parentIsSymlink = true
+				symlinkDir = dir
+				cacheLog.Infof("adding watcher for file in symlinked directory %s (symlink: %s)", originalFile, dir)
+				break
+			}
+			dir = filepath.Dir(dir)
+		}
+
+		if parentIsSymlink {
+			isSymlink = true
+			watchPath = filepath.Dir(symlinkDir) // Watch the parent directory to catch symlink changes
+		} else {
+			// For regular files, watch the file itself
+			isSymlink = false
+			watchPath = originalFile
+			cacheLog.Infof("adding watcher for file certificate %s", originalFile)
+		}
+	}
+
 	key := FileCert{
 		ResourceName: resourceName,
-		Filename:     file,
+		Filename:     originalFile, // Store the original file path for event matching
+		IsSymlink:    isSymlink,    // Track whether this is a symlink
 	}
 	if _, alreadyWatching := sc.fileCerts[key]; alreadyWatching {
 		cacheLog.Debugf("already watching file for %s", file)
@@ -357,14 +415,57 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 		return nil
 	}
 	sc.fileCerts[key] = struct{}{}
-	// File is not being watched, start watching now and trigger key push.
-	cacheLog.Infof("adding watcher for file certificate %s", file)
-	if err := sc.certWatcher.Add(file); err != nil {
-		cacheLog.Errorf("%v: error adding watcher for file %v, retrying watches: %v", resourceName, file, err)
+
+	// Add the watcher to the appropriate path
+	if err := sc.certWatcher.Add(watchPath); err != nil {
+		cacheLog.Errorf("%v: error adding watcher for %v, retrying watches: %v", resourceName, watchPath, err)
 		numFileWatcherFailures.Increment()
 		return err
 	}
 	return nil
+}
+
+// handleSymlinkChanges handles symlink changes by detecting when the symlink file itself changes
+// or when files inside a symlinked directory change.
+// Since we watch symlink files/directories directly, this method handles symlink events and triggers updates when appropriate.
+func (sc *SecretManagerClient) handleSymlinkChanges(event fsnotify.Event) {
+	// Collect resource names that need updates to avoid deadlock (use map to deduplicate)
+	resourcesToUpdate := make(map[string]bool)
+
+	sc.certMutex.Lock()
+	// Check if any of our watched symlinks are affected by this event
+	for fc := range sc.fileCerts {
+		if !fc.IsSymlink {
+			continue // Skip non-symlink files
+		}
+
+		// Check if the event is for this symlink file directly or if the event is for the symlink directory
+		// that contains our watched file
+		if event.Name == fc.Filename || strings.HasPrefix(fc.Filename, event.Name+"/") {
+			cacheLog.Infof("processing event %s for symlink %s", event.Op.String(), fc.Filename)
+
+			// Skip temporary files (they end with .tmp.*)
+			eventBase := filepath.Base(event.Name)
+			if strings.Contains(eventBase, ".tmp.") {
+				continue // Skip temporary files
+			}
+
+			// For symlinks, we detect changes through:
+			// 1. WRITE/CHMOD events when target content changes
+			// 2. CREATE/REMOVE events when symlink is recreated
+			if isWrite(event) || isCreate(event) || isRemove(event) || event.Has(fsnotify.Chmod) {
+				cacheLog.Infof("symlink %s changed (event: %s), triggering certificate update", fc.Filename, event.Op.String())
+				resourcesToUpdate[fc.ResourceName] = true
+			}
+		}
+	}
+	sc.certMutex.Unlock()
+
+	// Now trigger updates outside of the mutex to avoid deadlock
+	for resourceName := range resourcesToUpdate {
+		cacheLog.Infof("symlink %s changed, triggering certificate update", resourceName)
+		sc.OnSecretUpdate(resourceName)
+	}
 }
 
 // If there is existing root certificates under a well known path, return true.
@@ -551,10 +652,12 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate():
+			cacheLog.Infof("generating root certificate from existing file: %s for resource: %s", cfg.CaCertificatePath, resourceName)
 			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, resourceName, false); err == nil {
 				sc.addFileWatcher(cfg.CaCertificatePath, resourceName)
 			}
 		case ok && cfg.IsKeyCertificate():
+			cacheLog.Infof("generating key certificate from existing file: %s for resource: %s", cfg.CertificatePath, resourceName)
 			if sitem, err = sc.generateKeyCertFromExistingFiles(cfg.CertificatePath, cfg.PrivateKeyPath, resourceName); err == nil {
 				// Adding cert is sufficient here as key can't change without changing the cert.
 				sc.addFileWatcher(cfg.CertificatePath, resourceName)
@@ -570,6 +673,19 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 			return sdsFromFile, nil, err
 		}
 		cacheLog.WithLabels("resource", resourceName).Info("read certificate from file")
+
+		// Log certificate serial number for debugging
+		if sitem != nil {
+			if len(sitem.CertificateChain) > 0 {
+				if cert, err := pkiutil.ParsePemEncodedCertificate(sitem.CertificateChain); err == nil {
+					cacheLog.Infof("loaded certificate with serial number: %s for resource: %s", cert.SerialNumber.String(), resourceName)
+				}
+			} else if len(sitem.RootCert) > 0 {
+				if cert, err := pkiutil.ParsePemEncodedCertificate(sitem.RootCert); err == nil {
+					cacheLog.Infof("loaded certificate with serial number: %s for resource: %s", cert.SerialNumber.String(), resourceName)
+				}
+			}
+		}
 		// We do not register the secret. Unlike on-demand CSRs, there is nothing we can do if a file
 		// cert expires; there is no point sending an update when its near expiry. Instead, a
 		// separate file watcher will ensure if the file changes we trigger an update.
@@ -711,6 +827,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			if !ok {
 				return
 			}
+
 			// We only care about updates that change the file content
 			if !(isWrite(event) || isRemove(event) || isCreate(event)) {
 				continue
@@ -722,13 +839,31 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			}
 			sc.certMutex.RUnlock()
 			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
+
+			// Check if there are any symlinks in the system
+			sc.certMutex.RLock()
+			hasSymlinks := false
+			for fc := range sc.fileCerts {
+				if fc.IsSymlink {
+					hasSymlinks = true
+					break
+				}
+			}
+			sc.certMutex.RUnlock()
+
+			// Handle symlink changes if there are any symlinks in the system
+			if hasSymlinks {
+				sc.handleSymlinkChanges(event)
+			}
+
+			// Handle regular file cleanup and updates
 			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
 			// The cleanup should happen first before triggering callbacks, as the callbacks are async and
 			// we may get generate call before cleanup is done and we will end up not watching the file.
 			if isRemove(event) {
 				sc.certMutex.Lock()
 				for fc := range sc.fileCerts {
-					if fc.Filename == event.Name {
+					if fc.Filename == event.Name && !fc.IsSymlink {
 						cacheLog.Debugf("removing file %s from file certs", event.Name)
 						delete(sc.fileCerts, fc)
 						break
@@ -736,10 +871,11 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				}
 				sc.certMutex.Unlock()
 			}
+
 			// Trigger callbacks for all resources referencing this file. This is practically always
-			// a single resource.
+			// a single resource. Skip symlink files as they are handled by handleSymlinkChanges above.
 			for k := range resources {
-				if k.Filename == event.Name {
+				if k.Filename == event.Name && !k.IsSymlink {
 					sc.OnSecretUpdate(k.ResourceName)
 				}
 			}
