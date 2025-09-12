@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 57521
+releaseNotes:
+  - |
+    **Added** support for `ServiceEntry` as a `targetRef` in `BackendTLSPolicy`.
+    This allows users to apply TLS settings to external services defined by `ServiceEntry` resources.
+
