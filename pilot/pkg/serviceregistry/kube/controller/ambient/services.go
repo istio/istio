@@ -437,6 +437,9 @@ func constructServiceEntries(
 	if svc.Spec.Resolution == v1alpha3.ServiceEntry_NONE {
 		lb = &workloadapi.LoadBalancing{
 			Mode: workloadapi.LoadBalancing_PASSTHROUGH,
+			// HealthPolicy is primarily asthetic in this case, making the WDS easier to understand.
+			// We pass through to the endpoint called, so it seems weird if WDS has a OnlyHealthy LoadBalancer setting.
+			HealthPolicy: workloadapi.LoadBalancing_ALLOW_ALL,
 		}
 	} else {
 		trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations)

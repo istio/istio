@@ -319,7 +319,8 @@ func TestServiceEntryServices(t *testing.T) {
 					Namespace: "ns",
 					Hostname:  "none-resolution.example.com",
 					LoadBalancing: &workloadapi.LoadBalancing{
-						Mode: workloadapi.LoadBalancing_PASSTHROUGH,
+						Mode:         workloadapi.LoadBalancing_PASSTHROUGH,
+						HealthPolicy: workloadapi.LoadBalancing_ALLOW_ALL,
 					},
 					Addresses: []*workloadapi.NetworkAddress{},
 					Ports: []*workloadapi.Port{{
