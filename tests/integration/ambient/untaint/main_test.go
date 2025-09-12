@@ -75,6 +75,12 @@ values:
       enabled: false
 
 `, cfg.SystemNamespace)
+			if ctx.Settings().NativeNftables {
+				cfg.ControlPlaneValues += `
+  global:
+    nativeNftables: true
+`
+			}
 		}, cert.CreateCASecretAlt)).
 		Teardown(untaintNodes).
 		Run()
