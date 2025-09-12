@@ -90,6 +90,29 @@ webhooks:
       values:
       - "{{ $tagName }}"
 
+{{- /* Ambient Init Container Injection */}}
+{{- if .Values.ambientInitContainerInjection }}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.ambient.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: ambient.istio.io/init
+      operator: NotIn
+      values:
+      - "false"
+    - key: istio.io/rev
+      operator: In
+      values:
+      {{- if (eq .Values.revision "") }}
+      - "default"
+      {{- else }}
+      - "{{ .Values.revision }}"
+      {{- end }}
+{{- end }}
+
 {{- /* When the tag is "default" we want to create webhooks for the default revision */}}
 {{- /* These webhooks should be kept in sync with istio-discovery/templates/mutatingwebhook.yaml */}}
 {{- if (eq $tagName "default") }}
@@ -125,6 +148,23 @@ webhooks:
       - "true"
     - key: istio.io/rev
       operator: DoesNotExist
+
+{{- /* Ambient Init Container Injection */}}
+{{- if .Values.ambientInitContainerInjection }}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "ambient.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: ambient.istio.io/init
+      operator: In
+      values:
+      - "true"
+    - key: istio.io/rev
+      operator: DoesNotExist
+{{- end }}
 
 {{- if $.Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
 {{- /* Special case 3: no labels at all */}}

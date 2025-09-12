@@ -75,6 +75,10 @@ data:
       kube-gateway: |
 {{ .Files.Get "files/kube-gateway.yaml" | trim | indent 8 }}
 {{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "ambient-validation") }}
+      ambient-validation: |
+{{ .Files.Get "files/ambient-validation.yaml" | trim | indent 8 }}
+{{- end }}
 {{- with .Values.sidecarInjectorWebhook.templates }}
 {{ toYaml . | trim | indent 6 }}
 {{- end }}

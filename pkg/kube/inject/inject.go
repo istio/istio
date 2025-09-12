@@ -166,7 +166,8 @@ type Config struct {
 }
 
 const (
-	SidecarTemplateName = "sidecar"
+	SidecarTemplateName           = "sidecar"
+	AmbientValidationTemplateName = "ambient-validation"
 )
 
 // UnmarshalConfig unmarshals the provided YAML configuration, while normalizing the resulting configuration
@@ -312,6 +313,64 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	}
 
 	return required
+}
+
+// TODO(jaellio): generate label
+var ambientInjectInit = label.Instance{
+	Name:          "ambient.istio.io/init",
+	Description:   "Specifies whether or not an init sidecar should be " +
+		"injected into the workload.",
+	FeatureStatus: label.Alpha,
+	Hidden:        false,
+	Deprecated:    false,
+	Resources: []label.ResourceTypes{
+		label.Pod,
+	},
+}
+
+func ambientInjectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata metav1.ObjectMeta) bool {
+	log := log.WithLabels("pod", metadata.Namespace+"/"+potentialPodName(metadata))
+	// Skip injection when host networking is enabled. The problem is
+	// that the iptables changes are assumed to be within the pod when,
+	// in fact, they are changing the routing at the host level. This
+	// often results in routing failures within a node which can
+	// affect the network provider within the cluster causing
+	// additional pod failures.
+	if podSpec.HostNetwork {
+		return false
+	}
+
+	// skip special kubernetes system namespaces
+	for _, namespace := range ignored {
+		if metadata.Namespace == namespace {
+			return false
+		}
+	}
+
+	if !features.EnableAmbient {
+		log.Debug("Control plane is not in ambient mode, skipping ambient injection")
+		return false
+	}
+
+	var inject bool
+
+	lbl, labelPresent := metadata.GetLabels()[ambientInjectInit.Name]
+	if !labelPresent {
+		log.Debugf("%s label not present", ambientInjectInit.Name)
+		return false
+	}
+	switch lbl {
+	case "true":
+		inject = true
+	case "false", "":
+		inject = false
+	default:
+		log.Warnf("Invalid value for %s: %q. Only 'true' and 'false' are accepted. Ambient injections must be explicitly enabled.",
+			ambientInjectInit.Name, lbl)
+		inject = false
+	}
+
+	return inject
 }
 
 // ProxyImage constructs image url in a backwards compatible way.
