@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	applyopt "istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -147,7 +147,7 @@ func (i *istioImpl) deployAmbientEastWestGateway(cluster cluster.Cluster) error 
 	if err != nil {
 		return fmt.Errorf("failed generating eastwest gateway yaml: %v: %v", err, string(gw))
 	}
-	if err = i.ctx.ConfigKube(cluster).YAML(i.cfg.SystemNamespace, string(gw)).Apply(applyopt.NoCleanup); err != nil {
+	if err = i.ctx.ConfigKube(cluster).YAML(i.cfg.SystemNamespace, string(gw)).Apply(apply.NoCleanup); err != nil {
 		return fmt.Errorf("failed applying eastwest gateway yaml: %v", err)
 	}
 
