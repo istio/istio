@@ -453,7 +453,6 @@ func constructServiceEntries(
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
-		log.Infof("jaellio: constructing service entry for host %q in service entry %s/%s", h, svc.Namespace, svc.Name)
 		// if we have no user-provided hostsAddresses and h is not wildcarded and we have hostsAddresses supported resolution
 		// we can try to use autoassigned hostsAddresse
 		hostsAddresses := addresses
