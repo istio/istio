@@ -446,7 +446,8 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	// Create DFP filter for wildcard hosts
 	if httpOpts.policySvc != nil && httpOpts.policySvc.Hostname.IsWildCarded() && httpOpts.class == istionetworking.ListenerClassSidecarInbound {
-		filters = append(filters, xdsfilters.WaypointInboundDFPFilter)
+		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
+		filters = append(filters, xdsfilters.BuildWaypointInboundDFPFilter(dfpCacheName))
 	}
 
 	// jaellio - router filter must be last

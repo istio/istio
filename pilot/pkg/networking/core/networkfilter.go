@@ -18,12 +18,9 @@ import (
 	"time"
 
 	mysql "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/mysql_proxy/v3"
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	dfpcommon "github.com/envoyproxy/go-control-plane/envoy/extensions/common/dynamic_forward_proxy/v3"
 	mongo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mongo_proxy/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
-	snidfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	hashpolicy "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -246,38 +243,11 @@ func buildNetworkFiltersStack(p protocol.Instance, tcpFilter *listener.Filter, s
 			filterstack = append(filterstack, buildMySQLFilter(statPrefix))
 		}
 		filterstack = append(filterstack, tcpFilter)
-	// TODO(grnmeira-jaellio): note this is not the only condition. We'd only
-	// expect to have this TLS filter when dynamic proxying is necessary. We
-	// still need to figure out the conditions, is it only when services with
-	// wildcarded host names are involved?
-	case protocol.TLS:
-		filterstack = append(filterstack, buildSNIDFPFilter(), tcpFilter)
 	default:
 		filterstack = append(filterstack, tcpFilter)
 	}
 
 	return filterstack
-}
-
-// buildSNIDFPFilter generates an SNI Dynamic Forward Proxy filter,
-// a filter necessary so the Dynamic Forward Proxy cluster is able
-// to work with DNS results based on SNI information. Note that this
-// filter depends on the TLS Inspector filter.
-func buildSNIDFPFilter() *listener.Filter {
-	config := &snidfp.FilterConfig{
-		// TODO(grnmeira-jaellio): we need to refactor this DNS cache
-		// configuration to a common place. The cluster DNS cache config
-		// needs to match the filter's config for DFP to work.
-		DnsCacheConfig: &dfpcommon.DnsCacheConfig{
-			Name:            "dynamic_forward_proxy_cache_config",
-			DnsLookupFamily: cluster.Cluster_V4_ONLY,
-		},
-	}
-	sniDFPFilter := &listener.Filter{
-		Name:       "dfp_sni_filter",
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(config)},
-	}
-	return sniDFPFilter
 }
 
 // buildOutboundNetworkFilters generates a TCP proxy network filter for outbound

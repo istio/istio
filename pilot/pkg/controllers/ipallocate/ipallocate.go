@@ -129,7 +129,6 @@ func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 }
 
 func (c *IPAllocator) Run(stop <-chan struct{}) {
-	// TODO(jaellio): This isn't running - what is allocating the IP?
 	log.Debugf("starting %s controller", controllerName)
 	kubelib.WaitForCacheSync(controllerName, stop, c.serviceEntryClient.HasSynced)
 	// it is important that we always warm cache before we try to run the queue
@@ -344,7 +343,6 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	if se == nil {
 		return nil, nil, nil
 	}
-	log.Infof("jaellio: constructing status patch for service entry %s/%s", se.Namespace, se.Name)
 
 	existingHostAddresses := autoallocate.GetHostAddressesFromServiceEntry(se)
 	hostsWithAddresses := sets.New[string]()
