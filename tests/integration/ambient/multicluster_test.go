@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	// "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -40,7 +40,6 @@ func TestGlobalServiceReachability(t *testing.T) {
 		RequireIstioVersion("1.27").
 		Run(func(t framework.TestContext) {
 			clusters := t.Clusters()
-			numClusters := len(clusters)
 
 			clusterToNetwork := make(map[string]string)
 			expectedClusters := sets.New[string]()
@@ -62,15 +61,7 @@ func TestGlobalServiceReachability(t *testing.T) {
 						t.Logf("[label] skip: %s/%s not found in %s", ns, svcName, c.StableName())
 						continue
 					}
-					if _, err := c.Kube().CoreV1().Services(ns).Patch(
-						context.TODO(),
-						svcName,
-						types.StrategicMergePatchType,
-						[]byte(`{"metadata":{"labels":{"istio.io/global":"true"}}}`),
-						metav1.PatchOptions{},
-					); err != nil {
-						t.Fatalf("patch %s/%s in %s: %v", ns, svcName, c.StableName(), err)
-					}
+					labelService(t, svcName, "istio.io/global", "true")
 					t.Logf("[label] labeled %s/%s as global in cluster %s (network %s)",
 						ns, svcName, c.StableName(), clusterToNetwork[c.StableName()])
 				}
@@ -90,7 +81,7 @@ func TestGlobalServiceReachability(t *testing.T) {
 							wl.Cluster().StableName(),
 							clusterToNetwork[wl.Cluster().StableName()],
 							dst.ServiceName(),
-							numClusters*30,
+							60,
 						)
 
 						err := retry.UntilSuccess(func() error {
@@ -98,7 +89,7 @@ func TestGlobalServiceReachability(t *testing.T) {
 							result, err = src.WithWorkloads(wl).Call(echo.CallOptions{
 								To:      dst,
 								Port:    echo.Port{Name: "http"},
-								Count:   numClusters * 30,
+								Count:   60,
 								Timeout: 60 * time.Second,
 							})
 							return err
