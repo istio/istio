@@ -57,7 +57,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -233,45 +232,6 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 }
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
-// TODO(jaellio-gustavo): Handle listener creation for wildcard service. Potentially have a seperate function call (other than buildWaypointInternal) to handle this case.
-// The listener should look something like this with the wildcard VIP and port
-/*
-listeners:
-    - name: listener_0
-      address:
-        socket_address:
-          address: 0.0.0.0
-          port_value: 9000
-      filter_chains:
-        - filters:
-            - name: envoy.filters.network.http_connection_manager
-              typed_config:
-                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-                stat_prefix: ingress_http
-                route_config:
-                  name: local_route
-                  virtual_hosts:
-                    - name: wildcard_host
-                      domains:
-                        - "*.example.com"
-                      routes:
-                        - match:
-                            prefix: "/"
-                          route:
-                            cluster: dynamic_forward_proxy_cluster
-                            host_rewrite_header: "host"
-                http_filters:
-                  - name: envoy.filters.http.dynamic_forward_proxy
-                    typed_config:
-                      "@type": type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig
-                      dns_cache_config:
-                        name: dynamic_forward_proxy_cache_config
-                        dns_lookup_family: V4_ONLY
-                  - name: envoy.filters.http.router
-                    typed_config:
-                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-
-*/
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	isEastWestGateway := isEastWestGateway(lb.node)
 	ipMatcher := &matcher.IPMatcher{}
@@ -525,21 +485,12 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 		nonInspectorPorts := nonTLSPorts.DeleteAll(tlsPorts.UnsortedList()...).UnsortedList()
-		// TODO(grnmeira-jaellio) I'm not a 100% sure why this logic works like this. We
-		// only add a TLS Inspector when there's at least one "non inspector" port... Sounds
-		// like a bug to me. We need to clarify this because we need the TLS inspector for
-		// DFP using TLS.
 		if len(nonInspectorPorts) > 0 {
 			slices.Sort(nonInspectorPorts)
 			return &listener.ListenerFilter{
 				Name:           wellknown.TLSInspector,
 				ConfigType:     xdsfilters.TLSInspector.ConfigType,
 				FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
-			}
-		} else if len(tlsPorts) > 0 {
-			return &listener.ListenerFilter{
-				Name:       wellknown.TLSInspector,
-				ConfigType: xdsfilters.TLSInspector.ConfigType,
 			}
 		}
 		return nil
@@ -701,43 +652,6 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	return pre, post
 }
 
-/*
-listeners:
-    - name: listener_0
-      address:
-        socket_address:
-          address: 0.0.0.0
-          port_value: 9000
-      filter_chains:
-        - filters:
-            - name: envoy.filters.network.http_connection_manager
-              typed_config:
-                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-                stat_prefix: ingress_http
-                route_config:
-                  name: local_route
-                  virtual_hosts:
-                    - name: wildcard_host
-                      domains:
-                        - "*.example.com"
-                      routes:
-                        - match:
-                            prefix: "/"
-                          route:
-                            cluster: dynamic_forward_proxy_cluster
-                http_filters:
-                  - name: envoy.filters.http.dynamic_forward_proxy
-                    typed_config:
-                      "@type": type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig
-                      dns_cache_config:
-                        name: dynamic_forward_proxy_cache_config
-                        dns_lookup_family: V4_ONLY
-                  - name: envoy.filters.http.router
-                    typed_config:
-                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-
-*/
-
 // buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
@@ -745,7 +659,6 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	var filters []*listener.Filter
 	httpOpts := &httpListenerOpts{
-		// TODO(jaellio): Make route config conditionally handle wildcard services with dfp
 		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
@@ -792,8 +705,6 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 	var svcHostname host.Name
 	var subsetName string
 
-	log.Debugf("jaellio: building network filters for protocol %v", fcc.port.Protocol)
-
 	statPrefix := fcc.clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
@@ -805,7 +716,6 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 	}
 	var destinationRule *networking.DestinationRule
 	if svc != nil {
-		log.Debugf("jaellio: building filters for service %v", svc.Hostname)
 		svcHostname = svc.Hostname
 		virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 		routes := getWaypointTCPRoutes(virtualServices, svcHostname.String(), fcc.port.Port)
@@ -923,23 +833,6 @@ func getTCPRouteMatch(tcp []*networking.TCPRoute, port int) []*networking.RouteD
 	return nil
 }
 
-/*
-	For DFP
-
-route_config:
-
-	name: local_route
-	virtual_hosts:
-	- name: wildcard_host
-		domains:
-		- "*.example.com"
-		routes:
-		- match:
-			prefix: "/"
-			route:
-			cluster: dynamic_forward_proxy_cluster
-			host_rewrite_header: "host"
-*/
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
@@ -1075,7 +968,6 @@ func (lb *ListenerBuilder) translateWaypointRoute(
 
 // getWaypointDestinationCluster generates a cluster name for the route. If the destination is invalid
 // or cannot be found, "UnknownService" is returned.
-// TODO(jaellio-gustavo): get the DFP cluster for services
 func (lb *ListenerBuilder) getWaypointDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
 	if len(destination.GetHost()) == 0 {
 		// only happens when the gateway-api BackendRef is invalid

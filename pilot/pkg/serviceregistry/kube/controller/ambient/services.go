@@ -458,7 +458,6 @@ func constructServiceEntries(
 		// we can try to use autoassigned hostsAddresse
 		hostsAddresses := addresses
 		// TODO(jaellio): conditionally block usage of wildcard usage based on other spec settings
-		// if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
 		if len(hostsAddresses) == 0 && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
 			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
 				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
