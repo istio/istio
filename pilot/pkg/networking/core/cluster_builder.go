@@ -488,6 +488,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 
 // buildCluster builds the default cluster and also applies global options.
 // It is used for building both inbound and outbound cluster.
+// TODO(jaellio): Add support for destinationRule configuration
 func (cb *ClusterBuilder) buildDFPCluster(svc *model.Service) *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:     model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, svc.Ports[0].Port),
@@ -497,7 +498,7 @@ func (cb *ClusterBuilder) buildDFPCluster(svc *model.Service) *cluster.Cluster {
 			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
 				ClusterImplementationSpecifier: &dfpcluster.ClusterConfig_DnsCacheConfig{
 					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
-						Name:            svc.Hostname.String() + "_dfp_dns_cache",
+						Name:            model.BuildDNSCacheName(svc.Hostname),
 						DnsLookupFamily: cluster.Cluster_V4_ONLY,
 					},
 				},
