@@ -19,7 +19,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -60,8 +59,6 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 
 	workloads := push.WorkloadsForWaypoint(key)
 	serviceInfos := push.ServicesForWaypoint(key)
-
-	log.Infof("jaellio: findWaypointResources with key %#v, found %d workloads and %d services", key, len(workloads), len(serviceInfos))
 
 	waypointServices := &waypointServices{}
 	for _, s := range serviceInfos {
