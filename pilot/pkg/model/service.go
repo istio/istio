@@ -302,6 +302,9 @@ const (
 	trafficDirectionOutboundSrvPrefix = string(TrafficDirectionOutbound) + "_"
 	// trafficDirectionInboundSrvPrefix the prefix for a DNS SRV type subset key
 	trafficDirectionInboundSrvPrefix = string(TrafficDirectionInbound) + "_"
+
+	// dnsCacheConfigNameSuffix is the suffix used for DNS cache config names
+	dnsCacheConfigNameSuffix = "_dfp_dns_cache"
 )
 
 // ServiceInstance represents an individual instance of a specific version
@@ -1582,6 +1585,11 @@ func BuildInboundSubsetKey(port int) string {
 // The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
 func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
 	return string(direction) + "_." + strconv.Itoa(port) + "_." + subsetName + "_." + string(hostname)
+}
+
+// BuildDNSCacheName generates a hostname specific DNS cache config name.
+func BuildDNSCacheName(hostname host.Name) string {
+	return hostname.String() + dnsCacheConfigNameSuffix
 }
 
 // IsValidSubsetKey checks if a string is valid for subset key parsing.

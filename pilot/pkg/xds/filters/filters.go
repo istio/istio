@@ -242,20 +242,6 @@ var (
 		},
 	}
 
-	WaypointInboundDFPFilter = &hcm.HttpFilter{
-		Name: "envoy.filters.http.dynamic_forward_proxy",
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&dfp.FilterConfig{
-				ImplementationSpecifier: &dfp.FilterConfig_DnsCacheConfig{
-					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
-						Name: "dynamic_forward_proxy_cache_config",
-						DnsLookupFamily: cluster.Cluster_V4_ONLY,
-					},
-				},
-			}),
-		},
-	}
-
 	ConnectAuthorityFilter = &hcm.HttpFilter{
 		Name: "connect_authority",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -543,5 +529,24 @@ var (
 func additionalLabels(cfg map[string]any) {
 	if additionalLabels := features.MetadataExchangeAdditionalLabels; len(additionalLabels) != 0 {
 		cfg["additional_labels"] = additionalLabels
+	}
+}
+
+// BuildWaypointInboundDFPFilter builds a dynamic forward proxy filter for waypoint inbound listeners
+// using the specified DNS cache config name. This name must match the name used in the corresponding
+// dynamic forward proxy cluster.
+func BuildWaypointInboundDFPFilter(dnsCacheConfigName string) *hcm.HttpFilter {
+	return &hcm.HttpFilter{
+		Name: "envoy.filters.http.dynamic_forward_proxy",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&dfp.FilterConfig{
+				ImplementationSpecifier: &dfp.FilterConfig_DnsCacheConfig{
+					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
+						Name: dnsCacheConfigName,
+						DnsLookupFamily: cluster.Cluster_V4_ONLY,
+					},
+				},
+			}),
+		},
 	}
 }

@@ -104,7 +104,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster(proxy))
 	// Creates per-VIP load balancing upstreams.
 	// TODO(jaellio): Add support for checking is VIP corresponds to a wildcard host
-	// if it does, we shoudl create a dynamic forward proxy cluster
+	// if it does, we should create a dynamic forward proxy cluster
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
 
 	clusters = append(clusters, cb.buildWaypointInboundDFP(proxy, svcs, push.Mesh)...)
@@ -258,89 +258,8 @@ func (cb *ClusterBuilder) buildWaypointInboundDFPCluster(
 	drConfig *config.Config,
 ) *cluster.Cluster {
 	// TODO: is this enough? Probably since we validate no extra listeners are present in the conversion layer
-	// TODO(jaellio): Do I need a check for is egress gateway here? Need to figure out how to handle wildcard hosts,
-	// do I need to know if this came from a serviceEntry?
-	// terminate := isEastWestGateway(proxy)
-	// Should this be hostname specific?
-	localCluster := cb.buildDFPCluster(svc)
-
-	// TODO(jaellio): What metadata (if any) do we need to set up?)
-	// TODO(jaellio): Apply any additional configuration from the DestinationRule if it exists for this wildcard host? or is this specific configuration for the DNS resolution?
-	/*
-		// Ensure VIP cluster has services metadata for stats filter usage
-		im := getOrCreateIstioMetadata(localCluster.cluster)
-		im.Fields["services"] = &structpb.Value{
-			Kind: &structpb.Value_ListValue{
-				ListValue: &structpb.ListValue{
-					Values: []*structpb.Value{},
-				},
-			},
-		}
-		svcMetaList := im.Fields["services"].GetListValue()
-		svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc))
-
-		// Apply DestinationRule configuration for the service
-		connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol, retryBudget := selectTrafficPolicyComponents(policy)
-		// Add applicable metadata to the cluster to identify which config is applied for tooling
-		if policy != nil {
-			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, drConfig.Meta)
-		}
-		if subset != "" {
-			util.AddSubsetToMetadata(localCluster.cluster.Metadata, subset)
-		}
-		if connectionPool == nil {
-			connectionPool = &networking.ConnectionPoolSettings{}
-		}
-
-		// For these policies, we have the standard logic apply
-		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
-		cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
-		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
-		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
-
-		// Setup EDS config after apply LoadBalancer, since it can impact the result
-		if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
-			localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
-		}
-		maybeApplyEdsConfig(localCluster.cluster)
-
-		// TLS and PROXY are more involved, since these impact the transport socket which is customized for HBONE.
-		opts := &buildClusterOpts{
-			mesh:           cb.req.Push.Mesh,
-			mutable:        localCluster,
-			policy:         policy,
-			port:           &port,
-			serviceTargets: cb.serviceTargets,
-			clusterMode:    DefaultClusterMode,
-			direction:      model.TrafficDirectionInboundVIP,
-		}*/
-	// TODO(jaellio): Do we need to define a transport socket if we're just doing unencrypted DNS?
-	/*transportSocket := util.RawBufferTransport()
-	if tlsContext := buildWaypointTLSContext(opts, tls); tlsContext != nil {
-		transportSocket = &core.TransportSocket{
-			Name:       wellknown.TransportSocketTLS,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
-		}
-	}
-	if proxyProtocol != nil {
-		// Wrap the existing transport socket. Note this could be RawBuffer or TLS, depending on other config
-		transportSocket = &core.TransportSocket{
-			Name: wellknown.TransportSocketPROXY,
-			ConfigType: &core.TransportSocket_TypedConfig{
-				TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
-					Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
-					TransportSocket: transportSocket,
-				},
-				),
-			},
-		}
-	}
-	// no TLS, we are just going to internal address
-	localCluster.cluster.TransportSocketMatches = nil
-	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
-	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)*/
-
-	return localCluster
+	// TODO(jaellio): TODO: Add support for DestinationRule configuration
+	return cb.buildDFPCluster(svc)
 }
 
 func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) *tlsv3.UpstreamTlsContext {
@@ -377,26 +296,19 @@ func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSe
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
 func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
-	log.Infof("jaellio buildWaypointInboundVIP with %d services", len(svcs))
 	for _, svc := range svcs {
-		log.Infof("jaellio buildWaypointInboundVIP for proxy %s with %s service", proxy.ID, svc.Hostname)
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			// TODO(jaellio): Do I need a check for is egress gateway here?
-			// Need to figure out how to handle wildcard hosts, do I need to know if this came from a serviceEntry?
-			// Or can I make that assumption based on the hostname being a wildcard?
 			if isEastWestGateway(proxy) {
 				// East-west gateways don't respect DestinationRule, so don't read it here
 				// TODO: Confirm this decision
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
 				continue
 			}
-
-			// Check if wildcard host
 			if svc.Hostname.IsWildCarded() {
-				log.Infof("jaellio: skipping waypoint inbound VIP cluster for wildcard host %s:%d", svc.Hostname, port.Port)
+				log.Debugf("skip building waypoint inbound VIP cluster for wildcard host %s:%d", svc.Hostname, port.Port)
 				continue
 			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
@@ -427,54 +339,32 @@ func (cb *ClusterBuilder) buildWaypointInboundDFP(proxy *model.Proxy, svcs map[h
 	clusters := []*cluster.Cluster{}
 
 	for _, svc := range svcs {
-		log.Infof("jaellio buildWaypointInboundDFP for proxy %s with %s service", proxy.ID, svc.Hostname)
-		// Check if wildcard host
-		if !svc.Hostname.IsWildCarded() {
-			log.Infof("jaellio: skipping waypoint inbound VIP cluster for non wildcard host %s", svc.Hostname)
+		if !svc.Hostname.IsWildCarded() || isEastWestGateway(proxy) {
 			continue
 		}
-		// TODO(jaellio): do we even need to make this port specific?
 		// Could all wildcard hosts just go to the same cluster regardless of port/protocol?
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			// TODO(jaellio): Do I need a check for is egress gateway here?
-			// Need to figure out how to handle wildcard hosts, do I need to know if this came from a serviceEntry?
-			// Or can I make that assumption based on the hostname being a wildcard?
-			// Not currently reading any of these params
-			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
-			}
-			if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http", mesh, nil, nil))
-			}
-			// TODO(jaellio): allow destinationRules
-			//if isEastWestGateway(proxy) {
-			// East-west gateways don't respect DestinationRule, so don't read it here
-			// TODO: Confirm this decision
-			// clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
-			//	continue
-			//}
-
-			/*cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
+			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			dr := CastDestinationRule(cfg)
 			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
 			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
+				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
 			}
 			if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "http", mesh, policy, cfg))
+				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http", mesh, policy, cfg))
 			}
 			for _, ss := range dr.GetSubsets() {
 				policy = util.MergeSubsetTrafficPolicy(dr.GetTrafficPolicy(), ss.GetTrafficPolicy(), port)
 				if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-					clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp/"+ss.Name, mesh, policy, cfg))
+					clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "tcp/"+ss.Name, mesh, policy, cfg))
 				}
 				if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-					clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "http/"+ss.Name, mesh, policy, cfg))
+					clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http/"+ss.Name, mesh, policy, cfg))
 				}
-			}*/
+			}
 		}
 	}
 	return clusters
