@@ -2971,9 +2971,15 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 		case networking.ServiceEntry_DNS, networking.ServiceEntry_DNS_ROUND_ROBIN:
 			if len(serviceEntry.Endpoints) == 0 {
 				for _, hostname := range serviceEntry.Hosts {
+					// TODO(jaellio): Add support for additional service entry resolution type to support
+					// wildcard hosts
 					if err := agent.ValidateFQDN(hostname); err != nil {
+						if labels.IsWildcardDNS1123Label(hostname) {
+							log.Debugf("allowing wildcard host %s for resolution mode %s", hostname, serviceEntry.Resolution)
+							continue
+						}
 						errs = AppendValidation(errs,
-							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode %s", serviceEntry.Resolution))
+							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode %s, %v", serviceEntry.Resolution, err))
 					}
 				}
 			}

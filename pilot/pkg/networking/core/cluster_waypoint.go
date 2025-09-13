@@ -103,7 +103,11 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// Creates "encap" cluster to route to the encap listener.
 	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster(proxy))
 	// Creates per-VIP load balancing upstreams.
+	// TODO(jaellio): Add support for checking is VIP corresponds to a wildcard host
+	// if it does, we should create a dynamic forward proxy cluster
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
+
+	clusters = append(clusters, cb.buildWaypointInboundDFP(proxy, svcs, push.Mesh)...)
 
 	// Upstream of the "encap" listener.
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
@@ -243,6 +247,21 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	return localCluster.build()
 }
 
+// `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
+func (cb *ClusterBuilder) buildWaypointInboundDFPCluster(
+	proxy *model.Proxy,
+	svc *model.Service,
+	port model.Port,
+	subset string,
+	mesh *meshconfig.MeshConfig,
+	policy *networking.TrafficPolicy,
+	drConfig *config.Config,
+) *cluster.Cluster {
+	// TODO: is this enough? Probably since we validate no extra listeners are present in the conversion layer
+	// TODO(jaellio): TODO: Add support for DestinationRule configuration
+	return cb.buildDFPCluster(svc)
+}
+
 func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) *tlsv3.UpstreamTlsContext {
 	if tls == nil {
 		return nil
@@ -277,7 +296,6 @@ func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSe
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
 func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
-
 	for _, svc := range svcs {
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
@@ -287,6 +305,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				// East-west gateways don't respect DestinationRule, so don't read it here
 				// TODO: Confirm this decision
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
+				continue
+			}
+			if svc.Hostname.IsWildCarded() {
+				log.Debugf("skip building waypoint inbound VIP cluster for wildcard host %s:%d", svc.Hostname, port.Port)
 				continue
 			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
@@ -305,6 +327,42 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				}
 				if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
 					clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "http/"+ss.Name, mesh, policy, cfg))
+				}
+			}
+		}
+	}
+	return clusters
+}
+
+// `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
+func (cb *ClusterBuilder) buildWaypointInboundDFP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
+	clusters := []*cluster.Cluster{}
+
+	for _, svc := range svcs {
+		if !svc.Hostname.IsWildCarded() || isEastWestGateway(proxy) {
+			continue
+		}
+		// Could all wildcard hosts just go to the same cluster regardless of port/protocol?
+		for _, port := range svc.Ports {
+			if port.Protocol == protocol.UDP {
+				continue
+			}
+			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
+			dr := CastDestinationRule(cfg)
+			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
+			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
+				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
+			}
+			if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
+				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http", mesh, policy, cfg))
+			}
+			for _, ss := range dr.GetSubsets() {
+				policy = util.MergeSubsetTrafficPolicy(dr.GetTrafficPolicy(), ss.GetTrafficPolicy(), port)
+				if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
+					clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "tcp/"+ss.Name, mesh, policy, cfg))
+				}
+				if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
+					clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http/"+ss.Name, mesh, policy, cfg))
 				}
 			}
 		}
