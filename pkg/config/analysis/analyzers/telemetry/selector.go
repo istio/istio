@@ -52,7 +52,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 	podsToTelemetries := make(map[resource.FullName][]*resource.Instance)
 
 	// This is using an unindexed approach for matching selectors.
-	// Using an index for selectoes is problematic because selector != label
+	// Using an index for selectors is problematic because selector != label
 	// We can match a label to a selector, but we can't generate a selector from a label.
 	c.ForEach(gvk.Telemetry, func(rs *resource.Instance) bool {
 		s := rs.Message.(*v1alpha1.Telemetry)
