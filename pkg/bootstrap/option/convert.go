@@ -41,14 +41,14 @@ type TransportSocket struct {
 	TypedConfig *pstruct.Struct `json:"typed_config,omitempty"`
 }
 
-// TCPKeepalive wraps is a thin JSON for xDS proto
+// TCPKeepalive wraps a thin JSON for xDS proto
 type TCPKeepalive struct {
 	KeepaliveProbes   *wrappers.UInt32Value `json:"keepalive_probes,omitempty"`
 	KeepaliveTime     *wrappers.UInt32Value `json:"keepalive_time,omitempty"`
 	KeepaliveInterval *wrappers.UInt32Value `json:"keepalive_interval,omitempty"`
 }
 
-// UpstreamConnectionOptions wraps is a thin JSON for xDS proto
+// UpstreamConnectionOptions wraps a thin JSON for xDS proto
 type UpstreamConnectionOptions struct {
 	TCPKeepalive *TCPKeepalive `json:"tcp_keepalive,omitempty"`
 }

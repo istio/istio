@@ -35,7 +35,7 @@ func NewTemplateParams(is ...Instance) (map[string]any, error) {
 	return params, nil
 }
 
-// Name unique name for an option.
+// Unique name for an option.
 type Name string
 
 func (n Name) String() string {

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 /*
-NOTICE: The zsh constants are derived from the kubectl completion code,
+NOTICE: The zsh constants are derived from the kubectl completion code
 (k8s.io/kubernetes/pkg/kubectl/cmd/completion/completion.go), with the
 following copyright/license:
 
