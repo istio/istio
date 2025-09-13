@@ -153,7 +153,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
 	serviceClusters map[string]sets.String, servicePortClusters map[string]map[int]string, subsetClusters map[string]sets.String,
 ) ([]*model.Service, []string) {
-	log.Infof("Calling deltaFromServices for service %s/%s with hostname %s", key.Namespace, key.Name, host.Name(key.Name))
 	var deletedClusters []string
 	var services []*model.Service
 	service := push.ServiceForHostname(proxy, host.Name(key.Name))
@@ -220,7 +219,6 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *model.PushRequest,
 	services []*model.Service, envoyFilterPatches *model.MergedEnvoyFilterWrapper,
 ) ([]*discovery.Resource, model.XdsLogDetails) {
-	log.Infof("jaellio buildClusters for proxy %s with %d services", proxy.ID, len(services))
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
 	cb := NewClusterBuilder(proxy, req, configgen.Cache)

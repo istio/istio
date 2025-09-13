@@ -168,7 +168,7 @@ func (c *IPAllocator) reconcile(a any) error {
 
 func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 	log := log.WithLabels("service entry", se)
-	log.Debugf("jaellio: reconciling")
+	log.Debugf("reconciling")
 	serviceentry := c.serviceEntryClient.Get(se.Name, se.Namespace)
 	if serviceentry == nil {
 		log.Debugf("not found, no action required")
@@ -334,7 +334,7 @@ type jsonPatch struct {
 // filter out any wildcarded hosts
 // TODO(jaellio): make this behavior conditional on ambient mode and resolution type
 func removeWildCarded(h string) bool {
-	log.Infof("jaellio: would remove wildcarded host %s: %v. Keeping regardless", h, !cfghost.Name(h).IsWildCarded())
+	log.Infof("would remove wildcarded host %s: %v. Keeping regardless", h, !cfghost.Name(h).IsWildCarded())
 	return true
 	//return !cfghost.Name(h).IsWildCarded()
 }
