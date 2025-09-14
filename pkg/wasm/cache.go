@@ -75,7 +75,7 @@ var _ Cache = &LocalFileCache{}
 
 type checksumEntry struct {
 	checksum string
-	// Keeps the resource version per each resource for dealing with multiple resources which pointing the same image.
+	// Keeps the resource version for each resource to deal with multiple resources pointing to the same image.
 	resourceVersionByResource map[string]string
 }
 
@@ -103,7 +103,7 @@ type cacheEntry struct {
 	modulePath string
 	// Last time that this local Wasm module is referenced.
 	last time.Time
-	// set of URLs referencing this entry
+	// Set of URLs referencing this entry
 	referencingURLs sets.String
 }
 
@@ -164,7 +164,7 @@ func NewLocalFileCache(dir string, options Options) *LocalFileCache {
 func moduleNameFromURL(fullURLStr string) string {
 	if strings.HasPrefix(fullURLStr, ociURLPrefix) {
 		if tag, err := name.ParseReference(fullURLStr[len(ociURLPrefix):]); err == nil {
-			// remove tag or sha
+			// Remove tag or sha
 			return ociURLPrefix + tag.Context().Name()
 		}
 	}
@@ -382,10 +382,10 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (*ca
 		// If the image was pulled before, there should be a checksum of the most recently pulled image.
 		if ce, found := c.checksums[key.downloadURL]; found {
 			if ignoreResourceVersion || key.resourceVersion == ce.resourceVersionByResource[key.resourceName] {
-				// update checksum
+				// Update checksum
 				key.checksum = ce.checksum
 			}
-			// update resource version here
+			// Update resource version here
 			ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
 		}
 	}

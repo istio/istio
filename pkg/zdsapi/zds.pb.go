@@ -188,7 +188,7 @@ func (x *WorkloadInfo) GetServiceAccount() string {
 	return ""
 }
 
-// Add a workload to the ztunnel. this will be accompanied by ancillary data containing
+// Add a workload to the ztunnel. This will be accompanied by ancillary data containing
 // the workload's netns file descriptor.
 type AddWorkload struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
