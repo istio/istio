@@ -60,6 +60,7 @@ type BackendPolicy struct {
 	Source       TypedNamedspacedName
 	TargetIndex  int
 	Target       TypedNamedspacedName
+	SectionName  *string
 	TLS          *networking.ClientTLSSettings
 	LoadBalancer *networking.LoadBalancerSettings
 	RetryBudget  *networking.TrafficPolicy_RetryBudget
@@ -72,6 +73,7 @@ func (b BackendPolicy) ResourceName() string {
 
 func (b BackendPolicy) Equals(other BackendPolicy) bool {
 	return b.Source == other.Source &&
+		ptr.Equal(b.SectionName, other.SectionName) &&
 		protoconv.Equals(b.TLS, other.TLS) &&
 		protoconv.Equals(b.LoadBalancer, other.LoadBalancer) &&
 		protoconv.Equals(b.RetryBudget, other.RetryBudget)
@@ -85,6 +87,7 @@ func DestinationRuleCollection(
 	references *ReferenceSet,
 	domainSuffix string,
 	c *Controller,
+	services krt.Collection[*v1.Service],
 	opts krt.OptionsBuilder,
 ) krt.Collection[*config.Config] {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, opts)
@@ -133,15 +136,28 @@ func DestinationRuleCollection(
 				Host:          svc.Name + "." + svc.Namespace + ".svc." + domainSuffix, // "%s.%s.svc.%v"
 				TrafficPolicy: &networking.TrafficPolicy{},
 			}
+			portLevelSettings := make(map[string]*networking.TrafficPolicy_PortTrafficPolicy)
 			parents := make([]string, 0, len(pols))
 			for _, pol := range pols {
 				if pol.TLS != nil {
-					if tlsSet {
-						// We only allow 1. TODO: report status if there are multiple
-						continue
+					if pol.SectionName != nil {
+						// Port-specific TLS setting
+						portName := *pol.SectionName
+						if _, exists := portLevelSettings[portName]; !exists {
+							portLevelSettings[portName] = &networking.TrafficPolicy_PortTrafficPolicy{
+								Port: &networking.PortSelector{Number: 0}, // Will be resolved later
+								Tls:  pol.TLS,
+							}
+						}
+					} else {
+						// Service-wide TLS setting
+						if tlsSet {
+							// We only allow 1. TODO: report status if there are multiple
+							continue
+						}
+						tlsSet = true
+						spec.TrafficPolicy.Tls = pol.TLS
 					}
-					tlsSet = true
-					spec.TrafficPolicy.Tls = pol.TLS
 				}
 				if pol.LoadBalancer != nil {
 					if lbSet {
@@ -159,8 +175,29 @@ func DestinationRuleCollection(
 					rbSet = true
 					spec.TrafficPolicy.RetryBudget = pol.RetryBudget
 				}
-				parents = append(parents, pol.Source.Kind.String()+"/"+pol.Source.Namespace+"."+pol.Source.Name)
+				parentName := pol.Source.Kind.String() + "/" + pol.Source.Namespace + "." + pol.Source.Name
+				if !slices.Contains(parents, parentName) {
+					parents = append(parents, parentName)
+				}
 			}
+
+			if len(portLevelSettings) > 0 {
+				serviceKey := svc.Namespace + "/" + svc.Name
+				service := ptr.Flatten(krt.FetchOne(ctx, services, krt.FilterKey(serviceKey)))
+
+				for portName, portPolicy := range portLevelSettings {
+					if service != nil {
+						for _, port := range service.Spec.Ports {
+							if port.Name == portName {
+								portPolicy.Port = &networking.PortSelector{Number: uint32(port.Port)}
+								break
+							}
+						}
+					}
+					spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
+				}
+			}
+
 			cfg := &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
@@ -213,9 +250,23 @@ func BackendTLSPolicyCollection(
 		for idx, t := range i.Spec.TargetRefs {
 			conds = maps.Clone(conds)
 			refo, err := references.LocalPolicyTargetRef(t.LocalPolicyTargetReference, i.Namespace)
+			var sectionName *string
 			if err == nil {
-				switch refo.(type) {
+				switch refType := refo.(type) {
 				case *v1.Service:
+					if t.SectionName != nil && *t.SectionName != "" {
+						sectionName = ptr.Of(string(*t.SectionName))
+						portExists := false
+						for _, port := range refType.Spec.Ports {
+							if port.Name == *sectionName {
+								portExists = true
+								break
+							}
+						}
+						if !portExists {
+							err = fmt.Errorf("sectionName %q does not exist in Service %s/%s", *sectionName, refType.Namespace, refType.Name)
+						}
+					}
 				default:
 					err = fmt.Errorf("unsupported reference kind: %v", t.Kind)
 				}
@@ -240,11 +291,11 @@ func BackendTLSPolicyCollection(
 						},
 						Kind: gvk.MustToKind(schematypes.GvkFromObject(refo.(controllers.Object))),
 					},
+					SectionName:  sectionName,
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
 				})
 			}
-			// TODO: section name
 			ancestors = append(ancestors, setAncestorStatus(t.LocalPolicyTargetReference, status, i.Generation, conds))
 		}
 		status.Ancestors = mergeAncestors(status.Ancestors, ancestors)

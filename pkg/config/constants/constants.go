@@ -20,7 +20,7 @@ const (
 	// UnspecifiedIPv6 constant for empty IPv6 address
 	UnspecifiedIPv6 = "::"
 
-	// StatPrefixDelimiter constant for the stat delimer
+	// StatPrefixDelimiter constant for the stat delimiter
 	StatPrefixDelimiter = ";"
 
 	// PilotWellKnownDNSCertPath is the path location for Pilot dns serving cert, often used with custom CA integrations

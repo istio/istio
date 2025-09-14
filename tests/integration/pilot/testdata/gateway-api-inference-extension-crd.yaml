@@ -1,9 +1,9 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=v1.0.0-rc.2"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=v1.0.0"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.0.0-rc.2
+    inference.networking.k8s.io/bundle-version: v1.0.0
   creationTimestamp: null
   name: inferenceobjectives.inference.networking.x-k8s.io
 spec:
@@ -16,9 +16,6 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.modelName
-      name: Model Name
-      type: string
     - jsonPath: .spec.poolRef.name
       name: Inference Pool
       type: string
@@ -62,12 +59,6 @@ spec:
               performance and latency goals for the model. These workloads are
               expected to operate within an InferencePool sharing compute capacity with other
               InferenceObjectives, defined by the Inference Platform Admin.
-
-              InferenceObjective's modelName (not the ObjectMeta name) is unique for a given InferencePool,
-              if the name is reused, an error will be shown on the status of a
-              InferenceObjective that attempted to reuse. The oldest InferenceObjective, based on
-              creation timestamp, will be selected to remain valid. In the event of a race
-              condition, one will be selected at random.
             properties:
               poolRef:
                 description: PoolRef is a reference to the inference pool, the pool
@@ -205,7 +196,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
-    inference.networking.k8s.io/bundle-version: v1.0.0-rc.2
+    inference.networking.k8s.io/bundle-version: v1.0.0
   creationTimestamp: null
   name: inferencepools.inference.networking.k8s.io
 spec:
@@ -541,7 +532,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: unapproved, experimental-only
-    inference.networking.k8s.io/bundle-version: v1.0.0-rc.2
+    inference.networking.k8s.io/bundle-version: v1.0.0
   creationTimestamp: null
   name: inferencepools.inference.networking.x-k8s.io
 spec:

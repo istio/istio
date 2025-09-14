@@ -49,7 +49,7 @@ type KubeJWTAuthenticator struct {
 	kubeClient kubernetes.Interface
 	// Primary cluster ID
 	clusterID cluster.ID
-	// Primary cluster alisases
+	// Primary cluster aliases
 	clusterAliases map[cluster.ID]cluster.ID
 
 	// remote cluster kubeClient getter

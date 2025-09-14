@@ -13,7 +13,7 @@ This folder contains Istio integration tests that use the test framework checked
     1. [Using Components](#using-components)
     1. [Writing Components](#writing-components)
 1. [Running Tests](#running-tests)
-    1. [Test Parallelism and Kubernetes](#test-parellelism-and-kubernetes)
+    1. [Test Parallelism and Kubernetes](#test-parallelism-and-kubernetes)
     1. [Test Selection](#test-selection)
     1. [Running Tests on CI](#running-tests-on-ci)
 1. [Environments](#environments)
@@ -39,7 +39,7 @@ practices, see [Writing Good Integration Tests](https://github.com/istio/istio/w
 ## Writing Tests
 
 The test framework is designed to work with standard go tooling and allows developers
-to write environment-agnostics tests in a high-level fashion.
+to write environment-agnostic tests in a high-level fashion.
 
 ### Adding a Test Suite
 
@@ -418,13 +418,13 @@ Tool | Description |
 [Prow](https://github.com/kubernetes/test-infra/tree/master/prow) | Kubernetes-based CI/CD system developed by the Kubernetes community and is deployed in Google Kubernetes Engine (GKE).
 [TestGrid](https://k8s-testgrid.appspot.com/istio-release) | A Kubernetes dashboard used for visualizing the status of the Prow jobs.
 
-Test suites are defined for each toplevel directory (such as `pilot` and `telemetry`), so any tests added to these directories will automatically be run in CI.
+Test suites are defined for each top level directory (such as `pilot` and `telemetry`), so any tests added to these directories will automatically be run in CI.
 
 If you need to add a new test suite, it can be added to the [job configuration](https://github.com/istio/test-infra/blob/master/prow/config/jobs/istio.yaml).
 
 ### Running Tests on Custom Deployment
 
-You can run integration tests againist a control plane deployed by another operator such as [sail-operator](https://github.com/istio-ecosystem/sail-operator):
+You can run integration tests against a control plane deployed by another operator such as [sail-operator](https://github.com/istio-ecosystem/sail-operator):
 
 With setting ```--istio.test.kube.controlPlaneInstaller=#{path/to/script}``` and ```--istio.test.kube.deploy=false``` you can skip internal istio operator installation and be able to call a script which lets you install another control plane.
 

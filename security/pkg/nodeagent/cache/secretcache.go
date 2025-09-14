@@ -326,7 +326,7 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	}
 	// RetryWithContext file watcher as some times it might fail to add and we will miss change
 	// notifications on those files. For now, retry for ever till the watcher is added.
-	// TODO(ramaraochavali): Think about tieing these failures to liveness probe with a
+	// TODO(ramaraochavali): Think about tying these failures to liveness probe with a
 	// reasonable threshold (when the problem is not transient) and restart the pod.
 	go func() {
 		b := backoff.NewExponentialBackOff(backoff.DefaultOption())

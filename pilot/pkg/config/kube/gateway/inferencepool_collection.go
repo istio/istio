@@ -506,9 +506,10 @@ func InferencePoolServiceName(poolName string) (string, error) {
 func translateShadowServiceToService(existingLabels map[string]string, shadow shadowServiceInfo, extRef extRefInfo) *corev1.Service {
 	// Create the ports used by the shadow service
 	ports := make([]corev1.ServicePort, 0, len(shadow.targetPorts))
-	dummyPort := int32(54320) // Dummy port, not used for anything
+	dummyPort := int32(54321) // Dummy port, not used for anything
 	for i, port := range shadow.targetPorts {
 		ports = append(ports, corev1.ServicePort{
+			Name:       "port" + strconv.Itoa(i),
 			Protocol:   corev1.ProtocolTCP,
 			Port:       dummyPort + int32(i),
 			TargetPort: intstr.FromInt(int(port.port)),
