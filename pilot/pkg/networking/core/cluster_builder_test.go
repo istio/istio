@@ -434,7 +434,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
 		{
-			name:        "destination rule with no-op http2UpgradePolicy and maxConcurrentStreams",
+			name:        "destination rule with http2UpgradePolicy on existing http2 cluster and maxConcurrentStreams",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     http2Service,
