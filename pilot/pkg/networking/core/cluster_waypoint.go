@@ -32,6 +32,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	sec_model "istio.io/istio/pilot/pkg/security/model"
@@ -270,6 +271,11 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 }
 
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+	// needed to enable cross-namespace waypoints when SkipValidateTrustDomain is set
+	// this ensures the match_typed_subject_alt_names list for the envoy config cluster is always empty
+	if features.SkipValidateTrustDomain {
+		return cb.buildConnectOriginate(proxy, push, nil)
+	}
 	m := &matcher.StringMatcher{}
 
 	m.MatchPattern = &matcher.StringMatcher_Prefix{
