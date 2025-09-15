@@ -69,6 +69,7 @@ type TestingM interface {
 
 type checkOptions struct {
 	allowedLeaks int
+	exclusions   []string
 }
 
 type CheckOption func(c *checkOptions)
@@ -86,9 +87,16 @@ func WithAllowedLeaks(n int) CheckOption {
 	}
 }
 
+func WithExcludedLeaks(substrings []string) CheckOption {
+	return func(c *checkOptions) {
+		c.exclusions = append(c.exclusions, substrings...)
+	}
+}
+
 func check(filter func(in []*goroutine) []*goroutine, options ...CheckOption) error {
 	checkOpts := &checkOptions{
 		allowedLeaks: 0, // Default to no leaks
+		exclusions:   []string{},
 	}
 	for _, opt := range options {
 		opt(checkOpts)
@@ -108,6 +116,22 @@ func check(filter func(in []*goroutine) []*goroutine, options ...CheckOption) er
 		if filter != nil {
 			leaked = filter(leaked)
 		}
+		if len(checkOpts.exclusions) > 0 {
+			filtered := make([]*goroutine, 0, len(leaked))
+			for _, g := range leaked {
+				ignore := false
+				for _, s := range checkOpts.exclusions {
+					if strings.Contains(g.stack, s) {
+						ignore = true
+						break
+					}
+				}
+				if !ignore {
+					filtered = append(filtered, g)
+				}
+			}
+			leaked = filtered
+		}
 		if len(leaked) == 0 {
 			return nil // No leaks, we are done
 		}
@@ -119,6 +143,7 @@ func check(filter func(in []*goroutine) []*goroutine, options ...CheckOption) er
 		delay += time.Millisecond * 10
 	}
 	errString := strings.Builder{}
+	errString.WriteString(fmt.Sprintf("%d leaked goroutines (allowed %d):\n", len(leaked), checkOpts.allowedLeaks))
 	for _, g := range leaked {
 		errString.WriteString(fmt.Sprintf("Leaked goroutine: %v\n", g.stack))
 	}
@@ -248,6 +273,9 @@ func interestingGoroutines() ([]*goroutine, error) {
 	for _, g := range strings.Split(string(buf), "\n\n") {
 		gr, err := interestingGoroutine(g)
 		if err != nil {
+			if strings.Contains(err.Error(), "error parsing stack") {
+				log.Errorf("error parsing the following stack:\n%q\nTotal stack:\n%q", g, string(buf))
+			}
 			return nil, err
 		} else if gr == nil {
 			continue
