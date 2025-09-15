@@ -352,6 +352,9 @@ func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetype
 		gvk.Pod: {
 			ObjectTransform: kubelib.StripPodUnusedFields,
 		},
+		gvk.Node: {
+			ObjectTransform: kubelib.StripNodeUnusedFields,
+		},
 	}
 }
 
