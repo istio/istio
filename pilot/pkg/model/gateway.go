@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
+	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/monitoring"
@@ -277,12 +278,23 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							if mergedServers[serverPort] == nil {
 								mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
 								serverPorts = append(serverPorts, serverPort)
+							} else if !canMergeServers(mergedServers[serverPort].Servers, gatewayNameForServer, s, gatewayConfig) {
+								log.Debugf("skipping merging server on gateway %s port %s.%d.%s: failed to satisfy merging criteria",
+									gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
+								RecordRejectedConfig(gatewayName)
+								continue
 							}
 							ms := mergedServers[serverPort]
 							ms.RouteName = routeName
 							ms.Servers = append(ms.Servers, s)
 						} else {
 							// Merge this to current known port with same bind.
+							if !canMergeServers(mergedServers[current].Servers, gatewayNameForServer, s, gatewayConfig) {
+								log.Debugf("skipping merging server on gateway %s port %s.%d.%s: failed to satisfy merging criteria",
+									gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
+								RecordRejectedConfig(gatewayName)
+								continue
+							}
 							ms := mergedServers[current]
 							ms.Servers = append(ms.Servers, s)
 						}
@@ -333,6 +345,12 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
 							serverPorts = append(serverPorts, serverPort)
 						} else {
+							if !canMergeServers(mergedServers[serverPort].Servers, gatewayNameForServer, s, gatewayConfig) {
+								log.Debugf("skipping merging server on gateway %s port %s.%d.%s: failed to satisfy merging criteria",
+									gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
+								RecordRejectedConfig(gatewayName)
+								continue
+							}
 							mergedServers[serverPort].Servers = append(mergedServers[serverPort].Servers, s)
 						}
 
@@ -459,6 +477,23 @@ func resolvePorts(number uint32, instances []ServiceTarget, legacyGatewaySelecto
 
 func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
 	return (current.IsHTTP() || current == p) && p.IsHTTP()
+}
+
+func canMergeServers(current []*networking.Server, gatewayNameByServer map[*networking.Server]string, server *networking.Server, gateway config.Config) bool {
+	if kube.IsInternalGatewayReference(gateway.Name) {
+		return true
+	}
+
+	for _, s := range current {
+		gatewayName := gatewayNameByServer[s]
+		parts := strings.Split(gatewayName, "/")
+
+		if parts[0] != gateway.Namespace {
+			return false
+		}
+	}
+
+	return true
 }
 
 func GetSNIHostsForServer(server *networking.Server) []string {
