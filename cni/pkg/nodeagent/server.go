@@ -151,6 +151,12 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNI
 				shouldStopCleanup = false
 				return nil
 			}
+			if errors.IsUnauthorized(err) {
+				log.Infof("permission to get parent DS %s has been revoked manually or due to uninstall, this is not an upgrade, "+
+					"shutting down normally", dsName)
+				shouldStopCleanup = false
+				return nil
+			}
 			log.Infof("failed to get parent DS %s, retrying: %v", dsName, err)
 			return err
 		},
