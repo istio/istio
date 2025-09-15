@@ -57,10 +57,6 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			ctx.Settings().SkipVMs()
 			ctx.Settings().SkipTProxy = true
-			if ctx.Settings().AmbientMultiNetwork {
-				cfg.SkipDeployCrossClusterSecrets = true
-				cfg.DeployEastWestGW = true
-			}
 			cfg.EnableCNI = false
 			cfg.DeployEastWestGW = false
 			cfg.DeployGatewayAPI = true
