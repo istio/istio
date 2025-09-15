@@ -20,6 +20,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -44,6 +45,9 @@ func TestMergeGateways(t *testing.T) {
 	gwPassthrough := makeConfig("foo-passthrough", "not-default-2", "foo.example.com", "tls-foo", "TLS", 443, "ingressgateway", "", networking.ServerTLSSettings_PASSTHROUGH, "")
 
 	gwSimpleCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo")
+	gwSimpleCredOther := makeConfig("bar1", "other-ns", "bar1.istio.com", "name2", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo")
+	gwSimpleCredInternal := makeConfig(kube.InternalGatewayName("foo1", "lname1"), "ns", "foo1.k8s.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo")
+	gwSimpleCredInternalOther := makeConfig(kube.InternalGatewayName("bar1", "lname1"), "other-ns", "bar1.k8s.com", "name2", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo")
 	gwMutualCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, "kubernetes-gateway://ns/foo")
 	gwSimpleCredInAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, fmt.Sprintf("kubernetes-gateway://%s/foo", AllowedNamespace))
 	gwSimpleCredInNotAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace))
@@ -227,6 +231,46 @@ func TestMergeGateways(t *testing.T) {
 			map[string]int{"http.7": 1},
 			1,
 			0,
+		},
+		{
+			"k8s-across-ns",
+			[]config.Config{gwSimpleCredInternal, gwSimpleCredInternalOther},
+			proxyIdentity,
+			1,
+			2,
+			map[string]int{"http.7": 2},
+			2,
+			1,
+		},
+		{
+			"k8s-and-istio-same-ns",
+			[]config.Config{gwSimpleCred, gwSimpleCredInternal},
+			proxyIdentity,
+			1,
+			2,
+			map[string]int{"http.7": 2},
+			2,
+			1,
+		},
+		{
+			"k8s-and-istio-different-ns",
+			[]config.Config{gwSimpleCred, gwSimpleCredInternalOther},
+			proxyIdentity,
+			1,
+			2,
+			map[string]int{"http.7": 2},
+			2,
+			1,
+		},
+		{
+			"istio-across-ns",
+			[]config.Config{gwSimpleCred, gwSimpleCredOther},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			2,
+			1,
 		},
 	}
 
