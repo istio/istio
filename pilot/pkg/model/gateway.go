@@ -480,6 +480,10 @@ func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
 }
 
 func canMergeServers(current []*networking.Server, gatewayNameByServer map[*networking.Server]string, server *networking.Server, gateway config.Config) bool {
+	// If strict namespace checking is disabled, allow merging servers from different namespaces
+	if !features.EnableStrictGatewayNamespaceChecking {
+		return true
+	}
 	if kube.IsInternalGatewayReference(gateway.Name) {
 		return true
 	}

@@ -19,9 +19,11 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -274,6 +276,7 @@ func TestMergeGateways(t *testing.T) {
 		},
 	}
 
+	test.SetForTest(t, &features.EnableStrictGatewayNamespaceChecking, true)
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			instances := []gatewayWithInstances{}
