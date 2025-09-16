@@ -103,10 +103,8 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// Creates "encap" cluster to route to the encap listener.
 	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster(proxy))
 	// Creates per-VIP load balancing upstreams.
-	// TODO(jaellio): Add support for checking is VIP corresponds to a wildcard host
-	// if it does, we should create a dynamic forward proxy cluster
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
-
+	// Creates dynamic forward proxy clusters for wildcarded services.
 	clusters = append(clusters, cb.buildWaypointInboundDFP(proxy, svcs, push.Mesh)...)
 
 	// Upstream of the "encap" listener.
@@ -342,28 +340,17 @@ func (cb *ClusterBuilder) buildWaypointInboundDFP(proxy *model.Proxy, svcs map[h
 		if !svc.Hostname.IsWildCarded() || isEastWestGateway(proxy) {
 			continue
 		}
-		// Could all wildcard hosts just go to the same cluster regardless of port/protocol?
 		for _, port := range svc.Ports {
-			if port.Protocol == protocol.UDP {
+			if port.Protocol != protocol.HTTP {
 				continue
 			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			dr := CastDestinationRule(cfg)
 			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
-			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
-			}
-			if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http", mesh, policy, cfg))
-			}
+			clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http", mesh, policy, cfg))
 			for _, ss := range dr.GetSubsets() {
 				policy = util.MergeSubsetTrafficPolicy(dr.GetTrafficPolicy(), ss.GetTrafficPolicy(), port)
-				if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
-					clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "tcp/"+ss.Name, mesh, policy, cfg))
-				}
-				if port.Protocol.IsUnsupported() || port.Protocol.IsHTTP() {
-					clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http/"+ss.Name, mesh, policy, cfg))
-				}
+				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http/"+ss.Name, mesh, policy, cfg))
 			}
 		}
 	}
