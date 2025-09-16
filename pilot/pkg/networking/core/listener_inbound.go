@@ -17,13 +17,21 @@ package core
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
+	xds "github.com/cncf/xds/go/xds/core/v3"
+	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
+	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	googleproto "google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -32,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
+	"istio.io/istio/pilot/pkg/networking/core/match"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -161,6 +170,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	oldBuilder := lb.authzBuilder
 	lb.authzBuilder = authz.NewBuilder(authz.Local, lb.push, lb.node, true)
 	inboundChainConfigs := lb.buildInboundChainConfigs()
+
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
@@ -168,10 +178,20 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		mtls := authn.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
 		opts := getFilterChainMatchOptions(mtls, lp)
 		chains := lb.inboundChainForOpts(cc, mtls, opts)
+		if lb.node.EnableListenFromAmbientEastWestGateway() &&
+			features.EnableAmbientMulticlusterSidecarInterop {
+			log.Debugf("buildInboundHBONEListeners: building EnableListenFromAmbientEastWestGateway for %v", lb.node.ID)
+			lb.sanitizeListenerForAmbientMulticluster(cc, l)
+		}
+		log.Debugf("buildInboundHBONEListeners: sanitizing HBONE filter chain for %v", lb.node.ID)
 		for _, c := range chains {
 			lb.sanitizeFilterChainForHBONE(c)
 		}
 		l.FilterChains = append(l.FilterChains, chains...)
+	}
+	if lb.node.EnableListenFromAmbientEastWestGateway() &&
+		features.EnableAmbientMulticlusterSidecarInterop {
+		lb.appendPassthroughMatchersForAmbientMulticluster(l)
 	}
 	for _, passthrough := range buildInboundHBONEPassthroughChain(lb) {
 		lb.sanitizeFilterChainForHBONE(passthrough)
@@ -201,6 +221,14 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 
 func (lb *ListenerBuilder) sanitizeFilterChainForHBONE(c *listener.FilterChain) {
 	fcm := c.GetFilterChainMatch()
+	if lb.node.EnableListenFromAmbientEastWestGateway() &&
+		features.EnableAmbientMulticlusterSidecarInterop {
+		c.FilterChainMatch = nil
+		log.Debugf(
+			"sanitizeFilterChainForHBONE: setting fcm to nil because of EnableListenFromAmbientEastWestGateway for %v",
+			lb.node.ID)
+		return
+	}
 	if fcm == nil {
 		fcm = &listener.FilterChainMatch{}
 		c.FilterChainMatch = fcm
@@ -319,6 +347,56 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 
 // inboundChainForOpts builds a set of filter chains
 func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
+	getOrigDstSfs := func(ipAndPort string, isHttp bool) *listener.Filter {
+		celTemplate := `%%CEL('%s' in filter_state ? filter_state['%s']: r'%s')%%`
+		celEval := fmt.Sprintf(celTemplate, xdsfilters.OriginalDstFilterStateKey, xdsfilters.OriginalDstFilterStateKey, ipAndPort)
+		filterStateValue := &sfsvalue.FilterStateValue{
+			Key: &sfsvalue.FilterStateValue_ObjectKey{
+				ObjectKey: "envoy.network.transport_socket.original_dst_address",
+			},
+			Value: &sfsvalue.FilterStateValue_FormatString{
+				FormatString: &core.SubstitutionFormatString{
+					Formatters: []*core.TypedExtensionConfig{
+						{
+							Name:        "envoy.formatter.cel",
+							TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
+						},
+					},
+					Format: &core.SubstitutionFormatString_TextFormatSource{
+						TextFormatSource: &core.DataSource{
+							Specifier: &core.DataSource_InlineString{
+								// If we have a valid original destination in filter state, use it. Else,
+								// fall back to the original destination address.
+								InlineString: celEval,
+							},
+						},
+					},
+				},
+			},
+		}
+		var msg googleproto.Message
+		if isHttp {
+			msg = &sfs.Config{
+				OnRequestHeaders: []*sfsvalue.FilterStateValue{filterStateValue},
+			}
+		} else {
+			msg = &sfsnetwork.Config{
+				OnNewConnection: []*sfsvalue.FilterStateValue{filterStateValue},
+			}
+		}
+		return &listener.Filter{
+			Name: "set_dst_address",
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: protoconv.MessageToAny(msg),
+			},
+		}
+	}
+	origDst := fmt.Sprintf("%s:%d", lb.node.IPAddresses[0], cc.port.TargetPort)
+	var filters []*listener.Filter
+	if lb.node.EnableListenFromAmbientEastWestGateway() && cc.hbone &&
+		features.EnableAmbientMulticlusterSidecarInterop {
+		filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
+	}
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {
 		var filterChain *listener.FilterChain
@@ -327,7 +405,7 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 		case istionetworking.ListenerProtocolHTTP:
 			filterChain = &listener.FilterChain{
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
-				Filters:          lb.buildInboundNetworkFiltersForHTTP(cc),
+				Filters:          append(slices.Clone(filters), lb.buildInboundNetworkFiltersForHTTP(cc)...),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
 				Name:             cc.Name(opt.Protocol),
 			}
@@ -335,7 +413,7 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 		case istionetworking.ListenerProtocolTCP:
 			filterChain = &listener.FilterChain{
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
-				Filters:          lb.buildInboundNetworkFilters(cc),
+				Filters:          append(slices.Clone(filters), lb.buildInboundNetworkFilters(cc)...),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
 				Name:             cc.Name(opt.Protocol),
 			}
@@ -515,6 +593,215 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 	})
 
 	return chainConfigs
+}
+
+func (lb *ListenerBuilder) sanitizeListenerForAmbientMulticluster(cc inboundChainConfig, l *listener.Listener) {
+	ipRange := []*xds.CidrRange{}
+	for _, addr := range lb.node.IPAddresses {
+		cidr := util.ConvertAddressToCidr(addr)
+		ipRange = append(ipRange, &xds.CidrRange{
+			AddressPrefix: cidr.AddressPrefix,
+			PrefixLen:     cidr.PrefixLen,
+		})
+	}
+	ipMatcher := &matcher.IPMatcher{}
+
+	for _, st := range lb.node.ServiceTargets {
+		log.Debugf("buildInboundHBONEListeners:  target svc: %v, port %d", st.Service.Hostname, cc.port.TargetPort)
+		break
+	}
+	portMapper := match.NewDestinationPort()
+	portMapper.Map[strconv.Itoa(int(cc.port.TargetPort))] = match.ToChain(fmt.Sprintf("0.0.0.0_%d", cc.port.TargetPort))
+	if len(ipRange) > 0 {
+		// Empty can happen if we have workloads, but none have an Address (DNS)
+		ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
+			&matcher.IPMatcher_IPRangeMatcher{
+				Ranges:  ipRange,
+				OnMatch: match.ToMatcher(portMapper.Matcher),
+			})
+	}
+	// Create IP matcher for fallback matching
+	ipMatcherForFallback := &matcher.Matcher{
+		MatcherType: &matcher.Matcher_MatcherTree_{
+			MatcherTree: &matcher.Matcher_MatcherTree{
+				Input: match.DestinationIP,
+				TreeType: &matcher.Matcher_MatcherTree_CustomMatch{
+					CustomMatch: &xds.TypedExtensionConfig{
+						Name:        "ip",
+						TypedConfig: protoconv.MessageToAny(ipMatcher),
+					},
+				},
+			},
+		},
+	}
+
+	// Build authority matcher map for service hostnames
+	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
+		Map: make(map[string]*matcher.Matcher_OnMatch),
+	}
+	for _, st := range lb.node.ServiceTargets {
+		authorityKey := fmt.Sprintf("%s:%d", st.Service.Hostname, cc.port.Port)
+		svcHostnameMap.Map[authorityKey] = match.ToChain(fmt.Sprintf("0.0.0.0_%d", cc.port.TargetPort))
+		break
+	}
+
+	// Create authority matcher as the primary matcher
+	authorityMatcher := &matcher.Matcher{
+		MatcherType: &matcher.Matcher_MatcherTree_{
+			MatcherTree: &matcher.Matcher_MatcherTree{
+				Input: match.AuthorityFilterStateInput,
+				TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
+					ExactMatchMap: svcHostnameMap,
+				},
+			},
+		},
+		// Set IP matcher as fallback when authority doesn't match
+		OnNoMatch: &matcher.Matcher_OnMatch{
+			OnMatch: &matcher.Matcher_OnMatch_Matcher{
+				Matcher: ipMatcherForFallback,
+			},
+		},
+	}
+
+	if l.FilterChainMatcher == nil {
+		// First time: set authority matcher as the primary FilterChainMatcher
+		l.FilterChainMatcher = authorityMatcher
+	} else {
+		// Merge with existing authority matcher if it exists
+		if l.FilterChainMatcher.GetMatcherType() != nil {
+			if om, ok := l.FilterChainMatcher.GetMatcherType().(*matcher.Matcher_MatcherTree_); ok {
+				if em, ok := om.MatcherTree.TreeType.(*matcher.Matcher_MatcherTree_ExactMatchMap); ok {
+					if em.ExactMatchMap == nil {
+						em.ExactMatchMap = &matcher.Matcher_MatcherTree_MatchMap{
+							Map: make(map[string]*matcher.Matcher_OnMatch),
+						}
+					}
+					// Merge new hostname mappings with existing ones
+					for k, v := range svcHostnameMap.Map {
+						em.ExactMatchMap.Map[k] = v
+					}
+					// Ensure IP matcher is set as fallback - traverse recursively to find the deepest OnNoMatch
+					if l.FilterChainMatcher.GetOnNoMatch() == nil {
+						l.FilterChainMatcher.OnNoMatch = &matcher.Matcher_OnMatch{
+							OnMatch: &matcher.Matcher_OnMatch_Matcher{
+								Matcher: ipMatcherForFallback,
+							},
+						}
+					} else {
+						// Recursively find the deepest OnNoMatch that is nil and set IP matcher there
+						const maxDepth = 20
+						current := l.FilterChainMatcher
+						depth := 0
+						for current.GetOnNoMatch() != nil && current.GetOnNoMatch().GetMatcher() != nil && depth < maxDepth {
+							current = current.GetOnNoMatch().GetMatcher()
+							depth++
+						}
+						if depth >= maxDepth {
+							log.Warnf("sanitizeListenerForAmbientMulticluster: reached maximum depth (%d) while traversing matcher chain for existing authority matcher, possible circular reference", maxDepth)
+						} else if current.GetOnNoMatch() == nil {
+							// Set IP matcher at the deepest nil OnNoMatch
+							current.OnNoMatch = &matcher.Matcher_OnMatch{
+								OnMatch: &matcher.Matcher_OnMatch_Matcher{
+									Matcher: ipMatcherForFallback,
+								},
+							}
+						}
+					}
+				} else {
+					// Different tree type, replace with authority matcher
+					l.FilterChainMatcher = authorityMatcher
+				}
+			} else {
+				// Different matcher type, replace with authority matcher
+				l.FilterChainMatcher = authorityMatcher
+			}
+		} else {
+			// No matcher type set, use authority matcher
+			l.FilterChainMatcher = authorityMatcher
+		}
+	}
+
+}
+func (lb *ListenerBuilder) appendPassthroughMatchersForAmbientMulticluster(l *listener.Listener) {
+	applicationProtocolMatcher := &matcher.Matcher{
+		MatcherType: &matcher.Matcher_MatcherTree_{
+			MatcherTree: &matcher.Matcher_MatcherTree{
+				Input: match.ApplicationProtocolInput,
+				TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
+					ExactMatchMap: &matcher.Matcher_MatcherTree_MatchMap{
+						Map: map[string]*matcher.Matcher_OnMatch{
+							"'http/1.1'": match.ToChain(model.VirtualInboundCatchAllHTTPFilterChainName),
+							"'h2c'":      match.ToChain(model.VirtualInboundCatchAllHTTPFilterChainName),
+						},
+					},
+				},
+			},
+		},
+		OnNoMatch: match.ToChain(model.VirtualInboundListenerName),
+	}
+
+	ipRange := []*xds.CidrRange{}
+	for _, addr := range lb.node.IPAddresses {
+		cidr := util.ConvertAddressToCidr(addr)
+		ipRange = append(ipRange, &xds.CidrRange{
+			AddressPrefix: cidr.AddressPrefix,
+			PrefixLen:     cidr.PrefixLen,
+		})
+	}
+	ipMatcher := &matcher.IPMatcher{}
+	if len(ipRange) > 0 {
+		// Empty can happen if we have workloads, but none have an Address (DNS)
+		ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
+			&matcher.IPMatcher_IPRangeMatcher{
+				Ranges:  ipRange,
+				OnMatch: match.ToMatcher(applicationProtocolMatcher),
+			})
+	}
+
+	ipMatcherForPassthrough := &matcher.Matcher{
+		MatcherType: &matcher.Matcher_MatcherTree_{
+			MatcherTree: &matcher.Matcher_MatcherTree{
+				Input: match.DestinationIP,
+				TreeType: &matcher.Matcher_MatcherTree_CustomMatch{
+					CustomMatch: &xds.TypedExtensionConfig{
+						Name:        "ip",
+						TypedConfig: protoconv.MessageToAny(ipMatcher),
+					},
+				},
+			},
+		},
+	}
+
+	if l.FilterChainMatcher == nil {
+		l.FilterChainMatcher = ipMatcherForPassthrough
+	} else {
+		if l.FilterChainMatcher.GetOnNoMatch() == nil {
+			l.FilterChainMatcher.OnNoMatch = &matcher.Matcher_OnMatch{
+				OnMatch: &matcher.Matcher_OnMatch_Matcher{
+					Matcher: ipMatcherForPassthrough,
+				},
+			}
+		} else {
+			// Recursively find the deepest OnNoMatch that is nil and set IP matcher there
+			const maxDepth = 20
+			current := l.FilterChainMatcher
+			depth := 0
+			for current.GetOnNoMatch() != nil && current.GetOnNoMatch().GetMatcher() != nil && depth < maxDepth {
+				current = current.GetOnNoMatch().GetMatcher()
+				depth++
+			}
+			if depth >= maxDepth {
+				log.Warnf("sanitizeListenerForAmbientMulticluster: reached maximum depth (%d) while traversing matcher chain for existing authority matcher, possible circular reference", maxDepth)
+			} else if current.GetOnNoMatch() == nil {
+				// Set IP matcher at the deepest nil OnNoMatch
+				current.OnNoMatch = &matcher.Matcher_OnMatch{
+					OnMatch: &matcher.Matcher_OnMatch_Matcher{
+						Matcher: ipMatcherForPassthrough,
+					},
+				}
+			}
+		}
+	}
 }
 
 // getBindToPort determines whether we should bind to port based on the chain-specific config and the proxy

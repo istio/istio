@@ -67,6 +67,29 @@ var (
 		"ENABLE_LAYERED_WAYPOINT_AUTHORIZATION_POLICIES",
 		false,
 		"If enabled, selector based authorization policies will be enforced as L4 policies in front of the waypoint.").Get()
+
+	// This flag enables is to change the listener inbound filter chains at sidecars
+	// to allow traffic from ambient east-west gateway. This is done by removing the filter chain match
+	// on the main_internal listener and adding FilterChainMatch.
+	// For this filter chain change to take effect, sidecar workload needs to be having
+	// ISTIO_META_LISTEN_FROM_AMBIENT_EAST_WEST_GATEWAY: "true" using proxyConfig for example:
+	//
+	// apiVersion: networking.istio.io/v1beta1
+	// kind: ProxyConfig
+	// metadata:
+	//   name: ambient-multicluster-interop
+	//   namespace: helloworld
+	// spec:
+	//   selector:
+	//     matchLabels:
+	//       app: helloworld
+	//   environmentVariables:
+	//     ISTIO_META_LISTEN_FROM_AMBIENT_EAST_WEST_GATEWAY: "true"
+	EnableAmbientMulticlusterSidecarInterop = registerAmbient(
+		"ENABLE_PILOT_AMBIENT_MULTICLUSTER_SIDECAR_INTEROP",
+		false,
+		false,
+		"If enabled, ambient clients will be able to failover for sidecar injected services as well to remote clusters")
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set

@@ -921,6 +921,10 @@ func (node *Proxy) EnableHBONEListen() bool {
 	return node.IsAmbient() || (features.EnableSidecarHBONEListening && bool(node.Metadata.EnableHBONE))
 }
 
+func (node *Proxy) EnableListenFromAmbientEastWestGateway() bool {
+	return !node.IsAmbient() && bool(node.Metadata.ListenFromAmbientEastWestGateway)
+}
+
 func (node *Proxy) SetWorkloadEntry(name string, create bool) {
 	node.Lock()
 	defer node.Unlock()
