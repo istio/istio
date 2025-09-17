@@ -450,7 +450,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = append(filters, xdsfilters.BuildWaypointInboundDFPFilter(dfpCacheName))
 	}
 
-	// jaellio - router filter must be last
+	// Router filter must be last
 	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
 		SuppressDebugHeaders: httpOpts.suppressEnvoyDebugHeaders,
 	}))
