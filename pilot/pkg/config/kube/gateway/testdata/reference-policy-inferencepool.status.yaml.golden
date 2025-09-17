@@ -1,7 +1,6 @@
 apiVersion: inference.networking.k8s.io/v1
 kind: InferencePool
 metadata:
-  creationTimestamp: null
   name: my-ip
   namespace: inferencepool
 spec: null
@@ -10,7 +9,6 @@ status: {}
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -62,7 +60,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: backend-allowed-ip
   namespace: istio-system
 spec: null
@@ -87,7 +84,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: backend-not-allowed-ip
   namespace: istio-system
 spec: null

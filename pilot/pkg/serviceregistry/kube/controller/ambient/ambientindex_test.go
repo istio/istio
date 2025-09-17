@@ -2204,7 +2204,7 @@ func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
 				Name:     "mesh",
 				Port:     15008,
 				Protocol: "HBONE",
-				TLS: &k8sbeta.GatewayTLSConfig{
+				TLS: &k8sbeta.ListenerTLSConfig{
 					Mode: ptr.Of(k8sv1.TLSModeTerminate),
 					Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
 						"gateway.istio.io/tls-terminate-mode": "ISTIO_MUTUAL",

@@ -1,7 +1,6 @@
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  creationTimestamp: null
   name: bad-configmap-type
   namespace: default
 spec: null
@@ -19,10 +18,9 @@ status:
       type: Accepted
     controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  creationTimestamp: null
   name: bad-service
   namespace: default
 spec: null
@@ -41,10 +39,9 @@ status:
       type: Accepted
     controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  creationTimestamp: null
   name: existing-status
   namespace: default
 spec: null
@@ -73,10 +70,9 @@ status:
       type: Accepted
     controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  creationTimestamp: null
   name: malformed-configmap
   namespace: default
 spec: null
@@ -95,10 +91,9 @@ status:
       type: Accepted
     controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  creationTimestamp: null
   name: tls-upstream-echo
   namespace: default
 spec: null
@@ -116,10 +111,9 @@ status:
       type: Accepted
     controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  creationTimestamp: null
   name: tls-upstream-echo-https-merged-rules
   namespace: default
 spec: null
@@ -160,10 +154,9 @@ status:
       type: Accepted
     controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  creationTimestamp: null
   name: unknown-configmap
   namespace: default
 spec: null
