@@ -255,7 +255,6 @@ func (cb *ClusterBuilder) buildWaypointInboundDFPCluster(
 	policy *networking.TrafficPolicy,
 	drConfig *config.Config,
 ) *cluster.Cluster {
-	// TODO: is this enough? Probably since we validate no extra listeners are present in the conversion layer
 	// TODO(jaellio): TODO: Add support for DestinationRule configuration
 	return cb.buildDFPCluster(svc)
 }
@@ -337,11 +336,15 @@ func (cb *ClusterBuilder) buildWaypointInboundDFP(proxy *model.Proxy, svcs map[h
 	clusters := []*cluster.Cluster{}
 
 	for _, svc := range svcs {
+		// only wildcarded services get DFP clusters
+		// TODO(jaellio): Do we need to verify the resolution is DYNAMIC_DNS? Or is it sufficient to check wildcarded?
 		if !svc.Hostname.IsWildCarded() || isEastWestGateway(proxy) {
+			log.Debugf("skip building waypoint inbound DFP cluster for svc %s/%s", svc.Attributes.Namespace, svc.Attributes.Name)
 			continue
 		}
 		for _, port := range svc.Ports {
 			if port.Protocol != protocol.HTTP {
+				log.Debugf("skip building waypoint inbound DFP cluster for non-HTTP port %s:%d", svc.Hostname, port.Port)
 				continue
 			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()

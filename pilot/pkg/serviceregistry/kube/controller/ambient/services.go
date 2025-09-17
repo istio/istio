@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
@@ -388,6 +389,13 @@ func serviceEntriesInfo(
 	if wperr != nil {
 		waypoint.Error = wperr
 	}
+
+	// don't send invalid configuration
+	if (w == nil || wperr != nil) && s.Spec.Resolution == v1alpha3.ServiceEntry_DYNAMIC_DNS {
+		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint - skipping", s.Namespace, s.Name)
+		return nil
+	}
+
 	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
@@ -453,12 +461,14 @@ func constructServiceEntries(
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
-		// if we have no user-provided hostsAddresses and h is not wildcarded and we have hostsAddresses supported resolution
-		// we can try to use autoassigned hostsAddresse
+		// if we have no user-provided hostsAddresses and we have hostsAddresses supported resolution
+		// we can try to use autoassigned hostsAddresses
 		hostsAddresses := addresses
-		// TODO(jaellio): conditionally block usage of wildcard usage based on other spec settings
 		if len(hostsAddresses) == 0 && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
-			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
+			// block auto IP assignment for wildcards unless the resolution type is DYNAMIC_DNS
+			if host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_DYNAMIC_DNS {
+				log.Debugf("autoassigned IPs only support for wildcarded hosts with dynamic DNS resolution, skipping %s", h)
+			} else if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
 				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
 					return toNetworkAddressFromIP(e, networkGetter(ctx))
 				})

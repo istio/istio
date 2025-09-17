@@ -907,9 +907,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		//   for NONE because we will not know the original DST IP that the application requested.
 		// 2. the address is not set (0.0.0.0)
 		// 3. the hostname is not a wildcard
-		// TODO(jaellio): Add a feature flag to conditionally wildcard hostnames if the service entry
-		// represents an external service.
-		if svc.DefaultAddress == constants.UnspecifiedIP && svc.Resolution != model.Passthrough {
+		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() && svc.Resolution != model.Passthrough {
 			if j >= maxIPs {
 				log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
 				break

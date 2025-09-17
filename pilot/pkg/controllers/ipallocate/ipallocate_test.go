@@ -121,7 +121,7 @@ func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) ipAllocate
 	}
 }
 
-func TestIPAllocate(t *testing.T) {
+func  TestIPAllocate(t *testing.T) {
 	rig := setupIPAllocateTest(t, TestIPV4Prefix, TestIPV6Prefix)
 	rig.se.Create(
 		&networkingv1alpha3.ServiceEntry{
@@ -374,7 +374,7 @@ func TestIPAllocate(t *testing.T) {
 		},
 	)
 
-	// reset pre-existing to single host
+	// reset pre-existing to single host with DNS resolution
 	se = rig.se.Get("pre-existing", "default")
 	se.Spec.Hosts = []string{"test.testing.io"}
 	rig.se.Update(se)
@@ -460,9 +460,29 @@ func TestIPAllocate(t *testing.T) {
 		},
 	)
 
+	// test that adding a wildcard host to the list of hosts allocates an ip for it when
+	// resolution is set to DYNAMIC_DNS
+	se = rig.se.Get("pre-existing", "default")
+	se.Spec.Hosts = []string{"*.wildcard.testing.io"}
+	se.Spec.Resolution = v1alpha3.ServiceEntry_DYNAMIC_DNS
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		se := rig.se.Get("pre-existing", "default")
+		return len(autoallocate.GetAddressesFromServiceEntry(se))
+	}, 2, retry.Converge(10), retry.Delay(time.Millisecond*5))
+	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
+		map[string][]string{
+			"*.wildcard.testing.io": {
+				newV4AddressString(TestIPV4Prefix, 11),
+				newV6AddressString(TestIPV6Prefix, 11),
+			},
+		},
+	)
+
 	// for completeness test that having no hosts produces an empty map
 	se = rig.se.Get("pre-existing", "default")
 	se.Spec.Hosts = []string{}
+	se.Spec.Resolution = v1alpha3.ServiceEntry_DNS
 	rig.se.Update(se)
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")

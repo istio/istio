@@ -2986,9 +2986,7 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 		case networking.ServiceEntry_DNS, networking.ServiceEntry_DNS_ROUND_ROBIN:
 			if len(serviceEntry.Endpoints) == 0 {
 				for _, hostname := range serviceEntry.Hosts {
-					// TODO(jaellio): Add support for additional service entry resolution type to support
-					// wildcard hosts
-					if err := agent.ValidateWildcardDomain(hostname); err != nil {
+					if err := agent.ValidateFQDN(hostname); err != nil {
 						errs = AppendValidation(errs,
 							fmt.Errorf("hosts must be FQDN or contain only prefix wildcards if no endpoints are provided for resolution mode %s, %v", serviceEntry.Resolution, err))
 						break
@@ -3039,6 +3037,42 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 						break
 					}
 				}
+			}
+		// Only supported by ztunnel and waypoints
+		case networking.ServiceEntry_DYNAMIC_DNS:
+			if len(serviceEntry.Hosts) == 0 {
+				errs = AppendValidation(errs, fmt.Errorf("at least one wildcard host must be provided for resolution type %s", serviceEntry.Resolution))
+			}
+			for _, hostname := range serviceEntry.Hosts {
+				if err := agent.ValidateWildcardDomain(hostname); err != nil {
+					errs = AppendValidation(errs,
+						fmt.Errorf("hosts must be valid FQDN which contain only prefix wildcards for resolution mode %s, %v", serviceEntry.Resolution, err))
+					break
+				}
+				if !host.Name(hostname).IsWildCarded() {
+					errs = AppendValidation(errs, fmt.Errorf("host must be wildcarded for resolution mode %s", serviceEntry.Resolution))
+				}
+			}
+			if len(serviceEntry.Addresses) > 0 {
+				errs = AppendValidation(errs, fmt.Errorf("addresses cannot be set for resolution type %s. HTTP route domains will only be generated" +
+					"from the hosts field values", serviceEntry.Resolution))
+			}
+			if len(serviceEntry.Endpoints) != 0 {
+				errs = AppendValidation(errs, fmt.Errorf("endpoints cannot be set for resolution type %s. Destination IP address determined from hosts" +
+					"field values", serviceEntry.Resolution))
+			}
+			// TODO(jaellio): Are ports a requirement for dynamic DNS?
+			for _, port := range serviceEntry.Ports {
+				if port == nil {
+					errs = AppendValidation(errs, errors.New("service entry port may not be null"))
+					continue
+				}
+				if protocol.Parse(port.Protocol) != protocol.HTTP {
+					errs = AppendValidation(errs, fmt.Errorf("only HTTP protocol is supported for resolution type %s", serviceEntry.Resolution))
+				}
+			}
+			if serviceEntry.Location != networking.ServiceEntry_MESH_EXTERNAL {
+				errs = AppendValidation(errs, fmt.Errorf("location must be MESH_EXTERNAL for resolution type %s", serviceEntry.Resolution))
 			}
 		default:
 			errs = AppendValidation(errs, fmt.Errorf("unsupported resolution type %s",
