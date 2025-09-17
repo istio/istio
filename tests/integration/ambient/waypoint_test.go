@@ -597,31 +597,20 @@ spec:
 			hostHeader := http.Header{}
 			hostHeader.Set("Host", "fake-passthrough.example.com")
 
-			fmt.Printf("address to dial: %s\n", externalIPs[1])
-
 			// Test that we send traffic through the waypoint successfully
 			for i, sss := range subsetServices {
 				if i != 0 {
 					// Presently, only the first IP will be used by the waypoint proxy.
 					continue
 				}
-				runTest(t, "resolution none", "", echo.CallOptions{
+				testName := fmt.Sprintf("resolution none %s", sss.ClusterIP)
+				runTest(t, testName, "", echo.CallOptions{
 					Address: sss.ClusterIP,
 					HTTP:    echo.HTTP{Headers: hostHeader},
 					Port:    echo.Port{ServicePort: 8080},
 					Scheme:  scheme.HTTP,
 					Count:   1,
-					Check: check.And(check.OK(), IsL7(), func(cr echo.CallResult, err error) error {
-						if cr.Responses.IsEmpty() {
-							return fmt.Errorf("no responses")
-						}
-						respondingHost := cr.Responses[0].Hostname
-						if respondingHost != sss.Hostname {
-							return fmt.Errorf("unexpected hostname. Expected: %s, got: %s", sss.Hostname, respondingHost)
-						}
-						// success
-						return nil
-					}),
+					Check:   check.And(check.OK(), IsL7(), check.Hostname(sss.Hostname)),
 				})
 			}
 
