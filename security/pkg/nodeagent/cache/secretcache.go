@@ -19,8 +19,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"math/rand/v2"
 	"os"
@@ -48,24 +46,6 @@ var (
 	// The total timeout for any credential retrieval process, default value of 10s is used.
 	totalTimeout = time.Second * 10
 )
-
-// extractCertificateSerialNumbers extracts serial numbers from PEM certificate data
-func extractCertificateSerialNumbers(certData []byte) []string {
-	var serialNumbers []string
-
-	block, rest := pem.Decode(certData)
-	for block != nil {
-		if block.Type == "CERTIFICATE" {
-			cert, err := x509.ParseCertificate(block.Bytes)
-			if err == nil {
-				serialNumbers = append(serialNumbers, cert.SerialNumber.String())
-			}
-		}
-		block, rest = pem.Decode(rest)
-	}
-
-	return serialNumbers
-}
 
 // isPathInSymlink checks if any part of the file path is a symlink
 func (sc *SecretManagerClient) isPathInSymlink(filePath string) bool {
@@ -609,11 +589,7 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 			cacheLog.Errorf("failed to parse some certs from file %s: %v", rootCertPath, errs)
 		}
 
-		// Extract and log certificate serial numbers
-		serialNumbers := extractCertificateSerialNumbers(validRootCertBytes)
-		if len(serialNumbers) > 0 {
-			cacheLog.Infof("loaded root certificate from file %s with serial numbers: %v", rootCertPath, serialNumbers)
-		}
+		cacheLog.Infof("loaded root certificate from file %s", rootCertPath)
 
 		return nil
 	}
@@ -669,11 +645,7 @@ func (sc *SecretManagerClient) keyCertSecretItem(cert, key, resource string) (*s
 		return nil, fmt.Errorf("failed to extract expiration time in the certificate loaded from file: %v", err)
 	}
 
-	// Extract and log certificate serial numbers
-	serialNumbers := extractCertificateSerialNumbers(certChain)
-	if len(serialNumbers) > 0 {
-		cacheLog.Infof("loaded certificate chain from file %s with serial numbers: %v", cert, serialNumbers)
-	}
+	cacheLog.Infof("loaded certificate chain from file %s", cert)
 
 	return &security.SecretItem{
 		CertificateChain: certChain,
@@ -963,7 +935,6 @@ func (sc *SecretManagerClient) handleFileWatch() {
 // handleSymlinkEvent handles file system events for symlinks and returns resources that need updates
 func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resources map[FileCert]struct{}) map[string]struct{} {
 	updatedResources := make(map[string]struct{})
-	cacheLog.Infof("processing symlink event: %s for %s", event.Op.String(), event.Name)
 
 	// Check if this event is for a symlink we're watching
 	for fc := range resources {
@@ -988,7 +959,6 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 			// Only trigger updates for symlink file changes or directory changes, not target file changes
 			// This prevents duplicate updates when both symlink and target files change
 			if fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name {
-				cacheLog.Infof("adding resource %s to updatedResources due to event %s on %s", fc.ResourceName, event.Op.String(), event.Name)
 				updatedResources[fc.ResourceName] = struct{}{}
 			}
 		}
@@ -1003,12 +973,10 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 
 		// For regular files, trigger on file changes
 		if fc.Filename == event.Name {
-			cacheLog.Infof("adding regular file resource %s to updatedResources due to event %s on %s", fc.ResourceName, event.Op.String(), event.Name)
 			updatedResources[fc.ResourceName] = struct{}{}
 		}
 	}
 
-	cacheLog.Infof("handleSymlinkEvent returning %d updated resources: %v", len(updatedResources), updatedResources)
 	return updatedResources
 }
 
