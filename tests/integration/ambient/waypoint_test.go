@@ -20,10 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
@@ -449,6 +451,58 @@ func TestWaypointDNS(t *testing.T) {
 		})
 }
 
+type externalSubsetService struct {
+	Name      string
+	SubsetKey string
+	Hostname  string
+	ClusterIP string
+}
+
+// servicesForSubsets is a helper function to create a kubernetes service for all subsets of a service
+func servicesForSubsets(t framework.TestContext, instance echo.Instance) []externalSubsetService {
+	ns := instance.Config().Namespace.Name()
+	services := []externalSubsetService{}
+	for _, subset := range instance.Config().Subsets {
+		svc := corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      instance.Config().Service + "-" + subset.Version,
+				Namespace: ns,
+				Labels: map[string]string{
+					"app":     instance.Config().Service,
+					"version": subset.Version,
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					"app":     instance.Config().Service,
+					"version": subset.Version,
+				},
+				Ports: []corev1.ServicePort{
+					{
+						Name: "http",
+						Port: 8080,
+					},
+				},
+			},
+		}
+
+		s, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Create(context.TODO(), &svc, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatalf("failed to create service %s: %v", svc.Name, err)
+		}
+		t.Cleanup(func() {
+			t.Clusters().Default().Kube().CoreV1().Services(ns).Delete(context.TODO(), s.Name, metav1.DeleteOptions{})
+		})
+		services = append(services, externalSubsetService{
+			Name:      s.Name,
+			SubsetKey: subset.Version,
+			Hostname:  instance.WorkloadsOrFail(t)[0].PodName(),
+			ClusterIP: s.Spec.ClusterIP,
+		})
+	}
+	return services
+}
+
 func TestWaypointAsEgressGateway(t *testing.T) {
 	runTest := func(t framework.TestContext, name string, config string, opts ...echo.CallOptions) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
@@ -498,6 +552,79 @@ spec:
 			t.ConfigIstio().
 				Eval(egressNamespace.Name(), apps.Namespace.Name(), waypointSpec).
 				ApplyOrFail(t, apply.CleanupConditionally)
+
+			external := apps.MockExternal.Instances()[0]
+
+			if len(external.WorkloadsOrFail(t)) < 1 {
+				t.Skip("not enough external service instances")
+			}
+
+			subsetServices := servicesForSubsets(t, external)
+			externalIPs := []string{}
+			for _, s := range subsetServices {
+				externalIPs = append(externalIPs, s.ClusterIP)
+			}
+
+			resolutionNoneServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: external-resolution-none
+  labels:
+    istio.io/use-waypoint: egress-gateway
+    istio.io/use-waypoint-namespace: {{.EgressNamespace}}
+spec:
+  hosts:
+  - fake-passthrough.example.com
+  ports:
+  - name: http
+    number: 8080
+    protocol: HTTP
+  resolution: NONE
+  location: MESH_EXTERNAL
+  addresses:
+{{ range $ip := .IPs }}
+  - "{{$ip}}"
+{{ end }}
+`
+
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]any{
+					"EgressNamespace": egressNamespace.Name(),
+					"IPs":             externalIPs,
+				}, resolutionNoneServiceEntry).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			hostHeader := http.Header{}
+			hostHeader.Set("Host", "fake-passthrough.example.com")
+
+			fmt.Printf("address to dial: %s\n", externalIPs[1])
+
+			// Test that we send traffic through the waypoint successfully
+			for i, sss := range subsetServices {
+				if i != 0 {
+					// Presently, only the first IP will be used by the waypoint proxy.
+					continue
+				}
+				runTest(t, "resolution none", "", echo.CallOptions{
+					Address: sss.ClusterIP,
+					HTTP:    echo.HTTP{Headers: hostHeader},
+					Port:    echo.Port{ServicePort: 8080},
+					Scheme:  scheme.HTTP,
+					Count:   1,
+					Check: check.And(check.OK(), IsL7(), func(cr echo.CallResult, err error) error {
+						if cr.Responses.IsEmpty() {
+							return fmt.Errorf("no responses")
+						}
+						respondingHost := cr.Responses[0].Hostname
+						if respondingHost != sss.Hostname {
+							return fmt.Errorf("unexpected hostname. Expected: %s, got: %s", sss.Hostname, respondingHost)
+						}
+						// success
+						return nil
+
+					}),
+				})
+			}
 
 			service := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
