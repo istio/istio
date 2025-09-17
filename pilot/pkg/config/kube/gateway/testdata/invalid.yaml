@@ -139,15 +139,26 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: invalid-frontendvalidation
+  name: invalid-frontendvalidation-malformed
   namespace: istio-system
 spec:
   addresses:
   - value: istio-ingressgateway
     type: Hostname
   gatewayClassName: istio
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+            - group: ""
+              kind: ConfigMap
+              name: malformed
+            - group: ""
+              kind: ConfigMap
+              name: malformed-trustbundle
   listeners:
-  - name: two
+  - name: default
     hostname: "two.example"
     port: 34000
     protocol: HTTPS
@@ -155,80 +166,91 @@ spec:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
-      frontendValidation:
-        caCertificateRefs:
-        - group: ""
-          kind: ConfigMap
-          name: malformed
-        - group: ""
-          kind: ConfigMap
-          name: malformed-trustbundle
-  - name: unknown-kind
-    hostname: "unknown-kind.example"
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-unknown
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: core
+            kind: unknown
+            name: my-cert-http
+  listeners:
+  - name: default
+    hostname: "two.example"
     port: 34000
     protocol: HTTPS
     tls:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
-      frontendValidation:
-        caCertificateRefs:
-        - group: core
-          kind: unknown
-          name: my-cert-http
-  - name: nonexistent
-    hostname: "nonexistent.example"
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-nonexistent
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: ""
+            kind: ConfigMap
+            name: nonexistent
+  listeners:
+  - name: default
+    hostname: "two.example"
     port: 34000
     protocol: HTTPS
     tls:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
-      frontendValidation:
-        caCertificateRefs:
-        - group: ""
-          kind: ConfigMap
-          name: nonexistent
-  - name: malformed
-    hostname: "malformed.example"
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-missing-refgrant
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: ""
+            kind: ConfigMap
+            namespace: default
+            name: auth-cert
+  listeners:
+  - name: default
+    hostname: "two.example"
     port: 34000
     protocol: HTTPS
     tls:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
-      frontendValidation:
-        caCertificateRefs:
-        - group: ""
-          kind: ConfigMap
-          name: malformed
-  - name: malformed-trustbundle
-    hostname: "malformed-trustbundle.example"
-    port: 34000
-    protocol: HTTPS
-    tls:
-      mode: Terminate
-      certificateRefs:
-      - name: my-cert-http
-      frontendValidation:
-        caCertificateRefs:
-        - group: ""
-          kind: ConfigMap
-          name: malformed-trustbundle
-  - name: missing-reference-grant
-    hostname: "missing-reference-grant.example"
-    port: 34000
-    protocol: HTTPS
-    tls:
-      mode: Terminate
-      certificateRefs:
-      - name: my-cert-http
-      frontendValidation:
-        caCertificateRefs:
-        - group: ""
-          kind: ConfigMap
-          namespace: default
-          name: auth-cert
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway

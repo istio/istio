@@ -175,7 +175,7 @@ func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int)
 			Listeners: []v1beta1.Listener{
 				{
 					Name: "detected-by-options",
-					TLS: &v1beta1.GatewayTLSConfig{
+					TLS: &v1beta1.ListenerTLSConfig{
 						Mode: &passthroughMode,
 						Options: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
 							constants.ListenerModeOption: constants.ListenerModeAutoPassthrough,
@@ -185,7 +185,7 @@ func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int)
 				},
 				{
 					Name: "detected-by-number",
-					TLS:  &v1beta1.GatewayTLSConfig{Mode: &passthroughMode},
+					TLS:  &v1beta1.ListenerTLSConfig{Mode: &passthroughMode},
 					Port: 15443,
 				},
 			},
@@ -397,7 +397,7 @@ func TestAmbientSync(t *testing.T) {
 					Name:     "cross-network",
 					Port:     15008,
 					Protocol: v1beta1.ProtocolType("HBONE"),
-					TLS: &v1beta1.GatewayTLSConfig{
+					TLS: &v1beta1.ListenerTLSConfig{
 						Mode: ptr.Of(v1beta1.TLSModeType("Passthrough")),
 						Options: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
 							"gateway.istio.io/listener-protocol": "auto-passthrough",
