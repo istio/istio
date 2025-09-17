@@ -3,7 +3,6 @@ items:
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
-    creationTimestamp: null
     name: hello-v1
   spec:
     replicas: 3
@@ -24,7 +23,6 @@ items:
           prometheus.io/port: "15020"
           prometheus.io/scrape: "true"
           sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
-        creationTimestamp: null
         labels:
           app: hello
           security.istio.io/tlsMode: istio
@@ -259,7 +257,6 @@ items:
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
-    creationTimestamp: null
     name: hello-v2
   spec:
     replicas: 3
@@ -280,7 +277,6 @@ items:
           prometheus.io/port: "15020"
           prometheus.io/scrape: "true"
           sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
-        creationTimestamp: null
         labels:
           app: hello
           security.istio.io/tlsMode: istio
