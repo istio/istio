@@ -7,7 +7,7 @@ issue:
 
 releaseNotes:
   - |
-    **Added** optional NetworkPolicy deployment for istiod
+    **Added** optional NetworkPolicy deployment for istiod, gateways and ztunnel.
 
     You can set `global.networkPolicy.enabled=true` to deploy a default NetworkPolicy for istiod and gateways.
-    We're planning to extend this to later also include NetworkPolicy for istio-cni and ztunnel.
+    We're planning to extend this to later also include NetworkPolicy for istio-cni.
