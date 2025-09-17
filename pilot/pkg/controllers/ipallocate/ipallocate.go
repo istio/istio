@@ -331,14 +331,6 @@ type jsonPatch struct {
 	Value     interface{} `json:"value"`
 }
 
-// filter out any wildcarded hosts
-// TODO(jaellio): make this behavior conditional on ambient mode and resolution type
-func removeWildCarded(h string) bool {
-	log.Infof("would remove wildcarded host %s: %v. Keeping regardless", h, !cfghost.Name(h).IsWildCarded())
-	return true
-	//return !cfghost.Name(h).IsWildCarded()
-}
-
 func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
 	if se == nil {
 		return nil, nil, nil
@@ -348,7 +340,11 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	hostsWithAddresses := sets.New[string]()
 	hostsInSpec := sets.New[string]()
 
-	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+	// TODO(jaellio): how can we make this behavior conditional on ambient mode?
+	for _, host := range se.Spec.Hosts {
+		if cfghost.Name(host).IsWildCarded() && se.Spec.Resolution != apiv1alpha3.ServiceEntry_DYNAMIC_DNS {
+			continue
+		}
 		hostsInSpec.Insert(host)
 	}
 	existingAddresses := []netip.Addr{}
@@ -368,8 +364,6 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 
 	// nothing to patch
 	if hostsInSpec.Equals(hostsWithAddresses) && !forcedReassign {
-		log.Infof("jaellio: nothing to patch")
-		log.Infof("jaellio: %#v, %#v", hostsWithAddresses, hostsInSpec)
 		return nil, nil, nil
 	}
 
@@ -377,7 +371,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 
 	// construct the assigned addresses datastructure to patch
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
-	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+	for _, host := range hostsInSpec.UnsortedList() {
 		if assignedHosts.InsertContains(host) {
 			continue
 		}
@@ -393,8 +387,6 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 			assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String(), Host: host})
 		}
 	}
-
-	log.Infof("jaellio: assigned addresses: %#v", assignedAddresses)
 
 	replaceAddresses, err := json.Marshal([]jsonPatch{
 		// Ensure the existing status we are acting on has not changed since we decided to allocate.
