@@ -1,3 +1,10 @@
+// Package iptablescheck provides a linter to detect iptables comment flags that are incompatible with gVisor.
+//
+// This linter was added to address compatibility issues in gVisor environments where iptables
+// comment module (-m comment, --comment flags) is not supported. The linter helps prevent
+// runtime failures by catching these incompatible flags at build time.
+//
+// See: https://github.com/istio/istio/issues/57678
 package iptablescheck
 
 import (
