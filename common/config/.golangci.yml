@@ -13,6 +13,7 @@ linters:
     - gosec
     - govet
     - ineffassign
+    - iptablescheck
     - lll
     - misspell
     - revive
@@ -156,6 +157,9 @@ linters:
     govet:
       disable:
         - shadow
+    iptablescheck:
+      # Custom linter to detect iptables comment flags that are incompatible with gVisor
+      path: ./tools/linters/iptablescheck/cmd/main.go
     lll:
       line-length: 160
       tab-width: 1
