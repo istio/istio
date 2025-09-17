@@ -75,6 +75,7 @@ var (
 	network        string
 	locality       string
 	weight         uint32
+	address        string
 )
 
 const (
@@ -157,6 +158,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 					Network:        network,
 					Locality:       locality,
 					Weight:         weight,
+					Address:        address,
 				},
 			}
 			wgYAML, err := generateWorkloadGroupYAML(u, spec)
@@ -176,6 +178,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 	createCmd.PersistentFlags().StringVar(&network, "network", "", "Network enables Istio to group endpoints resident in the same L3 domain/network.")
 	createCmd.PersistentFlags().StringVar(&locality, "locality", "", "The locality associated with the endpoint.")
 	createCmd.PersistentFlags().Uint32VarP(&weight, "weight", "w", 0, "The load balancing weight associated with the endpoint.")
+	createCmd.PersistentFlags().StringVar(&address, "address", "", "Address associated with the network endpoint without the port.")
 	_ = createCmd.RegisterFlagCompletionFunc("serviceAccount", func(
 		cmd *cobra.Command, args []string, toComplete string,
 	) ([]string, cobra.ShellCompDirective) {

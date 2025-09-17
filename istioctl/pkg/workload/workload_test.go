@@ -62,6 +62,7 @@ spec:
       app: foo
       bar: baz
   template:
+    address: 2.2.2.2
     ports:
       grpc: 3550
       http: 8080
@@ -107,14 +108,14 @@ func TestWorkloadGroupCreate(t *testing.T) {
 		{
 			description: "valid case - create full workload group",
 			args: strings.Split("group create --name foo --namespace bar --labels app=foo,bar=baz "+
-				" --annotations annotation=foobar --ports grpc=3550,http=8080 --serviceAccount test --weight 100", " "),
+				" --annotations annotation=foobar --ports grpc=3550,http=8080 --serviceAccount test --weight 100 --address 2.2.2.2", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
 		{
 			description: "valid case - create full workload group with shortnames",
 			args: strings.Split("group create --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
-				" -a annotation=foobar --serviceAccount test --weight 100", " "),
+				" -a annotation=foobar --serviceAccount test --weight 100 --address 2.2.2.2", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
