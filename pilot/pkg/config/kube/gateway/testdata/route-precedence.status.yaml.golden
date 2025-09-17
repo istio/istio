@@ -1,7 +1,6 @@
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
 spec: null
 status:
@@ -15,7 +14,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -67,7 +65,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http
   namespace: allowed-1
 spec: null
@@ -124,7 +121,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http
   namespace: allowed-2
 spec: null
@@ -165,7 +161,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http
   namespace: default
 spec: null
