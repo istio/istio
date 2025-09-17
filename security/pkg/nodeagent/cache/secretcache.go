@@ -55,12 +55,9 @@ func (sc *SecretManagerClient) isPathInSymlink(filePath string) bool {
 		return true
 	}
 
-	// Then check parent directories, but only go up a few levels to avoid system symlinks
+	// Then check parent directories up to the root
 	dir := filepath.Dir(filePath)
-	depth := 0
-	maxDepth := 5 // Only check a few parent directories
-
-	for dir != "." && dir != "/" && dir != filepath.Dir(dir) && depth < maxDepth {
+	for dir != "." && dir != "/" && dir != filepath.Dir(dir) {
 		fileInfo, err := os.Lstat(dir)
 		if err != nil {
 			break
@@ -69,7 +66,6 @@ func (sc *SecretManagerClient) isPathInSymlink(filePath string) bool {
 			return true
 		}
 		dir = filepath.Dir(dir)
-		depth++
 	}
 	return false
 }
@@ -82,12 +78,9 @@ func (sc *SecretManagerClient) findSymlinkInPath(filePath string) string {
 		return filePath
 	}
 
-	// Then check parent directories, but only go up a few levels to avoid system symlinks
+	// Then check parent directories up to the root
 	dir := filepath.Dir(filePath)
-	depth := 0
-	maxDepth := 5 // Only check a few parent directories
-
-	for dir != "." && dir != "/" && dir != filepath.Dir(dir) && depth < maxDepth {
+	for dir != "." && dir != "/" && dir != filepath.Dir(dir) {
 		fileInfo, err := os.Lstat(dir)
 		if err != nil {
 			break
@@ -96,7 +89,6 @@ func (sc *SecretManagerClient) findSymlinkInPath(filePath string) string {
 			return dir
 		}
 		dir = filepath.Dir(dir)
-		depth++
 	}
 	return ""
 }
@@ -283,11 +275,9 @@ func (sc *SecretManagerClient) RegisterSecretHandler(h func(resourceName string)
 }
 
 func (sc *SecretManagerClient) OnSecretUpdate(resourceName string) {
-	cacheLog.Infof("OnSecretUpdate called for resource: %s", resourceName)
 	sc.certMutex.RLock()
 	defer sc.certMutex.RUnlock()
 	if sc.secretHandler != nil {
-		cacheLog.Infof("calling secretHandler for resource: %s", resourceName)
 		sc.secretHandler(resourceName)
 	}
 }
@@ -324,7 +314,7 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
 func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
-	cacheLog.Infof("GenerateSecret called for resource: %s", resourceName)
+	cacheLog.Debugf("generate secret %q", resourceName)
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
