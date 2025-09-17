@@ -504,8 +504,11 @@ func servicesForSubsets(t framework.TestContext, instance echo.Instance) []exter
 }
 
 func TestWaypointAsEgressGateway(t *testing.T) {
-	runTest := func(t framework.TestContext, name string, config string, opts ...echo.CallOptions) {
+	runTest := func(t framework.TestContext, name string, config string, skipMultiClusterReason string, opts ...echo.CallOptions) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			if skipMultiClusterReason != "" && t.Settings().AmbientMultiNetwork {
+				t.Skip(skipMultiClusterReason)
+			}
 			if config != "" {
 				t.ConfigIstio().YAML(apps.Namespace.Name(), config).ApplyOrFail(t)
 			}
@@ -586,7 +589,6 @@ spec:
   - "{{$ip}}"
 {{ end }}
 `
-
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), map[string]any{
 					"EgressNamespace": egressNamespace.Name(),
@@ -603,15 +605,25 @@ spec:
 					// Presently, only the first IP will be used by the waypoint proxy.
 					continue
 				}
+				// The setup for this testing would be tricky in multi-network because the VIPs being used
+				// are not in the mesh, but they are in a cluster.
+				// This means each cluster's VIPs would need to be unique.
+				// That isn't useful for testing though because it's just turning the multi-cluster
+				// tests into multiple single-cluster tests.
+				// Arguably, egress gateways should never be accessed across a cluster-boundary,
+				// so perhaps the skips need not be removed as even in multi-cluster testing we expect egress
+				// to behave as though it is single-cluster.
 				testName := fmt.Sprintf("resolution none %s", sss.ClusterIP)
-				runTest(t, testName, "", echo.CallOptions{
-					Address: sss.ClusterIP,
-					HTTP:    echo.HTTP{Headers: hostHeader},
-					Port:    echo.Port{ServicePort: 8080},
-					Scheme:  scheme.HTTP,
-					Count:   1,
-					Check:   check.And(check.OK(), IsL7(), check.Hostname(sss.Hostname)),
-				})
+				runTest(t, testName, "",
+					"relies on unmeshed ClusterIPs as a simulated external service IP",
+					echo.CallOptions{
+						Address: sss.ClusterIP,
+						HTTP:    echo.HTTP{Headers: hostHeader},
+						Port:    echo.Port{ServicePort: 8080},
+						Scheme:  scheme.HTTP,
+						Count:   1,
+						Check:   check.And(check.OK(), IsL7(), check.Hostname(sss.Hostname)),
+					})
 			}
 
 			service := `apiVersion: networking.istio.io/v1
@@ -648,7 +660,7 @@ spec:
 				ApplyOrFail(t)
 
 			// We can send a simple request
-			runTest(t, "basic", "", echo.CallOptions{
+			runTest(t, "basic", "", "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
@@ -667,7 +679,7 @@ spec:
     tls:
       mode: SIMPLE
       insecureSkipVerify: true`
-			runTest(t, "http origination targetPort", tlsOrigination, echo.CallOptions{
+			runTest(t, "http origination targetPort", tlsOrigination, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 8080},
 				Scheme:  scheme.HTTP,
@@ -693,7 +705,7 @@ spec:
       name: fake-egress.example.com
       port: 443
 `
-			runTest(t, "http origination route", tlsOriginationRedirect, echo.CallOptions{
+			runTest(t, "http origination route", tlsOriginationRedirect, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
@@ -720,6 +732,7 @@ spec:
 				t,
 				"authz on service allow",
 				authz,
+				"",
 				// Check blocked requests are denied
 				echo.CallOptions{
 					Address: "fake-egress.example.com",
