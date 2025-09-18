@@ -935,7 +935,7 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	targetDir := filepath.Join(testDir, "target")
 
 	// Create target directory and files
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -951,7 +951,7 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	keySymlink := filepath.Join(certDir, "key.pem")
 	rootCertSymlink := filepath.Join(certDir, "root-cert.pem")
 
-	if err := os.MkdirAll(certDir, 0755); err != nil {
+	if err := os.MkdirAll(certDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
