@@ -107,12 +107,21 @@ func (a *index) buildGlobalCollections(
 				log.Warnf("Failed to sync gateways informer for cluster %s", c.ID)
 				return nil
 			}
+
+			// N.B we're not using the opts.WithXXX pattern here since we want to be very obvious about which
+			// stop is being used to shutdown the collection (it should always be the cluster stop, NEVER
+			// the top-level stop associated with the ambient controller)
+			opts := []krt.CollectionOption{
+				krt.WithName(fmt.Sprintf("ambient/GatewaysWithCluster[%s]", c.ID)),
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(c.GetStop()),
+			}
 			return ptr.Of(krt.MapCollection(c.Gateways(), func(obj *v1beta1.Gateway) krt.ObjectWithCluster[*v1beta1.Gateway] {
 				return krt.ObjectWithCluster[*v1beta1.Gateway]{
 					ClusterID: c.ID,
 					Object:    &obj,
 				}
-			}, opts.WithName(fmt.Sprintf("GatewaysWithCluster[%s]", c.ID))...))
+			}, opts...))
 		}, "GatewaysWithCluster", opts)
 
 	globalGatewaysByCluster := nestedCollectionIndexByCluster(GlobalGatewaysWithCluster)
@@ -142,12 +151,17 @@ func (a *index) buildGlobalCollections(
 				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
 				return nil
 			}
+			opts := []krt.CollectionOption{
+				krt.WithName(fmt.Sprintf("ambient/NodesWithCluster[%s]", c.ID)),
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(c.GetStop()),
+			}
 			return ptr.Of(krt.MapCollection(c.Nodes(), func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
 				return krt.ObjectWithCluster[*v1.Node]{
 					ClusterID: c.ID,
 					Object:    &obj,
 				}
-			}, opts.WithName(fmt.Sprintf("NodesWithCluster[%s]", c.ID))...))
+			}, opts...))
 		}, "NodesWithCluster", opts)
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(
@@ -699,7 +713,10 @@ func mergeServiceInfosWithCluster(
 				return nil
 			}
 			// otherwise, skip merging
-			return &base
+			return &krt.ObjectWithCluster[model.ServiceInfo]{
+				ClusterID: base.ClusterID,
+				Object:    precomputeServicePtr(base.Object),
+			}
 		}
 
 		vips := sets.NewWithLength[simpleNetworkAddress](svcInfosLen)
