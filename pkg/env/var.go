@@ -116,16 +116,12 @@ func VarDescriptions() []Var {
 	return sorted
 }
 
-type Parseable interface {
-	comparable
-}
-
-type GenericVar[T Parseable] struct {
+type GenericVar[T comparable] struct {
 	Var
 	delegate specializedVar[T]
 }
 
-func Register[T Parseable](name string, defaultValue T, description string) GenericVar[T] {
+func Register[T comparable](name string, defaultValue T, description string) GenericVar[T] {
 	// Specialized cases
 	// In the future, once only Register() remains, we can likely drop most of these.
 	// However, time.Duration is needed still as it doesn't implement json.

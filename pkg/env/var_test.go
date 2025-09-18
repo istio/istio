@@ -65,7 +65,7 @@ func TestString(t *testing.T) {
 	}
 }
 
-func runTest[T Parseable](t *testing.T, name string, v1 T, s2 string, v2 T) {
+func runTest[T comparable](t *testing.T, name string, v1 T, s2 string, v2 T) {
 	t.Run(name, func(t *testing.T) {
 		reset()
 		ev := Register(testVar, v1, "")

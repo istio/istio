@@ -70,7 +70,7 @@ var (
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set
-func registerAmbient[T env.Parseable](name string, defaultWithAmbient, defaultWithoutAmbient T, description string) T {
+func registerAmbient[T comparable](name string, defaultWithAmbient, defaultWithoutAmbient T, description string) T {
 	if EnableAmbient {
 		return env.Register(name, defaultWithAmbient, description).Get()
 	}
