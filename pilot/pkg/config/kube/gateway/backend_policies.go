@@ -380,7 +380,7 @@ func getBackendTLSCredentialName(
 				err = rerr
 				conds[string(gw.BackendTLSPolicyReasonResolvedRefs)].error = &ConfigError{
 					Reason:  string(gw.BackendTLSPolicyReasonInvalidCACertificateRef),
-					Message: "Certificate reference invalid: " + err.Error(),
+					Message: "Certificate invalid: " + err.Error(),
 				}
 			} else {
 				return credentials.KubernetesConfigMapTypeURI + policyNamespace + "/" + string(ref.Name)
@@ -397,10 +397,22 @@ func getBackendTLSCredentialName(
 				Message: "Certificate reference invalid: " + err.Error(),
 			}
 		}
+	} else {
+		if strings.Contains(err.Error(), "unsupported kind") {
+			conds[string(gw.BackendTLSPolicyReasonResolvedRefs)].error = &ConfigError{
+				Reason:  string(gw.BackendTLSPolicyReasonInvalidKind),
+				Message: "Certificate reference not supported: " + err.Error(),
+			}
+		} else {
+			conds[string(gw.BackendTLSPolicyReasonResolvedRefs)].error = &ConfigError{
+				Reason:  string(gw.BackendTLSPolicyReasonInvalidCACertificateRef),
+				Message: "Certificate reference not found: " + err.Error(),
+			}
+		}
 	}
 	if err != nil {
 		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
-			Reason:  string(gw.PolicyReasonInvalid),
+			Reason:  string(gw.BackendTLSPolicyReasonNoValidCACertificate),
 			Message: "Certificate reference invalid: " + err.Error(),
 		}
 		// Generate an invalid reference. This ensures traffic is blocked.

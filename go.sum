@@ -687,10 +687,8 @@ k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d h1:wAhiDyZ4Tdtt7e46e9M5ZSAJ/MnPG
 k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1 h1:Cf+ed5N8038zbsaXFO7mKQDi/+VcSRafb0jM84KX5so=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
-sigs.k8s.io/controller-runtime v0.21.0 h1:CYfjpEuicjUecRk+KAeyYh+ouUBn4llGyDYytIGcJS8=
-sigs.k8s.io/controller-runtime v0.21.0/go.mod h1:OSg14+F65eWqIu4DceX7k/+QRAbTTvxeQSNSOQpukWM=
-sigs.k8s.io/gateway-api v1.4.0-rc.1 h1:+vphUm8xEwXNtxCGCMGBEp766x/wBLDS4LlaBRE6hSw=
-sigs.k8s.io/gateway-api v1.4.0-rc.1/go.mod h1:Qi5a0sVIQmnkq42WgRskslJdOHUwRJA/tX+MSCKRBSM=
+sigs.k8s.io/controller-runtime v0.22.1 h1:Ah1T7I+0A7ize291nJZdS1CabF/lB4E++WizgV24Eqg=
+sigs.k8s.io/controller-runtime v0.22.1/go.mod h1:FwiwRjkRPbiN+zp2QRp7wlTCzbUXxZ/D4OzuQUDwBHY=
 sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250917095812-173ad587b675 h1:CW+VWxazW54YzQnlHkyCE/WmAvF0YK7HOl+OK8IO3Ug=
 sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250917095812-173ad587b675/go.mod h1:Tqmt4U654MNQkzC1lFYVa43wbUW7K8r8Lv6Sq2I3HCc=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=

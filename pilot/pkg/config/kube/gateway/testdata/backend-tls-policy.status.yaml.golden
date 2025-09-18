@@ -16,6 +16,11 @@ status:
       reason: Invalid
       status: "False"
       type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/mesh-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -37,6 +42,11 @@ status:
       reason: TargetNotFound
       status: "False"
       type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/mesh-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -68,6 +78,11 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/mesh-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -89,6 +104,12 @@ status:
       reason: Invalid
       status: "False"
       type: Accepted
+    - lastTransitionTime: fake
+      message: 'Certificate reference invalid: found secret, but didn''t have expected
+        keys cacert or ca.crt; found: not-ca.crt'
+      reason: InvalidCACertificateRef
+      status: "False"
+      type: ResolvedRefs
     controllerName: istio.io/mesh-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -109,6 +130,11 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/mesh-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -129,6 +155,11 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/mesh-controller
   - ancestorRef:
       group: ""
@@ -141,6 +172,11 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/mesh-controller
   - ancestorRef:
       group: ""
@@ -154,6 +190,11 @@ status:
       reason: TargetNotFound
       status: "False"
       type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/mesh-controller
   - ancestorRef:
       group: gateway.networking.k8s.io
@@ -166,6 +207,11 @@ status:
       reason: TargetNotFound
       status: "False"
       type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -187,6 +233,11 @@ status:
       reason: Invalid
       status: "False"
       type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
     controllerName: istio.io/mesh-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
