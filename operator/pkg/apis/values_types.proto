@@ -150,7 +150,7 @@ message CNIConfig {
 
   // Specifies if an Istio owned CNI config should be created.
   google.protobuf.BoolValue istioOwnedCNIConfig = 35;
-  
+
   string istioOwnedCNIConfigFileName = 36;
 }
 
@@ -1358,6 +1358,9 @@ message BaseConfig {
 
   // validation webhook CA bundle
   string validationCABundle = 5;
+
+  // validation webhook service
+  string validationService = 7;
 }
 
 message IstiodRemoteConfig {
@@ -1367,6 +1370,8 @@ message IstiodRemoteConfig {
   string injectionPath = 2;
   // injector ca bundle
   string injectionCABundle = 3;
+  // Service name to use for sidecar injector webhook
+  string injectionService = 7;
   // Indicates if this cluster/install should consume a "remote" istiod instance,
   google.protobuf.BoolValue enabled = 5;
   // If `true`, indicates that this cluster/install should consume a "local istiod" installation,

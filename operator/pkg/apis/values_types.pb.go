@@ -4792,8 +4792,10 @@ type BaseConfig struct {
 	ValidateGateway       *wrapperspb.BoolValue `protobuf:"bytes,4,opt,name=validateGateway,proto3" json:"validateGateway,omitempty"`
 	// validation webhook CA bundle
 	ValidationCABundle string `protobuf:"bytes,5,opt,name=validationCABundle,proto3" json:"validationCABundle,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// validation webhook service
+	ValidationService string `protobuf:"bytes,7,opt,name=validationService,proto3" json:"validationService,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *BaseConfig) Reset() {
@@ -4868,6 +4870,13 @@ func (x *BaseConfig) GetValidationCABundle() string {
 	return ""
 }
 
+func (x *BaseConfig) GetValidationService() string {
+	if x != nil {
+		return x.ValidationService
+	}
+	return ""
+}
+
 type IstiodRemoteConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// URL to use for sidecar injector webhook.
@@ -4876,6 +4885,8 @@ type IstiodRemoteConfig struct {
 	InjectionPath string `protobuf:"bytes,2,opt,name=injectionPath,proto3" json:"injectionPath,omitempty"`
 	// injector ca bundle
 	InjectionCABundle string `protobuf:"bytes,3,opt,name=injectionCABundle,proto3" json:"injectionCABundle,omitempty"`
+	// Service name to use for sidecar injector webhook
+	InjectionService string `protobuf:"bytes,7,opt,name=injectionService,proto3" json:"injectionService,omitempty"`
 	// Indicates if this cluster/install should consume a "remote" istiod instance,
 	Enabled *wrapperspb.BoolValue `protobuf:"bytes,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// If `true`, indicates that this cluster/install should consume a "local istiod" installation,
@@ -4932,6 +4943,13 @@ func (x *IstiodRemoteConfig) GetInjectionPath() string {
 func (x *IstiodRemoteConfig) GetInjectionCABundle() string {
 	if x != nil {
 		return x.InjectionCABundle
+	}
+	return ""
+}
+
+func (x *IstiodRemoteConfig) GetInjectionService() string {
+	if x != nil {
+		return x.InjectionService
 	}
 	return ""
 }
@@ -5818,7 +5836,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x05debug\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x05debug\x124\n" +
 	"\x15maxNumberOfAttributes\x18\x02 \x01(\rR\x15maxNumberOfAttributes\x126\n" +
 	"\x16maxNumberOfAnnotations\x18\x03 \x01(\rR\x16maxNumberOfAnnotations\x12:\n" +
-	"\x18maxNumberOfMessageEvents\x18\x04 \x01(\rR\x18maxNumberOfMessageEvents\"\xea\x02\n" +
+	"\x18maxNumberOfMessageEvents\x18\x04 \x01(\rR\x18maxNumberOfMessageEvents\"\x98\x03\n" +
 	"\n" +
 	"BaseConfig\x12J\n" +
 	"\x12enableCRDTemplates\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x12enableCRDTemplates\x12\"\n" +
@@ -5826,11 +5844,13 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\rvalidationURL\x18\x02 \x01(\tR\rvalidationURL\x12P\n" +
 	"\x15enableIstioConfigCRDs\x18\x03 \x01(\v2\x1a.google.protobuf.BoolValueR\x15enableIstioConfigCRDs\x12D\n" +
 	"\x0fvalidateGateway\x18\x04 \x01(\v2\x1a.google.protobuf.BoolValueR\x0fvalidateGateway\x12.\n" +
-	"\x12validationCABundle\x18\x05 \x01(\tR\x12validationCABundle\"\x9e\x02\n" +
+	"\x12validationCABundle\x18\x05 \x01(\tR\x12validationCABundle\x12,\n" +
+	"\x11validationService\x18\a \x01(\tR\x11validationService\"\xca\x02\n" +
 	"\x12IstiodRemoteConfig\x12\"\n" +
 	"\finjectionURL\x18\x01 \x01(\tR\finjectionURL\x12$\n" +
 	"\rinjectionPath\x18\x02 \x01(\tR\rinjectionPath\x12,\n" +
-	"\x11injectionCABundle\x18\x03 \x01(\tR\x11injectionCABundle\x124\n" +
+	"\x11injectionCABundle\x18\x03 \x01(\tR\x11injectionCABundle\x12*\n" +
+	"\x10injectionService\x18\a \x01(\tR\x10injectionService\x124\n" +
 	"\aenabled\x18\x05 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12Z\n" +
 	"\x1aenabledLocalInjectorIstiod\x18\x06 \x01(\v2\x1a.google.protobuf.BoolValueR\x1aenabledLocalInjectorIstiod\"\xd7\b\n" +
 	"\x06Values\x124\n" +
