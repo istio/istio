@@ -1020,6 +1020,28 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "DestinationRuleSubsetsWithTopologyLabels",
+		inputFiles: []string{"testdata/destinationrule-subsets-with-topology-labels.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected:   []message{
+			// Should not report false positives for topology labels
+			// All subsets should match because the analyzer augments pod labels with node topology labels:
+			// - "region-us-west": matches topology.kubernetes.io/region from node
+			// - "zone-us-west-1a": matches topology.kubernetes.io/zone from node
+			// - "app-v1": matches version label from pod
+			// - "mixed-labels": matches both version from pod AND topology.kubernetes.io/region from node
+		},
+	},
+	{
+		name:       "DestinationRuleEmptyTopologyLabels",
+		inputFiles: []string{"testdata/destinationrule-empty-topology-labels.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			// Istio doesn't match on empty node locality labels.
+			{msg.DestinationRuleSubsetNotSelectPods, "DestinationRule default/empty-topology-labels"},
+		},
+	},
+	{
 		name:           "ServiceEntry Addresses Allocated",
 		inputFiles:     []string{"testdata/serviceentry-address-allocated.yaml"},
 		meshConfigFile: "testdata/serviceentry-address-allocated-mesh-cfg.yaml",
