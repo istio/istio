@@ -39,7 +39,21 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
+
+type AncestorBackend struct {
+	Gateway types.NamespacedName
+	Backend TypedNamespacedName
+}
+
+func (a AncestorBackend) Equals(other AncestorBackend) bool {
+	return a.Gateway == other.Gateway && a.Backend == other.Backend
+}
+
+func (a AncestorBackend) ResourceName() string {
+	return a.Gateway.String() + "/" + a.Backend.String()
+}
 
 func HTTPRouteCollection(
 	httpRoutes krt.Collection[*gateway.HTTPRoute],
@@ -47,6 +61,12 @@ func HTTPRouteCollection(
 	opts krt.OptionsBuilder,
 ) RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, httpRoutes, gvk.HTTPRoute, opts)
+	ancestorBackends := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) []AncestorBackend {
+		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gateway.HTTPRouteRule) []gateway.HTTPBackendRef {
+			return r.BackendRefs
+		})
+	}, opts.WithName("HTTPAncestors")...)
+	_ = ancestorBackends
 	status, baseVirtualServices := krt.NewStatusManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (
 		*gateway.HTTPRouteStatus,
 		[]RouteWithKey,
@@ -189,7 +209,52 @@ func HTTPRouteCollection(
 		VirtualServices:  finalVirtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
+		Ancestors:        ancestorBackends,
 	}
+}
+
+func extractAncestorBackends[RT, BT any](ns string, prefs []gateway.ParentReference, rules []RT, extract func(RT) []BT) []AncestorBackend {
+	gateways := sets.Set[types.NamespacedName]{}
+	for _, r := range prefs {
+		ref := normalizeReference(r.Group, r.Kind, gvk.KubernetesGateway)
+		if ref != gvk.KubernetesGateway {
+			continue
+		}
+		gateways.Insert(types.NamespacedName{
+			Namespace: defaultString(r.Namespace, ns),
+			Name:      string(r.Name),
+		})
+	}
+	backends := sets.Set[TypedNamespacedName]{}
+	for _, r := range rules {
+		for _, b := range extract(r) {
+			ref, refNs, refName := GetBackendRef(b)
+			k, ok := gvk.ToKind(ref)
+			if !ok {
+				continue
+			}
+			be := TypedNamespacedName{
+				NamespacedName: types.NamespacedName{
+					Namespace: defaultString(refNs, ns),
+					Name:      string(refName),
+				},
+				Kind: k,
+			}
+			backends.Insert(be)
+		}
+	}
+	gtw := slices.SortBy(gateways.UnsortedList(), types.NamespacedName.String)
+	bes := slices.SortBy(backends.UnsortedList(), TypedNamespacedName.String)
+	res := make([]AncestorBackend, 0, len(gtw)*len(bes))
+	for _, gw := range gtw {
+		for _, be := range bes {
+			res = append(res, AncestorBackend{
+				Gateway: gw,
+				Backend: be,
+			})
+		}
+	}
+	return res
 }
 
 type conversionResult[O any] struct {
@@ -613,6 +678,8 @@ type RouteResult[I controllers.Object, IStatus any] struct {
 	RouteAttachments krt.Collection[RouteAttachment]
 	// Status stores the status reports for the incoming object
 	Status krt.StatusCollection[I, IStatus]
+	// Ancestors stores information about Gateway --> Backend references
+	Ancestors krt.Collection[AncestorBackend]
 }
 
 type RouteAttachment struct {

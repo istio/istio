@@ -2582,3 +2582,17 @@ func GetStatus[I, IS any](spec I) IS {
 		return ptr.Empty[IS]()
 	}
 }
+
+func GetBackendRef[I any](spec I) (config.GroupVersionKind, *k8s.Namespace, k8s.ObjectName) {
+	switch t := any(spec).(type) {
+	case k8s.HTTPBackendRef:
+		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+	case k8s.GRPCBackendRef:
+		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+	case k8s.BackendRef:
+		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+	default:
+		log.Fatalf("unknown GetBackendRef type %T", t)
+		return config.GroupVersionKind{}, nil, ""
+	}
+}

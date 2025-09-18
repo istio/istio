@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gw "sigs.k8s.io/gateway-api/apis/v1"
-	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -44,21 +43,22 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
-type TypedNamedspacedName struct {
+type TypedNamespacedName struct {
 	types.NamespacedName
 	Kind kind.Kind
 }
 
-func (n TypedNamedspacedName) String() string {
+func (n TypedNamespacedName) String() string {
 	return n.Kind.String() + "/" + n.NamespacedName.String()
 }
 
 type BackendPolicy struct {
-	Source       TypedNamedspacedName
+	Source       TypedNamespacedName
 	TargetIndex  int
-	Target       TypedNamedspacedName
+	Target       TypedNamespacedName
 	SectionName  *string
 	TLS          *networking.ClientTLSSettings
 	LoadBalancer *networking.LoadBalancerSettings
@@ -69,6 +69,20 @@ type BackendPolicy struct {
 func (b BackendPolicy) ResourceName() string {
 	return b.Source.String() + "/" + fmt.Sprint(b.TargetIndex)
 }
+
+var TypedNamespacedNameIndexCollectionFunc = krt.WithIndexCollectionFromString(func(s string) TypedNamespacedName {
+	parts := strings.Split(s, "/")
+	if len(parts) != 3 {
+		panic("invalid TypedNamespacedName: " + s)
+	}
+	return TypedNamespacedName{
+		NamespacedName: types.NamespacedName{
+			Namespace: parts[1],
+			Name:      parts[2],
+		},
+		Kind: kind.FromString(parts[0]),
+	}
+})
 
 func (b BackendPolicy) Equals(other BackendPolicy) bool {
 	return b.Source == other.Source &&
@@ -83,6 +97,7 @@ func (b BackendPolicy) Equals(other BackendPolicy) bool {
 func DestinationRuleCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
+	ancestors krt.Index[TypedNamespacedName, AncestorBackend],
 	references *ReferenceSet,
 	domainSuffix string,
 	c *Controller,
@@ -91,31 +106,20 @@ func DestinationRuleCollection(
 ) krt.Collection[*config.Config] {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, opts)
 	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus)
+	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
 
-	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, references, opts)
+	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, opts)
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus)
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})
-	byTarget := krt.NewIndex(allPolicies, "target", func(o BackendPolicy) []TypedNamedspacedName {
-		return []TypedNamedspacedName{o.Target}
+	byTarget := krt.NewIndex(allPolicies, "target", func(o BackendPolicy) []TypedNamespacedName {
+		return []TypedNamespacedName{o.Target}
 	})
-	indexOpts := append(opts.WithName("BackendPolicyByTarget"), krt.WithIndexCollectionFromString(func(s string) TypedNamedspacedName {
-		parts := strings.Split(s, "/")
-		if len(parts) != 3 {
-			panic("invalid TypedNamedspacedName: " + s)
-		}
-		return TypedNamedspacedName{
-			NamespacedName: types.NamespacedName{
-				Namespace: parts[1],
-				Name:      parts[2],
-			},
-			Kind: kind.FromString(parts[0]),
-		}
-	}))
+	indexOpts := append(opts.WithName("BackendPolicyByTarget"), TypedNamespacedNameIndexCollectionFunc)
 	merged := krt.NewCollection(
 		byTarget.AsCollection(indexOpts...),
-		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamedspacedName, BackendPolicy]) **config.Config {
+		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamespacedName, BackendPolicy]) **config.Config {
 			svc := i.Key
 			// Sort so we can pick the oldest, which will win.
 			// Not yet standardized but likely will be (https://github.com/kubernetes-sigs/gateway-api/issues/3516#issuecomment-2684039692)
@@ -215,6 +219,7 @@ func DestinationRuleCollection(
 
 func BackendTLSPolicyCollection(
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
+	ancestors krt.IndexCollection[TypedNamespacedName, AncestorBackend],
 	references *ReferenceSet,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gw.BackendTLSPolicy, gw.PolicyStatus], krt.Collection[BackendPolicy]) {
@@ -224,7 +229,6 @@ func BackendTLSPolicyCollection(
 	) {
 		status := i.Status.DeepCopy()
 		res := make([]BackendPolicy, 0, len(i.Spec.TargetRefs))
-		ancestors := make([]gw.PolicyAncestorStatus, 0, len(i.Spec.TargetRefs))
 
 		tls := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}
 		s := i.Spec
@@ -232,6 +236,10 @@ func BackendTLSPolicyCollection(
 		conds := map[string]*condition{
 			string(gw.PolicyConditionAccepted): {
 				reason:  string(gw.PolicyReasonAccepted),
+				message: "Configuration is valid",
+			},
+			string(gw.BackendTLSPolicyConditionResolvedRefs): {
+				reason:  string(gw.BackendTLSPolicyReasonResolvedRefs),
 				message: "Configuration is valid",
 			},
 		}
@@ -246,6 +254,15 @@ func BackendTLSPolicyCollection(
 			return nil
 		})
 		tls.CredentialName = getBackendTLSCredentialName(s.Validation, i.Namespace, conds, references)
+
+		// In ancestor status, we need to report for Service (for mesh) and for each relevant Gateway.
+		// However, there is a max of 16 items we can report.
+		// Reporting per-Gateway has no value (perhaps for anyone, but certainly not for Istio), so we favor the Service attachments
+		// getting to take the 16 slots.
+		// The Gateway API spec says that if there are more than 16, the policy should not be applied. This is a terrible, anti-user, decision
+		// that Istio will not follow, even if it means failing conformance tests.
+		ancestorStatus := make([]gw.PolicyAncestorStatus, 0, len(i.Spec.TargetRefs))
+		uniqueGateways := sets.New[types.NamespacedName]()
 		for idx, t := range i.Spec.TargetRefs {
 			conds = maps.Clone(conds)
 			refo, err := references.LocalPolicyTargetRef(t.LocalPolicyTargetReference, i.Namespace)
@@ -276,28 +293,53 @@ func BackendTLSPolicyCollection(
 					Message: "targetRefs invalid: " + err.Error(),
 				}
 			} else {
+				target := TypedNamespacedName{
+					NamespacedName: types.NamespacedName{
+						Name:      string(t.Name),
+						Namespace: i.Namespace,
+					},
+					Kind: gvk.MustToKind(schematypes.GvkFromObject(refo.(controllers.Object))),
+				}
 				// Only create an object if we can resolve the target
 				res = append(res, BackendPolicy{
-					Source: TypedNamedspacedName{
+					Source: TypedNamespacedName{
 						NamespacedName: config.NamespacedName(i),
 						Kind:           kind.BackendTLSPolicy,
 					},
-					TargetIndex: idx,
-					Target: TypedNamedspacedName{
-						NamespacedName: types.NamespacedName{
-							Name:      string(t.Name),
-							Namespace: i.Namespace,
-						},
-						Kind: gvk.MustToKind(schematypes.GvkFromObject(refo.(controllers.Object))),
-					},
+					TargetIndex:  idx,
+					Target:       target,
 					SectionName:  sectionName,
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
 				})
+				log.Errorf("howardjohn: TARGET %v", target)
+				ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
+				for _, gwl := range ancestorBackends {
+					for _, i := range gwl.Objects {
+						uniqueGateways.Insert(i.Gateway)
+					}
+				}
 			}
-			ancestors = append(ancestors, setAncestorStatus(t.LocalPolicyTargetReference, status, i.Generation, conds))
+			// We add a status for Service (for mesh), and for each Gateway
+			meshPR := gw.ParentReference{
+				Group:       &t.Group,
+				Kind:        &t.Kind,
+				Name:        t.Name,
+				SectionName: t.SectionName,
+			}
+			ancestorStatus = append(ancestorStatus, setAncestorStatus(meshPR, status, i.Generation, conds, constants.ManagedGatewayMeshController))
 		}
-		status.Ancestors = mergeAncestors(status.Ancestors, ancestors)
+		gwl := slices.SortBy(uniqueGateways.UnsortedList(), types.NamespacedName.String)
+		for _, g := range gwl {
+			pr := gw.ParentReference{
+				Group: ptr.Of(gw.Group(gvk.KubernetesGateway.Group)),
+				Kind:  ptr.Of(gw.Kind(gvk.KubernetesGateway.Kind)),
+				Name:  gw.ObjectName(g.Name),
+			}
+			ancestorStatus = append(ancestorStatus, setAncestorStatus(pr, status, i.Generation, conds, gw.GatewayController(features.ManagedGatewayController)))
+		}
+		log.Errorf("howardjohn: set ancestors %v for %v, existing %v", config.NamespacedName(i), len(ancestorStatus), len(status.Ancestors))
+		status.Ancestors = mergeAncestors(status.Ancestors, ancestorStatus)
 		return status, res
 	}, opts.WithName("BackendTLSPolicy")...)
 }
@@ -336,6 +378,10 @@ func getBackendTLSCredentialName(
 		case *v1.ConfigMap:
 			if _, rerr := kubesecrets.ExtractRootFromString(to.Data); rerr != nil {
 				err = rerr
+				conds[string(gw.BackendTLSPolicyReasonResolvedRefs)].error = &ConfigError{
+					Reason:  string(gw.BackendTLSPolicyReasonInvalidCACertificateRef),
+					Message: "Certificate reference invalid: " + err.Error(),
+				}
 			} else {
 				return credentials.KubernetesConfigMapTypeURI + policyNamespace + "/" + string(ref.Name)
 			}
@@ -346,6 +392,10 @@ func getBackendTLSCredentialName(
 		// Additionally, we will need to ensure we don't accidentally authorize them to access the private key, just the ca.crt
 		default:
 			err = fmt.Errorf("unsupported reference kind: %v", ref.Kind)
+			conds[string(gw.BackendTLSPolicyReasonResolvedRefs)].error = &ConfigError{
+				Reason:  string(gw.BackendTLSPolicyReasonInvalidKind),
+				Message: "Certificate reference invalid: " + err.Error(),
+			}
 		}
 	}
 	if err != nil {
@@ -422,12 +472,12 @@ func BackendTrafficPolicyCollection(
 			} else {
 				// Only create an object if we can resolve the target
 				res = append(res, BackendPolicy{
-					Source: TypedNamedspacedName{
+					Source: TypedNamespacedName{
 						NamespacedName: config.NamespacedName(i),
 						Kind:           kind.XBackendTrafficPolicy,
 					},
 					TargetIndex: idx,
-					Target: TypedNamedspacedName{
+					Target: TypedNamespacedName{
 						NamespacedName: types.NamespacedName{
 							Name:      string(t.Name),
 							Namespace: i.Namespace,
@@ -440,7 +490,8 @@ func BackendTrafficPolicyCollection(
 					CreationTime: i.CreationTimestamp.Time,
 				})
 			}
-			ancestors = append(ancestors, setAncestorStatus(t, status, i.Generation, conds))
+
+			// ancestors = append(ancestors, setAncestorStatus(t, status, i.Generation, conds))
 		}
 		status.Ancestors = mergeAncestors(status.Ancestors, ancestors)
 		return status, res
@@ -448,16 +499,12 @@ func BackendTrafficPolicyCollection(
 }
 
 func setAncestorStatus(
-	t gw.LocalPolicyTargetReference,
+	pr gw.ParentReference,
 	status *gw.PolicyStatus,
 	generation int64,
 	conds map[string]*condition,
+	controller gw.GatewayController,
 ) gw.PolicyAncestorStatus {
-	pr := gw.ParentReference{
-		Group: &t.Group,
-		Kind:  &t.Kind,
-		Name:  t.Name,
-	}
 	currentAncestor := slices.FindFunc(status.Ancestors, func(ex gw.PolicyAncestorStatus) bool {
 		return parentRefEqual(ex.AncestorRef, pr)
 	})
@@ -467,7 +514,7 @@ func setAncestorStatus(
 	}
 	return gw.PolicyAncestorStatus{
 		AncestorRef:    pr,
-		ControllerName: k8s.GatewayController(features.ManagedGatewayController),
+		ControllerName: controller,
 		Conditions:     setConditions(generation, currentConds, conds),
 	}
 }
@@ -481,13 +528,14 @@ func parentRefEqual(a, b gw.ParentReference) bool {
 		ptr.Equal(a.Port, b.Port)
 }
 
+var outControllers = sets.New(gw.GatewayController(features.ManagedGatewayController), constants.ManagedGatewayMeshController)
+
 // mergeAncestors merges an existing ancestor with in incoming one. We preserve order, prune stale references set by our controller,
 // and add any new references from our controller.
 func mergeAncestors(existing []gw.PolicyAncestorStatus, incoming []gw.PolicyAncestorStatus) []gw.PolicyAncestorStatus {
-	ourController := k8s.GatewayController(features.ManagedGatewayController)
 	n := 0
 	for _, x := range existing {
-		if x.ControllerName != ourController {
+		if !outControllers.Contains(x.ControllerName) {
 			// Keep it as-is
 			existing[n] = x
 			n++
@@ -507,5 +555,6 @@ func mergeAncestors(existing []gw.PolicyAncestorStatus, incoming []gw.PolicyAnce
 	existing = existing[:n]
 	// Add all remaining ones.
 	existing = append(existing, incoming...)
-	return existing
+	// There is a max of 16
+	return existing[:min(len(existing), 16)]
 }
