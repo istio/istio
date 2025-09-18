@@ -1,6 +1,43 @@
 # echo-https must be created by the kube-client, because it's used in a test
 # that verifies `sectionName`, which is internally read from krt,
 # so it could be just a `model.ServiceInstance`
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio
+  listeners:
+    - name: default
+      hostname: "*.domain.example"
+      port: 80
+      protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: gateway
+  rules:
+    - backendRefs:
+        - name: echo-https
+          namespace: default
+          port: 80
+---
 apiVersion: v1
 kind: Service
 metadata:
