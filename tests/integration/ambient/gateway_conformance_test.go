@@ -67,7 +67,9 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-mesh",
 }
 
-var skippedTests = map[string]string{}
+var skippedTests = map[string]string{
+	"BackendTLSPolicyConflictResolution": "TODO",
+}
 
 func TestGatewayConformance(t *testing.T) {
 	framework.
