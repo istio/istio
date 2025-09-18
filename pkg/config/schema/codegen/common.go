@@ -97,14 +97,14 @@ func Run() error {
 			"Entries":      inp.Entries,
 			"Packages":     inp.Packages,
 			"PackageName":  "collections",
-			"FilePrefix":   "// +build !agent",
+			"FilePrefix":   "//go:build !agent",
 			"CustomImport": `  "istio.io/istio/pkg/config/validation/envoyfilter"`,
 		}),
 		writeTemplate("pkg/config/schema/collections/collections.agent.gen.go", collectionsTemplate, map[string]any{
 			"Entries":      agentEntries,
 			"Packages":     inp.Packages,
 			"PackageName":  "collections",
-			"FilePrefix":   "// +build agent",
+			"FilePrefix":   "//go:build agent",
 			"CustomImport": "",
 		}),
 	)
