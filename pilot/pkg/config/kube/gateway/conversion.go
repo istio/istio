@@ -34,7 +34,6 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
@@ -1230,7 +1229,7 @@ func createCorsFilter(filter *k8s.HTTPCORSFilter) *istio.CorsPolicy {
 			MatchType: &istio.StringMatch_Exact{Exact: string(r)},
 		})
 	}
-	if filter.AllowCredentials {
+	if ptr.OrEmpty(filter.AllowCredentials) {
 		res.AllowCredentials = wrappers.Bool(true)
 	}
 	for _, r := range filter.AllowMethods {
@@ -1969,6 +1968,7 @@ func buildListener(
 	namespaces krt.Collection[*corev1.Namespace],
 	obj controllers.Object,
 	status []k8s.ListenerStatus,
+	gw k8s.GatewaySpec,
 	l k8s.Listener,
 	listenerIndex int,
 	controllerName k8s.GatewayController,
@@ -1995,7 +1995,7 @@ func buildListener(
 	}
 
 	ok := true
-	tls, err := buildTLS(ctx, configMaps, secrets, grants, l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
+	tls, err := buildTLS(ctx, configMaps, secrets, grants, resolveGatewayTLS(l.Port, gw.TLS), l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
 		listenerConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
@@ -2086,12 +2086,27 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 	return "", fmt.Errorf("protocol %q is unsupported", p)
 }
 
+func resolveGatewayTLS(port k8s.PortNumber, gw *k8s.GatewayTLSConfig) *k8s.TLSConfig {
+	if gw == nil || gw.Frontend == nil {
+		return nil
+	}
+	f := gw.Frontend
+	pp := slices.FindFunc(f.PerPort, func(portConfig k8s.TLSPortConfig) bool {
+		return portConfig.Port == port
+	})
+	if pp != nil {
+		return &pp.TLS
+	}
+	return &f.Default
+}
+
 func buildTLS(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
-	tls *k8s.GatewayTLSConfig,
+	gatewayTLS *k8s.TLSConfig,
+	tls *k8s.ListenerTLSConfig,
 	gw controllers.Object,
 	isAutoPassthrough bool,
 ) (*istio.ServerTLSSettings, *ConfigError) {
@@ -2168,14 +2183,16 @@ func buildTLS(
 		} else {
 			out.CredentialNames = credNames
 		}
-		if tls.FrontendValidation != nil && len(tls.FrontendValidation.CACertificateRefs) > 0 {
-			if len(tls.FrontendValidation.CACertificateRefs) > 1 {
+
+		if gatewayTLS != nil && gatewayTLS.Validation != nil && len(gatewayTLS.Validation.CACertificateRefs) > 0 {
+			// TODO: add 'Mode'
+			if len(gatewayTLS.Validation.CACertificateRefs) > 1 {
 				return out, &ConfigError{
 					Reason:  InvalidTLS,
 					Message: "only one caCertificateRef is supported",
 				}
 			}
-			caCertRef := tls.FrontendValidation.CACertificateRefs[0]
+			caCertRef := gatewayTLS.Validation.CACertificateRefs[0]
 			cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
 			if err != nil {
 				return out, err
@@ -2554,7 +2571,7 @@ func GetStatus[I, IS any](spec I) IS {
 		return any(t.Status).(IS)
 	case *gatewayx.XBackendTrafficPolicy:
 		return any(t.Status).(IS)
-	case *gatewayalpha3.BackendTLSPolicy:
+	case *k8s.BackendTLSPolicy:
 		return any(t.Status).(IS)
 	case *gatewayx.XListenerSet:
 		return any(t.Status).(IS)
@@ -2563,5 +2580,19 @@ func GetStatus[I, IS any](spec I) IS {
 	default:
 		log.Fatalf("unknown type %T", t)
 		return ptr.Empty[IS]()
+	}
+}
+
+func GetBackendRef[I any](spec I) (config.GroupVersionKind, *k8s.Namespace, k8s.ObjectName) {
+	switch t := any(spec).(type) {
+	case k8s.HTTPBackendRef:
+		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+	case k8s.GRPCBackendRef:
+		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+	case k8s.BackendRef:
+		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+	default:
+		log.Fatalf("unknown GetBackendRef type %T", t)
+		return config.GroupVersionKind{}, nil, ""
 	}
 }

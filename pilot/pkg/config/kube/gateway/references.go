@@ -19,7 +19,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/istio/pkg/config"
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
@@ -32,7 +32,11 @@ type ReferenceSet struct {
 	erasedCollections map[config.GroupVersionKind]func(name, namespace string) (any, bool)
 }
 
-func (s ReferenceSet) LocalPolicyTargetRef(ref gatewayalpha.LocalPolicyTargetReference, localNamespace string) (any, error) {
+func (s ReferenceSet) LocalPolicyTargetRef(ref gatewayv1.LocalPolicyTargetReference, localNamespace string) (any, error) {
+	return s.internal(string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
+}
+
+func (s ReferenceSet) XLocalPolicyTargetRef(ref gatewayx.LocalPolicyTargetReference, localNamespace string) (any, error) {
 	return s.internal(string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
 }
 

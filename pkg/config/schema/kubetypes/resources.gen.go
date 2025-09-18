@@ -17,7 +17,6 @@ import (
 	sigsk8siogatewayapiinferenceextensionapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
@@ -43,7 +42,7 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.AuthorizationPolicy, true
 	case *apiistioioapisecurityv1.AuthorizationPolicy:
 		return gvk.AuthorizationPolicy, true
-	case *sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy:
+	case *sigsk8siogatewayapiapisv1.BackendTLSPolicy:
 		return gvk.BackendTLSPolicy, true
 	case *k8sioapicertificatesv1.CertificateSigningRequest:
 		return gvk.CertificateSigningRequest, true

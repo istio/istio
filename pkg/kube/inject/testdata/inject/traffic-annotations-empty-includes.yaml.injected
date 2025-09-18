@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: traffic
 spec:
   replicas: 7
@@ -23,7 +22,6 @@ spec:
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/includeInboundPorts: ""
         traffic.sidecar.istio.io/includeOutboundIPRanges: ""
-      creationTimestamp: null
       labels:
         app: traffic
         security.istio.io/tlsMode: istio
