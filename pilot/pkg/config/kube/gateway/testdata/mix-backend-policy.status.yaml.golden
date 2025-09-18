@@ -1,24 +1,3 @@
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XBackendTrafficPolicy
-metadata:
-  name: lb-policy
-  namespace: default
-spec: null
-status:
-  ancestors:
-  - ancestorRef:
-      group: ""
-      kind: Service
-      name: echo
-    conditions:
-    - lastTransitionTime: fake
-      message: 'Configuration is valid, but Istio does not support the following fields:
-        sessionPersistence'
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    controllerName: istio.io/gateway-controller
----
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
@@ -37,7 +16,7 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
-    controllerName: istio.io/gateway-controller
+    controllerName: istio.io/mesh-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
@@ -57,5 +36,5 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
-    controllerName: istio.io/gateway-controller
+    controllerName: istio.io/mesh-controller
 ---
