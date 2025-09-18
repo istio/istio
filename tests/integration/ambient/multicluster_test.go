@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -46,9 +45,6 @@ func TestGlobalServiceReachability(t *testing.T) {
 			for _, c := range clusters {
 				name := c.StableName()
 				net := c.NetworkName()
-				if net == "" {
-					net = name
-				}
 				clusterToNetwork[name] = net
 				expectedClusters.Insert(name)
 			}
@@ -90,10 +86,9 @@ func TestGlobalServiceReachability(t *testing.T) {
 								To:      dst,
 								Port:    echo.Port{Name: "http"},
 								Count:   60,
-								Timeout: 60 * time.Second,
 							})
 							return err
-						}, retry.Timeout(90*time.Second), retry.Delay(5*time.Second))
+						})
 						if err != nil {
 							t.Fatalf("call failed: %s(%s) -> %s: %v",
 								src.ServiceName(), wl.Cluster().StableName(), dst.ServiceName(), err)
