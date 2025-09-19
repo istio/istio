@@ -486,7 +486,9 @@ func (sc *SecretManagerClient) walkPathComponents(filePath string, fn func(path 
 	for dir != "." && dir != "/" && dir != filepath.Dir(dir) {
 		fileInfo, err := os.Lstat(dir)
 		if err != nil {
-			break
+			// Continue checking parent directories even if this one doesn't exist
+			dir = filepath.Dir(dir)
+			continue
 		}
 		isSymlink := fileInfo.Mode()&os.ModeSymlink != 0
 		if found, shouldContinue := fn(dir, isSymlink); found || !shouldContinue {

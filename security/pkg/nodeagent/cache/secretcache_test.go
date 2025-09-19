@@ -1015,6 +1015,9 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 		t.Fatal(err)
 	}
 
+	// Small delay to ensure file watcher events are processed before test cleanup
+	time.Sleep(100 * time.Millisecond)
+
 	// Expect update callback
 	u.Expect(map[string]int{workloadResource: 1})
 	// On the next generate call, we should get the new cert
@@ -1028,6 +1031,10 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	if err := file.AtomicWrite(filepath.Join(targetDir, "root-cert.pem"), testcerts.CACert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
+
+	// Small delay to ensure file watcher events are processed before test cleanup
+	time.Sleep(100 * time.Millisecond)
+
 	// We expect to get update notifications for both resources when root cert changes
 	u.Expect(map[string]int{workloadResource: 1, rootResource: 1})
 	u.Reset()
