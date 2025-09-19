@@ -252,7 +252,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					}
 				}
 			} else if !identityVerified {
-					log.Debugf("skipping credential verification for gateway %s as identity of the proxy %s could not be verified", gatewayName, proxy.ID)
+				log.Debugf("skipping credential verification for gateway %s as identity of the proxy %s could not be verified", gatewayName, proxy.ID)
 			}
 			for _, resolvedPort := range resolvePorts(s.Port.Number, gwAndInstance.instances, gwAndInstance.legacyGatewaySelector) {
 				routeName := gatewayRDSRouteName(s, resolvedPort, gatewayConfig)
