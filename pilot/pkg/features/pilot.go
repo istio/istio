@@ -320,6 +320,9 @@ var (
 			return NativeSidecarModeDisabled
 		}
 	}()
+
+	DisableShadowHostSuffix = env.Register("DISABLE_SHADOW_HOST_SUFFIX", true,
+		"If disabled, the shadow host suffix will be added to the hostnames of the mirrored requests.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
