@@ -104,9 +104,6 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster(proxy))
 	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
-	// Creates dynamic forward proxy clusters for wildcarded services.
-	// TODO(GUSTAVO): We potentially don't need this - consider removing entirely unless it helps with readability
-	// clusters = append(clusters, cb.buildWaypointInboundDFP(proxy, svcs, push.Mesh)...)
 
 	// Upstream of the "encap" listener.
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
@@ -154,10 +151,9 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		localCluster = cb.buildCluster(clusterName, discoveryType, lbEndpoints,
 			model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
 	} else {
-		localCluster = cb.buildDFPCluster(clusterName, svc, &port, model.TrafficDirectionInboundVIP, nil)
+		localCluster = cb.buildDFPCluster(clusterName, svc, &port, model.TrafficDirectionInboundVIP)
 	}
 
-	// TODO(GUSTAVO): Add any required conditional logic here for DFP
 	// Ensure VIP cluster has services metadata for stats filter usage
 	im := getOrCreateIstioMetadata(localCluster.cluster)
 	im.Fields["services"] = &structpb.Value{
@@ -206,7 +202,11 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
 	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
-	applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+
+	// DFP cluster provides its own LB policy
+	if localCluster.cluster.LbPolicy != cluster.Cluster_CLUSTER_PROVIDED {
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+	}
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result
 	if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
@@ -246,25 +246,17 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	}
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
-	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
-	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
+
+	if svc.Resolution != model.DynamicDNS {
+		// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
+		localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
+	} else {
+		// For a DFP cluster we don't use internal upstream transport sockets
+		localCluster.cluster.TransportSocket = transportSocket
+	}
 
 	return localCluster.build()
 }
-
-// `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-/*func (cb *ClusterBuilder) buildWaypointInboundDFPCluster(
-	proxy *model.Proxy,
-	svc *model.Service,
-	port model.Port,
-	subset string,
-	mesh *meshconfig.MeshConfig,
-	policy *networking.TrafficPolicy,
-	drConfig *config.Config,
-) *cluster.Cluster {
-	// TODO(jaellio): TODO: Add support for DestinationRule configuration
-	return cb.buildDFPCluster(svc)
-}*/
 
 func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) *tlsv3.UpstreamTlsContext {
 	if tls == nil {
@@ -302,7 +294,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 	clusters := []*cluster.Cluster{}
 	for _, svc := range svcs {
 		for _, port := range svc.Ports {
-			if port.Protocol == protocol.UDP {
+			// We don't support UDP. And for dynamic DNS (dynamic forward proxy) we only support HTTP
+			if port.Protocol == protocol.UDP || (svc.Resolution == model.DynamicDNS && port.Protocol != protocol.HTTP) {
 				continue
 			}
 			if isEastWestGateway(proxy) {
@@ -311,15 +304,9 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
 				continue
 			}
-			// TODO(GUSTAVO): REMOVED this to allow wildcarded services to have VIP clusters
-			/*if svc.Hostname.IsWildCarded() {
-				log.Debugf("skip building waypoint inbound VIP cluster for wildcard host %s:%d", svc.Hostname, port.Port)
-				continue
-			}*/
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			dr := CastDestinationRule(cfg)
 			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
-			// TODO(GUSTAVO): do we need a wildcar protocol check here?
 			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
 			}
@@ -339,35 +326,6 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 	}
 	return clusters
 }
-
-// `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-/*func (cb *ClusterBuilder) buildWaypointInboundDFP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
-	clusters := []*cluster.Cluster{}
-
-	for _, svc := range svcs {
-		// only wildcarded services get DFP clusters
-		// TODO(jaellio): Do we need to verify the resolution is DYNAMIC_DNS? Or is it sufficient to check wildcarded?
-		if !svc.Hostname.IsWildCarded() || isEastWestGateway(proxy) {
-			log.Debugf("skip building waypoint inbound DFP cluster for svc %s/%s", svc.Attributes.Namespace, svc.Attributes.Name)
-			continue
-		}
-		for _, port := range svc.Ports {
-			if port.Protocol != protocol.HTTP {
-				log.Debugf("skip building waypoint inbound DFP cluster for non-HTTP port %s:%d", svc.Hostname, port.Port)
-				continue
-			}
-			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
-			dr := CastDestinationRule(cfg)
-			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
-			clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http", mesh, policy, cfg))
-			for _, ss := range dr.GetSubsets() {
-				policy = util.MergeSubsetTrafficPolicy(dr.GetTrafficPolicy(), ss.GetTrafficPolicy(), port)
-				clusters = append(clusters, cb.buildWaypointInboundDFPCluster(proxy, svc, *port, "http/"+ss.Name, mesh, policy, cfg))
-			}
-		}
-	}
-	return clusters
-}*/
 
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	// needed to enable cross-namespace waypoints when SkipValidateTrustDomain is set
