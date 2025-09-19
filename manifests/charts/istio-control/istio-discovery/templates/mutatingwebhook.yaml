@@ -35,6 +35,8 @@ a unique prefix to each. */}}
   reinvocationPolicy: "{{ .reinvocationPolicy }}"
   admissionReviewVersions: ["v1"]
 {{- end }}
+
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
 {{- if not .Values.global.operatorManageWebhooks }}
 apiVersion: admissionregistration.k8s.io/v1
@@ -161,5 +163,6 @@ webhooks:
       operator: DoesNotExist
 {{- end }}
 
+{{- end }}
 {{- end }}
 {{- end }}

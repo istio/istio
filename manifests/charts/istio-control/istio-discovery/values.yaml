@@ -293,8 +293,13 @@ _internal_defaults_do_not_set:
 
     omitSidecarInjectorConfigMap: false
 
-    # Whether to omit cluster resources for persona-based installations
-    omitClusterResources: false
+    # resourceScope controls what resources will be processed by helm.
+    # This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+    # It can be one of:
+    # - all: all resources are processed
+    # - cluster: only cluster-scoped resources are processed
+    # - namespace: only namespace-scoped resources are processed
+    resourceScope: all
 
     # Configure whether Operator manages webhook configurations. The current behavior
     # of Istiod is to manage its own webhook configurations.

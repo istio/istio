@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # Not created if istiod is running remotely
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 {{- if .Values.jwksResolverExtraRootCA }}
@@ -15,5 +16,6 @@ metadata:
     {{- include "istio.labels" . | nindent 4 }}
 data:
   extra.pem: {{ .Values.jwksResolverExtraRootCA | quote }}
+{{- end }}
 {{- end }}
 {{- end }}
