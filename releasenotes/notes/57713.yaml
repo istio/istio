@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** ServiceEntry port-name resolution in ztunnel now matches ServiceEntry port names to pod container ports, aligning behavior with sidecars.
+  **Fixed** ServiceEntry resolution in ztunnel now matches ServiceEntry port names to pod container ports, aligning behavior with sidecars where there isn't an explicit targetPort
