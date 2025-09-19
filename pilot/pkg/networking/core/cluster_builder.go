@@ -489,23 +489,27 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 // buildCluster builds the default cluster and also applies global options.
 // It is used for building both inbound and outbound cluster.
 // TODO(jaellio): Add support for destinationRule configuration
-func (cb *ClusterBuilder) buildDFPCluster(svc *model.Service) *cluster.Cluster {
+func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, port *model.Port, direction model.TrafficDirection, inboundServices []model.ServiceTarget) *clusterWrapper {
 	c := &cluster.Cluster{
-		Name:     model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, svc.Ports[0].Port),
+		Name:     name,
 		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
 		ClusterDiscoveryType: &cluster.Cluster_ClusterType{ClusterType: &cluster.Cluster_CustomClusterType{
 			Name: "envoy.clusters.dynamic_forward_proxy",
 			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
 				ClusterImplementationSpecifier: &dfpcluster.ClusterConfig_DnsCacheConfig{
 					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
-						Name:            model.BuildDNSCacheName(svc.Hostname),
+						Name:            model.BuildDNSCacheName(service.Hostname),
 						DnsLookupFamily: cluster.Cluster_V4_ONLY,
 					},
 				},
 			}),
 		}},
 	}
-	return c
+	c.AltStatName = util.DelimitedStatsPrefix(name)
+	ec := newClusterWrapper(c)
+	cb.setUpstreamProtocol(ec, port)
+	addTelemetryMetadata(c, port, service, direction, inboundServices)
+	return ec
 }
 
 // buildInboundCluster constructs a single inbound cluster. The cluster will be bound to
