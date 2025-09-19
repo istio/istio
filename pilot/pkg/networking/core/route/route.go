@@ -37,6 +37,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/route/retry"
@@ -1441,9 +1442,10 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 func TranslateRequestMirrorPolicy(cluster string, mp *core.RuntimeFractionalPercent,
 ) *route.RouteAction_RequestMirrorPolicy {
 	return &route.RouteAction_RequestMirrorPolicy{
-		Cluster:         cluster,
-		RuntimeFraction: mp,
-		TraceSampled:    &wrapperspb.BoolValue{Value: false},
+		Cluster:                       cluster,
+		RuntimeFraction:               mp,
+		TraceSampled:                  &wrapperspb.BoolValue{Value: false},
+		DisableShadowHostSuffixAppend: features.DisableShadowHostSuffix,
 	}
 }
 

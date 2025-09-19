@@ -1,0 +1,4 @@
+pilot:
+  env:
+    # 1.28 behavioral changes
+    DISABLE_SHADOW_HOST_SUFFIX: "false"
