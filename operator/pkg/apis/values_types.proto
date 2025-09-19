@@ -646,13 +646,19 @@ message GlobalConfig {
   // Settings related to Kubernetes NetworkPolicy.
   NetworkPolicyConfig networkPolicy = 75;
 
-  // Specifies whether resources such as ClusterRole and ClusterRoleBinding are installed.
-  // This is useful when Mesh Administrator and Kubernetes Administrator are different rolls
-  // and cluster-scope resources cannot be applied by a Mesh Administrator.
-  // Cluster-scope resources would need to be templated or installed using helm.
-  google.protobuf.BoolValue omitClusterResources = 76;
+  // Specifies resource scope for discovery selectors.
+  // This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+  ResourceScope resourceScope = 76;
   // The next available key is 77
 }
+
+enum ResourceScope {
+  UNDEFINED = 0;
+  ALL = 1;
+  CLUSTER = 2;
+  NAMESPACE = 3;
+}
+
 
 // Configuration for Security Token Service (STS) server.
 //
