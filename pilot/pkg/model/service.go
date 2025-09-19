@@ -188,7 +188,7 @@ const (
 	DNSRoundRobinLB
 	// Alias defines a Service that is an alias for another.
 	Alias
-	// TODO(jaellio): Add dynamic dns resolution here?
+	// DynamicDNS resolves hosts based on HTTP/TLS information.
 	DynamicDNS
 )
 
