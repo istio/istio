@@ -18,8 +18,11 @@ import (
 	"strings"
 	"testing"
 
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
+	dfpcluster "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
+	. "github.com/onsi/gomega"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -512,6 +515,49 @@ func TestIngressUseWaypoint(t *testing.T) {
 		// 3.0.0.1: Waypoint Pod IP
 		"connect_originate;1.2.3.4:80;3.0.0.1:15008",
 	})
+}
+
+func TestWaypointWithDynamicDNS(t *testing.T) {
+	g := NewWithT(t)
+	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-service-entry
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: ["*.domain.com"]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DYNAMIC_DNS`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		dynamicDNSServiceEntry)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	g.Expect(xdstest.MapKeys(clusters)).To(Equal([]string{
+		"connect_originate",
+		"encap",
+		"inbound-vip|80|http|*.domain.com",
+		"main_internal",
+		"outbound|15008||waypoint.default.svc.cluster.local",
+	}))
+	cluster := clusters["inbound-vip|80|http|*.domain.com"]
+	clusterType := cluster.ClusterDiscoveryType.(*clusterv3.Cluster_ClusterType)
+	g.Expect(clusterType).NotTo(BeNil())
+	dfpClusterConfig := &dfpcluster.ClusterConfig{}
+	err := clusterType.ClusterType.TypedConfig.UnmarshalTo(dfpClusterConfig)
+	g.Expect(err).To(BeNil())
+
+	listeners := d.Listeners(p)
+  main_listener
+	for _, listener := range listeners
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
