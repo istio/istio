@@ -455,6 +455,13 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 		sc.addWatcherSafely(grandParentDir, resourceName, "grandparent directory")
 	}
 
+	// Add target file to fileCerts so its events are processed
+	targetKey := FileCert{
+		ResourceName: resourceName,
+		Filename:     targetPath,
+		TargetPath:   "", // Target files don't have a target path
+	}
+	sc.fileCerts[targetKey] = struct{}{}
 	sc.addWatcherSafely(targetPath, resourceName, "target")
 
 	return nil
@@ -915,9 +922,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
 
 			// Handle symlink events first and track which resources need updates
-			cacheLog.Debugf("handling symlink event for %s with %d resources", event.Name, len(resources))
 			updatedResources := sc.handleSymlinkEvent(event, resources)
-			cacheLog.Debugf("symlink event handling returned %d updated resources", len(updatedResources))
 
 			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
 			// The cleanup should happen first before triggering callbacks, as the callbacks are async and
@@ -936,7 +941,6 @@ func (sc *SecretManagerClient) handleFileWatch() {
 
 			// Trigger callbacks for all resources that need updates
 			for resourceName := range updatedResources {
-				cacheLog.Infof("triggering certificate update for resource %s due to file change: %s (event: %s)", resourceName, event.Name, event.Op.String())
 				sc.OnSecretUpdate(resourceName)
 			}
 		case err, ok := <-sc.certWatcher.Errors:
@@ -952,7 +956,6 @@ func (sc *SecretManagerClient) handleFileWatch() {
 
 // handleSymlinkEvent handles file system events for symlinks and returns resources that need updates
 func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resources map[FileCert]struct{}) map[string]struct{} {
-	cacheLog.Debugf("handleSymlinkEvent called for event=%s, op=%s", event.Name, event.Op.String())
 	updatedResources := make(map[string]struct{})
 
 	// Check if this event is for a symlink we're watching
@@ -970,12 +973,8 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 		parentDir := filepath.Dir(fc.Filename)
 		grandParentDir := filepath.Dir(parentDir)
 		if fc.Filename == event.Name || fc.TargetPath == event.Name || parentDir == event.Name || grandParentDir == event.Name {
-			cacheLog.Infof("symlink event for %s (symlink: %s, target: %s, parent: %s, grandparent: %s): %s",
-				event.Name, fc.Filename, fc.TargetPath, parentDir, grandParentDir, event.Op.String())
-
 			// If the symlink itself, its parent directory, or grandparent directory changed (removed/recreated), we need to re-resolve it
 			if (fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name) && (isRemove(event) || isCreate(event)) {
-				cacheLog.Infof("handling symlink change for resource %s", fc.ResourceName)
 				sc.handleSymlinkChange(fc)
 			}
 
@@ -996,7 +995,6 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 			}
 		}
 	}
-	cacheLog.Debugf("processed %d symlinks and %d regular files", symlinkCount, regularFileCount)
 
 	// Also check for regular files
 	regularFileMatches := 0
@@ -1006,15 +1004,13 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 			continue
 		}
 
-		// For regular files, trigger on file changes
-		if fc.Filename == event.Name {
-			cacheLog.Debugf("regular file match: %s matches event %s", fc.Filename, event.Name)
+		// For regular files (target files), only trigger on WRITE events to avoid
+		// duplicate callbacks during atomic file operations (which cause REMOVE/CREATE sequences)
+		if fc.Filename == event.Name && (event.Op&fsnotify.Write != 0) {
 			updatedResources[fc.ResourceName] = struct{}{}
 			regularFileMatches++
 		}
 	}
-	cacheLog.Debugf("found %d regular file matches", regularFileMatches)
-
 	return updatedResources
 }
 
@@ -1031,10 +1027,8 @@ func (sc *SecretManagerClient) handleSymlinkChange(fc FileCert) {
 	if err != nil {
 		// If the symlink file itself doesn't exist, it was likely removed
 		if os.IsNotExist(err) {
-			cacheLog.Debugf("symlink file %s no longer exists, keeping old target %s", symlinkPath, fc.TargetPath)
 		} else if strings.Contains(err.Error(), "is not a symlink") {
 			// The file is no longer a symlink - it might have been replaced with a regular file
-			cacheLog.Debugf("file %s is no longer a symlink, treating as regular file", symlinkPath)
 			newTargetPath = "" // Clear target path for regular files
 		} else {
 			cacheLog.Errorf("failed to re-resolve symlink file %s: %v", symlinkPath, err)
@@ -1068,7 +1062,6 @@ func (sc *SecretManagerClient) handleSymlinkChange(fc FileCert) {
 		// Remove watcher for the old target
 		if fc.TargetPath != "" {
 			if err := sc.certWatcher.Remove(fc.TargetPath); err != nil {
-				cacheLog.Debugf("error removing watcher for old symlink target %s: %v", fc.TargetPath, err)
 				// Don't fail, this is cleanup
 			}
 		}
