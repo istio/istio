@@ -486,10 +486,9 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	return ec
 }
 
-// buildCluster builds the default cluster and also applies global options.
-// It is used for building both inbound and outbound cluster.
-// TODO(jaellio): Add support for destinationRule configuration
-func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, port *model.Port, direction model.TrafficDirection, inboundServices []model.ServiceTarget) *clusterWrapper {
+// Builds a dynamic forward proxy cluster with DNS cache config, stats configuration
+// and upstream protocol settings.
+func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, port *model.Port, direction model.TrafficDirection) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:     name,
 		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
@@ -508,7 +507,6 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 	c.AltStatName = util.DelimitedStatsPrefix(name)
 	ec := newClusterWrapper(c)
 	cb.setUpstreamProtocol(ec, port)
-	addTelemetryMetadata(c, port, service, direction, inboundServices)
 	return ec
 }
 
