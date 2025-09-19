@@ -554,10 +554,6 @@ spec:
 	dfpClusterConfig := &dfpcluster.ClusterConfig{}
 	err := clusterType.ClusterType.TypedConfig.UnmarshalTo(dfpClusterConfig)
 	g.Expect(err).To(BeNil())
-
-	listeners := d.Listeners(p)
-  main_listener
-	for _, listener := range listeners
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
