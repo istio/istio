@@ -188,7 +188,7 @@ const (
 	DNSRoundRobinLB
 	// Alias defines a Service that is an alias for another.
 	Alias
-	// DynamicDNS resolves hosts based on HTTP/TLS information.
+	// DynamicDNS implies that the proxy will resolve a the address from SNI or host header for wildcard services
 	DynamicDNS
 )
 
@@ -1146,6 +1146,9 @@ const (
 	WaypointBound    ConditionType = "istio.io/WaypointBound"
 	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
 	WaypointAccepted ConditionType = "WaypointAccepted"
+	// TODO(jaellio): Block servieEntryInfo creation entirely or set status - Can we still
+	// block sending configuration while setting status?
+	WaypointMissing   ConditionType = "istio.io/WaypointMissing"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1169,6 +1172,7 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
+		WaypointMissing: nil,
 	}
 
 	if i.Waypoint.ResourceName != "" {
@@ -1192,6 +1196,15 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 			Status:  false,
 			Reason:  i.Waypoint.Error.Reason,
 			Message: i.Waypoint.Error.Message,
+		}
+	} else if i.Waypoint.ResourceName == "" && host.Name(i.Service.Hostname).IsWildCarded() {
+		// TODO(jaellio): Restrict source kind to ServiceEntry if needed
+		buildMsg := strings.Builder{}
+		buildMsg.WriteString("No waypoint found for wildcard service. ServiceEntry will not apply until it is bound to a specific waypoint.")
+		set[WaypointMissing] = &Condition{
+			Status:  true,
+			Reason:  "WildcardServiceNoWaypoint",
+			Message: buildMsg.String(),
 		}
 	}
 

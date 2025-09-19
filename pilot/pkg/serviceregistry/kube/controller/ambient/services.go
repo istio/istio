@@ -390,7 +390,9 @@ func serviceEntriesInfo(
 		waypoint.Error = wperr
 	}
 
-	// don't send invalid configuration
+	// TODO(jaellio): Choose this behavior or set waypoint missing status and don't send config to ztunnel
+	// or the waypoint
+	// Don't create invalid ServiceEntries
 	if (w == nil || wperr != nil) && s.Spec.Resolution == v1alpha3.ServiceEntry_DYNAMIC_DNS {
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint - skipping", s.Namespace, s.Name)
 		return nil
