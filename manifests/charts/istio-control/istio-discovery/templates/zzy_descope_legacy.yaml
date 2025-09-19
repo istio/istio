@@ -1,5 +1,3 @@
-{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{/* Copy anything under `.pilot` to `.`, to avoid the need to specify a redundant prefix.
 Due to the file naming, this always happens after zzz_profile.yaml */}}
 {{- $_ := mustMergeOverwrite $.Values (index $.Values "pilot") }}
-{{- end }}
