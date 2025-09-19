@@ -463,6 +463,8 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 func (sc *SecretManagerClient) isSystemSymlink(dir string) bool {
 	// On some OS, /var is a symlink to /private/var, but we don't want to treat
 	// files in /var as symlinks for the purpose of file watching.
+	// However, we should only ignore the root-level system symlinks, not subdirectories
+	// that happen to be symlinks within /var.
 	return dir == "/var" || dir == "/tmp" || dir == "/usr"
 }
 
@@ -1021,9 +1023,9 @@ func (sc *SecretManagerClient) handleSymlinkChange(fc FileCert) {
 	// First remove the old entry
 	delete(sc.fileCerts, fc)
 
-	// Add back to fileCerts if the file still exists (either as symlink or regular file)
-	// Only skip if the file doesn't exist at all
-	if !os.IsNotExist(err) || newTargetPath != "" {
+	// Add back to fileCerts if we have a valid target path (either new or old)
+	// This ensures we keep watching the target file even if the symlink is deleted
+	if newTargetPath != "" {
 		// Create new entry with updated target
 		newFc := FileCert{
 			ResourceName: fc.ResourceName,
