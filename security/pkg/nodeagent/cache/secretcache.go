@@ -277,20 +277,14 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 		return ns, nil
 	}
 
-	t0 := time.Now()
-	sc.generateMutex.Lock()
-	defer sc.generateMutex.Unlock()
-
 	ns := sc.getCachedSecret(resourceName)
 	if ns != nil {
 		return ns, nil
 	}
 
-	// Now that we got the lock, look at cache again before sending request to avoid overwhelming CA
-	ns = sc.getCachedSecret(resourceName)
-	if ns != nil {
-		return ns, nil
-	}
+	t0 := time.Now()
+	sc.generateMutex.Lock()
+	defer sc.generateMutex.Unlock()
 
 	if ts := time.Since(t0); ts > time.Second {
 		cacheLog.Warnf("slow generate secret lock: %v", ts)
@@ -310,20 +304,11 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	} else {
 		// If periodic cert refresh resulted in discovery of a new root, trigger a ROOTCA request to refresh trust anchor
 		oldRoot := sc.cache.GetRoot()
-		cacheLog.Debugf("comparing root certificates: old=%d bytes, new=%d bytes", len(oldRoot), len(ns.RootCert))
-
-		// Only trigger rotation if there was a previous root cert that actually changed
-		// Don't trigger rotation on first-time root cert setting (when oldRoot is empty)
-		if len(oldRoot) > 0 && !bytes.Equal(oldRoot, ns.RootCert) {
+		if !bytes.Equal(oldRoot, ns.RootCert) {
 			cacheLog.Infof("Root cert has changed, start rotating root cert (old: %d bytes, new: %d bytes)", len(oldRoot), len(ns.RootCert))
 			// We store the oldRoot only for comparison and not for serving
 			sc.cache.SetRoot(ns.RootCert)
 			sc.OnSecretUpdate(security.RootCertReqResourceName)
-		} else if len(oldRoot) == 0 {
-			cacheLog.Debugf("Setting root cert for first time (new: %d bytes), no rotation needed", len(ns.RootCert))
-			sc.cache.SetRoot(ns.RootCert)
-		} else {
-			cacheLog.Debugf("Root cert unchanged, no rotation needed (both %d bytes)", len(oldRoot))
 		}
 	}
 
