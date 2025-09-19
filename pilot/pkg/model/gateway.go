@@ -269,7 +269,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							continue
 						}
 						if current.Bind != serverPort.Bind {
-							// Merge it to servers with the same port and bind.
+							// Different bind, create new server
 							if mergedServers[serverPort] == nil {
 								mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
 								serverPorts = append(serverPorts, serverPort)
@@ -278,12 +278,24 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							ms.RouteName = routeName
 							ms.Servers = append(ms.Servers, s)
 						} else {
-							// Merge this to current known port with same bind.
+							// Same bind, merge with existing server
 							ms := mergedServers[current]
 							ms.Servers = append(ms.Servers, s)
 						}
 						serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
 					} else {
+						// No existing plaintext server on this port
+						// Check if current server is plaintext and should be handled differently
+						if !gateway.IsTLSServer(s) {
+							// This is a plain text server, add it to the map
+							plainTextServers[resolvedPort] = serverPort
+							if gateway.IsHTTPServer(s) {
+								serversByRouteName[routeName] = []*networking.Server{s}
+							}
+							mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, RouteName: routeName}
+							serverPorts = append(serverPorts, serverPort)
+							continue
+						}
 						// We have duplicate port. Its not in plaintext servers. So, this has to be a TLS server.
 						// Check if this is also a HTTP server and if so, ensure uniqueness of port name.
 						if gateway.IsHTTPServer(s) {
@@ -349,7 +361,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					// This is a new gateway on this port. Create MergedServers for it.
 					gatewayPorts.Insert(resolvedPort)
 					if !gateway.IsTLSServer(s) {
-						plainTextServers[serverPort.Number] = serverPort
+						plainTextServers[resolvedPort] = serverPort
 					}
 					if gateway.IsHTTPServer(s) {
 						serversByRouteName[routeName] = []*networking.Server{s}
