@@ -105,7 +105,8 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
 	// Creates dynamic forward proxy clusters for wildcarded services.
-	clusters = append(clusters, cb.buildWaypointInboundDFP(proxy, svcs, push.Mesh)...)
+	// TODO(GUSTAVO): We potentially don't need this - consider removing entirely unless it helps with readability
+	// clusters = append(clusters, cb.buildWaypointInboundDFP(proxy, svcs, push.Mesh)...)
 
 	// Upstream of the "encap" listener.
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
@@ -137,20 +138,26 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	terminate := isEastWestGateway(proxy)
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
-	discoveryType := convertResolution(cb.proxyType, svc)
-	var lbEndpoints []*endpoint.LocalityLbEndpoints
-	if discoveryType == cluster.Cluster_STRICT_DNS || discoveryType == cluster.Cluster_LOGICAL_DNS {
-		lbEndpoints = endpoints.NewCDSEndpointBuilder(
-			proxy,
-			cb.req.Push,
-			clusterName,
-			model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port,
-			svc, nil,
-		).FromServiceEndpoints()
+	var localCluster *clusterWrapper
+	if svc.Resolution != model.DynamicDNS {
+		discoveryType := convertResolution(cb.proxyType, svc)
+		var lbEndpoints []*endpoint.LocalityLbEndpoints
+		if discoveryType == cluster.Cluster_STRICT_DNS || discoveryType == cluster.Cluster_LOGICAL_DNS {
+			lbEndpoints = endpoints.NewCDSEndpointBuilder(
+				proxy,
+				cb.req.Push,
+				clusterName,
+				model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port,
+				svc, nil,
+			).FromServiceEndpoints()
+		}
+		localCluster = cb.buildCluster(clusterName, discoveryType, lbEndpoints,
+			model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
+	} else {
+		localCluster = cb.buildDFPCluster(clusterName, svc, &port, model.TrafficDirectionInboundVIP, nil)
 	}
-	localCluster := cb.buildCluster(clusterName, discoveryType, lbEndpoints,
-		model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
 
+	// TODO(GUSTAVO): Add any required conditional logic here for DFP
 	// Ensure VIP cluster has services metadata for stats filter usage
 	im := getOrCreateIstioMetadata(localCluster.cluster)
 	im.Fields["services"] = &structpb.Value{
@@ -246,7 +253,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 }
 
 // `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildWaypointInboundDFPCluster(
+/*func (cb *ClusterBuilder) buildWaypointInboundDFPCluster(
 	proxy *model.Proxy,
 	svc *model.Service,
 	port model.Port,
@@ -257,7 +264,7 @@ func (cb *ClusterBuilder) buildWaypointInboundDFPCluster(
 ) *cluster.Cluster {
 	// TODO(jaellio): TODO: Add support for DestinationRule configuration
 	return cb.buildDFPCluster(svc)
-}
+}*/
 
 func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) *tlsv3.UpstreamTlsContext {
 	if tls == nil {
@@ -304,13 +311,15 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
 				continue
 			}
-			if svc.Hostname.IsWildCarded() {
+			// TODO(GUSTAVO): REMOVED this to allow wildcarded services to have VIP clusters
+			/*if svc.Hostname.IsWildCarded() {
 				log.Debugf("skip building waypoint inbound VIP cluster for wildcard host %s:%d", svc.Hostname, port.Port)
 				continue
-			}
+			}*/
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			dr := CastDestinationRule(cfg)
 			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
+			// TODO(GUSTAVO): do we need a wildcar protocol check here?
 			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
 			}
@@ -332,7 +341,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 }
 
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildWaypointInboundDFP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
+/*func (cb *ClusterBuilder) buildWaypointInboundDFP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
 
 	for _, svc := range svcs {
@@ -358,7 +367,7 @@ func (cb *ClusterBuilder) buildWaypointInboundDFP(proxy *model.Proxy, svcs map[h
 		}
 	}
 	return clusters
-}
+}*/
 
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	// needed to enable cross-namespace waypoints when SkipValidateTrustDomain is set

@@ -189,6 +189,7 @@ const (
 	// Alias defines a Service that is an alias for another.
 	Alias
 	// TODO(jaellio): Add dynamic dns resolution here?
+	DynamicDNS
 )
 
 // String converts Resolution in to String.
