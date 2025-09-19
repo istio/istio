@@ -310,11 +310,14 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	} else {
 		// If periodic cert refresh resulted in discovery of a new root, trigger a ROOTCA request to refresh trust anchor
 		oldRoot := sc.cache.GetRoot()
+		cacheLog.Debugf("comparing root certificates: old=%d bytes, new=%d bytes", len(oldRoot), len(ns.RootCert))
 		if !bytes.Equal(oldRoot, ns.RootCert) {
-			cacheLog.Info("Root cert has changed, start rotating root cert")
+			cacheLog.Infof("Root cert has changed, start rotating root cert (old: %d bytes, new: %d bytes)", len(oldRoot), len(ns.RootCert))
 			// We store the oldRoot only for comparison and not for serving
 			sc.cache.SetRoot(ns.RootCert)
 			sc.OnSecretUpdate(security.RootCertReqResourceName)
+		} else {
+			cacheLog.Debugf("Root cert unchanged, no rotation needed (both %d bytes)", len(oldRoot))
 		}
 	}
 
@@ -322,20 +325,21 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 }
 
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
+	cacheLog.Infof("addFileWatcher called for file=%s, resourceName=%s", file, resourceName)
+
 	// Check if the file or any part of its path is a symlink
-	if sc.isPathInSymlink(file) {
+	isInSymlink := sc.isPathInSymlink(file)
+	cacheLog.Infof("isPathInSymlink(%s) = %v", file, isInSymlink)
+
+	if isInSymlink {
+		cacheLog.Infof("attempting to add symlink watcher for %s", file)
 		if err := sc.addSymlinkWatcher(file, resourceName); err == nil {
+			cacheLog.Infof("successfully added symlink watcher for %s", file)
 			return
 		}
-		// Retry symlink watcher
-		go func() {
-			b := backoff.NewExponentialBackOff(backoff.DefaultOption())
-			_ = b.RetryWithContext(context.TODO(), func() error {
-				err := sc.addSymlinkWatcher(file, resourceName)
-				return err
-			})
-		}()
-		return
+		// If symlink watcher fails, fall back to regular file watcher
+		// This can happen when only system symlinks are found in the path
+		cacheLog.Infof("symlink watcher failed for %s, falling back to regular file watcher", file)
 	}
 
 	// Try adding file watcher and if it fails start a retry loop.
@@ -356,6 +360,7 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 }
 
 func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName string) error {
+	cacheLog.Infof("tryAddFileWatcher called for file=%s, resourceName=%s", file, resourceName)
 	// Check if this file is being already watched, if so ignore it. This check is needed here to
 	// avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
@@ -365,6 +370,7 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 		cacheLog.Errorf("%v: error finding absolute path of %s, retrying watches: %v", resourceName, file, err)
 		return err
 	}
+	cacheLog.Infof("absolute file path for regular watcher: %s", file)
 	key := FileCert{
 		ResourceName: resourceName,
 		Filename:     file,
@@ -396,6 +402,7 @@ func (sc *SecretManagerClient) addWatcherSafely(path, resourceName, pathType str
 
 // addSymlinkWatcher adds watchers for both the symlink and its target
 func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName string) error {
+	cacheLog.Infof("addSymlinkWatcher called for filePath=%s, resourceName=%s", filePath, resourceName)
 	sc.certMutex.Lock()
 	defer sc.certMutex.Unlock()
 
@@ -404,9 +411,11 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 		cacheLog.Errorf("%v: error finding absolute path of file %s, retrying watches: %v", resourceName, filePath, err)
 		return err
 	}
+	cacheLog.Infof("absolute file path: %s", absFilePath)
 
 	// Find the symlink in the path
 	symlinkPath := sc.findSymlinkInPath(absFilePath)
+	cacheLog.Infof("findSymlinkInPath(%s) returned: %s", absFilePath, symlinkPath)
 	if symlinkPath == "" {
 		cacheLog.Errorf("%v: no symlink found in path %s", resourceName, absFilePath)
 		return fmt.Errorf("no symlink found in path")
@@ -501,34 +510,47 @@ func (sc *SecretManagerClient) walkPathComponents(filePath string, fn func(path 
 
 // isPathInSymlink checks if any part of the file path is a symlink
 func (sc *SecretManagerClient) isPathInSymlink(filePath string) bool {
-	return sc.walkPathComponents(filePath, func(path string, isSymlink bool) (bool, bool) {
+	cacheLog.Debugf("isPathInSymlink checking: %s", filePath)
+	result := sc.walkPathComponents(filePath, func(path string, isSymlink bool) (bool, bool) {
+		cacheLog.Debugf("  checking path: %s, isSymlink: %v", path, isSymlink)
 		if isSymlink {
 			// Check if this is a system-level symlink that we should ignore
 			if sc.isSystemSymlink(path) {
+				cacheLog.Debugf("    %s is a system symlink, ignoring", path)
 				// These are system-level symlinks that don't affect file watching behavior
 				return false, false // not found, don't continue
 			}
+			cacheLog.Debugf("    %s is a symlink, found!", path)
 			return true, false // found, don't continue
 		}
+		cacheLog.Debugf("    %s is not a symlink, continuing", path)
 		return false, true // not found, continue
 	})
+	cacheLog.Debugf("isPathInSymlink result for %s: %v", filePath, result)
+	return result
 }
 
 // findSymlinkInPath finds the symlink component in a file path
 func (sc *SecretManagerClient) findSymlinkInPath(filePath string) string {
+	cacheLog.Debugf("findSymlinkInPath checking: %s", filePath)
 	var foundPath string
 	sc.walkPathComponents(filePath, func(path string, isSymlink bool) (bool, bool) {
+		cacheLog.Debugf("  checking path: %s, isSymlink: %v", path, isSymlink)
 		if isSymlink {
 			// Check if this is a system-level symlink that we should ignore
 			if sc.isSystemSymlink(path) {
+				cacheLog.Debugf("    %s is a system symlink, ignoring", path)
 				// These are system-level symlinks that don't affect file watching behavior
 				return false, false // not found, don't continue
 			}
+			cacheLog.Debugf("    %s is a symlink, found!", path)
 			foundPath = path
 			return true, false // found, don't continue
 		}
+		cacheLog.Debugf("    %s is not a symlink, continuing", path)
 		return false, true // not found, continue
 	})
+	cacheLog.Debugf("findSymlinkInPath result for %s: %s", filePath, foundPath)
 	return foundPath
 }
 
@@ -913,7 +935,9 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
 
 			// Handle symlink events first and track which resources need updates
+			cacheLog.Debugf("handling symlink event for %s with %d resources", event.Name, len(resources))
 			updatedResources := sc.handleSymlinkEvent(event, resources)
+			cacheLog.Debugf("symlink event handling returned %d updated resources", len(updatedResources))
 
 			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
 			// The cleanup should happen first before triggering callbacks, as the callbacks are async and
@@ -948,14 +972,19 @@ func (sc *SecretManagerClient) handleFileWatch() {
 
 // handleSymlinkEvent handles file system events for symlinks and returns resources that need updates
 func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resources map[FileCert]struct{}) map[string]struct{} {
+	cacheLog.Debugf("handleSymlinkEvent called for event=%s, op=%s", event.Name, event.Op.String())
 	updatedResources := make(map[string]struct{})
 
 	// Check if this event is for a symlink we're watching
+	symlinkCount := 0
+	regularFileCount := 0
 	for fc := range resources {
 		// Only process symlinks (those with TargetPath set)
 		if fc.TargetPath == "" {
+			regularFileCount++
 			continue
 		}
+		symlinkCount++
 
 		// Check if the event is for the symlink itself, its target, or its parent/grandparent directory
 		parentDir := filepath.Dir(fc.Filename)
@@ -977,8 +1006,10 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 			}
 		}
 	}
+	cacheLog.Debugf("processed %d symlinks and %d regular files", symlinkCount, regularFileCount)
 
 	// Also check for regular files
+	regularFileMatches := 0
 	for fc := range resources {
 		// Only process regular files (those without TargetPath set)
 		if fc.TargetPath != "" {
@@ -987,9 +1018,12 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 
 		// For regular files, trigger on file changes
 		if fc.Filename == event.Name {
+			cacheLog.Debugf("regular file match: %s matches event %s", fc.Filename, event.Name)
 			updatedResources[fc.ResourceName] = struct{}{}
+			regularFileMatches++
 		}
 	}
+	cacheLog.Debugf("found %d regular file matches", regularFileMatches)
 
 	return updatedResources
 }
