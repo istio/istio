@@ -578,12 +578,18 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 	handler func(T, T, model.Event) error, filter FilterOutFunc[T],
 ) {
 	wrappedHandler := func(prev, curr T, event model.Event) error {
+		ll := log.WithLabels("evt.namespace", curr.GetNamespace(), "evt.name", curr.GetName(), "evt.type", otype)
+		ll.Debugf("Event handler called")
+
 		curr = informer.Get(curr.GetName(), curr.GetNamespace())
+
 		if controllers.IsNil(curr) {
+			ll.Debugf("Event target gone")
 			// this can happen when an immediate delete after update
 			// the delete event can be handled later
 			return nil
 		}
+		ll.Debugf("Event target found")
 		return handler(prev, curr, event)
 	}
 	// Pre-build our metric types to avoid recompute them on each event
