@@ -1,4 +1,4 @@
-{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
+{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "NAMESPACE") }}
 {{- if and .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
 # if the remotePilotAddress is an IP addr
 {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}

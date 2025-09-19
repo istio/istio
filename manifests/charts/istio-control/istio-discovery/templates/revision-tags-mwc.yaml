@@ -34,7 +34,7 @@ a unique prefix to each. */}}
   admissionReviewVersions: ["v1"]
 {{- end }}
 
-{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
+{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "NAMESPACE") }}
 {{- if not .Values.global.operatorManageWebhooks }}
 {{- range $tagName := $.Values.revisionTags }}
 apiVersion: admissionregistration.k8s.io/v1
