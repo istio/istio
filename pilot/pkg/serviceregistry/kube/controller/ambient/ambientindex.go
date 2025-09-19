@@ -179,11 +179,10 @@ func New(options Options) Index {
 
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
 	Namespaces := krt.NewInformer[*corev1.Namespace](options.Client, opts.With(
-		append(opts.WithName("informer/Namespaces"),
-			krt.WithMetadata(krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
+		krt.WithName("informer/Namespaces"),
+		krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: options.ClusterID,
+		}),
 	)...)
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, configFilter)
@@ -195,11 +194,10 @@ func New(options Options) Index {
 
 	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
 	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.With(
-		append(opts.WithName("informer/Gateways"),
-			krt.WithMetadata(krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
+		krt.WithName("informer/Gateways"),
+		krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: options.ClusterID,
+		}),
 	)...)
 
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
@@ -208,11 +206,10 @@ func New(options Options) Index {
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
 	}, opts.With(
-		append(opts.WithName("informer/Pods"),
-			krt.WithMetadata(krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
+		krt.WithName("informer/Pods"),
+		krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: options.ClusterID,
+		}),
 	)...)
 
 	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
@@ -225,31 +222,28 @@ func New(options Options) Index {
 
 	servicesClient := kclient.NewFiltered[*corev1.Service](options.Client, filter)
 	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
-		append(opts.WithName("informer/Services"),
-			krt.WithMetadata(krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
+		krt.WithName("informer/Services"),
+		krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: options.ClusterID,
+		}),
 	)...)
 	Nodes := krt.NewInformerFiltered[*corev1.Node](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
 	}, opts.With(
-		append(opts.WithName("informer/Nodes"),
-			krt.WithMetadata(krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
+		krt.WithName("informer/Nodes"),
+		krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: options.ClusterID,
+		}),
 	)...)
 
 	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}, opts.With(
-		append(opts.WithName("informer/EndpointSlices"),
-			krt.WithMetadata(krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
+		krt.WithName("informer/EndpointSlices"),
+		krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: options.ClusterID,
+		}),
 	)...)
 
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
@@ -303,7 +297,7 @@ func New(options Options) Index {
 		opts,
 	)
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts)
+	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts, true)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)

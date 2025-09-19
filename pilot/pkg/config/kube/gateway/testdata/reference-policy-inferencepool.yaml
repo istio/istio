@@ -17,20 +17,24 @@ spec:
       namespaces:
         from: All
 ---
-apiVersion: inference.networking.x-k8s.io/v1alpha2
+apiVersion: inference.networking.k8s.io/v1
 kind: InferencePool
 metadata:
   name: my-ip
   namespace: inferencepool
 spec:
-  extensionRef:
+  endpointPickerRef:
     failureMode: FailOpen
     group: ""
     kind: Service
     name: endpoint-picker-svc
+    port:
+      number: 9002
   selector:
-    app: model-server
-  targetPortNumber: 3000
+    matchLabels:
+      app: model-server
+  targetPorts:
+  - number: 3000
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
@@ -43,7 +47,7 @@ spec:
     kind: HTTPRoute
     namespace: istio-system
   to:
-  - group: inference.networking.x-k8s.io
+  - group: inference.networking.k8s.io
     kind: InferencePool
     name: my-ip
 ---
@@ -61,7 +65,7 @@ spec:
   - backendRefs:
     - name: my-ip
       kind: InferencePool
-      group: inference.networking.x-k8s.io
+      group: inference.networking.k8s.io
       namespace: inferencepool
       port: 80
 ---
@@ -79,7 +83,7 @@ spec:
   - backendRefs:
     - name: my-ip
       kind: InferencePool
-      group: inference.networking.x-k8s.io
+      group: inference.networking.k8s.io
       namespace: inferencepool
       port: 80
       weight: 1

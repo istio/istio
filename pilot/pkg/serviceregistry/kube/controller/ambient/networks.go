@@ -129,6 +129,14 @@ func buildGlobalNetworkCollections(
 		localNetworkGateways,
 		clusters,
 		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[NetworkGateway]] {
+			opts := []krt.CollectionOption{
+				krt.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID)),
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(c.GetStop()),
+				krt.WithMetadata(krt.Metadata{
+					multicluster.ClusterKRTMetadataKey: c.ID,
+				}),
+			}
 			gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
 			if gatewaysPtr == nil {
 				log.Warnf("No gateways found for cluster %s", c.ID)
@@ -146,12 +154,7 @@ func buildGlobalNetworkCollections(
 					}
 					return k8sGatewayToNetworkGatewaysWithCluster(c.ID, innerGw, options.ClusterID)
 				},
-				append(
-					opts.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID)),
-					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: c.ID,
-					}),
-				)...,
+				opts...,
 			)
 
 			return ptr.Of(nwGateways)
@@ -340,7 +343,7 @@ func localK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway)
 
 func k8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway, localClusterID cluster.ID) []NetworkGateway {
 	if clusterID != localClusterID {
-		// This is a gateway in a remote cluster, use differnet logic
+		// This is a gateway in a remote cluster, use different logic
 		return remoteK8sGatewayToNetworkGateways(clusterID, gw)
 	}
 

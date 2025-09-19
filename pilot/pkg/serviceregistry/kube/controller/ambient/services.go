@@ -56,8 +56,9 @@ func (a *index) ServicesCollection(
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
 	opts krt.OptionsBuilder,
+	precompute bool,
 ) krt.Collection[model.ServiceInfo] {
-	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces, meshConfig),
+	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces, meshConfig, precompute),
 		append(
 			opts.WithName("ServicesInfo"),
 			krt.WithMetadata(krt.Metadata{
@@ -111,6 +112,10 @@ func GlobalMergedWorkloadServicesCollection(
 		LocalServiceInfosWithCluster,
 		clusters,
 		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]] {
+			opts := []krt.CollectionOption{
+				krt.WithDebugging(opts.Debugger()),
+				krt.WithStop(cluster.GetStop()),
+			}
 			services := cluster.Services()
 			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
 			if waypointsPtr == nil {
@@ -119,8 +124,7 @@ func GlobalMergedWorkloadServicesCollection(
 			}
 			waypoints := *waypointsPtr
 			namespaces := cluster.Namespaces()
-			// We can't have duplicate collections (otherwise FetchOne will panic) so use
-			// sync.Once to ensure we only create the collection once and return that same value
+			// N.B Never precompute the service info for remote clusters; the merge function will do that
 			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(
 				waypoints,
 				namespaces,
@@ -136,21 +140,24 @@ func GlobalMergedWorkloadServicesCollection(
 						return ""
 					}
 					return nw.Network
-				}), opts.With(
+				}, false),
 				append(
-					opts.WithName(fmt.Sprintf("ServiceServiceInfos[%s]", cluster.ID)),
+					opts,
+					krt.WithName(fmt.Sprintf("ambient/ServiceServiceInfos[%s]", cluster.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: cluster.ID,
 					}),
-				)...,
-			)...)
+				)...)
 
 			servicesInfoWithCluster := krt.MapCollection(
 				servicesInfo,
 				func(o model.ServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
 					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
 				},
-				opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...,
+				append(
+					opts,
+					krt.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID)),
+				)...,
 			)
 			return ptr.Of(servicesInfoWithCluster)
 		},
@@ -167,6 +174,7 @@ func serviceServiceBuilder(
 	localCluster bool,
 	checkServiceScope bool,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
+	precompute bool,
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
 		serviceScope := model.Local
@@ -212,14 +220,19 @@ func serviceServiceBuilder(
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
 
-		return precomputeServicePtr(&model.ServiceInfo{
+		svcInfo := &model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
 			Source:        MakeSource(s),
 			Waypoint:      waypointStatus,
 			Scope:         serviceScope,
-		})
+		}
+		if precompute {
+			return precomputeServicePtr(svcInfo)
+		}
+
+		return svcInfo
 	}
 }
 
@@ -315,6 +328,7 @@ func (a *index) serviceServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
+	precompute bool,
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
 	return serviceServiceBuilder(
 		waypoints,
@@ -326,6 +340,7 @@ func (a *index) serviceServiceBuilder(
 		func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		},
+		precompute,
 	)
 }
 

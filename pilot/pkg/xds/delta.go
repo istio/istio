@@ -52,7 +52,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	// Check if server is ready to accept clients and process new requests.
 	// Currently ready means caches have been synced and hence can build
 	// clusters correctly. Without this check, InitContext() call below would
-	// initialize with empty config, leading to reconnected Envoys loosing
+	// initialize with empty config, leading to reconnected Envoys losing
 	// configuration. This is an additional safety check inaddition to adding
 	// cachesSynced logic to readiness probe to handle cases where kube-proxy
 	// ip tables update latencies.

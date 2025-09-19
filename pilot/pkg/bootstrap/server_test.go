@@ -606,7 +606,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 					GRPCAddr:       ":0",
 					HTTPSAddr:      ":0",
 					TLSOptions: TLSOptions{
-						CipherSuits: c.serverCipherSuites,
+						CipherSuites: c.serverCipherSuites,
 					},
 				}
 				p.RegistryOptions = RegistryOptions{

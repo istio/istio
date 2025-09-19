@@ -141,7 +141,7 @@ func TestNewServer(t *testing.T) {
 		// A valid input.
 		{
 			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": 8080}},` +
-				`"/app-health/business/livez": {"httpGet": {"path": "/buisiness/live", "port": 9090}}}`,
+				`"/app-health/business/livez": {"httpGet": {"path": "/business/live", "port": 9090}}}`,
 		},
 		// long request timeout
 		{

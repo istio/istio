@@ -1707,7 +1707,7 @@ func kubernetesAPIServerEndpoint(ip string) *discovery.EndpointSlice {
 func newAmbientUnitTest(t test.Failer) *index {
 	// Set up a basic network environment so tests have a default network and some gateways
 	// Note: unlike other collections, networks are stored in the ambientIndex struct since they
-	// are passed in almost everywhere. So we need to constuct it here.
+	// are passed in almost everywhere. So we need to construct it here.
 	mock := krttest.NewMock(t, []any{
 		&v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{

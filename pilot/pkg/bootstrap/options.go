@@ -104,7 +104,7 @@ type TLSOptions struct {
 	CertFile        string
 	KeyFile         string
 	TLSCipherSuites []string
-	CipherSuits     []uint16 // This is the parsed cipher suites
+	CipherSuites    []uint16 // This is the parsed cipher suites
 }
 
 var (
@@ -147,11 +147,11 @@ func (p *PilotArgs) applyDefaults() {
 }
 
 func (p *PilotArgs) Complete() error {
-	cipherSuits, err := TLSCipherSuites(p.ServerOptions.TLSOptions.TLSCipherSuites)
+	cipherSuites, err := TLSCipherSuites(p.ServerOptions.TLSOptions.TLSCipherSuites)
 	if err != nil {
 		return err
 	}
-	p.ServerOptions.TLSOptions.CipherSuits = cipherSuits
+	p.ServerOptions.TLSOptions.CipherSuites = cipherSuites
 	return nil
 }
 

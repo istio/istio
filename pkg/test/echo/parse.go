@@ -23,24 +23,26 @@ import (
 )
 
 var (
-	requestIDFieldRegex      = regexp.MustCompile("(?i)" + string(RequestIDField) + "=(.*)")
-	serviceVersionFieldRegex = regexp.MustCompile(string(ServiceVersionField) + "=(.*)")
-	servicePortFieldRegex    = regexp.MustCompile(string(ServicePortField) + "=(.*)")
-	statusCodeFieldRegex     = regexp.MustCompile(string(StatusCodeField) + "=(.*)")
-	hostFieldRegex           = regexp.MustCompile(string(HostField) + "=(.*)")
-	hostnameFieldRegex       = regexp.MustCompile(string(HostnameField) + "=(.*)")
-	requestHeaderFieldRegex  = regexp.MustCompile(string(RequestHeaderField) + "=(.*)")
-	responseHeaderFieldRegex = regexp.MustCompile(string(ResponseHeaderField) + "=(.*)")
-	URLFieldRegex            = regexp.MustCompile(string(URLField) + "=(.*)")
-	ClusterFieldRegex        = regexp.MustCompile(string(ClusterField) + "=(.*)")
-	IstioVersionFieldRegex   = regexp.MustCompile(string(IstioVersionField) + "=(.*)")
-	IPFieldRegex             = regexp.MustCompile(string(IPField) + "=(.*)")
-	SourceIPFieldRegex       = regexp.MustCompile(string(SourceIPField) + "=(.*)")
-	methodFieldRegex         = regexp.MustCompile(string(MethodField) + "=(.*)")
-	protocolFieldRegex       = regexp.MustCompile(string(ProtocolField) + "=(.*)")
-	alpnFieldRegex           = regexp.MustCompile(string(AlpnField) + "=(.*)")
-	sniFieldRegex            = regexp.MustCompile(string(SNIField) + "=(.*)")
-	proxyProtocolFieldRegex  = regexp.MustCompile(string(ProxyProtocolField) + "=(.*)")
+	requestIDFieldRegex              = regexp.MustCompile("(?i)" + string(RequestIDField) + "=(.*)")
+	serviceVersionFieldRegex         = regexp.MustCompile(string(ServiceVersionField) + "=(.*)")
+	servicePortFieldRegex            = regexp.MustCompile(string(ServicePortField) + "=(.*)")
+	statusCodeFieldRegex             = regexp.MustCompile(string(StatusCodeField) + "=(.*)")
+	hostFieldRegex                   = regexp.MustCompile(string(HostField) + "=(.*)")
+	hostnameFieldRegex               = regexp.MustCompile(string(HostnameField) + "=(.*)")
+	requestHeaderFieldRegex          = regexp.MustCompile(string(RequestHeaderField) + "=(.*)")
+	responseHeaderFieldRegex         = regexp.MustCompile(string(ResponseHeaderField) + "=(.*)")
+	URLFieldRegex                    = regexp.MustCompile(string(URLField) + "=(.*)")
+	ClusterFieldRegex                = regexp.MustCompile(string(ClusterField) + "=(.*)")
+	IstioVersionFieldRegex           = regexp.MustCompile(string(IstioVersionField) + "=(.*)")
+	IPFieldRegex                     = regexp.MustCompile(string(IPField) + "=(.*)")
+	SourceIPFieldRegex               = regexp.MustCompile(string(SourceIPField) + "=(.*)")
+	methodFieldRegex                 = regexp.MustCompile(string(MethodField) + "=(.*)")
+	protocolFieldRegex               = regexp.MustCompile(string(ProtocolField) + "=(.*)")
+	alpnFieldRegex                   = regexp.MustCompile(string(AlpnField) + "=(.*)")
+	sniFieldRegex                    = regexp.MustCompile(string(SNIField) + "=(.*)")
+	proxyProtocolFieldRegex          = regexp.MustCompile(string(ProxyProtocolField) + "=(.*)")
+	clientCertSubjectFieldRegex      = regexp.MustCompile(string(ClientCertSubjectField) + "=(.*)")
+	clientCertSerialNumberFieldRegex = regexp.MustCompile(string(ClientCertSerialNumberField) + "=(.*)")
 )
 
 func ParseResponses(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoResponse) Responses {
@@ -137,6 +139,16 @@ func parseResponse(output string) Response {
 	match = SourceIPFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.SourceIP = match[1]
+	}
+
+	match = clientCertSubjectFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.ClientCertSubject = match[1]
+	}
+
+	match = clientCertSerialNumberFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.ClientCertSerialNumber = match[1]
 	}
 
 	out.RawBody = map[string]string{}

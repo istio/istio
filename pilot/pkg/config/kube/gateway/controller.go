@@ -21,7 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -151,7 +151,7 @@ type Inputs struct {
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
 	BackendTLSPolicies   krt.Collection[*gatewayalpha3.BackendTLSPolicy]
 	ServiceEntries       krt.Collection[*networkingclient.ServiceEntry]
-	InferencePools       krt.Collection[*inferencev1alpha2.InferencePool]
+	InferencePools       krt.Collection[*inferencev1.InferencePool]
 }
 
 var _ model.GatewayController = &Controller{}
@@ -222,10 +222,10 @@ func NewController(
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {
-		inputs.InferencePools = buildClient[*inferencev1alpha2.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
+		inputs.InferencePools = buildClient[*inferencev1.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
 		// If disabled, still build a collection but make it always empty
-		inputs.InferencePools = krt.NewStaticCollection[*inferencev1alpha2.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...)
+		inputs.InferencePools = krt.NewStaticCollection[*inferencev1.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...)
 	}
 
 	references := NewReferenceSet(
@@ -248,6 +248,7 @@ func NewController(
 		GatewayClasses,
 		inputs.Namespaces,
 		ReferenceGrants,
+		inputs.ConfigMaps,
 		inputs.Secrets,
 		options.DomainSuffix,
 		c.gatewayContext,
@@ -262,6 +263,7 @@ func NewController(
 		references,
 		c.domainSuffix,
 		c,
+		inputs.Services,
 		opts,
 	)
 
@@ -273,6 +275,7 @@ func NewController(
 		GatewayClasses,
 		inputs.Namespaces,
 		ReferenceGrants,
+		inputs.ConfigMaps,
 		inputs.Secrets,
 		c.domainSuffix,
 		c.gatewayContext,

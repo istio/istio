@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2025-07-30T19-02-17
+BASE_VERSION ?= master-2025-09-02T15-40-33
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -342,6 +342,7 @@ copy-templates:
 	# copy istio-discovery values, but apply some local customizations
 	warning=$$(cat manifests/helm-profiles/warning-edit.txt | sed ':a;N;$$!ba;s/\n/\\n/g') ; \
 	for chart in $(CHARTS) ; do \
+	    rm -rf manifests/charts/$$chart/files/profile-*.yaml ; \
 		for profile in manifests/helm-profiles/*.yaml ; do \
 			sed "1s|^|$${warning}\n\n|" $$profile > manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
 		done; \

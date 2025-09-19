@@ -475,7 +475,7 @@ spec:
               numAllowedLocalASNumbers:
                 description: Maximum number of local AS numbers that are allowed in
                   the AS path for received routes. This removes BGP loop prevention
-                  and should only be used if absolutely necesssary.
+                  and should only be used if absolutely necessary.
                 format: int32
                 type: integer
               password:

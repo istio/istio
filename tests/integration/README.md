@@ -13,7 +13,7 @@ This folder contains Istio integration tests that use the test framework checked
     1. [Using Components](#using-components)
     1. [Writing Components](#writing-components)
 1. [Running Tests](#running-tests)
-    1. [Test Parallelism and Kubernetes](#test-parellelism-and-kubernetes)
+    1. [Test Parallelism and Kubernetes](#test-parallelism-and-kubernetes)
     1. [Test Selection](#test-selection)
     1. [Running Tests on CI](#running-tests-on-ci)
 1. [Environments](#environments)
@@ -39,7 +39,7 @@ practices, see [Writing Good Integration Tests](https://github.com/istio/istio/w
 ## Writing Tests
 
 The test framework is designed to work with standard go tooling and allows developers
-to write environment-agnostics tests in a high-level fashion.
+to write environment-agnostic tests in a high-level fashion.
 
 ### Adding a Test Suite
 
@@ -355,7 +355,7 @@ Note that samples below invoking variations of ```go test ./...``` are intended 
 
 Tests are tagged with the `integ` build target to avoid accidental invocation. If this is not set, no tests will be run.
 
-### Test Parellelism and Kubernetes
+### Test Parallelism and Kubernetes
 
 By default, Go will run tests within the same package (i.e. suite) synchronously. However, tests in other packages
 may be run concurrently.
@@ -418,13 +418,13 @@ Tool | Description |
 [Prow](https://github.com/kubernetes/test-infra/tree/master/prow) | Kubernetes-based CI/CD system developed by the Kubernetes community and is deployed in Google Kubernetes Engine (GKE).
 [TestGrid](https://k8s-testgrid.appspot.com/istio-release) | A Kubernetes dashboard used for visualizing the status of the Prow jobs.
 
-Test suites are defined for each toplevel directory (such as `pilot` and `telemetry`), so any tests added to these directories will automatically be run in CI.
+Test suites are defined for each top level directory (such as `pilot` and `telemetry`), so any tests added to these directories will automatically be run in CI.
 
 If you need to add a new test suite, it can be added to the [job configuration](https://github.com/istio/test-infra/blob/master/prow/config/jobs/istio.yaml).
 
 ### Running Tests on Custom Deployment
 
-You can run integration tests againist a control plane deployed by another operator such as [sail-operator](https://github.com/istio-ecosystem/sail-operator):
+You can run integration tests against a control plane deployed by another operator such as [sail-operator](https://github.com/istio-ecosystem/sail-operator):
 
 With setting ```--istio.test.kube.controlPlaneInstaller=#{path/to/script}``` and ```--istio.test.kube.deploy=false``` you can skip internal istio operator installation and be able to call a script which lets you install another control plane.
 
@@ -557,7 +557,7 @@ The test framework supports the following command-line flags:
 | --istio.test.kube.helm.iopFile | string | IstioOperator spec file. This can be an absolute path or relative to the repository root. Defaults to "tests/integration/iop-integration-test-defaults.yaml". |
 | --istio.test.kube.loadbalancer | bool | Used to obtain the right IP address for ingress gateway. This should be false for any environment that doesn't support a LoadBalancer type. |
 | --istio.test.kube.deployGatewayAPI | bool | Deploy gateway API during tests execution. (default is "true"). |
-| --istio.test.revision | string | Overwrite the default namespace label (istio-enabled=true) with revision lable (istio.io/rev=XXX). (default is no overwrite). |
+| --istio.test.revision | string | Overwrite the default namespace label (istio-enabled=true) with revision label (istio.io/rev=XXX). (default is no overwrite). |
 | --istio.test.skip | []string | Skip tests matching the regular expression. This follows the semantics of -test.run. |
 | --istio.test.skipVM | bool | Skip all the VM related parts in all the tests. (default is "false"). |
 | --istio.test.helmRepo | string | Overwrite the default helm Repo used for the tests. |

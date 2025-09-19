@@ -10,6 +10,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
     topology.istio.io/network: network-1
   name: namespace
@@ -26,6 +27,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
     topology.istio.io/network: network-1
   name: namespace
@@ -48,6 +50,7 @@ spec:
         prometheus.io/scrape: "true"
       labels:
         gateway.istio.io/managed: istio.io-mesh-controller
+        gateway.networking.k8s.io/gateway-class-name: istio-waypoint
         gateway.networking.k8s.io/gateway-name: namespace
         istio.io/dataplane-mode: none
         service.istio.io/canonical-name: namespace
@@ -187,7 +190,6 @@ spec:
         - mountPath: /etc/istio/pod
           name: istio-podinfo
       serviceAccountName: namespace
-      terminationGracePeriodSeconds: 2
       volumes:
       - emptyDir: {}
         name: workload-socket
@@ -228,6 +230,7 @@ metadata:
     networking.istio.io/traffic-distribution: PreferClose
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
     topology.istio.io/network: network-1
   name: namespace

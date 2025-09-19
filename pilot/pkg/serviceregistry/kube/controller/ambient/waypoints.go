@@ -114,7 +114,7 @@ func fetchWaypointForTarget(
 	if wp != nil {
 		// plausible the object has a waypoint defined but that waypoint's underlying gateway is not ready, in this case we'd return nil here even if
 		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
-		// o was reliant on the namespace waypoint and then get's a use-waypoint label added before that gateway is ready.
+		// o was reliant on the namespace waypoint and then gets a use-waypoint label added before that gateway is ready.
 		// goes from having a waypoint to having no waypoint and then eventually gets a waypoint back
 		w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
 		if w != nil {
@@ -266,6 +266,12 @@ func GlobalWaypointsCollection(
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
 	return nestedCollectionFromLocalAndRemote(localWaypoints, clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
+		opts := []krt.CollectionOption{
+			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
+			krt.WithDebugging(opts.Debugger()),
+			krt.WithStop(c.GetStop()),
+			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
+		}
 		pods := c.Pods()
 		podsByNamespace := krt.NewNamespaceIndex(pods)
 		gateways := c.Gateways()
@@ -309,10 +315,7 @@ func GlobalWaypointsCollection(
 			clusterNetwork := nw.Network
 
 			return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, clusterNetwork)
-		}, opts.With(
-			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
-			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
-		)...)
+		}, opts...)
 
 		return ptr.Of(clusterWaypoints)
 	}, "Waypoints", opts)

@@ -74,11 +74,14 @@ unexpectedFiles="$(
     # Allow all libraries - maybe we should lock down more though
     grep -v '^usr/bin/xtables' | \
     grep -v '^usr/bin/ldconfig$' | \
+    grep -v '^usr/bin/nft' | \
+    grep -v '^usr/share/doc/nftables/examples/.*.nft' | \
     grep -v '^etc/apk/commit_hooks.d/ldconfig-commit.sh$' | \
     grep -v '.*\.so[0-9\.]*' || true
 )"
 expectedFiles=(
   "usr/bin/xtables-legacy-multi"
+  "usr/bin/nft"
 )
 for want in "${expectedFiles[@]}"; do
   if ! grep -q "${want}" <<<"${exefiles}"; then

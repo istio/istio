@@ -101,9 +101,9 @@ func BuildSubjectAltNameExtension(hosts string) (*pkix.Extension, error) {
 
 // BuildSANExtension builds a `pkix.Extension` of type "Subject
 // Alternative Name" based on the given identities.
-func BuildSANExtension(identites []Identity) (*pkix.Extension, error) {
+func BuildSANExtension(identities []Identity) (*pkix.Extension, error) {
 	rawValues := []asn1.RawValue{}
-	for _, i := range identites {
+	for _, i := range identities {
 		tag, ok := oidTagMap[i.Type]
 		if !ok {
 			return nil, fmt.Errorf("unsupported identity type: %v", i.Type)

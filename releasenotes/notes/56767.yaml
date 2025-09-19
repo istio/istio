@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56767
+releaseNotes:
+- |
+  **Fixed** a bug where our tag watcher code didn't consider the default revision to be the same as the default tag. This would cause issues where Kubernetes gateways wouldn't be programmed.

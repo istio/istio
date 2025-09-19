@@ -643,7 +643,7 @@ func (node *Proxy) GetIPMode() IPMode {
 }
 
 // SetIPMode set node's ip mode
-// Note: Donot use this function directly in most cases, use DiscoverIPMode instead.
+// Note: Do not use this function directly in most cases, use DiscoverIPMode instead.
 func (node *Proxy) SetIPMode(mode IPMode) {
 	node.ipMode = mode
 }

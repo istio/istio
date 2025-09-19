@@ -147,7 +147,7 @@ func (c Clusters) MeshClusters(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
-// IsExternalControlPlane indicates whether the clusters are set up in an enternal
+// IsExternalControlPlane indicates whether the clusters are set up in an external
 // control plane configuration. An external control plane is a primary cluster that
 // gets its Istio configuration from a different cluster.
 func (c Clusters) IsExternalControlPlane() bool {

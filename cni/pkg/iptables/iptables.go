@@ -145,9 +145,14 @@ func NewIptablesConfigurator(
 
 		ipt6Ver, err := hostDeps.DetectIptablesVersion(true)
 		if err != nil {
-			return err
+			if hostCfg.EnableIPv6 {
+				return err
+			}
+			log.Warnf("Failed to detect a working ip6tables binary; continuing because IPv6 support is disabled (ENABLE_INBOUND_IPV6=false): %v", err)
+			ipt6Ver = dep.IptablesVersion{}
+		} else {
+			log.Debugf("found iptables v6 binary: %+v", ipt6Ver)
 		}
-		log.Debugf("found iptables v6 binary: %+v", iptVer)
 
 		configurator.ipt6V = ipt6Ver
 		return nil
@@ -489,7 +494,9 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 			log.Info("Removing guardrails")
 			guardrailsCleanup := iptablesBuilder.BuildCleanupGuardrails()
 			_ = cfg.executeIptablesCommands(log, &cfg.iptV, guardrailsCleanup)
-			_ = cfg.executeIptablesCommands(log, &cfg.ipt6V, guardrailsCleanup)
+			if cfg.cfg.EnableIPv6 {
+				_ = cfg.executeIptablesCommands(log, &cfg.ipt6V, guardrailsCleanup)
+			}
 		}
 	}()
 	residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, cfg.ext, iptablesBuilder, &cfg.iptV, &cfg.ipt6V)
@@ -503,9 +510,13 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 			log.Info("Setting up guardrails")
 			guardrailsCleanup := iptablesBuilder.BuildCleanupGuardrails()
 			guardrailsRules := iptablesBuilder.BuildGuardrails()
-			for _, ver := range []*dep.IptablesVersion{&cfg.iptV, &cfg.ipt6V} {
-				cfg.tryExecuteIptablesCommands(log, ver, guardrailsCleanup)
-				if err := cfg.executeIptablesCommands(log, ver, guardrailsRules); err != nil {
+			iptVersions := []dep.IptablesVersion{cfg.iptV}
+			if cfg.cfg.EnableIPv6 {
+				iptVersions = append(iptVersions, cfg.ipt6V)
+			}
+			for _, ver := range iptVersions {
+				cfg.tryExecuteIptablesCommands(log, &ver, guardrailsCleanup)
+				if err := cfg.executeIptablesCommands(log, &ver, guardrailsRules); err != nil {
 					return err
 				}
 				guardrails = true
@@ -514,7 +525,9 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 		// Remove old iptables
 		log.Info("Performing cleanup of existing iptables")
 		cfg.tryExecuteIptablesCommands(log, &cfg.iptV, iptablesBuilder.BuildCleanupV4())
-		cfg.tryExecuteIptablesCommands(log, &cfg.ipt6V, iptablesBuilder.BuildCleanupV6())
+		if cfg.cfg.EnableIPv6 {
+			cfg.tryExecuteIptablesCommands(log, &cfg.ipt6V, iptablesBuilder.BuildCleanupV6())
+		}
 
 		// Remove leftovers from non-matching istio iptables cfg
 		if cfg.cfg.Reconcile {
@@ -540,7 +553,7 @@ func (cfg *IptablesConfigurator) cleanupIstioLeftovers(log *istiolog.Scope, ext 
 	iptV *dep.IptablesVersion, ipt6V *dep.IptablesVersion,
 ) {
 	for _, ipVer := range []*dep.IptablesVersion{iptV, ipt6V} {
-		if ipVer == nil {
+		if ipVer.DetectedBinary == "" {
 			continue
 		}
 		output, err := ext.Run(log, true, iptablesconstants.IPTablesSave, ipVer, nil)
@@ -607,7 +620,7 @@ func (cfg *IptablesConfigurator) delInpodMarkIPRule() error {
 // We need to do this specifically to be able to distinguish between traffic coming from different node-level processes
 // via the nodeIP
 // - kubelet (node-local healthchecks, which we do not capture)
-// - kube-proxy (fowarded/proxied traffic from LoadBalancer-backed services, potentially with public IPs, which we must capture)
+// - kube-proxy (forwarded/proxied traffic from LoadBalancer-backed services, potentially with public IPs, which we must capture)
 func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks() error {
 	log.Info("configuring host-level iptables rules (healthchecks, etc)")
 	// Append our rules here

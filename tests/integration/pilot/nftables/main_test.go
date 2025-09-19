@@ -18,8 +18,6 @@
 package nftables
 
 import (
-	"os"
-	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -43,13 +41,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		SkipIf("distroless variant doesn't include nft binary. https://github.com/istio/istio/pull/56917",
-			func(ctx resource.Context) bool {
-				// Lets check both environment variable and test settings
-				variant := os.Getenv("DOCKER_BUILD_VARIANTS")
-
-				return variant == "distroless" || strings.Contains(strings.ToLower(ctx.Settings().Image.Variant), "distroless")
-			}).
 		Setup(istio.Setup(&i, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:

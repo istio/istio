@@ -256,7 +256,7 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 
 	// Search for the file walking through the archive.
 
-	// Limit wasm binary to 256mb; in reality it must be much smaller
+	// Limit wasm binary to 256MB; in reality it must be much smaller
 	tr := tar.NewReader(io.LimitReader(gr, 1024*1024*256))
 	for {
 		h, err := tr.Next()

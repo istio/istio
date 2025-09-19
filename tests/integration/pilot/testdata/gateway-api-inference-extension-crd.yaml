@@ -1,28 +1,26 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=v0.5.0"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=v1.0.0"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.1
-  name: inferencemodels.inference.networking.x-k8s.io
+    inference.networking.k8s.io/bundle-version: v1.0.0
+  creationTimestamp: null
+  name: inferenceobjectives.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
   names:
-    kind: InferenceModel
-    listKind: InferenceModelList
-    plural: inferencemodels
-    singular: inferencemodel
+    kind: InferenceObjective
+    listKind: InferenceObjectiveList
+    plural: inferenceobjectives
+    singular: inferenceobjective
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.modelName
-      name: Model Name
-      type: string
     - jsonPath: .spec.poolRef.name
       name: Inference Pool
       type: string
-    - jsonPath: .spec.criticality
-      name: Criticality
+    - jsonPath: .spec.priority
+      name: Priority
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -30,7 +28,8 @@ spec:
     name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: InferenceModel is the Schema for the InferenceModels API.
+        description: InferenceObjective is the Schema for the InferenceObjectives
+          API.
         properties:
           apiVersion:
             description: |-
@@ -51,7 +50,7 @@ spec:
             type: object
           spec:
             description: |-
-              InferenceModelSpec represents the desired state of a specific model use case. This resource is
+              InferenceObjectiveSpec represents the desired state of a specific model use case. This resource is
               managed by the "Inference Workload Owner" persona.
 
               The Inference Workload Owner persona is someone that trains, verifies, and
@@ -59,51 +58,14 @@ spec:
               and rollout of new versions of those models, and defines the specific
               performance and latency goals for the model. These workloads are
               expected to operate within an InferencePool sharing compute capacity with other
-              InferenceModels, defined by the Inference Platform Admin.
-
-              InferenceModel's modelName (not the ObjectMeta name) is unique for a given InferencePool,
-              if the name is reused, an error will be shown on the status of a
-              InferenceModel that attempted to reuse. The oldest InferenceModel, based on
-              creation timestamp, will be selected to remain valid. In the event of a race
-              condition, one will be selected at random.
+              InferenceObjectives, defined by the Inference Platform Admin.
             properties:
-              criticality:
-                description: |-
-                  Criticality defines how important it is to serve the model compared to other models referencing the same pool.
-                  Criticality impacts how traffic is handled in resource constrained situations. It handles this by
-                  queuing or rejecting requests of lower criticality. InferenceModels of an equivalent Criticality will
-                  fairly share resources over throughput of tokens. In the future, the metric used to calculate fairness,
-                  and the proportionality of fairness will be configurable.
-
-                  Default values for this field will not be set, to allow for future additions of new field that may 'one of' with this field.
-                  Any implementations that may consume this field may treat an unset value as the 'Standard' range.
-                enum:
-                - Critical
-                - Standard
-                - Sheddable
-                type: string
-              modelName:
-                description: |-
-                  ModelName is the name of the model as it will be set in the "model" parameter for an incoming request.
-                  ModelNames must be unique for a referencing InferencePool
-                  (names can be reused for a different pool in the same cluster).
-                  The modelName with the oldest creation timestamp is retained, and the incoming
-                  InferenceModel's Ready status is set to false with a corresponding reason.
-                  In the rare case of a race condition, one Model will be selected randomly to be considered valid, and the other rejected.
-                  Names can be reserved without an underlying model configured in the pool.
-                  This can be done by specifying a target model and setting the weight to zero,
-                  an error will be returned specifying that no valid target model is found.
-                maxLength: 256
-                type: string
-                x-kubernetes-validations:
-                - message: modelName is immutable
-                  rule: self == oldSelf
               poolRef:
                 description: PoolRef is a reference to the inference pool, the pool
                   must exist in the same namespace.
                 properties:
                   group:
-                    default: inference.networking.x-k8s.io
+                    default: inference.networking.k8s.io
                     description: Group is the group of the referent.
                     maxLength: 253
                     pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -123,58 +85,26 @@ spec:
                 required:
                 - name
                 type: object
-              targetModels:
+              priority:
                 description: |-
-                  TargetModels allow multiple versions of a model for traffic splitting.
-                  If not specified, the target model name is defaulted to the modelName parameter.
-                  modelName is often in reference to a LoRA adapter.
-                items:
-                  description: |-
-                    TargetModel represents a deployed model or a LoRA adapter. The
-                    Name field is expected to match the name of the LoRA adapter
-                    (or base model) as it is registered within the model server. Inference
-                    Gateway assumes that the model exists on the model server and it's the
-                    responsibility of the user to validate a correct match. Should a model fail
-                    to exist at request time, the error is processed by the Inference Gateway
-                    and emitted on the appropriate InferenceModel object.
-                  properties:
-                    name:
-                      description: Name is the name of the adapter or base model,
-                        as expected by the ModelServer.
-                      maxLength: 253
-                      type: string
-                    weight:
-                      description: |-
-                        Weight is used to determine the proportion of traffic that should be
-                        sent to this model when multiple target models are specified.
+                  Priority defines how important it is to serve the request compared to other requests in the same pool.
+                  Priority is an integer value that defines the priority of the request.
+                  The higher the value, the more critical the request is; negative values _are_ allowed.
+                  No default value is set for this field, allowing for future additions of new fields that may 'one of' with this field.
+                  However, implementations that consume this field (such as the Endpoint Picker) will treat an unset value as '0'.
+                  Priority is used in flow control, primarily in the event of resource scarcity(requests need to be queued).
+                  All requests will be queued, and flow control will _always_ allow requests of higher priority to be served first.
+                  Fairness is only enforced and tracked between requests of the same priority.
 
-                        Weight defines the proportion of requests forwarded to the specified
-                        model. This is computed as weight/(sum of all weights in this
-                        TargetModels list). For non-zero values, there may be some epsilon from
-                        the exact proportion defined here depending on the precision an
-                        implementation supports. Weight is not a percentage and the sum of
-                        weights does not need to equal 100.
-
-                        If a weight is set for any targetModel, it must be set for all targetModels.
-                        Conversely weights are optional, so long as ALL targetModels do not specify a weight.
-                      format: int32
-                      maximum: 1000000
-                      minimum: 1
-                      type: integer
-                  required:
-                  - name
-                  type: object
-                maxItems: 10
-                type: array
-                x-kubernetes-validations:
-                - message: Weights should be set for all models, or none of the models.
-                  rule: self.all(model, has(model.weight)) || self.all(model, !has(model.weight))
+                  Example: requests with Priority 10 will always be served before
+                  requests with Priority of 0 (the value used if Priority is unset or no InfereneceObjective is specified).
+                  Similarly requests with a Priority of -10 will always be served after requests with Priority of 0.
+                type: integer
             required:
-            - modelName
             - poolRef
             type: object
           status:
-            description: InferenceModelStatus defines the observed state of InferenceModel
+            description: InferenceObjectiveStatus defines the observed state of InferenceObjective
             properties:
               conditions:
                 default:
@@ -184,7 +114,7 @@ spec:
                   status: Unknown
                   type: Ready
                 description: |-
-                  Conditions track the state of the InferenceModel.
+                  Conditions track the state of the InferenceObjective.
 
                   Known condition types are:
 
@@ -254,12 +184,356 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.1
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
+    inference.networking.k8s.io/bundle-version: v1.0.0
+  creationTimestamp: null
+  name: inferencepools.inference.networking.k8s.io
+spec:
+  group: inference.networking.k8s.io
+  names:
+    kind: InferencePool
+    listKind: InferencePoolList
+    plural: inferencepools
+    shortNames:
+    - infpool
+    singular: inferencepool
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: |
+          InferencePool is the Schema for the InferencePools API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of the InferencePool.
+            properties:
+              endpointPickerRef:
+                description: |-
+                  EndpointPickerRef is a reference to the Endpoint Picker extension and its
+                  associated configuration.
+                properties:
+                  failureMode:
+                    default: FailClose
+                    description: |-
+                      FailureMode configures how the parent handles the case when the Endpoint Picker extension
+                      is non-responsive. When unspecified, defaults to "FailClose".
+                    enum:
+                    - FailOpen
+                    - FailClose
+                    type: string
+                  group:
+                    default: ""
+                    description: |-
+                      Group is the group of the referent API object. When unspecified, the default value
+                      is "", representing the Core API group.
+                    maxLength: 253
+                    minLength: 0
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    default: Service
+                    description: |-
+                      Kind is the Kubernetes resource kind of the referent.
+
+                      Required if the referent is ambiguous, e.g. service with multiple ports.
+
+                      Defaults to "Service" when not specified.
+
+                      ExternalName services can refer to CNAME DNS records that may live
+                      outside of the cluster and as such are difficult to reason about in
+                      terms of conformance. They also may not be safe to forward to (see
+                      CVE-2021-25740 for more information). Implementations MUST NOT
+                      support ExternalName Services.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the referent API object.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  port:
+                    description: |-
+                      Port is the port of the Endpoint Picker extension service.
+
+                      Port is required when the referent is a Kubernetes Service. In this
+                      case, the port number is the service port number, not the target port.
+                      For other resources, destination port might be derived from the referent
+                      resource or this field.
+                    properties:
+                      number:
+                        description: |-
+                          Number defines the port number to access the selected model server Pods.
+                          The number must be in the range 1 to 65535.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    required:
+                    - number
+                    type: object
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: port is required when kind is 'Service' or unspecified
+                    (defaults to 'Service')
+                  rule: self.kind != 'Service' || has(self.port)
+              selector:
+                description: |-
+                  Selector determines which Pods are members of this inference pool.
+                  It matches Pods by their labels only within the same namespace; cross-namespace
+                  selection is not supported.
+
+                  The structure of this LabelSelector is intentionally simple to be compatible
+                  with Kubernetes Service selectors, as some implementations may translate
+                  this configuration into a Service resource.
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      description: |-
+                        LabelValue is the value of a label. This is used for validation
+                        of maps. This matches the Kubernetes label validation rules:
+                        * must be 63 characters or less (can be empty),
+                        * unless empty, must begin and end with an alphanumeric character ([a-z0-9A-Z]),
+                        * could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+
+                        Valid values include:
+
+                        * MyValue
+                        * my.name
+                        * 123-my-value
+                      maxLength: 63
+                      minLength: 0
+                      pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                      type: string
+                    description: |-
+                      MatchLabels contains a set of required {key,value} pairs.
+                      An object must match every label in this map to be selected.
+                      The matching logic is an AND operation on all entries.
+                    type: object
+                required:
+                - matchLabels
+                type: object
+              targetPorts:
+                description: |-
+                  TargetPorts defines a list of ports that are exposed by this InferencePool.
+                  Currently, the list may only include a single port definition.
+                items:
+                  description: Port defines the network port that will be exposed
+                    by this InferencePool.
+                  properties:
+                    number:
+                      description: |-
+                        Number defines the port number to access the selected model server Pods.
+                        The number must be in the range 1 to 65535.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                  required:
+                  - number
+                  type: object
+                maxItems: 1
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: atomic
+            required:
+            - endpointPickerRef
+            - selector
+            - targetPorts
+            type: object
+          status:
+            description: Status defines the observed state of the InferencePool.
+            properties:
+              parents:
+                description: |-
+                  Parents is a list of parent resources, typically Gateways, that are associated with
+                  the InferencePool, and the status of the InferencePool with respect to each parent.
+
+                  A controller that manages the InferencePool, must add an entry for each parent it manages
+                  and remove the parent entry when the controller no longer considers the InferencePool to
+                  be associated with that parent.
+
+                  A maximum of 32 parents will be represented in this list. When the list is empty,
+                  it indicates that the InferencePool is not associated with any parents.
+                items:
+                  description: ParentStatus defines the observed state of InferencePool
+                    from a Parent, i.e. Gateway.
+                  properties:
+                    conditions:
+                      description: |-
+                        Conditions is a list of status conditions that provide information about the observed
+                        state of the InferencePool. This field is required to be set by the controller that
+                        manages the InferencePool.
+
+                        Supported condition types are:
+
+                        * "Accepted"
+                        * "ResolvedRefs"
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      maxItems: 8
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    parentRef:
+                      description: |-
+                        ParentRef is used to identify the parent resource that this status
+                        is associated with. It is used to match the InferencePool with the parent
+                        resource, such as a Gateway.
+                      properties:
+                        group:
+                          default: gateway.networking.k8s.io
+                          description: |-
+                            Group is the group of the referent API object. When unspecified, the referent is assumed
+                            to be in the "gateway.networking.k8s.io" API group.
+                          maxLength: 253
+                          minLength: 0
+                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                        kind:
+                          default: Gateway
+                          description: |-
+                            Kind is the kind of the referent API object. When unspecified, the referent is assumed
+                            to be a "Gateway" kind.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          type: string
+                        name:
+                          description: Name is the name of the referent API object.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace is the namespace of the referenced object. When unspecified, the local
+                            namespace is inferred.
+
+                            Note that when a namespace different than the local namespace is specified,
+                            a ReferenceGrant object is required in the referent namespace to allow that
+                            namespace's owner to accept the reference. See the ReferenceGrant
+                            documentation for details: https://gateway-api.sigs.k8s.io/api-types/referencegrant/
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  required:
+                  - parentRef
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: atomic
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    api-approved.kubernetes.io: unapproved, experimental-only
+    inference.networking.k8s.io/bundle-version: v1.0.0
+  creationTimestamp: null
   name: inferencepools.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -267,6 +541,8 @@ spec:
     kind: InferencePool
     listKind: InferencePoolList
     plural: inferencepools
+    shortNames:
+    - xinfpool
     singular: inferencepool
   scope: Namespaced
   versions:
@@ -319,8 +595,7 @@ spec:
                   kind:
                     default: Service
                     description: |-
-                      Kind is the Kubernetes resource kind of the referent. For example
-                      "Service".
+                      Kind is the Kubernetes resource kind of the referent.
 
                       Defaults to "Service" when not specified.
 
@@ -369,16 +644,16 @@ spec:
                   pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                   type: string
                 description: |-
-                  Selector defines a map of labels to watch model server pods
+                  Selector defines a map of labels to watch model server Pods
                   that should be included in the InferencePool.
                   In some cases, implementations may translate this field to a Service selector, so this matches the simple
                   map used for Service selectors instead of the full Kubernetes LabelSelector type.
-                  If sepecified, it will be applied to match the model server pods in the same namespace as the InferencePool.
+                  If specified, it will be applied to match the model server pods in the same namespace as the InferencePool.
                   Cross namesoace selector is not supported.
                 type: object
               targetPortNumber:
                 description: |-
-                  TargetPortNumber defines the port number to access the selected model servers.
+                  TargetPortNumber defines the port number to access the selected model server Pods.
                   The number must be in the range 1 to 65535.
                 format: int32
                 maximum: 65535
@@ -539,3 +814,9 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

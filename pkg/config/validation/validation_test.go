@@ -1087,6 +1087,7 @@ func TestStrictValidateHTTPHeaderName(t *testing.T) {
 		{name: "X-Requested-With", valid: true},
 		{name: ":authority", valid: false},
 		{name: "", valid: false},
+		{name: "foo_bar", valid: true},
 	}
 
 	for _, tc := range testCases {
