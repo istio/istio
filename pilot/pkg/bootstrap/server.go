@@ -1058,20 +1058,20 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions, trustDomain strin
 		if rootCertBytes, err = os.ReadFile(caCertPath); err != nil {
 			return nil, err
 		}
-	} //else {
-	if s.RA != nil {
-		if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-			signerName := strings.TrimPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
-			caBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
-			rootCertBytes = append(rootCertBytes, caBundle...)
-		} else {
-			rootCertBytes = append(rootCertBytes, s.RA.GetCAKeyCertBundle().GetRootCertPem()...)
+	} else {
+		if s.RA != nil {
+			if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+				signerName := strings.TrimPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
+				caBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
+				rootCertBytes = append(rootCertBytes, caBundle...)
+			} else {
+				rootCertBytes = append(rootCertBytes, s.RA.GetCAKeyCertBundle().GetRootCertPem()...)
+			}
+		}
+		if s.CA != nil {
+			rootCertBytes = append(rootCertBytes, s.CA.GetCAKeyCertBundle().GetRootCertPem()...)
 		}
 	}
-	if s.CA != nil {
-		rootCertBytes = append(rootCertBytes, s.CA.GetCAKeyCertBundle().GetRootCertPem()...)
-	}
-	// }
 
 	if len(rootCertBytes) != 0 {
 		// TODO: trustDomain here is static and will not update if it dynamically changes in mesh config
