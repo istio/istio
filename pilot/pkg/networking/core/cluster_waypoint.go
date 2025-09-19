@@ -136,6 +136,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	var localCluster *clusterWrapper
+	// All non custom DiscoveryTypes use the same cluster creation logic
+	// DynamicDNS uses a custom DiscoveryType
 	if svc.Resolution != model.DynamicDNS {
 		discoveryType := convertResolution(cb.proxyType, svc)
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
@@ -203,7 +205,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
 	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
 
-	// DFP cluster provides its own LB policy
+	// Unless the LB policy is cluster provided, we apply the LB settings
 	if localCluster.cluster.LbPolicy != cluster.Cluster_CLUSTER_PROVIDED {
 		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
 	}
@@ -296,6 +298,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 		for _, port := range svc.Ports {
 			// We don't support UDP. And for dynamic DNS (dynamic forward proxy) we only support HTTP
 			if port.Protocol == protocol.UDP || (svc.Resolution == model.DynamicDNS && port.Protocol != protocol.HTTP) {
+				log.Debugf("skipping waypoint VIP cluster for unsupported protocol %s for service %s", port.Protocol, svc.Hostname)
 				continue
 			}
 			if isEastWestGateway(proxy) {
