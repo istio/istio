@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # Adapted from istio-discovery/templates/service.yaml
 {{- range $tagName := .Values.revisionTags }}
 apiVersion: v1
@@ -54,3 +55,4 @@ spec:
   {{- end }}
 ---
 {{- end -}}
+{{- end }}

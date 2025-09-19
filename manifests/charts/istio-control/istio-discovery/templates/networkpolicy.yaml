@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- if (.Values.global.networkPolicy).enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -43,4 +44,5 @@ spec:
   # Allow all egress (needed because features like JWKS require connections to user-defined endpoints)
   egress:
   - {}
+{{- end }}
 {{- end }}
