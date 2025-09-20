@@ -17,7 +17,9 @@
 package file
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -71,4 +73,77 @@ items:
 - apiVersion: networking.istio.io/v1
   kind: WoKnows
 `))
+}
+
+func TestApplyContentReader_Store(t *testing.T) {
+	g := NewWithT(t)
+	src := NewKubeSource(collections.Istio)
+
+	config := []byte(`apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: productpage
+  labels:
+    version: v1
+spec:
+  host: productpage
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  subsets:
+  - name: v1
+    labels:
+      version: v1`)
+
+	g.Expect(src.ApplyContentReader("test-reader", bytes.NewReader(config))).To(BeNil())
+	existing := src.Get(gvk.DestinationRule, "productpage", "")
+	g.Expect(existing).ToNot(BeNil())
+	g.Expect(existing.Labels["version"]).To(Equal("v1"))
+}
+
+// A large number of resources to parse, to make the benchmark meaningful.
+var benchmarkGatewayYAML = func() string {
+	var sb strings.Builder
+	for i := 0; i < 1000; i++ {
+		sb.WriteString(fmt.Sprintf(`
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gateway-%d
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "httpbin.example.com"
+---
+`, i))
+	}
+	return sb.String()
+}()
+
+func BenchmarkApplyContent(b *testing.B) {
+	schemas := collections.Pilot
+	source := NewKubeSource(schemas)
+
+	b.Run("FromString", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if err := source.ApplyContent("benchmark.yaml", benchmarkGatewayYAML); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("FromReader", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if err := source.ApplyContentReader("benchmark.yaml", strings.NewReader(benchmarkGatewayYAML)); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }
