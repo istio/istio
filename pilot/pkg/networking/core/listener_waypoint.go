@@ -856,9 +856,17 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
 
+	// This avoids HTTP Host injection to take advantage of dynamic forward proxy
+	// hostnames when wildcards are present by restricting accepted hostnames to those
+	// matching the original wildcarded service host.
+	domains := []string{"*"}
+	if svc.Hostname.IsWildCarded() {
+		domains = []string{svc.Hostname.String()}
+	}
+
 	inboundVHost := &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
-		Domains: []string{"*"},
+		Domains: domains,
 		Routes:  routes,
 	}
 

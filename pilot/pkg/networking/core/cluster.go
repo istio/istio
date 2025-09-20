@@ -312,7 +312,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	efKeys := cp.efw.KeysApplyingTo(networking.EnvoyFilter_CLUSTER)
 	hit, miss := 0, 0
 	for _, service := range services {
-		if service.Resolution == model.Alias {
+		if service.Resolution == model.Alias || service.Resolution == model.DynamicDNS {
 			continue
 		}
 		for _, port := range service.Ports {

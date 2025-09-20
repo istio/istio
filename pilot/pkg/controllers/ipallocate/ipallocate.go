@@ -331,11 +331,6 @@ type jsonPatch struct {
 	Value     interface{} `json:"value"`
 }
 
-// filter out any wildcarded hosts
-func removeWildCarded(h string) bool {
-	return !cfghost.Name(h).IsWildCarded()
-}
-
 func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
 	if se == nil {
 		return nil, nil, nil
@@ -345,7 +340,11 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	hostsWithAddresses := sets.New[string]()
 	hostsInSpec := sets.New[string]()
 
-	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+	// TODO(jaellio): how can we make this behavior conditional on ambient mode?
+	for _, host := range se.Spec.Hosts {
+		if cfghost.Name(host).IsWildCarded() && se.Spec.Resolution != apiv1alpha3.ServiceEntry_DYNAMIC_DNS {
+			continue
+		}
 		hostsInSpec.Insert(host)
 	}
 	existingAddresses := []netip.Addr{}
@@ -372,7 +371,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 
 	// construct the assigned addresses datastructure to patch
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
-	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+	for _, host := range hostsInSpec.UnsortedList() {
 		if assignedHosts.InsertContains(host) {
 			continue
 		}

@@ -188,6 +188,8 @@ const (
 	DNSRoundRobinLB
 	// Alias defines a Service that is an alias for another.
 	Alias
+	// DynamicDNS implies that the proxy will resolve a the address from SNI or host header for wildcard services
+	DynamicDNS
 )
 
 // String converts Resolution in to String.
@@ -302,6 +304,9 @@ const (
 	trafficDirectionOutboundSrvPrefix = string(TrafficDirectionOutbound) + "_"
 	// trafficDirectionInboundSrvPrefix the prefix for a DNS SRV type subset key
 	trafficDirectionInboundSrvPrefix = string(TrafficDirectionInbound) + "_"
+
+	// dnsCacheConfigNameSuffix is the suffix used for DNS cache config names
+	dnsCacheConfigNameSuffix = "_dfp_dns_cache"
 )
 
 // ServiceInstance represents an individual instance of a specific version
@@ -1141,6 +1146,9 @@ const (
 	WaypointBound    ConditionType = "istio.io/WaypointBound"
 	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
 	WaypointAccepted ConditionType = "WaypointAccepted"
+	// TODO(jaellio): Block servieEntryInfo creation entirely or set status - Can we still
+	// block sending configuration while setting status?
+	WaypointMissing   ConditionType = "istio.io/WaypointMissing"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1164,6 +1172,7 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
+		WaypointMissing: nil,
 	}
 
 	if i.Waypoint.ResourceName != "" {
@@ -1187,6 +1196,15 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 			Status:  false,
 			Reason:  i.Waypoint.Error.Reason,
 			Message: i.Waypoint.Error.Message,
+		}
+	} else if i.Waypoint.ResourceName == "" && host.Name(i.Service.Hostname).IsWildCarded() {
+		// TODO(jaellio): Restrict source kind to ServiceEntry if needed
+		buildMsg := strings.Builder{}
+		buildMsg.WriteString("No waypoint found for wildcard service. ServiceEntry will not apply until it is bound to a specific waypoint.")
+		set[WaypointMissing] = &Condition{
+			Status:  true,
+			Reason:  "WildcardServiceNoWaypoint",
+			Message: buildMsg.String(),
 		}
 	}
 
@@ -1582,6 +1600,11 @@ func BuildInboundSubsetKey(port int) string {
 // The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
 func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
 	return string(direction) + "_." + strconv.Itoa(port) + "_." + subsetName + "_." + string(hostname)
+}
+
+// BuildDNSCacheName generates a hostname specific DNS cache config name.
+func BuildDNSCacheName(hostname host.Name) string {
+	return hostname.String() + dnsCacheConfigNameSuffix
 }
 
 // IsValidSubsetKey checks if a string is valid for subset key parsing.
