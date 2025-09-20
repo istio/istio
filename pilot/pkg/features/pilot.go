@@ -303,6 +303,13 @@ var (
 			"and will not distribute CRL data to namespaces for proxies to consume.",
 	).Get()
 
+	EnableStrictGatewayNamespaceChecking = env.Register(
+		"PILOT_ENABLE_STRICT_GATEWAY_NAMESPACE_CHECKING",
+		false, // Default value (true = feature enabled by default)
+		"If enabled, servers from an Istio gateway definition can only be merged if they are in the same namespace as the existing servers. "+
+			"By default it is disabled and no checking will be performed.",
+	).Get()
+
 	EnableNativeSidecars = func() NativeSidecarMode {
 		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
 			"If set to true, use Kubernetes native sidecar container support. Requires SidecarContainer feature flag. "+
