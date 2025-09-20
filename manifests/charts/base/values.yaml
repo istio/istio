@@ -26,6 +26,11 @@ _internal_defaults_do_not_set:
     # Validation webhook configuration url
     # For example: https://$remotePilotAddress:15017/validate
     validationURL: ""
+
+    # Validation webhook configuration service name
+    # For example: istiod
+    validationService: ""
+
     # Validation webhook caBundle value. Useful when running pilot with a well known cert
     validationCABundle: ""
 
