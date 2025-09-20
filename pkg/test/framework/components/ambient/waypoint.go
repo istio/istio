@@ -43,10 +43,11 @@ var _ io.Closer = &kubeComponent{}
 type kubeComponent struct {
 	id resource.ID
 
-	ns       namespace.Instance
-	inbound  istioKube.PortForwarder
-	outbound istioKube.PortForwarder
-	pod      v1.Pod
+	ns          namespace.Instance
+	inbound     istioKube.PortForwarder
+	outbound    istioKube.PortForwarder
+	pod         v1.Pod
+	clusterName string
 }
 
 func (k kubeComponent) Namespace() namespace.Instance {
@@ -79,17 +80,36 @@ func (k kubeComponent) Close() error {
 	return nil
 }
 
+func (k kubeComponent) ClusterName() string {
+	return k.clusterName
+}
+
 // WaypointProxy describes a waypoint proxy deployment
 type WaypointProxy interface {
 	Namespace() namespace.Instance
 	Inbound() string
 	Outbound() string
 	PodIP() string
+	ClusterName() string
+}
+
+type Waypoints []WaypointProxy
+
+// ForCluster returns a list of instances that match the cluster name
+func (i Waypoints) ForCluster(name string) Waypoints {
+	out := make(Waypoints, 0, len(i))
+	for _, c := range i {
+		if c.ClusterName() == name {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func NewWaypointProxyForCluster(ctx resource.Context, ns namespace.Instance, name string, cls cluster.Cluster) (WaypointProxy, error) {
 	server := &kubeComponent{
-		ns: ns,
+		ns:          ns,
+		clusterName: cls.Name(),
 	}
 	server.id = ctx.TrackResource(server)
 	if err := crd.DeployGatewayAPI(ctx); err != nil {
@@ -147,11 +167,8 @@ func NewWaypointProxyForCluster(ctx resource.Context, ns namespace.Instance, nam
 }
 
 // NewWaypointProxy creates a new WaypointProxy.
-func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) (WaypointProxy, error) {
-	server := &kubeComponent{
-		ns: ns,
-	}
-	server.id = ctx.TrackResource(server)
+func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) (Waypoints, error) {
+	var servers Waypoints
 	if err := crd.DeployGatewayAPI(ctx); err != nil {
 		return nil, err
 	}
@@ -181,34 +198,41 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 		}
 	}
 
-	cls := ctx.Clusters().Default()
-	// Find the Waypoint pod and service, and start forwarding a local port.
-	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name))
-	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
-	if err != nil {
-		return nil, err
-	}
-	pod := pods[0]
-	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
-	if err != nil {
-		return nil, err
-	}
+	for _, cls := range ctx.AllClusters() {
+		server := &kubeComponent{
+			ns:          ns,
+			clusterName: cls.Name(),
+		}
+		server.id = ctx.TrackResource(server)
+		// Find the Waypoint pod and service, and start forwarding a local port.
+		fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name))
+		pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
+		if err != nil {
+			return nil, err
+		}
+		pod := pods[0]
+		inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
+		if err != nil {
+			return nil, err
+		}
 
-	if err := inbound.Start(); err != nil {
-		return nil, err
-	}
-	outbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15001)
-	if err != nil {
-		return nil, err
-	}
+		if err := inbound.Start(); err != nil {
+			return nil, err
+		}
+		outbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15001)
+		if err != nil {
+			return nil, err
+		}
 
-	if err := outbound.Start(); err != nil {
-		return nil, err
+		if err := outbound.Start(); err != nil {
+			return nil, err
+		}
+		server.inbound = inbound
+		server.outbound = outbound
+		server.pod = pod
+		servers = append(servers, server)
 	}
-	server.inbound = inbound
-	server.outbound = outbound
-	server.pod = pod
-	return server, nil
+	return servers, nil
 }
 
 func NewWaypointProxyOrFailForCluster(t framework.TestContext, ns namespace.Instance, name string, cls cluster.Cluster) WaypointProxy {
@@ -221,7 +245,7 @@ func NewWaypointProxyOrFailForCluster(t framework.TestContext, ns namespace.Inst
 }
 
 // NewWaypointProxyOrFail calls NewWaypointProxy and fails if an error occurs.
-func NewWaypointProxyOrFail(t framework.TestContext, ns namespace.Instance, name string) WaypointProxy {
+func NewWaypointProxyOrFail(t framework.TestContext, ns namespace.Instance, name string) Waypoints {
 	t.Helper()
 	s, err := NewWaypointProxy(t, ns, name)
 	if err != nil {
