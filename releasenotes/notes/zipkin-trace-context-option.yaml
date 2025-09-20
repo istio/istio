@@ -1,0 +1,20 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  # Add the actual GitHub issue number here when available
+  # - https://github.com/istio/istio/issues/XXXXX
+
+docs:
+  - '[envoy] https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/trace/v3/zipkin.proto#envoy-v3-api-enum-config-trace-v3-zipkinconfig-tracecontextoption'
+  - '[reference] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/'
+  - '[usage] https://istio.io/latest/docs/tasks/observability/distributed-tracing/'
+
+releaseNotes:
+- |
+  **Added** support for Zipkin TraceContextOption configuration to enable dual B3/W3C header propagation.
+  Configure with `trace_context_option: USE_B3_WITH_W3C_PROPAGATION` in MeshConfig extensionProviders to
+  extract B3 headers preferentially, fall back to W3C traceparent headers, and inject both header types
+  upstream for better tracing interoperability.
