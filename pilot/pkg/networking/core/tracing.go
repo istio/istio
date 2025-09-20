@@ -176,7 +176,8 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				model.IncLookupClusterFailures("zipkin")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
-			return zipkinConfig(hostname, cluster, provider.Zipkin.GetPath(), !provider.Zipkin.GetEnable_64BitTraceId())
+			traceContextOption := convertTraceContextOption(provider.Zipkin.GetTraceContextOption())
+			return zipkinConfig(hostname, cluster, provider.Zipkin.GetPath(), !provider.Zipkin.GetEnable_64BitTraceId(), traceContextOption)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 		maxTagLength = provider.Datadog.GetMaxTagLength()
@@ -231,7 +232,18 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	return hcmTracing, useCustomSampler, err
 }
 
-func zipkinConfig(hostname, cluster, endpoint string, enable128BitTraceID bool) (*anypb.Any, error) {
+// convertTraceContextOption converts meshconfig ZipkinTraceContextOption to Envoy ZipkinConfig_TraceContextOption
+func convertTraceContextOption(option meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption) tracingcfg.ZipkinConfig_TraceContextOption {
+	switch option {
+	case meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_USE_B3_WITH_W3C_PROPAGATION:
+		return tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION
+	default:
+		// Default to USE_B3 for backward compatibility
+		return tracingcfg.ZipkinConfig_USE_B3
+	}
+}
+
+func zipkinConfig(hostname, cluster, endpoint string, enable128BitTraceID bool, traceContextOption tracingcfg.ZipkinConfig_TraceContextOption) (*anypb.Any, error) {
 	if endpoint == "" {
 		endpoint = "/api/v2/spans" // envoy deprecated v1 support
 	}
@@ -242,6 +254,7 @@ func zipkinConfig(hostname, cluster, endpoint string, enable128BitTraceID bool) 
 		CollectorHostname:        hostname,                          // http host header
 		TraceId_128Bit:           enable128BitTraceID,               // istio default enable 128 bit trace id
 		SharedSpanContext:        wrapperspb.Bool(false),
+		TraceContextOption:       traceContextOption, // Add trace context option support
 	}
 	return protoconv.MessageToAnyWithError(zc)
 }
