@@ -143,6 +143,9 @@ message LoadBalancing {
     // 3. Endpoints matching `[NETWORK]`
     // 4. Any endpoints
     FAILOVER = 2;
+    // In PASSTHROUGH mode, endpoint selection will not be done and traffic passes directly through to the original
+    // desitnation address.
+    PASSTHROUGH = 3;
   }
   enum HealthPolicy {
     // Only select healthy endpoints
