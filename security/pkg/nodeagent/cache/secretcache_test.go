@@ -908,3 +908,139 @@ func TestTryAddFileWatcher(t *testing.T) {
 		})
 	}
 }
+
+// TestSymlinkSecrets tests generating secrets from symlinked files
+func TestSymlinkSecrets(t *testing.T) {
+	t.Run("symlink to file", func(t *testing.T) {
+		runSymlinkAgentTest(t, false)
+	})
+	t.Run("symlink to file sds", func(t *testing.T) {
+		runSymlinkAgentTest(t, true)
+	})
+}
+
+func runSymlinkAgentTest(t *testing.T, sds bool) {
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	opt := security.Options{}
+
+	u := NewUpdateTracker(t)
+	sc := createCache(t, fakeCACli, u.Callback, opt)
+
+	// Create test directory structure
+	testDir := t.TempDir()
+	certDir := filepath.Join(testDir, "certs")
+	targetDir := filepath.Join(testDir, "target")
+
+	// Create target directory and files
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Copy test certificates to target directory
+	for _, f := range []string{"root-cert.pem", "key.pem", "cert-chain.pem"} {
+		if err := file.AtomicCopy(filepath.Join("./testdata", f), targetDir, f); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Create symlinks
+	certChainSymlink := filepath.Join(certDir, "cert-chain.pem")
+	keySymlink := filepath.Join(certDir, "key.pem")
+	rootCertSymlink := filepath.Join(certDir, "root-cert.pem")
+
+	if err := os.MkdirAll(certDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(filepath.Join(targetDir, "cert-chain.pem"), certChainSymlink); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(targetDir, "key.pem"), keySymlink); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(targetDir, "root-cert.pem"), rootCertSymlink); err != nil {
+		t.Fatal(err)
+	}
+
+	// Configure the secret manager to use symlinked files
+	sc.existingCertificateFile = security.SdsCertificateConfig{
+		CertificatePath:   certChainSymlink,
+		PrivateKeyPath:    keySymlink,
+		CaCertificatePath: rootCertSymlink,
+	}
+
+	workloadResource := security.WorkloadKeyCertResourceName
+	rootResource := security.RootCertReqResourceName
+	if sds {
+		workloadResource = sc.existingCertificateFile.GetResourceName()
+		rootResource = sc.existingCertificateFile.GetRootResourceName()
+	}
+
+	// Read expected content from target files
+	certchain, err := os.ReadFile(filepath.Join(targetDir, "cert-chain.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the cert chain file: %v", err)
+	}
+	privateKey, err := os.ReadFile(filepath.Join(targetDir, "key.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the private key file: %v", err)
+	}
+	rootCert, err := os.ReadFile(filepath.Join(targetDir, "root-cert.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+
+	// Check we can load key, cert, and root from symlinks
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: certchain,
+		PrivateKey:       privateKey,
+	})
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     rootCert,
+	})
+	// We shouldn't get any pushes; these only happen on changes
+	u.Expect(map[string]int{})
+	u.Reset()
+
+	// Test updating the target files (should trigger updates)
+	if err := file.AtomicWrite(filepath.Join(targetDir, "cert-chain.pem"), testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.AtomicWrite(filepath.Join(targetDir, "key.pem"), testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Small delay to ensure file watcher events are processed before test cleanup
+	time.Sleep(100 * time.Millisecond)
+
+	// Expect update callback
+	u.Expect(map[string]int{workloadResource: 1})
+	// On the next generate call, we should get the new cert
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: testcerts.RotatedCert,
+		PrivateKey:       testcerts.RotatedKey,
+	})
+
+	// Test updating root cert
+	if err := file.AtomicWrite(filepath.Join(targetDir, "root-cert.pem"), testcerts.CACert, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Small delay to ensure file watcher events are processed before test cleanup
+	time.Sleep(100 * time.Millisecond)
+
+	// We expect to get update notifications for both resources when root cert changes
+	u.Expect(map[string]int{workloadResource: 1, rootResource: 1})
+	u.Reset()
+
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     testcerts.CACert,
+	})
+}
