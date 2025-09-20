@@ -69,7 +69,7 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize analysis controller, releasing lease: %s", err)
 	}
-	ctl := statusManager.CreateIstioStatusController(func(status status.Manipulator, context any) {
+	ctl := statusManager.CreateGenericController(func(status status.Manipulator, context any) {
 		msgs := context.(diag.Messages)
 		status.SetValidationMessages(msgs)
 	})
