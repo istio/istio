@@ -105,7 +105,7 @@ type exitStatus struct {
 // Run starts the envoy and waits until it terminates.
 // There are a few exit paths:
 //  1. Envoy exits. In this case, we simply log and exit.
-//  2. /quit (on agent, not Envoy) is called. We will set skipDrain and cancel the context, which triggers us to exit immediately.
+//  2. /quitquitquit (on agent, not Envoy) is called. We will set skipDrain and cancel the context, which triggers us to exit immediately.
 //  3. SIGTERM. We will drain, wait termination drain duration, then exit. This is the standard pod shutdown; SIGTERM arrives when pod shutdown starts.
 //     If the pod's terminationGracePeriod is shorter than our drain duration (rare), we may be a SIGKILL.
 //  4. /drain + SIGTERM. This is the shutdown when using Kubernetes native sidecars.
