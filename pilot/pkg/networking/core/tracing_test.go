@@ -252,7 +252,8 @@ func TestConfigureTracing(t *testing.T) {
 			name:   "zipkin with dual B3/W3C trace context option",
 			inSpec: fakeTracingSpec(fakeZipkinWithDualHeaders(), 99.999, false, true, true),
 			opts:   fakeOptsZipkinWithTraceContextOption(meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_USE_B3_WITH_W3C_PROPAGATION),
-			want: fakeTracingConfig(fakeZipkinProviderWithTraceContext(clusterName, authority, DefaultZipkinEndpoint, true, tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION),
+			want: fakeTracingConfig(fakeZipkinProviderWithTraceContext(clusterName, authority, DefaultZipkinEndpoint, true,
+				tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -729,7 +730,9 @@ func fakeOptsZipkinTelemetryWithEndpoint() gatewayListenerOpts {
 	return opts
 }
 
-func fakeOptsZipkinWithTraceContextOption(traceContextOption meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption) gatewayListenerOpts {
+func fakeOptsZipkinWithTraceContextOption(
+	traceContextOption meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption,
+) gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -805,7 +808,9 @@ func fakeZipkinEnable64bitTraceID() *meshconfig.MeshConfig_ExtensionProvider {
 	}
 }
 
-func fakeZipkinWithTraceContextOption(traceContextOption meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption) *meshconfig.MeshConfig_ExtensionProvider {
+func fakeZipkinWithTraceContextOption(
+	traceContextOption meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption,
+) *meshconfig.MeshConfig_ExtensionProvider {
 	return &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "foo",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_Zipkin{
@@ -1284,7 +1289,10 @@ func fakeZipkinProvider(expectClusterName, expectAuthority, expectEndpoint strin
 	return fakeZipkinProviderWithTraceContext(expectClusterName, expectAuthority, expectEndpoint, enableTraceID, tracingcfg.ZipkinConfig_USE_B3)
 }
 
-func fakeZipkinProviderWithTraceContext(expectClusterName, expectAuthority, expectEndpoint string, enableTraceID bool, traceContextOption tracingcfg.ZipkinConfig_TraceContextOption) *tracingcfg.Tracing_Http {
+func fakeZipkinProviderWithTraceContext(
+	expectClusterName, expectAuthority, expectEndpoint string, enableTraceID bool,
+	traceContextOption tracingcfg.ZipkinConfig_TraceContextOption,
+) *tracingcfg.Tracing_Http {
 	fakeZipkinProviderConfig := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         expectClusterName,
 		CollectorEndpoint:        expectEndpoint,
@@ -1460,7 +1468,7 @@ func TestConvertTraceContextOption(t *testing.T) {
 		{
 			name:     "default fallback for unknown value",
 			input:    meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption(999), // Invalid enum value
-			expected: tracingcfg.ZipkinConfig_USE_B3, // Should fallback to default
+			expected: tracingcfg.ZipkinConfig_USE_B3,                                                        // Should fallback to default
 		},
 	}
 
@@ -1474,21 +1482,21 @@ func TestConvertTraceContextOption(t *testing.T) {
 
 func TestZipkinConfig(t *testing.T) {
 	testcases := []struct {
-		name               string
-		hostname           string
-		cluster            string
-		endpoint           string
+		name                string
+		hostname            string
+		cluster             string
+		endpoint            string
 		enable128BitTraceID bool
-		traceContextOption tracingcfg.ZipkinConfig_TraceContextOption
-		expectedConfig     *tracingcfg.ZipkinConfig
+		traceContextOption  tracingcfg.ZipkinConfig_TraceContextOption
+		expectedConfig      *tracingcfg.ZipkinConfig
 	}{
 		{
-			name:               "basic zipkin config with USE_B3",
-			hostname:           "zipkin.istio-system.svc.cluster.local",
-			cluster:            "zipkin-cluster",
-			endpoint:           "/api/v2/spans",
+			name:                "basic zipkin config with USE_B3",
+			hostname:            "zipkin.istio-system.svc.cluster.local",
+			cluster:             "zipkin-cluster",
+			endpoint:            "/api/v2/spans",
 			enable128BitTraceID: true,
-			traceContextOption: tracingcfg.ZipkinConfig_USE_B3,
+			traceContextOption:  tracingcfg.ZipkinConfig_USE_B3,
 			expectedConfig: &tracingcfg.ZipkinConfig{
 				CollectorCluster:         "zipkin-cluster",
 				CollectorEndpoint:        "/api/v2/spans",
@@ -1500,12 +1508,12 @@ func TestZipkinConfig(t *testing.T) {
 			},
 		},
 		{
-			name:               "zipkin config with dual B3/W3C headers",
-			hostname:           "zipkin.istio-system.svc.cluster.local",
-			cluster:            "zipkin-cluster",
-			endpoint:           "/api/v2/spans",
+			name:                "zipkin config with dual B3/W3C headers",
+			hostname:            "zipkin.istio-system.svc.cluster.local",
+			cluster:             "zipkin-cluster",
+			endpoint:            "/api/v2/spans",
 			enable128BitTraceID: false,
-			traceContextOption: tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			traceContextOption:  tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
 			expectedConfig: &tracingcfg.ZipkinConfig{
 				CollectorCluster:         "zipkin-cluster",
 				CollectorEndpoint:        "/api/v2/spans",
@@ -1517,12 +1525,12 @@ func TestZipkinConfig(t *testing.T) {
 			},
 		},
 		{
-			name:               "zipkin config with empty endpoint defaults to /api/v2/spans",
-			hostname:           "zipkin.istio-system.svc.cluster.local",
-			cluster:            "zipkin-cluster",
-			endpoint:           "",
+			name:                "zipkin config with empty endpoint defaults to /api/v2/spans",
+			hostname:            "zipkin.istio-system.svc.cluster.local",
+			cluster:             "zipkin-cluster",
+			endpoint:            "",
 			enable128BitTraceID: true,
-			traceContextOption: tracingcfg.ZipkinConfig_USE_B3,
+			traceContextOption:  tracingcfg.ZipkinConfig_USE_B3,
 			expectedConfig: &tracingcfg.ZipkinConfig{
 				CollectorCluster:         "zipkin-cluster",
 				CollectorEndpoint:        "/api/v2/spans",
@@ -1539,12 +1547,12 @@ func TestZipkinConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, tc.enable128BitTraceID, tc.traceContextOption)
 			assert.NoError(t, err)
-			
+
 			// Unmarshal the Any proto to compare the actual ZipkinConfig
 			var actualConfig tracingcfg.ZipkinConfig
 			err = result.UnmarshalTo(&actualConfig)
 			assert.NoError(t, err)
-			
+
 			// Compare the configurations
 			if diff := cmp.Diff(tc.expectedConfig, &actualConfig, protocmp.Transform()); diff != "" {
 				t.Fatalf("zipkinConfig returned unexpected diff (-want +got):\n%s", diff)

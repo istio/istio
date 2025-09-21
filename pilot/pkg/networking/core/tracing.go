@@ -233,7 +233,9 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 }
 
 // convertTraceContextOption converts meshconfig ZipkinTraceContextOption to Envoy ZipkinConfig_TraceContextOption
-func convertTraceContextOption(option meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption) tracingcfg.ZipkinConfig_TraceContextOption {
+func convertTraceContextOption(
+	option meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption,
+) tracingcfg.ZipkinConfig_TraceContextOption {
 	switch option {
 	case meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_USE_B3_WITH_W3C_PROPAGATION:
 		return tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION
@@ -243,7 +245,9 @@ func convertTraceContextOption(option meshconfig.MeshConfig_ExtensionProvider_Zi
 	}
 }
 
-func zipkinConfig(hostname, cluster, endpoint string, enable128BitTraceID bool, traceContextOption tracingcfg.ZipkinConfig_TraceContextOption) (*anypb.Any, error) {
+func zipkinConfig(
+	hostname, cluster, endpoint string, enable128BitTraceID bool, traceContextOption tracingcfg.ZipkinConfig_TraceContextOption,
+) (*anypb.Any, error) {
 	if endpoint == "" {
 		endpoint = "/api/v2/spans" // envoy deprecated v1 support
 	}

@@ -3,9 +3,7 @@ kind: feature
 area: telemetry
 
 # issue is a list of GitHub issues resolved in this note.
-issue:
-  # Add the actual GitHub issue number here when available
-  # - https://github.com/istio/istio/issues/XXXXX
+issue: []
 
 docs:
   - '[envoy] https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/trace/v3/zipkin.proto#envoy-v3-api-enum-config-trace-v3-zipkinconfig-tracecontextoption'
