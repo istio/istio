@@ -79,6 +79,8 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/stream/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/wasm/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/bootstrap/internal_listener/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/bootstrap/reverse_tunnel/downstream_socket_interface/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/bootstrap/reverse_tunnel/upstream_socket_interface/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/aggregate/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/common/dns/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dns/v3"
