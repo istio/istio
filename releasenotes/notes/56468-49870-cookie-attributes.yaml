@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+- 56468
+- 49870
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** Support for cookie attributes in consistent hash load balancing. You can now specify additional attributes (such as `SameSite`, `Secure`, `HttpOnly`) for HTTP cookies used in consistent hash load balancing policies.
+  This allows for more secure and compliant cookie handling in load balancing scenarios.

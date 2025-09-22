@@ -1197,6 +1197,21 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		if httpCookie != nil && httpCookie.GetName() == "" {
 			errs = AppendValidation(errs, fmt.Errorf("name required for HttpCookie"))
 		}
+		if httpCookie != nil && len(httpCookie.GetAttributes()) > 0 {
+			// Validate that cookie attribute names are unique
+			attributeNames := sets.New[string]()
+			for _, attr := range httpCookie.GetAttributes() {
+				if attr.GetName() == "" {
+					errs = AppendValidation(errs, fmt.Errorf("cookie attribute name cannot be empty"))
+					continue
+				}
+				if attributeNames.Contains(attr.GetName()) {
+					errs = AppendValidation(errs, fmt.Errorf("duplicate cookie attribute name: %s", attr.GetName()))
+				} else {
+					attributeNames.Insert(attr.GetName())
+				}
+			}
+		}
 		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
 			warn := "consistent hash MinimumRingSize is deprecated, use ConsistentHashLB's RingHash configuration instead"
 			scope.Warnf(warn)
