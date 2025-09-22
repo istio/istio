@@ -390,6 +390,13 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	}
 
 	replaceAddresses, err := json.Marshal([]jsonPatch{
+		// Ensure the existing status we are acting on has not changed since we decided to allocate.
+		// This avoids TOCTOU race conditions
+		{
+			Operation: "test",
+			Path:      "/status/addresses",
+			Value:     se.Status.Addresses,
+		},
 		{
 			Operation: "replace",
 			Path:      "/status/addresses",
