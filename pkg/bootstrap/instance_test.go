@@ -224,6 +224,31 @@ func TestGolden(t *testing.T) {
 				"sidecar.istio.io/statsCompression": "unknown",
 			},
 		},
+		{
+			base: "stats_flush_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval": "10s",
+			},
+		},
+		{
+			base: "stats_eviction_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsEvictionInterval": "10s",
+			},
+		},
+		{
+			base: "invalid_stats_eviction_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsEvictionInterval": "11s",
+			},
+		},
+		{
+			base: "stats_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval":    "10s",
+				"sidecar.istio.io/statsEvictionInterval": "20s",
+			},
+		},
 	}
 
 	test.SetForTest(t, &version.Info.Version, "binary-1.0")
