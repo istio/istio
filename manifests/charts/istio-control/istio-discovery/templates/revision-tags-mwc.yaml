@@ -66,6 +66,7 @@ webhooks:
       - "{{ $tagName }}"
     - key: istio-injection
       operator: DoesNotExist
+{{- include "additionalNamespaceSelectors" $ }}
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
@@ -79,6 +80,7 @@ webhooks:
       operator: DoesNotExist
     - key: istio-injection
       operator: DoesNotExist
+{{- include "additionalNamespaceSelectors" $ }}
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
@@ -102,6 +104,7 @@ webhooks:
       operator: In
       values:
       - enabled
+{{- include "additionalNamespaceSelectors" $ }}
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
@@ -117,6 +120,7 @@ webhooks:
       operator: DoesNotExist
     - key: istio.io/rev
       operator: DoesNotExist
+{{- include "additionalNamespaceSelectors" $ }}
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject
@@ -138,6 +142,7 @@ webhooks:
     - key: "kubernetes.io/metadata.name"
       operator: "NotIn"
       values: ["kube-system","kube-public","kube-node-lease","local-path-storage"]
+{{- include "additionalNamespaceSelectors" $ }}
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject

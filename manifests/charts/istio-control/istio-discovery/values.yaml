@@ -119,6 +119,14 @@ _internal_defaults_do_not_set:
     neverInjectSelector: []
     alwaysInjectSelector: []
 
+    # additionalNamespaceSelectors allows us to specify match expressions to be added to all webhook configurations.
+    # For example, to exclude AKS-managed namespaces:
+    # additionalNamespaceSelectors:
+    #   - key: "kubernetes.azure.com/managedby"
+    #     operator: "NotIn"
+    #     values: ["aks"]
+    additionalNamespaceSelectors: []
+
     # injectedAnnotations are additional annotations that will be added to the pod spec after injection
     # This is primarily to support PSP annotations. For example, if you defined a PSP with the annotations:
     #
