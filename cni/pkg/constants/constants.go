@@ -48,6 +48,7 @@ const (
 	AmbientReconcilePodRulesOnStartup = "ambient-reconcile-pod-rules-on-startup"
 
 	NativeNftables = "native-nftables"
+	KubeletCgroup  = "kubelet-cgroup"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"

@@ -128,6 +128,7 @@ var rootCmd = &cobra.Command{
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
 					NativeNftables:             cfg.InstallConfig.NativeNftables,
 					ForceIptablesBinary:        cfg.InstallConfig.ForceIptablesBinary,
+					KubeletCgroup:              cfg.InstallConfig.KubeletCgroup,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -332,6 +333,7 @@ func constructConfig() (*config.Config, error) {
 
 		NativeNftables:      viper.GetBool(constants.NativeNftables),
 		ForceIptablesBinary: os.Getenv("FORCE_IPTABLES_BINARY"),
+		KubeletCgroup:       viper.GetString(constants.KubeletCgroup),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
