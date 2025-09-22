@@ -1545,7 +1545,11 @@ func TestZipkinConfig(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, tc.enable128BitTraceID, tc.traceContextOption)
+			// Create a mock proxy with version that supports TraceContextOption
+			proxy := &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			}
+			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, tc.enable128BitTraceID, tc.traceContextOption, proxy)
 			assert.NoError(t, err)
 
 			// Unmarshal the Any proto to compare the actual ZipkinConfig
@@ -1556,6 +1560,91 @@ func TestZipkinConfig(t *testing.T) {
 			// Compare the configurations
 			if diff := cmp.Diff(tc.expectedConfig, &actualConfig, protocmp.Transform()); diff != "" {
 				t.Fatalf("zipkinConfig returned unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestZipkinConfigVersionGating tests that TraceContextOption is only set for proxies that support it
+func TestZipkinConfigVersionGating(t *testing.T) {
+	testcases := []struct {
+		name                    string
+		proxyVersion           *model.IstioVersion
+		traceContextOption     tracingcfg.ZipkinConfig_TraceContextOption
+		expectTraceContextSet  bool
+	}{
+		{
+			name:                   "New proxy (1.28+) should get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: true,
+		},
+		{
+			name:                   "Old proxy (1.27) should NOT get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 27, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+		{
+			name:                   "Old proxy (1.22) should NOT get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 22, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+		{
+			name:                   "Old proxy (1.20) should NOT get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 20, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+		{
+			name:                   "Very old proxy (1.19) should NOT get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 19, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+		{
+			name:                   "Proxy with nil version should NOT get TraceContextOption",
+			proxyVersion:          nil,
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			proxy := &model.Proxy{
+				IstioVersion: tc.proxyVersion,
+			}
+			
+			result, err := zipkinConfig(
+				"zipkin.istio-system.svc.cluster.local",
+				"outbound|9411||zipkin.istio-system.svc.cluster.local",
+				"/api/v2/spans",
+				true,
+				tc.traceContextOption,
+				proxy,
+			)
+			assert.NoError(t, err)
+
+			// Unmarshal the Any proto to check the actual ZipkinConfig
+			var actualConfig tracingcfg.ZipkinConfig
+			err = result.UnmarshalTo(&actualConfig)
+			assert.NoError(t, err)
+
+			versionStr := "nil"
+			if tc.proxyVersion != nil {
+				versionStr = tc.proxyVersion.String()
+			}
+			
+			if tc.expectTraceContextSet {
+				// For new proxies, TraceContextOption should be set
+				assert.Equal(t, tc.traceContextOption, actualConfig.TraceContextOption,
+					"TraceContextOption should be set for proxy version %s", versionStr)
+			} else {
+				// For old proxies, TraceContextOption should be the default (USE_B3)
+				assert.Equal(t, tracingcfg.ZipkinConfig_USE_B3, actualConfig.TraceContextOption,
+					"TraceContextOption should default to USE_B3 for proxy version %s", versionStr)
 			}
 		})
 	}

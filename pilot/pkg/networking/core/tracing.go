@@ -177,7 +177,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			traceContextOption := convertTraceContextOption(provider.Zipkin.GetTraceContextOption())
-			return zipkinConfig(hostname, cluster, provider.Zipkin.GetPath(), !provider.Zipkin.GetEnable_64BitTraceId(), traceContextOption)
+			return zipkinConfig(hostname, cluster, provider.Zipkin.GetPath(), !provider.Zipkin.GetEnable_64BitTraceId(), traceContextOption, proxy)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 		maxTagLength = provider.Datadog.GetMaxTagLength()
@@ -247,6 +247,7 @@ func convertTraceContextOption(
 
 func zipkinConfig(
 	hostname, cluster, endpoint string, enable128BitTraceID bool, traceContextOption tracingcfg.ZipkinConfig_TraceContextOption,
+	proxy *model.Proxy,
 ) (*anypb.Any, error) {
 	if endpoint == "" {
 		endpoint = "/api/v2/spans" // envoy deprecated v1 support
@@ -258,8 +259,14 @@ func zipkinConfig(
 		CollectorHostname:        hostname,                          // http host header
 		TraceId_128Bit:           enable128BitTraceID,               // istio default enable 128 bit trace id
 		SharedSpanContext:        wrapperspb.Bool(false),
-		TraceContextOption:       traceContextOption, // Add trace context option support
 	}
+	
+	// Only set TraceContextOption for proxies that support it to avoid NACK from older proxies
+	// TraceContextOption support requires a recent Envoy version - using conservative version gating
+	if proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 28}) {
+		zc.TraceContextOption = traceContextOption
+	}
+	
 	return protoconv.MessageToAnyWithError(zc)
 }
 
