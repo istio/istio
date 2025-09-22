@@ -6,6 +6,7 @@ pilot:
   env:
     # 1.27 behavioral changes
     ENABLE_NATIVE_SIDECARS: "false"
+    # 1.28 behavioral changes
     DISABLE_SHADOW_HOST_SUFFIX: "false"
 ambient:
   # 1.26 behavioral changes
