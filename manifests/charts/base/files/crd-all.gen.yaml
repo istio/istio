@@ -15506,7 +15506,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -15876,7 +15876,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -16066,7 +16066,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -16229,7 +16229,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -16537,7 +16537,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - name: v1beta1
@@ -16818,7 +16818,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
