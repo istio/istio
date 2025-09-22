@@ -17,15 +17,14 @@ package iptables
 import (
 	"errors"
 	"fmt"
-	"net/netip"
 	"strings"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
-	iptablesconfig "istio.io/istio/tools/common/config"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablescapture "istio.io/istio/tools/istio-iptables/pkg/capture"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -35,82 +34,31 @@ import (
 var log = scopes.CNIAgent
 
 const (
-	// INPOD marks/masks
-	InpodTProxyMark      = 0x111
-	InpodTProxyMask      = 0xfff
-	InpodMark            = 1337 // this needs to match the inpod config mark in ztunnel.
-	InpodMask            = 0xfff
-	InpodRestoreMask     = 0xffffffff
 	ChainInpodOutput     = "ISTIO_OUTPUT"
 	ChainInpodPrerouting = "ISTIO_PRERT"
 	ChainHostPostrouting = "ISTIO_POSTRT"
-	RouteTableInbound    = 100
-
-	DNSCapturePort              = 15053
-	ZtunnelInboundPort          = 15008
-	ZtunnelOutboundPort         = 15001
-	ZtunnelInboundPlaintextPort = 15006
-	ProbeIPSet                  = "istio-inpod-probes"
-)
-
-// "global"/per-instance IptablesConfig
-type IptablesConfig struct {
-	TraceLogging           bool       `json:"IPTABLES_TRACE_LOGGING"`
-	EnableIPv6             bool       `json:"ENABLE_INBOUND_IPV6"`
-	RedirectDNS            bool       `json:"REDIRECT_DNS"`
-	HostProbeSNATAddress   netip.Addr `json:"HOST_PROBE_SNAT_ADDRESS"`
-	HostProbeV6SNATAddress netip.Addr `json:"HOST_PROBE_V6_SNAT_ADDRESS"`
-	Reconcile              bool       `json:"RECONCILE"`
-	CleanupOnly            bool       `json:"CLEANUP_ONLY"`
-	ForceApply             bool       `json:"FORCE_APPLY"`
-}
-
-// For inpod rules, any runtime/dynamic pod-level
-// config overrides that may need to be taken into account
-// when injecting pod rules
-type PodLevelOverrides struct {
-	VirtualInterfaces []string
-	IngressMode       bool
-	DNSProxy          PodDNSOverride
-}
-
-type PodDNSOverride int
-
-const (
-	PodDNSUnset PodDNSOverride = iota
-	PodDNSEnabled
-	PodDNSDisabled
 )
 
 type IptablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps NetlinkDependencies
-	cfg    *IptablesConfig
+	cfg    *config.AmbientConfig
 	iptV   dep.IptablesVersion
 	ipt6V  dep.IptablesVersion
 }
 
-func ipbuildConfig(c *IptablesConfig) *iptablesconfig.Config {
-	return &iptablesconfig.Config{
-		EnableIPv6:  c.EnableIPv6,
-		RedirectDNS: c.RedirectDNS,
-		Reconcile:   c.Reconcile,
-		ForceApply:  c.ForceApply,
-	}
-}
-
 func NewIptablesConfigurator(
-	hostCfg *IptablesConfig,
-	podCfg *IptablesConfig,
+	hostCfg *config.AmbientConfig,
+	podCfg *config.AmbientConfig,
 	hostDeps dep.Dependencies,
 	podDeps dep.Dependencies,
 	nlDeps NetlinkDependencies,
 ) (*IptablesConfigurator, *IptablesConfigurator, error) {
 	if hostCfg == nil {
-		hostCfg = &IptablesConfig{}
+		hostCfg = &config.AmbientConfig{}
 	}
 	if podCfg == nil {
-		podCfg = &IptablesConfig{}
+		podCfg = &config.AmbientConfig{}
 	}
 
 	configurator := &IptablesConfigurator{
@@ -217,7 +165,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides PodLevelOverrides) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
 	// Append our rules here
 	builder := cfg.AppendInpodRules(podOverrides)
 
@@ -238,22 +186,22 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverri
 	return nil
 }
 
-func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOverrides) *builder.IptablesRuleBuilder {
 	var redirectDNS bool
 
 	switch podOverrides.DNSProxy {
-	case PodDNSUnset:
+	case config.PodDNSUnset:
 		redirectDNS = cfg.cfg.RedirectDNS
-	case PodDNSEnabled:
+	case config.PodDNSEnabled:
 		redirectDNS = true
-	case PodDNSDisabled:
+	case config.PodDNSDisabled:
 		redirectDNS = false
 	}
 
-	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
-	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
+	inpodMark := fmt.Sprintf("0x%x", config.InpodMark) + "/" + fmt.Sprintf("0x%x", config.InpodMask)
+	inpodTproxyMark := fmt.Sprintf("0x%x", config.InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", config.InpodTProxyMask)
 
-	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesRuleBuilder(config.GetConfig(cfg.cfg))
 
 	// Insert jumps to our custom chains
 	// This is mostly just for visual tidiness and cleanup, as we can delete the secondary chains and jumps
@@ -310,7 +258,7 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides
 				"-i", fmt.Sprint(virtInterface),
 				"-p", "tcp",
 				"-j", "REDIRECT",
-				"--to-ports", fmt.Sprint(ZtunnelOutboundPort),
+				"--to-ports", fmt.Sprint(config.ZtunnelOutboundPort),
 			)
 			// CLI: -t nat -A ISTIO_PRERT -i virt0 -p tcp -j RETURN
 			//
@@ -377,11 +325,11 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides
 			ChainInpodPrerouting, "nat",
 			"!", "-d", iptablesconstants.IPVersionSpecific,
 			"-p", "tcp",
-			"!", "--dport", fmt.Sprint(ZtunnelInboundPort),
+			"!", "--dport", fmt.Sprint(config.ZtunnelInboundPort),
 			"-m", "mark", "!",
 			"--mark", inpodMark,
 			"-j", "REDIRECT",
-			"--to-ports", fmt.Sprint(ZtunnelInboundPlaintextPort),
+			"--to-ports", fmt.Sprint(config.ZtunnelInboundPlaintextPort),
 		)
 	}
 
@@ -394,8 +342,8 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides
 		"--mark", inpodTproxyMark,
 		"-j", "CONNMARK",
 		"--restore-mark",
-		"--nfmask", fmt.Sprintf("0x%x", InpodRestoreMask),
-		"--ctmask", fmt.Sprintf("0x%x", InpodRestoreMask),
+		"--nfmask", fmt.Sprintf("0x%x", config.InpodRestoreMask),
+		"--ctmask", fmt.Sprintf("0x%x", config.InpodRestoreMask),
 	)
 
 	if redirectDNS {
@@ -411,7 +359,7 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides
 			"-m", "udp",
 			"--dport", "53",
 			"-j", "REDIRECT",
-			"--to-port", fmt.Sprintf("%d", DNSCapturePort),
+			"--to-port", fmt.Sprintf("%d", config.DNSCapturePort),
 		)
 		// Same as above for TCP
 		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
@@ -422,7 +370,7 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides
 			"-m", "mark", "!",
 			"--mark", inpodMark,
 			"-j", "REDIRECT",
-			"--to-ports", fmt.Sprintf("%d", DNSCapturePort),
+			"--to-ports", fmt.Sprintf("%d", config.DNSCapturePort),
 		)
 
 		// Assign packets between the proxy and upstream DNS servers to their own conntrack zones to avoid issues in port collision
@@ -481,7 +429,7 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides
 		"-m", "mark", "!",
 		"--mark", inpodMark,
 		"-j", "REDIRECT",
-		"--to-ports", fmt.Sprintf("%d", ZtunnelOutboundPort),
+		"--to-ports", fmt.Sprintf("%d", config.ZtunnelOutboundPort),
 	)
 	return iptablesBuilder
 }
@@ -661,7 +609,7 @@ func (cfg *IptablesConfigurator) DeleteHostRules() {
 }
 
 func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder {
-	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
+	iptablesBuilder := builder.NewIptablesRuleBuilder(config.GetConfig(cfg.cfg))
 
 	// For easier cleanup, insert a jump into an owned chain
 	// -I POSTROUTING 1 -p tcp -j ISTIO_POSTRT
@@ -692,7 +640,7 @@ func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder 
 		"--socket-exists",
 		"-p", "tcp",
 		"-m", "set",
-		"--match-set", fmt.Sprintf(ipset.V4Name, ProbeIPSet),
+		"--match-set", fmt.Sprintf(ipset.V4Name, config.ProbeIPSet),
 		"dst",
 		"-j", "SNAT",
 		"--to-source", cfg.cfg.HostProbeSNATAddress.String(),
@@ -706,7 +654,7 @@ func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder 
 			"--socket-exists",
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", fmt.Sprintf(ipset.V6Name, ProbeIPSet),
+			"--match-set", fmt.Sprintf(ipset.V6Name, config.ProbeIPSet),
 			"dst",
 			"-j", "SNAT",
 			"--to-source", cfg.cfg.HostProbeV6SNATAddress.String(),
