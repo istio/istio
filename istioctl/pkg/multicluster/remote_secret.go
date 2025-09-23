@@ -238,7 +238,7 @@ func createRemoteSecretFromTokenAndServer(
 func waitForTokenData(client kube.CLIClient, secret *v1.Secret) (ca, token []byte, err error) {
 	ca, token, err = tokenDataFromSecret(secret)
 	if err == nil {
-		return ca, token, err
+		return ca, token, nil
 	}
 
 	log.Infof("Waiting for data to be populated in %s", secret.Name)
