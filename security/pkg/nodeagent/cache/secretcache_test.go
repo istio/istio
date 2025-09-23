@@ -131,7 +131,7 @@ func (u *UpdateTracker) Expect(want map[string]int) {
 		}
 		u.t.Logf("CI_DEBUG_EXPECT: Match - got expected %+v", u.hits)
 		return nil
-	}, retry.Timeout(time.Second*5))
+	}, retry.Timeout(time.Second*10)) // Increased timeout for Linux file system event delays
 }
 
 func (u *UpdateTracker) Reset() {
