@@ -106,7 +106,7 @@ require (
 	k8s.io/kubectl v0.33.3
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	sigs.k8s.io/controller-runtime v0.22.1
-	sigs.k8s.io/gateway-api v1.4.0-rc.1
+	sigs.k8s.io/gateway-api v1.3.1-0.20250923050815-4c403cfad2dc
 	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250917095812-173ad587b675
 	sigs.k8s.io/knftables v0.0.19-0.20250623122614-e4307300abb5
 	sigs.k8s.io/mcs-api v0.2.0
@@ -228,5 +228,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
-
-replace sigs.k8s.io/gateway-api => ../../sigs.k8s.io/gateway-api
