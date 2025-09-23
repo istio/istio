@@ -324,15 +324,11 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
 	// Check if the file or any part of its path is a symlink
 	isInSymlink := sc.isPathInSymlink(file)
-	cacheLog.Infof("CI_DEBUG: addFileWatcher for %s, isInSymlink=%v", file, isInSymlink)
 
 	if isInSymlink {
-		cacheLog.Infof("CI_DEBUG: Attempting symlink watcher for %s", file)
 		if err := sc.addSymlinkWatcher(file, resourceName); err == nil {
-			cacheLog.Infof("CI_DEBUG: Symlink watcher added successfully for %s", file)
 			return
 		}
-		cacheLog.Infof("CI_DEBUG: Symlink watcher failed for %s, retrying in background", file)
 		go func() {
 			b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 			_ = b.RetryWithContext(context.TODO(), func() error {
@@ -408,7 +404,6 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 		cacheLog.Errorf("%v: error finding absolute path of file %s, retrying watches: %v", resourceName, filePath, err)
 		return err
 	}
-	cacheLog.Infof("absolute file path: %s", absFilePath)
 
 	// Find the symlink in the path
 	symlinkPath := sc.findSymlinkInPath(absFilePath)
@@ -459,9 +454,7 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 		sc.addWatcherSafely(grandParentDir, resourceName, "grandparent directory")
 	}
 
-	cacheLog.Infof("CI_DEBUG: Adding target file watcher for %s", targetPath)
 	sc.addWatcherSafely(targetPath, resourceName, "target")
-	cacheLog.Infof("CI_DEBUG: Target file watcher added for %s", targetPath)
 
 	return nil
 }
@@ -908,10 +901,8 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			if !ok {
 				return
 			}
-			cacheLog.Infof("CI_DEBUG_ALL_EVENTS: Received event - Name=%s, Op=%v", event.Name, event.Op)
 			// We only care about updates that change the file content
-			if !(isWrite(event) || isRemove(event) || isCreate(event)) {
-				cacheLog.Infof("CI_DEBUG_ALL_EVENTS: Ignoring event - Name=%s, Op=%v", event.Name, event.Op)
+			if !(isWrite(event) || isRemove(event) || isCreate(event) || event.Op&fsnotify.Chmod != 0) {
 				continue
 			}
 			sc.certMutex.RLock()
@@ -974,8 +965,6 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 		parentDir := filepath.Dir(fc.Filename)
 		grandParentDir := filepath.Dir(parentDir)
 		if fc.Filename == event.Name || fc.TargetPath == event.Name || parentDir == event.Name || grandParentDir == event.Name {
-			cacheLog.Infof("CI_DEBUG_SYMLINK_EVENT: Processing symlink event - event.Name=%s, fc.Filename=%s, fc.TargetPath=%s, parentDir=%s",
-				event.Name, fc.Filename, fc.TargetPath, parentDir)
 			// If the symlink itself, its parent directory, or grandparent directory changed (removed/recreated), we need to re-resolve it
 			if (fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name) && (isRemove(event) || isCreate(event)) {
 				sc.handleSymlinkChange(fc)
@@ -987,12 +976,10 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 			if fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name {
 				// Always trigger for symlink and directory changes
 				shouldTriggerUpdate = true
-				cacheLog.Infof("CI_DEBUG_SYMLINK_EVENT: Symlink/directory path - triggering update for %s", fc.ResourceName)
 			} else if fc.TargetPath == event.Name {
 				// For target file changes, trigger on all events (including REMOVE/CREATE from atomic operations)
 				// This ensures atomic operations are detected on Linux where events come for target files
 				shouldTriggerUpdate = true
-				cacheLog.Infof("CI_DEBUG_SYMLINK_EVENT: Target file path - event.Op=%v, shouldTriggerUpdate=%v for %s", event.Op, shouldTriggerUpdate, fc.ResourceName)
 			}
 
 			if shouldTriggerUpdate {

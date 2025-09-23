@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -117,7 +116,6 @@ func (u *UpdateTracker) Callback(name string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.hits[name]++
-	u.t.Logf("CI_DEBUG_CALLBACK: Received callback for resource: %s, total hits: %d", name, u.hits[name])
 }
 
 func (u *UpdateTracker) Expect(want map[string]int) {
@@ -126,10 +124,8 @@ func (u *UpdateTracker) Expect(want map[string]int) {
 		u.mu.Lock()
 		defer u.mu.Unlock()
 		if !reflect.DeepEqual(u.hits, want) {
-			u.t.Logf("CI_DEBUG_EXPECT: Mismatch - wanted %+v got %+v", want, u.hits)
 			return fmt.Errorf("wanted %+v got %+v", want, u.hits)
 		}
-		u.t.Logf("CI_DEBUG_EXPECT: Match - got expected %+v", u.hits)
 		return nil
 	}, retry.Timeout(time.Second*10)) // Increased timeout for Linux file system event delays
 }
@@ -925,7 +921,6 @@ func TestSymlinkSecrets(t *testing.T) {
 
 func runSymlinkAgentTest(t *testing.T, sds bool) {
 	// Log OS information for debugging CI issues
-	t.Logf("CI_DEBUG_OS: OS=%s, Arch=%s, GoOS=%s, GoArch=%s", runtime.GOOS, runtime.GOARCH, runtime.GOOS, runtime.GOARCH)
 
 	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
@@ -963,32 +958,25 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	}
 
 	if err := os.Symlink(filepath.Join(targetDir, "cert-chain.pem"), certChainSymlink); err != nil {
-		t.Logf("CI_DEBUG_SYMLINK: Failed to create symlink for cert-chain: %v", err)
 		t.Fatal(err)
 	}
 	if err := os.Symlink(filepath.Join(targetDir, "key.pem"), keySymlink); err != nil {
-		t.Logf("CI_DEBUG_SYMLINK: Failed to create symlink for key: %v", err)
 		t.Fatal(err)
 	}
 	if err := os.Symlink(filepath.Join(targetDir, "root-cert.pem"), rootCertSymlink); err != nil {
-		t.Logf("CI_DEBUG_SYMLINK: Failed to create symlink for root-cert: %v", err)
 		t.Fatal(err)
 	}
 
 	// Configure the secret manager to use symlinked files
-	t.Logf("CI_DEBUG_SYMLINK: Setting up symlinks - cert: %s, key: %s, root: %s", certChainSymlink, keySymlink, rootCertSymlink)
 
 	// Verify symlinks are working
 	if _, err := os.ReadFile(certChainSymlink); err != nil {
-		t.Logf("CI_DEBUG_SYMLINK: Failed to read symlink cert-chain: %v", err)
 		t.Fatal(err)
 	}
 	if _, err := os.ReadFile(keySymlink); err != nil {
-		t.Logf("CI_DEBUG_SYMLINK: Failed to read symlink key: %v", err)
 		t.Fatal(err)
 	}
 	if _, err := os.ReadFile(rootCertSymlink); err != nil {
-		t.Logf("CI_DEBUG_SYMLINK: Failed to read symlink root-cert: %v", err)
 		t.Fatal(err)
 	}
 
@@ -1034,27 +1022,19 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	u.Reset()
 
 	// Test updating the target files (should trigger updates)
-	t.Logf("CI_DEBUG_SYMLINK: About to call file.AtomicWrite for cert-chain.pem")
 	if err := file.AtomicWrite(filepath.Join(targetDir, "cert-chain.pem"), testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("CI_DEBUG_SYMLINK: Completed file.AtomicWrite for cert-chain.pem")
 
-	t.Logf("CI_DEBUG_SYMLINK: About to call file.AtomicWrite for key.pem")
 	if err := file.AtomicWrite(filepath.Join(targetDir, "key.pem"), testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("CI_DEBUG_SYMLINK: Completed file.AtomicWrite for key.pem")
 
 	// Small delay to ensure file watcher events are processed before test cleanup
-	t.Logf("CI_DEBUG_SYMLINK: Waiting 100ms for file events to be processed...")
 	time.Sleep(100 * time.Millisecond)
-	t.Logf("CI_DEBUG_SYMLINK: Done waiting, checking for callbacks")
 
 	// Expect update callback
-	t.Logf("CI_DEBUG_SYMLINK: Expecting callback for workloadResource: %s", workloadResource)
 	u.Expect(map[string]int{workloadResource: 1})
-	t.Logf("CI_DEBUG_SYMLINK: Callback received successfully for workloadResource: %s", workloadResource)
 	// On the next generate call, we should get the new cert
 	checkSecret(t, sc, workloadResource, security.SecretItem{
 		ResourceName:     workloadResource,
