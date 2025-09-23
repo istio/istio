@@ -3,4 +3,10 @@ kind: feature
 area: telemetry
 releaseNotes:
   - |
-    **Removed** metric expiry support, please use `StatsEviction` in bootstrap configuration instead. 
+    **Removed** metric expiry support. Use `StatsEviction` in bootstrap configuration instead.
+
+upgradeNotes:
+  - title: Migrate to the new metric eviction mechanism
+    content: |
+      The Pilot environment flags `METRIC_ROTATION_INTERVAL` and `METRIC_GRACEFUL_DELETION_INTERVAL` have been removed.
+      Use the pod annotation `sidecar.istio.io/statsEvictionInterval` with the new stats eviction API instead.
