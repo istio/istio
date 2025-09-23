@@ -22,11 +22,6 @@ const (
 	IstioProxyMangleTable = "istio-proxy-mangle"
 	IstioProxyRawTable    = "istio-proxy-raw"
 
-	// Table names used in Ambient mode when applying native nftables rules
-	IstioAmbientNatTable    = "istio-ambient-nat"
-	IstioAmbientMangleTable = "istio-ambient-mangle"
-	IstioAmbientRawTable    = "istio-ambient-raw"
-
 	// Base chains.
 	PreroutingChain = "prerouting"
 	OutputChain     = "output"

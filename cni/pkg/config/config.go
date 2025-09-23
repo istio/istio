@@ -16,8 +16,68 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
+
+	cfg "istio.io/istio/tools/common/config"
 )
+
+// These constants are shared between iptables and nftables implementations
+const (
+	// INPOD marks/masks
+	InpodTProxyMark   = 0x111
+	InpodTProxyMask   = 0xfff
+	InpodMark         = 1337 // this needs to match the inpod config mark in ztunnel.
+	InpodMask         = 0xfff
+	InpodRestoreMask  = 0xffffffff
+	RouteTableInbound = 100
+
+	// Port constants
+	DNSCapturePort              = 15053
+	ZtunnelInboundPort          = 15008
+	ZtunnelOutboundPort         = 15001
+	ZtunnelInboundPlaintextPort = 15006
+	ProbeIPSet                  = "istio-inpod-probes"
+)
+
+// PodDNSOverride represents DNS proxy configuration for a pod
+type PodDNSOverride int
+
+const (
+	PodDNSUnset PodDNSOverride = iota
+	PodDNSEnabled
+	PodDNSDisabled
+)
+
+// PodLevelOverrides holds runtime/dynamic pod-level config overrides
+// that may need to be taken into account when injecting pod rules
+type PodLevelOverrides struct {
+	VirtualInterfaces []string
+	IngressMode       bool
+	DNSProxy          PodDNSOverride
+}
+
+// AmbientConfig represents the "global"/per-instance configuration for Ambient mode traffic management
+type AmbientConfig struct {
+	TraceLogging           bool       `json:"IPTABLES_TRACE_LOGGING"`
+	EnableIPv6             bool       `json:"ENABLE_INBOUND_IPV6"`
+	RedirectDNS            bool       `json:"REDIRECT_DNS"`
+	HostProbeSNATAddress   netip.Addr `json:"HOST_PROBE_SNAT_ADDRESS"`
+	HostProbeV6SNATAddress netip.Addr `json:"HOST_PROBE_V6_SNAT_ADDRESS"`
+	Reconcile              bool       `json:"RECONCILE"`
+	CleanupOnly            bool       `json:"CLEANUP_ONLY"`
+	ForceApply             bool       `json:"FORCE_APPLY"`
+}
+
+// GetConfig converts AmbientConfig to tools common config format
+func GetConfig(c *AmbientConfig) *cfg.Config {
+	return &cfg.Config{
+		EnableIPv6:  c.EnableIPv6,
+		RedirectDNS: c.RedirectDNS,
+		Reconcile:   c.Reconcile,
+		ForceApply:  c.ForceApply,
+	}
+}
 
 type Config struct {
 	InstallConfig InstallConfig

@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/knftables"
 
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/tools/istio-nftables/pkg/builder"
 )
 
 func dumpRuleset(t *testing.T) string {
@@ -57,8 +58,8 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 				cfg.OwnerGroupsInclude = "0"
 			}
 			// This provider function will interact with the real system's nftables.
-			nftProvider := func(_ knftables.Family, _ string) (NftablesAPI, error) {
-				return NewNftImpl("", "")
+			nftProvider := func(_ knftables.Family, _ string) (builder.NftablesAPI, error) {
+				return builder.NewNftImpl("", "")
 			}
 
 			// Cleanup logic

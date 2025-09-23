@@ -20,3 +20,6 @@ spec:
       header: def
     timeout: 5s
     outputPayloadToHeader: header
+    spaceDelimitedClaims:
+    - "custom_scope"
+    - "provider.login.scope"

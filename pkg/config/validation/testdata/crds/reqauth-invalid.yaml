@@ -210,3 +210,14 @@ spec:
   - issuer: example
     timeout: "apple"
 ---
+_err: 'spaceDelimitedClaims[0] in body should be at least 1 chars long'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-space-delimited-claims
+spec:
+  jwtRules:
+  - issuer: example
+    spaceDelimitedClaims:
+    - ""
+---
