@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package bootstrap
 
 import (
@@ -222,6 +223,31 @@ func TestGolden(t *testing.T) {
 			base: "stats_compression_unknown",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsCompression": "unknown",
+			},
+		},
+		{
+			base: "stats_flush_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval": "10s",
+			},
+		},
+		{
+			base: "stats_eviction_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsEvictionInterval": "10s",
+			},
+		},
+		{
+			base: "invalid_stats_eviction_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsEvictionInterval": "11s",
+			},
+		},
+		{
+			base: "stats_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval":    "10s",
+				"sidecar.istio.io/statsEvictionInterval": "20s",
 			},
 		},
 	}
