@@ -661,6 +661,10 @@ istio.io/api v1.26.0-alpha.0.0.20250923205230-1d89957ad280 h1:grPoerbIOhraHkP+Nm
 istio.io/api v1.26.0-alpha.0.0.20250923205230-1d89957ad280/go.mod h1:BD3qv/ekm16kvSgvSpuiDawgKhEwG97wx849CednJSg=
 istio.io/client-go v1.26.0-alpha.0.0.20250923205629-fe2d99063ffd h1:mtdwlaE/l4AX4Enp7so7gAZZb2ANLj5+OS5n7/npUJk=
 istio.io/client-go v1.26.0-alpha.0.0.20250923205629-fe2d99063ffd/go.mod h1:vYkpxxSzlh8PFDFzC9cUZ5nQbYqJrQsOnEzwvj1NUu8=
+istio.io/api v1.26.0-alpha.0.0.20250923034428-87475465cdff h1:cOkfGWxgTuJS+zii2j3/jArPfDLsTAekiq9bH0r+uUA=
+istio.io/api v1.26.0-alpha.0.0.20250923034428-87475465cdff/go.mod h1:BD3qv/ekm16kvSgvSpuiDawgKhEwG97wx849CednJSg=
+istio.io/client-go v1.26.0-alpha.0.0.20250923034728-9edb3ccd62f5 h1:pFAruYb5+JNHQIXXb6X6Ml8xnDqV/D/4hdCNu2onLcI=
+istio.io/client-go v1.26.0-alpha.0.0.20250923034728-9edb3ccd62f5/go.mod h1:Uk250WkqsY0ghsfnYDSqY9Zu1VPqDgpiRzZSap+IRQI=
 k8s.io/api v0.34.1 h1:jC+153630BMdlFukegoEL8E/yT7aLyQkIVuwhmwDgJM=
 k8s.io/api v0.34.1/go.mod h1:SB80FxFtXn5/gwzCoN6QCtPD7Vbu5w2n1S0J5gFfTYk=
 k8s.io/apiextensions-apiserver v0.34.1 h1:NNPBva8FNAPt1iSVwIE0FsdrVriRXMsaWFMqJbII2CI=
@@ -689,6 +693,8 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1 h1:Cf+ed5N8038zb
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
 sigs.k8s.io/controller-runtime v0.22.1 h1:Ah1T7I+0A7ize291nJZdS1CabF/lB4E++WizgV24Eqg=
 sigs.k8s.io/controller-runtime v0.22.1/go.mod h1:FwiwRjkRPbiN+zp2QRp7wlTCzbUXxZ/D4OzuQUDwBHY=
+sigs.k8s.io/gateway-api v1.3.1-0.20250923050815-4c403cfad2dc h1:dQbOxc5Z2aRVLR81Tla60odP3Yiw3V2QFQq5Ron6RXc=
+sigs.k8s.io/gateway-api v1.3.1-0.20250923050815-4c403cfad2dc/go.mod h1:eEPQfoYoowXAJ+/1RFugqZSanFd705bAPrIjB8Z8LdQ=
 sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250917095812-173ad587b675 h1:CW+VWxazW54YzQnlHkyCE/WmAvF0YK7HOl+OK8IO3Ug=
 sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250917095812-173ad587b675/go.mod h1:Tqmt4U654MNQkzC1lFYVa43wbUW7K8r8Lv6Sq2I3HCc=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=
