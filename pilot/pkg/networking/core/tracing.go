@@ -260,13 +260,17 @@ func zipkinConfig(
 		TraceId_128Bit:           enable128BitTraceID,               // istio default enable 128 bit trace id
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
-	
+
 	// Only set TraceContextOption for proxies that support it to avoid NACK from older proxies
 	// TraceContextOption support requires a recent Envoy version - using conservative version gating
 	if proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 28}) {
 		zc.TraceContextOption = traceContextOption
+	} else {
+		// Log when TraceContextOption configuration is ignored due to version gating
+		log.Debugf("Proxy %s (version %v) does not support TraceContextOption: requires Istio 1.28+",
+			proxy.ID, proxy.IstioVersion)
 	}
-	
+
 	return protoconv.MessageToAnyWithError(zc)
 }
 

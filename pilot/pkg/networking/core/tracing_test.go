@@ -752,6 +752,7 @@ func fakeOptsZipkinWithTraceContextOption(
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0}, // Ensure proxy supports TraceContextOption
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1568,43 +1569,43 @@ func TestZipkinConfig(t *testing.T) {
 // TestZipkinConfigVersionGating tests that TraceContextOption is only set for proxies that support it
 func TestZipkinConfigVersionGating(t *testing.T) {
 	testcases := []struct {
-		name                    string
-		proxyVersion           *model.IstioVersion
-		traceContextOption     tracingcfg.ZipkinConfig_TraceContextOption
-		expectTraceContextSet  bool
+		name                  string
+		proxyVersion          *model.IstioVersion
+		traceContextOption    tracingcfg.ZipkinConfig_TraceContextOption
+		expectTraceContextSet bool
 	}{
 		{
-			name:                   "New proxy (1.28+) should get TraceContextOption",
+			name:                  "New proxy (1.28+) should get TraceContextOption",
 			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
 			expectTraceContextSet: true,
 		},
 		{
-			name:                   "Old proxy (1.27) should NOT get TraceContextOption",
+			name:                  "Old proxy (1.27) should NOT get TraceContextOption",
 			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 27, Patch: 0},
 			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
 			expectTraceContextSet: false,
 		},
 		{
-			name:                   "Old proxy (1.22) should NOT get TraceContextOption",
+			name:                  "Old proxy (1.22) should NOT get TraceContextOption",
 			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 22, Patch: 0},
 			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
 			expectTraceContextSet: false,
 		},
 		{
-			name:                   "Old proxy (1.20) should NOT get TraceContextOption",
+			name:                  "Old proxy (1.20) should NOT get TraceContextOption",
 			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 20, Patch: 0},
 			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
 			expectTraceContextSet: false,
 		},
 		{
-			name:                   "Very old proxy (1.19) should NOT get TraceContextOption",
+			name:                  "Very old proxy (1.19) should NOT get TraceContextOption",
 			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 19, Patch: 0},
 			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
 			expectTraceContextSet: false,
 		},
 		{
-			name:                   "Proxy with nil version should NOT get TraceContextOption",
+			name:                  "Proxy with nil version should NOT get TraceContextOption",
 			proxyVersion:          nil,
 			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
 			expectTraceContextSet: false,
@@ -1616,7 +1617,7 @@ func TestZipkinConfigVersionGating(t *testing.T) {
 			proxy := &model.Proxy{
 				IstioVersion: tc.proxyVersion,
 			}
-			
+
 			result, err := zipkinConfig(
 				"zipkin.istio-system.svc.cluster.local",
 				"outbound|9411||zipkin.istio-system.svc.cluster.local",
@@ -1636,7 +1637,7 @@ func TestZipkinConfigVersionGating(t *testing.T) {
 			if tc.proxyVersion != nil {
 				versionStr = tc.proxyVersion.String()
 			}
-			
+
 			if tc.expectTraceContextSet {
 				// For new proxies, TraceContextOption should be set
 				assert.Equal(t, tc.traceContextOption, actualConfig.TraceContextOption,
