@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -1051,8 +1052,15 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	time.Sleep(100 * time.Millisecond)
 
 	// We expect to get update notifications for both resources when root cert changes
-	// Note: ROOTCA may get multiple callbacks due to processing multiple file events (CHMOD, REMOVE, CREATE)
-	u.Expect(map[string]int{workloadResource: 1, rootResource: 3})
+	// On macOS, file.AtomicWrite generates multiple events (REMOVE/CREATE/CHMOD) for symlink targets
+	// On Linux, file.AtomicWrite only generates CHMOD events for symlink targets
+	var expectedRootCallbacks int
+	if runtime.GOOS == "darwin" {
+		expectedRootCallbacks = 3 // macOS gets multiple events
+	} else {
+		expectedRootCallbacks = 1 // Linux gets only CHMOD
+	}
+	u.Expect(map[string]int{workloadResource: 1, rootResource: expectedRootCallbacks})
 	u.Reset()
 
 	checkSecret(t, sc, rootResource, security.SecretItem{
