@@ -16360,6 +16360,14 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    spaceDelimitedClaims:
+                      description: List of JWT claim names that should be treated
+                        as space-delimited strings.
+                      items:
+                        minLength: 1
+                        type: string
+                      maxItems: 64
+                      type: array
                     timeout:
                       description: The maximum amount of time that the resolver, determined
                         by the PILOT_JWT_ENABLE_REMOTE_JWKS environment variable,
@@ -16641,6 +16649,14 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    spaceDelimitedClaims:
+                      description: List of JWT claim names that should be treated
+                        as space-delimited strings.
+                      items:
+                        minLength: 1
+                        type: string
+                      maxItems: 64
+                      type: array
                     timeout:
                       description: The maximum amount of time that the resolver, determined
                         by the PILOT_JWT_ENABLE_REMOTE_JWKS environment variable,
