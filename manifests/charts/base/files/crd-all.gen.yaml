@@ -7994,12 +7994,13 @@ spec:
                 description: |-
                   Service resolution mode for the hosts.
 
-                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN
+                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN, DYNAMIC_DNS
                 enum:
                 - NONE
                 - STATIC
                 - DNS
                 - DNS_ROUND_ROBIN
+                - DYNAMIC_DNS
                 type: string
               subjectAltNames:
                 description: If specified, the proxy will verify that the server certificate's
@@ -8292,12 +8293,13 @@ spec:
                 description: |-
                   Service resolution mode for the hosts.
 
-                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN
+                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN, DYNAMIC_DNS
                 enum:
                 - NONE
                 - STATIC
                 - DNS
                 - DNS_ROUND_ROBIN
+                - DYNAMIC_DNS
                 type: string
               subjectAltNames:
                 description: If specified, the proxy will verify that the server certificate's
@@ -8590,12 +8592,13 @@ spec:
                 description: |-
                   Service resolution mode for the hosts.
 
-                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN
+                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN, DYNAMIC_DNS
                 enum:
                 - NONE
                 - STATIC
                 - DNS
                 - DNS_ROUND_ROBIN
+                - DYNAMIC_DNS
                 type: string
               subjectAltNames:
                 description: If specified, the proxy will verify that the server certificate's
