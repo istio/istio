@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "NAMESPACE") }}
 # This manifest installs the Istio install-cni container, as well
 # as the Istio CNI plugin and config on
 # each master and worker node in a Kubernetes cluster.
@@ -249,3 +250,4 @@ spec:
             type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
             # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
             # Once the CNI does mount this, it will get populated and we're good.
+{{- end }}
