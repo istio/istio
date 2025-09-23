@@ -1054,7 +1054,7 @@ func (sc *SecretManagerClient) handleSymlinkChange(fc FileCert) {
 		// Remove watcher for the old target
 		if fc.TargetPath != "" {
 			if err := sc.certWatcher.Remove(fc.TargetPath); err != nil {
-				// Don't fail, this is cleanup
+				cacheLog.Debugf("error removing watcher for old symlink target %s: %v", fc.TargetPath, err)
 			}
 		}
 
