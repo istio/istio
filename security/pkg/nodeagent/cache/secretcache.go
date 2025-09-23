@@ -977,7 +977,7 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 				// Always trigger for symlink and directory changes
 				shouldTriggerUpdate = true
 			} else if fc.TargetPath == event.Name {
-				// For target file changes, trigger on all events (including REMOVE/CREATE from atomic operations)
+				// For target file changes, trigger on all events (including REMOVE/CREATE/CHMOD from atomic operations)
 				// This ensures atomic operations are detected on Linux where events come for target files
 				shouldTriggerUpdate = true
 			}
@@ -997,7 +997,8 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 		}
 
 		// For regular files, trigger on file changes (including REMOVE/CREATE from atomic operations)
-		if fc.Filename == event.Name {
+		// But ignore CHMOD events for regular files to avoid duplicate callbacks
+		if fc.Filename == event.Name && !(event.Op&fsnotify.Chmod != 0) {
 			updatedResources[fc.ResourceName] = struct{}{}
 			regularFileMatches++
 		}

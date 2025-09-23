@@ -1051,7 +1051,8 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	time.Sleep(100 * time.Millisecond)
 
 	// We expect to get update notifications for both resources when root cert changes
-	u.Expect(map[string]int{workloadResource: 1, rootResource: 1})
+	// Note: ROOTCA may get multiple callbacks due to processing multiple file events (CHMOD, REMOVE, CREATE)
+	u.Expect(map[string]int{workloadResource: 1, rootResource: 3})
 	u.Reset()
 
 	checkSecret(t, sc, rootResource, security.SecretItem{
