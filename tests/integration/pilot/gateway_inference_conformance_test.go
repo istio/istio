@@ -58,14 +58,14 @@ var inferenceConformanceNamespaces = []string{
 }
 
 var skippedInferenceTests = map[string]string{
-	"EppUnAvailableFailOpen": "EppUnAvailableFailOpen is not supported in Istio/Envoy, see https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/1266",
+	"EppUnAvailableFailOpen": "EppUnAvailableFailOpen is not supported in Istio/Envoy, " +
+		"see https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/1266",
 }
 
 func TestGatewayInferenceConformance(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-
 			crd.DeployGatewayAPIOrSkip(ctx)
 			crd.DeployGatewayAPIInferenceExtensionOrSkip(ctx)
 

@@ -46,7 +46,6 @@ func TestMain(m *testing.M) {
 				"pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION": "true",
 			}
 		})).
-		//Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()
 			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
