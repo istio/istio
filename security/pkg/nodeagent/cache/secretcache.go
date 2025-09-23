@@ -459,7 +459,9 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 		sc.addWatcherSafely(grandParentDir, resourceName, "grandparent directory")
 	}
 
+	cacheLog.Infof("CI_DEBUG: Adding target file watcher for %s", targetPath)
 	sc.addWatcherSafely(targetPath, resourceName, "target")
+	cacheLog.Infof("CI_DEBUG: Target file watcher added for %s", targetPath)
 
 	return nil
 }
@@ -906,8 +908,10 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			if !ok {
 				return
 			}
+			cacheLog.Infof("CI_DEBUG_ALL_EVENTS: Received event - Name=%s, Op=%v", event.Name, event.Op)
 			// We only care about updates that change the file content
 			if !(isWrite(event) || isRemove(event) || isCreate(event)) {
+				cacheLog.Infof("CI_DEBUG_ALL_EVENTS: Ignoring event - Name=%s, Op=%v", event.Name, event.Op)
 				continue
 			}
 			sc.certMutex.RLock()
