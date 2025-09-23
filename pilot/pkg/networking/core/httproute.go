@@ -767,7 +767,7 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 		partsUnique = slices.Reverse(partsFQDNInReverse[len(sharedSuffixesInReverse):])
 		partsShared = slices.Reverse(sharedSuffixesInReverse)
 	}
-	return
+	return partsUnique, partsShared
 }
 
 func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount bool, appendXForwardedHost bool) *route.VirtualHost {

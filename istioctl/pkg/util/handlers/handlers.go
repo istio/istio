@@ -175,5 +175,5 @@ func SelectorsForObject(object runtime.Object) (namespace string, selector label
 	default:
 		return polymorphichelpers.SelectorsForObject(object)
 	}
-	return
+	return namespace, selector, err
 }

@@ -67,7 +67,7 @@ func validateAnnotations(annotations map[string]string) (err error) {
 			}
 		}
 	}
-	return
+	return err
 }
 
 func validatePortList(parameterName, ports string) error {

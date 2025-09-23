@@ -90,13 +90,13 @@ func writeContentsToTempFile(workDir, contents string) (filename string, err err
 	var f *os.File
 	f, err = os.CreateTemp(workDir, yamlToFilename(contents)+".*.yaml")
 	if err != nil {
-		return
+		return filename, err
 	}
 	defer f.Close()
 	filename = f.Name()
 
 	_, err = f.WriteString(contents)
-	return
+	return filename, err
 }
 
 func yamlToFilename(contents string) string {
