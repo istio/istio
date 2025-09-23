@@ -194,7 +194,7 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 // we could send traffic to another instance. Instead we look into gRPC internals to authenticate with ourself.
 func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca string, err error) {
 	if !s.Port.XDSServer {
-		return
+		return cert, key, ca, err
 	}
 
 	var bootstrapData []byte
@@ -208,17 +208,17 @@ func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca
 	var bootstrap Bootstrap
 	if uerr := json.Unmarshal(bootstrapData, &bootstrap); uerr != nil {
 		err = uerr
-		return
+		return cert, key, ca, err
 	}
 	certs := bootstrap.FileWatcherProvider()
 	if certs == nil {
 		err = fmt.Errorf("no certs found in bootstrap")
-		return
+		return cert, key, ca, err
 	}
 	cert = certs.CertificateFile
 	key = certs.PrivateKeyFile
 	ca = certs.CACertificateFile
-	return
+	return cert, key, ca, err
 }
 
 func (s *grpcInstance) Close() error {

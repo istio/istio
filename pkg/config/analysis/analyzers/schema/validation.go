@@ -43,7 +43,7 @@ func AllValidationAnalyzers() []analysis.Analyzer {
 	result := make([]analysis.Analyzer, 0)
 	collections.Istio.ForEach(func(s sresource.Schema) (done bool) {
 		result = append(result, &ValidationAnalyzer{s: s})
-		return
+		return done
 	})
 	return result
 }

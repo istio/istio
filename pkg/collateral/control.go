@@ -379,7 +379,7 @@ func buildNestedMap(flatMap map[string]string) (result map[string]any) {
 	for complexkey, value := range flatMap {
 		buildMapRecursive(strings.Split(complexkey, "."), result, value)
 	}
-	return
+	return result
 }
 
 func buildMapRecursive(remainingPath []string, currentPointer map[string]any, value string) {
@@ -659,7 +659,7 @@ func unquoteUsage(flag *pflag.Flag) (name string, usage string) {
 		name = "uint"
 	}
 
-	return
+	return name, usage
 }
 
 func normalizeID(id string) string {

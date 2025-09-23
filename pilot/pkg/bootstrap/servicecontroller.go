@@ -90,5 +90,5 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.server,
 		s.multiclusterController)
 
-	return
+	return err
 }

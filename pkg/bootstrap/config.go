@@ -573,7 +573,7 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 	if err != nil {
 		log.Warnf("Env variable with value %q failed json unmarshal: %v", jsonStr, err)
 	}
-	return
+	return m
 }
 
 func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.BootstrapNodeMetadata) {

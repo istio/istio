@@ -527,7 +527,7 @@ func (a *index) buildAndRegisterPolicyCollections(
 			}
 			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 		}), false)
-	return
+	return authorizationPolicies, allPolicies
 }
 
 func getConditions[T controllers.ComparableObject](name types.NamespacedName, i kclient.Informer[T]) map[string]model.Condition {

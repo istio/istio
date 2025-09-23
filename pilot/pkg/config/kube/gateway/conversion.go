@@ -333,7 +333,7 @@ func parentTypes(rpi []routeParentReference) (mesh, gateway bool) {
 			gateway = true
 		}
 	}
-	return
+	return mesh, gateway
 }
 
 func augmentPortMatch(routes []*istio.HTTPRoute, port k8s.PortNumber) []*istio.HTTPRoute {

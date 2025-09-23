@@ -1626,28 +1626,28 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	// Format: dir|port|subset|hostname
 	dir, s, ok := strings.Cut(s, sep)
 	if !ok {
-		return
+		return direction, subsetName, hostname, port
 	}
 	direction = TrafficDirection(dir)
 
 	p, s, ok := strings.Cut(s, sep)
 	if !ok {
-		return
+		return direction, subsetName, hostname, port
 	}
 	port, _ = strconv.Atoi(p)
 
 	ss, s, ok := strings.Cut(s, sep)
 	if !ok {
-		return
+		return direction, subsetName, hostname, port
 	}
 	subsetName = ss
 
 	// last part. No | remains -- verify this
 	if strings.Contains(s, sep) {
-		return
+		return direction, subsetName, hostname, port
 	}
 	hostname = host.Name(s)
-	return
+	return direction, subsetName, hostname, port
 }
 
 // GetAddressForProxy returns a Service's address specific to the cluster where the node resides

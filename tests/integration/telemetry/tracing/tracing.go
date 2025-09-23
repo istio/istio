@@ -70,7 +70,7 @@ func TestSetup(ctx resource.Context) (err error) {
 		Inject: true,
 	})
 	if err != nil {
-		return
+		return err
 	}
 	builder := deployment.New(ctx)
 	for _, c := range ctx.Clusters() {
@@ -119,7 +119,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	addrs, _ := ingInst.HTTPAddresses()
 	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addrs[0]})
 	if err != nil {
-		return
+		return err
 	}
 	return nil
 }
@@ -167,7 +167,7 @@ func WantOtelTraceRoot(namespace, clName string) (root zipkin.Span) {
 		ServiceName: fmt.Sprintf("client-%s.%s", clName, namespace),
 		ChildSpans:  []*zipkin.Span{&serverSpan},
 	}
-	return
+	return root
 }
 
 func VerifyOtelIngressTraces(t framework.TestContext, namespace, path string, traces []zipkin.Trace) bool {
@@ -241,7 +241,7 @@ func WantTraceRoot(namespace, clName string) (root zipkin.Span) {
 		ServiceName: fmt.Sprintf("client-%s.%s", clName, namespace),
 		ChildSpans:  []*zipkin.Span{&serverSpan},
 	}
-	return
+	return root
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.

@@ -55,7 +55,7 @@ func checkInterfacesForMatchingAddr(targetAddr net.IP) (match bool, err error) {
 	for _, ief := range interfaces {
 		var addrs []net.Addr
 		if addrs, err = ief.Addrs(); err != nil {
-			return
+			return match, err
 		}
 		for _, addr := range addrs {
 			switch v := addr.(type) {

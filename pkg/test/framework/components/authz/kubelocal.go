@@ -130,12 +130,12 @@ func newLocalKubeServer(ctx resource.Context, ns namespace.Instance) (server *lo
 
 	// Install the providers in MeshConfig.
 	if err = server.installProviders(ctx); err != nil {
-		return
+		return server, err
 	}
 
 	// Install a ServiceEntry for each provider to configure routing to the local provider host.
 	err = server.installServiceEntries(ctx)
-	return
+	return server, err
 }
 
 type localServerImpl struct {
