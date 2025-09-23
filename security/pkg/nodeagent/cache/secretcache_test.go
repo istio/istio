@@ -1034,12 +1034,17 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 	u.Reset()
 
 	// Test updating the target files (should trigger updates)
+	t.Logf("CI_DEBUG_SYMLINK: About to call file.AtomicWrite for cert-chain.pem")
 	if err := file.AtomicWrite(filepath.Join(targetDir, "cert-chain.pem"), testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
+	t.Logf("CI_DEBUG_SYMLINK: Completed file.AtomicWrite for cert-chain.pem")
+
+	t.Logf("CI_DEBUG_SYMLINK: About to call file.AtomicWrite for key.pem")
 	if err := file.AtomicWrite(filepath.Join(targetDir, "key.pem"), testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
+	t.Logf("CI_DEBUG_SYMLINK: Completed file.AtomicWrite for key.pem")
 
 	// Small delay to ensure file watcher events are processed before test cleanup
 	t.Logf("CI_DEBUG_SYMLINK: Waiting 100ms for file events to be processed...")

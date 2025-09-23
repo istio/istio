@@ -970,6 +970,8 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 		parentDir := filepath.Dir(fc.Filename)
 		grandParentDir := filepath.Dir(parentDir)
 		if fc.Filename == event.Name || fc.TargetPath == event.Name || parentDir == event.Name || grandParentDir == event.Name {
+			cacheLog.Infof("CI_DEBUG_SYMLINK_EVENT: Processing symlink event - event.Name=%s, fc.Filename=%s, fc.TargetPath=%s, parentDir=%s",
+				event.Name, fc.Filename, fc.TargetPath, parentDir)
 			// If the symlink itself, its parent directory, or grandparent directory changed (removed/recreated), we need to re-resolve it
 			if (fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name) && (isRemove(event) || isCreate(event)) {
 				sc.handleSymlinkChange(fc)
@@ -981,10 +983,12 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 			if fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name {
 				// Always trigger for symlink and directory changes
 				shouldTriggerUpdate = true
+				cacheLog.Infof("CI_DEBUG_SYMLINK_EVENT: Symlink/directory path - triggering update for %s", fc.ResourceName)
 			} else if fc.TargetPath == event.Name {
-				// For target file changes, only trigger on WRITE events to reduce duplicate callbacks
-				// during atomic file operations (which cause REMOVE/CREATE sequences)
-				shouldTriggerUpdate = (event.Op&fsnotify.Write != 0)
+				// For target file changes, trigger on all events (including REMOVE/CREATE from atomic operations)
+				// This ensures atomic operations are detected on Linux where events come for target files
+				shouldTriggerUpdate = true
+				cacheLog.Infof("CI_DEBUG_SYMLINK_EVENT: Target file path - event.Op=%v, shouldTriggerUpdate=%v for %s", event.Op, shouldTriggerUpdate, fc.ResourceName)
 			}
 
 			if shouldTriggerUpdate {
