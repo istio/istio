@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "NAMESPACE") }}
 {{- if .Values.resourceQuotas.enabled }}
 apiVersion: v1
 kind: ResourceQuota
@@ -17,4 +18,5 @@ spec:
       scopeName: PriorityClass
       values:
       - system-node-critical
+{{- end }}
 {{- end }}
