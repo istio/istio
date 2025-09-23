@@ -35,7 +35,7 @@
       }
     }
   ],
-  "stats_eviction_interval": 10s,
+  "stats_eviction_interval": "10s",
   "stats_config": {
     "use_all_default_tags": false,
     "stats_tags": [

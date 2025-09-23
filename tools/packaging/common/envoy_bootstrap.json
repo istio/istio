@@ -74,10 +74,10 @@
     }
   ],
   {{- if .stats_flush_interval }}
-  "stats_flush_interval": {{ .stats_flush_interval }},
+  "stats_flush_interval": "{{ .stats_flush_interval }}",
   {{- end }}
   {{- if .stats_eviction_interval }}
-  "stats_eviction_interval": {{ .stats_eviction_interval }},
+  "stats_eviction_interval": "{{ .stats_eviction_interval }}",
   {{- end }}
   "stats_config": {
     "use_all_default_tags": false,
