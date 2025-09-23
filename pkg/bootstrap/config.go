@@ -340,7 +340,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		statsEvictionInterval, err := time.ParseDuration(eviction)
 		if err != nil {
 			log.Warnf("Failed to parse stats eviction interval %v: %v", eviction, err)
-		} else if statsEvictionInterval.Microseconds()%statsFlushInterval.Microseconds() != 0 {
+		} else if statsEvictionInterval%statsFlushInterval != 0 {
 			log.Warnf("StatsEvictionInterval must be a multiple of the StatsFlushInterval")
 		} else {
 			options = append(options, option.EnvoyStatsEvictionInterval(statsEvictionInterval))
