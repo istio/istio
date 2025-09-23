@@ -324,11 +324,15 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
 	// Check if the file or any part of its path is a symlink
 	isInSymlink := sc.isPathInSymlink(file)
+	cacheLog.Infof("CI_DEBUG: addFileWatcher for %s, isInSymlink=%v", file, isInSymlink)
 
 	if isInSymlink {
+		cacheLog.Infof("CI_DEBUG: Attempting symlink watcher for %s", file)
 		if err := sc.addSymlinkWatcher(file, resourceName); err == nil {
+			cacheLog.Infof("CI_DEBUG: Symlink watcher added successfully for %s", file)
 			return
 		}
+		cacheLog.Infof("CI_DEBUG: Symlink watcher failed for %s, retrying in background", file)
 		go func() {
 			b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 			_ = b.RetryWithContext(context.TODO(), func() error {
