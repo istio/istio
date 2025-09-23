@@ -455,13 +455,6 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 		sc.addWatcherSafely(grandParentDir, resourceName, "grandparent directory")
 	}
 
-	// Add target file to fileCerts so its events are processed
-	targetKey := FileCert{
-		ResourceName: resourceName,
-		Filename:     targetPath,
-		TargetPath:   "", // Target files don't have a target path
-	}
-	sc.fileCerts[targetKey] = struct{}{}
 	sc.addWatcherSafely(targetPath, resourceName, "target")
 
 	return nil
@@ -1004,9 +997,8 @@ func (sc *SecretManagerClient) handleSymlinkEvent(event fsnotify.Event, resource
 			continue
 		}
 
-		// For regular files (target files), only trigger on WRITE events to avoid
-		// duplicate callbacks during atomic file operations (which cause REMOVE/CREATE sequences)
-		if fc.Filename == event.Name && (event.Op&fsnotify.Write != 0) {
+		// For regular files, trigger on file changes (including REMOVE/CREATE from atomic operations)
+		if fc.Filename == event.Name {
 			updatedResources[fc.ResourceName] = struct{}{}
 			regularFileMatches++
 		}
