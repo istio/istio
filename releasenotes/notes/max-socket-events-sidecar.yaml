@@ -3,5 +3,6 @@ kind: feature
 area: traffic-management
 releaseNotes:
 - |
-  **Updated** the default value of maximum connections to accept per socket event to 1 as a performance improvement.
-   To get the old behavior, you can set `MAX_CONNECTIONS_PER_SOCKET_EVENT_LOOP` to zero.
+  **Updated** the default value of maximum connections to accept per socket event to 1
+  for inbound and outbound listeners built for sidecars. To get the old behavior, you can set 
+  `MAX_CONNECTIONS_PER_SOCKET_EVENT_LOOP` to zero.
