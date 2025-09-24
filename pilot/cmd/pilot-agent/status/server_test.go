@@ -521,7 +521,7 @@ my_other_metric{} 0
 			}
 
 			if negotiateMetricsFormat(rec.Header().Get("Content-Type")) == FmtText {
-				textParser := expfmt.TextParser{}
+				textParser := expfmt.NewTextParser(model.LegacyValidation)
 				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 				if err != nil {
 					t.Fatalf("failed to parse text metrics: %v", err)
