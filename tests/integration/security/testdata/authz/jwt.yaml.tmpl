@@ -12,6 +12,7 @@ spec:
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
   - issuer: "test-issuer-2@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    spaceDelimitedClaims: ["custom_scope", "teams"]
 ---
 
 # The following policy enables authorization on workload:
@@ -74,6 +75,21 @@ spec:
     when:
     - key: request.auth.claims[permission]
       values: ["write", "append"]
+  # Test custom_scope claim with space-delimited values
+  - to:
+    - operation:
+        paths: ["/custom-scope-admin"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[custom_scope]
+      values: ["admin"]
+  - to:
+    - operation:
+        paths: ["/custom-scope-user"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[custom_scope]
+      values: ["user"]
   - to:
     - operation:
         paths: ["/nested-key1"]

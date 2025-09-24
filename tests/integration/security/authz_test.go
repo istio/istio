@@ -783,6 +783,42 @@ func TestAuthz_JWT(t *testing.T) {
 							allow:  false,
 						},
 						{
+							prefix: "[CustomScopeToken]",
+							jwt:    jwt.TokenIssuer2WithCustomScopeSpaceDelimitedScope,
+							path:   "/custom-scope-admin",
+							allow:  true,
+						},
+						{
+							prefix: "[CustomScopeToken]",
+							jwt:    jwt.TokenIssuer2WithCustomScopeSpaceDelimitedScope,
+							path:   "/custom-scope-user",
+							allow:  true,
+						},
+						{
+							prefix: "[NoJWT]",
+							jwt:    "",
+							path:   "/custom-scope-admin",
+							allow:  false,
+						},
+						{
+							prefix: "[NoJWT]",
+							jwt:    "",
+							path:   "/custom-scope-user",
+							allow:  false,
+						},
+						{
+							prefix: "[Token1]",
+							jwt:    jwt.TokenIssuer1,
+							path:   "/custom-scope-admin",
+							allow:  false,
+						},
+						{
+							prefix: "[Token1]",
+							jwt:    jwt.TokenIssuer1,
+							path:   "/custom-scope-user",
+							allow:  false,
+						},
+						{
 							prefix: "[NestedToken1]",
 							jwt:    jwt.TokenIssuer1WithNestedClaims1,
 							path:   "/nested-key1",
