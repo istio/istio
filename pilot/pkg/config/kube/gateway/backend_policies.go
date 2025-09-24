@@ -106,8 +106,11 @@ func DestinationRuleCollection(
 ) krt.Collection[*config.Config] {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, opts)
 	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus)
-	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
 
+	// TODO: BackendTrafficPolicy should also probably use ancestorCollection. However, its still up for debate in the
+	// Gateway API community if having the Gateway as an ancestor ref is required or not; we would prefer it to not be if possible.
+	// Until conformance requires it, for now we skip it.
+	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
 	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, opts)
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus)
 

@@ -338,10 +338,10 @@ func NewController(
 		return []types.NamespacedName{o.To}
 	})
 	Ancestors := krt.JoinCollection([]krt.Collection[AncestorBackend]{
-		// tcpRoutes.Ancestors,
-		// tlsRoutes.Ancestors,
+		tcpRoutes.Ancestors,
+		tlsRoutes.Ancestors,
 		httpRoutes.Ancestors,
-		// grpcRoutes.Ancestors,
+		grpcRoutes.Ancestors,
 	}, opts.WithName("Ancestors")...)
 	AncestorsIndex := krt.NewIndex(Ancestors, "ancestors", func(o AncestorBackend) []TypedNamespacedName {
 		return []TypedNamespacedName{o.Backend}

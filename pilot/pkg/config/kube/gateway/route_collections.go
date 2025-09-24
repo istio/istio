@@ -66,7 +66,6 @@ func HTTPRouteCollection(
 			return r.BackendRefs
 		})
 	}, opts.WithName("HTTPAncestors")...)
-	_ = ancestorBackends
 	status, baseVirtualServices := krt.NewStatusManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (
 		*gateway.HTTPRouteStatus,
 		[]RouteWithKey,
@@ -268,6 +267,11 @@ func GRPCRouteCollection(
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, grpcRoutes, gvk.GRPCRoute, opts)
+	ancestorBackends := krt.NewManyCollection(grpcRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) []AncestorBackend {
+		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayv1.GRPCRouteRule) []gatewayv1.GRPCBackendRef {
+			return r.BackendRefs
+		})
+	}, opts.WithName("GRPCAncestors")...)
 	status, baseVirtualServices := krt.NewStatusManyCollection(grpcRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) (
 		*gatewayv1.GRPCRouteStatus,
 		[]RouteWithKey,
@@ -397,6 +401,7 @@ func GRPCRouteCollection(
 		VirtualServices:  finalVirtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
+		Ancestors:        ancestorBackends,
 	}
 }
 
@@ -406,6 +411,11 @@ func TCPRouteCollection(
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tcpRoutes, gvk.TCPRoute, opts)
+	ancestorBackends := krt.NewManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []AncestorBackend {
+		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayalpha.TCPRouteRule) []gateway.BackendRef {
+			return r.BackendRefs
+		})
+	}, opts.WithName("TCPAncestors")...)
 	status, virtualServices := krt.NewStatusManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (
 		*gatewayalpha.TCPRouteStatus,
 		[]*config.Config,
@@ -482,6 +492,7 @@ func TCPRouteCollection(
 		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
+		Ancestors:        ancestorBackends,
 	}
 }
 
@@ -491,6 +502,11 @@ func TLSRouteCollection(
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tlsRoutes, gvk.TLSRoute, opts)
+	ancestorBackends := krt.NewManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) []AncestorBackend {
+		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayalpha.TLSRouteRule) []gateway.BackendRef {
+			return r.BackendRefs
+		})
+	}, opts.WithName("TLSAncestors")...)
 	status, virtualServices := krt.NewStatusManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (
 		*gatewayalpha.TLSRouteStatus,
 		[]*config.Config,
@@ -566,6 +582,7 @@ func TLSRouteCollection(
 		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
+		Ancestors:        ancestorBackends,
 	}
 }
 
