@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 57719
+releaseNotes:
+  - |
+    **Fixed** a bug where DRs without workload selectors in the destination/root namespace were not applied if the source namespace only contained DRs with workloadselectors.
+    This fix does not apply merging across namespaces. For example, if a DR in the source namespace has a workload selector and a DR in the destination namespace has no workload 
+    selector, the fields of the DR in the destination namespace will not be merged with the DR in the source namespace.

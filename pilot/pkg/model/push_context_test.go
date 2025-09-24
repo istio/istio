@@ -2062,8 +2062,6 @@ func scopeToSidecar(scope *SidecarScope) string {
 
 func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 	now := time.Now()
-	ps := NewPushContext()
-	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"
 	app1DestinationRule := config.Config{
 		Meta: config.Meta{
@@ -2153,9 +2151,39 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 			},
 		},
 	}
-	namespaceDestinationRule := config.Config{
+	app4DestinationRule := config.Config{
 		Meta: config.Meta{
 			Name:              "nsRule4",
+			Namespace:         "test2",
+			CreationTimestamp: now.Add(time.Second),
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"."},
+			WorkloadSelector: &selectorpb.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app2"},
+			},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &wrapperspb.UInt32Value{Value: 3},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+		},
+	}
+	namespaceDestinationRule := config.Config{
+		Meta: config.Meta{
+			Name:              "nsRule5",
 			Namespace:         "test",
 			CreationTimestamp: now.Add(-time.Second),
 		},
@@ -2180,22 +2208,52 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 			},
 		},
 	}
+	istioSystemDestinationRule := config.Config{
+		Meta: config.Meta{
+			Name:              "nsRule6",
+			Namespace:         "istio-system",
+			CreationTimestamp: now.Add(-time.Second),
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"*"},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &wrapperspb.UInt32Value{Value: 3},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+		},
+	}
+
 	testCases := []struct {
 		name                   string
 		proxyNs                string
 		serviceNs              string
 		serviceHostname        string
+		destinationRules       []config.Config
 		expectedDrCount        int
 		expectedDrName         []string
 		expectedNamespacedFrom map[string][]types.NamespacedName
 	}{
 		{
-			name:            "return list of DRs for specific host",
-			proxyNs:         "test",
-			serviceNs:       "test",
-			serviceHostname: testhost,
-			expectedDrCount: 3,
-			expectedDrName:  []string{app1DestinationRule.Meta.Name, app2DestinationRule.Meta.Name, namespaceDestinationRule.Meta.Name},
+			name:             "return list of DRs for specific host",
+			proxyNs:          "test",
+			serviceNs:        "test",
+			serviceHostname:  testhost,
+			destinationRules: []config.Config{app1DestinationRule, app2DestinationRule, app3DestinationRule, namespaceDestinationRule, istioSystemDestinationRule},
+			expectedDrCount:  3,
+			expectedDrName:   []string{app1DestinationRule.Meta.Name, app2DestinationRule.Meta.Name, namespaceDestinationRule.Meta.Name},
 			expectedNamespacedFrom: map[string][]types.NamespacedName{
 				app1DestinationRule.Meta.Name:      {app1DestinationRule.NamespacedName(), namespaceDestinationRule.NamespacedName()},
 				app2DestinationRule.Meta.Name:      {app2DestinationRule.NamespacedName(), app3DestinationRule.NamespacedName(), namespaceDestinationRule.NamespacedName()},
@@ -2207,29 +2265,84 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 			proxyNs:                "test2",
 			serviceNs:              "test",
 			serviceHostname:        testhost,
+			destinationRules:       []config.Config{app1DestinationRule, app2DestinationRule, app3DestinationRule, namespaceDestinationRule, istioSystemDestinationRule},
 			expectedDrCount:        1,
 			expectedDrName:         []string{namespaceDestinationRule.Meta.Name},
 			expectedNamespacedFrom: map[string][]types.NamespacedName{},
 		},
 		{
-			name:            "rules with same workloadselector should be merged",
-			proxyNs:         "test",
-			serviceNs:       "test",
-			serviceHostname: testhost,
-			expectedDrCount: 3,
-			expectedDrName:  []string{app1DestinationRule.Meta.Name, app2DestinationRule.Meta.Name, namespaceDestinationRule.Meta.Name},
+			name:             "rules with same workloadselector should be merged",
+			proxyNs:          "test",
+			serviceNs:        "test",
+			serviceHostname:  testhost,
+			destinationRules: []config.Config{app1DestinationRule, app2DestinationRule, app3DestinationRule, namespaceDestinationRule, istioSystemDestinationRule},
+			expectedDrCount:  3,
+			expectedDrName:   []string{app1DestinationRule.Meta.Name, app2DestinationRule.Meta.Name, namespaceDestinationRule.Meta.Name},
 			expectedNamespacedFrom: map[string][]types.NamespacedName{
 				app1DestinationRule.Meta.Name:      {app1DestinationRule.NamespacedName(), namespaceDestinationRule.NamespacedName()},
 				app2DestinationRule.Meta.Name:      {app2DestinationRule.NamespacedName(), app3DestinationRule.NamespacedName(), namespaceDestinationRule.NamespacedName()},
 				namespaceDestinationRule.Meta.Name: {namespaceDestinationRule.NamespacedName()},
 			},
 		},
+		{
+			name:             "DR without workloadselector in dst NS applied if src NS only contains DRs with selectors",
+			proxyNs:          "test2",
+			serviceNs:        "test",
+			serviceHostname:  testhost,
+			destinationRules: []config.Config{app4DestinationRule, namespaceDestinationRule, istioSystemDestinationRule},
+			expectedDrCount:  2,
+			expectedDrName:   []string{app4DestinationRule.Meta.Name, namespaceDestinationRule.Meta.Name},
+			expectedNamespacedFrom: map[string][]types.NamespacedName{
+				app4DestinationRule.Meta.Name:      {app4DestinationRule.NamespacedName()}, // merging across namespaces currently not supported
+				namespaceDestinationRule.Meta.Name: {namespaceDestinationRule.NamespacedName()},
+			},
+		},
+		{
+			name:             "DR without workloadselector in root NS applied if src NS only contains DRs with selectors",
+			proxyNs:          "test2",
+			serviceNs:        "test",
+			serviceHostname:  testhost,
+			destinationRules: []config.Config{app4DestinationRule, istioSystemDestinationRule},
+			expectedDrCount:  2,
+			expectedDrName:   []string{app4DestinationRule.Meta.Name, istioSystemDestinationRule.Meta.Name},
+			expectedNamespacedFrom: map[string][]types.NamespacedName{
+				app4DestinationRule.Meta.Name:        {app4DestinationRule.NamespacedName()}, // merging across namespaces currently not supported
+				istioSystemDestinationRule.Meta.Name: {istioSystemDestinationRule.NamespacedName()},
+			},
+		},
+		{
+			name:             "DR without workloadselector in root NS applied if src + dst NS only contain DRs with selectors",
+			proxyNs:          "test2",
+			serviceNs:        "test",
+			serviceHostname:  testhost,
+			destinationRules: []config.Config{app1DestinationRule, app2DestinationRule, app3DestinationRule, app4DestinationRule, istioSystemDestinationRule},
+			expectedDrCount:  2,
+			expectedDrName:   []string{app4DestinationRule.Meta.Name, istioSystemDestinationRule.Meta.Name},
+			expectedNamespacedFrom: map[string][]types.NamespacedName{
+				app4DestinationRule.Meta.Name:        {app4DestinationRule.NamespacedName()}, // merging across namespaces currently not supported
+				istioSystemDestinationRule.Meta.Name: {istioSystemDestinationRule.NamespacedName()},
+			},
+		},
+		{
+			name:             "workload-specific DR applied if no DR without workloadselector is present at all",
+			proxyNs:          "test",
+			serviceNs:        "test",
+			serviceHostname:  testhost,
+			destinationRules: []config.Config{app1DestinationRule, app2DestinationRule, app3DestinationRule, app4DestinationRule},
+			expectedDrCount:  2,
+			expectedDrName:   []string{app1DestinationRule.Meta.Name, app2DestinationRule.Meta.Name},
+			expectedNamespacedFrom: map[string][]types.NamespacedName{
+				app1DestinationRule.Meta.Name: {app1DestinationRule.NamespacedName()},
+				app2DestinationRule.Meta.Name: {app2DestinationRule.NamespacedName(), app3DestinationRule.NamespacedName()},
+			},
+		},
 	}
-
-	ps.setDestinationRules([]config.Config{app1DestinationRule, app2DestinationRule, app3DestinationRule, namespaceDestinationRule})
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
+			ps := NewPushContext()
+			ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+			ps.setDestinationRules(tt.destinationRules)
 			drList := ps.destinationRule(tt.proxyNs,
 				&Service{
 					Hostname: host.Name(tt.serviceHostname),
