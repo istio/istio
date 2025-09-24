@@ -504,7 +504,12 @@ func BackendTrafficPolicyCollection(
 				})
 			}
 
-			// ancestors = append(ancestors, setAncestorStatus(t, status, i.Generation, conds))
+			pr := gw.ParentReference{
+				Group: &t.Group,
+				Kind:  &t.Kind,
+				Name:  t.Name,
+			}
+			ancestors = append(ancestors, setAncestorStatus(pr, status, i.Generation, conds, constants.ManagedGatewayMeshController))
 		}
 		status.Ancestors = mergeAncestors(status.Ancestors, ancestors)
 		return status, res
