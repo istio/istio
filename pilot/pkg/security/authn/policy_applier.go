@@ -343,21 +343,21 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 //     The default claims "scope" and "permission" are always included.
 //
 // Example:
-//   - If SpaceDelimitedClaimsList is nil, the function returns ["scope", "permission"].
-//   - If SpaceDelimitedClaimsList is ["customClaim1", "customClaim2"], the function returns
-//     ["scope", "permission", "customClaim1", "customClaim2"].
-func buildSpaceDelimitedClaims(SpaceDelimitedClaimsList []string) []string {
+//   - If spaceDelimitedClaimsList is nil, the function returns ["permission", "scope"].
+//   - If spaceDelimitedClaimsList is ["customClaim1", "customClaim2"], the function returns
+//     ["customClaim1", "customClaim2", "permission", "scope"].
+func buildSpaceDelimitedClaims(spaceDelimitedClaimsList []string) []string {
 	// Default claims that are always space-delimited
 	defaultClaims := []string{"permission", "scope"}
 
 	// If input is nil, return the default list
-	if SpaceDelimitedClaimsList == nil {
+	if spaceDelimitedClaimsList == nil {
 		return defaultClaims
 	}
 
 	// Use a map to deduplicate the input list
 	claimSet := make(map[string]struct{})
-	for _, claim := range SpaceDelimitedClaimsList {
+	for _, claim := range spaceDelimitedClaimsList {
 		claimSet[claim] = struct{}{}
 	}
 
