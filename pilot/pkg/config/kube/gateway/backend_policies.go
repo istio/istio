@@ -312,7 +312,6 @@ func BackendTLSPolicyCollection(
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
 				})
-				log.Errorf("howardjohn: TARGET %v", target)
 				ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
 				for _, gwl := range ancestorBackends {
 					for _, i := range gwl.Objects {
@@ -338,7 +337,6 @@ func BackendTLSPolicyCollection(
 			}
 			ancestorStatus = append(ancestorStatus, setAncestorStatus(pr, status, i.Generation, conds, gw.GatewayController(features.ManagedGatewayController)))
 		}
-		log.Errorf("howardjohn: set ancestors %v for %v, existing %v", config.NamespacedName(i), len(ancestorStatus), len(status.Ancestors))
 		status.Ancestors = mergeAncestors(status.Ancestors, ancestorStatus)
 		return status, res
 	}, opts.WithName("BackendTLSPolicy")...)
