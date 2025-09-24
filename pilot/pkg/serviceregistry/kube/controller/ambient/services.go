@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
@@ -65,6 +66,7 @@ func (a *index) ServicesCollection(
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...)
+
 	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
 		append(
 			opts.WithName("ServiceEntriesInfo"),
@@ -72,8 +74,36 @@ func (a *index) ServicesCollection(
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...)
-	WorkloadServices := krt.JoinCollection(
-		[]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo},
+	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []string {
+		return []string{se.Service.Hostname}
+	})
+	DedupedServiceEntriesInfo := krt.NewCollection(ServiceEntriesInfo, func(ctx krt.HandlerContext, se ServiceEntryInfo) *model.ServiceInfo {
+		byHostname := krt.Fetch(ctx, ServiceEntriesInfo, krt.FilterIndex(serviceEntryByHostname, se.Service.Hostname))
+		if len(byHostname) > 1 {
+			for _, other := range byHostname {
+				if other.NamespacedName() != se.NamespacedName() && other.CreationTime.Before(se.CreationTime) {
+					// another ServiceEntry exists with the same hostname and is older
+					return nil
+				}
+			}
+		}
+		return &se.ServiceInfo
+	})
+	WorkloadServices := krt.JoinWithMergeCollection(
+		[]krt.Collection[model.ServiceInfo]{
+			ServicesInfo,
+			DedupedServiceEntriesInfo,
+		},
+		func(conflicting []model.ServiceInfo) *model.ServiceInfo {
+			// we'll never have more than 2 here - Service can't have hostname conflict
+			// we already de-duplicated ServiceEntries above
+			for _, c := range conflicting {
+				if c.Source.Kind == kind.Service {
+					return &c
+				}
+			}
+			return &conflicting[0]
+		},
 		append(opts.WithName("WorkloadService"), krt.WithMetadata(
 			krt.Metadata{
 				multicluster.ClusterKRTMetadataKey: clusterID,
@@ -227,6 +257,7 @@ func serviceServiceBuilder(
 			Source:        MakeSource(s),
 			Waypoint:      waypointStatus,
 			Scope:         serviceScope,
+			CreationTime:  s.CreationTimestamp.Time,
 		}
 		if precompute {
 			return precomputeServicePtr(svcInfo)
@@ -352,14 +383,27 @@ func MakeSource(o controllers.Object) model.TypedObject {
 	}
 }
 
+// ServiceEntryInfo is a wrapper around ServiceInfo that handles key conflicts
+// on hostname.
+type ServiceEntryInfo struct {
+	model.ServiceInfo
+}
+
+func (s ServiceEntryInfo) ResourceName() string {
+	return s.GetNamespace() + "/" + s.GetName()
+}
+
 func (a *index) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
-) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
-	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
+) krt.TransformationMulti[*networkingclient.ServiceEntry, ServiceEntryInfo] {
+	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []ServiceEntryInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		return serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
+		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
+		})
+		return slices.Map(serviceInfos, func(si model.ServiceInfo) ServiceEntryInfo {
+			return ServiceEntryInfo{ServiceInfo: si}
 		})
 	}
 }
@@ -403,6 +447,7 @@ func serviceEntriesInfo(
 			LabelSelector: sel,
 			Source:        MakeSource(s),
 			Waypoint:      waypoint,
+			CreationTime:  s.CreationTimestamp.Time,
 		})
 	})
 }

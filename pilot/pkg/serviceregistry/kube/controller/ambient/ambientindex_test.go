@@ -369,6 +369,70 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 	}
 }
 
+func TestAmbientIndex_ServiceOverlap(t *testing.T) {
+	addServiceEntry := func(s *ambientTestServer, i int, host string) {
+		s.addServiceEntry(
+			t,
+			host,
+			[]string{fmt.Sprintf("10.255.0.%d", i)},
+			fmt.Sprintf("se-%d", i),
+			testNS,
+			map[string]string{},
+			[]string{fmt.Sprintf("10.10.0.%d", i)},
+		)
+	}
+	addService := func(s *ambientTestServer, i int, name string) {
+		s.addService(
+			t,
+			name,
+			map[string]string{},
+			map[string]string{},
+			[]int32{80},
+			map[string]string{},
+			fmt.Sprintf("10.255.255.%d", i),
+		)
+	}
+	deleteServiceEntry := func(s *ambientTestServer, i int) {
+		s.deleteServiceEntry(t, fmt.Sprintf("se-%d", i), testNS)
+	}
+
+	t.Run("serviceentry overlap", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+
+		// initial SE
+		addServiceEntry(s, 1, "foo.com")
+		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
+
+		// overlapping SE - the old one takes precedence, new one is not in indexes
+		addServiceEntry(s, 2, "foo.com")
+		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
+		s.assertAddresses(t, testNW+"/10.255.0.2")
+
+		// the original one goes away, the new one takes over
+		deleteServiceEntry(s, 1)
+		s.assertAddresses(t, testNW+"/10.255.0.1")
+		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+	})
+
+	t.Run("serviceentry and service overlap", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+
+		// initial svc
+		addService(s, 1, "svc1")
+		s.assertAddresses(t, testNW+"/10.255.255.1", "svc1")
+
+		// overlapping SE - the old one takes precedence, new one is not in indexes
+		addServiceEntry(s, 2, "svc1.testns.svc.company.com")
+		s.assertAddresses(t, testNW+"/10.255.255.1", "svc1")
+		s.assertAddresses(t, testNW+"/10.255.0.2")
+
+		// the original one goes away, the new one takes over
+		s.deleteService(t, "svc1")
+		s.assertAddresses(t, testNW+"/10.255.255.1")
+		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+	})
+}
+
 func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 	cases := []struct {
 		name         string
@@ -2720,6 +2784,10 @@ func (s *ambientTestServer) addrXdsName(addr string) string {
 // Returns the XDS resource name for the given service.
 func (s *ambientTestServer) svcXdsName(serviceName string) string {
 	return fmt.Sprintf("%s/%s", testNS, s.hostnameForService(serviceName))
+}
+
+func (s *ambientTestServer) seXdsName(hostname string) string {
+	return fmt.Sprintf("%s/%s", testNS, hostname)
 }
 
 // Returns the hostname for the given service.
