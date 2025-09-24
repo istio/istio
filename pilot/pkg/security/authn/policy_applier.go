@@ -166,7 +166,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
 			PayloadInMetadata:    filters.EnvoyJwtFilterPayload,
 			NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-				SpaceDelimitedClaims: []string{"scope", "permission"},
+				SpaceDelimitedClaims: buildSpaceDelimitedClaims(jwtRule.SpaceDelimitedClaims),
 			},
 			ClearRouteCache: clearRouteCache,
 		}
@@ -328,6 +328,57 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		Providers:           providers,
 		BypassCorsPreflight: true,
 	}
+}
+
+// buildSpaceDelimitedClaims constructs a list of JWT claim names that should be treated
+// as space-delimited strings by the Envoy JWT filter.
+// The default claims ("scope" and "permission") are always included while allowing users
+// to specify additional custom claims.
+// Parameters:
+//   - SpaceDelimitedClaimsList: A slice of custom JWT claim names that should be treated
+//     as space-delimited. Can be nil or empty.
+//
+// Returns:
+//   - A slice of strings containing all claim names that should be treated as space-delimited.
+//     The default claims "scope" and "permission" are always included.
+//
+// Example:
+//   - If SpaceDelimitedClaimsList is nil, the function returns ["scope", "permission"].
+//   - If SpaceDelimitedClaimsList is ["customClaim1", "customClaim2"], the function returns
+//     ["scope", "permission", "customClaim1", "customClaim2"].
+func buildSpaceDelimitedClaims(SpaceDelimitedClaimsList []string) []string {
+	// Default claims that are always space-delimited
+	defaultClaims := []string{"permission", "scope"}
+
+	// If input is nil, return the default list
+	if SpaceDelimitedClaimsList == nil {
+		return defaultClaims
+	}
+
+	// Use a map to deduplicate the input list
+	claimSet := make(map[string]struct{})
+	for _, claim := range SpaceDelimitedClaimsList {
+		claimSet[claim] = struct{}{}
+	}
+
+	// Ensure the default claims are included
+	for _, claim := range defaultClaims {
+		claimSet[claim] = struct{}{}
+	}
+
+	// Convert the set back to a slice and sort for deterministic output
+	result := make([]string, 0, len(claimSet))
+	for claim := range claimSet {
+		result = append(result, claim)
+	}
+
+	// Sort to ensure deterministic output for testing purposes only.
+	// Note: This sorting does not affect JWT processing functionality - Envoy treats
+	// all claims in the list equally regardless of order. The sorting is purely for
+	// consistent test results and implementation predictability.
+	slices.SortBy(result, func(s string) string { return s })
+
+	return result
 }
 
 func (a policyApplier) PortLevelSetting() map[uint32]model.MutualTLSMode {
