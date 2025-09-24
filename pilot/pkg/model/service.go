@@ -1129,7 +1129,7 @@ type ServiceInfo struct {
 	MarshaledAddress *anypb.Any
 	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
 	// the hotpath
-	AsAddress    AddressInfo
+	AsAddress AddressInfo
 	// CreationTime is the time when the service was created. Note this is used internally only
 	// for conflict resolution.
 	CreationTime time.Time
