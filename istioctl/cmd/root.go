@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/viper"
 
 	"istio.io/istio/istioctl/pkg/admin"
+	"istio.io/istio/istioctl/pkg/ambient"
 	"istio.io/istio/istioctl/pkg/analyze"
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/checkinject"
@@ -200,6 +201,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
 	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
 	rootCmd.AddCommand(waypoint.Cmd(ctx))
+	rootCmd.AddCommand(ambient.Cmd(ctx))
 	rootCmd.AddCommand(ztunnelconfig.ZtunnelConfig(ctx))
 
 	analyzeCmd := analyze.Analyze(ctx)
