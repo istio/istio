@@ -17,14 +17,6 @@ _internal_defaults_do_not_set:
   # corresponds to the networks in the map of mesh networks.
   network: ""
 
-    # resourceScope controls what resources will be processed by helm.
-    # This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
-    # It can be one of:
-    # - ALL: all resources are processed
-    # - CLUSTER: only cluster-scoped resources are processed
-    # - NAMESPACE: only namespace-scoped resources are processed
-    resourceScope: ALL
-
   # resourceName, if set, will override the naming of resources. If not set, will default to 'ztunnel'.
   # If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart.
   resourceName: ""
@@ -126,9 +118,14 @@ _internal_defaults_do_not_set:
   # TODO Ambient inpod - for OpenShift, set to the following to get writable sockets in hostmounts to work, eventually consider CSI driver instead
   #seLinuxOptions:
   #  type: spc_t
-
-  # Whether to omit cluster resources for persona-based installations
-  omitClusterResources: false
+  
+  # resourceScope controls what resources will be processed by helm.
+  # This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+  # It can be one of:
+  # - ALL: all resources are processed
+  # - CLUSTER: only cluster-scoped resources are processed
+  # - NAMESPACE: only namespace-scoped resources are processed
+  resourceScope: ALL
 
   # K8s DaemonSet update strategy.
   # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
