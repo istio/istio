@@ -390,7 +390,7 @@ type ServiceEntryInfo struct {
 }
 
 func (s ServiceEntryInfo) ResourceName() string {
-	return s.GetNamespace() + "/" + s.GetName()
+	return s.GetNamespace() + "/" + s.GetName() + "/" + s.Service.GetHostname()
 }
 
 func (a *index) serviceEntryServiceBuilder(
