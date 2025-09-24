@@ -77,17 +77,19 @@ func (a *index) ServicesCollection(
 	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []string {
 		return []string{se.Service.Hostname}
 	})
-	DedupedServiceEntriesInfo := krt.NewCollection(ServiceEntriesInfo, func(ctx krt.HandlerContext, se ServiceEntryInfo) *model.ServiceInfo {
-		byHostname := krt.Fetch(ctx, ServiceEntriesInfo, krt.FilterIndex(serviceEntryByHostname, se.Service.Hostname))
-		if len(byHostname) > 1 {
-			for _, other := range byHostname {
-				if other.NamespacedName() != se.NamespacedName() && other.CreationTime.Before(se.CreationTime) {
-					// another ServiceEntry exists with the same hostname and is older
-					return nil
-				}
+
+	DedupedServiceEntriesInfo := krt.NewCollection(serviceEntryByHostname.AsCollection(), func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) *model.ServiceInfo {
+		if len(se.Objects) == 0 {
+			return nil
+		}
+
+		var oldest *model.ServiceInfo
+		for _, o := range se.Objects {
+			if oldest == nil || o.CreationTime.Before(oldest.CreationTime) {
+				oldest = &o.ServiceInfo
 			}
 		}
-		return &se.ServiceInfo
+		return oldest
 	}, append(
 		opts.WithName("DedupedServiceEntriesInfo"),
 		krt.WithMetadata(krt.Metadata{
@@ -396,6 +398,10 @@ type ServiceEntryInfo struct {
 
 func (s ServiceEntryInfo) ResourceName() string {
 	return s.GetNamespace() + "/" + s.GetName() + "/" + s.Service.GetHostname()
+}
+
+func (s ServiceEntryInfo) Equals(other ServiceEntryInfo) bool {
+	return s.ServiceInfo.Equals(other.ServiceInfo)
 }
 
 func (a *index) serviceEntryServiceBuilder(
