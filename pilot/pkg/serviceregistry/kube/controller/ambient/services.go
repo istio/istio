@@ -88,7 +88,12 @@ func (a *index) ServicesCollection(
 			}
 		}
 		return &se.ServiceInfo
-	})
+	}, append(
+		opts.WithName("DedupedServiceEntriesInfo"),
+		krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: clusterID,
+		}),
+	)...)
 	WorkloadServices := krt.JoinWithMergeCollection(
 		[]krt.Collection[model.ServiceInfo]{
 			ServicesInfo,
