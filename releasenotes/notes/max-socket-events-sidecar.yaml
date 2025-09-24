@@ -4,5 +4,7 @@ area: traffic-management
 releaseNotes:
 - |
   **Updated** the default value of maximum connections to accept per socket event to 1
-  for inbound and outbound listeners built for sidecars. To get the old behavior, you can set 
-  `MAX_CONNECTIONS_PER_SOCKET_EVENT_LOOP` to zero.
+  for inbound and outbound listeners built for sidecars that explicitly bind to ports.
+  This allows for listeners built without IPTABLES interception to benefit from better 
+  performance under high connection churn scenarios. To get the old behavior, you can 
+  set `MAX_CONNECTIONS_PER_SOCKET_EVENT_LOOP` to zero.
