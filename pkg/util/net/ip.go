@@ -65,7 +65,7 @@ func IPsSplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 			log.Debugf("ignoring un-parsable IP address: %v", ip)
 		}
 	}
-	return
+	return ipv4, ipv6
 }
 
 // ParseIPsSplitToV4V6 returns two slice of ipv4 and ipv6 netip.Addr.
@@ -84,7 +84,7 @@ func ParseIPsSplitToV4V6(ips []string) (ipv4 []netip.Addr, ipv6 []netip.Addr) {
 			log.Debugf("ignoring un-parsable IP address: %v", ip)
 		}
 	}
-	return
+	return ipv4, ipv6
 }
 
 // IsRequestFromLocalhost returns true if request is from localhost address.

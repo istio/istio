@@ -138,7 +138,7 @@ var (
 		for _, c := range cases {
 			res = append(res, echo.CallOptions{Port: c.Port})
 		}
-		return
+		return res
 	}()
 )
 
@@ -2215,7 +2215,7 @@ func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
 	if !v4 && !v6 {
 		t.Fatalf("pod is neither v4 nor v6? %v", addrs)
 	}
-	return
+	return v4, v6
 }
 
 func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {

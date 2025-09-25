@@ -82,7 +82,7 @@ func (c *Controller) Reconcile(key types.NamespacedName) error {
 
 func (c *Controller) ReconcilePod(pod *corev1.Pod) (err error) {
 	if !c.matchesFilter(pod) {
-		return // Skip, pod doesn't need repair
+		return err // Skip, pod doesn't need repair
 	}
 	repairLog.Debugf("Reconciling pod %s", pod.Name)
 

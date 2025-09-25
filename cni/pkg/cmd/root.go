@@ -71,7 +71,7 @@ var rootCmd = &cobra.Command{
 
 		var cfg *config.Config
 		if cfg, err = constructConfig(); err != nil {
-			return
+			return err
 		}
 		log.Infof("CNI version: %v", version.Info.String())
 		log.Infof("CNI logging level: %+v", istiolog.LevelToString(log.GetOutputLevel()))
@@ -85,7 +85,7 @@ var rootCmd = &cobra.Command{
 		udsLogger := udsLog.NewUDSLogger(log.GetOutputLevel())
 		if err = udsLogger.StartUDSLogServer(filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.LogUDSSocketName), ctx.Done()); err != nil {
 			log.Errorf("Failed to start up UDS Log Server: %v", err)
-			return
+			return err
 		}
 
 		// Creates a basic health endpoint server that reports health status
@@ -121,6 +121,7 @@ var rootCmd = &cobra.Command{
 					DNSCapture:                 cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
+					NativeNftables:             cfg.InstallConfig.NativeNftables,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -190,7 +191,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		return
+		return err
 	},
 }
 

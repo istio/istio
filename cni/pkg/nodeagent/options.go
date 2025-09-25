@@ -54,4 +54,5 @@ type AmbientArgs struct {
 	DNSCapture                 bool
 	EnableIPv6                 bool
 	ReconcilePodRulesOnStartup bool
+	NativeNftables             bool
 }

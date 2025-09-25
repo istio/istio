@@ -21,6 +21,7 @@ import (
 
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/tools/common/config"
+	"istio.io/istio/tools/istio-nftables/pkg/builder"
 	"istio.io/istio/tools/istio-nftables/pkg/constants"
 )
 
@@ -279,9 +280,9 @@ func TestNftables(t *testing.T) {
 			cfg := constructTestConfig()
 			tt.config(cfg)
 			// Create a map to store mock instances for each table.
-			mock := NewMockNftables("", "")
+			mock := builder.NewMockNftables("", "")
 
-			nftProvider := func(_ knftables.Family, table string) (NftablesAPI, error) {
+			nftProvider := func(_ knftables.Family, table string) (builder.NftablesAPI, error) {
 				return mock, nil
 			}
 

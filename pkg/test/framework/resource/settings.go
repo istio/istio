@@ -194,6 +194,9 @@ type Settings struct {
 
 	// OpenShift indicates the tests run in an OpenShift platform rather than in plain Kubernetes.
 	OpenShift bool
+
+	// If enabled, native nftable rules will be used for traffic redirection instead of iptable rules.
+	NativeNftables bool
 }
 
 // SkipVMs changes the skip settings at runtime

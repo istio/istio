@@ -540,30 +540,31 @@ pass command-line flags to the test while running under the debugger, you can us
 
 The test framework supports the following command-line flags:
 
-| Name | Type | Description |
-|------|------|-------------|
-| --istio.test.work_dir | string | Local working directory for creating logs/temp files. If left empty, os.TempDir() is used. |
-| --istio.test.ci | bool | Enable CI Mode. Additional logging and state dumping will be enabled. |
-| --istio.test.nocleanup | bool | Do not cleanup resources after test completion. |
-| --istio.test.select | string | Comma separated list of labels for selecting tests to run (e.g. 'foo,+bar-baz'). |
-| --istio.test.hub | string | Container registry hub to use (default HUB environment variable). |
-| --istio.test.tag | string | Common Container tag to use when deploying container images (default TAG environment variable). |
-| --istio.test.pullpolicy | string | Common image pull policy to use when deploying container images. |
-| --istio.test.kube.config | string | A comma-separated list of paths to kube config files for cluster environments. (default ~/.kube/config). |
-| --istio.test.kube.deploy | bool | Deploy Istio into the target Kubernetes environment. (default true). |
-| --istio.test.kube.deployEastWestGW | bool | Deploy Istio east west gateway into the target Kubernetes environment. (default true). |
-| --istio.test.kube.systemNamespace | string | The namespace where the Istio components reside in a typical deployment. (default "istio-system"). |
-| --istio.test.kube.helm.values | string | Manual overrides for Helm values file. Only valid when deploying Istio. |
-| --istio.test.kube.helm.iopFile | string | IstioOperator spec file. This can be an absolute path or relative to the repository root. Defaults to "tests/integration/iop-integration-test-defaults.yaml". |
-| --istio.test.kube.loadbalancer | bool | Used to obtain the right IP address for ingress gateway. This should be false for any environment that doesn't support a LoadBalancer type. |
-| --istio.test.kube.deployGatewayAPI | bool | Deploy gateway API during tests execution. (default is "true"). |
-| --istio.test.revision | string | Overwrite the default namespace label (istio-enabled=true) with revision label (istio.io/rev=XXX). (default is no overwrite). |
-| --istio.test.skip | []string | Skip tests matching the regular expression. This follows the semantics of -test.run. |
-| --istio.test.skipVM | bool | Skip all the VM related parts in all the tests. (default is "false"). |
-| --istio.test.helmRepo | string | Overwrite the default helm Repo used for the tests. |
-| --istio.test.ambient | bool | Indicate the use of ambient mesh. |
-| --istio.test.openshift | bool | Set to `true` when running the tests in an OpenShift cluster, rather than in KinD. |
-| --istio.test.stableNamespaces | bool | Set to `true` to use stable namespaces for the test. Useful with nocleanup to develop tests |
+| Name                               | Type | Description                                                                                                                                                   |
+|------------------------------------|------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| --istio.test.work_dir              | string | Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.                                                                    |
+| --istio.test.ci                    | bool | Enable CI Mode. Additional logging and state dumping will be enabled.                                                                                         |
+| --istio.test.nocleanup             | bool | Do not cleanup resources after test completion.                                                                                                               |
+| --istio.test.select                | string | Comma separated list of labels for selecting tests to run (e.g. 'foo,+bar-baz').                                                                              |
+| --istio.test.hub                   | string | Container registry hub to use (default HUB environment variable).                                                                                             |
+| --istio.test.tag                   | string | Common Container tag to use when deploying container images (default TAG environment variable).                                                               |
+| --istio.test.pullpolicy            | string | Common image pull policy to use when deploying container images.                                                                                              |
+| --istio.test.kube.config           | string | A comma-separated list of paths to kube config files for cluster environments. (default ~/.kube/config).                                                      |
+| --istio.test.kube.deploy           | bool | Deploy Istio into the target Kubernetes environment. (default true).                                                                                          |
+| --istio.test.kube.deployEastWestGW | bool | Deploy Istio east west gateway into the target Kubernetes environment. (default true).                                                                        |
+| --istio.test.kube.systemNamespace  | string | The namespace where the Istio components reside in a typical deployment. (default "istio-system").                                                            |
+| --istio.test.kube.helm.values      | string | Manual overrides for Helm values file. Only valid when deploying Istio.                                                                                       |
+| --istio.test.kube.helm.iopFile     | string | IstioOperator spec file. This can be an absolute path or relative to the repository root. Defaults to "tests/integration/iop-integration-test-defaults.yaml". |
+| --istio.test.kube.loadbalancer     | bool | Used to obtain the right IP address for ingress gateway. This should be false for any environment that doesn't support a LoadBalancer type.                   |
+| --istio.test.kube.deployGatewayAPI | bool | Deploy gateway API during tests execution. (default is "true").                                                                                               |
+| --istio.test.revision              | string | Overwrite the default namespace label (istio-enabled=true) with revision label (istio.io/rev=XXX). (default is no overwrite).                                 |
+| --istio.test.skip                  | []string | Skip tests matching the regular expression. This follows the semantics of -test.run.                                                                          |
+| --istio.test.skipVM                | bool | Skip all the VM related parts in all the tests. (default is "false").                                                                                         |
+| --istio.test.helmRepo              | string | Overwrite the default helm Repo used for the tests.                                                                                                           |
+| --istio.test.ambient               | bool | Indicate the use of ambient mesh.                                                                                                                             |
+| --istio.test.openshift             | bool | Set to `true` when running the tests in an OpenShift cluster, rather than in KinD.                                                                            |
+| --istio.test.stableNamespaces      | bool | Set to `true` to use stable namespaces for the test. Useful with nocleanup to develop tests                                                                   |
+| --istio.test.nativeNftables        | bool | Set to `true` to use native nftable rules instead of iptable rules                      |
 
 ## Notes
 

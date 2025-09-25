@@ -594,6 +594,21 @@ spec:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
                                   properties:
+                                    attributes:
+                                      description: Additional attributes for the cookie.
+                                      items:
+                                        properties:
+                                          name:
+                                            description: The name of the cookie attribute.
+                                            type: string
+                                          value:
+                                            description: The optional value of the
+                                              cookie attribute.
+                                            type: string
+                                        required:
+                                        - name
+                                        type: object
+                                      type: array
                                     name:
                                       description: Name of the cookie.
                                       type: string
@@ -957,6 +972,23 @@ spec:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
                                         properties:
+                                          attributes:
+                                            description: Additional attributes for
+                                              the cookie.
+                                            items:
+                                              properties:
+                                                name:
+                                                  description: The name of the cookie
+                                                    attribute.
+                                                  type: string
+                                                value:
+                                                  description: The optional value
+                                                    of the cookie attribute.
+                                                  type: string
+                                              required:
+                                              - name
+                                              type: object
+                                            type: array
                                           name:
                                             description: Name of the cookie.
                                             type: string
@@ -1497,6 +1529,21 @@ spec:
                           httpCookie:
                             description: Hash based on HTTP cookie.
                             properties:
+                              attributes:
+                                description: Additional attributes for the cookie.
+                                items:
+                                  properties:
+                                    name:
+                                      description: The name of the cookie attribute.
+                                      type: string
+                                    value:
+                                      description: The optional value of the cookie
+                                        attribute.
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
                               name:
                                 description: Name of the cookie.
                                 type: string
@@ -1853,6 +1900,21 @@ spec:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
                                   properties:
+                                    attributes:
+                                      description: Additional attributes for the cookie.
+                                      items:
+                                        properties:
+                                          name:
+                                            description: The name of the cookie attribute.
+                                            type: string
+                                          value:
+                                            description: The optional value of the
+                                              cookie attribute.
+                                            type: string
+                                        required:
+                                        - name
+                                        type: object
+                                      type: array
                                     name:
                                       description: Name of the cookie.
                                       type: string
@@ -2533,6 +2595,21 @@ spec:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
                                   properties:
+                                    attributes:
+                                      description: Additional attributes for the cookie.
+                                      items:
+                                        properties:
+                                          name:
+                                            description: The name of the cookie attribute.
+                                            type: string
+                                          value:
+                                            description: The optional value of the
+                                              cookie attribute.
+                                            type: string
+                                        required:
+                                        - name
+                                        type: object
+                                      type: array
                                     name:
                                       description: Name of the cookie.
                                       type: string
@@ -2896,6 +2973,23 @@ spec:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
                                         properties:
+                                          attributes:
+                                            description: Additional attributes for
+                                              the cookie.
+                                            items:
+                                              properties:
+                                                name:
+                                                  description: The name of the cookie
+                                                    attribute.
+                                                  type: string
+                                                value:
+                                                  description: The optional value
+                                                    of the cookie attribute.
+                                                  type: string
+                                              required:
+                                              - name
+                                              type: object
+                                            type: array
                                           name:
                                             description: Name of the cookie.
                                             type: string
@@ -3436,6 +3530,21 @@ spec:
                           httpCookie:
                             description: Hash based on HTTP cookie.
                             properties:
+                              attributes:
+                                description: Additional attributes for the cookie.
+                                items:
+                                  properties:
+                                    name:
+                                      description: The name of the cookie attribute.
+                                      type: string
+                                    value:
+                                      description: The optional value of the cookie
+                                        attribute.
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
                               name:
                                 description: Name of the cookie.
                                 type: string
@@ -3792,6 +3901,21 @@ spec:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
                                   properties:
+                                    attributes:
+                                      description: Additional attributes for the cookie.
+                                      items:
+                                        properties:
+                                          name:
+                                            description: The name of the cookie attribute.
+                                            type: string
+                                          value:
+                                            description: The optional value of the
+                                              cookie attribute.
+                                            type: string
+                                        required:
+                                        - name
+                                        type: object
+                                      type: array
                                     name:
                                       description: Name of the cookie.
                                       type: string
@@ -4472,6 +4596,21 @@ spec:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
                                   properties:
+                                    attributes:
+                                      description: Additional attributes for the cookie.
+                                      items:
+                                        properties:
+                                          name:
+                                            description: The name of the cookie attribute.
+                                            type: string
+                                          value:
+                                            description: The optional value of the
+                                              cookie attribute.
+                                            type: string
+                                        required:
+                                        - name
+                                        type: object
+                                      type: array
                                     name:
                                       description: Name of the cookie.
                                       type: string
@@ -4835,6 +4974,23 @@ spec:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
                                         properties:
+                                          attributes:
+                                            description: Additional attributes for
+                                              the cookie.
+                                            items:
+                                              properties:
+                                                name:
+                                                  description: The name of the cookie
+                                                    attribute.
+                                                  type: string
+                                                value:
+                                                  description: The optional value
+                                                    of the cookie attribute.
+                                                  type: string
+                                              required:
+                                              - name
+                                              type: object
+                                            type: array
                                           name:
                                             description: Name of the cookie.
                                             type: string
@@ -5375,6 +5531,21 @@ spec:
                           httpCookie:
                             description: Hash based on HTTP cookie.
                             properties:
+                              attributes:
+                                description: Additional attributes for the cookie.
+                                items:
+                                  properties:
+                                    name:
+                                      description: The name of the cookie attribute.
+                                      type: string
+                                    value:
+                                      description: The optional value of the cookie
+                                        attribute.
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
                               name:
                                 description: Name of the cookie.
                                 type: string
@@ -5731,6 +5902,21 @@ spec:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
                                   properties:
+                                    attributes:
+                                      description: Additional attributes for the cookie.
+                                      items:
+                                        properties:
+                                          name:
+                                            description: The name of the cookie attribute.
+                                            type: string
+                                          value:
+                                            description: The optional value of the
+                                              cookie attribute.
+                                            type: string
+                                        required:
+                                        - name
+                                        type: object
+                                      type: array
                                     name:
                                       description: Name of the cookie.
                                       type: string
@@ -7808,12 +7994,13 @@ spec:
                 description: |-
                   Service resolution mode for the hosts.
 
-                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN
+                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN, DYNAMIC_DNS
                 enum:
                 - NONE
                 - STATIC
                 - DNS
                 - DNS_ROUND_ROBIN
+                - DYNAMIC_DNS
                 type: string
               subjectAltNames:
                 description: If specified, the proxy will verify that the server certificate's
@@ -8106,12 +8293,13 @@ spec:
                 description: |-
                   Service resolution mode for the hosts.
 
-                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN
+                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN, DYNAMIC_DNS
                 enum:
                 - NONE
                 - STATIC
                 - DNS
                 - DNS_ROUND_ROBIN
+                - DYNAMIC_DNS
                 type: string
               subjectAltNames:
                 description: If specified, the proxy will verify that the server certificate's
@@ -8404,12 +8592,13 @@ spec:
                 description: |-
                   Service resolution mode for the hosts.
 
-                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN
+                  Valid Options: NONE, STATIC, DNS, DNS_ROUND_ROBIN, DYNAMIC_DNS
                 enum:
                 - NONE
                 - STATIC
                 - DNS
                 - DNS_ROUND_ROBIN
+                - DYNAMIC_DNS
                 type: string
               subjectAltNames:
                 description: If specified, the proxy will verify that the server certificate's
@@ -15320,7 +15509,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -15690,7 +15879,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -15880,7 +16069,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -16043,7 +16232,7 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
 ---
@@ -16174,6 +16363,303 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    spaceDelimitedClaims:
+                      description: List of JWT claim names that should be treated
+                        as space-delimited strings.
+                      items:
+                        minLength: 1
+                        type: string
+                      maxItems: 64
+                      type: array
+                    timeout:
+                      description: The maximum amount of time that the resolver, determined
+                        by the PILOT_JWT_ENABLE_REMOTE_JWKS environment variable,
+                        will spend waiting for the JWKS to be fetched.
+                      type: string
+                      x-kubernetes-validations:
+                      - message: must be a valid duration greater than 1ms
+                        rule: duration(self) >= duration('1ms')
+                  type: object
+                  x-kubernetes-validations:
+                  - message: only one of jwks or jwksUri can be set
+                    rule: '(has(self.jwksUri) ? 1 : 0) + (has(self.jwks_uri) ? 1 :
+                      0) + (has(self.jwks) ? 1 : 0) <= 1'
+                maxItems: 4096
+                type: array
+              selector:
+                description: Optional.
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      maxLength: 63
+                      type: string
+                      x-kubernetes-validations:
+                      - message: wildcard not allowed in label value match
+                        rule: '!self.contains("*")'
+                    description: One or more labels that indicate a specific set of
+                      pods/VMs on which a policy should be applied.
+                    maxProperties: 4096
+                    type: object
+                    x-kubernetes-validations:
+                    - message: wildcard not allowed in label key match
+                      rule: self.all(key, !key.contains("*"))
+                    - message: key must not be empty
+                      rule: self.all(key, key.size() != 0)
+                type: object
+              targetRef:
+                properties:
+                  group:
+                    description: group is the group of the target resource.
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    description: kind is kind of the target resource.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: name is the name of the target resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: namespace is the namespace of the referent.
+                    type: string
+                    x-kubernetes-validations:
+                    - message: cross namespace referencing is not currently supported
+                      rule: self.size() == 0
+                required:
+                - kind
+                - name
+                type: object
+              targetRefs:
+                description: Optional.
+                items:
+                  properties:
+                    group:
+                      description: group is the group of the target resource.
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      description: kind is kind of the target resource.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: name is the name of the target resource.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: namespace is the namespace of the referent.
+                      type: string
+                      x-kubernetes-validations:
+                      - message: cross namespace referencing is not currently supported
+                        rule: self.size() == 0
+                  required:
+                  - kind
+                  - name
+                  type: object
+                maxItems: 16
+                type: array
+            type: object
+            x-kubernetes-validations:
+            - message: only one of targetRefs or selector can be set
+              rule: '(has(self.selector) ? 1 : 0) + (has(self.targetRef) ? 1 : 0)
+                + (has(self.targetRefs) ? 1 : 0) <= 1'
+          status:
+            properties:
+              conditions:
+                description: Current service state of the resource.
+                items:
+                  properties:
+                    lastProbeTime:
+                      description: Last time we probed the condition.
+                      format: date-time
+                      type: string
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: Human-readable message indicating details about
+                        last transition.
+                      type: string
+                    observedGeneration:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: Resource Generation to which the Condition refers.
+                      x-kubernetes-int-or-string: true
+                    reason:
+                      description: Unique, one-word, CamelCase reason for the condition's
+                        last transition.
+                      type: string
+                    status:
+                      description: Status is the status of the condition.
+                      type: string
+                    type:
+                      description: Type is the type of the condition.
+                      type: string
+                  type: object
+                type: array
+              observedGeneration:
+                anyOf:
+                - type: integer
+                - type: string
+                x-kubernetes-int-or-string: true
+              validationMessages:
+                description: Includes any errors or warnings detected by Istio's analyzers.
+                items:
+                  properties:
+                    documentationUrl:
+                      description: A url pointing to the Istio documentation for this
+                        specific error type.
+                      type: string
+                    level:
+                      description: |-
+                        Represents how severe a message is.
+
+                        Valid Options: UNKNOWN, ERROR, WARNING, INFO
+                      enum:
+                      - UNKNOWN
+                      - ERROR
+                      - WARNING
+                      - INFO
+                      type: string
+                    type:
+                      properties:
+                        code:
+                          description: A 7 character code matching `^IST[0-9]{4}$`
+                            intended to uniquely identify the message type.
+                          type: string
+                        name:
+                          description: A human-readable name for the message type.
+                          type: string
+                      type: object
+                  type: object
+                type: array
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            description: 'Request authentication configuration for workloads. See
+              more details at: https://istio.io/docs/reference/config/security/request_authentication.html'
+            properties:
+              jwtRules:
+                description: Define the list of JWTs that can be validated at the
+                  selected workloads' proxy.
+                items:
+                  properties:
+                    audiences:
+                      description: The list of JWT [audiences](https://tools.ietf.org/html/rfc7519#section-4.1.3)
+                        that are allowed to access.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                    forwardOriginalToken:
+                      description: If set to true, the original token will be kept
+                        for the upstream request.
+                      type: boolean
+                    fromCookies:
+                      description: List of cookie names from which JWT is expected.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                    fromHeaders:
+                      description: List of header locations from which JWT is expected.
+                      items:
+                        properties:
+                          name:
+                            description: The HTTP header name.
+                            minLength: 1
+                            type: string
+                          prefix:
+                            description: The prefix that should be stripped before
+                              decoding the token.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      type: array
+                    fromParams:
+                      description: List of query parameters from which JWT is expected.
+                      items:
+                        minLength: 1
+                        type: string
+                      type: array
+                    issuer:
+                      description: Identifies the issuer that issued the JWT.
+                      minLength: 1
+                      type: string
+                    jwks:
+                      description: JSON Web Key Set of public keys to validate signature
+                        of the JWT.
+                      type: string
+                    jwks_uri:
+                      description: URL of the provider's public key set to validate
+                        signature of the JWT.
+                      maxLength: 2048
+                      minLength: 1
+                      type: string
+                      x-kubernetes-validations:
+                      - message: url must have scheme http:// or https://
+                        rule: url(self).getScheme() in ["http", "https"]
+                    jwksUri:
+                      description: URL of the provider's public key set to validate
+                        signature of the JWT.
+                      maxLength: 2048
+                      minLength: 1
+                      type: string
+                      x-kubernetes-validations:
+                      - message: url must have scheme http:// or https://
+                        rule: url(self).getScheme() in ["http", "https"]
+                    outputClaimToHeaders:
+                      description: This field specifies a list of operations to copy
+                        the claim to HTTP headers on a successfully verified token.
+                      items:
+                        properties:
+                          claim:
+                            description: The name of the claim to be copied from.
+                            minLength: 1
+                            type: string
+                          header:
+                            description: The name of the header to be created.
+                            minLength: 1
+                            pattern: ^[-_A-Za-z0-9]+$
+                            type: string
+                        required:
+                        - header
+                        - claim
+                        type: object
+                      type: array
+                    outputPayloadToHeader:
+                      description: This field specifies the header name to output
+                        a successfully verified JWT payload to the backend.
+                      type: string
+                    spaceDelimitedClaims:
+                      description: List of JWT claim names that should be treated
+                        as space-delimited strings.
+                      items:
+                        minLength: 1
+                        type: string
+                      maxItems: 64
+                      type: array
                     timeout:
                       description: The maximum amount of time that the resolver, determined
                         by the PILOT_JWT_ENABLE_REMOTE_JWKS environment variable,
@@ -16352,287 +16838,6 @@ spec:
         type: object
     served: true
     storage: false
-    subresources:
-      status: {}
-  - name: v1beta1
-    schema:
-      openAPIV3Schema:
-        properties:
-          spec:
-            description: 'Request authentication configuration for workloads. See
-              more details at: https://istio.io/docs/reference/config/security/request_authentication.html'
-            properties:
-              jwtRules:
-                description: Define the list of JWTs that can be validated at the
-                  selected workloads' proxy.
-                items:
-                  properties:
-                    audiences:
-                      description: The list of JWT [audiences](https://tools.ietf.org/html/rfc7519#section-4.1.3)
-                        that are allowed to access.
-                      items:
-                        minLength: 1
-                        type: string
-                      type: array
-                    forwardOriginalToken:
-                      description: If set to true, the original token will be kept
-                        for the upstream request.
-                      type: boolean
-                    fromCookies:
-                      description: List of cookie names from which JWT is expected.
-                      items:
-                        minLength: 1
-                        type: string
-                      type: array
-                    fromHeaders:
-                      description: List of header locations from which JWT is expected.
-                      items:
-                        properties:
-                          name:
-                            description: The HTTP header name.
-                            minLength: 1
-                            type: string
-                          prefix:
-                            description: The prefix that should be stripped before
-                              decoding the token.
-                            type: string
-                        required:
-                        - name
-                        type: object
-                      type: array
-                    fromParams:
-                      description: List of query parameters from which JWT is expected.
-                      items:
-                        minLength: 1
-                        type: string
-                      type: array
-                    issuer:
-                      description: Identifies the issuer that issued the JWT.
-                      minLength: 1
-                      type: string
-                    jwks:
-                      description: JSON Web Key Set of public keys to validate signature
-                        of the JWT.
-                      type: string
-                    jwks_uri:
-                      description: URL of the provider's public key set to validate
-                        signature of the JWT.
-                      maxLength: 2048
-                      minLength: 1
-                      type: string
-                      x-kubernetes-validations:
-                      - message: url must have scheme http:// or https://
-                        rule: url(self).getScheme() in ["http", "https"]
-                    jwksUri:
-                      description: URL of the provider's public key set to validate
-                        signature of the JWT.
-                      maxLength: 2048
-                      minLength: 1
-                      type: string
-                      x-kubernetes-validations:
-                      - message: url must have scheme http:// or https://
-                        rule: url(self).getScheme() in ["http", "https"]
-                    outputClaimToHeaders:
-                      description: This field specifies a list of operations to copy
-                        the claim to HTTP headers on a successfully verified token.
-                      items:
-                        properties:
-                          claim:
-                            description: The name of the claim to be copied from.
-                            minLength: 1
-                            type: string
-                          header:
-                            description: The name of the header to be created.
-                            minLength: 1
-                            pattern: ^[-_A-Za-z0-9]+$
-                            type: string
-                        required:
-                        - header
-                        - claim
-                        type: object
-                      type: array
-                    outputPayloadToHeader:
-                      description: This field specifies the header name to output
-                        a successfully verified JWT payload to the backend.
-                      type: string
-                    timeout:
-                      description: The maximum amount of time that the resolver, determined
-                        by the PILOT_JWT_ENABLE_REMOTE_JWKS environment variable,
-                        will spend waiting for the JWKS to be fetched.
-                      type: string
-                      x-kubernetes-validations:
-                      - message: must be a valid duration greater than 1ms
-                        rule: duration(self) >= duration('1ms')
-                  type: object
-                  x-kubernetes-validations:
-                  - message: only one of jwks or jwksUri can be set
-                    rule: '(has(self.jwksUri) ? 1 : 0) + (has(self.jwks_uri) ? 1 :
-                      0) + (has(self.jwks) ? 1 : 0) <= 1'
-                maxItems: 4096
-                type: array
-              selector:
-                description: Optional.
-                properties:
-                  matchLabels:
-                    additionalProperties:
-                      maxLength: 63
-                      type: string
-                      x-kubernetes-validations:
-                      - message: wildcard not allowed in label value match
-                        rule: '!self.contains("*")'
-                    description: One or more labels that indicate a specific set of
-                      pods/VMs on which a policy should be applied.
-                    maxProperties: 4096
-                    type: object
-                    x-kubernetes-validations:
-                    - message: wildcard not allowed in label key match
-                      rule: self.all(key, !key.contains("*"))
-                    - message: key must not be empty
-                      rule: self.all(key, key.size() != 0)
-                type: object
-              targetRef:
-                properties:
-                  group:
-                    description: group is the group of the target resource.
-                    maxLength: 253
-                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                    type: string
-                  kind:
-                    description: kind is kind of the target resource.
-                    maxLength: 63
-                    minLength: 1
-                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                    type: string
-                  name:
-                    description: name is the name of the target resource.
-                    maxLength: 253
-                    minLength: 1
-                    type: string
-                  namespace:
-                    description: namespace is the namespace of the referent.
-                    type: string
-                    x-kubernetes-validations:
-                    - message: cross namespace referencing is not currently supported
-                      rule: self.size() == 0
-                required:
-                - kind
-                - name
-                type: object
-              targetRefs:
-                description: Optional.
-                items:
-                  properties:
-                    group:
-                      description: group is the group of the target resource.
-                      maxLength: 253
-                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                      type: string
-                    kind:
-                      description: kind is kind of the target resource.
-                      maxLength: 63
-                      minLength: 1
-                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                      type: string
-                    name:
-                      description: name is the name of the target resource.
-                      maxLength: 253
-                      minLength: 1
-                      type: string
-                    namespace:
-                      description: namespace is the namespace of the referent.
-                      type: string
-                      x-kubernetes-validations:
-                      - message: cross namespace referencing is not currently supported
-                        rule: self.size() == 0
-                  required:
-                  - kind
-                  - name
-                  type: object
-                maxItems: 16
-                type: array
-            type: object
-            x-kubernetes-validations:
-            - message: only one of targetRefs or selector can be set
-              rule: '(has(self.selector) ? 1 : 0) + (has(self.targetRef) ? 1 : 0)
-                + (has(self.targetRefs) ? 1 : 0) <= 1'
-          status:
-            properties:
-              conditions:
-                description: Current service state of the resource.
-                items:
-                  properties:
-                    lastProbeTime:
-                      description: Last time we probed the condition.
-                      format: date-time
-                      type: string
-                    lastTransitionTime:
-                      description: Last time the condition transitioned from one status
-                        to another.
-                      format: date-time
-                      type: string
-                    message:
-                      description: Human-readable message indicating details about
-                        last transition.
-                      type: string
-                    observedGeneration:
-                      anyOf:
-                      - type: integer
-                      - type: string
-                      description: Resource Generation to which the Condition refers.
-                      x-kubernetes-int-or-string: true
-                    reason:
-                      description: Unique, one-word, CamelCase reason for the condition's
-                        last transition.
-                      type: string
-                    status:
-                      description: Status is the status of the condition.
-                      type: string
-                    type:
-                      description: Type is the type of the condition.
-                      type: string
-                  type: object
-                type: array
-              observedGeneration:
-                anyOf:
-                - type: integer
-                - type: string
-                x-kubernetes-int-or-string: true
-              validationMessages:
-                description: Includes any errors or warnings detected by Istio's analyzers.
-                items:
-                  properties:
-                    documentationUrl:
-                      description: A url pointing to the Istio documentation for this
-                        specific error type.
-                      type: string
-                    level:
-                      description: |-
-                        Represents how severe a message is.
-
-                        Valid Options: UNKNOWN, ERROR, WARNING, INFO
-                      enum:
-                      - UNKNOWN
-                      - ERROR
-                      - WARNING
-                      - INFO
-                      type: string
-                    type:
-                      properties:
-                        code:
-                          description: A 7 character code matching `^IST[0-9]{4}$`
-                            intended to uniquely identify the message type.
-                          type: string
-                        name:
-                          description: A human-readable name for the message type.
-                          type: string
-                      type: object
-                  type: object
-                type: array
-            type: object
-            x-kubernetes-preserve-unknown-fields: true
-        type: object
-    served: true
-    storage: true
     subresources:
       status: {}
 ---

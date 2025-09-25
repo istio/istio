@@ -61,7 +61,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 			Inject: true,
 		})
 		if err != nil {
-			return
+			return server, err
 		}
 	}
 
@@ -72,10 +72,10 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 
 	// Deploy the server.
 	if err = server.deploy(ctx); err != nil {
-		return
+		return server, err
 	}
 
-	return
+	return server, err
 }
 
 func readDeploymentYAML() (string, error) {

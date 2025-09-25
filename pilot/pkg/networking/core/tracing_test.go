@@ -240,6 +240,23 @@ func TestConfigureTracing(t *testing.T) {
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
+		{
+			name:   "zipkin with B3 only trace context option",
+			inSpec: fakeTracingSpec(fakeZipkinWithB3Only(), 99.999, false, true, true),
+			opts:   fakeOptsZipkinWithTraceContextOption(meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_USE_B3),
+			want: fakeTracingConfig(fakeZipkinProviderWithTraceContext(clusterName, authority, DefaultZipkinEndpoint, true, tracingcfg.ZipkinConfig_USE_B3),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "zipkin with dual B3/W3C trace context option",
+			inSpec: fakeTracingSpec(fakeZipkinWithDualHeaders(), 99.999, false, true, true),
+			opts:   fakeOptsZipkinWithTraceContextOption(meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_USE_B3_WITH_W3C_PROPAGATION),
+			want: fakeTracingConfig(fakeZipkinProviderWithTraceContext(clusterName, authority, DefaultZipkinEndpoint, true,
+				tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
 	}
 
 	for _, tc := range testcases {
@@ -713,6 +730,37 @@ func fakeOptsZipkinTelemetryWithEndpoint() gatewayListenerOpts {
 	return opts
 }
 
+func fakeOptsZipkinWithTraceContextOption(
+	traceContextOption meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption,
+) gatewayListenerOpts {
+	var opts gatewayListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "foo",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Zipkin{
+						Zipkin: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
+							Service:            "zipkin",
+							Port:               9411,
+							MaxTagLength:       256,
+							TraceContextOption: traceContextOption,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0}, // Ensure proxy supports TraceContextOption
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+	}
+
+	return opts
+}
+
 func fakeZipkin() *meshconfig.MeshConfig_ExtensionProvider {
 	return &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "foo",
@@ -759,6 +807,30 @@ func fakeZipkinEnable64bitTraceID() *meshconfig.MeshConfig_ExtensionProvider {
 			},
 		},
 	}
+}
+
+func fakeZipkinWithTraceContextOption(
+	traceContextOption meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption,
+) *meshconfig.MeshConfig_ExtensionProvider {
+	return &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "foo",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Zipkin{
+			Zipkin: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
+				Service:            "zipkin",
+				Port:               9411,
+				MaxTagLength:       256,
+				TraceContextOption: traceContextOption,
+			},
+		},
+	}
+}
+
+func fakeZipkinWithDualHeaders() *meshconfig.MeshConfig_ExtensionProvider {
+	return fakeZipkinWithTraceContextOption(meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_USE_B3_WITH_W3C_PROPAGATION)
+}
+
+func fakeZipkinWithB3Only() *meshconfig.MeshConfig_ExtensionProvider {
+	return fakeZipkinWithTraceContextOption(meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_USE_B3)
 }
 
 func fakeDatadog() *meshconfig.MeshConfig_ExtensionProvider {
@@ -1215,6 +1287,13 @@ var fakeEnvTag = &tracing.CustomTag{
 }
 
 func fakeZipkinProvider(expectClusterName, expectAuthority, expectEndpoint string, enableTraceID bool) *tracingcfg.Tracing_Http {
+	return fakeZipkinProviderWithTraceContext(expectClusterName, expectAuthority, expectEndpoint, enableTraceID, tracingcfg.ZipkinConfig_USE_B3)
+}
+
+func fakeZipkinProviderWithTraceContext(
+	expectClusterName, expectAuthority, expectEndpoint string, enableTraceID bool,
+	traceContextOption tracingcfg.ZipkinConfig_TraceContextOption,
+) *tracingcfg.Tracing_Http {
 	fakeZipkinProviderConfig := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         expectClusterName,
 		CollectorEndpoint:        expectEndpoint,
@@ -1222,6 +1301,7 @@ func fakeZipkinProvider(expectClusterName, expectAuthority, expectEndpoint strin
 		CollectorHostname:        expectAuthority,
 		TraceId_128Bit:           enableTraceID,
 		SharedSpanContext:        wrapperspb.Bool(false),
+		TraceContextOption:       traceContextOption,
 	}
 	fakeZipkinAny := protoconv.MessageToAny(fakeZipkinProviderConfig)
 	return &tracingcfg.Tracing_Http{
@@ -1367,6 +1447,207 @@ func fakeOpenTelemetryResourceDetectorsProvider(expectClusterName, expectAuthori
 	return &tracingcfg.Tracing_Http{
 		Name:       envoyOpenTelemetry,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHTTPAny},
+	}
+}
+
+func TestConvertTraceContextOption(t *testing.T) {
+	testcases := []struct {
+		name     string
+		input    meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption
+		expected tracingcfg.ZipkinConfig_TraceContextOption
+	}{
+		{
+			name:     "USE_B3 option",
+			input:    meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_USE_B3,
+			expected: tracingcfg.ZipkinConfig_USE_B3,
+		},
+		{
+			name:     "USE_B3_WITH_W3C_PROPAGATION option",
+			input:    meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_USE_B3_WITH_W3C_PROPAGATION,
+			expected: tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+		},
+		{
+			name:     "default fallback for unknown value",
+			input:    meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider_TraceContextOption(999), // Invalid enum value
+			expected: tracingcfg.ZipkinConfig_USE_B3,                                                        // Should fallback to default
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := convertTraceContextOption(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestZipkinConfig(t *testing.T) {
+	testcases := []struct {
+		name                string
+		hostname            string
+		cluster             string
+		endpoint            string
+		enable128BitTraceID bool
+		traceContextOption  tracingcfg.ZipkinConfig_TraceContextOption
+		expectedConfig      *tracingcfg.ZipkinConfig
+	}{
+		{
+			name:                "basic zipkin config with USE_B3",
+			hostname:            "zipkin.istio-system.svc.cluster.local",
+			cluster:             "zipkin-cluster",
+			endpoint:            "/api/v2/spans",
+			enable128BitTraceID: true,
+			traceContextOption:  tracingcfg.ZipkinConfig_USE_B3,
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorCluster:         "zipkin-cluster",
+				CollectorEndpoint:        "/api/v2/spans",
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				CollectorHostname:        "zipkin.istio-system.svc.cluster.local",
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+			},
+		},
+		{
+			name:                "zipkin config with dual B3/W3C headers",
+			hostname:            "zipkin.istio-system.svc.cluster.local",
+			cluster:             "zipkin-cluster",
+			endpoint:            "/api/v2/spans",
+			enable128BitTraceID: false,
+			traceContextOption:  tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorCluster:         "zipkin-cluster",
+				CollectorEndpoint:        "/api/v2/spans",
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				CollectorHostname:        "zipkin.istio-system.svc.cluster.local",
+				TraceId_128Bit:           false,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			},
+		},
+		{
+			name:                "zipkin config with empty endpoint defaults to /api/v2/spans",
+			hostname:            "zipkin.istio-system.svc.cluster.local",
+			cluster:             "zipkin-cluster",
+			endpoint:            "",
+			enable128BitTraceID: true,
+			traceContextOption:  tracingcfg.ZipkinConfig_USE_B3,
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorCluster:         "zipkin-cluster",
+				CollectorEndpoint:        "/api/v2/spans",
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				CollectorHostname:        "zipkin.istio-system.svc.cluster.local",
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a mock proxy with version that supports TraceContextOption
+			proxy := &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			}
+			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, tc.enable128BitTraceID, tc.traceContextOption, proxy)
+			assert.NoError(t, err)
+
+			// Unmarshal the Any proto to compare the actual ZipkinConfig
+			var actualConfig tracingcfg.ZipkinConfig
+			err = result.UnmarshalTo(&actualConfig)
+			assert.NoError(t, err)
+
+			// Compare the configurations
+			if diff := cmp.Diff(tc.expectedConfig, &actualConfig, protocmp.Transform()); diff != "" {
+				t.Fatalf("zipkinConfig returned unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestZipkinConfigVersionGating tests that TraceContextOption is only set for proxies that support it
+func TestZipkinConfigVersionGating(t *testing.T) {
+	testcases := []struct {
+		name                  string
+		proxyVersion          *model.IstioVersion
+		traceContextOption    tracingcfg.ZipkinConfig_TraceContextOption
+		expectTraceContextSet bool
+	}{
+		{
+			name:                  "New proxy (1.28+) should get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: true,
+		},
+		{
+			name:                  "Old proxy (1.27) should NOT get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 27, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+		{
+			name:                  "Old proxy (1.22) should NOT get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 22, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+		{
+			name:                  "Old proxy (1.20) should NOT get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 20, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+		{
+			name:                  "Very old proxy (1.19) should NOT get TraceContextOption",
+			proxyVersion:          &model.IstioVersion{Major: 1, Minor: 19, Patch: 0},
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+		{
+			name:                  "Proxy with nil version should NOT get TraceContextOption",
+			proxyVersion:          nil,
+			traceContextOption:    tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION,
+			expectTraceContextSet: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			proxy := &model.Proxy{
+				IstioVersion: tc.proxyVersion,
+			}
+
+			result, err := zipkinConfig(
+				"zipkin.istio-system.svc.cluster.local",
+				"outbound|9411||zipkin.istio-system.svc.cluster.local",
+				"/api/v2/spans",
+				true,
+				tc.traceContextOption,
+				proxy,
+			)
+			assert.NoError(t, err)
+
+			// Unmarshal the Any proto to check the actual ZipkinConfig
+			var actualConfig tracingcfg.ZipkinConfig
+			err = result.UnmarshalTo(&actualConfig)
+			assert.NoError(t, err)
+
+			versionStr := "nil"
+			if tc.proxyVersion != nil {
+				versionStr = tc.proxyVersion.String()
+			}
+
+			if tc.expectTraceContextSet {
+				// For new proxies, TraceContextOption should be set
+				assert.Equal(t, tc.traceContextOption, actualConfig.TraceContextOption,
+					"TraceContextOption should be set for proxy version %s", versionStr)
+			} else {
+				// For old proxies, TraceContextOption should be the default (USE_B3)
+				assert.Equal(t, tracingcfg.ZipkinConfig_USE_B3, actualConfig.TraceContextOption,
+					"TraceContextOption should default to USE_B3 for proxy version %s", versionStr)
+			}
+		})
 	}
 }
 

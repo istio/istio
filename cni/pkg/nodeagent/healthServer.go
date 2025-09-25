@@ -30,7 +30,7 @@ func StartHealthServer() (installReady *atomic.Value, watchReady *atomic.Value) 
 		_ = http.ListenAndServe(":"+constants.ReadinessPort, router)
 	}()
 
-	return
+	return installReady, watchReady
 }
 
 func initRouter(router *http.ServeMux) (installReady *atomic.Value, watchReady *atomic.Value) {
@@ -42,7 +42,7 @@ func initRouter(router *http.ServeMux) (installReady *atomic.Value, watchReady *
 	router.HandleFunc(constants.LivenessEndpoint, healthz)
 	router.HandleFunc(constants.ReadinessEndpoint, readyz(installReady, watchReady))
 
-	return
+	return installReady, watchReady
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {

@@ -23,16 +23,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/cni/pkg/iptables"
+	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/pkg/slices"
-	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 // Adapts CNI to ztunnel server. decoupled from k8s for easier integration testing.
 type NetServer struct {
 	ztunnelServer      ZtunnelServer
 	currentPodSnapshot *podNetnsCache
-	podIptables        *iptables.IptablesConfigurator
+	trafficManager     trafficmanager.TrafficRuleManager
 	podNs              PodNetnsFinder
 	// allow overriding for tests
 	netnsRunner func(fdable NetnsFd, toRun func() error) error
@@ -43,7 +42,7 @@ var _ MeshDataplane = &NetServer{}
 // ConstructInitialSnapshot is always called first, before Start.
 // It takes a "snapshot" of ambient pods that were already running when the server started, and:
 //
-// - initializes a an internal cache of pod info and netns handles with these existing pods.
+// - initializes an internal cache of pod info and netns handles with these existing pods.
 // This cache will also be updated when the K8S informer gets a new pod.
 // This cache represents the "state of the world" of all enrolled pods on the node this agent
 // knows about, and will be sent to any connecting ztunnel as a startup message.
@@ -60,7 +59,7 @@ func (s *NetServer) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) 
 		consErr = append(consErr, err)
 	}
 
-	if s.podIptables.ReconcileModeEnabled() {
+	if s.trafficManager.ReconcileModeEnabled() {
 		log.Info("inpod reconcile mode enabled")
 		for _, pod := range existingAmbientPods {
 			log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
@@ -121,7 +120,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.podIptables.CreateInpodRules(log, podCfg)
+		return s.trafficManager.CreateInpodRules(log, podCfg)
 	}); err != nil {
 		// We currently treat any failure to create inpod rules as non-retryable/catastrophic,
 		// and return a NonRetryableError in this case.
@@ -166,9 +165,9 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 	// If the pod is already deleted or terminated, we do not need to clean up the pod network -- only the host side.
 	if !isDelete {
 		if openNetns != nil {
-			// pod is removed from the mesh, but is still running. remove iptables rules
+			// pod is removed from the mesh, but is still running. remove traffic rules
 			log.Debugf("calling DeleteInpodRules")
-			if err := s.netnsRunner(openNetns, func() error { return s.podIptables.DeleteInpodRules(log) }); err != nil {
+			if err := s.netnsRunner(openNetns, func() error { return s.trafficManager.DeleteInpodRules(log) }); err != nil {
 				return fmt.Errorf("failed to delete inpod rules: %w", err)
 			}
 		} else {
@@ -184,12 +183,12 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 	return nil
 }
 
-func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, podIptables *iptables.IptablesConfigurator, podNs PodNetnsFinder) *NetServer {
+func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, trafficManager trafficmanager.TrafficRuleManager, podNs PodNetnsFinder) *NetServer {
 	return &NetServer{
 		ztunnelServer:      ztunnelServer,
 		currentPodSnapshot: podNsMap,
 		podNs:              podNs,
-		podIptables:        podIptables,
+		trafficManager:     trafficManager,
 		netnsRunner:        NetnsDo,
 	}
 }
@@ -208,7 +207,7 @@ func (s *NetServer) reconcileExistingPod(pod *corev1.Pod) error {
 	podCfg := getPodLevelTrafficOverrides(pod)
 
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.podIptables.CreateInpodRules(log, podCfg)
+		return s.trafficManager.CreateInpodRules(log, podCfg)
 	}); err != nil {
 		return err
 	}
@@ -283,18 +282,4 @@ func (s *NetServer) scanProcForPodsAndCache(pods map[types.UID]*corev1.Pod) erro
 		s.currentPodSnapshot.UpsertPodCacheWithNetns(uid, wl)
 	}
 	return nil
-}
-
-func realDependenciesHost() *dep.RealDependencies {
-	return &dep.RealDependencies{
-		UsePodScopedXtablesLock: false,
-		NetworkNamespace:        "",
-	}
-}
-
-func realDependenciesInpod(useScopedLocks bool) *dep.RealDependencies {
-	return &dep.RealDependencies{
-		UsePodScopedXtablesLock: useScopedLocks,
-		NetworkNamespace:        "",
-	}
 }
