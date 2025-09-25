@@ -17,8 +17,12 @@ package namespace
 import (
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Config contains configuration information about the namespace instance
@@ -152,6 +156,45 @@ func Dump(ctx resource.Context, name string) {
 		name:   name,
 	}
 	ns.Dump(ctx)
+}
+
+// WaitForNamespacesDeletion waits until all the given namespaces are deleted from all clusters.
+// It processes all namespaces concurrently and returns an error if any fail to be deleted within the timeout.
+func WaitForNamespacesDeletion(ctx resource.Context, namespaces []string, opts ...retry.Option) error {
+	if len(namespaces) == 0 {
+		return nil
+	}
+
+	// Create a multierror group to handle concurrent operations
+	var g multierror.Group
+
+	for _, ns := range namespaces {
+		nsName := ns
+		scopes.Framework.Infof("Waiting for namespace %s to be deleted", nsName)
+
+		// For each namespace, wait for deletion on all clusters
+		for _, cluster := range ctx.AllClusters() {
+			cluster := cluster
+			g.Go(func() error {
+				if err := kube.WaitForNamespaceDeletion(cluster.Kube(), nsName, opts...); err != nil {
+					return err
+				}
+				scopes.Framework.Infof("Namespace %s deleted from cluster %s", nsName, cluster.StableName())
+				return nil
+			})
+		}
+	}
+
+	// Wait for all deletions to complete
+	return g.Wait().ErrorOrNil()
+}
+
+// WaitForNamespacesDeletionOrFail calls WaitForNamespacesDeletion and fails the test if an error occurs.
+func WaitForNamespacesDeletionOrFail(t resource.ContextFailer, namespaces []string, opts ...retry.Option) {
+	t.Helper()
+	if err := WaitForNamespacesDeletion(t, namespaces, opts...); err != nil {
+		t.Fatalf("WaitForNamespacesDeletion failed: %v", err)
+	}
 }
 
 // NilGetter is a Getter that always returns nil.
