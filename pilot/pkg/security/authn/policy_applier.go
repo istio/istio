@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // MTLSSettings describes the mTLS options for a filter chain
@@ -335,7 +336,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 // The default claims ("scope" and "permission") are always included while allowing users
 // to specify additional custom claims.
 // Parameters:
-//   - SpaceDelimitedClaimsList: A slice of custom JWT claim names that should be treated
+//   - spaceDelimitedClaimsList: A slice of custom JWT claim names that should be treated
 //     as space-delimited. Can be nil or empty.
 //
 // Returns:
@@ -355,30 +356,11 @@ func buildSpaceDelimitedClaims(spaceDelimitedClaimsList []string) []string {
 		return defaultClaims
 	}
 
-	// Use a map to deduplicate the input list
-	claimSet := make(map[string]struct{})
-	for _, claim := range spaceDelimitedClaimsList {
-		claimSet[claim] = struct{}{}
-	}
-
-	// Ensure the default claims are included
-	for _, claim := range defaultClaims {
-		claimSet[claim] = struct{}{}
-	}
-
-	// Convert the set back to a slice and sort for deterministic output
-	result := make([]string, 0, len(claimSet))
-	for claim := range claimSet {
-		result = append(result, claim)
-	}
-
-	// Sort to ensure deterministic output for testing purposes only.
+	// Use sets to deduplicate and merge claims, then return sorted list for deterministic output
 	// Note: This sorting does not affect JWT processing functionality - Envoy treats
 	// all claims in the list equally regardless of order. The sorting is purely for
 	// consistent test results and implementation predictability.
-	slices.SortBy(result, func(s string) string { return s })
-
-	return result
+	return sets.SortedList(sets.New(spaceDelimitedClaimsList...).InsertAll(defaultClaims...))
 }
 
 func (a policyApplier) PortLevelSetting() map[uint32]model.MutualTLSMode {
