@@ -18,13 +18,10 @@
 package pilot
 
 import (
-	"context"
 	"io/fs"
 	"path/filepath"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api-inference-extension/conformance"
@@ -69,23 +66,17 @@ func TestGatewayInferenceConformance(t *testing.T) {
 			crd.DeployGatewayAPIOrSkip(ctx)
 			crd.DeployGatewayAPIInferenceExtensionOrSkip(ctx)
 
-			// Precreate the Gateway Inference Conformance namespaces, and apply the Image Pull Secret to them.
-			if ctx.Settings().Image.PullSecret != "" {
-				for _, ns := range inferenceConformanceNamespaces {
-					namespace.Claim(ctx, namespace.Config{
-						Prefix: ns,
-						Inject: false,
-					})
-				}
+			// We're using the same namespaces as Gateway API Conformance tests so we wait for termination
+			//  to complete if we're in cleanup mode
+			if gatewayInferenceConformanceInputs.Cleanup {
+				namespace.WaitForNamespacesDeletionOrFail(ctx, conformanceNamespaces)
 			}
-
 			// Precreate the Gateway Inference Conformance namespaces so we can configure DestinationRules
 			for _, ns := range inferenceConformanceNamespaces {
-				ctx.Clusters().Default().Kube().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: ns,
-					},
-				}, metav1.CreateOptions{})
+				namespace.Claim(ctx, namespace.Config{
+					Prefix: ns,
+					Inject: false,
+				})
 			}
 
 			// Deploy istio specific resources required to run test suite, destionation rules for tls
