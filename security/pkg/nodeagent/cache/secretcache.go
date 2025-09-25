@@ -918,39 +918,41 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 
 	// Process all file certificates (both symlinks and regular files)
 	for fc := range resources {
-		if fc.TargetPath != "" {
-			// Process symlinks (those with TargetPath set)
-			// Check if the event is for the symlink itself, its target, or its parent/grandparent directory
-			parentDir := filepath.Dir(fc.Filename)
-			grandParentDir := filepath.Dir(parentDir)
-			if fc.Filename == event.Name || fc.TargetPath == event.Name || parentDir == event.Name || grandParentDir == event.Name {
-				// If the symlink itself, its parent directory, or grandparent directory changed (removed/recreated), we need to re-resolve it
-				if (fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name) && (isRemove(event) || isCreate(event)) {
-					sc.handleSymlinkChange(fc)
-				}
-
-				// Trigger updates for symlink file changes, directory changes, or target file changes
-				// For target file changes, trigger on all events (including REMOVE/CREATE/CHMOD from atomic operations)
-				// This ensures atomic operations are detected on Linux where events come for target files
-				shouldTriggerUpdate := false
-				if fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name {
-					// Always trigger for symlink and directory changes
-					shouldTriggerUpdate = true
-				} else if fc.TargetPath == event.Name {
-					// For target file changes, trigger on all events (including REMOVE/CREATE/CHMOD from atomic operations)
-					// This ensures atomic operations are detected on Linux where events come for target files
-					shouldTriggerUpdate = true
-				}
-
-				if shouldTriggerUpdate {
-					updatedResources[fc.ResourceName] = struct{}{}
-				}
-			}
-		} else {
+		if fc.TargetPath == "" {
 			// Process regular files (those without TargetPath set)
 			// For regular files, trigger on file changes (including REMOVE/CREATE from atomic operations)
 			// But ignore CHMOD events for regular files to avoid duplicate callbacks
 			if fc.Filename == event.Name && !(event.Op&fsnotify.Chmod != 0) {
+				updatedResources[fc.ResourceName] = struct{}{}
+			}
+			continue
+		}
+
+		// Process symlinks (those with TargetPath set)
+		// Check if the event is for the symlink itself, its target, or its parent/grandparent directory
+		parentDir := filepath.Dir(fc.Filename)
+		grandParentDir := filepath.Dir(parentDir)
+		if fc.Filename == event.Name || fc.TargetPath == event.Name || parentDir == event.Name || grandParentDir == event.Name {
+			// If the symlink itself, its parent directory, or grandparent directory changed (removed/recreated), we need to re-resolve it
+			if (fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name) && (isRemove(event) || isCreate(event)) {
+				sc.handleSymlinkChange(fc)
+			}
+
+			// Trigger updates for symlink file changes, directory changes, or target file changes
+			// For target file changes, trigger on all events (including REMOVE/CREATE/CHMOD from atomic operations)
+			// This ensures atomic operations are detected on Linux where events come for target files
+			shouldTriggerUpdate := false
+			if fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name {
+				// Always trigger for symlink and directory changes
+				shouldTriggerUpdate = true
+			}
+			if fc.TargetPath == event.Name {
+				// For target file changes, trigger on all events (including REMOVE/CREATE/CHMOD from atomic operations)
+				// This ensures atomic operations are detected on Linux where events come for target files
+				shouldTriggerUpdate = true
+			}
+
+			if shouldTriggerUpdate {
 				updatedResources[fc.ResourceName] = struct{}{}
 			}
 		}
