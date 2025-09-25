@@ -78,24 +78,27 @@ func (a *index) ServicesCollection(
 		return []string{se.Service.Hostname}
 	})
 
-	DedupedServiceEntriesInfo := krt.NewCollection(serviceEntryByHostname.AsCollection(), func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) *model.ServiceInfo {
-		if len(se.Objects) == 0 {
-			return nil
-		}
-
-		var oldest *model.ServiceInfo
-		for _, o := range se.Objects {
-			if oldest == nil || o.CreationTime.Before(oldest.CreationTime) {
-				oldest = &o.ServiceInfo
+	DedupedServiceEntriesInfo := krt.NewCollection(
+		serviceEntryByHostname.AsCollection(),
+		func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) *model.ServiceInfo {
+			if len(se.Objects) == 0 {
+				return nil
 			}
-		}
-		return oldest
-	}, append(
-		opts.WithName("DedupedServiceEntriesInfo"),
-		krt.WithMetadata(krt.Metadata{
-			multicluster.ClusterKRTMetadataKey: clusterID,
-		}),
-	)...)
+
+			var oldest *model.ServiceInfo
+			for _, o := range se.Objects {
+				if oldest == nil || o.CreationTime.Before(oldest.CreationTime) {
+					oldest = &o.ServiceInfo
+				}
+			}
+			return oldest
+		}, append(
+			opts.WithName("DedupedServiceEntriesInfo"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: clusterID,
+			}),
+		)...,
+	)
 	WorkloadServices := krt.JoinWithMergeCollection(
 		[]krt.Collection[model.ServiceInfo]{
 			ServicesInfo,
