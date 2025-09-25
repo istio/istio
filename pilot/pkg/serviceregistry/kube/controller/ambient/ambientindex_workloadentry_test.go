@@ -419,7 +419,7 @@ func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
 				s.lookup(s.seIPXdsName("se1", "127.0.0.2"))[0].GetWorkload().GetAuthorizationPolicies(),
 				nil)
 
-			s.deleteServiceEntry(t, "se1", testNS)
+			s.deleteServiceEntry(t, "se1")
 			s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY) // Asserting no WE residual
 		})
 	}

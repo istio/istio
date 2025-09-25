@@ -393,7 +393,7 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		)
 	}
 	deleteServiceEntry := func(s *ambientTestServer, i int) {
-		s.deleteServiceEntry(t, fmt.Sprintf("se-%d", i), testNS)
+		s.deleteServiceEntry(t, fmt.Sprintf("se-%d", i))
 	}
 
 	t.Run("serviceentry overlap", func(t *testing.T) {
@@ -2573,8 +2573,8 @@ func generateServiceEntry(host string, addresses []string, labels map[string]str
 	}
 }
 
-func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name, ns string) {
-	s.deleteServiceEntryForClient(t, name, ns, s.se)
+func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name string) {
+	s.deleteServiceEntryForClient(t, name, testNS, s.se)
 }
 
 func (s *ambientTestServer) deleteServiceEntryForClient(t *testing.T, name, ns string, se clienttest.TestWriter[*apiv1alpha3.ServiceEntry]) {
@@ -2784,10 +2784,6 @@ func (s *ambientTestServer) addrXdsName(addr string) string {
 // Returns the XDS resource name for the given service.
 func (s *ambientTestServer) svcXdsName(serviceName string) string {
 	return fmt.Sprintf("%s/%s", testNS, s.hostnameForService(serviceName))
-}
-
-func (s *ambientTestServer) seXdsName(hostname string) string {
-	return fmt.Sprintf("%s/%s", testNS, hostname)
 }
 
 // Returns the hostname for the given service.
