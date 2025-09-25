@@ -1,4 +1,4 @@
-{{ define "ztunnel.release-name" }}{{ .Values.resourceName| default "ztunnel" }}{{ end }}
+{{ define "ztunnel.release-name" }}{{ .Values.resourceName | default "ztunnel" }}{{ end }}
 
 {{ define "ztunnel.service-account-name" }}{{ .Values.serviceAccount.name | default (include "ztunnel.release-name" .) }}{{ end }}
 

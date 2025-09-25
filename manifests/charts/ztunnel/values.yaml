@@ -19,7 +19,8 @@ _internal_defaults_do_not_set:
     network: ""
 
   # resourceName, if set, will override the naming of resources. If not set, will default to 'ztunnel'.
-  # If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart.
+  # IMPORTANT: If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart to match this value.
+  # This ensures proper authentication between ztunnel and istiod components.
   resourceName: ""
 
   rbac:
@@ -33,7 +34,9 @@ _internal_defaults_do_not_set:
     # Annotations to add to the service account
     annotations: {}
     # The name of the service account to use.
-    # If not set, the release name is used
+    # If not set, defaults to the value of .Values.resourceName (which defaults to 'ztunnel' if not set).
+    # IMPORTANT: If you set this value, you MUST also set `trustedZtunnelName` in the `istiod` chart to match this name.
+    # This ensures proper authentication between ztunnel and istiod components.
     name: ""
 
   # Labels to apply to all top level resources
