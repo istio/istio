@@ -115,7 +115,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 				},
 			}})
 
-			s.deleteServiceEntry(t, "name1", testNS)
+			s.deleteServiceEntry(t, "name1")
 			s.assertEvent(t, s.seIPXdsName("name1", "127.0.0.1"), "ns1/se.istio.io")
 			assert.Equal(t, s.lookup(s.addrXdsName("127.0.0.1")), nil)
 			s.clearEvents()
@@ -415,7 +415,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 			slices.SortFunc(want, addrInfoSort)
 			assert.Equal(t, got, want)
 
-			s.deleteServiceEntry(t, "name1", testNS)
+			s.deleteServiceEntry(t, "name1")
 			s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name0", "name1", "name2", "name3")
 			s.assertUniqueWorkloads(t)
 			// we should see an update for the workloads selected by the service entry
