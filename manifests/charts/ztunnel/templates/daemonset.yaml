@@ -115,9 +115,9 @@ spec:
         - name: LOG_FORMAT
           value: json
         {{- end}}
-        {{- if .Values.global.network }}
+        {{- if or .Values.network .Values.global.network }}
         - name: NETWORK
-          value: {{ .Values.global.network | quote }}
+          value: {{ coalesce .Values.network .Values.global.network | quote }}
         {{- end }}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
