@@ -122,6 +122,7 @@ var rootCmd = &cobra.Command{
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
 					NativeNftables:             cfg.InstallConfig.NativeNftables,
+					KubeletCgroup:              cfg.InstallConfig.KubeletCgroup,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -323,6 +324,7 @@ func constructConfig() (*config.Config, error) {
 		AmbientReconcilePodRulesOnStartup: viper.GetBool(constants.AmbientReconcilePodRulesOnStartup),
 
 		NativeNftables: viper.GetBool(constants.NativeNftables),
+		KubeletCgroup:  viper.GetString(constants.KubeletCgroup),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
