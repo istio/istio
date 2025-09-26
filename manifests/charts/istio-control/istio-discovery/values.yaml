@@ -192,6 +192,10 @@ _internal_defaults_do_not_set:
     # Override to pass env variables, for example: /inject/cluster/remote/net/network2
     injectionPath: "/inject"
 
+    # Sidecar injector mutating webhook configuration service name value for the clientConfig.service field.
+    # Override to use a different service name for the sidecar injector webhook.
+    injectionService: ""
+
     injectionCABundle: ""
   telemetry:
     enabled: true
@@ -359,7 +363,7 @@ _internal_defaults_do_not_set:
 
       #If set to true, istio-proxy container will have privileged securityContext
       privileged: false
-      
+
       seccompProfile: {}
 
       # The number of successive failed probes before indicating readiness failure.
@@ -563,7 +567,7 @@ _internal_defaults_do_not_set:
   #         type: ClusterIP
   # Per-Gateway configuration can also be set in the `Gateway.spec.infrastructure.parametersRef` field.
   gatewayClasses: {}
-  
+
   pdb:
     # -- Minimum available pods set in PodDisruptionBudget.
     # Define either 'minAvailable' or 'maxUnavailable', never both.
