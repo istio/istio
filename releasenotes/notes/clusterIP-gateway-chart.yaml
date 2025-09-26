@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+  - |
+    **Added** service.clusterIP configuration to Gateway chart to support overriding the `spec.spec.clusterIP` of the Service resource. This 
+    could be useful in cases where the user wants to set a specific ClusterIP for the Gateway Service instead of relying on automatic assignment.
