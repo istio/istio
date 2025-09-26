@@ -28,7 +28,7 @@ import (
 )
 
 // NftProviderFunc is a type for the function signature of the nftProvider function.
-type NftProviderFunc func(family knftables.Family, table string) (NftablesAPI, error)
+type NftProviderFunc func(family knftables.Family, table string) (builder.NftablesAPI, error)
 
 // NftablesConfigurator is the main struct used to create nftables rules based on Istio configuration.
 // It builds the necessary rules and applies them using a provided nftProvider function.
@@ -47,8 +47,8 @@ func NewNftablesConfigurator(cfg *config.Config, nftProvider NftProviderFunc) (*
 	}
 
 	if nftProvider == nil {
-		nftProvider = func(family knftables.Family, table string) (NftablesAPI, error) {
-			return NewNftImpl(family, table)
+		nftProvider = func(family knftables.Family, table string) (builder.NftablesAPI, error) {
+			return builder.NewNftImpl(family, table)
 		}
 	}
 

@@ -25,6 +25,7 @@ import (
 	_ "github.com/howardjohn/unshare-go/netns"
 	"github.com/howardjohn/unshare-go/userns"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/pkg/test/util/assert"
@@ -34,7 +35,7 @@ import (
 
 func createHostsideProbeIpset(isV6 bool) (ipset.IPSet, error) {
 	linDeps := ipset.RealNlDeps()
-	probeSet, err := ipset.NewIPSet(ProbeIPSet, isV6, linDeps)
+	probeSet, err := ipset.NewIPSet(config.ProbeIPSet, isV6, linDeps)
 	if err != nil {
 		return probeSet, err
 	}
