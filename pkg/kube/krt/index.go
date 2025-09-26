@@ -27,11 +27,13 @@ import (
 
 type Index[K comparable, O any] interface {
 	Lookup(k K) []O
-	AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]]
+	AsCollection(opts ...CollectionOption) IndexCollection[K, O]
 	objectHasKey(obj O, k K) bool
 	extractKeys(o O) []K
 	id() collectionUID
 }
+
+type IndexCollection[K comparable, O any] = Collection[IndexObject[K, O]]
 
 type IndexObject[K comparable, O any] struct {
 	Key     K
@@ -97,7 +99,7 @@ func WithIndexCollectionFromString[K any](f func(string) K) CollectionOption {
 // The intended use case for this is to do merging within a collection (like a SQL 'group by').
 // WARNING: when merging, its critical the output key includes the merge key. Otherwise, you may end up with multiple
 // input keys mapping to the same output key, corrupting krt state.
-func (i index[K, O]) AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]] {
+func (i index[K, O]) AsCollection(opts ...CollectionOption) IndexCollection[K, O] {
 	o := buildCollectionOptions(opts...)
 
 	c := indexCollection[K, O]{

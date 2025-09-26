@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: grpc
 spec:
   selector:
@@ -18,7 +17,6 @@ spec:
         proxy.istio.io/overrides: '{"containers":[{"name":"traffic","image":"fake.docker.io/google-samples/traffic-go-gke:1.0","resources":{},"readinessProbe":{"httpGet":{"port":80}}}]}'
         sidecar.istio.io/rewriteAppHTTPProbers: "false"
         sidecar.istio.io/status: '{"initContainers":["grpc-bootstrap-init"],"containers":["traffic"],"volumes":["grpc-io-proxyless-bootstrap"],"imagePullSecrets":null,"revision":"default"}'
-      creationTimestamp: null
       labels:
         app: grpc
     spec:

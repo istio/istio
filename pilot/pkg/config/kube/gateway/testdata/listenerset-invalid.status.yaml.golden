@@ -1,7 +1,6 @@
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XListenerSet
 metadata:
-  creationTimestamp: null
   name: invalid-class
   namespace: istio-system
 spec: null
@@ -21,7 +20,6 @@ status:
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XListenerSet
 metadata:
-  creationTimestamp: null
   name: not-accepted-parent
   namespace: istio-system
 spec: null
@@ -41,7 +39,6 @@ status:
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XListenerSet
 metadata:
-  creationTimestamp: null
   name: not-allowed
   namespace: istio-system
 spec: null
@@ -61,7 +58,6 @@ status:
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XListenerSet
 metadata:
-  creationTimestamp: null
   name: port-not-in-service
   namespace: istio-system
 spec: null
@@ -112,7 +108,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
 spec: null
 status:
@@ -126,7 +121,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: not-accepted-parent
   namespace: istio-system
 spec: null
@@ -151,7 +145,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: parent-gateway
   namespace: istio-system
 spec: null
@@ -210,7 +203,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: parent-no-allowed-listeners
   namespace: istio-system
 spec: null
@@ -262,7 +254,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: parent-with-no-children
   namespace: istio-system
 spec: null
@@ -319,7 +310,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: waypoint
   namespace: istio-system
 spec: null

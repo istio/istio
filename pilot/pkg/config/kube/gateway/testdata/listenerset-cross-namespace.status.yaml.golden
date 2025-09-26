@@ -1,7 +1,6 @@
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XListenerSet
 metadata:
-  creationTimestamp: null
   name: single-entry-http
   namespace: ns1
 spec: null
@@ -51,7 +50,6 @@ status:
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XListenerSet
 metadata:
-  creationTimestamp: null
   name: cross-ns-cert
   namespace: ns2
 spec: null
@@ -131,7 +129,6 @@ status:
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XListenerSet
 metadata:
-  creationTimestamp: null
   name: same-ns-cert
   namespace: ns2
 spec: null
@@ -181,7 +178,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
 spec: null
 status:
@@ -195,7 +191,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: parent-gateway
   namespace: istio-system
 spec: null

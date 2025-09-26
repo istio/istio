@@ -1,7 +1,6 @@
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackendTrafficPolicy
 metadata:
-  creationTimestamp: null
   name: lb-policy
   namespace: default
 spec: null
@@ -18,5 +17,5 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
-    controllerName: istio.io/gateway-controller
+    controllerName: istio.io/mesh-controller
 ---

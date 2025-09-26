@@ -9,7 +9,6 @@ metadata:
     prometheus.io/port: "15020"
     prometheus.io/scrape: "true"
     sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
-  creationTimestamp: null
   labels:
     security.istio.io/tlsMode: istio
     service.istio.io/canonical-name: helloworld-helloworld-helloworld-helloworld-helloworld-hellowor
