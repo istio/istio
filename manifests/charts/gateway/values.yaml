@@ -42,6 +42,8 @@ _internal_defaults_do_not_set:
   service:
     # Type of service. Set to "None" to disable the service entirely
     type: LoadBalancer
+    # Set to a specific ClusterIP, or "" for automatic assignment
+    clusterIP: ""
     ports:
     - name: status-port
       port: 15021
