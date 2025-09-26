@@ -311,6 +311,60 @@ func TestPodWorkloads(t *testing.T) {
 			},
 		},
 		{
+			name: "pod selected by ServiceEntry honors port name mapping",
+			inputs: []any{
+				model.ServiceInfo{
+					Service: &workloadapi.Service{
+						Name:      "httpbin",
+						Namespace: "httpbin2",
+						Hostname:  "httpbin.httpbin2.mesh.internal",
+						Ports: []*workloadapi.Port{{
+							ServicePort: 8002,
+							TargetPort:  0,
+						}},
+					},
+					PortNames: map[int32]model.ServicePortName{
+						8002: {PortName: "http"},
+					},
+					LabelSelector: model.NewSelector(map[string]string{"app": "httpbin"}),
+					Source:        model.TypedObject{Kind: kind.ServiceEntry},
+				},
+			},
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "httpbin-123",
+					Namespace: "httpbin2",
+					Labels:    map[string]string{"app": "httpbin"},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{Ports: []v1.ContainerPort{{
+						Name:          "http",
+						ContainerPort: 8000,
+						Protocol:      v1.ProtocolTCP,
+					}}}},
+				},
+				Status: v1.PodStatus{Phase: v1.PodRunning, Conditions: podReady, PodIP: "10.1.1.1"},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/httpbin2/httpbin-123",
+				Name:              "httpbin-123",
+				Namespace:         "httpbin2",
+				Addresses:         [][]byte{netip.MustParseAddr("10.1.1.1").AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "httpbin",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "httpbin-123",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				Services: map[string]*workloadapi.PortList{
+					"httpbin2/httpbin.httpbin2.mesh.internal": {
+						Ports: []*workloadapi.Port{{ServicePort: 8002, TargetPort: 8000}},
+					},
+				},
+			},
+		},
+		{
 			name: "simple pod with locality",
 			inputs: []any{
 				Node{
