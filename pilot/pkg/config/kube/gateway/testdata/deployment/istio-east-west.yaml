@@ -187,7 +187,6 @@ spec:
         - mountPath: /etc/istio/pod
           name: istio-podinfo
       serviceAccountName: eastwestgateway
-      terminationGracePeriodSeconds: 2
       volumes:
       - emptyDir: {}
         name: workload-socket
