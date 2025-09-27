@@ -19,8 +19,25 @@ _internal_defaults_do_not_set:
     network: ""
 
   # resourceName, if set, will override the naming of resources. If not set, will default to 'ztunnel'.
-  # If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart.
+  # IMPORTANT: If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart to match this value.
+  # This ensures proper authentication between ztunnel and istiod components.
   resourceName: ""
+
+  rbac:
+    # If enabled, roles/role bindings will be created to enable ztunnel to function.
+    # This is required for OpenShift support, as it needs additional permissions.
+    enabled: true
+
+  serviceAccount:
+    # If set, a service account will be created. Otherwise, the default is used
+    create: true
+    # Annotations to add to the service account
+    annotations: {}
+    # The name of the service account to use.
+    # If not set, defaults to the value of .Values.resourceName (which defaults to 'ztunnel' if not set).
+    # IMPORTANT: If you set this value, you MUST also set `trustedZtunnelName` in the `istiod` chart to match this name.
+    # This ensures proper authentication between ztunnel and istiod components.
+    name: ""
 
   # Labels to apply to all top level resources
   labels: {}
@@ -32,7 +49,7 @@ _internal_defaults_do_not_set:
 
   # Additional volumes to the ztunnel pod
   volumes: []
-  
+
   # Tolerations for the ztunnel pod
   tolerations:
     - effect: NoSchedule
