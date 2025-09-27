@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 56358
+releaseNotes: 
+- |
+  **Added** a new `--rotation` flag to `istioctl create-remote-secret` that enables safe rotation of service account tokens in multi-cluster setups. 
