@@ -766,6 +766,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 			numFileSecretFailures.Increment()
 			return sdsFromFile, nil, err
 		}
+		cacheLog.WithLabels("resource", resourceName).Info("read certificate from file")
 		// We do not register the secret. Unlike on-demand CSRs, there is nothing we can do if a file
 		// cert expires; there is no point sending an update when its near expiry. Instead, a
 		// separate file watcher will ensure if the file changes we trigger an update.
@@ -996,13 +997,11 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 			if fc.Filename == event.Name {
 				cacheLog.Debugf("removing file %s from file certs", event.Name)
 				removedPaths = append(removedPaths, fc)
-			} else {
+			} else if strings.HasPrefix(fc.Filename, event.Name+"/") {
 				// Check if the removed path is a directory containing this symlink
 				// This handles the case where a directory is removed and contains symlinks
-				if strings.HasPrefix(fc.Filename, event.Name+"/") {
-					cacheLog.Debugf("removing symlink %s from file certs (directory %s removed)", fc.Filename, event.Name)
-					removedPaths = append(removedPaths, fc)
-				}
+				cacheLog.Debugf("removing symlink %s from file certs (directory %s removed)", fc.Filename, event.Name)
+				removedPaths = append(removedPaths, fc)
 			}
 		}
 		// Remove all identified paths

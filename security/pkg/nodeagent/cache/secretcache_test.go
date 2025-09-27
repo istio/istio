@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring/monitortest"
@@ -1083,12 +1084,12 @@ func TestSymlinkDirectoryCleanup(t *testing.T) {
 
 		// Create target file
 		targetFile := filepath.Join(tempDir, "certv1")
-		err = os.WriteFile(targetFile, []byte("test cert"), 0644)
+		err = os.WriteFile(targetFile, []byte("test cert"), 0o644)
 		require.NoError(t, err)
 
 		// Create directory structure
 		latestDir := filepath.Join(tempDir, "latest")
-		err = os.MkdirAll(latestDir, 0755)
+		err = os.MkdirAll(latestDir, 0o755)
 		require.NoError(t, err)
 
 		// Create symlink
@@ -1134,12 +1135,12 @@ func TestSymlinkDirectoryCleanup(t *testing.T) {
 
 		// Create target file
 		targetFile := filepath.Join(tempDir, "certv1")
-		err = os.WriteFile(targetFile, []byte("test cert"), 0644)
+		err = os.WriteFile(targetFile, []byte("test cert"), 0o644)
 		require.NoError(t, err)
 
 		// Create directory structure
 		latestDir := filepath.Join(tempDir, "latest")
-		err = os.MkdirAll(latestDir, 0755)
+		err = os.MkdirAll(latestDir, 0o755)
 		require.NoError(t, err)
 
 		// Create symlink
@@ -1171,7 +1172,7 @@ func TestSymlinkDirectoryCleanup(t *testing.T) {
 		require.Equal(t, 0, afterRemovalCount, "Symlink should be removed from fileCerts after directory removal")
 
 		// Recreate the directory and symlink
-		err = os.MkdirAll(latestDir, 0755)
+		err = os.MkdirAll(latestDir, 0o755)
 		require.NoError(t, err)
 		err = os.Symlink("../certv1", symlinkFile)
 		require.NoError(t, err)
@@ -1191,7 +1192,7 @@ func TestSymlinkDirectoryCleanup(t *testing.T) {
 
 		// Verify that we can detect changes to the recreated symlink
 		// Update the target file
-		err = os.WriteFile(targetFile, []byte("updated cert"), 0644)
+		err = os.WriteFile(targetFile, []byte("updated cert"), 0o644)
 		require.NoError(t, err)
 
 		// Wait for events to be processed
@@ -1212,10 +1213,10 @@ func TestSymlinkDirectoryCleanup(t *testing.T) {
 
 		// Create the structure: /a/b-alt/c/d/cert.pem (the real path)
 		realPath := filepath.Join(tempDir, "a", "b-alt", "c", "d")
-		err = os.MkdirAll(realPath, 0755)
+		err = os.MkdirAll(realPath, 0o755)
 		require.NoError(t, err)
 		realCertFile := filepath.Join(realPath, "cert.pem")
-		err = os.WriteFile(realCertFile, []byte("test cert"), 0644)
+		err = os.WriteFile(realCertFile, []byte("test cert"), 0o644)
 		require.NoError(t, err)
 
 		// Create the symlink: /a/b -> /a/b-alt
@@ -1243,7 +1244,7 @@ func TestSymlinkDirectoryCleanup(t *testing.T) {
 		sc.certMutex.Unlock()
 
 		// Test that we can detect changes to the real file
-		err = os.WriteFile(realCertFile, []byte("updated cert"), 0644)
+		err = os.WriteFile(realCertFile, []byte("updated cert"), 0o644)
 		require.NoError(t, err)
 
 		// Wait for events to be processed
@@ -1268,9 +1269,9 @@ func TestFindSymlinkInPath(t *testing.T) {
 			setup: func(t *testing.T) (string, string) {
 				tempDir := t.TempDir()
 				filePath := filepath.Join(tempDir, "a", "b", "c", "file.txt")
-				err := os.MkdirAll(filepath.Dir(filePath), 0755)
+				err := os.MkdirAll(filepath.Dir(filePath), 0o755)
 				require.NoError(t, err)
-				err = os.WriteFile(filePath, []byte("test"), 0644)
+				err = os.WriteFile(filePath, []byte("test"), 0o644)
 				require.NoError(t, err)
 				return filePath, ""
 			},
@@ -1282,7 +1283,7 @@ func TestFindSymlinkInPath(t *testing.T) {
 				tempDir := t.TempDir()
 				// Create target directory
 				targetDir := filepath.Join(tempDir, "target")
-				err := os.MkdirAll(targetDir, 0755)
+				err := os.MkdirAll(targetDir, 0o755)
 				require.NoError(t, err)
 				// Create symlink
 				symlinkPath := filepath.Join(tempDir, "link")
@@ -1298,7 +1299,7 @@ func TestFindSymlinkInPath(t *testing.T) {
 				tempDir := t.TempDir()
 				// Create target directory structure
 				targetDir := filepath.Join(tempDir, "target", "subdir")
-				err := os.MkdirAll(targetDir, 0755)
+				err := os.MkdirAll(targetDir, 0o755)
 				require.NoError(t, err)
 				// Create symlink
 				symlinkPath := filepath.Join(tempDir, "link")
@@ -1306,7 +1307,7 @@ func TestFindSymlinkInPath(t *testing.T) {
 				require.NoError(t, err)
 				// Create file through symlink
 				filePath := filepath.Join(symlinkPath, "subdir", "file.txt")
-				err = os.WriteFile(filePath, []byte("test"), 0644)
+				err = os.WriteFile(filePath, []byte("test"), 0o644)
 				require.NoError(t, err)
 				return filePath, symlinkPath
 			},
@@ -1319,9 +1320,9 @@ func TestFindSymlinkInPath(t *testing.T) {
 				// Create target directories
 				target1 := filepath.Join(tempDir, "target1")
 				target2 := filepath.Join(tempDir, "target2")
-				err := os.MkdirAll(target1, 0755)
+				err := os.MkdirAll(target1, 0o755)
 				require.NoError(t, err)
-				err = os.MkdirAll(target2, 0755)
+				err = os.MkdirAll(target2, 0o755)
 				require.NoError(t, err)
 				// Create first symlink
 				link1 := filepath.Join(tempDir, "link1")
@@ -1333,7 +1334,7 @@ func TestFindSymlinkInPath(t *testing.T) {
 				require.NoError(t, err)
 				// Create file through both symlinks
 				filePath := filepath.Join(link2, "file.txt")
-				err = os.WriteFile(filePath, []byte("test"), 0644)
+				err = os.WriteFile(filePath, []byte("test"), 0o644)
 				require.NoError(t, err)
 				return filePath, link2 // findSymlinkInPath finds the first symlink when walking up (link2 is encountered first)
 			},
@@ -1345,10 +1346,10 @@ func TestFindSymlinkInPath(t *testing.T) {
 				tempDir := t.TempDir()
 				// Create a path that looks like a system symlink
 				systemPath := filepath.Join(tempDir, "proc", "self", "fd", "1")
-				err := os.MkdirAll(filepath.Dir(systemPath), 0755)
+				err := os.MkdirAll(filepath.Dir(systemPath), 0o755)
 				require.NoError(t, err)
 				// Create a regular file (not a symlink) at system path
-				err = os.WriteFile(systemPath, []byte("test"), 0644)
+				err = os.WriteFile(systemPath, []byte("test"), 0o644)
 				require.NoError(t, err)
 				return systemPath, ""
 			},
@@ -1391,7 +1392,7 @@ func TestResolveSymlink(t *testing.T) {
 				tempDir := t.TempDir()
 				// Create target directory
 				targetDir := filepath.Join(tempDir, "target")
-				err := os.MkdirAll(targetDir, 0755)
+				err := os.MkdirAll(targetDir, 0o755)
 				require.NoError(t, err)
 				// Create symlink
 				symlinkPath := filepath.Join(tempDir, "link")
@@ -1407,7 +1408,7 @@ func TestResolveSymlink(t *testing.T) {
 				tempDir := t.TempDir()
 				// Create target file
 				targetFile := filepath.Join(tempDir, "target.txt")
-				err := os.WriteFile(targetFile, []byte("test"), 0644)
+				err := os.WriteFile(targetFile, []byte("test"), 0o644)
 				require.NoError(t, err)
 				// Create symlink
 				symlinkPath := filepath.Join(tempDir, "link.txt")
@@ -1423,7 +1424,7 @@ func TestResolveSymlink(t *testing.T) {
 				tempDir := t.TempDir()
 				// Create target directory
 				targetDir := filepath.Join(tempDir, "subdir", "target")
-				err := os.MkdirAll(targetDir, 0755)
+				err := os.MkdirAll(targetDir, 0o755)
 				require.NoError(t, err)
 				// Create symlink with relative path
 				symlinkPath := filepath.Join(tempDir, "subdir", "link")
@@ -1439,7 +1440,7 @@ func TestResolveSymlink(t *testing.T) {
 				tempDir := t.TempDir()
 				// Create target directory
 				targetDir := filepath.Join(tempDir, "target")
-				err := os.MkdirAll(targetDir, 0755)
+				err := os.MkdirAll(targetDir, 0o755)
 				require.NoError(t, err)
 				// Create symlink with absolute path
 				symlinkPath := filepath.Join(tempDir, "link")
@@ -1469,7 +1470,7 @@ func TestResolveSymlink(t *testing.T) {
 				tempDir := t.TempDir()
 				// Create regular file
 				filePath := filepath.Join(tempDir, "regular.txt")
-				err := os.WriteFile(filePath, []byte("test"), 0644)
+				err := os.WriteFile(filePath, []byte("test"), 0o644)
 				require.NoError(t, err)
 				return filePath, ""
 			},
