@@ -165,5 +165,9 @@ func TestGatewayConformance(t *testing.T) {
 			fp := filepath.Join(ctx.Settings().BaseDir, "conformance.yaml")
 			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
 			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
+
+			if gatewayConformanceInputs.Cleanup {
+				namespace.WaitForNamespacesDeletionOrFail(ctx, conformanceNamespaces)
+			}
 		})
 }

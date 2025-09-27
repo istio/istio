@@ -129,6 +129,10 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			ctx.Cleanup(func() {
+				if gatewayConformanceInputs.Cleanup {
+					namespace.WaitForNamespacesDeletionOrFail(ctx, conformanceNamespaces)
+				}
+
 				if !ctx.Failed() {
 					return
 				}
