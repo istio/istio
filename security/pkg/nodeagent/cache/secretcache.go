@@ -326,6 +326,9 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 	// Check if the file or any part of its path is a symlink.
 	isInSymlink := sc.isPathInSymlink(file)
 
+	// Choose the appropriate watcher based on whether the path contains symlinks:
+	// - Regular files: Use tryAddFileWatcher (single watcher for the file itself)
+	// - Symlinks: Use addSymlinkWatcher (three watchers: symlink, target, directory)
 	watcherFunc := sc.tryAddFileWatcher
 	if isInSymlink {
 		watcherFunc = sc.addSymlinkWatcher
@@ -404,10 +407,14 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 		return err
 	}
 
+	// Resolve the full path by replacing the symlink part with the target
+	// For example: /a/b/c/d/cert.pem where b -> b-alt becomes /a/b-alt/c/d/cert.pem
+	resolvedFilePath := strings.Replace(absFilePath, symlinkPath, targetPath, 1)
+
 	key := FileCert{
 		ResourceName: resourceName,
 		Filename:     absFilePath,
-		TargetPath:   targetPath,
+		TargetPath:   resolvedFilePath,
 	}
 
 	// Check if we're already watching this symlink
@@ -419,7 +426,13 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 	// Store symlink information
 	sc.fileCerts[key] = struct{}{}
 
-	// Add watcher for the symlink itself (critical - fail if this fails)
+	// Add watcher for the symlink itself
+	// Why needed: Detects when the symlink itself changes (removed, recreated, permissions changed)
+	// Cases covered:
+	//   - Symlink deletion: User runs "rm latest" -> REMOVE event
+	//   - Symlink recreation: User runs "ln -s ../certv2 latest" -> CREATE event
+	//   - Symlink permission changes: User runs "chmod 600 latest" -> CHMOD event
+	//   - Symlink target changes: User runs "ln -sf ../certv2 latest" -> REMOVE + CREATE events
 	cacheLog.Infof("adding watcher for symlink certificate %s -> %s", absFilePath, targetPath)
 	if err := sc.certWatcher.Add(symlinkPath); err != nil {
 		cacheLog.Errorf("%v: error adding watcher for symlink %v, retrying watches: %v", resourceName, symlinkPath, err)
@@ -428,28 +441,62 @@ func (sc *SecretManagerClient) addSymlinkWatcher(filePath string, resourceName s
 		return err
 	}
 
-	// Add watchers for directories and target (non-critical - don't fail if these fail)
-	parentDir := filepath.Dir(symlinkPath)
-	if parentDir != "/" && parentDir != "." {
-		sc.addWatcherSafely(parentDir, resourceName, "parent directory")
+	// Add watcher for the resolved file path
+	// Why needed: Detects changes to the actual target file content
+	// Cases covered:
+	//   - Target file content changes: User updates certv1 with new certificate -> WRITE event
+	//   - Target file deletion: User runs "rm certv1" -> REMOVE event
+	//   - Target file recreation: User runs "cp newcert certv1" -> CREATE event
+	//   - Target file permission changes: User runs "chmod 600 certv1" -> CHMOD event
+	//   - Atomic file operations: file.AtomicWrite() -> REMOVE + CREATE + CHMOD events
+	if err := sc.certWatcher.Add(resolvedFilePath); err != nil {
+		cacheLog.Errorf("%v: error adding watcher for resolved file %v, retrying watches: %v", resourceName, resolvedFilePath, err)
+		delete(sc.fileCerts, key)
+		numFileWatcherFailures.Increment()
+		return err
 	}
 
-	grandParentDir := filepath.Dir(parentDir)
-	if grandParentDir != parentDir && grandParentDir != "." && grandParentDir != "/" {
-		sc.addWatcherSafely(grandParentDir, resourceName, "grandparent directory")
+	// Add watcher for the directory containing the symlink
+	// Why needed: Detects when the entire directory containing the symlink is removed
+	// Cases covered:
+	//   - Directory removal: User runs "rm -rf latest/" -> REMOVE event for directory
+	//   - Directory recreation: User runs "mkdir latest && ln -s ../certv1 latest/cert.pem" -> CREATE event
+	//   - Directory permission changes: User runs "chmod 700 latest/" -> CHMOD event
+	symlinkDir := filepath.Dir(symlinkPath)
+	if symlinkDir != "/" && symlinkDir != "." {
+		if err := sc.certWatcher.Add(symlinkDir); err != nil {
+			cacheLog.Errorf("%v: error adding watcher for symlink directory %v, retrying watches: %v", resourceName, symlinkDir, err)
+			delete(sc.fileCerts, key)
+			numFileWatcherFailures.Increment()
+			return err
+		}
 	}
-
-	sc.addWatcherSafely(targetPath, resourceName, "target")
 
 	return nil
 }
 
-// addWatcherSafely adds a watcher and logs errors without failing the operation
-func (sc *SecretManagerClient) addWatcherSafely(path, resourceName, pathType string) {
-	if err := sc.certWatcher.Add(path); err != nil {
-		cacheLog.Errorf("%v: error adding watcher for symlink %s %v, retrying watches: %v", resourceName, pathType, path, err)
-		// Don't fail completely, we can still watch the symlink
-	}
+// findSymlinkInPath finds the symlink component in a file path and returns both
+// the symlink path and whether any symlink was found
+func (sc *SecretManagerClient) findSymlinkInPath(filePath string) (symlinkPath string, found bool) {
+	sc.walkPathComponents(filePath, func(path string, isSymlink bool) (bool, bool) {
+		if isSymlink {
+			// Check if this is a system-level symlink that we should ignore
+			if sc.isSystemSymlink(path) {
+				// These are system-level symlinks that don't affect file watching behavior
+				return false, false // not found, don't continue
+			}
+			symlinkPath = path
+			return true, false // found, don't continue
+		}
+		return false, true // not found, continue
+	})
+	return symlinkPath, symlinkPath != ""
+}
+
+// isPathInSymlink checks if any part of the file path is a symlink
+func (sc *SecretManagerClient) isPathInSymlink(filePath string) bool {
+	_, found := sc.findSymlinkInPath(filePath)
+	return found
 }
 
 // isSystemSymlink checks if a directory is a system-level symlink that should be ignored
@@ -490,30 +537,6 @@ func (sc *SecretManagerClient) walkPathComponents(filePath string, fn func(path 
 		dir = filepath.Dir(dir)
 	}
 	return false
-}
-
-// findSymlinkInPath finds the symlink component in a file path and returns both
-// the symlink path and whether any symlink was found
-func (sc *SecretManagerClient) findSymlinkInPath(filePath string) (symlinkPath string, found bool) {
-	sc.walkPathComponents(filePath, func(path string, isSymlink bool) (bool, bool) {
-		if isSymlink {
-			// Check if this is a system-level symlink that we should ignore
-			if sc.isSystemSymlink(path) {
-				// These are system-level symlinks that don't affect file watching behavior
-				return false, false // not found, don't continue
-			}
-			symlinkPath = path
-			return true, false // found, don't continue
-		}
-		return false, true // not found, continue
-	})
-	return symlinkPath, symlinkPath != ""
-}
-
-// isPathInSymlink checks if any part of the file path is a symlink
-func (sc *SecretManagerClient) isPathInSymlink(filePath string) bool {
-	_, found := sc.findSymlinkInPath(filePath)
-	return found
 }
 
 // resolveSymlink resolves a symlink to its target path
@@ -929,26 +952,29 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 		}
 
 		// Process symlinks (those with TargetPath set)
-		// Check if the event is for the symlink itself, its target, or its parent/grandparent directory
-		parentDir := filepath.Dir(fc.Filename)
-		grandParentDir := filepath.Dir(parentDir)
-		if fc.Filename == event.Name || fc.TargetPath == event.Name || parentDir == event.Name || grandParentDir == event.Name {
-			// If the symlink itself, its parent directory, or grandparent directory changed (removed/recreated), we need to re-resolve it
-			if (fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name) && (isRemove(event) || isCreate(event)) {
+		// Check if the event is for the symlink itself, its target file, or its directory
+		symlinkDir := filepath.Dir(fc.Filename)
+		if fc.Filename == event.Name || fc.TargetPath == event.Name || symlinkDir == event.Name {
+			// If the symlink itself changed (removed/recreated), we need to re-resolve it
+			if fc.Filename == event.Name && (isRemove(event) || isCreate(event)) {
 				sc.handleSymlinkChange(fc)
 			}
 
-			// Trigger updates for symlink file changes, directory changes, or target file changes
+			// Trigger updates for symlink file changes, target file changes, or directory changes
 			// For target file changes, trigger on all events (including REMOVE/CREATE/CHMOD from atomic operations)
 			// This ensures atomic operations are detected on Linux where events come for target files
 			shouldTriggerUpdate := false
-			if fc.Filename == event.Name || parentDir == event.Name || grandParentDir == event.Name {
-				// Always trigger for symlink and directory changes
+			if fc.Filename == event.Name {
+				// Always trigger for symlink changes
 				shouldTriggerUpdate = true
 			}
 			if fc.TargetPath == event.Name {
 				// For target file changes, trigger on all events (including REMOVE/CREATE/CHMOD from atomic operations)
 				// This ensures atomic operations are detected on Linux where events come for target files
+				shouldTriggerUpdate = true
+			}
+			if symlinkDir == event.Name {
+				// Always trigger for directory changes (including removal)
 				shouldTriggerUpdate = true
 			}
 
@@ -963,12 +989,25 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 	// we may get generate call before cleanup is done and we will end up not watching the file.
 	if isRemove(event) {
 		sc.certMutex.Lock()
+		// Check if the removed path is a directory by checking if any symlinks are inside it
+		removedPaths := make([]FileCert, 0)
 		for fc := range sc.fileCerts {
+			// Remove exact matches (file or symlink removal)
 			if fc.Filename == event.Name {
 				cacheLog.Debugf("removing file %s from file certs", event.Name)
-				delete(sc.fileCerts, fc)
-				break
+				removedPaths = append(removedPaths, fc)
+			} else {
+				// Check if the removed path is a directory containing this symlink
+				// This handles the case where a directory is removed and contains symlinks
+				if strings.HasPrefix(fc.Filename, event.Name+"/") {
+					cacheLog.Debugf("removing symlink %s from file certs (directory %s removed)", fc.Filename, event.Name)
+					removedPaths = append(removedPaths, fc)
+				}
 			}
+		}
+		// Remove all identified paths
+		for _, fc := range removedPaths {
+			delete(sc.fileCerts, fc)
 		}
 		sc.certMutex.Unlock()
 	}

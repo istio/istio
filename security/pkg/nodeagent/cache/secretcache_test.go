@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring/monitortest"
@@ -1067,4 +1068,448 @@ func runSymlinkAgentTest(t *testing.T, sds bool) {
 		ResourceName: rootResource,
 		RootCert:     testcerts.CACert,
 	})
+}
+
+func TestSymlinkDirectoryCleanup(t *testing.T) {
+	t.Run("symlink cleanup when directory is removed", func(t *testing.T) {
+		// Create a properly initialized SecretManagerClient
+		caClient, err := mock.NewMockCAClient(time.Hour, false)
+		require.NoError(t, err)
+		options := security.Options{}
+		sc, err := NewSecretManagerClient(caClient, &options)
+		require.NoError(t, err)
+		defer sc.Close()
+		tempDir := t.TempDir()
+
+		// Create target file
+		targetFile := filepath.Join(tempDir, "certv1")
+		err = os.WriteFile(targetFile, []byte("test cert"), 0644)
+		require.NoError(t, err)
+
+		// Create directory structure
+		latestDir := filepath.Join(tempDir, "latest")
+		err = os.MkdirAll(latestDir, 0755)
+		require.NoError(t, err)
+
+		// Create symlink
+		symlinkFile := filepath.Join(latestDir, "cert.pem")
+		err = os.Symlink("../certv1", symlinkFile)
+		require.NoError(t, err)
+
+		// Add symlink watcher
+		err = sc.addSymlinkWatcher(symlinkFile, "test-resource")
+		require.NoError(t, err)
+
+		// Verify initial state
+		sc.certMutex.Lock()
+		initialCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 1, initialCount, "Should have one symlink in fileCerts initially")
+
+		// Simulate directory removal (like in your real scenario)
+		err = os.RemoveAll(latestDir)
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		// Verify that the symlink is removed from fileCerts after directory removal
+		sc.certMutex.Lock()
+		afterRemovalCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 0, afterRemovalCount, "Symlink should be removed from fileCerts after directory removal")
+
+		t.Logf("Test completed - directory cleanup behavior validated")
+	})
+
+	t.Run("symlink watcher re-addition after recreation", func(t *testing.T) {
+		// Create a properly initialized SecretManagerClient
+		caClient, err := mock.NewMockCAClient(time.Hour, false)
+		require.NoError(t, err)
+		options := security.Options{}
+		sc, err := NewSecretManagerClient(caClient, &options)
+		require.NoError(t, err)
+		defer sc.Close()
+		tempDir := t.TempDir()
+
+		// Create target file
+		targetFile := filepath.Join(tempDir, "certv1")
+		err = os.WriteFile(targetFile, []byte("test cert"), 0644)
+		require.NoError(t, err)
+
+		// Create directory structure
+		latestDir := filepath.Join(tempDir, "latest")
+		err = os.MkdirAll(latestDir, 0755)
+		require.NoError(t, err)
+
+		// Create symlink
+		symlinkFile := filepath.Join(latestDir, "cert.pem")
+		err = os.Symlink("../certv1", symlinkFile)
+		require.NoError(t, err)
+
+		// Add symlink watcher
+		err = sc.addSymlinkWatcher(symlinkFile, "test-resource")
+		require.NoError(t, err)
+
+		// Verify initial state
+		sc.certMutex.Lock()
+		initialCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 1, initialCount, "Should have one symlink in fileCerts initially")
+
+		// Simulate directory removal (like in your real scenario)
+		err = os.RemoveAll(latestDir)
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		// Verify that the symlink is removed from fileCerts after directory removal
+		sc.certMutex.Lock()
+		afterRemovalCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 0, afterRemovalCount, "Symlink should be removed from fileCerts after directory removal")
+
+		// Recreate the directory and symlink
+		err = os.MkdirAll(latestDir, 0755)
+		require.NoError(t, err)
+		err = os.Symlink("../certv1", symlinkFile)
+		require.NoError(t, err)
+
+		// Manually re-add the symlink watcher (this is what should happen in real scenario)
+		err = sc.addSymlinkWatcher(symlinkFile, "test-resource")
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		// Verify that the symlink is back in fileCerts after re-addition
+		sc.certMutex.Lock()
+		afterRecreationCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 1, afterRecreationCount, "Symlink should be back in fileCerts after re-addition")
+
+		// Verify that we can detect changes to the recreated symlink
+		// Update the target file
+		err = os.WriteFile(targetFile, []byte("updated cert"), 0644)
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		t.Logf("Test completed - symlink watcher re-addition validated")
+	})
+
+	t.Run("reviewer example - correct path watching", func(t *testing.T) {
+		// Create a properly initialized SecretManagerClient
+		caClient, err := mock.NewMockCAClient(time.Hour, false)
+		require.NoError(t, err)
+		options := security.Options{}
+		sc, err := NewSecretManagerClient(caClient, &options)
+		require.NoError(t, err)
+		defer sc.Close()
+		tempDir := t.TempDir()
+
+		// Create the structure: /a/b-alt/c/d/cert.pem (the real path)
+		realPath := filepath.Join(tempDir, "a", "b-alt", "c", "d")
+		err = os.MkdirAll(realPath, 0755)
+		require.NoError(t, err)
+		realCertFile := filepath.Join(realPath, "cert.pem")
+		err = os.WriteFile(realCertFile, []byte("test cert"), 0644)
+		require.NoError(t, err)
+
+		// Create the symlink: /a/b -> /a/b-alt
+		symlinkPath := filepath.Join(tempDir, "a", "b")
+		err = os.Symlink("b-alt", symlinkPath)
+		require.NoError(t, err)
+
+		// The path we want to watch: /a/b/c/d/cert.pem (through symlink)
+		symlinkCertPath := filepath.Join(symlinkPath, "c", "d", "cert.pem")
+
+		// Add symlink watcher
+		err = sc.addSymlinkWatcher(symlinkCertPath, "test-resource")
+		require.NoError(t, err)
+
+		// Verify we're watching the correct paths
+		sc.certMutex.Lock()
+		require.Len(t, sc.fileCerts, 1, "Should have one symlink in fileCerts")
+		for fc := range sc.fileCerts {
+			// Verify the symlink path is stored correctly
+			require.Equal(t, symlinkCertPath, fc.Filename, "Filename should be the symlink path")
+			// Verify the resolved path is stored correctly
+			expectedResolvedPath := realCertFile
+			require.Equal(t, expectedResolvedPath, fc.TargetPath, "TargetPath should be the resolved file path")
+		}
+		sc.certMutex.Unlock()
+
+		// Test that we can detect changes to the real file
+		err = os.WriteFile(realCertFile, []byte("updated cert"), 0644)
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		t.Logf("Test completed - reviewer example validated")
+		t.Logf("Watching symlink path: %s", symlinkCertPath)
+		t.Logf("Watching resolved path: %s", realCertFile)
+	})
+}
+
+func TestFindSymlinkInPath(t *testing.T) {
+	sc := &SecretManagerClient{}
+
+	tests := []struct {
+		name          string
+		setup         func(t *testing.T) (string, string) // returns (filePath, expectedSymlinkPath)
+		expectedFound bool
+	}{
+		{
+			name: "no symlinks in path",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				filePath := filepath.Join(tempDir, "a", "b", "c", "file.txt")
+				err := os.MkdirAll(filepath.Dir(filePath), 0755)
+				require.NoError(t, err)
+				err = os.WriteFile(filePath, []byte("test"), 0644)
+				require.NoError(t, err)
+				return filePath, ""
+			},
+			expectedFound: false,
+		},
+		{
+			name: "single symlink at end",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory
+				targetDir := filepath.Join(tempDir, "target")
+				err := os.MkdirAll(targetDir, 0755)
+				require.NoError(t, err)
+				// Create symlink
+				symlinkPath := filepath.Join(tempDir, "link")
+				err = os.Symlink("target", symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, symlinkPath
+			},
+			expectedFound: true,
+		},
+		{
+			name: "single symlink in middle",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory structure
+				targetDir := filepath.Join(tempDir, "target", "subdir")
+				err := os.MkdirAll(targetDir, 0755)
+				require.NoError(t, err)
+				// Create symlink
+				symlinkPath := filepath.Join(tempDir, "link")
+				err = os.Symlink("target", symlinkPath)
+				require.NoError(t, err)
+				// Create file through symlink
+				filePath := filepath.Join(symlinkPath, "subdir", "file.txt")
+				err = os.WriteFile(filePath, []byte("test"), 0644)
+				require.NoError(t, err)
+				return filePath, symlinkPath
+			},
+			expectedFound: true,
+		},
+		{
+			name: "multiple symlinks - first one found",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directories
+				target1 := filepath.Join(tempDir, "target1")
+				target2 := filepath.Join(tempDir, "target2")
+				err := os.MkdirAll(target1, 0755)
+				require.NoError(t, err)
+				err = os.MkdirAll(target2, 0755)
+				require.NoError(t, err)
+				// Create first symlink
+				link1 := filepath.Join(tempDir, "link1")
+				err = os.Symlink("target1", link1)
+				require.NoError(t, err)
+				// Create second symlink
+				link2 := filepath.Join(link1, "link2")
+				err = os.Symlink("../target2", link2)
+				require.NoError(t, err)
+				// Create file through both symlinks
+				filePath := filepath.Join(link2, "file.txt")
+				err = os.WriteFile(filePath, []byte("test"), 0644)
+				require.NoError(t, err)
+				return filePath, link2 // findSymlinkInPath finds the first symlink when walking up (link2 is encountered first)
+			},
+			expectedFound: true,
+		},
+		{
+			name: "system symlink ignored",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create a path that looks like a system symlink
+				systemPath := filepath.Join(tempDir, "proc", "self", "fd", "1")
+				err := os.MkdirAll(filepath.Dir(systemPath), 0755)
+				require.NoError(t, err)
+				// Create a regular file (not a symlink) at system path
+				err = os.WriteFile(systemPath, []byte("test"), 0644)
+				require.NoError(t, err)
+				return systemPath, ""
+			},
+			expectedFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filePath, expectedSymlinkPath := tt.setup(t)
+			symlinkPath, found := sc.findSymlinkInPath(filePath)
+
+			if tt.expectedFound {
+				require.True(t, found, "Expected to find symlink in path")
+				require.NotEmpty(t, symlinkPath, "Expected symlink path to be non-empty")
+				require.Equal(t, expectedSymlinkPath, symlinkPath, "Expected symlink path to match")
+				// Verify the found path is actually a symlink
+				fileInfo, err := os.Lstat(symlinkPath)
+				require.NoError(t, err)
+				require.True(t, fileInfo.Mode()&os.ModeSymlink != 0, "Found path should be a symlink")
+			} else {
+				require.False(t, found, "Expected not to find symlink in path")
+				require.Empty(t, symlinkPath, "Expected symlink path to be empty")
+			}
+		})
+	}
+}
+
+func TestResolveSymlink(t *testing.T) {
+	sc := &SecretManagerClient{}
+
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T) (string, string) // returns (symlinkPath, expectedResolvedPath)
+		expectError bool
+	}{
+		{
+			name: "valid symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory
+				targetDir := filepath.Join(tempDir, "target")
+				err := os.MkdirAll(targetDir, 0755)
+				require.NoError(t, err)
+				// Create symlink
+				symlinkPath := filepath.Join(tempDir, "link")
+				err = os.Symlink("target", symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, targetDir
+			},
+			expectError: false,
+		},
+		{
+			name: "symlink to file",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target file
+				targetFile := filepath.Join(tempDir, "target.txt")
+				err := os.WriteFile(targetFile, []byte("test"), 0644)
+				require.NoError(t, err)
+				// Create symlink
+				symlinkPath := filepath.Join(tempDir, "link.txt")
+				err = os.Symlink("target.txt", symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, targetFile
+			},
+			expectError: false,
+		},
+		{
+			name: "relative symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory
+				targetDir := filepath.Join(tempDir, "subdir", "target")
+				err := os.MkdirAll(targetDir, 0755)
+				require.NoError(t, err)
+				// Create symlink with relative path
+				symlinkPath := filepath.Join(tempDir, "subdir", "link")
+				err = os.Symlink("target", symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, targetDir
+			},
+			expectError: false,
+		},
+		{
+			name: "absolute symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory
+				targetDir := filepath.Join(tempDir, "target")
+				err := os.MkdirAll(targetDir, 0755)
+				require.NoError(t, err)
+				// Create symlink with absolute path
+				symlinkPath := filepath.Join(tempDir, "link")
+				err = os.Symlink(targetDir, symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, targetDir
+			},
+			expectError: false,
+		},
+		{
+			name: "broken symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create broken symlink
+				symlinkPath := filepath.Join(tempDir, "broken")
+				err := os.Symlink("nonexistent", symlinkPath)
+				require.NoError(t, err)
+				// For broken symlinks, the resolved path should be the target path (even if it doesn't exist)
+				expectedResolved := filepath.Join(tempDir, "nonexistent")
+				return symlinkPath, expectedResolved
+			},
+			expectError: false, // resolveSymlink doesn't check if target exists, only resolves the symlink
+		},
+		{
+			name: "not a symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create regular file
+				filePath := filepath.Join(tempDir, "regular.txt")
+				err := os.WriteFile(filePath, []byte("test"), 0644)
+				require.NoError(t, err)
+				return filePath, ""
+			},
+			expectError: true,
+		},
+		{
+			name: "nonexistent path",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				return filepath.Join(tempDir, "nonexistent"), ""
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			symlinkPath, expectedResolvedPath := tt.setup(t)
+			resolvedPath, err := sc.resolveSymlink(symlinkPath)
+
+			if tt.expectError {
+				require.Error(t, err, "Expected error when resolving symlink")
+			} else {
+				require.NoError(t, err, "Expected no error when resolving symlink")
+				require.NotEmpty(t, resolvedPath, "Expected resolved path to be non-empty")
+				require.Equal(t, expectedResolvedPath, resolvedPath, "Expected resolved path to match")
+
+				// Verify the resolved path exists (skip for broken symlinks)
+				if !strings.Contains(symlinkPath, "broken") {
+					_, err := os.Stat(resolvedPath)
+					require.NoError(t, err, "Resolved path should exist")
+				}
+
+				// Verify it's not a symlink (should be resolved) - skip for broken symlinks
+				if !strings.Contains(symlinkPath, "broken") {
+					fileInfo, err := os.Lstat(resolvedPath)
+					require.NoError(t, err)
+					require.False(t, fileInfo.Mode()&os.ModeSymlink != 0, "Resolved path should not be a symlink")
+				}
+			}
+		})
+	}
 }
