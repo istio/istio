@@ -315,7 +315,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 						Name:     "mesh",
 						Port:     k8s.PortNumber(15008),
 						Protocol: "ALL",
-						TLS: &k8s.GatewayTLSConfig{
+						TLS: &k8s.ListenerTLSConfig{
 							Mode: ptr.Of(k8s.TLSModeTerminate),
 							Options: map[k8s.AnnotationKey]k8s.AnnotationValue{
 								gatewayTLSTerminateModeKey: "ISTIO_MUTUAL",

@@ -1,7 +1,6 @@
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: eastwestgateway
   namespace: istio-system
 spec: null
@@ -24,7 +23,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
-  creationTimestamp: null
   name: eastwestgateway-grpc
   namespace: istio-system
 spec: null
@@ -34,7 +32,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
-  creationTimestamp: null
   name: eastwestgateway-webhook
   namespace: istio-system
 spec: null
