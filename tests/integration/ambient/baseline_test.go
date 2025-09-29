@@ -2756,7 +2756,7 @@ func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Inst
 			t.Cleanup(func() {
 				// cleanup services which other tests expect to be local
 				for _, app := range apps.Mesh {
-					labelService(t, app.ServiceName(), "istio.io/global", "false", app.Config().Cluster)
+					unlabelService(t, app.ServiceName(), "istio.io/global", "true", app.Config().Cluster)
 				}
 			})
 		}
@@ -3624,6 +3624,16 @@ func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, svcName, 
 	}
 	s := c.Kube().CoreV1().Services(apps.Namespace.Name())
 	_, err := s.Patch(t.Context(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func unlabelService(t framework.TestContext, svcName, k, v string, cls cluster.Cluster) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{"metadata":{"labels":{"$patch": "delete", %q: %q}}}`, k, v)
+	s := cls.Kube().CoreV1().Services(apps.Namespace.Name())
+	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
