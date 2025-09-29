@@ -22,6 +22,7 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
@@ -80,7 +81,7 @@ func TestReconcileInferencePool(t *testing.T) {
 	}, true)
 
 	assert.Equal(t, service.ObjectMeta.Labels[constants.InternalServiceSemantics], constants.ServiceSemanticsInferencePool)
-	assert.Equal(t, service.ObjectMeta.Labels[InferencePoolRefLabel], pool.Name)
+	assert.Equal(t, service.ObjectMeta.Labels[model.InferencePoolRefLabel], pool.Name)
 	assert.Equal(t, service.OwnerReferences[0].Name, pool.Name)
 	assert.Equal(t, service.Spec.Ports[0].TargetPort.IntVal, int32(8080))
 	assert.Equal(t, service.Spec.Ports[0].Port, int32(54321)) // dummyPort + i

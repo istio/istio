@@ -27,6 +27,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient"
@@ -38,12 +39,8 @@ import (
 )
 
 const (
-	maxServiceNameLength                 = 63
-	hashSize                             = 8
-	InferencePoolRefLabel                = "istio.io/inferencepool-name"
-	InferencePoolExtensionRefSvc         = "istio.io/inferencepool-extension-service"
-	InferencePoolExtensionRefPort        = "istio.io/inferencepool-extension-port"
-	InferencePoolExtensionRefFailureMode = "istio.io/inferencepool-extension-failure-mode"
+	maxServiceNameLength = 63
+	hashSize             = 8
 )
 
 // // ManagedLabel is the label used to identify resources managed by this controller
@@ -522,11 +519,11 @@ func translateShadowServiceToService(existingLabels map[string]string, shadow sh
 			Name:      shadow.key.Name,
 			Namespace: shadow.key.Namespace,
 			Labels: maps.MergeCopy(map[string]string{
-				InferencePoolRefLabel:                shadow.poolName,
-				InferencePoolExtensionRefSvc:         extRef.name,
-				InferencePoolExtensionRefPort:        strconv.Itoa(int(extRef.port)),
-				InferencePoolExtensionRefFailureMode: extRef.failureMode,
-				constants.InternalServiceSemantics:   constants.ServiceSemanticsInferencePool,
+				model.InferencePoolRefLabel:                shadow.poolName,
+				model.InferencePoolExtensionRefSvc:         extRef.name,
+				model.InferencePoolExtensionRefPort:        strconv.Itoa(int(extRef.port)),
+				model.InferencePoolExtensionRefFailureMode: extRef.failureMode,
+				constants.InternalServiceSemantics:         constants.ServiceSemanticsInferencePool,
 			}, existingLabels),
 		},
 		Spec: corev1.ServiceSpec{
@@ -601,8 +598,8 @@ func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bo
 		return true, ""
 	}
 
-	_, inferencePoolManaged := obj.GetLabels()[InferencePoolRefLabel]
-	// We can manage if it has no manager or if we are the manager
+	_, inferencePoolManaged := obj.GetLabels()[model.InferencePoolRefLabel]
+	// We can manage if it has no manager or ifmodel. we are the manager
 	return inferencePoolManaged, obj.GetResourceVersion()
 }
 

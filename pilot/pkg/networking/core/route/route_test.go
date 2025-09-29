@@ -21,7 +21,6 @@ import (
 
 	envoycore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	extproc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -38,13 +37,11 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/wellknown"
 )
 
 func buildRouteOpts(sr map[host.Name]*model.Service, hash route.DestinationHashMap) route.RouteOptions {
@@ -1425,55 +1422,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 	})
 
-	t.Run("for virtual service with routing to an service with inference semantics", func(t *testing.T) {
-		g := NewWithT(t)
-		cg := core.NewConfigGenTest(t, core.TestOptions{})
-
-		routeOpts := buildRouteOpts(serviceRegistry, nil)
-		routeOpts.InferencePoolExtensionRefs = map[string]kube.InferencePoolRouteRuleConfig{
-			"routeA": {FQDN: "ext-proc-svc.test-namespace.svc.cluster.local", Port: "9002"},
-		}
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, 8080, gatewayNames, routeOpts)
-		xdstest.ValidateRoutes(t, routes)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(routes[0].GetTypedPerFilterConfig()).To(HaveKey(wellknown.HTTPExternalProcessing))
-		extProcPerRoute := new(extproc.ExtProcPerRoute)
-		if err := routes[0].GetTypedPerFilterConfig()[wellknown.HTTPExternalProcessing].UnmarshalTo(extProcPerRoute); err != nil {
-			t.Errorf("couldn't unmarshal any proto: %v \n", err)
-		}
-		// nolint lll
-		g.Expect(extProcPerRoute.GetOverrides().GetGrpcService().GetTargetSpecifier().(*envoycore.GrpcService_EnvoyGrpc_).EnvoyGrpc.GetClusterName()).To(Equal("outbound|9002||ext-proc-svc.test-namespace.svc.cluster.local"))
-		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))
-		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
-		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetResponseBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))
-		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetResponseHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
-		g.Expect(extProcPerRoute.GetOverrides().GetFailureModeAllow().GetValue()).To(BeFalse())
-	})
-
-	t.Run("for virtual service with routing to an service with inference semantics with failuremode override", func(t *testing.T) {
-		g := NewWithT(t)
-		cg := core.NewConfigGenTest(t, core.TestOptions{})
-
-		routeOpts := buildRouteOpts(serviceRegistry, nil)
-		routeOpts.InferencePoolExtensionRefs = map[string]kube.InferencePoolRouteRuleConfig{
-			"routeA": {FQDN: "ext-proc-svc.test-namespace.svc.cluster.local", Port: "9002", FailureModeAllow: true},
-		}
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, 8080, gatewayNames, routeOpts)
-		xdstest.ValidateRoutes(t, routes)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(routes[0].GetTypedPerFilterConfig()).To(HaveKey(wellknown.HTTPExternalProcessing))
-		extProcPerRoute := new(extproc.ExtProcPerRoute)
-		if err := routes[0].GetTypedPerFilterConfig()[wellknown.HTTPExternalProcessing].UnmarshalTo(extProcPerRoute); err != nil {
-			t.Errorf("couldn't unmarshal any proto: %v \n", err)
-		}
-		// nolint lll
-		g.Expect(extProcPerRoute.GetOverrides().GetGrpcService().GetTargetSpecifier().(*envoycore.GrpcService_EnvoyGrpc_).EnvoyGrpc.GetClusterName()).To(Equal("outbound|9002||ext-proc-svc.test-namespace.svc.cluster.local"))
-		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))
-		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
-		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetResponseBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))
-		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetResponseHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
-		g.Expect(extProcPerRoute.GetOverrides().GetFailureModeAllow().GetValue()).To(BeTrue())
-	})
 	t.Run("for virtualservices with with wildcard hosts outside of the serviceregistry (on port 80)", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{

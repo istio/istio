@@ -127,6 +127,14 @@ type Service struct {
 	ResourceVersion string
 }
 
+// Constants for the Inference Extension
+const (
+	InferencePoolRefLabel                = "istio.io/inferencepool-name"
+	InferencePoolExtensionRefSvc         = "istio.io/inferencepool-extension-service"
+	InferencePoolExtensionRefPort        = "istio.io/inferencepool-extension-port"
+	InferencePoolExtensionRefFailureMode = "istio.io/inferencepool-extension-failure-mode"
+)
+
 // UseInferenceSemantics determines which logic we should use for Service
 // This allows InferencePools and Services to both be represented by Service, but have different
 // semantics.

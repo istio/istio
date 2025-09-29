@@ -108,9 +108,6 @@ type Config struct {
 
 	// Status holds long-running status.
 	Status Status
-
-	// Extra holds additional, non-spec information for internal processing.
-	Extra map[string]any
 }
 
 func LabelsInRevision(lbls map[string]string, rev string) bool {
@@ -395,10 +392,6 @@ func (c *Config) Equals(other *Config) bool {
 	if !equals(c.Status, other.Status) {
 		return false
 	}
-	// Can't use map.Equal because store maps as the value
-	if !equals(c.Extra, other.Extra) {
-		return false
-	}
 	return true
 }
 
@@ -454,10 +447,6 @@ func (c Config) DeepCopy() Config {
 	clone.Spec = DeepCopy(c.Spec)
 	if c.Status != nil {
 		clone.Status = DeepCopy(c.Status)
-	}
-	// Note that this is effectively a shallow clone, but this is fine as it is not manipulated.
-	if c.Extra != nil {
-		clone.Extra = maps.Clone(c.Extra)
 	}
 	return clone
 }

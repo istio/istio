@@ -363,6 +363,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			if service.UseInferenceSemantics() && proxy.Type == model.Router {
 				cb.applyOverrideHostPolicy(defaultCluster)
+				cb.applyExtProcUpstreamFilter(defaultCluster, service)
 			}
 			if patched := cp.patch(nil, defaultCluster.build()); patched != nil {
 				resources = append(resources, patched)

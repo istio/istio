@@ -368,17 +368,12 @@ func NewController(
 		grpcRoutes.VirtualServices,
 	}, opts.WithName("DerivedVirtualServices")...)
 
-	InferencePoolsByGateway := krt.NewIndex(InferencePools, "byGateway", func(i InferencePool) []types.NamespacedName {
-		return i.gatewayParents.UnsortedList()
-	})
-
 	outputs := Outputs{
-		ReferenceGrants:         ReferenceGrants,
-		Gateways:                Gateways,
-		VirtualServices:         VirtualServices,
-		DestinationRules:        DestinationRules,
-		InferencePools:          InferencePools,
-		InferencePoolsByGateway: InferencePoolsByGateway,
+		ReferenceGrants:  ReferenceGrants,
+		Gateways:         Gateways,
+		VirtualServices:  VirtualServices,
+		DestinationRules: DestinationRules,
+		InferencePools:   InferencePools,
 	}
 	c.outputs = outputs
 
@@ -426,16 +421,16 @@ func NewController(
 				return
 			}
 
-			poolName, ok := obj.Labels[InferencePoolRefLabel]
+			poolName, ok := obj.Labels[model.InferencePoolRefLabel]
 			if !ok && o.Event == controllers.EventUpdate && o.Old != nil {
 				// Try and find the label from the old object
 				old := ptr.Flatten(o.Old)
-				poolName, ok = old.Labels[InferencePoolRefLabel]
+				poolName, ok = old.Labels[model.InferencePoolRefLabel]
 			}
 
 			if !ok {
 				log.Errorf("service %s/%s is missing the %s label, cannot reconcile shadow service",
-					obj.Namespace, obj.Name, InferencePoolRefLabel)
+					obj.Namespace, obj.Name, model.InferencePoolRefLabel)
 				return
 			}
 
@@ -618,10 +613,6 @@ func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		})
 	}
-}
-
-func (c *Controller) HasInferencePool(gw types.NamespacedName) bool {
-	return len(c.outputs.InferencePoolsByGateway.Lookup(gw)) > 0
 }
 
 func (c *Controller) inRevision(obj any) bool {

@@ -17,11 +17,13 @@ package core
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
 	roundrobin "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/round_robin/v3"
 	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
@@ -32,6 +34,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -41,6 +44,7 @@ import (
 	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
+	"istio.io/istio/pilot/pkg/xds/filters"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -191,6 +195,41 @@ func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 	return &clusterWrapper{
 		cluster: cluster,
 	}
+}
+
+func (cb *ClusterBuilder) applyExtProcUpstreamFilter(cw *clusterWrapper, svc *model.Service) {
+	if cw.cluster.TypedExtensionProtocolOptions == nil {
+		cw.cluster.TypedExtensionProtocolOptions = make(map[string]*anypb.Any)
+	}
+	httpProtocolOptions, ok := cw.cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+	rawOpts := &http.HttpProtocolOptions{
+		UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{},
+	}
+	var err error
+	if ok {
+		rawOpts, err = protoconv.UnmarshalAny[http.HttpProtocolOptions](httpProtocolOptions)
+	}
+	if err != nil {
+		log.Warnf("could not unmarshal http protocol options for cluster %s so resetting protocol options: %v", cw.cluster.Name, err)
+		rawOpts = &http.HttpProtocolOptions{
+			UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{},
+		}
+	}
+
+	if rawOpts.HttpFilters == nil {
+		rawOpts.HttpFilters = make([]*hcm.HttpFilter, 0, 2)
+	}
+
+	extSvcHost := host.Name(svc.Attributes.Labels[model.InferencePoolExtensionRefSvc])
+	extPortNum, _ := strconv.Atoi(svc.Attributes.Labels[model.InferencePoolExtensionRefPort])
+	extProcFailureMode := svc.Attributes.Labels[model.InferencePoolExtensionRefFailureMode]
+	failureModeAllow := extProcFailureMode == string(inferencev1.EndpointPickerFailOpen)
+	extProcCluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", extSvcHost, extPortNum)
+	rawOpts.HttpFilters = append(rawOpts.HttpFilters, filters.BuildInferencePoolExtProcFilter(extProcCluster, failureModeAllow))
+	// Must end with the codec filter
+	rawOpts.HttpFilters = append(rawOpts.HttpFilters, filters.UpstreamCodecFilter)
+
+	cw.cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = protoconv.MessageToAny(rawOpts)
 }
 
 func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {

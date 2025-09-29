@@ -61,6 +61,8 @@ const (
 	EnvoyOverrideHostLbPolicy = "envoy.load_balancing_policies.override_host"
 	// ROUND_ROBIN envoy lb policy
 	EnvoyRoundRobinLbPolicy = "envoy.load_balancing_policies.round_robin"
+	// Upstream codec filter
+	HTTPUpstreamCodec = "envoy.filters.http.upstream_codec"
 )
 
 // Network filter names

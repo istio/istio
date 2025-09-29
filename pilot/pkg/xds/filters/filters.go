@@ -28,6 +28,7 @@ import (
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	upstreamcodec "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/upstream_codec/v3"
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
@@ -158,35 +159,6 @@ var (
 		Name: util.StatefulSessionFilter,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{}),
-		},
-	}
-	InferencePoolExtProc = &hcm.HttpFilter{
-		Name: wellknown.HTTPExternalProcessing,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&extproc.ExternalProcessor{
-				GrpcService: &core.GrpcService{
-					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-							ClusterName: "dummy",
-						},
-					},
-					Timeout: &durationpb.Duration{Seconds: 10},
-				},
-				FailureModeAllow: true,
-				ProcessingMode: &extproc.ProcessingMode{
-					RequestHeaderMode:  extproc.ProcessingMode_SKIP,
-					ResponseHeaderMode: extproc.ProcessingMode_SKIP,
-				},
-				MessageTimeout: &durationpb.Duration{Seconds: 1000},
-				MetadataOptions: &extproc.MetadataOptions{
-					ReceivingNamespaces: &extproc.MetadataOptions_MetadataNamespaces{
-						Untyped: []string{constants.EnvoySubsetNamespace},
-					},
-					ForwardingNamespaces: &extproc.MetadataOptions_MetadataNamespaces{
-						Untyped: []string{constants.EnvoySubsetNamespace},
-					},
-				},
-			}),
 		},
 	}
 	Alpn = &hcm.HttpFilter{
@@ -358,6 +330,13 @@ var (
 			}),
 		},
 	}
+
+	UpstreamCodecFilter = &hcm.HttpFilter{
+		Name: wellknown.HTTPUpstreamCodec,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&upstreamcodec.UpstreamCodec{}),
+		},
+	}
 )
 
 // Router is used a bunch, so its worth precomputing even though we have a few options.
@@ -385,6 +364,46 @@ var routers = func() map[RouterFilterContext]*hcm.HttpFilter {
 
 func BuildRouterFilter(ctx RouterFilterContext) *hcm.HttpFilter {
 	return routers[ctx]
+}
+
+func BuildInferencePoolExtProcFilter(extProcCluster string, failureModeAllow bool) *hcm.HttpFilter {
+	return &hcm.HttpFilter{
+		Name: wellknown.HTTPExternalProcessing,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&extproc.ExternalProcessor{
+				GrpcService: &core.GrpcService{
+					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+							ClusterName: extProcCluster,
+						},
+					},
+					Timeout: &durationpb.Duration{Seconds: 10},
+				},
+				FailureModeAllow: failureModeAllow,
+				ProcessingMode: &extproc.ProcessingMode{
+					RequestHeaderMode: extproc.ProcessingMode_SEND,
+					// open AI standard includes the model and other information the ext_proc server needs in the request body
+					RequestBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+					// If the ext_proc server has the request_body_mode set to FULL_DUPLEX_STREAMED, then the request_trailer_mode has to be set to SEND
+					RequestTrailerMode: extproc.ProcessingMode_SEND,
+					ResponseHeaderMode: extproc.ProcessingMode_SEND,
+					// GIE collects statistics present in the open AI standard response message
+					ResponseBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+					// If the ext_proc server has the response_body_mode set to FULL_DUPLEX_STREAMED, then the response_trailer_mode has to be set to SEND
+					ResponseTrailerMode: extproc.ProcessingMode_SEND,
+				},
+				MessageTimeout: &durationpb.Duration{Seconds: 1000},
+				MetadataOptions: &extproc.MetadataOptions{
+					ReceivingNamespaces: &extproc.MetadataOptions_MetadataNamespaces{
+						Untyped: []string{constants.EnvoySubsetNamespace},
+					},
+					ForwardingNamespaces: &extproc.MetadataOptions_MetadataNamespaces{
+						Untyped: []string{constants.EnvoySubsetNamespace},
+					},
+				},
+			}),
+		},
+	}
 }
 
 var (
