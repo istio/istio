@@ -65,7 +65,7 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"BackendTLSPolicyConflictResolution": "TODO",
+	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
 }
 
 func TestGatewayConformance(t *testing.T) {
