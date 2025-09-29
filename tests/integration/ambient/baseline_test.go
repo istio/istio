@@ -2781,7 +2781,6 @@ func verifyCrossClusterTraffic(t framework.TestContext, callOptions ...echo.Call
 				t.NewSubTestf("to %v %v", dst.Config().Cluster.Name(), dst.Config().Service).Run(func(t framework.TestContext) {
 					for _, opt := range callOptions {
 						t.NewSubTestf("%v", opt.Port.Name).RunParallel(func(t framework.TestContext) {
-
 							opt := opt.DeepCopy()
 							opt.To = dst
 							opt.Check = check.OK()
