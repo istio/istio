@@ -201,7 +201,7 @@ func DestinationRuleCollection(
 			cfg := &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
-					Name:             svc.Name + "-" + constants.KubernetesGatewayName,
+					Name:             svc.Name + "~" + constants.KubernetesGatewayName,
 					Namespace:        svc.Namespace,
 					Annotations: map[string]string{
 						constants.InternalParentNames: strings.Join(parents, ","),
