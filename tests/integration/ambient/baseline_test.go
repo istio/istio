@@ -2756,12 +2756,65 @@ func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Inst
 			t.Cleanup(func() {
 				// cleanup services which other tests expect to be local
 				for _, app := range apps.Mesh {
-					unlabelService(t, app.ServiceName(), "istio.io/global", "true", app.Config().Cluster)
+					labelService(t, app.ServiceName(), "istio.io/global", "false", app.Config().Cluster)
 				}
 			})
+			verifyCrossClusterTraffic(t, allCalls...)
 		}
 		runAllTests(t, f)
 	})
+}
+
+func verifyCrossClusterTraffic(t framework.TestContext, callOptions ...echo.CallOptions) {
+	expectedClusters := sets.New[string]()
+	for _, c := range t.Clusters() {
+		expectedClusters.Insert(c.StableName())
+	}
+	for _, src := range apps.Captured {
+		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
+			for _, dst := range apps.Captured {
+				// skip self calls
+				if src.ServiceName() == dst.ServiceName() &&
+					src.Config().Cluster.StableName() == dst.Config().Cluster.StableName() {
+					continue
+				}
+				t.NewSubTestf("to %v %v", dst.Config().Cluster.Name(), dst.Config().Service).Run(func(t framework.TestContext) {
+					for _, opt := range callOptions {
+						t.NewSubTestf("%v", opt.Port.Name).RunParallel(func(t framework.TestContext) {
+
+							opt := opt.DeepCopy()
+							opt.To = dst
+							opt.Check = check.OK()
+							opt.Retry.Options = []retry.Option{retry.Timeout(10 * time.Second)}
+							opt.Count = 60
+							var result echo.CallResult
+
+							err := retry.UntilSuccess(func() error {
+								var err error
+								result, err = src.Call(opt)
+								return err
+							})
+							if err != nil {
+								t.Fatalf("call failed: %s(%s) -> %s: %v",
+									src.ServiceName(), src.Config().Cluster.StableName(), dst.ServiceName(), err)
+							}
+
+							respClusters := sets.New[string]()
+							for _, r := range result.Responses {
+								respClusters.Insert(r.Cluster)
+							}
+
+							missing, unexpected := expectedClusters.Diff(respClusters)
+							if len(missing) > 0 || len(unexpected) > 0 {
+								t.Fatalf("cluster mismatch: %s(%s)->%s missing=%v unexpected=%v",
+									src.ServiceName(), src.Config().Cluster.StableName(), dst.ServiceName(), missing, unexpected)
+							}
+						})
+					}
+				})
+			}
+		})
+	}
 }
 
 // runTestToServiceWaypoint runs a given function against every src/dst pair where a call will traverse a service waypoint
