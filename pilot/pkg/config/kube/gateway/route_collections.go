@@ -139,7 +139,7 @@ func HTTPRouteCollection(
 					// TODO: standardize a status message for this upstream and report
 					continue
 				}
-				name := obj.Name + "-" + strconv.Itoa(count) + "-" + constants.KubernetesGatewayName
+				name := obj.Name + "~" + strconv.Itoa(count) + "~" + constants.KubernetesGatewayName
 				sortHTTPRoutes(routes)
 
 				// Populate Extra field for inference pool configs
@@ -282,7 +282,7 @@ func GRPCRouteCollection(
 					// TODO: standardize a status message for this upstream and report
 					continue
 				}
-				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
+				name := fmt.Sprintf("%s~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				sortHTTPRoutes(routes)
 
 				// Populate Extra field for inference pool configs (if GRPCRoute supports them)
@@ -387,7 +387,7 @@ func TCPRouteCollection(
 				}
 			}
 			for _, host := range vsHosts {
-				name := fmt.Sprintf("%s-tcp-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
+				name := fmt.Sprintf("%s~tcp~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				// Create one VS per hostname with a single hostname.
 				// This ensures we can treat each hostname independently, as the spec requires
 				vs = append(vs, &config.Config{
@@ -470,7 +470,7 @@ func TLSRouteCollection(
 				routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
 			}
 			for _, host := range vsHosts {
-				name := fmt.Sprintf("%s-tls-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
+				name := fmt.Sprintf("%s~tls~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				filteredRoutes := routes
 				if parent.IsMesh() {
 					filteredRoutes = compatibleRoutesForHost(routes, host)
