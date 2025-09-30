@@ -173,33 +173,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	autoPassthrough := false
 
 	log.Debugf("mergeGateways: merging %d gateways", len(gateways))
-	// Check if the identity of the proxy matches the identity of a pod/workload of the gateway
-	identityVerified := false
-	checkedHosts := sets.New[NamespacedHostname]()
-	if proxy.VerifiedIdentity != nil {
-		spiffeID := proxy.VerifiedIdentity.String()
-	outer:
-		for _, gwAndInstance := range gateways {
-			for _, instance := range gwAndInstance.instances {
-				// Skip already checked hosts
-				namespacedHost := NamespacedHostname{
-					Namespace: instance.Service.Attributes.Namespace,
-					Hostname:  instance.Service.Hostname,
-				}
-				if checkedHosts.Contains(namespacedHost) {
-					continue
-				}
-				checkedHosts.Insert(namespacedHost)
-				validSAs := ps.ServiceAccounts(instance.Service.Hostname, instance.Service.Attributes.Namespace)
-				for _, sa := range validSAs {
-					if sa == spiffeID {
-						identityVerified = true
-						break outer
-					}
-				}
-			}
-		}
-	}
+
 	for _, gwAndInstance := range gateways {
 		gatewayConfig := gwAndInstance.gateway
 		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name // Format: %s/%s
@@ -224,6 +198,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
 			cn := s.GetTls().GetCredentialName()
+			identityVerified := proxy.VerifiedIdentity.Namespace == gatewayConfig.Namespace && proxy.VerifiedIdentity.ServiceAccount == gatewayConfig.Annotations[constants.InternalServiceAccount]
 			if cn != "" && identityVerified {
 				gwKind := gvk.KubernetesGateway
 				lookupNamespace := proxy.VerifiedIdentity.Namespace
