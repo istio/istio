@@ -1,4 +1,4 @@
-{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "NAMESPACE") }}
+{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "CLUSTER") }}
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled (or .Values.global.configCluster .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
 {{- if .Values.global.configValidation }}
