@@ -27,6 +27,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -58,9 +60,11 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func TestApplyDestinationRule(t *testing.T) {
@@ -1119,6 +1123,68 @@ func verifyALPNOverride(t *testing.T, md *core.Metadata, tlsMode networking.Clie
 			t.Errorf("alpn_override:%s tlsMode:%s, alpn_override metadata should not be written if TLS mode is neither SIMPLE nor MUTUAL",
 				alpnOverride.GetStringValue(), tlsMode)
 		}
+	}
+}
+
+func TestExtProcExistForInferencePoolEnabledGateway(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
+
+	testInferencePoolService := &model.Service{
+		CreationTime: tnow,
+		Hostname:     host.Name("inferencepool-test.default.svc.cluster.local"),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "dummy", // not used for anything
+				Port:     54321,
+				Protocol: protocol.TCP,
+			},
+		},
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+			Labels: map[string]string{
+				model.InferencePoolRefLabel:                "mypool",
+				model.InferencePoolExtensionRefSvc:         "epp.default.svc.cluster.local",
+				model.InferencePoolExtensionRefPort:        "9002",
+				model.InferencePoolExtensionRefFailureMode: "FailClose",
+				constants.InternalServiceSemantics:         constants.ServiceSemanticsInferencePool,
+			},
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{testInferencePoolService},
+	})
+	proxy := cg.SetupProxy(&model.Proxy{
+		Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "foo-gateway"},
+		ConfigNamespace: "not-default",
+		Type:            model.Router, // Only gateways will trigger an endpoint picker call
+	})
+	cg.Run()
+
+	// Create an inferencepool shadow service
+	clusters := cg.Clusters(proxy)
+	allClusters := xdstest.ExtractClusters(clusters)
+	if len(allClusters) == 0 {
+		t.Fatal("didn't find any clusters")
+	}
+	ipCluster := allClusters["outbound|54321||inferencepool-test.default.svc.cluster.local"]
+	if ipCluster == nil {
+		t.Fatalf("didn't find cluster for inferencepool-test; had %v", xdstest.MapKeys(allClusters))
+	}
+	httpProtocolOptions, err := protoconv.UnmarshalAny[http.HttpProtocolOptions](ipCluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType])
+	if err != nil {
+		t.Fatalf("failed to unmarshal http protocol options: %v", err)
+	}
+	if len(httpProtocolOptions.HttpFilters) < 2 {
+		t.Fatalf("expected at least 2 http filters, got %d", len(httpProtocolOptions.HttpFilters))
+	}
+
+	extProcExists := slices.Contains(slices.Map(httpProtocolOptions.HttpFilters, func(f *hcm.HttpFilter) string {
+		return f.Name
+	}), wellknown.HTTPExternalProcessing)
+
+	if !extProcExists {
+		t.Fatal("expected ext proc upstream filter to be added")
 	}
 }
 

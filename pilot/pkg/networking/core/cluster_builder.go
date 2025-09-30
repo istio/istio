@@ -44,7 +44,6 @@ import (
 	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
-	"istio.io/istio/pilot/pkg/xds/filters"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -225,9 +224,8 @@ func (cb *ClusterBuilder) applyExtProcUpstreamFilter(cw *clusterWrapper, svc *mo
 	extProcFailureMode := svc.Attributes.Labels[model.InferencePoolExtensionRefFailureMode]
 	failureModeAllow := extProcFailureMode == string(inferencev1.EndpointPickerFailOpen)
 	extProcCluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", extSvcHost, extPortNum)
-	rawOpts.HttpFilters = append(rawOpts.HttpFilters, filters.BuildInferencePoolExtProcFilter(extProcCluster, failureModeAllow))
 	// Must end with the codec filter
-	rawOpts.HttpFilters = append(rawOpts.HttpFilters, filters.UpstreamCodecFilter)
+	rawOpts.HttpFilters = append(rawOpts.HttpFilters, xdsfilters.BuildInferencePoolExtProcFilter(extProcCluster, failureModeAllow), xdsfilters.UpstreamCodecFilter)
 
 	cw.cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = protoconv.MessageToAny(rawOpts)
 }

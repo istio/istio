@@ -25,7 +25,6 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -37,11 +36,9 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -986,32 +983,6 @@ func TestAdditionalAddressesForIPv6(t *testing.T) {
 	if vo.AdditionalAddresses == nil || len(vo.AdditionalAddresses) != 1 {
 		t.Fatal("expected additional ipv4 bind addresses")
 	}
-}
-
-func TestExtProcExistForInferencePoolEnabledGateway(t *testing.T) {
-	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
-
-	cg := NewConfigGenTest(t, TestOptions{
-		Services: testServices,
-	})
-	proxy := cg.SetupProxy(&model.Proxy{Labels: map[string]string{"gateway.networking.k8s.io/gateway-name": "foo-gateway"}, ConfigNamespace: "not-default"})
-	fakeGatewayController := model.FakeController{
-		GatewaysWithInferencePools: sets.New(types.NamespacedName{Name: "foo-gateway", Namespace: "not-default"}),
-	}
-	cg.env.PushContext().GatewayAPIController = fakeGatewayController
-
-	lstnrs := cg.Listeners(proxy)
-	vo := xdstest.ExtractListener("0.0.0.0_8080", lstnrs)
-	if vo == nil {
-		t.Fatal("didn't find virtual outbound listener")
-	}
-	for _, fc := range vo.GetFilterChains() {
-		_, httpFilters := xdstest.ExtractFilterNames(t, fc)
-		if slices.Contains(httpFilters, wellknown.HTTPExternalProcessing) {
-			return
-		}
-	}
-	t.Fatal("expected ext proc filter to be added")
 }
 
 func TestPreserveHeader(t *testing.T) {
