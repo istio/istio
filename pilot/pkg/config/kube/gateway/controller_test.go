@@ -130,7 +130,7 @@ func TestListGatewayResourceType(t *testing.T) {
 	assert.Equal(t, len(cfg), 1)
 	for _, c := range cfg {
 		assert.Equal(t, c.GroupVersionKind, gvk.Gateway)
-		assert.Equal(t, c.Name, "gwspec"+"-"+constants.KubernetesGatewayName+"-default")
+		assert.Equal(t, c.Name, "gwspec"+"~"+constants.KubernetesGatewayName+"~default")
 		assert.Equal(t, c.Namespace, "ns1")
 		assert.Equal(t, c.Spec, any(expectedgw))
 	}

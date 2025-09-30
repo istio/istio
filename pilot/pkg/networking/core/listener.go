@@ -569,7 +569,12 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 			},
 		}
 	}
-	if !le.bind.bindToPort {
+	if le.bind.bindToPort {
+		// This only applies to listeners that actually bind to a port given that only those listeners
+		// interface with the OS.
+		// See https://github.com/envoyproxy/envoy/blob/v1.35.3/source/common/network/tcp_listener_impl.cc#L57
+		l.MaxConnectionsToAcceptPerSocketEvent = maxConnectionsToAcceptPerSocketEvent()
+	} else {
 		l.BindToPort = proto.BoolFalse
 	}
 
