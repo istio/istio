@@ -331,6 +331,11 @@ type jsonPatch struct {
 	Value     interface{} `json:"value"`
 }
 
+func keepHost(se *networkingv1.ServiceEntry, h string) bool {
+	// Only keep wildcarded hosts if the resolution is not dynamic DNS
+	return !cfghost.Name(h).IsWildCarded() || se.Spec.Resolution == apiv1alpha3.ServiceEntry_DYNAMIC_DNS
+}
+
 func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
 	if se == nil {
 		return nil, nil, nil
@@ -340,11 +345,8 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	hostsWithAddresses := sets.New[string]()
 	hostsInSpec := sets.New[string]()
 
-	// TODO(jaellio): how can we make this behavior conditional on ambient mode?
-	for _, host := range se.Spec.Hosts {
-		if cfghost.Name(host).IsWildCarded() && se.Spec.Resolution != apiv1alpha3.ServiceEntry_DYNAMIC_DNS {
-			continue
-		}
+	// TODO(jaellio): Make this behavior conditional on ambient mode being enabled
+	for _, host := range slices.Filter(se.Spec.Hosts, func(h string) bool { return keepHost(se, h) }) {
 		hostsInSpec.Insert(host)
 	}
 	existingAddresses := []netip.Addr{}
@@ -371,7 +373,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 
 	// construct the assigned addresses datastructure to patch
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
-	for _, host := range hostsInSpec.UnsortedList() {
+	for _, host := range slices.Filter(se.Spec.Hosts, func(h string) bool { return keepHost(se, h) }) {
 		if assignedHosts.InsertContains(host) {
 			continue
 		}

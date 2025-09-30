@@ -390,12 +390,10 @@ func serviceEntriesInfo(
 		waypoint.Error = wperr
 	}
 
-	// TODO(jaellio): Choose this behavior or set waypoint missing status and don't send config to ztunnel
-	// or the waypoint
-	// Don't create invalid ServiceEntries
-	if (w == nil || wperr != nil) && s.Spec.Resolution == v1alpha3.ServiceEntry_DYNAMIC_DNS {
-		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint - skipping", s.Namespace, s.Name)
-		return nil
+	// Warn if we have a dynamic DNS service entry with no egress waypoint
+	// This configuration will not be shared with the dataplane
+	if s.Spec.Resolution == v1alpha3.ServiceEntry_DYNAMIC_DNS && (w == nil || wperr != nil) {
+		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
 	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
