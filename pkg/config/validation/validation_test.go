@@ -4385,7 +4385,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
 			},
-			valid:   false,
+			valid: false,
 		},
 		{
 			name: "discovery type DYNAMIC_DNS, FQDN host", in: &networking.ServiceEntry{
@@ -4396,7 +4396,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
 			},
-			valid:   false,
+			valid: false,
 		},
 		{
 			name: "discovery type DYNAMIC_DNS, endpoints set", in: &networking.ServiceEntry{
@@ -4410,7 +4410,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
 			},
-			valid:   false,
+			valid: false,
 		},
 		{
 			name: "discovery type DNS, IP address set",
@@ -4423,7 +4423,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
 			},
-			valid:   false,
+			valid: false,
 		},
 	}
 

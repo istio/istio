@@ -488,7 +488,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 
 // Builds a dynamic forward proxy cluster with DNS cache config, stats configuration
 // and upstream protocol settings.
-func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, port *model.Port, direction model.TrafficDirection) *clusterWrapper {
+func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, port *model.Port) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:     name,
 		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,

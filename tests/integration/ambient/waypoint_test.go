@@ -1142,72 +1142,74 @@ spec:
 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			})
 
-			//log.Info("Sleeping...")
-			//time.Sleep(60 * time.Minute)
+			/*
+				log.Info("Sleeping...")
+				time.Sleep(60 * time.Minute)
 
-			/*tlsOriginationRedirect := tlsOrigination + `
-			---
-			apiVersion: gateway.networking.k8s.io/v1
-			kind: HTTPRoute
-			metadata:
-			  name: route-port
-			spec:
-			  parentRefs:
-			  - kind: ServiceEntry
-			    group: networking.istio.io
-			    name: external
-			  rules:
-			  - backendRefs:
-			    - kind: Hostname
-			      group: networking.istio.io
-			      name: fake-egress.example.com
-			      port: 443
-			`
-			   runTest(t, "http origination route", tlsOriginationRedirect, echo.CallOptions{
-			    Address: "fake-egress.example.com",
-			    Port:    echo.Port{ServicePort: 80},
-			    Scheme:  scheme.HTTP,
-			    Count:   1,
-			    Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
-			   })
+				tlsOriginationRedirect := tlsOrigination + `
+				---
+				apiVersion: gateway.networking.k8s.io/v1
+				kind: HTTPRoute
+				metadata:
+				  name: route-port
+				spec:
+				  parentRefs:
+				  - kind: ServiceEntry
+				    group: networking.istio.io
+				    name: external
+				  rules:
+				  - backendRefs:
+				    - kind: Hostname
+				      group: networking.istio.io
+				      name: fake-egress.example.com
+				      port: 443
+				`
+				   runTest(t, "http origination route", tlsOriginationRedirect, echo.CallOptions{
+				    Address: "fake-egress.example.com",
+				    Port:    echo.Port{ServicePort: 80},
+				    Scheme:  scheme.HTTP,
+				    Count:   1,
+				    Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+				   })
 
-			   authz := `apiVersion: security.istio.io/v1
-			kind: AuthorizationPolicy
-			metadata:
-			  name: only-get
-			spec:
-			  targetRefs:
-			  - kind: ServiceEntry
-			    group: networking.istio.io
-			    name: external
-			  action: ALLOW
-			  rules:
-			  - to:
-			    - operation:
-			        methods: ["GET"]
-			`
-			   runTest(
-			    t,
-			    "authz on service allow",
-			    authz,
-			    // Check blocked requests are denied
-			    echo.CallOptions{
-			     Address: "fake-egress.example.com",
-			     Port:    echo.Port{ServicePort: 80},
-			     HTTP:    echo.HTTP{Method: "POST"},
-			     Scheme:  scheme.HTTP,
-			     Count:   1,
-			     Check:   check.Status(403),
-			    },
-			    // And allowed ones are not
-			    echo.CallOptions{
-			     Address: "fake-egress.example.com",
-			     Port:    echo.Port{ServicePort: 80},
-			     Scheme:  scheme.HTTP,
-			     Count:   1,
-			     Check:   check.And(check.OK(), IsL7()),
-			    },
-			   )*/
+				   authz := `apiVersion: security.istio.io/v1
+				kind: AuthorizationPolicy
+				metadata:
+				  name: only-get
+				spec:
+				  targetRefs:
+				  - kind: ServiceEntry
+				    group: networking.istio.io
+				    name: external
+				  action: ALLOW
+				  rules:
+				  - to:
+				    - operation:
+				        methods: ["GET"]
+				`
+				   runTest(
+				    t,
+				    "authz on service allow",
+				    authz,
+				    // Check blocked requests are denied
+				    echo.CallOptions{
+				     Address: "fake-egress.example.com",
+				     Port:    echo.Port{ServicePort: 80},
+				     HTTP:    echo.HTTP{Method: "POST"},
+				     Scheme:  scheme.HTTP,
+				     Count:   1,
+				     Check:   check.Status(403),
+				    },
+				    // And allowed ones are not
+				    echo.CallOptions{
+				     Address: "fake-egress.example.com",
+				     Port:    echo.Port{ServicePort: 80},
+				     Scheme:  scheme.HTTP,
+				     Count:   1,
+				     Check:   check.And(check.OK(), IsL7()),
+				    },
+				   )
+			*/
 		})
 }
 

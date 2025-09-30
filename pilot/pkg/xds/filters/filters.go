@@ -542,7 +542,7 @@ func BuildWaypointInboundDFPFilter(dnsCacheConfigName string) *hcm.HttpFilter {
 			TypedConfig: protoconv.MessageToAny(&dfp.FilterConfig{
 				ImplementationSpecifier: &dfp.FilterConfig_DnsCacheConfig{
 					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
-						Name: dnsCacheConfigName,
+						Name:            dnsCacheConfigName,
 						DnsLookupFamily: cluster.Cluster_V4_ONLY,
 					},
 				},

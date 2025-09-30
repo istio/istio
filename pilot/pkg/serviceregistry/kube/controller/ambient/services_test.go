@@ -476,7 +476,7 @@ func TestServiceEntryServices(t *testing.T) {
 			},
 		},
 		{
-			name:   "Uses auto assigned addresses for wildcard host",
+			name: "Uses auto assigned addresses for wildcard host",
 			inputs: []any{
 				waypoint,
 				ns,
@@ -532,7 +532,7 @@ func TestServiceEntryServices(t *testing.T) {
 						TargetPort:  80,
 					}},
 					SubjectAltNames: []string{"san1"},
-					Waypoint: waypointAddr,
+					Waypoint:        waypointAddr,
 				},
 			},
 		},

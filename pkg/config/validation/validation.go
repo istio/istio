@@ -3054,11 +3054,11 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 				}
 			}
 			if len(serviceEntry.Addresses) > 0 {
-				errs = AppendValidation(errs, fmt.Errorf("addresses cannot be set for resolution type %s. HTTP route domains will only be generated" +
+				errs = AppendValidation(errs, fmt.Errorf("addresses cannot be set for resolution type %s. HTTP route domains will only be generated"+
 					"from the hosts field values", serviceEntry.Resolution))
 			}
 			if len(serviceEntry.Endpoints) != 0 {
-				errs = AppendValidation(errs, fmt.Errorf("endpoints cannot be set for resolution type %s. Destination IP address determined from hosts" +
+				errs = AppendValidation(errs, fmt.Errorf("endpoints cannot be set for resolution type %s. Destination IP address determined from hosts"+
 					"field values", serviceEntry.Resolution))
 			}
 			// TODO(jaellio): Are ports a requirement for dynamic DNS?
