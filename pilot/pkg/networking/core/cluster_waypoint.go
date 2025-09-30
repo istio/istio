@@ -153,7 +153,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		localCluster = cb.buildCluster(clusterName, discoveryType, lbEndpoints,
 			model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
 	} else {
-		localCluster = cb.buildDFPCluster(clusterName, svc, &port, model.TrafficDirectionInboundVIP)
+		localCluster = cb.buildDFPCluster(clusterName, svc, &port)
 	}
 
 	// Ensure VIP cluster has services metadata for stats filter usage

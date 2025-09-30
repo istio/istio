@@ -1148,7 +1148,7 @@ const (
 	WaypointAccepted ConditionType = "WaypointAccepted"
 	// TODO(jaellio): Block servieEntryInfo creation entirely or set status - Can we still
 	// block sending configuration while setting status?
-	WaypointMissing   ConditionType = "istio.io/WaypointMissing"
+	WaypointMissing ConditionType = "istio.io/WaypointMissing"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1171,7 +1171,7 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 	set := ConditionSet{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
-		WaypointBound: nil,
+		WaypointBound:   nil,
 		WaypointMissing: nil,
 	}
 

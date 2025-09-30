@@ -121,7 +121,7 @@ func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) ipAllocate
 	}
 }
 
-func  TestIPAllocate(t *testing.T) {
+func TestIPAllocate(t *testing.T) {
 	rig := setupIPAllocateTest(t, TestIPV4Prefix, TestIPV6Prefix)
 	rig.se.Create(
 		&networkingv1alpha3.ServiceEntry{
