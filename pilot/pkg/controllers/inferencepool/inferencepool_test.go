@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package inferencepool
 
 import (
 	"testing"
 
+	"go.yaml.in/yaml/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -69,9 +70,11 @@ func TestReconcileInferencePool(t *testing.T) {
 
 	// Verify the service was created
 	var service *corev1.Service
-	var err error
 	assert.EventuallyEqual(t, func() bool {
-		svcName := "test-pool-ip-" + generateHash("test-pool", hashSize)
+		svcName, err := model.InferencePoolServiceName("test-pool")
+		if err != nil {
+			return false
+		}
 		service, err = controller.client.Kube().CoreV1().Services("default").Get(t.Context(), svcName, metav1.GetOptions{})
 		if err != nil {
 			t.Logf("Service %s not found yet: %v", svcName, err)
@@ -85,4 +88,13 @@ func TestReconcileInferencePool(t *testing.T) {
 	assert.Equal(t, service.OwnerReferences[0].Name, pool.Name)
 	assert.Equal(t, service.Spec.Ports[0].TargetPort.IntVal, int32(8080))
 	assert.Equal(t, service.Spec.Ports[0].Port, int32(54321)) // dummyPort + i
+}
+
+func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
+	t.Cleanup(func() {
+		if t.Failed() {
+			b, _ := yaml.Marshal(debugger)
+			t.Log(string(b))
+		}
+	})
 }

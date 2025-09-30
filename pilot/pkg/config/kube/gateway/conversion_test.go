@@ -35,6 +35,8 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/kube/gateway/builtin"
+	"istio.io/istio/pilot/pkg/controllers/inferencepool"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -136,7 +138,7 @@ var services = []*model.Service{
 			},
 		},
 		Ports:    ports,
-		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen")))),
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(model.InferencePoolServiceName("infpool-gen")))),
 	},
 	{
 		Attributes: model.ServiceAttributes{
@@ -148,9 +150,8 @@ var services = []*model.Service{
 			},
 		},
 		Ports:    ports,
-		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen2")))),
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(model.InferencePoolServiceName("infpool-gen2")))),
 	},
-
 	{
 		Attributes: model.ServiceAttributes{
 			Namespace: "apple",
@@ -562,7 +563,7 @@ func init() {
 	features.EnableAmbientMultiNetwork = true
 	// Recompute with ambient enabled
 	classInfos = getClassInfos()
-	builtinClasses = getBuiltinClasses()
+	builtinClasses = builtin.GetBuiltinClasses()
 }
 
 type TestStatusQueue struct {
@@ -749,15 +750,25 @@ func TestConvertResources(t *testing.T) {
 				controller.Options{DomainSuffix: "domain.suffix", KrtDebugger: dbg},
 				nil,
 			)
+			// Start the inferencepool controller as well
+			inferenceCtrl := inferencepool.NewController(
+				kc,
+				AlwaysReady,
+				controller.Options{DomainSuffix: "domain.suffix", KrtDebugger: dbg},
+			)
 			sq := &TestStatusQueue{
 				state: map[status.Resource]any{},
 			}
+			// Run the controllers
 			go ctrl.Run(stop)
+			go inferenceCtrl.Run(stop)
 			kc.RunAndWait(stop)
 			ctrl.Reconcile(cg.PushContext())
 			kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
+			kube.WaitForCacheSync("test", stop, inferenceCtrl.HasSynced)
 			// Normally we don't care to block on status being written, but here we need to since we want to test output
 			statusSynced := ctrl.status.SetQueue(sq)
+			statusSynced = append(statusSynced, inferenceCtrl.SetStatusQueue(t, sq)...)
 			for _, st := range statusSynced {
 				st.WaitUntilSynced(stop)
 			}

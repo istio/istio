@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/controllers/inferencepool"
 	istioCredentials "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
@@ -228,6 +229,31 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 						}
 					}).
 					Run(stop)
+				return nil
+			})
+		}
+
+		if features.EnableGatewayAPIInferenceExtension {
+			// Start the inferencepool controller
+			s.addTerminatingStartFunc("inferencepool controller", func(stop <-chan struct{}) error {
+				// Only the default revision should be running this; we don't want shadow services per revision
+				leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.InferencePoolController, args.Revision, s.kubeClient).
+					AddRunFunction(func(leaderStop <-chan struct{}) {
+						// Only run this if gateways and inferencepool CRDs are created
+						// We can only run this if the Gateway CRD is created
+						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) && s.kubeClient.CrdWatcher().WaitForCRD(gvr.InferencePool, leaderStop) {
+							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision, args.Namespace)
+							controller := inferencepool.NewController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions)
+							// Start informers again. This fixes the case where informers for namespace do not start,
+							// as we create them only after acquiring the leader lock
+							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+							// basically lazy loading the informer, if we stop it when we lose the lock we will never
+							// recreate it again.
+							s.kubeClient.RunAndWait(stop)
+							go tagWatcher.Run(leaderStop)
+							controller.Run(leaderStop)
+						}
+					}).Run(stop)
 				return nil
 			})
 		}

@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -47,7 +46,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -105,8 +103,6 @@ type Controller struct {
 	outputs Outputs
 
 	domainSuffix string // the domain suffix to use for generated resources
-
-	shadowServiceReconciler controllers.Queue
 }
 
 type ParentInfo struct {
@@ -124,12 +120,10 @@ type TypedResource struct {
 }
 
 type Outputs struct {
-	Gateways                krt.Collection[Gateway]
-	VirtualServices         krt.Collection[*config.Config]
-	ReferenceGrants         ReferenceGrants
-	DestinationRules        krt.Collection[*config.Config]
-	InferencePools          krt.Collection[InferencePool]
-	InferencePoolsByGateway krt.Index[types.NamespacedName, InferencePool]
+	Gateways         krt.Collection[Gateway]
+	VirtualServices  krt.Collection[*config.Config]
+	ReferenceGrants  ReferenceGrants
+	DestinationRules krt.Collection[*config.Config]
 }
 
 type Inputs struct {
@@ -234,8 +228,6 @@ func NewController(
 
 	handlers := []krt.HandlerRegistration{}
 
-	httpRoutesByInferencePool := krt.NewIndex(inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
-
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
 	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus)
 
@@ -270,26 +262,6 @@ func NewController(
 		c.tagWatcher,
 		opts,
 	)
-
-	InferencePoolStatus, InferencePools := InferencePoolCollection(
-		inputs.InferencePools,
-		inputs.Services,
-		inputs.HTTPRoutes,
-		inputs.Gateways,
-		httpRoutesByInferencePool,
-		c,
-		opts,
-	)
-
-	// Create a queue for handling service updates.
-	// We create the queue even if the env var is off just to prevent nil pointer issues.
-	c.shadowServiceReconciler = controllers.NewQueue("inference pool shadow service reconciler",
-		controllers.WithReconciler(c.reconcileShadowService(svcClient, InferencePools, inputs.Services)),
-		controllers.WithMaxAttempts(5))
-
-	if features.EnableGatewayAPIInferenceExtension {
-		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
-	}
 
 	RouteParents := BuildRouteParents(Gateways)
 
@@ -373,7 +345,6 @@ func NewController(
 		Gateways:         Gateways,
 		VirtualServices:  VirtualServices,
 		DestinationRules: DestinationRules,
-		InferencePools:   InferencePools,
 	}
 	c.outputs = outputs
 
@@ -402,46 +373,6 @@ func NewController(
 					Namespace: t.Namespace,
 				}
 			}), false),
-		outputs.InferencePools.Register(func(e krt.Event[InferencePool]) {
-			obj := e.Latest()
-			c.shadowServiceReconciler.Add(types.NamespacedName{
-				Namespace: obj.shadowService.key.Namespace,
-				Name:      obj.shadowService.poolName,
-			})
-		}),
-		// Reconcile shadow services if users break them.
-		inputs.Services.Register(func(o krt.Event[*corev1.Service]) {
-			obj := o.Latest()
-			// We only care about services that are tagged with the internal service semantics label.
-			if obj.GetLabels()[constants.InternalServiceSemantics] != constants.ServiceSemanticsInferencePool {
-				return
-			}
-			// We only care about delete events
-			if o.Event != controllers.EventDelete && o.Event != controllers.EventUpdate {
-				return
-			}
-
-			poolName, ok := obj.Labels[model.InferencePoolRefLabel]
-			if !ok && o.Event == controllers.EventUpdate && o.Old != nil {
-				// Try and find the label from the old object
-				old := ptr.Flatten(o.Old)
-				poolName, ok = old.Labels[model.InferencePoolRefLabel]
-			}
-
-			if !ok {
-				log.Errorf("service %s/%s is missing the %s label, cannot reconcile shadow service",
-					obj.Namespace, obj.Name, model.InferencePoolRefLabel)
-				return
-			}
-
-			// Add it back
-			c.shadowServiceReconciler.Add(types.NamespacedName{
-				Namespace: obj.Namespace,
-				Name:      poolName,
-			})
-			log.Infof("Re-adding shadow service for deleted inference pool service %s/%s",
-				obj.Namespace, obj.Name)
-		}),
 	)
 	c.handlers = handlers
 
@@ -561,7 +492,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	tw := c.tagWatcher.AccessUnprotected()
 	go tw.Run(stop)
-	go c.shadowServiceReconciler.Run(stop)
 	go func() {
 		kube.WaitForCacheSync("gateway tag watcher", stop, tw.HasSynced)
 		c.tagWatcher.MarkSynced()

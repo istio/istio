@@ -15,20 +15,12 @@
 package model
 
 import (
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/util/sets"
 )
 
 type FakeController struct {
 	ConfigStoreController
-	GatewaysWithInferencePools sets.Set[types.NamespacedName]
-}
-
-func (f FakeController) HasInferencePool(gw types.NamespacedName) bool {
-	return f.GatewaysWithInferencePools.Contains(gw)
 }
 
 func (f FakeController) Reconcile(_ *PushContext) {}

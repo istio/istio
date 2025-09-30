@@ -1079,7 +1079,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", to.Name)}
 			return &istio.Destination{}, invalidBackendErr
 		}
-		inferencePoolServiceName, _ := InferencePoolServiceName(string(to.Name))
+		inferencePoolServiceName, _ := model.InferencePoolServiceName(string(to.Name))
 		hostname := inferencePoolServiceName + "." + namespace + ".svc." + ctx.DomainSuffix
 		svc := ctx.LookupHostname(hostname, namespace)
 		if svc == nil {

@@ -42,6 +42,7 @@ import (
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/kube/gateway/builtin"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
@@ -146,28 +147,7 @@ type classInfo struct {
 
 var classInfos = getClassInfos()
 
-var builtinClasses = getBuiltinClasses()
-
-func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
-	res := map[gateway.ObjectName]gateway.GatewayController{
-		gateway.ObjectName(features.GatewayAPIDefaultGatewayClass): gateway.GatewayController(features.ManagedGatewayController),
-	}
-
-	if features.MultiNetworkGatewayAPI {
-		res[constants.RemoteGatewayClassName] = constants.UnmanagedGatewayController
-	}
-
-	if features.EnableAmbientWaypoints {
-		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
-	}
-
-	// N.B Ambient e/w gateways are just fancy waypoints, but we want a different
-	// GatewayClass for better UX
-	if features.EnableAmbientMultiNetwork {
-		res[constants.EastWestGatewayClassName] = constants.ManagedGatewayEastWestController
-	}
-	return res
-}
+var builtinClasses = builtin.BuiltinClasses
 
 func getClassInfos() map[gateway.GatewayController]classInfo {
 	m := map[gateway.GatewayController]classInfo{

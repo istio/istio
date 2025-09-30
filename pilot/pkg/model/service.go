@@ -24,6 +24,7 @@ package model
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"net/netip"
 	"sort"
@@ -133,7 +134,36 @@ const (
 	InferencePoolExtensionRefSvc         = "istio.io/inferencepool-extension-service"
 	InferencePoolExtensionRefPort        = "istio.io/inferencepool-extension-port"
 	InferencePoolExtensionRefFailureMode = "istio.io/inferencepool-extension-failure-mode"
+
+	maxServiceNameLength = 63
+	hashSize             = 8
 )
+
+// generateHash generates an 8-character SHA256 hash of the input string.
+func generateHash(input string, length int) string {
+	hashBytes := sha256.Sum256([]byte(input))
+	hashString := fmt.Sprintf("%x", hashBytes) // Convert to hexadecimal string
+	return hashString[:length]                 // Truncate to desired length
+}
+
+func InferencePoolServiceName(poolName string) (string, error) {
+	ipSeparator := "-ip-"
+	hash := generateHash(poolName, hashSize)
+	svcName := poolName + ipSeparator + hash
+	// Truncate if necessary to meet the Kubernetes naming constraints
+	if len(svcName) > maxServiceNameLength {
+		// Calculate the maximum allowed base name length
+		maxBaseLength := maxServiceNameLength - len(ipSeparator) - hashSize
+		if maxBaseLength < 0 {
+			return "", fmt.Errorf("inference pool name: %s is too long", poolName)
+		}
+
+		// Truncate the base name and reconstruct the service name
+		truncatedBase := poolName[:maxBaseLength]
+		svcName = truncatedBase + ipSeparator + hash
+	}
+	return svcName, nil
+}
 
 // UseInferenceSemantics determines which logic we should use for Service
 // This allows InferencePools and Services to both be represented by Service, but have different
