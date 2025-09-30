@@ -152,7 +152,7 @@ func ListenerSetCollection(
 				standardListener := convertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
 				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
-					obj, originalStatus, standardListener, i, controllerName, portErr)
+					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
 				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
 
 				servers = append(servers, server)
@@ -269,7 +269,7 @@ func GatewayCollection(
 		}
 
 		for i, l := range kgw.Listeners {
-			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, l, i, controllerName, nil)
+			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
 			servers = append(servers, server)

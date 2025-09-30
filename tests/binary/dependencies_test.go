@@ -91,10 +91,11 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/AdaLogics/go-fuzz-headers`,
 				`^github\.com/google/shlex`,
 				`^github\.com/howardjohn/unshare-go`,
-				`^github\.com/pmezard/go-difflib`,
 			},
 			wantToDeny: []string{
 				`^testing$`,
+				// Ideally only used for testing, but client-go uses it
+				`^github\.com/pmezard/go-difflib`,
 			},
 		},
 		{

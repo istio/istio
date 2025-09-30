@@ -1,6 +1,43 @@
 # echo-https must be created by the kube-client, because it's used in a test
 # that verifies `sectionName`, which is internally read from krt,
 # so it could be just a `model.ServiceInstance`
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio
+  listeners:
+    - name: default
+      hostname: "*.domain.example"
+      port: 80
+      protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: gateway
+  rules:
+    - backendRefs:
+        - name: echo-https
+          namespace: default
+          port: 80
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -15,7 +52,7 @@ spec:
     port: 443
     protocol: TCP
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: tls-upstream-echo
@@ -32,7 +69,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: tls-upstream-echo-https-merged-rules
@@ -57,7 +94,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: existing-status
@@ -87,7 +124,7 @@ status:
       type: Accepted
     controllerName: example.com/some-other-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: bad-service
@@ -104,7 +141,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: unknown-configmap
@@ -121,7 +158,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: malformed-configmap
@@ -138,7 +175,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: bad-configmap-type

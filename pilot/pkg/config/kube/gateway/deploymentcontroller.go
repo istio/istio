@@ -976,10 +976,10 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 	portNums := sets.New[int32]()
 	allListeners := append(slices.Clone(gw.Spec.Listeners), listenerSets...)
 	for i, l := range allListeners {
-		if portNums.Contains(int32(l.Port)) {
+		if portNums.Contains(l.Port) {
 			continue
 		}
-		portNums.Insert(int32(l.Port))
+		portNums.Insert(l.Port)
 		name := sanitizeListenerNameForPort(string(l.Name))
 		if name == "" {
 			// Should not happen since name is required, but in case an invalid resource gets in...
@@ -988,7 +988,7 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 		appProtocol := strings.ToLower(string(l.Protocol))
 		svcPorts = append(svcPorts, corev1.ServicePort{
 			Name:        name,
-			Port:        int32(l.Port),
+			Port:        l.Port,
 			AppProtocol: &appProtocol,
 		})
 	}
