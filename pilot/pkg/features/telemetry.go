@@ -16,7 +16,6 @@ package features
 
 import (
 	"strings"
-	"time"
 
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
@@ -67,12 +66,6 @@ var (
 		}
 		return res
 	}()
-
-	// This is an experimental feature flag, can be removed once it became stable, and should introduced to Telemetry API.
-	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,
-		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()
-	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
-		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
 
 	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
 		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
