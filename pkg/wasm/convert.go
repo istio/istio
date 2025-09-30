@@ -38,13 +38,15 @@ import (
 )
 
 var (
-	allowHTTPTypedConfig = &anypb.Any{
-		TypeUrl: "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+	allowHTTPTypedConfig, _ = anypb.New(&httprbac.RBAC{
 		// no rules mean allow all.
-	}
+		RulesStatPrefix: "wasm-default-allow",
+	})
+
 	denyHTTPTypedConfig, _ = anypb.New(&httprbac.RBAC{
 		// empty rule means deny all.
-		Rules: &rbacv3.RBAC{},
+		Rules:           &rbacv3.RBAC{},
+		RulesStatPrefix: "wasm-default-deny",
 	})
 
 	allowNetworkTypeConfig, _ = anypb.New(&networkrbac.RBAC{
