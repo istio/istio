@@ -1148,6 +1148,8 @@ const (
 	WaypointAccepted ConditionType = "WaypointAccepted"
 	// TODO(jaellio): Block servieEntryInfo creation entirely or set status - Can we still
 	// block sending configuration while setting status?
+	// WaypointMissing is set on a ServiceEntry with a wildcard hostname and not bound to a waypoint.
+	// It is used to inform the user that the ServiceEntry will not be active until it is bound to a waypoint.
 	WaypointMissing ConditionType = "istio.io/WaypointMissing"
 )
 
@@ -1172,7 +1174,10 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound:   nil,
-		WaypointMissing: nil,
+	}
+	if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
+		// Only prune WaypointMissing condition if we have a wildcard service entry
+		set[WaypointMissing] = nil
 	}
 
 	if i.Waypoint.ResourceName != "" {
@@ -1197,8 +1202,7 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 			Reason:  i.Waypoint.Error.Reason,
 			Message: i.Waypoint.Error.Message,
 		}
-	} else if i.Waypoint.ResourceName == "" && host.Name(i.Service.Hostname).IsWildCarded() {
-		// TODO(jaellio): Restrict source kind to ServiceEntry if needed
+	} else if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
 		buildMsg := strings.Builder{}
 		buildMsg.WriteString("No waypoint found for wildcard service. ServiceEntry will not apply until it is bound to a specific waypoint.")
 		set[WaypointMissing] = &Condition{
