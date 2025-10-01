@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pkg/revisions"
 )
 
-type inferencePoolController struct {
+type InferencePoolController struct {
 	client       kube.Client
 	cluster      cluster.ID
 	revision     string
@@ -54,7 +54,7 @@ type inferencePoolController struct {
 	shadowServiceReconciler controllers.Queue
 }
 
-type Inputs struct {
+type inputs struct {
 	services krt.Collection[*corev1.Service]
 
 	gateways       krt.Collection[*gateway.Gateway]
@@ -66,12 +66,12 @@ func NewController(
 	kc kube.Client,
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool,
 	options controller.Options,
-) *inferencePoolController {
+) *InferencePoolController {
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "gateway", options.KrtDebugger)
 
 	tw := revisions.NewTagWatcher(kc, options.Revision, options.SystemNamespace)
-	ipc := &inferencePoolController{
+	ipc := &InferencePoolController{
 		client:       kc,
 		cluster:      options.ClusterID,
 		revision:     options.Revision,
@@ -84,11 +84,11 @@ func NewController(
 	}
 
 	svcClient := kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()})
-	inputs := Inputs{
+	inputs := inputs{
 		services:       krt.WrapClient(svcClient, opts.WithName("informer/Services")...),
-		gateways:       krt.NewInformer[*gateway.Gateway](kc, opts.WithName("informer/Gateways")...),
-		httpRoutes:     krt.NewInformer[*gateway.HTTPRoute](kc, opts.WithName("informer/HTTPRoutes")...),
-		inferencePools: krt.NewInformer[*inferencev1.InferencePool](kc, opts.WithName("informer/InferencePools")...),
+		gateways:       buildClient[*gateway.Gateway](ipc, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
+		httpRoutes:     buildClient[*gateway.HTTPRoute](ipc, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
+		inferencePools: buildClient[*inferencev1.InferencePool](ipc, kc, gvr.InferencePool, opts, "informer/InferencePools"),
 	}
 
 	httpRoutesByInferencePool := krt.NewIndex(inputs.httpRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
@@ -156,11 +156,11 @@ func NewController(
 	return ipc
 }
 
-func (c *inferencePoolController) SetStatusQueue(t *testing.T, queue status.Queue) []krt.Syncer {
+func (c *InferencePoolController) SetStatusQueue(t *testing.T, queue status.Queue) []krt.Syncer {
 	return c.status.SetQueue(queue)
 }
 
-func (c *inferencePoolController) Run(stop <-chan struct{}) {
+func (c *InferencePoolController) Run(stop <-chan struct{}) {
 	tw := c.tagWatcher.AccessUnprotected()
 	go tw.Run(stop)
 	go c.shadowServiceReconciler.Run(stop)
@@ -173,7 +173,7 @@ func (c *inferencePoolController) Run(stop <-chan struct{}) {
 	close(c.stop)
 }
 
-func (c *inferencePoolController) HasSynced() bool {
+func (c *InferencePoolController) HasSynced() bool {
 	for _, h := range c.handlers {
 		if !h.HasSynced() {
 			return false
@@ -184,7 +184,7 @@ func (c *inferencePoolController) HasSynced() bool {
 
 // buildClient is a small wrapper to build a krt collection based on a delayed informer.
 func buildClient[I controllers.ComparableObject](
-	c *inferencePoolController,
+	c *InferencePoolController,
 	kc kube.Client,
 	res schema.GroupVersionResource,
 	opts krt.OptionsBuilder,

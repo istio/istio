@@ -92,7 +92,7 @@ func InferencePoolCollection(
 	httpRoutes krt.Collection[*gateway.HTTPRoute],
 	gateways krt.Collection[*gateway.Gateway],
 	routesByInferencePool krt.Index[string, *gateway.HTTPRoute],
-	c *inferencePoolController,
+	c *InferencePoolController,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*inferencev1.InferencePool, inferencev1.InferencePoolStatus], krt.Collection[InferencePool]) {
 	return krt.NewStatusCollection(pools,
@@ -517,7 +517,7 @@ func translateShadowServiceToService(existingLabels map[string]string, shadow sh
 	return svc
 }
 
-func (c *inferencePoolController) reconcileShadowService(
+func (c *InferencePoolController) reconcileShadowService(
 	svcClient kclient.Client[*corev1.Service],
 	inferencePools krt.Collection[InferencePool],
 	servicesCollection krt.Collection[*corev1.Service],
@@ -563,7 +563,7 @@ func (c *inferencePoolController) reconcileShadowService(
 }
 
 // canManage checks if a service should be managed by this controller
-func (c *inferencePoolController) canManageShadowServiceForInference(obj *corev1.Service) (bool, string) {
+func (c *InferencePoolController) canManageShadowServiceForInference(obj *corev1.Service) (bool, string) {
 	if obj == nil {
 		// No object exists, we can manage it
 		return true, ""

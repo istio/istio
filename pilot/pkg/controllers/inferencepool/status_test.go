@@ -22,8 +22,8 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
-	"go.yaml.in/yaml/v2"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config/schema/gvk"

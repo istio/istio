@@ -17,10 +17,10 @@ package inferencepool
 import (
 	"testing"
 
-	"go.yaml.in/yaml/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"

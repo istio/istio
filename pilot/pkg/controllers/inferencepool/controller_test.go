@@ -17,15 +17,16 @@ package inferencepool
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/gateway-api/pkg/consts"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/gateway-api/pkg/consts"
 )
 
 func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
@@ -49,7 +50,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 	}
 }
 
-func setupController(t *testing.T, objs ...runtime.Object) *inferencePoolController {
+func setupController(t *testing.T, objs ...runtime.Object) *InferencePoolController {
 	kc := kube.NewFakeClient(objs...)
 	setupClientCRDs(t, kc)
 	stop := test.NewStop(t)
