@@ -17,6 +17,7 @@ _internal_defaults_do_not_set:
   # corresponds to the networks in the map of mesh networks.
   network: ""
 
+  global:
     # When enabled, default NetworkPolicy resources will be created
     networkPolicy:
       enabled: false
