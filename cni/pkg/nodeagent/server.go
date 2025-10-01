@@ -163,7 +163,7 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNI
 		// Limiting retries to 3 so other shutdown tasks can complete before the graceful shutdown period ends
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), numRetries))
 	if err != nil {
-		log.Infof("failed to get parent DS %s, returning %s: %v", dsName, shouldStopCleanup, err)
+		log.Infof("failed to get parent DS %s, returning %t: %v", dsName, shouldStopCleanup, err)
 	}
 	return shouldStopCleanup
 }
