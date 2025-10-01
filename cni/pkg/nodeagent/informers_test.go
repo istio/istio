@@ -176,7 +176,7 @@ func TestInformerExistingPodAddErrorAnnotatesWithPartialStatusOnRetry(t *testing
 	client := kube.NewFakeClient(ns, pod)
 	fs := &fakeServer{}
 
-	fs.On("AddPodToMesh",
+	call := fs.On("AddPodToMesh",
 		ctx,
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
@@ -200,6 +200,11 @@ func TestInformerExistingPodAddErrorAnnotatesWithPartialStatusOnRetry(t *testing
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(6))
 
 	assertPodAnnotatedPending(t, client, pod)
+
+	// allow the call to succeed, this will stop further retry events from occurring
+	call.Return(nil)
+	// assert that the pod has been annotated before we proceed
+	assertPodAnnotated(t, client, pod)
 
 	// Assert expected calls actually made
 	fs.AssertExpectations(t)
