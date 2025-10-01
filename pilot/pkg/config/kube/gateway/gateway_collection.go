@@ -166,7 +166,10 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
-				serviceAccountName := model.GetOrDefault(obj.GetAnnotations()[annotation.GatewayServiceAccount.Name], getDefaultName(obj.GetName(), &parentGwObj.Spec, classInfo.disableNameSuffix))
+				serviceAccountName := model.GetOrDefault(
+					obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+					getDefaultName(obj.GetName(), &parentGwObj.Spec, classInfo.disableNameSuffix),
+				)
 				meta[constants.InternalServiceAccount] = serviceAccountName
 
 				// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
@@ -285,7 +288,10 @@ func GatewayCollection(
 			meta := parentMeta(obj, &l.Name)
 			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
-			serviceAccountName := model.GetOrDefault(obj.GetAnnotations()[annotation.GatewayServiceAccount.Name], getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix))
+			serviceAccountName := model.GetOrDefault(
+				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+				getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix),
+			)
 			meta[constants.InternalServiceAccount] = serviceAccountName
 
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
