@@ -653,10 +653,10 @@ message GlobalConfig {
 }
 
 enum ResourceScope {
-  UNDEFINED = 0;
-  ALL = 1;
-  CLUSTER = 2;
-  NAMESPACE = 3;
+  undefined = 0;
+  all = 1;
+  cluster = 2;
+  namespace = 3;
 }
 
 

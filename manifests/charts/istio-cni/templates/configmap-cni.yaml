@@ -1,4 +1,4 @@
-{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "NAMESPACE") }}
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 kind: ConfigMap
 apiVersion: v1
 metadata:

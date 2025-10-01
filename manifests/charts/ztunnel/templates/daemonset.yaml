@@ -1,4 +1,4 @@
-{{- if or (eq .Values.resourceScope "ALL") (eq .Values.resourceScope "NAMESPACE") }}
+{{- if or (eq .Values.resourceScope "all") (eq .Values.resourceScope "namespace") }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

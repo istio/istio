@@ -1,4 +1,4 @@
-{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "NAMESPACE") }}
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # Not created if istiod is running remotely
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}

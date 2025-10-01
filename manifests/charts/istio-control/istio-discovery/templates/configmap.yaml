@@ -78,7 +78,7 @@
 {{- $originalMesh := include "mesh" . | fromYaml }}
 {{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
 
-{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "NAMESPACE") }}
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- if .Values.configMap }}
 apiVersion: v1
 kind: ConfigMap

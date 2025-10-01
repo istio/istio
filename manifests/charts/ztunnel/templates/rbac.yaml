@@ -1,4 +1,4 @@
-{{- if or (eq .Values.resourceScope "ALL") (eq .Values.resourceScope "CLUSTER") }}
+{{- if or (eq .Values.resourceScope "all") (eq .Values.resourceScope "cluster") }}
 {{- if (eq (.Values.platform | default "") "openshift") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

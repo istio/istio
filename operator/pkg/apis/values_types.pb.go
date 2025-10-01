@@ -44,25 +44,25 @@ const (
 type ResourceScope int32
 
 const (
-	ResourceScope_UNDEFINED ResourceScope = 0
-	ResourceScope_ALL       ResourceScope = 1
-	ResourceScope_CLUSTER   ResourceScope = 2
-	ResourceScope_NAMESPACE ResourceScope = 3
+	ResourceScope_undefined ResourceScope = 0
+	ResourceScope_all       ResourceScope = 1
+	ResourceScope_cluster   ResourceScope = 2
+	ResourceScope_namespace ResourceScope = 3
 )
 
 // Enum value maps for ResourceScope.
 var (
 	ResourceScope_name = map[int32]string{
-		0: "UNDEFINED",
-		1: "ALL",
-		2: "CLUSTER",
-		3: "NAMESPACE",
+		0: "undefined",
+		1: "all",
+		2: "cluster",
+		3: "namespace",
 	}
 	ResourceScope_value = map[string]int32{
-		"UNDEFINED": 0,
-		"ALL":       1,
-		"CLUSTER":   2,
-		"NAMESPACE": 3,
+		"undefined": 0,
+		"all":       1,
+		"cluster":   2,
+		"namespace": 3,
 	}
 )
 
@@ -2266,7 +2266,7 @@ func (x *GlobalConfig) GetResourceScope() ResourceScope {
 	if x != nil {
 		return x.ResourceScope
 	}
-	return ResourceScope_UNDEFINED
+	return ResourceScope_undefined
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -5936,10 +5936,10 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x13NetworkPolicyConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled*C\n" +
 	"\rResourceScope\x12\r\n" +
-	"\tUNDEFINED\x10\x00\x12\a\n" +
-	"\x03ALL\x10\x01\x12\v\n" +
-	"\aCLUSTER\x10\x02\x12\r\n" +
-	"\tNAMESPACE\x10\x03*J\n" +
+	"\tundefined\x10\x00\x12\a\n" +
+	"\x03all\x10\x01\x12\v\n" +
+	"\acluster\x10\x02\x12\r\n" +
+	"\tnamespace\x10\x03*J\n" +
 	"\x15ingressControllerMode\x12\x0f\n" +
 	"\vUNSPECIFIED\x10\x00\x12\v\n" +
 	"\aDEFAULT\x10\x01\x12\n" +

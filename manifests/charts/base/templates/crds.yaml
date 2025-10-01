@@ -1,4 +1,4 @@
-{{- if or (eq .Values.global.resourceScope "ALL") (eq .Values.global.resourceScope "CLUSTER") }}
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 # TODO enableCRDTemplates is now defaulted to true as we
 # want to always self-manage CRD upgrades via plain templates,
 # so we should remove this flag after a few releases
