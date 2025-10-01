@@ -20,7 +20,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -57,35 +56,9 @@ func TestMergeGateways(t *testing.T) {
 		return &identity
 	})
 	otherProxyIdentity := makeProxy(func() *spiffe.Identity {
-		identity, _ := spiffe.ParseIdentity("spiffe://td/ns/ns/sa/sa2") // same ns, different sa
+		identity, _ := spiffe.ParseIdentity("spiffe://td/ns/ns/sa/other-sa")
 		return &identity
 	})
-
-	// Create a service target and corresponding service account to the push context.
-	// This will allow mergeGateway to verify that the proxy identity has access to the gateway secrets.
-	hostname := host.Name("istio-gateway." + AllowedNamespace + ".svc.cluster.local")
-	// Add a service target matching the proxy identity to each gateway.
-	serviceTargets := []ServiceTarget{
-		{
-			Service: &Service{
-				Hostname: hostname,
-				Attributes: ServiceAttributes{
-					Namespace: AllowedNamespace,
-				},
-			},
-			Port: ServiceInstancePort{
-				ServicePort: &Port{Port: 1},
-				TargetPort:  1,
-			},
-		},
-	}
-	pc := makePushContext()
-	key := serviceAccountKey{
-		hostname:  hostname,
-		namespace: AllowedNamespace,
-	}
-	// Add a service account to the proxy identity.
-	pc.serviceAccounts[key] = []string{proxyIdentity.VerifiedIdentity.String()}
 
 	// TODO(ramaraochavali): Add more test cases here.
 	tests := []struct {
@@ -274,11 +247,10 @@ func TestMergeGateways(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			instances := []gatewayWithInstances{}
-			// Assign service targets to all gateways.
 			for _, c := range tt.gwConfig {
-				instances = append(instances, gatewayWithInstances{c, true, serviceTargets})
+				instances = append(instances, gatewayWithInstances{c, true, nil})
 			}
-			mgw := mergeGateways(instances, tt.proxy, pc)
+			mgw := mergeGateways(instances, tt.proxy, makePushContext())
 			if len(mgw.MergedServers) != tt.mergedServersNum {
 				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
 			}
@@ -378,6 +350,9 @@ func makeConfig(name, namespace, host, portName, portProtocol string, portNumber
 		Meta: config.Meta{
 			Name:      name,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				"internal.istio.io/service-account-name": "sa",
+			},
 		},
 		Spec: &networking.Gateway{
 			Selector: map[string]string{"istio": gw},
@@ -403,7 +378,6 @@ func makeProxy(fn func() *spiffe.Identity) *Proxy {
 func makePushContext() *PushContext {
 	return &PushContext{
 		GatewayAPIController: FakeController{},
-		serviceAccounts:      make(map[serviceAccountKey][]string),
 	}
 }
 

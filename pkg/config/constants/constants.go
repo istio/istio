@@ -132,7 +132,7 @@ const (
 	InternalParentNames = "internal.istio.io/parents"
 	// InternalParentNamespace contains, for internally-generated resource, the namespace of the parent, if different then current.
 	InternalParentNamespace       = "internal.istio.io/parent-namespace"
-	InternalServiceAccount        = "internal.istio.io/service-account"
+	InternalServiceAccount        = "internal.istio.io/service-account-name"
 	InternalRouteSemantics        = "internal.istio.io/route-semantics"
 	RouteSemanticsIngress         = "ingress"
 	RouteSemanticsGateway         = "gateway"

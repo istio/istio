@@ -198,7 +198,8 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
 			cn := s.GetTls().GetCredentialName()
-			identityVerified := proxy.VerifiedIdentity.Namespace == gatewayConfig.Namespace &&
+			identityVerified := proxy.VerifiedIdentity != nil &&
+				proxy.VerifiedIdentity.Namespace == gatewayConfig.Namespace &&
 				proxy.VerifiedIdentity.ServiceAccount == gatewayConfig.Annotations[constants.InternalServiceAccount]
 			if cn != "" && identityVerified {
 				gwKind := gvk.KubernetesGateway
