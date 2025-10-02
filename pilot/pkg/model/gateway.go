@@ -201,7 +201,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			identityVerified := proxy.VerifiedIdentity != nil &&
 				proxy.VerifiedIdentity.Namespace == gatewayConfig.Namespace &&
 				proxy.VerifiedIdentity.ServiceAccount == gatewayConfig.Annotations[constants.InternalServiceAccount]
-			if cn != "" && identityVerified {
+			if cn != "" && proxy.VerifiedIdentity != nil {
 				gwKind := gvk.KubernetesGateway
 				lookupNamespace := proxy.VerifiedIdentity.Namespace
 				if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.XListenerSet.Kind+"/") {
@@ -214,7 +214,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					parse, err := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
 					// For ListenerSet, we do not require the config to live in the same namespace. However, there is a trust handshake via AllowedListeners.
 					configAndProxyAllowed := gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace || gwKind == gvk.XListenerSet
-					if err == nil && configAndProxyAllowed && parse.Namespace == lookupNamespace {
+					if err == nil && (configAndProxyAllowed && parse.Namespace == lookupNamespace && identityVerified) {
 						// Same namespace is always allowed
 						verifiedCertificateReferences.Insert(rn)
 						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
