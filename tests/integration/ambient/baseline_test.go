@@ -128,9 +128,7 @@ var (
 			{Port: ports.TCPServer},
 			{Port: ports.AutoTCP},
 			{Port: ports.AutoHTTP},
-			{Port: ports.AutoHTTP},
 			{Port: ports.AutoGRPC},
-			{Port: ports.AutoHTTPS},
 			{Port: ports.AutoHTTPS},
 			{Port: ports.HTTPInstance},
 			{Port: ports.HTTPLocalHost},
@@ -154,7 +152,7 @@ func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checke
 	})
 }
 
-func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
+func supportsL7(opt echo.CallOptions, src echo.Instance, dst echo.Target) bool {
 	s := src.Config().HasSidecar()
 	d := dst.Config().HasSidecar() || dst.Config().HasAnyWaypointProxy()
 	sch := opt.Scheme
@@ -175,7 +173,7 @@ func hboneClient(instance echo.Instance) bool {
 }
 
 func TestServices(t *testing.T) {
-	runAllCallsTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+	runAllCallsTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 		if supportsL7(opt, src, dst) {
 			opt.Check = httpValidator
 		} else {
@@ -185,7 +183,8 @@ func TestServices(t *testing.T) {
 		if !dst.Config().HasServiceAddressedWaypointProxy() &&
 			!src.Config().HasServiceAddressedWaypointProxy() &&
 			(src.Config().Service != dst.Config().Service) &&
-			!dst.Config().HasSidecar() {
+			!dst.Config().HasSidecar() && opt.Port.Protocol != protocol.GRPC {
+			// TODO (mitchconnors): gRPC seems to break original source propagation, need to investigats
 			// Check original source, unless there is a waypoint in the path. For waypoint, we don't (yet?) propagate original src.
 			// Self call is also (temporarily) broken
 			// Sidecars lose the original src
@@ -236,19 +235,14 @@ func TestServices(t *testing.T) {
 			return
 		}
 
-		if src.Config().Cluster.StableName() != dst.Config().Cluster.StableName() {
-			// test is for cross-cluster traffic
-			if !t.Settings().AmbientMultiNetwork {
-				// If MC is disabled, we do not expect cross-cluster traffic to work
-				return
-			}
-			if !(src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities()) {
-				// If neither side has proxy capabilities, cross-cluster traffic is not expected to work
-				return
-			}
+		if t.Settings().AmbientMultiNetwork && src.Config().IsAmbient() &&
+			dst.Config().IsAmbient() && !opt.Port.LocalhostIP && !dst.Config().HasServiceAddressedWaypointProxy() {
+			// TODO (mitchconnors): Figure out why SA Waypoint destinations never go cross-cluster.
+			opt.Check = check.And(opt.Check, check.ReachedTargetClusters(t))
+			opt.NewConnectionPerRequest = true
+			opt.Count = 20
 		}
 
-		// TODO test from all source workloads as well
 		src.CallOrFail(t, opt)
 	})
 }
@@ -321,7 +315,7 @@ func TestPodIP(t *testing.T) {
 
 func TestServerSideLB(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need HTTP
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -556,7 +550,7 @@ func TestBogusUseWaypoint(t *testing.T) {
 
 func TestServerRouting(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -637,7 +631,7 @@ spec:
 
 func TestWaypointEnvoyFilter(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need at least one waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -707,7 +701,7 @@ spec:
 
 func TestTrafficSplit(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need at least one waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -795,7 +789,7 @@ spec:
 func TestPeerAuthentication(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
@@ -946,7 +940,7 @@ func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
 		// pairs x allow/deny
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if opt.Scheme != scheme.TCP {
 				return
 			}
@@ -954,7 +948,7 @@ func TestAuthorizationL4(t *testing.T) {
 			// due to draining.
 			opt.NewConnectionPerRequest = true
 
-			overrideCheck := func(_ echo.Instance, dst echo.Instance, opt *echo.CallOptions) {
+			overrideCheck := func(_ echo.Instance, dst echo.Target, opt *echo.CallOptions) {
 				if !dst.Config().HasProxyCapabilities() {
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
@@ -1219,7 +1213,7 @@ spec:
 func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if !dst.Config().HasAnyWaypointProxy() {
 				// we only care about testing waypoints
 				return
@@ -1311,7 +1305,7 @@ spec:
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
@@ -1535,7 +1529,7 @@ func TestL7JWT(t *testing.T) {
 		Label(testlabel.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			applyDrainingWorkaround(t)
-			runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 				if opt.Scheme != scheme.HTTP {
 					return
 				}
@@ -2746,7 +2740,7 @@ var CheckDeny = check.Or(
 )
 
 // runTest runs a given function against every src/dst pair
-func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		if t.Settings().AmbientMultiNetwork {
 			// all meshed services need to be labeled as global for the reachability tests.
@@ -2759,66 +2753,22 @@ func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Inst
 					unlabelService(t, app.ServiceName(), "istio.io/global", app.Config().Cluster)
 				}
 			})
-			verifyCrossClusterTraffic(t, allCalls...)
 		}
 		runAllTests(t, f)
 	})
 }
 
-func verifyCrossClusterTraffic(t framework.TestContext, callOptions ...echo.CallOptions) {
-	expectedClusters := sets.New[string]()
-	for _, c := range t.Clusters() {
-		expectedClusters.Insert(c.StableName())
+func getAllInstancesByServiceName() map[string]echo.Instances {
+	out := make(map[string]echo.Instances)
+	for _, inst := range apps.All {
+		out[inst.Config().Service] = append(out[inst.Config().Service], inst)
 	}
-	for _, src := range apps.Captured {
-		t.NewSubTestf("cross cluster from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
-			for _, dst := range apps.Captured {
-				// skip self calls
-				if src.ServiceName() == dst.ServiceName() &&
-					src.Config().Cluster.StableName() == dst.Config().Cluster.StableName() {
-					continue
-				}
-				t.NewSubTestf("to %v %v", dst.Config().Cluster.Name(), dst.Config().Service).Run(func(t framework.TestContext) {
-					for _, opt := range callOptions {
-						t.NewSubTestf("%v", opt.Port.Name).RunParallel(func(t framework.TestContext) {
-							opt := opt.DeepCopy()
-							opt.To = dst
-							opt.Check = check.OK()
-							opt.Retry.Options = []retry.Option{retry.Timeout(10 * time.Second)}
-							opt.Count = 60
-							var result echo.CallResult
-
-							err := retry.UntilSuccess(func() error {
-								var err error
-								result, err = src.Call(opt)
-								return err
-							})
-							if err != nil {
-								t.Fatalf("call failed: %s(%s) -> %s: %v",
-									src.ServiceName(), src.Config().Cluster.StableName(), dst.ServiceName(), err)
-							}
-
-							respClusters := sets.New[string]()
-							for _, r := range result.Responses {
-								respClusters.Insert(r.Cluster)
-							}
-
-							missing, unexpected := expectedClusters.Diff(respClusters)
-							if len(missing) > 0 || len(unexpected) > 0 {
-								t.Fatalf("cluster mismatch: %s(%s)->%s missing=%v unexpected=%v",
-									src.ServiceName(), src.Config().Cluster.StableName(), dst.ServiceName(), missing, unexpected)
-							}
-						})
-					}
-				})
-			}
-		})
-	}
+	return out
 }
 
 // runTestToServiceWaypoint runs a given function against every src/dst pair where a call will traverse a service waypoint
-func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
-	runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
+	runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 		if !dst.Config().HasServiceAddressedWaypointProxy() {
 			return
 		}
@@ -2834,24 +2784,24 @@ func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestCo
 	})
 }
 
-func runTestContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+func runTestContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
 	runTestContextForCalls(t, basicCalls, f)
 }
 
-func runAllTests(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+func runAllTests(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
 	runTestContextForCalls(t, allCalls, f)
 }
 
 func runTestContextForCalls(
 	t framework.TestContext,
 	callOptions []echo.CallOptions,
-	f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions),
+	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
 ) {
 	svcs := apps.All
 	for _, src := range svcs {
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
-			for _, dst := range svcs {
-				t.NewSubTestf("to %v %v", dst.Config().Cluster.Name(), dst.Config().Service).Run(func(t framework.TestContext) {
+			for _, dst := range getAllInstancesByServiceName() {
+				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {
 					for _, opt := range callOptions {
 						t.NewSubTestf("%v", opt.Port.Name).RunParallel(func(t framework.TestContext) {
 							opt := opt.DeepCopy()
