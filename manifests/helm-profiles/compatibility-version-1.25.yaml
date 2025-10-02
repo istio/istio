@@ -4,6 +4,7 @@ pilot:
     ENABLE_NATIVE_SIDECARS: "false"
     # 1.28 behavioral changes
     DISABLE_SHADOW_HOST_SUFFIX: "false"
+    PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY: "false"
 ambient:
   # 1.26 behavioral changes
   shareHostNetworkNamespace: true

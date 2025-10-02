@@ -555,26 +555,26 @@ func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gatewayNam
 		// this is a http gateway. Parse port number and return empty string for rest
 		port := name[len("http."):]
 		portNumber, _ = strconv.Atoi(port)
-		return
+		return portNumber, portName, gatewayName
 	} else if strings.HasPrefix(name, "https.") && strings.Count(name, ".") == 4 {
 		name = name[len("https."):]
 		// format: https.<port>.<port_name>.<gw name>.<gw namespace>
 		portNums, rest, ok := strings.Cut(name, ".")
 		if !ok {
-			return
+			return portNumber, portName, gatewayName
 		}
 		portNumber, _ = strconv.Atoi(portNums)
 		portName, rest, ok = strings.Cut(rest, ".")
 		if !ok {
-			return
+			return portNumber, portName, gatewayName
 		}
 		gwName, gwNs, ok := strings.Cut(rest, ".")
 		if !ok {
-			return
+			return portNumber, portName, gatewayName
 		}
 		gatewayName = gwNs + "/" + gwName
 	}
-	return
+	return portNumber, portName, gatewayName
 }
 
 // convert ./host to currentNamespace/Host

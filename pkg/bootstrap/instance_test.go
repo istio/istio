@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package bootstrap
 
 import (
@@ -34,6 +35,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/compressor/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/downstream_connections/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
@@ -222,6 +224,31 @@ func TestGolden(t *testing.T) {
 			base: "stats_compression_unknown",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsCompression": "unknown",
+			},
+		},
+		{
+			base: "stats_flush_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval": "10s",
+			},
+		},
+		{
+			base: "stats_eviction_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsEvictionInterval": "10s",
+			},
+		},
+		{
+			base: "invalid_stats_eviction_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsEvictionInterval": "11s",
+			},
+		},
+		{
+			base: "stats_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval":    "10s",
+				"sidecar.istio.io/statsEvictionInterval": "20s",
 			},
 		},
 	}

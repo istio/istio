@@ -3526,6 +3526,69 @@ func TestValidateLoadBalancer(t *testing.T) {
 			},
 			valid: false,
 		},
+
+		{
+			name: "valid load balancer with consistentHash load balancing and unique cookie attributes", in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+							HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+								Name: "test-cookie",
+								Ttl:  &duration,
+								Attributes: []*networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie_Attribute{
+									{Name: "SameSite", Value: "Strict"},
+									{Name: "Secure", Value: "true"},
+									{Name: "HttpOnly", Value: "true"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+
+		{
+			name: "invalid load balancer with consistentHash load balancing and duplicate cookie attribute names", in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+							HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+								Name: "test-cookie",
+								Ttl:  &duration,
+								Attributes: []*networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie_Attribute{
+									{Name: "SameSite", Value: "Strict"},
+									{Name: "SameSite", Value: "Lax"}, // Duplicate name
+									{Name: "Secure", Value: "true"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid load balancer with consistentHash load balancing and empty cookie attribute name", in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+							HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+								Name: "test-cookie",
+								Ttl:  &duration,
+								Attributes: []*networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie_Attribute{
+									{Name: "SameSite", Value: "Strict"},
+									{Name: "", Value: "some-value"}, // Empty name
+									{Name: "Secure", Value: "true"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {

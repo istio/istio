@@ -5237,5 +5237,5 @@ func getSupportedIPFamilies(t framework.TestContext, instance echo.Instance) (v4
 	if !v4 && !v6 {
 		t.Fatalf("pod is neither v4 nor v6? %v", instance.WorkloadsOrFail(t).Addresses())
 	}
-	return
+	return v4, v6
 }

@@ -335,5 +335,5 @@ func nDestinations(ctx framework.TestContext, n int, deployments echo.Services) 
 		}
 		out = append(out, deployments[start:start+n])
 	}
-	return
+	return out
 }

@@ -515,5 +515,5 @@ func getPV(setFlag string) (path string, value string) {
 		return setFlag, ""
 	}
 	path, value = strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1])
-	return
+	return path, value
 }

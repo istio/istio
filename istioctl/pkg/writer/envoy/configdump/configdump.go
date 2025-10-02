@@ -218,7 +218,7 @@ func (c *ConfigWriter) getIstioVersionInfo(bootstrapDump *adminv3.BootstrapConfi
 		}
 	}
 
-	return
+	return version, sha
 }
 
 func (c *ConfigWriter) getUserAgentVersionInfo(bootstrapDump *adminv3.BootstrapConfigDump) string {

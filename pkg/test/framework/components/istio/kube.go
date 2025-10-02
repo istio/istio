@@ -914,5 +914,5 @@ func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i
 		}
 	}
 
-	return
+	return i, err
 }

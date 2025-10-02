@@ -208,7 +208,7 @@ func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []str
 		mcsService.ClusterVIPs.SetAddressesFor(ic.Cluster(), ips)
 		updated = true
 	}
-	return
+	return updated
 }
 
 func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {

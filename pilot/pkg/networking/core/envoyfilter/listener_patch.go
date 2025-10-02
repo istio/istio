@@ -49,7 +49,7 @@ func ApplyListenerPatches(
 	out = lis
 
 	if efw == nil {
-		return
+		return out
 	}
 
 	return patchListeners(patchContext, efw, lis, skipAdds)

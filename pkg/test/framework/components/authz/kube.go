@@ -84,7 +84,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 			Inject: true,
 		})
 		if err != nil {
-			return
+			return server, err
 		}
 	}
 
@@ -120,12 +120,12 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 
 	// Deploy the authz server.
 	if err = server.deploy(ctx); err != nil {
-		return
+		return server, err
 	}
 
 	// Patch MeshConfig to install the providers.
 	err = server.installProviders(ctx)
-	return
+	return server, err
 }
 
 func readDeploymentYAML(ctx resource.Context) (string, error) {

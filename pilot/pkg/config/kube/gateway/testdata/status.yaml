@@ -46,12 +46,24 @@ status:
       kind: Gateway
       name: not-istio
       namespace: istio-system
+    conditions:
+      - lastTransitionTime: 2025-01-01T00:00:00Z
+        message: dummy
+        reason: dummy
+        status: "True"
+        type: dummy
   - controllerName: istio.io/gateway-controller
     parentRef:
       group: gateway.networking.k8s.io
       kind: Gateway
       name: gateway
       namespace: istio-system
+    conditions:
+      - lastTransitionTime: 2025-01-01T00:00:00Z
+        message: dummy
+        reason: dummy
+        status: "True"
+        type: dummy
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -74,12 +86,24 @@ status:
       kind: Gateway
       name: gateway
       namespace: istio-system
+    conditions:
+      - lastTransitionTime: 2025-01-01T00:00:00Z
+        message: dummy
+        reason: dummy
+        status: "True"
+        type: dummy
   - controllerName: example.com/not-istio
     parentRef:
       group: gateway.networking.k8s.io
       kind: Gateway
       name: not-istio
       namespace: istio-system
+    conditions:
+      - lastTransitionTime: 2025-01-01T00:00:00Z
+        message: dummy
+        reason: dummy
+        status: "True"
+        type: dummy
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -101,12 +125,24 @@ status:
         kind: Gateway
         name: gateway
         namespace: istio-system
+      conditions:
+        - lastTransitionTime: 2025-01-01T00:00:00Z
+          message: dummy
+          reason: dummy
+          status: "True"
+          type: dummy
     - controllerName: istio.io/gateway-controller # We do own this one so should prune it
       parentRef:
         group: gateway.networking.k8s.io
         kind: Gateway
         name: not-istio
         namespace: istio-system
+      conditions:
+        - lastTransitionTime: 2025-01-01T00:00:00Z
+          message: dummy
+          reason: dummy
+          status: "True"
+          type: dummy
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -128,9 +164,21 @@ status:
       kind: Gateway
       name: gateway
       namespace: istio-system
+    conditions:
+      - lastTransitionTime: 2025-01-01T00:00:00Z
+        message: dummy
+        reason: dummy
+        status: "True"
+        type: dummy
   - controllerName: example.com/not-istio # We don't own this one so will leave it
     parentRef:
       group: gateway.networking.k8s.io
       kind: Gateway
       name: not-istio
       namespace: istio-system
+    conditions:
+    - lastTransitionTime: 2025-01-01T00:00:00Z
+      message: dummy
+      reason: dummy
+      status: "True"
+      type: dummy

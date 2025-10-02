@@ -81,7 +81,7 @@ func ValidateExtensionProviderEnvoyExtAuthzHTTP(config *meshconfig.MeshConfig_Ex
 			errs = AppendErrors(errs, fmt.Errorf("pathPrefix should begin with `/` but found %q", config.PathPrefix))
 		}
 	}
-	return
+	return errs
 }
 
 func ValidateExtensionProviderEnvoyExtAuthzGRPC(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider) (errs error) {
@@ -97,7 +97,7 @@ func ValidateExtensionProviderEnvoyExtAuthzGRPC(config *meshconfig.MeshConfig_Ex
 	if err := validateExtensionProviderEnvoyExtAuthzStatusOnError(config.StatusOnError); err != nil {
 		errs = AppendErrors(errs, err)
 	}
-	return
+	return errs
 }
 
 func validateExtensionProviderTracingZipkin(config *meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider) (errs error) {
@@ -110,7 +110,7 @@ func validateExtensionProviderTracingZipkin(config *meshconfig.MeshConfig_Extens
 	if err := ValidatePort(int(config.Port)); err != nil {
 		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
-	return
+	return errs
 }
 
 func validateExtensionProviderTracingLightStep(config *meshconfig.MeshConfig_ExtensionProvider_LightstepTracingProvider) (errs error) {
@@ -126,7 +126,7 @@ func validateExtensionProviderTracingLightStep(config *meshconfig.MeshConfig_Ext
 	if config.AccessToken == "" {
 		errs = AppendErrors(errs, fmt.Errorf("access token is required"))
 	}
-	return
+	return errs
 }
 
 func validateExtensionProviderTracingDatadog(config *meshconfig.MeshConfig_ExtensionProvider_DatadogTracingProvider) (errs error) {
@@ -139,7 +139,7 @@ func validateExtensionProviderTracingDatadog(config *meshconfig.MeshConfig_Exten
 	if err := ValidatePort(int(config.Port)); err != nil {
 		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
-	return
+	return errs
 }
 
 func validateExtensionProviderTracingOpenCensusAgent(config *meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider) (errs error) {
@@ -152,7 +152,7 @@ func validateExtensionProviderTracingOpenCensusAgent(config *meshconfig.MeshConf
 	if err := ValidatePort(int(config.Port)); err != nil {
 		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
-	return
+	return errs
 }
 
 func validateExtensionProviderTracingSkyWalking(config *meshconfig.MeshConfig_ExtensionProvider_SkyWalkingTracingProvider) (errs error) {
@@ -165,7 +165,7 @@ func validateExtensionProviderTracingSkyWalking(config *meshconfig.MeshConfig_Ex
 	if err := ValidatePort(int(config.Port)); err != nil {
 		errs = AppendErrors(errs, fmt.Errorf("invalid service port: %v", err))
 	}
-	return
+	return errs
 }
 
 func validateExtensionProviderMetricsPrometheus(_ *meshconfig.MeshConfig_ExtensionProvider_PrometheusMetricsProvider) error {
@@ -190,7 +190,7 @@ func ValidateExtensionProviderEnvoyOtelAls(provider *meshconfig.MeshConfig_Exten
 	if err := validateExtensionProviderService(provider.Service); err != nil {
 		errs = AppendErrors(errs, err)
 	}
-	return
+	return errs
 }
 
 func ValidateExtensionProviderTracingOpentelemetry(provider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider) (errs error) {
@@ -206,7 +206,7 @@ func ValidateExtensionProviderTracingOpentelemetry(provider *meshconfig.MeshConf
 	if provider.GetGrpc() != nil && provider.GetHttp() != nil {
 		errs = AppendErrors(errs, fmt.Errorf("OpenTelemetryTracingProvider cannot specify both grpc and http"))
 	}
-	return
+	return errs
 }
 
 func ValidateExtensionProviderEnvoyHTTPAls(provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) (errs error) {
@@ -219,7 +219,7 @@ func ValidateExtensionProviderEnvoyHTTPAls(provider *meshconfig.MeshConfig_Exten
 	if err := validateExtensionProviderService(provider.Service); err != nil {
 		errs = AppendErrors(errs, err)
 	}
-	return
+	return errs
 }
 
 func ValidateExtensionProviderEnvoyTCPAls(provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) (errs error) {
@@ -232,7 +232,7 @@ func ValidateExtensionProviderEnvoyTCPAls(provider *meshconfig.MeshConfig_Extens
 	if err := validateExtensionProviderService(provider.Service); err != nil {
 		errs = AppendErrors(errs, err)
 	}
-	return
+	return errs
 }
 
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
@@ -287,5 +287,5 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 		currentErrs = multierror.Prefix(currentErrs, fmt.Sprintf("invalid extension provider %s:", c.Name))
 		errs = AppendErrors(errs, currentErrs)
 	}
-	return
+	return errs
 }

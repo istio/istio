@@ -73,6 +73,12 @@
       }
     }
   ],
+  {{- if .stats_flush_interval }}
+  "stats_flush_interval": "{{ .stats_flush_interval }}",
+  {{- end }}
+  {{- if .stats_eviction_interval }}
+  "stats_eviction_interval": "{{ .stats_eviction_interval }}",
+  {{- end }}
   "stats_config": {
     "use_all_default_tags": false,
     "stats_tags": [
@@ -736,6 +742,17 @@
             ]
           }
         ]
+      }
+    ]
+  },
+  "overload_manager": {
+    "resource_monitors": [
+      {
+        "name": "envoy.resource_monitors.global_downstream_max_connections",
+        "typed_config": {
+          "@type": "type.googleapis.com/envoy.extensions.resource_monitors.downstream_connections.v3.DownstreamConnectionsConfig",
+          "max_active_downstream_connections": 2147483647
+        }
       }
     ]
   }

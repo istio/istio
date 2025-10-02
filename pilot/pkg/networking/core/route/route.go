@@ -1481,13 +1481,25 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		if cookie.GetTtl() != nil {
 			ttl = cookie.GetTtl()
 		}
+		cookiePolicy := &route.RouteAction_HashPolicy_Cookie{
+			Name: cookie.GetName(),
+			Ttl:  ttl,
+			Path: cookie.GetPath(),
+		}
+		if len(cookie.GetAttributes()) > 0 {
+			attributes := make([]*route.RouteAction_HashPolicy_CookieAttribute, len(cookie.GetAttributes()))
+			for i, attr := range cookie.GetAttributes() {
+				attributes[i] = &route.RouteAction_HashPolicy_CookieAttribute{
+					Name:  attr.GetName(),
+					Value: attr.GetValue(),
+				}
+			}
+			cookiePolicy.Attributes = attributes
+		}
+
 		return &route.RouteAction_HashPolicy{
 			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
-				Cookie: &route.RouteAction_HashPolicy_Cookie{
-					Name: cookie.GetName(),
-					Ttl:  ttl,
-					Path: cookie.GetPath(),
-				},
+				Cookie: cookiePolicy,
 			},
 		}
 	case *networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp:
