@@ -58,7 +58,6 @@ func TestMain(m *testing.M) {
 			ctx.Settings().SkipVMs()
 			ctx.Settings().SkipTProxy = true
 			if ctx.Settings().AmbientMultiNetwork {
-				cfg.SkipDeployCrossClusterSecrets = true
 				cfg.DeployEastWestGW = true
 			}
 			cfg.EnableCNI = false
