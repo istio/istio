@@ -88,9 +88,6 @@ func TestMain(m *testing.M) {
 			ctx.Settings().SkipVMs()
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
-			if ctx.Settings().AmbientMultiNetwork {
-				cfg.SkipDeployCrossClusterSecrets = true
-			}
 			cfg.ControlPlaneValues = `
 values:
   ztunnel:
