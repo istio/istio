@@ -173,7 +173,6 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	autoPassthrough := false
 
 	log.Debugf("mergeGateways: merging %d gateways", len(gateways))
-
 	for _, gwAndInstance := range gateways {
 		gatewayConfig := gwAndInstance.gateway
 		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name // Format: %s/%s
@@ -197,11 +196,12 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
-			cn := s.GetTls().GetCredentialName()
+			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
 			identityVerified := proxy.VerifiedIdentity != nil &&
 				proxy.VerifiedIdentity.Namespace == gatewayConfig.Namespace &&
-				proxy.VerifiedIdentity.ServiceAccount == gatewayConfig.Annotations[constants.InternalServiceAccount]
-			if cn != "" && proxy.VerifiedIdentity != nil {
+				(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
+			cn := s.GetTls().GetCredentialName()
+			if cn != "" && identityVerified {
 				gwKind := gvk.KubernetesGateway
 				lookupNamespace := proxy.VerifiedIdentity.Namespace
 				if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.XListenerSet.Kind+"/") {
@@ -214,7 +214,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					parse, err := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
 					// For ListenerSet, we do not require the config to live in the same namespace. However, there is a trust handshake via AllowedListeners.
 					configAndProxyAllowed := gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace || gwKind == gvk.XListenerSet
-					if err == nil && (configAndProxyAllowed && parse.Namespace == lookupNamespace && identityVerified) {
+					if err == nil && configAndProxyAllowed && parse.Namespace == lookupNamespace {
 						// Same namespace is always allowed
 						verifiedCertificateReferences.Insert(rn)
 						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
@@ -228,8 +228,6 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						}
 					}
 				}
-			} else if !identityVerified {
-				log.Debugf("skipping credential verification for gateway %s as identity of the proxy %s could not be verified", gatewayName, proxy.ID)
 			}
 			for _, resolvedPort := range resolvePorts(s.Port.Number, gwAndInstance.instances, gwAndInstance.legacyGatewaySelector) {
 				routeName := gatewayRDSRouteName(s, resolvedPort, gatewayConfig)

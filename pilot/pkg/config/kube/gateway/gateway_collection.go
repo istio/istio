@@ -161,7 +161,6 @@ func ListenerSetCollection(
 					// Waypoint doesn't actually convert the routes to VirtualServices
 					continue
 				}
-
 				meta := parentMeta(obj, &l.Name)
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
@@ -275,6 +274,24 @@ func GatewayCollection(
 			return status, nil
 		}
 
+		// See: https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#manual-deployment
+		// If we set and address of type hostname, then we have no idea what service accounts the gateway workloads will use.
+		// Thus, we don't enforce service account name restrictions (still look at namespaces though).
+		serviceAccountName := ""
+		var managedGateway = true
+		for _, a := range kgw.Addresses {
+			if *a.Type == gatewayv1.HostnameAddressType {
+				managedGateway = false
+			}
+			break
+		}
+		if managedGateway {
+			serviceAccountName = model.GetOrDefault(
+				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+				getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix),
+			)
+		}
+
 		for i, l := range kgw.Listeners {
 			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
@@ -288,10 +305,7 @@ func GatewayCollection(
 			meta := parentMeta(obj, &l.Name)
 			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
-			serviceAccountName := model.GetOrDefault(
-				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-				getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix),
-			)
+
 			meta[constants.InternalServiceAccount] = serviceAccountName
 
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
