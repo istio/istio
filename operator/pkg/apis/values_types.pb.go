@@ -1851,9 +1851,11 @@ type GlobalConfig struct {
 	// Specifies whether native nftables rules should be used instead of iptables rules for traffic redirection.
 	NativeNftables *wrapperspb.BoolValue `protobuf:"bytes,74,opt,name=nativeNftables,proto3" json:"nativeNftables,omitempty"`
 	// Settings related to Kubernetes NetworkPolicy.
-	NetworkPolicy *NetworkPolicyConfig `protobuf:"bytes,75,opt,name=networkPolicy,proto3" json:"networkPolicy,omitempty"` // The next available key is 76
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	NetworkPolicy *NetworkPolicyConfig `protobuf:"bytes,75,opt,name=networkPolicy,proto3" json:"networkPolicy,omitempty"`
+	// Select a custom name for istiod's plugged-in CA CRL ConfigMap.
+	CrlConfigMapName string `protobuf:"bytes,76,opt,name=crlConfigMapName,proto3" json:"crlConfigMapName,omitempty"` // The next available key is 77
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GlobalConfig) Reset() {
@@ -2205,6 +2207,13 @@ func (x *GlobalConfig) GetNetworkPolicy() *NetworkPolicyConfig {
 		return x.NetworkPolicy
 	}
 	return nil
+}
+
+func (x *GlobalConfig) GetCrlConfigMapName() string {
+	if x != nil {
+		return x.CrlConfigMapName
+	}
+	return ""
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -5562,7 +5571,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x14istio_ingressgateway\x18\x04 \x01(\v2-.istio.operator.v1alpha1.IngressGatewayConfigR\x14istio-ingressgateway\x12@\n" +
 	"\x0fsecurityContext\x18\n" +
 	" \x01(\v2\x16.google.protobuf.ValueR\x0fsecurityContext\x12>\n" +
-	"\x0eseccompProfile\x18\f \x01(\v2\x16.google.protobuf.ValueR\x0eseccompProfile\"\xdf\x13\n" +
+	"\x0eseccompProfile\x18\f \x01(\v2\x16.google.protobuf.ValueR\x0eseccompProfile\"\x8b\x14\n" +
 	"\fGlobalConfig\x12;\n" +
 	"\x04arch\x18\x01 \x01(\v2#.istio.operator.v1alpha1.ArchConfigB\x02\x18\x01R\x04arch\x12 \n" +
 	"\vcertSigners\x18D \x03(\tR\vcertSigners\x12F\n" +
@@ -5612,7 +5621,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\bwaypoint\x18H \x01(\v2'.istio.operator.v1alpha1.WaypointConfigR\bwaypoint\x12(\n" +
 	"\x0ftrustBundleName\x18I \x01(\tR\x0ftrustBundleName\x12B\n" +
 	"\x0enativeNftables\x18J \x01(\v2\x1a.google.protobuf.BoolValueR\x0enativeNftables\x12R\n" +
-	"\rnetworkPolicy\x18K \x01(\v2,.istio.operator.v1alpha1.NetworkPolicyConfigR\rnetworkPolicy\"-\n" +
+	"\rnetworkPolicy\x18K \x01(\v2,.istio.operator.v1alpha1.NetworkPolicyConfigR\rnetworkPolicy\x12*\n" +
+	"\x10crlConfigMapName\x18L \x01(\tR\x10crlConfigMapName\"-\n" +
 	"\tSTSConfig\x12 \n" +
 	"\vservicePort\x18\x01 \x01(\rR\vservicePort\"R\n" +
 	"\fIstiodConfig\x12B\n" +

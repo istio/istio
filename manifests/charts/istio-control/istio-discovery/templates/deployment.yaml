@@ -202,6 +202,10 @@ spec:
           - name: PILOT_CA_CERT_CONFIGMAP
             value: "{{ .Values.global.trustBundleName }}"
 {{- end }}
+{{- if .Values.global.crlConfigMapName }}
+          - name: PILOT_CRL_CONFIGMAP
+            value: "{{ .Values.global.crlConfigMapName }}"
+{{- end }}
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID

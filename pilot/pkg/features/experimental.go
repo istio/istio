@@ -195,6 +195,9 @@ var (
 	CACertConfigMapName = env.Register("PILOT_CA_CERT_CONFIGMAP", "istio-ca-root-cert",
 		"The name of the ConfigMap that stores the Root CA Certificate that is used by istiod").Get()
 
+	CRLConfigMapName = env.Register("PILOT_CRL_CONFIGMAP", "istio-ca-crl",
+		"The name of the ConfigMap that stores the Certificate Revocation List (CRL) for a plugged-in CA").Get()
+
 	EnvoyStatusPortEnableProxyProtocol = env.Register("ENVOY_STATUS_PORT_ENABLE_PROXY_PROTOCOL", false,
 		"If enabled, Envoy will support requests with proxy protocol on its status port").Get()
 

@@ -645,7 +645,10 @@ message GlobalConfig {
 
   // Settings related to Kubernetes NetworkPolicy.
   NetworkPolicyConfig networkPolicy = 75;
-  // The next available key is 76
+
+  // Select a custom name for istiod's plugged-in CA CRL ConfigMap.
+  string crlConfigMapName = 76;
+  // The next available key is 77
 }
 
 // Configuration for Security Token Service (STS) server.
