@@ -2771,7 +2771,7 @@ func verifyCrossClusterTraffic(t framework.TestContext, callOptions ...echo.Call
 		expectedClusters.Insert(c.StableName())
 	}
 	for _, src := range apps.Captured {
-		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
+		t.NewSubTestf("cross cluster from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
 			for _, dst := range apps.Captured {
 				// skip self calls
 				if src.ServiceName() == dst.ServiceName() &&
