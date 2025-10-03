@@ -126,7 +126,11 @@ const (
 	// InternalParentNames declares the original resources of an internally-generated config.
 	// This is used by k8s gateway-api.
 	// It is a comma separated list. For example, "HTTPRoute/foo.default,HTTPRoute/bar.default"
-	InternalParentNames      = "internal.istio.io/parents"
+	InternalParentNames = "internal.istio.io/parents"
+	// The service account name that gateway workloads are running at. Used to verify that
+	// only service accounts associated with gateway workloads can query secrets.
+	// Empty means any service account name within the namespace.
+	InternalServiceAccount   = "internal.istio.io/service-account-name"
 	InternalRouteSemantics   = "internal.istio.io/route-semantics"
 	RouteSemanticsIngress    = "ingress"
 	RouteSemanticsGateway    = "gateway"
