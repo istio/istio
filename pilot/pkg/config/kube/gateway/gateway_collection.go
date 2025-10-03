@@ -278,14 +278,7 @@ func GatewayCollection(
 		// If we set and address of type hostname, then we have no idea what service accounts the gateway workloads will use.
 		// Thus, we don't enforce service account name restrictions (still look at namespaces though).
 		serviceAccountName := ""
-		managedGateway := true
-		for _, a := range kgw.Addresses {
-			if *a.Type == gatewayv1.HostnameAddressType {
-				managedGateway = false
-				break
-			}
-		}
-		if managedGateway {
+		if IsManaged(&obj.Spec) {
 			serviceAccountName = model.GetOrDefault(
 				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
 				getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix),
