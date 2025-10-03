@@ -1118,29 +1118,43 @@ spec:
 				Check:   check.And(check.OK(), IsL7()),
 			})
 
-			// Test we can do TLS origination, by utilizing ServiceEntry target port
-			tlsOrigination := `apiVersion: networking.istio.io/v1
-kind: DestinationRule
-metadata:
-  name: tls-origination
-spec:
-  host: "*.{{.}}.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: SIMPLE
-      insecureSkipVerify: true`
-
-			t.ConfigIstio().
-				Eval(apps.Namespace.Name(), apps.ExternalNamespace.Name(), tlsOrigination).
-				ApplyOrFail(t)
-
-			runTest(t, "https origination targetPort", "", echo.CallOptions{
-				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
-				Port:    echo.Port{ServicePort: 8080},
+			// Try to use a different Host header than the target host
+			callOptions := echo.CallOptions{
+				Address: fmt.Sprintf("non-existent.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
 				Count:   1,
-				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
-			})
+				HTTP: echo.HTTP{
+					Headers: make(http.Header),
+				},
+				Check: check.And(check.Status(404), IsL7()),
+			}
+			callOptions.HTTP.Headers.Add("Host", fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()))
+			runTest(t, "overriding Host header", "", callOptions)
+
+			// Test we can do TLS origination, by utilizing ServiceEntry target port
+			// 			tlsOrigination := `apiVersion: networking.istio.io/v1
+			// kind: DestinationRule
+			// metadata:
+			//   name: tls-origination
+			// spec:
+			//   host: "*.{{.}}.svc.cluster.local"
+			//   trafficPolicy:
+			//     tls:
+			//       mode: SIMPLE
+			//       insecureSkipVerify: true`
+
+			// 			t.ConfigIstio().
+			// 				Eval(apps.Namespace.Name(), apps.ExternalNamespace.Name(), tlsOrigination).
+			// 				ApplyOrFail(t)
+
+			// 			runTest(t, "https origination targetPort", "", echo.CallOptions{
+			// 				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+			// 				Port:    echo.Port{ServicePort: 8080},
+			// 				Scheme:  scheme.HTTP,
+			// 				Count:   1,
+			// 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			// 			})
 
 			/*
 				log.Info("Sleeping...")

@@ -833,10 +833,21 @@ func getTCPRouteMatch(tcp []*networking.TCPRoute, port int) []*networking.RouteD
 	return nil
 }
 
+func buildRouteVHostDomains(svc *model.Service) []string {
+	// This avoids HTTP Host injection to take advantage of dynamic forward proxy
+	// hostnames when wildcards are present by restricting accepted hostnames to those
+	// matching the original wildcarded service host.
+	domains := []string{"*"}
+	if svc != nil && svc.Resolution == model.DynamicDNS {
+		domains = []string{svc.Hostname.String()}
+	}
+	return domains
+}
+
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
-		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
@@ -845,7 +856,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		return c.Spec.(*networking.VirtualService).Http != nil
 	})
 	if vs == nil {
-		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
@@ -853,20 +864,12 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
 	routes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
 	if err != nil {
-		return buildSidecarInboundHTTPRouteConfig(lb, cc)
-	}
-
-	// This avoids HTTP Host injection to take advantage of dynamic forward proxy
-	// hostnames when wildcards are present by restricting accepted hostnames to those
-	// matching the original wildcarded service host.
-	domains := []string{"*"}
-	if svc.Hostname.IsWildCarded() {
-		domains = []string{svc.Hostname.String()}
+		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
 	inboundVHost := &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
-		Domains: domains,
+		Domains: buildRouteVHostDomains(svc),
 		Routes:  routes,
 	}
 
