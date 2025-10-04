@@ -399,6 +399,12 @@ func BackendTLSPolicyCollection(
 						TLS:          tls,
 						CreationTime: i.CreationTimestamp.Time,
 					})
+					ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
+					for _, gwl := range ancestorBackends {
+						for _, i := range gwl.Objects {
+							uniqueGateways.Insert(i.Gateway)
+						}
+					}
 				}
 			}
 			// We add a status for Service (for mesh), and for each Gateway

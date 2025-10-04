@@ -291,6 +291,23 @@ status:
       status: "True"
       type: ResolvedRefs
     controllerName: istio.io/mesh-controller
+  - ancestorRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+    conditions:
+    - lastTransitionTime: fake
+      message: 'targetRefs invalid: sectionName "non-existing-port-name" does not
+        exist in Service default/echo-https'
+      reason: TargetNotFound
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
