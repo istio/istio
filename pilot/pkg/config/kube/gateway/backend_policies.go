@@ -56,12 +56,12 @@ func (n TypedNamespacedName) String() string {
 	return n.Kind.String() + "/" + n.NamespacedName.String()
 }
 
-type TargetWithHost struct {
+type TypedNamespacedNamePerHost struct {
 	Target TypedNamespacedName
 	Host   string
 }
 
-func (t TargetWithHost) String() string {
+func (t TypedNamespacedNamePerHost) String() string {
 	return t.Target.String() + "/" + t.Host
 }
 
@@ -92,6 +92,23 @@ var TypedNamespacedNameIndexCollectionFunc = krt.WithIndexCollectionFromString(f
 			Name:      parts[2],
 		},
 		Kind: kind.FromString(parts[0]),
+	}
+})
+
+var TypedNamespacedNamePerHostIndexCollectionFunc = krt.WithIndexCollectionFromString(func(s string) TypedNamespacedNamePerHost {
+	parts := strings.Split(s, "/")
+	if len(parts) != 4 {
+		panic("invalid TypedNamespacedNamePerHost: " + s)
+	}
+	return TypedNamespacedNamePerHost{
+		Target: TypedNamespacedName{
+			NamespacedName: types.NamespacedName{
+				Namespace: parts[1],
+				Name:      parts[2],
+			},
+			Kind: kind.FromString(parts[0]),
+		},
+		Host: parts[3],
 	}
 })
 
@@ -127,28 +144,13 @@ func DestinationRuleCollection(
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})
-	byTargetAndHost := krt.NewIndex(allPolicies, "targetAndHost", func(o BackendPolicy) []TargetWithHost {
-		return []TargetWithHost{{Target: o.Target, Host: o.Host}}
+	byTargetAndHost := krt.NewIndex(allPolicies, "targetAndHost", func(o BackendPolicy) []TypedNamespacedNamePerHost {
+		return []TypedNamespacedNamePerHost{{Target: o.Target, Host: o.Host}}
 	})
-	indexOpts := append(opts.WithName("BackendPolicyByTarget"), krt.WithIndexCollectionFromString(func(s string) TargetWithHost {
-		parts := strings.Split(s, "/")
-		if len(parts) != 4 {
-			panic("invalid TargetWithHost: " + s)
-		}
-		return TargetWithHost{
-			Target: TypedNamespacedName{
-				NamespacedName: types.NamespacedName{
-					Namespace: parts[1],
-					Name:      parts[2],
-				},
-				Kind: kind.FromString(parts[0]),
-			},
-			Host: parts[3],
-		}
-	}))
+	indexOpts := append(opts.WithName("BackendPolicyByTarget"), TypedNamespacedNamePerHostIndexCollectionFunc)
 	merged := krt.NewCollection(
 		byTargetAndHost.AsCollection(indexOpts...),
-		func(ctx krt.HandlerContext, i krt.IndexObject[TargetWithHost, BackendPolicy]) **config.Config {
+		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamespacedNamePerHost, BackendPolicy]) **config.Config {
 			// Sort so we can pick the oldest, which will win.
 			// Not yet standardized but likely will be (https://github.com/kubernetes-sigs/gateway-api/issues/3516#issuecomment-2684039692)
 			pols := slices.SortFunc(i.Objects, func(a, b BackendPolicy) int {
