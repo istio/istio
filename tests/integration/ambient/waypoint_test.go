@@ -1119,19 +1119,60 @@ spec:
 			})
 
 			// Try to use a different Host header than the target host
-			callOptions := echo.CallOptions{
-				Address: fmt.Sprintf("non-existent.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+			invalidHeader := make(http.Header, 1)
+			invalidHeader.Add("Host", "external.non-existent.svc.cluster.local")
+			runTest(t, "overriding with invalid Host header", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
 				Count:   1,
 				HTTP: echo.HTTP{
-					Headers: make(http.Header),
+					Headers: invalidHeader,
 				},
-				Check: check.And(check.Status(404), IsL7()),
-			}
-			callOptions.HTTP.Headers.Add("Host", fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()))
-			runTest(t, "overriding Host header", "", callOptions)
+				// We expect the request to return a 404 since the Host does not match the wildcarded hostname
+				Check:   check.And(check.NotOK(), IsL7()),
+			})
 
+			matchingHeader := make(http.Header, 1)
+			matchingHeader.Add("Host", fmt.Sprintf("non-existent.%s.svc.cluster.local", apps.ExternalNamespace.Name()))
+			runTest(t, "overriding with matching Host header", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				HTTP: echo.HTTP{
+					Headers: matchingHeader,
+				},
+				// We expect the request succeed since the Host matches the wildcarded hostname, even though it doesn't match the address
+				Check:   check.And(check.OK(), IsL7()),
+			})
+			/*
+			tlsOrigination := `apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: tls-origination
+spec:
+  host: "*.{{.}}.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true`
+            t.ConfigIstio().
+                Eval(egressNamespace.Name(), apps.ExternalNamespace.Name(), tlsOrigination).
+                ApplyOrFail(t, apply.CleanupConditionally)
+
+			runTest(t, "http origination targetPort", tlsOrigination, "", echo.CallOptions{
+				Address: "fake-egress.example.com",
+				Port:    echo.Port{ServicePort: 8080},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+
+
+			log.Info("Sleeping...")
+			time.Sleep(120 * time.Minute)
+			*/
 			// Test we can do TLS origination, by utilizing ServiceEntry target port
 			// 			tlsOrigination := `apiVersion: networking.istio.io/v1
 			// kind: DestinationRule
@@ -1147,7 +1188,7 @@ spec:
 			// 			t.ConfigIstio().
 			// 				Eval(apps.Namespace.Name(), apps.ExternalNamespace.Name(), tlsOrigination).
 			// 				ApplyOrFail(t)
-
+			//
 			// 			runTest(t, "https origination targetPort", "", echo.CallOptions{
 			// 				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
 			// 				Port:    echo.Port{ServicePort: 8080},
@@ -1155,11 +1196,7 @@ spec:
 			// 				Count:   1,
 			// 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			// 			})
-
 			/*
-				log.Info("Sleeping...")
-				time.Sleep(60 * time.Minute)
-
 				tlsOriginationRedirect := tlsOrigination + `
 				---
 				apiVersion: gateway.networking.k8s.io/v1
