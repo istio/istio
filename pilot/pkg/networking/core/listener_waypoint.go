@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	"istio.io/istio/pilot/pkg/networking/core/match"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
@@ -96,7 +97,6 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 		lb.buildWaypointInboundConnectTerminate(),
 		lb.buildWaypointInternal(wls, orderedWPS),
 		forwarder)
-
 	return listeners
 }
 
@@ -862,11 +862,16 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		Routes:  routes,
 	}
 
-	return &route.RouteConfiguration{
+	out := &route.RouteConfiguration{
 		Name:             cc.clusterName,
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
+
+	// should we do this early?
+	efw := lb.push.EnvoyFilters(lb.node)
+	out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_WAYPOINT, lb.node, efw, out)
+	return out
 }
 
 // Select the config pertaining to the service being processed.

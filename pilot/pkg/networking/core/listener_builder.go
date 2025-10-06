@@ -188,6 +188,9 @@ func (lb *ListenerBuilder) patchListeners() {
 	lb.virtualInboundListener = lb.patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
 	lb.httpProxyListener = lb.patchOneListener(lb.httpProxyListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.envoyFilterWrapper, lb.inboundListeners, false)
+	if lb.node.Type == model.Waypoint {
+		lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_WAYPOINT, lb.envoyFilterWrapper, lb.inboundListeners, true)
+	}
 	lb.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, lb.envoyFilterWrapper, lb.outboundListeners, false)
 }
 

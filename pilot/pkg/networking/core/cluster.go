@@ -246,16 +246,15 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	case model.Waypoint:
 		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
-		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		waypointPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_WAYPOINT}
 		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(
-			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services))
+		waypointOutboundServices := filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, waypointPatcher, waypointOutboundServices)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Setup inbound clusters
-		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)...)
-		clusters = append(clusters, inboundPatcher.insertedClusters()...)
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, waypointPatcher, wps.services)...)
+		clusters = append(clusters, waypointPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)

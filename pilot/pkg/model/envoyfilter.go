@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -91,6 +92,9 @@ type EnvoyFilterConfigPatchWrapper struct {
 	Name             string
 	Namespace        string
 	FullName         string
+
+	// For waypoint filters, we need to propagate the target hostnames
+	Hostnames []host.Name
 }
 
 // wellKnownVersions defines a mapping of well known regex matches to prefix matches
@@ -110,6 +114,10 @@ var wellKnownVersions = map[string]string{
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
 func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
+	return convertToEnvoyFilterWrapperWithDomainSuffix(local, "")
+}
+
+func convertToEnvoyFilterWrapperWithDomainSuffix(local *config.Config, domainSuffix string) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
 	out := &EnvoyFilterWrapper{
@@ -160,6 +168,21 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			ApplyTo:   cp.ApplyTo,
 			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
+		}
+		// For waypoint filters, we need to propagate the targetRefs
+		// to the individual patch wrapper for service match.
+		if cpw.Match.Context == networking.EnvoyFilter_WAYPOINT {
+			cpw.Hostnames = make([]host.Name, 0, len(localEnvoyFilter.TargetRefs))
+			for _, targetRef := range localEnvoyFilter.TargetRefs {
+				if matchesGroupKind(targetRef, gvk.Service) {
+					h := serviceHostname(targetRef.GetName(), local.Namespace, domainSuffix)
+					cpw.Hostnames = append(cpw.Hostnames, h)
+				}
+
+				// TODO: should we support Hostname or ServiceEntry here?
+				// For ServiceEntry, it seems very complicated to convert to Hostname.
+				// Should we support Hostname directly like ?
+			}
 		}
 		var err error
 		// Use non-strict building to avoid issues where EnvoyFilter is valid but meant
@@ -269,4 +292,10 @@ func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {
 		return ""
 	}
 	return cpw.FullName
+}
+
+// ServiceHostname produces FQDN for a k8s service
+// TODO: this's a copy of pilot/pkg/serviceregistry/kube/conversion.go to avoid import cycle
+func serviceHostname(name, namespace, domainSuffix string) host.Name {
+	return host.Name(name + "." + namespace + "." + "svc" + "." + domainSuffix) // Format: "%s.%s.svc.%s"
 }

@@ -2267,7 +2267,7 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 		}
 		// Rebuild the envoy filter in all other cases.
 		if efw == nil {
-			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
+			efw = convertToEnvoyFilterWrapperWithDomainSuffix(&envoyFilterConfig, env.DomainSuffix)
 		}
 		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
 	}
@@ -2347,7 +2347,8 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 // if there is a workload selector, check for matching workload labels
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
-	matcher := PolicyMatcherForProxy(proxy)
+	// We need to know all the EnvoyFilters that target to Service/ServiceEntry
+	matcher := PolicyMatcherForProxy(proxy).WithAllServices()
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
 		if matcher.ShouldAttachPolicy(gvk.EnvoyFilter, efw.NamespacedName(), efw) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)

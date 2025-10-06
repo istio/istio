@@ -472,6 +472,8 @@ github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9de
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/zeebo/errs v1.4.0 h1:XNdoD/RRMKP7HD0UhJnIzUy74ISdGGxURlYG8HSWSfM=
 github.com/zeebo/errs v1.4.0/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
+github.com/zirain/api v0.0.0-20251008091933-a1a162821d5e h1:TsuJORakim9ZfR3OvNp/uk/fJLrgE04ksl2x4TJv10M=
+github.com/zirain/api v0.0.0-20251008091933-a1a162821d5e/go.mod h1:BD3qv/ekm16kvSgvSpuiDawgKhEwG97wx849CednJSg=
 go.etcd.io/etcd/api/v3 v3.6.4 h1:7F6N7toCKcV72QmoUKa23yYLiiljMrT4xCeBL9BmXdo=
 go.etcd.io/etcd/api/v3 v3.6.4/go.mod h1:eFhhvfR8Px1P6SEuLT600v+vrhdDTdcfMzmnxVXXSbk=
 go.etcd.io/etcd/client/pkg/v3 v3.6.4 h1:9HBYrjppeOfFjBjaMTRxT3R7xT0GLK8EJMVC4xg6ok0=
@@ -649,6 +651,12 @@ istio.io/api v1.26.0-alpha.0.0.20251013193626-3200bbf5795e h1:7kqoLJjcWjng2UYl3N
 istio.io/api v1.26.0-alpha.0.0.20251013193626-3200bbf5795e/go.mod h1:BD3qv/ekm16kvSgvSpuiDawgKhEwG97wx849CednJSg=
 istio.io/client-go v1.26.0-alpha.0.0.20251013194303-fbfbcf30e44a h1:YXVM0hPlds3V/Uby2rLUWXYQbBsMma7vEQ1UjKX30m8=
 istio.io/client-go v1.26.0-alpha.0.0.20251013194303-fbfbcf30e44a/go.mod h1:LFq7XnVv+hnbDzqQEeIXpMARscBoGW6AQeubAfM1VRc=
+istio.io/api v1.26.0-alpha.0.0.20251008165320-6df984a78fb5 h1:tZVOnrhwDNrIEY5bkULbSDlXXhOO1VXd1kWVajxpgEA=
+istio.io/api v1.26.0-alpha.0.0.20251008165320-6df984a78fb5/go.mod h1:BD3qv/ekm16kvSgvSpuiDawgKhEwG97wx849CednJSg=
+istio.io/client-go v1.26.0-alpha.0.0.20251008165617-23503832d0b8 h1:EulEP5LnyzJsyaCx3izLvOvhQzgbSr5+A6eWj1lLJJY=
+istio.io/client-go v1.26.0-alpha.0.0.20251008165617-23503832d0b8/go.mod h1:cwUNksRtU8ujlPDLzSnwjNPge9pRevqwTXAlcceXYIw=
+istio.io/client-go v1.26.0-alpha.0.0.20251002142408-752760d8f171 h1:kGlWXEWWQlzxA2WfzXI7YuGeGd/UrAPRKWDEoxF9fpk=
+istio.io/client-go v1.26.0-alpha.0.0.20251002142408-752760d8f171/go.mod h1:qq1p0YYijr4fQdp8pN2nyC8EnpZzx0HFUt5yMgNfHzY=
 k8s.io/api v0.34.1 h1:jC+153630BMdlFukegoEL8E/yT7aLyQkIVuwhmwDgJM=
 k8s.io/api v0.34.1/go.mod h1:SB80FxFtXn5/gwzCoN6QCtPD7Vbu5w2n1S0J5gFfTYk=
 k8s.io/apiextensions-apiserver v0.34.1 h1:NNPBva8FNAPt1iSVwIE0FsdrVriRXMsaWFMqJbII2CI=
