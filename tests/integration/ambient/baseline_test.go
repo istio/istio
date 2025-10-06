@@ -1213,7 +1213,7 @@ spec:
 func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
+		runTestContextIndividual(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if !dst.Config().HasAnyWaypointProxy() {
 				// we only care about testing waypoints
 				return
@@ -1254,7 +1254,6 @@ metadata:
  name: allow-nothing
 spec:
   {}`).ApplyOrFail(t)
-
 			t.NewSubTest("allow-nothing").Run(func(t framework.TestContext) {
 				opt := opt.DeepCopy()
 				opt.Check = CheckDeny
@@ -1305,7 +1304,7 @@ spec:
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
+		runTestContextIndividual(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
@@ -2784,6 +2783,17 @@ func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestCo
 	})
 }
 
+func runTestContextIndividual(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+	runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
+		dstInstances := dst.(echo.Instances)
+		for _, dst := range dstInstances {
+			t.NewSubTestf("to %s-%s", dst.Config().Cluster.Name(), dst.Config().Service).Run(func(t framework.TestContext) {
+				f(t, src, dst, opt)
+			})
+		}
+	})
+}
+
 func runTestContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
 	runTestContextForCalls(t, basicCalls, f)
 }
@@ -2803,7 +2813,8 @@ func runTestContextForCalls(
 			for _, dst := range getAllInstancesByServiceName() {
 				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {
 					for _, opt := range callOptions {
-						t.NewSubTestf("%v", opt.Port.Name).RunParallel(func(t framework.TestContext) {
+						t.NewSubTestf("%v", opt.Port.Name).Run(func(t framework.TestContext) {
+							// t.NewSubTestf("%v", opt.Port.Name).RunParallel(func(t framework.TestContext) {
 							opt := opt.DeepCopy()
 							opt.To = dst
 							opt.Check = check.OK()
