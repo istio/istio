@@ -126,11 +126,10 @@ const (
 // We are using our local binaries to update host rules, and we must pick the right match.
 //
 // Basic selection logic is as follows:
-// 1. see if we have `nft` binary set in our $PATH
-// 2. see if we have existing rules in `nft` in our netns
-// 3. If so, use `nft` binary set
-// 4. Otherwise, see if we have `legacy` binary set, and use that.
-// 5. Otherwise, see if we have `iptables` binary set, and use that (detecting whether it's nft or legacy).
+// 1. Check if we have `iptables-legacy` binary in our $PATH and if it has any existing rules in the netns
+// 2. If so, use `legacy` binary immediately
+// 3. Otherwise, check if we have `iptables-nft` binary in our $PATH and if so, use `nft` binary set
+// 4. Otherwise, see if we have `iptables` binary set, and use that.
 func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, error) {
 	// Begin detecting
 	//
