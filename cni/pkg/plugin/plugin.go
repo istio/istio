@@ -173,7 +173,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	if conf.AmbientEnabled {
 		k8sArgs := K8sArgs{}
 		if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
-			return fmt.Errorf("failed to load args after failed attempt to get client: %v", err)
+			return fmt.Errorf("failed to load args: %v", err)
 		}
 		if isCNIPod(conf, &k8sArgs) {
 			// If we are in a degraded state and this is our own agent pod, skip

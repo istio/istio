@@ -138,21 +138,20 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNI
 		func() error {
 			cniDS, err := s.kubeClient.Kube().AppsV1().DaemonSets(selfNamespace).Get(context.Background(), dsName, metav1.GetOptions{})
 
-			log.Debugf("Daemonset %s has deletion timestamp?: %+v", dsName, cniDS.DeletionTimestamp)
 			if err == nil && cniDS != nil && cniDS.DeletionTimestamp == nil {
-				log.Infof("terminating, but parent DS %s is still present, this is an upgrade or a node reboot, leaving plugin in place", dsName)
+				log.Infof("terminating, but parent DaemonSet %s is still present, this is an upgrade or a node reboot, leaving plugin in place", dsName)
 				shouldStopCleanup = true
 				return nil
 			}
 			if errors.IsNotFound(err) || (cniDS != nil && cniDS.DeletionTimestamp != nil) {
 				// If the DS is gone, or marked for deletion, this is not an upgrade.
 				// We can safely shut down the plugin.
-				log.Infof("parent DS %s is not found or marked for deletion, this is not an upgrade, shutting down normally", dsName)
+				log.Infof("parent DaemonSet %s is not found or marked for deletion, this is not an upgrade, shutting down normally", dsName)
 				shouldStopCleanup = false
 				return nil
 			}
 			if errors.IsUnauthorized(err) {
-				log.Infof("permission to get parent DS %s has been revoked manually or due to uninstall, this is not an upgrade, "+
+				log.Infof("permission to get parent DaemonSet %s has been revoked manually or due to uninstall, this is not an upgrade, "+
 					"shutting down normally", dsName)
 				shouldStopCleanup = false
 				return nil
@@ -163,7 +162,7 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNI
 		// Limiting retries to 3 so other shutdown tasks can complete before the graceful shutdown period ends
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), numRetries))
 	if err != nil {
-		log.Infof("failed to get parent DS %s, returning %t: %v", dsName, shouldStopCleanup, err)
+		log.Infof("failed to get parent DaemonSet %s, returning %t: %v", dsName, shouldStopCleanup, err)
 	}
 	return shouldStopCleanup
 }
