@@ -20,7 +20,6 @@ import (
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	dfpcluster "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	. "github.com/onsi/gomega"
 
@@ -542,19 +541,58 @@ spec:
 		dynamicDNSServiceEntry)
 
 	clusters := xdstest.ExtractClusters(d.Clusters(p))
-	g.Expect(xdstest.MapKeys(clusters)).To(Equal([]string{
-		"connect_originate",
-		"encap",
-		"inbound-vip|80|http|*.domain.com",
-		"main_internal",
-		"outbound|15008||waypoint.default.svc.cluster.local",
-	}))
 	cluster := clusters["inbound-vip|80|http|*.domain.com"]
+	g.Expect(cluster.TransportSocket.GetTypedConfig().TypeUrl).To(Equal("type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"))
+	g.Expect(cluster).NotTo(BeNil())
 	clusterType := cluster.ClusterDiscoveryType.(*clusterv3.Cluster_ClusterType)
 	g.Expect(clusterType).NotTo(BeNil())
-	dfpClusterConfig := &dfpcluster.ClusterConfig{}
-	err := clusterType.ClusterType.TypedConfig.UnmarshalTo(dfpClusterConfig)
-	g.Expect(err).To(BeNil())
+	g.Expect(clusterType.ClusterType.GetTypedConfig().TypeUrl).To(Equal("type.googleapis.com/envoy.extensions.clusters.dynamic_forward_proxy.v3.ClusterConfig"))
+}
+
+func TestWaypointClusterWithDynamicDNSAndTLSOrigination(t *testing.T) {
+	g := NewWithT(t)
+	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-service-entry
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: ["*.domain.com"]
+  ports:
+  - number: 80
+    name: outbound-tls-1
+    protocol: HTTP
+  - number: 81
+    name: outbound-tls-2
+    protocol: HTTP
+  resolution: DYNAMIC_DNS`
+	destinationRule := `apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: domain-tls
+  namespace: default
+spec:
+  host: "*.domain.com"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		dynamicDNSServiceEntry,
+		destinationRule)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	tlsCluster1 := clusters["inbound-vip|80|http|*.domain.com"]
+	g.Expect(tlsCluster1).ToNot(BeNil())
+	g.Expect(tlsCluster1.TransportSocket.GetTypedConfig().TypeUrl).To(Equal("type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext"))
+	tlsCluster2 := clusters["inbound-vip|81|http|*.domain.com"]
+	g.Expect(tlsCluster2).ToNot(BeNil())
+	g.Expect(tlsCluster2.TransportSocket.GetTypedConfig().TypeUrl).To(Equal("type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext"))
 }
 
 func TestWaypointFiltersWithDynamicDns(t *testing.T) {
@@ -588,6 +626,7 @@ spec:
 		listeners[l.Name] = l
 	}
 
+	// Making sure the filter chains are there
 	mainInternalListener := listeners["main_internal"]
 	g.Expect(mainInternalListener).NotTo(BeNil())
 	filterChainNames := xdstest.ExtractFilterChainNames(mainInternalListener)
@@ -595,6 +634,101 @@ spec:
 		"inbound-vip|80|http|*.domain.com",
 		"inbound-vip|8080|http|*.domain.com",
 	))
+
+	// Making sure the virtual host matches the wildcarded domain
+	// so malicious apps can't exploit the Host header.
+	filterChain := xdstest.ExtractFilterChain("inbound-vip|80|http|*.domain.com", mainInternalListener)
+	httpConnMngr := xdstest.ExtractHTTPConnectionManager(t, filterChain)
+	g.Expect(httpConnMngr).NotTo(BeNil())
+	routeConfig := httpConnMngr.GetRouteConfig()
+	virtualHosts := xdstest.ExtractVirtualHosts(routeConfig)
+	g.Expect(virtualHosts["*.domain.com"]).To(Equal([]string{
+		"inbound-vip|80|http|*.domain.com",
+	}))
+
+	// Make sure we have the DFP filter in place
+	var dfpFilter *hcm.HttpFilter
+	for _, f := range httpConnMngr.HttpFilters {
+		if f.Name == "envoy.filters.http.dynamic_forward_proxy" {
+			dfpFilter = f
+		}
+	}
+	g.Expect(dfpFilter).NotTo(BeNil())
+	g.Expect(dfpFilter.GetTypedConfig().TypeUrl).To(Equal("type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig"))
+}
+
+func TestWaypointFiltersWithDynamicDnsAndHTTPRoutes(t *testing.T) {
+	g := NewWithT(t)
+	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-service-entry
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: ["*.domain.com"]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DYNAMIC_DNS`
+	httpRoute := `apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: external-redirect-route
+  namespace: default
+spec:
+  hostnames:
+  - domain.com
+  parentRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: wildcard-service-entry
+  rules:
+  - filters:
+    - requestRedirect:
+        hostname: external.example.com
+        path:
+          replacePrefixMatch: /external
+          type: ReplacePrefixMatch
+        scheme: https
+        statusCode: 301
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /external
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /other
+    backendRefs:
+      - kind: Hostname
+        group: networking.istio.io
+        name: "*.domain.org"
+        port: 80`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		dynamicDNSServiceEntry,
+		httpRoute)
+
+	listeners := make(map[string]*listenerv3.Listener)
+	for _, l := range d.Listeners(p) {
+		listeners[l.Name] = l
+	}
+
+	mainInternalListener := listeners["main_internal"]
+	g.Expect(mainInternalListener).NotTo(BeNil())
+	filterChain := xdstest.ExtractFilterChain("inbound-vip|80|http|*.domain.com", mainInternalListener)
+	httpConnMngr := xdstest.ExtractHTTPConnectionManager(t, filterChain)
+	routeConfig := httpConnMngr.GetRouteConfig()
+	virtualHosts := xdstest.ExtractVirtualHosts(routeConfig)
+
+	g.Expect(virtualHosts).NotTo(BeNil())
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
