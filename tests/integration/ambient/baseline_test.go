@@ -180,6 +180,10 @@ func TestServices(t *testing.T) {
 			opt.Check = tcpValidator
 		}
 
+		if src.Config().HasSidecar() && t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/57878")
+		}
+
 		if !dst.Config().HasServiceAddressedWaypointProxy() &&
 			!src.Config().HasServiceAddressedWaypointProxy() &&
 			(src.Config().Service != dst.Config().Service) &&
