@@ -1056,14 +1056,14 @@ func TestWaypointAsEgressGatewayForWildcardEntries(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			egressNamespace, err := namespace.Claim(t, namespace.Config{
-				Prefix: "egress",
+				Prefix: "wildcard-egress",
 				Inject: false,
 			})
 			assert.NoError(t, err)
 			waypointSpec := `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: egress-gateway
+  name: wildcard-egress-gateway
 spec:
   gatewayClassName: istio-waypoint
   listeners:
@@ -1086,7 +1086,7 @@ kind: ServiceEntry
 metadata:
   name: external-wildcard
   labels:
-    istio.io/use-waypoint: egress-gateway
+    istio.io/use-waypoint: wildcard-egress-gateway
     istio.io/use-waypoint-namespace: {{.EgressNamespace}}
 spec:
   hosts:
@@ -1123,144 +1123,29 @@ spec:
 			invalidHeader.Add("Host", "external.non-existent.svc.cluster.local")
 			runTest(t, "overriding with invalid Host header", "", echo.CallOptions{
 				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
-				Port:    echo.Port{ServicePort: 80},
+				Port:    echo.Port{ServicePort: 8080},
 				Scheme:  scheme.HTTP,
 				Count:   1,
 				HTTP: echo.HTTP{
 					Headers: invalidHeader,
 				},
 				// We expect the request to return a 404 since the Host does not match the wildcarded hostname
-				Check:   check.And(check.NotOK(), IsL7()),
+				Check: check.And(check.Status(404)),
 			})
 
 			matchingHeader := make(http.Header, 1)
-			matchingHeader.Add("Host", fmt.Sprintf("non-existent.%s.svc.cluster.local", apps.ExternalNamespace.Name()))
+			matchingHeader.Add("Host", fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()))
 			runTest(t, "overriding with matching Host header", "", echo.CallOptions{
-				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
-				Port:    echo.Port{ServicePort: 80},
+				Address: fmt.Sprintf("non-existent.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 8080},
 				Scheme:  scheme.HTTP,
 				Count:   1,
 				HTTP: echo.HTTP{
 					Headers: matchingHeader,
 				},
-				// We expect the request succeed since the Host matches the wildcarded hostname, even though it doesn't match the address
-				Check:   check.And(check.OK(), IsL7()),
+				// We expect the request to succeed since Host matches the wildcarded hostname even though it is not the original destination host
+				Check: check.And(check.OK(), IsL7()),
 			})
-			/*
-			tlsOrigination := `apiVersion: networking.istio.io/v1
-kind: DestinationRule
-metadata:
-  name: tls-origination
-spec:
-  host: "*.{{.}}.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: SIMPLE
-      insecureSkipVerify: true`
-            t.ConfigIstio().
-                Eval(egressNamespace.Name(), apps.ExternalNamespace.Name(), tlsOrigination).
-                ApplyOrFail(t, apply.CleanupConditionally)
-
-			runTest(t, "http origination targetPort", tlsOrigination, "", echo.CallOptions{
-				Address: "fake-egress.example.com",
-				Port:    echo.Port{ServicePort: 8080},
-				Scheme:  scheme.HTTP,
-				Count:   1,
-				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
-			})
-
-
-			log.Info("Sleeping...")
-			time.Sleep(120 * time.Minute)
-			*/
-			// Test we can do TLS origination, by utilizing ServiceEntry target port
-			// 			tlsOrigination := `apiVersion: networking.istio.io/v1
-			// kind: DestinationRule
-			// metadata:
-			//   name: tls-origination
-			// spec:
-			//   host: "*.{{.}}.svc.cluster.local"
-			//   trafficPolicy:
-			//     tls:
-			//       mode: SIMPLE
-			//       insecureSkipVerify: true`
-
-			// 			t.ConfigIstio().
-			// 				Eval(apps.Namespace.Name(), apps.ExternalNamespace.Name(), tlsOrigination).
-			// 				ApplyOrFail(t)
-			//
-			// 			runTest(t, "https origination targetPort", "", echo.CallOptions{
-			// 				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
-			// 				Port:    echo.Port{ServicePort: 8080},
-			// 				Scheme:  scheme.HTTP,
-			// 				Count:   1,
-			// 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
-			// 			})
-			/*
-				tlsOriginationRedirect := tlsOrigination + `
-				---
-				apiVersion: gateway.networking.k8s.io/v1
-				kind: HTTPRoute
-				metadata:
-				  name: route-port
-				spec:
-				  parentRefs:
-				  - kind: ServiceEntry
-				    group: networking.istio.io
-				    name: external
-				  rules:
-				  - backendRefs:
-				    - kind: Hostname
-				      group: networking.istio.io
-				      name: fake-egress.example.com
-				      port: 443
-				`
-				   runTest(t, "http origination route", tlsOriginationRedirect, echo.CallOptions{
-				    Address: "fake-egress.example.com",
-				    Port:    echo.Port{ServicePort: 80},
-				    Scheme:  scheme.HTTP,
-				    Count:   1,
-				    Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
-				   })
-
-				   authz := `apiVersion: security.istio.io/v1
-				kind: AuthorizationPolicy
-				metadata:
-				  name: only-get
-				spec:
-				  targetRefs:
-				  - kind: ServiceEntry
-				    group: networking.istio.io
-				    name: external
-				  action: ALLOW
-				  rules:
-				  - to:
-				    - operation:
-				        methods: ["GET"]
-				`
-				   runTest(
-				    t,
-				    "authz on service allow",
-				    authz,
-				    // Check blocked requests are denied
-				    echo.CallOptions{
-				     Address: "fake-egress.example.com",
-				     Port:    echo.Port{ServicePort: 80},
-				     HTTP:    echo.HTTP{Method: "POST"},
-				     Scheme:  scheme.HTTP,
-				     Count:   1,
-				     Check:   check.Status(403),
-				    },
-				    // And allowed ones are not
-				    echo.CallOptions{
-				     Address: "fake-egress.example.com",
-				     Port:    echo.Port{ServicePort: 80},
-				     Scheme:  scheme.HTTP,
-				     Count:   1,
-				     Check:   check.And(check.OK(), IsL7()),
-				    },
-				   )
-			*/
 		})
 }
 
