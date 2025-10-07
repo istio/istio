@@ -272,18 +272,6 @@ func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
 	return meta.GetResourceVersion(), nil
 }
 
-// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
-// read-modify-write conflicts when there are many concurrent-writers to the same resource.
-func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	modified, patchType := patchFn(orig.DeepCopy())
-
-	meta, err := patch(cl.client, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
-	if err != nil {
-		return "", err
-	}
-	return meta.GetResourceVersion(), nil
-}
-
 // Delete implements store interface
 // `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
 func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {

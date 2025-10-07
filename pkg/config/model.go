@@ -31,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubetypes "k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -179,22 +178,6 @@ func ToProto(s Spec) (*anypb.Any, error) {
 	return protoconv.MessageToAnyWithError(pbs)
 }
 
-func ToMap(s Spec) (map[string]any, error) {
-	js, err := ToJSON(s)
-	if err != nil {
-		return nil, err
-	}
-
-	// Unmarshal from json bytes to go map
-	var data map[string]any
-	err = json.Unmarshal(js, &data)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
 func ToRaw(s Spec) (json.RawMessage, error) {
 	js, err := ToJSON(s)
 	if err != nil {
@@ -243,14 +226,6 @@ func toJSON(s Spec, pretty bool) ([]byte, error) {
 
 type deepCopier interface {
 	DeepCopyInterface() any
-}
-
-func ApplyYAML(s Spec, yml string) error {
-	js, err := yaml.YAMLToJSON([]byte(yml))
-	if err != nil {
-		return err
-	}
-	return ApplyJSON(s, string(js))
 }
 
 func ApplyJSONStrict(s Spec, js string) error {
