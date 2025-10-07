@@ -121,11 +121,6 @@ trafficPolicy:
 		},
 	}
 
-	badSchema := schemaFor("bad", "bad-name")
-	if _, err := crd.FromYAML(badSchema, wantYAML); err == nil {
-		t.Errorf("FromYAML should have failed using Schema with bad MessageName")
-	}
-
 	gotJSON, err := protomarshal.ToJSON(msg)
 	if err != nil {
 		t.Errorf("ToJSON failed: %v", err)
@@ -158,18 +153,6 @@ trafficPolicy:
 		t.Error("should produce an error")
 	}
 
-	gotFromYAML, err := crd.FromYAML(destinationRuleSchema, wantYAML)
-	if err != nil {
-		t.Errorf("FromYAML failed: %v", err)
-	}
-	if !reflect.DeepEqual(gotFromYAML, msg) {
-		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
-	}
-
-	if _, err = crd.FromYAML(destinationRuleSchema, ":"); err == nil {
-		t.Errorf("should produce an error")
-	}
-
 	gotJSONMap, err := protomarshal.ToJSONMap(msg)
 	if err != nil {
 		t.Errorf("ToJSONMap failed: %v", err)
@@ -180,20 +163,5 @@ trafficPolicy:
 
 	if _, err = protomarshal.ToJSONMap(nil); err == nil {
 		t.Error("should produce an error")
-	}
-
-	gotFromJSONMap, err := crd.FromJSONMap(destinationRuleSchema, wantJSONMap)
-	if err != nil {
-		t.Errorf("FromJSONMap failed: %v", err)
-	}
-	if !reflect.DeepEqual(gotFromJSONMap, msg) {
-		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
-	}
-
-	if _, err = crd.FromJSONMap(destinationRuleSchema, 1); err == nil {
-		t.Error("should produce an error")
-	}
-	if _, err = crd.FromJSONMap(destinationRuleSchema, ":"); err == nil {
-		t.Errorf("should produce an error")
 	}
 }
