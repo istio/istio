@@ -1095,10 +1095,6 @@ spec:
   - name: http
     number: 80
     protocol: HTTP
-  - name: http-for-tls
-    number: 8080
-    protocol: HTTP
-    targetPort: 443
   location: MESH_EXTERNAL
   resolution: DYNAMIC_DNS`
 			// ServiceEntry in app namespace, points to waypoint in EgressNamespace. Backend is in ExternalNamespace
@@ -1123,7 +1119,7 @@ spec:
 			invalidHeader.Add("Host", "external.non-existent.svc.cluster.local")
 			runTest(t, "overriding with invalid Host header", "", echo.CallOptions{
 				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
-				Port:    echo.Port{ServicePort: 8080},
+				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
 				Count:   1,
 				HTTP: echo.HTTP{
@@ -1137,7 +1133,7 @@ spec:
 			matchingHeader.Add("Host", fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()))
 			runTest(t, "overriding with matching Host header", "", echo.CallOptions{
 				Address: fmt.Sprintf("non-existent.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
-				Port:    echo.Port{ServicePort: 8080},
+				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
 				Count:   1,
 				HTTP: echo.HTTP{
