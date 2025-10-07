@@ -539,7 +539,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	}
 	httpDenyAll := &httprbac.RBAC{
 		Rules:           &rbacv3.RBAC{},
-		RulesStatPrefix: "wasm-default-deny",
+		RulesStatPrefix: wasmcache.DefaultDenyStatPrefix,
 	}
 	wantEcdsConfig = &core.TypedExtensionConfig{
 		Name:        "extension-config",

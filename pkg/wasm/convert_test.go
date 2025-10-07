@@ -480,11 +480,11 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 		},
 	}),
 	"remote-load-allow": buildAnyExtensionConfig("remote-load-fail", &rbac.RBAC{
-		RulesStatPrefix: "wasm-default-allow",
+		RulesStatPrefix: DefaultAllowStatPrefix,
 	}),
 	"remote-load-deny": buildAnyExtensionConfig("remote-load-fail", &rbac.RBAC{
 		Rules:           &rbacv3.RBAC{},
-		RulesStatPrefix: "wasm-default-deny",
+		RulesStatPrefix: DefaultDenyStatPrefix,
 	}),
 	"remote-load-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{
