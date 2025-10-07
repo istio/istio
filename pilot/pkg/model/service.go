@@ -1173,7 +1173,7 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 	set := ConditionSet{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
-		WaypointBound:   nil,
+		WaypointBound: nil,
 	}
 	if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
 		// Only prune WaypointMissing condition if we have a wildcard service entry
