@@ -198,7 +198,8 @@ func TestDeltaECDSWasmConversion(t *testing.T) {
 		t.Fatalf("wasm config conversion output %v failed to unmarshal", gotResp.Resources[0])
 	}
 	httpDenyAll := &httprbac.RBAC{
-		Rules: &rbacv3.RBAC{},
+		Rules:           &rbacv3.RBAC{},
+		RulesStatPrefix: "wasm-default-deny",
 	}
 	wantEcdsConfig = &core.TypedExtensionConfig{
 		Name:        "extension-config",
