@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	dfpcluster "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	. "github.com/onsi/gomega"
@@ -517,7 +518,7 @@ func TestIngressUseWaypoint(t *testing.T) {
 	})
 }
 
-func TestWaypointWithDynamicDNS(t *testing.T) {
+func TestWaypointClusterWithDynamicDNS(t *testing.T) {
 	g := NewWithT(t)
 	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -554,6 +555,46 @@ spec:
 	dfpClusterConfig := &dfpcluster.ClusterConfig{}
 	err := clusterType.ClusterType.TypedConfig.UnmarshalTo(dfpClusterConfig)
 	g.Expect(err).To(BeNil())
+}
+
+func TestWaypointFiltersWithDynamicDns(t *testing.T) {
+	g := NewWithT(t)
+	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-service-entry
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: ["*.domain.com"]
+  ports:
+  - number: 80
+    name: http-1
+    protocol: HTTP
+  - number: 8080
+    name: http-2
+    protocol: HTTP
+  resolution: DYNAMIC_DNS`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		dynamicDNSServiceEntry)
+
+	listeners := make(map[string]*listenerv3.Listener)
+	for _, l := range d.Listeners(p) {
+		listeners[l.Name] = l
+	}
+
+	mainInternalListener := listeners["main_internal"]
+	g.Expect(mainInternalListener).NotTo(BeNil())
+	filterChainNames := xdstest.ExtractFilterChainNames(mainInternalListener)
+	g.Expect(filterChainNames).To(ContainElements(
+		"inbound-vip|80|http|*.domain.com",
+		"inbound-vip|8080|http|*.domain.com",
+	))
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
