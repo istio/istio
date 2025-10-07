@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
+	wasmcache "istio.io/istio/pkg/wasm"
 )
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
@@ -199,7 +200,7 @@ func TestDeltaECDSWasmConversion(t *testing.T) {
 	}
 	httpDenyAll := &httprbac.RBAC{
 		Rules:           &rbacv3.RBAC{},
-		RulesStatPrefix: "wasm-default-deny",
+		RulesStatPrefix: wasmcache.DefaultDenyStatPrefix,
 	}
 	wantEcdsConfig = &core.TypedExtensionConfig{
 		Name:        "extension-config",
