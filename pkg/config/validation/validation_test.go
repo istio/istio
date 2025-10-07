@@ -4413,7 +4413,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "discovery type DNS, IP address set",
+			name: "discovery type DYNAMIC_DNS, IP address set",
 			in: &networking.ServiceEntry{
 				Hosts:     []string{"*.google.com"},
 				Addresses: []string{"10.10.10.10"},
@@ -4422,6 +4422,43 @@ func TestValidateServiceEntries(t *testing.T) {
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
 				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, empty hosts",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, multiple wildcarded hosts",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"*.google.com", "*.amazon.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: true,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, internal mesh location",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"*.google.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+				Location:   networking.ServiceEntry_MESH_INTERNAL,
 			},
 			valid: false,
 		},
