@@ -2818,15 +2818,8 @@ func runTestContextForCalls(
 ) {
 	svcs := apps.All
 	for _, src := range svcs {
-		//fhqwgads
-		if !src.Config().HasSidecar() {
-			continue
-		}
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
 			for _, dst := range getAllInstancesByServiceName() {
-				if dst.Config().Service != "service-addressed-waypoint" {
-					continue
-				}
 				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {
 					for _, opt := range callOptions {
 						t.NewSubTestf("%v", opt.Port.Name).Run(func(t framework.TestContext) {
