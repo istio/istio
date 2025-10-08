@@ -124,6 +124,7 @@ values:
   global:
     trustBundleName: usergroup-2-ca-root-cert
     istioNamespace: %s
+  pilot:
     crlConfigMapName: usergroup-2-ca-crl`, userGroup2NS.Name(), userGroup2NS.Name())
 		})).
 		SetupParallel(

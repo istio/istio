@@ -4,4 +4,4 @@ area: installation
 
 releaseNotes:
 - |
-  **Added** a setting values.global.crlConfigMapName that allows configuring the name of the ConfigMap that istiod uses to propagate its Certificate Revocation List (CRL) in the cluster. This allows running multiple control planes with overlapping namespaces in the same cluster.
+  **Added** a setting values.pilot.crlConfigMapName that allows configuring the name of the ConfigMap that istiod uses to propagate its Certificate Revocation List (CRL) in the cluster. This allows running multiple control planes with overlapping namespaces in the same cluster.
