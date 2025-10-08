@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/ryanuber/go-glob"
@@ -302,20 +303,26 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 		return !inject.IgnoredNamespaces.Contains(meta)
 	})
 
-	var errs error
+	var (
+		errsMu sync.Mutex
+		errs   error
+	)
 
-	// If we encounter any errors reading or applying files, track them but attempt to continue
-	for _, r := range readers {
-		by, err := io.ReadAll(r.Reader)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-			continue
-		}
-
-		if err = src.ApplyContent(r.Name, string(by)); err != nil {
-			errs = multierror.Append(errs, err)
-		}
+	// Apply files concurrently to improve throughput on multi-core machines
+	var wg sync.WaitGroup
+	wg.Add(len(readers))
+	for _, rr := range readers {
+		r := rr
+		go func() {
+			defer wg.Done()
+			if err := src.ApplyContentReader(r.Name, r.Reader); err != nil {
+				errsMu.Lock()
+				errs = multierror.Append(errs, err)
+				errsMu.Unlock()
+			}
+		}()
 	}
+	wg.Wait()
 	return errs
 }
 

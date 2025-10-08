@@ -68,6 +68,13 @@ type KubeSource struct {
 
 	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
 	namespacesFilter func(obj interface{}) bool
+
+	// Cached decoder components to avoid repeated allocations in hot paths
+	runtimeScheme *runtime.Scheme
+	deserializer  runtime.Decoder
+
+	// Pool reusable readers to reduce allocations for large file parsing
+	readerPool *sync.Pool
 }
 
 func (s *KubeSource) Schemas() collection.Schemas {
@@ -152,12 +159,19 @@ func NewKubeSource(schemas collection.Schemas) *KubeSource {
 	name := fmt.Sprintf("kube-inmemory-%d", inMemoryKubeNameDiscriminator)
 	inMemoryKubeNameDiscriminator++
 
+	runtimeScheme := runtime.NewScheme()
+	codecs := serializer.NewCodecFactory(runtimeScheme)
+	deserializer := codecs.UniversalDeserializer()
+
 	return &KubeSource{
-		name:    name,
-		schemas: &schemas,
-		inner:   memory.MakeSkipValidation(schemas),
-		shas:    make(map[kubeResourceKey]resourceSha),
-		byFile:  make(map[string]map[kubeResourceKey]config.GroupVersionKind),
+		name:          name,
+		schemas:       &schemas,
+		inner:         memory.MakeSkipValidation(schemas),
+		shas:          make(map[kubeResourceKey]resourceSha),
+		byFile:        make(map[string]map[kubeResourceKey]config.GroupVersionKind),
+		runtimeScheme: runtimeScheme,
+		deserializer:  deserializer,
+		readerPool:    &sync.Pool{New: func() any { return bufio.NewReaderSize(nil, 512*1024) }},
 	}
 }
 
@@ -195,7 +209,11 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 // Returns an error if any were encountered, but that still may represent a partial success.
 func (s *KubeSource) ApplyContentReader(name string, r io.Reader) error {
 	// Parse without holding the write lock to minimize contention
-	resources, parseErrs := s.parseContentReader(s.schemas, name, bufio.NewReader(r))
+	// Use a pooled larger buffer to reduce read syscalls and allocations for large inputs
+	br := s.readerPool.Get().(*bufio.Reader)
+	br.Reset(r)
+	resources, parseErrs := s.parseContentReader(s.schemas, name, br)
+	s.readerPool.Put(br)
 	return s.applyContent(name, resources, parseErrs)
 }
 
@@ -214,7 +232,7 @@ func (s *KubeSource) applyContent(name string, resources []kubeResource, parseEr
 	defer s.mu.Unlock()
 
 	oldKeys := s.byFile[name]
-	newKeys := make(map[kubeResourceKey]config.GroupVersionKind)
+	newKeys := make(map[kubeResourceKey]config.GroupVersionKind, len(resources))
 
 	for _, r := range resources {
 		key := r.newKey()
@@ -275,7 +293,8 @@ func (s *KubeSource) RemoveContent(name string) {
 }
 
 func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) ([]kubeResource, error) {
-	return s.parseContentReader(r, name, bufio.NewReader(strings.NewReader(yamlText)))
+	const readerBufSize = 512 * 1024
+	return s.parseContentReader(r, name, bufio.NewReaderSize(strings.NewReader(yamlText), readerBufSize))
 }
 
 func (s *KubeSource) parseContentReader(r *collection.Schemas, name string, reader *bufio.Reader) ([]kubeResource, error) {
@@ -395,14 +414,11 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		}
 	}
 
-	runtimeScheme := runtime.NewScheme()
-	codecs := serializer.NewCodecFactory(runtimeScheme)
-	deserializer := codecs.UniversalDeserializer()
 	obj, err := kube.IstioScheme.New(schema.GroupVersionKind().Kubernetes())
 	if err != nil {
 		return resources, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
 	}
-	_, _, err = deserializer.Decode(jsonChunk, nil, obj)
+	_, _, err = s.deserializer.Decode(jsonChunk, nil, obj)
 	if err != nil {
 		return resources, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
