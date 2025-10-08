@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -100,6 +101,17 @@ func GatewayCollection(
 			return status, nil
 		}
 
+		// See: https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#manual-deployment
+		// If we set and address of type hostname, then we have no idea what service accounts the gateway workloads will use.
+		// Thus, we don't enforce service account name restrictions (still look at namespaces though).
+		serviceAccountName := ""
+		if IsManaged(&obj.Spec) {
+			serviceAccountName = model.GetOrDefault(
+				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+				getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix),
+			)
+		}
+
 		for i, l := range kgw.Listeners {
 			server, programmed := buildListener(ctx, secrets, grants, namespaces, obj, status, l, i, controllerName)
 
@@ -111,6 +123,8 @@ func GatewayCollection(
 			meta := parentMeta(obj, &l.Name)
 			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+
+			meta[constants.InternalServiceAccount] = serviceAccountName
 
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 			gatewayConfig := config.Config{

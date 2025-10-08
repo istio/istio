@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -195,8 +196,12 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
+			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
+			identityVerified := proxy.VerifiedIdentity != nil &&
+				proxy.VerifiedIdentity.Namespace == gatewayConfig.Namespace &&
+				(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
 			cn := s.GetTls().GetCredentialName()
-			if cn != "" && proxy.VerifiedIdentity != nil {
+			if cn != "" && identityVerified {
 				// Ignore BuiltinGatewaySecretTypeURI, as it is not referencing a Secret at all
 				if !strings.HasPrefix(cn, credentials.BuiltinGatewaySecretTypeURI) {
 					rn := credentials.ToResourceName(cn)
