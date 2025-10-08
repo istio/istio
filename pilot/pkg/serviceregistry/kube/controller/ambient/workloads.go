@@ -754,14 +754,25 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 			targetPort := port.TargetPort
 			// The svc.Ports represents the workloadapi.Service, which drops the port name info and just has numeric target Port.
 			// TargetPort can be 0 which indicates its a named port. Check if its a named port and replace with the real targetPort if so.
-			if named, f := svc.PortNames[int32(port.ServicePort)]; f && named.TargetPortName != "" {
-				// Pods only match on TargetPort names
-				tp, ok := FindPortName(p, named.TargetPortName)
-				if !ok {
-					// Port not present for this workload. Exclude the port entirely
-					continue
+			if named, f := svc.PortNames[int32(port.ServicePort)]; f {
+				if named.TargetPortName != "" {
+					// Kubernetes Service semantics: explicit named targetPort on the Service
+					// Pods only match on TargetPort names
+					tp, ok := FindPortName(p, named.TargetPortName)
+					if !ok {
+						// Port not present for this workload. Exclude the port entirely
+						continue
+					}
+					targetPort = uint32(tp)
+				} else if svc.Source.Kind == kind.ServiceEntry && named.PortName != "" {
+					// ServiceEntry semantics: no explicit named targetPort field; match by ServiceEntry port name to Pod container port name
+					if tp, ok := FindPortName(p, named.PortName); ok {
+						targetPort = uint32(tp)
+					} else if targetPort == 0 {
+						// Fallback to service port if we couldn't resolve a name and targetPort wasn't set
+						targetPort = port.ServicePort
+					}
 				}
-				targetPort = uint32(tp)
 			}
 
 			pl.Ports = append(pl.Ports, &workloadapi.Port{

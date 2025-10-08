@@ -171,10 +171,6 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 
 func (lb *ListenerBuilder) patchListeners() {
-	if lb.node.IsWaypointProxy() {
-		// EnvoyFilter is not implemented for waypoints
-		return
-	}
 	lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
 	if lb.envoyFilterWrapper == nil {
 		return
@@ -326,7 +322,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// Preserve HTTP/1.x traffic header case
 	if lb.node.Metadata.ProxyConfigOrDefault(lb.push.Mesh.GetDefaultConfig()).GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue() {
 		// This value only affects HTTP/1.x traffic
-		connectionManager.HttpProtocolOptions = preserveCaseFormatterConfig
+		if connectionManager.HttpProtocolOptions == nil {
+			connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{}
+		}
+		connectionManager.HttpProtocolOptions.HeaderKeyFormat = preserveCaseFormatterConfig.HeaderKeyFormat
 	}
 
 	connectionManager.AccessLog = []*accesslog.AccessLog{}

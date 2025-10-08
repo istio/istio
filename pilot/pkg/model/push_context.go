@@ -1455,7 +1455,12 @@ func (ps *PushContext) updateContext(
 		ps.AuthzPolicies = oldPushContext.AuthzPolicies
 	}
 
-	if telemetryChanged {
+	// we should reinitialize telemetry only if it is changed
+	// or service is changed, as telemetry depends on services
+	// referenced in the provider.
+	if telemetryChanged || servicesChanged {
+		// TODO: find a way to avoid reinitializing telemetry
+		// if the services are not related to telemetry provider.
 		ps.initTelemetry(env)
 	} else {
 		ps.Telemetry = oldPushContext.Telemetry
@@ -2329,11 +2334,6 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
-		if efw.GetTargetRefs() != nil {
-			// These are meant for a specific target, so we shouldn't treat these as "always match"
-			// In the future, targetRef for EnvoyFilter will likely be implemented -- but currently these would never match
-			continue
-		}
 		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 		}

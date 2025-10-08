@@ -26,7 +26,7 @@ func BatchedEventFilter[I, O any](cf func(a I) O, handler func(events []Event[I]
 	return func(events []Event[I]) {
 		ev := slices.Filter(events, func(e Event[I]) bool {
 			if e.Old != nil && e.New != nil {
-				if equal(cf(*e.Old), cf(*e.New)) {
+				if Equal(cf(*e.Old), cf(*e.New)) {
 					// Equal under conversion, so we can skip
 					return false
 				}

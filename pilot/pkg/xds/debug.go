@@ -626,6 +626,9 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *mod
 						continue
 					}
 					if secret.GetTlsCertificate() != nil {
+						// When utilizing XDS caching, the resource object is shared, so modifying this would modify the cached item
+						// Make a clone
+						rr = protomarshal.Clone(rr)
 						secret.GetTlsCertificate().PrivateKey = &core.DataSource{
 							Specifier: &core.DataSource_InlineBytes{
 								InlineBytes: []byte("[redacted]"),

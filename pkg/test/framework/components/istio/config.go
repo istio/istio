@@ -105,6 +105,7 @@ var (
 		EgressGatewayServiceNamespace: DefaultSystemNamespace,
 		EgressGatewayServiceName:      DefaultEgressGatewayServiceName,
 		EgressGatewayIstioLabel:       DefaultEgressGatewayIstioLabel,
+		DeployGatewayAPI:              true,
 	}
 )
 
@@ -213,6 +214,9 @@ type Config struct {
 	// ControlPlaneInstaller allows installation of custom control planes on istio deployments via an external script
 	// This field should only be set when DeployIstio is false
 	ControlPlaneInstaller string
+
+	// DeployGatewayAPI indicates that the test should deploy Gateway API during tests execution
+	DeployGatewayAPI bool
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {

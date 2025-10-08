@@ -17,6 +17,7 @@ package gateway
 import (
 	"fmt"
 	"iter"
+	"strings"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -467,7 +468,7 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 		}
 		return res
 	})
-	parents := createRouteStatus(rpResults, obj.GetGeneration(), GetCommonRouteStateParents(obj))
+	parents := createRouteStatus(rpResults, obj.GetNamespace(), obj.GetGeneration(), GetCommonRouteStateParents(obj))
 	return parents, parentRefs, meshResult, gwResult
 }
 
@@ -595,7 +596,17 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 	finalVirtualServices := krt.NewCollection(idx, func(ctx krt.HandlerContext, object krt.IndexObject[string, RouteWithKey]) **config.Config {
 		configs := object.Objects
 		if len(configs) == 1 {
-			return &configs[0].Config
+			base := configs[0].Config
+			nm := base.Meta.DeepCopy()
+			// When dealing with a merge, we MUST take into account the merge key into the name.
+			// Otherwise, we end up with broken state, where two inputs map to the same output which is not allowed by krt.
+			// Because a lot of code assumes the object key is 'namespace/name', and the key always has slashes, we also translate the /
+			nm.Name = strings.ReplaceAll(object.Key, "/", "~")
+			return ptr.Of(&config.Config{
+				Meta:   nm,
+				Spec:   base.Spec,
+				Status: base.Status,
+			})
 		}
 		sortRoutesByCreationTime(configs)
 		base := configs[0].DeepCopy()
@@ -608,6 +619,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
 		}
 		sortHTTPRoutes(baseVS.Http)
+		base.Name = strings.ReplaceAll(object.Key, "/", "~")
 		return ptr.Of(&base)
 	}, opts...)
 	return finalVirtualServices

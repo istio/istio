@@ -91,23 +91,6 @@ status:
       name: egress
   - conditions:
     - lastTransitionTime: fake
-      message: 'parent service: "random" not found'
-      reason: NoMatchingParent
-      status: "False"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      group: ""
-      kind: Service
-      name: random
-      namespace: nonexistent
-  - conditions:
-    - lastTransitionTime: fake
       message: Route was valid
       reason: Accepted
       status: "True"
@@ -138,4 +121,21 @@ status:
       name: gateway
       namespace: istio-system
       port: 1234
+  - conditions:
+    - lastTransitionTime: fake
+      message: 'parent service: "random" not found'
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: random
+      namespace: nonexistent
 ---

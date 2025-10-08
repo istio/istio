@@ -984,3 +984,52 @@ func TestAdditionalAddressesForIPv6(t *testing.T) {
 		t.Fatal("expected additional ipv4 bind addresse")
 	}
 }
+
+func TestPreserveHeader(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{
+		MeshConfig: &meshconfig.MeshConfig{
+			DefaultConfig: &meshconfig.ProxyConfig{
+				ProxyHeaders: &meshconfig.ProxyConfig_ProxyHeaders{
+					PreserveHttp1HeaderCase: wrapperspb.Bool(true),
+				},
+			},
+		},
+	})
+
+	push := cg.PushContext()
+	cases := []struct {
+		name       string
+		opts       *httpListenerOpts
+		isExpected func(*hcm.HttpConnectionManager) error
+	}{
+		{
+			name: "when preserve header case is enabled, http 1.0 settings should be preserved",
+			opts: &httpListenerOpts{
+				connectionManager: &hcm.HttpConnectionManager{
+					HttpProtocolOptions: &core.Http1ProtocolOptions{
+						AcceptHttp_10: true,
+					},
+				},
+			},
+			isExpected: func(httpConnManager *hcm.HttpConnectionManager) error {
+				if httpConnManager.HttpProtocolOptions == nil || !httpConnManager.HttpProtocolOptions.AcceptHttp_10 {
+					return fmt.Errorf("http 1.0 settings not preserved")
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			sidecarProxy := cg.SetupProxy(nil)
+			lb := &ListenerBuilder{
+				push:               push,
+				node:               sidecarProxy,
+				authzCustomBuilder: &authz.Builder{},
+				authzBuilder:       &authz.Builder{},
+			}
+			assert.NoError(t, tt.isExpected(lb.buildHTTPConnectionManager(tt.opts)))
+		})
+	}
+}

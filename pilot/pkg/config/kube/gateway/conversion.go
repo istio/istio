@@ -32,7 +32,9 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -613,8 +615,17 @@ func referenceAllowed(
 		out:
 			for _, routeHostname := range hostnames {
 				for _, parentHostNamespace := range parent.Hostnames {
-					spl := strings.Split(parentHostNamespace, "/")
-					parentNamespace, parentHostname := spl[0], spl[1]
+					var parentNamespace, parentHostname string
+					// When parentHostNamespace lacks a '/', it was likely sanitized from '*/host' to 'host'
+					// by sanitizeServerHostNamespace. Set parentNamespace to '*' to reflect the wildcard namespace
+					// and parentHostname to the sanitized host to prevent an index out of range panic.
+					if strings.Contains(parentHostNamespace, "/") {
+						spl := strings.Split(parentHostNamespace, "/")
+						parentNamespace, parentHostname = spl[0], spl[1]
+					} else {
+						parentNamespace, parentHostname = "*", parentHostNamespace
+					}
+
 					hostnameMatch := host.Name(parentHostname).Matches(host.Name(routeHostname))
 					namespaceMatch := parentNamespace == "*" || parentNamespace == localNamespace
 					hostMatched = hostMatched || hostnameMatch
@@ -718,7 +729,7 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 	}
 	// Ensure stable order
 	slices.SortBy(parentRefs, func(a routeParentReference) string {
-		return parentRefString(a.OriginalReference)
+		return parentRefString(a.OriginalReference, localNamespace)
 	})
 	return parentRefs
 }
@@ -1442,7 +1453,7 @@ type parentInfo struct {
 	// AllowedKinds indicates which kinds can be admitted by this parent
 	AllowedKinds []k8s.RouteGroupKind
 	// Hostnames is the hostnames that must be match to reference to the parent. For gateway this is listener hostname
-	// Format is ns/hostname
+	// Format is ns/hostname or just hostname, which is equivalent to */hostname
 	Hostnames []string
 	// OriginalHostname is the unprocessed form of Hostnames; how it appeared in users' config
 	OriginalHostname string
@@ -1989,14 +2000,14 @@ func objectReferenceString(ref k8s.SecretObjectReference) string {
 		ptr.OrEmpty(ref.Namespace))
 }
 
-func parentRefString(ref k8s.ParentReference) string {
+func parentRefString(ref k8s.ParentReference, objectNamespace string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%d.%s",
-		ptr.OrEmpty(ref.Group),
-		ptr.OrEmpty(ref.Kind),
+		defaultString(ref.Group, gvk.KubernetesGateway.Group),
+		defaultString(ref.Kind, gvk.KubernetesGateway.Kind),
 		ref.Name,
 		ptr.OrEmpty(ref.SectionName),
 		ptr.OrEmpty(ref.Port),
-		ptr.OrEmpty(ref.Namespace))
+		defaultString(ref.Namespace, objectNamespace))
 }
 
 // buildHostnameMatch generates a Gateway.spec.servers.hosts section from a listener
@@ -2161,4 +2172,28 @@ func routeGroupKindEqual(rgk1, rgk2 k8s.RouteGroupKind) bool {
 
 func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
 	return ptr.OrDefault(rgk.Group, k8s.Group(gvk.KubernetesGateway.Group))
+}
+
+func GetStatus[I, IS any](spec I) IS {
+	switch t := any(spec).(type) {
+	case *k8salpha.TCPRoute:
+		return any(t.Status).(IS)
+	case *k8salpha.TLSRoute:
+		return any(t.Status).(IS)
+	case *k8sbeta.HTTPRoute:
+		return any(t.Status).(IS)
+	case *k8s.GRPCRoute:
+		return any(t.Status).(IS)
+	case *k8sbeta.Gateway:
+		return any(t.Status).(IS)
+	case *k8sbeta.GatewayClass:
+		return any(t.Status).(IS)
+	case *gatewayx.XBackendTrafficPolicy:
+		return any(t.Status).(IS)
+	case *gatewayalpha3.BackendTLSPolicy:
+		return any(t.Status).(IS)
+	default:
+		log.Fatalf("unknown type %T", t)
+		return ptr.Empty[IS]()
+	}
 }

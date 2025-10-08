@@ -269,6 +269,9 @@ var (
 
 	EnableClusterTrustBundles = env.Register("ENABLE_CLUSTER_TRUST_BUNDLE_API", false,
 		"If enabled, uses the ClusterTrustBundle API instead of ConfigMaps to store the root certificate in the cluster.").Get()
+
+	EnableProxyFindPodByIP = env.Register("ENABLE_PROXY_FIND_POD_BY_IP", true,
+		"If enabled, the pod controller will allow find pods matching proxies by IP if it fails to find them by name.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
