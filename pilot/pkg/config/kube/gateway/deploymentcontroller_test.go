@@ -672,7 +672,7 @@ func TestMeshGatewayReconciliation(t *testing.T) {
 		},
 	}
 	gws.Create(defaultGateway)
-	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch())
 	expectReconciled()
 	assert.ChannelIsEmpty(t, writes)
 
@@ -752,7 +752,7 @@ func TestVersionManagement(t *testing.T) {
 		},
 	}
 	gws.Create(defaultGateway)
-	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch())
 	expectReconciled()
 	assert.ChannelIsEmpty(t, writes)
 	// Test fake doesn't actual do Apply, so manually do this
@@ -773,7 +773,7 @@ func TestVersionManagement(t *testing.T) {
 	defaultGateway.Annotations = map[string]string{}
 	gws.Update(defaultGateway)
 	expectReconciled()
-	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch())
 	assert.ChannelIsEmpty(t, writes)
 	// Test fake doesn't actual do Apply, so manually do this
 	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(ControllerVersion)}
@@ -786,7 +786,7 @@ func TestVersionManagement(t *testing.T) {
 	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(1)}
 	gws.Update(defaultGateway)
 	expectReconciled()
-	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
+	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch())
 	assert.ChannelIsEmpty(t, writes)
 	// Test fake doesn't actual do Apply, so manually do this
 	defaultGateway.Annotations = map[string]string{ControllerVersionAnnotation: fmt.Sprint(ControllerVersion)}
@@ -1149,13 +1149,17 @@ global:
 	return injConfig
 }
 
-func buildPatch(version int) string {
+// buildPatch used to accept a version
+// but lint flagged that ControllerVersion
+// was always used so the function has been
+// adjusted to hardcode ControllerVersion
+func buildPatch() string {
 	return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   annotations:
     gateway.istio.io/controller-version: "%d"
-`, version)
+`, ControllerVersion)
 }
 
 func newTestEnv() *model.Environment {
