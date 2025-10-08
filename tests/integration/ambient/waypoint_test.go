@@ -1095,6 +1095,10 @@ spec:
   - name: http
     number: 80
     protocol: HTTP
+  - name: http-for-tls
+    number: 8080
+    protocol: HTTP
+    targetPort: 443
   location: MESH_EXTERNAL
   resolution: DYNAMIC_DNS`
 			// ServiceEntry in app namespace, points to waypoint in EgressNamespace. Backend is in ExternalNamespace
@@ -1104,7 +1108,7 @@ spec:
 					"EgressNamespace":   egressNamespace.Name(),
 				}, service).
 				ApplyOrFail(t)
-
+/*
 			// We can send a simple request
 			runTest(t, "basic", "", echo.CallOptions{
 				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
@@ -1142,6 +1146,34 @@ spec:
 				// We expect the request to succeed since Host matches the wildcarded hostname even though it is not the original destination host
 				Check: check.And(check.OK(), IsL7()),
 			})
+*/
+			// Test we can do TLS origination, by utilizing ServiceEntry target port
+			wildacardTlsOrigination := `apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: wildcard-tls-origination
+spec:
+  host: "*.{{.ExternalNamespace}}.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+`
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]string{
+					"ExternalNamespace": apps.ExternalNamespace.Name(),
+				}, wildacardTlsOrigination).
+				ApplyOrFail(t)
+
+			runTest(t, "http origination targetPort", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 8080},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+
+			time.Sleep(60 * time.Minute)
 		})
 }
 

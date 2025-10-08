@@ -498,7 +498,7 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 				ClusterImplementationSpecifier: &dfpcluster.ClusterConfig_DnsCacheConfig{
 					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
 						Name:            model.BuildDNSCacheName(service.Hostname),
-						DnsLookupFamily: cluster.Cluster_V4_ONLY,
+						DnsLookupFamily: cluster.Cluster_ALL,
 					},
 				},
 			}),
