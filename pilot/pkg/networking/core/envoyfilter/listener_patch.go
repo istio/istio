@@ -22,6 +22,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -641,18 +642,20 @@ func listenerMatch(patchContext networking.EnvoyFilter_PatchContext, listener *l
 }
 
 // We assume that the parent listener has already been matched
-func filterChainMatch(patchContext networking.EnvoyFilter_PatchContext, listener *listener.Listener, fc *listener.FilterChain, lp *model.EnvoyFilterConfigPatchWrapper) bool {
+func filterChainMatch(patchContext networking.EnvoyFilter_PatchContext,
+	listener *listener.Listener, fc *listener.FilterChain, lp *model.EnvoyFilterConfigPatchWrapper,
+) bool {
 	if patchContext == networking.EnvoyFilter_WAYPOINT {
-		waypointMatch := lp.Match.GetWaypoint()
-		if waypointMatch == nil {
-			return true
-		}
-
 		if len(lp.Hostnames) > 0 {
 			fcHost := extractHostnameFromName(fc.Name)
 			if !hostContains(lp.Hostnames, fcHost) {
 				return false
 			}
+		}
+
+		waypointMatch := lp.Match.GetWaypoint()
+		if waypointMatch == nil {
+			return true
 		}
 
 		return true

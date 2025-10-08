@@ -69,10 +69,18 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 			errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: stylecheck
 			continue
 		}
-		if cp.Match.Context == networking.EnvoyFilter_WAYPOINT {
-			// TODO: add validation for Waypoint context.
+		if cp.Match != nil && cp.Match.Context == networking.EnvoyFilter_WAYPOINT {
+			// TODO: add more validation.
+			switch cp.ApplyTo {
+			case networking.EnvoyFilter_LISTENER,
+				networking.EnvoyFilter_LISTENER_FILTER,
+				networking.EnvoyFilter_EXTENSION_CONFIG,
+				networking.EnvoyFilter_BOOTSTRAP:
+				errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo %v is not supported for waypoint", cp.ApplyTo)) // nolint: stylecheck
+			}
 			continue
 		}
+
 		if cp.ApplyTo == networking.EnvoyFilter_INVALID {
 			errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: stylecheck
 			continue

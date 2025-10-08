@@ -20,10 +20,12 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"k8s.io/utils/ptr"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -391,6 +393,85 @@ func Test_routeConfigurationMatch(t *testing.T) {
 				},
 			},
 			want: true,
+		},
+		{
+			name: "waypoint",
+			args: args{
+				patchContext: networking.EnvoyFilter_WAYPOINT,
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+				},
+				rc: &route.RouteConfiguration{Name: "inbound-vip|8000|http|foo.bar.svc.cluster.local"},
+				portMap: map[int]sets.Set[int]{
+					8443: {443: {}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "waypoint hostnames match",
+			args: args{
+				patchContext: networking.EnvoyFilter_WAYPOINT,
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+					Hostnames: []host.Name{"foo.bar.svc.cluster.local"},
+				},
+				rc: &route.RouteConfiguration{Name: "inbound-vip|8000|http|foo.bar.svc.cluster.local"},
+				portMap: map[int]sets.Set[int]{
+					8443: {443: {}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "waypoint hostnames not match",
+			args: args{
+				patchContext: networking.EnvoyFilter_WAYPOINT,
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+					Hostnames: []host.Name{"foo.bar1.svc.cluster.local"},
+				},
+				rc: &route.RouteConfiguration{Name: "inbound-vip|8000|http|foo.bar.svc.cluster.local"},
+				portMap: map[int]sets.Set[int]{
+					8443: {443: {}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "waypoint hostnames not match",
+			args: args{
+				patchContext: networking.EnvoyFilter_WAYPOINT,
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								Route: &networking.EnvoyFilter_WaypointMatch_RouteMatch{
+									Name: "inbound-vip|8000|http|foo.bar1.svc.cluster.local",
+								},
+							},
+						},
+					},
+					Hostnames: []host.Name{"foo.bar1.svc.cluster.local"},
+				},
+				rc: &route.RouteConfiguration{Name: "inbound-vip|8000|http|foo.bar.svc.cluster.local"},
+				portMap: map[int]sets.Set[int]{
+					8443: {443: {}},
+				},
+			},
+			want: false,
 		},
 	}
 	for _, tt := range tests {
@@ -974,6 +1055,7 @@ func TestReplaceVhost(t *testing.T) {
 func Test_routeMatch(t *testing.T) {
 	type args struct {
 		httpRoute *route.Route
+		pCtx      *networking.EnvoyFilter_PatchContext
 		cp        *model.EnvoyFilterConfigPatchWrapper
 	}
 	tests := []struct {
@@ -1064,10 +1146,92 @@ func Test_routeMatch(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "waypoint match",
+			args: args{
+				pCtx: ptr.To(networking.EnvoyFilter_WAYPOINT),
+				httpRoute: &route.Route{
+					Name: "inbound|http|8000",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "waypoint empty route match",
+			args: args{
+				pCtx: ptr.To(networking.EnvoyFilter_WAYPOINT),
+				httpRoute: &route.Route{
+					Name: "inbound|http|8000",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								Route: &networking.EnvoyFilter_WaypointMatch_RouteMatch{},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "waypoint route match name",
+			args: args{
+				pCtx: ptr.To(networking.EnvoyFilter_WAYPOINT),
+				httpRoute: &route.Route{
+					Name: "inbound|http|8000",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								Route: &networking.EnvoyFilter_WaypointMatch_RouteMatch{
+									Name: "inbound|http|8000",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "waypoint route not match",
+			args: args{
+				pCtx: ptr.To(networking.EnvoyFilter_WAYPOINT),
+				httpRoute: &route.Route{
+					Name: "inbound|http|8000",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+							Waypoint: &networking.EnvoyFilter_WaypointMatch{
+								Route: &networking.EnvoyFilter_WaypointMatch_RouteMatch{
+									Name: "inbound|http|8001",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := routeMatch(tt.args.httpRoute, tt.args.cp); got != tt.want {
+			pCtx := networking.EnvoyFilter_ANY
+			if tt.args.pCtx != nil {
+				pCtx = *tt.args.pCtx
+			}
+			if got := routeMatch(pCtx, tt.args.httpRoute, tt.args.cp); got != tt.want {
 				t.Errorf("routeMatch() = %v, want %v", got, tt.want)
 			}
 		})

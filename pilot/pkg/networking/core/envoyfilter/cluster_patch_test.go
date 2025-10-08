@@ -37,6 +37,7 @@ func Test_clusterMatch(t *testing.T) {
 		cluster        *cluster.Cluster
 		matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch
 		operation      networking.EnvoyFilter_Patch_Operation
+		efHosts        []host.Name
 		host           host.Name
 	}
 	tests := []struct {
@@ -147,10 +148,107 @@ func Test_clusterMatch(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "waypoint match hostnames",
+			args: args{
+				proxy:     &model.Proxy{Type: model.Waypoint},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				efHosts:   []host.Name{"foo.bar"},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_WAYPOINT,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+						Cluster: &networking.EnvoyFilter_ClusterMatch{
+							PortNumber: 80,
+							Service:    "foo.bar",
+							Subset:     "v1",
+						},
+					},
+				},
+				cluster: &cluster.Cluster{Name: "outbound|80|v1|foo.bar"},
+			},
+			want: true,
+		},
+		{
+			name: "waypoint match without hostnames",
+			args: args{
+				proxy:     &model.Proxy{Type: model.Waypoint},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_WAYPOINT,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+						Cluster: &networking.EnvoyFilter_ClusterMatch{
+							PortNumber: 80,
+							Service:    "foo.bar",
+							Subset:     "v1",
+						},
+					},
+				},
+				cluster: &cluster.Cluster{Name: "outbound|80|v1|foo.bar"},
+			},
+			want: true,
+		},
+		{
+			name: "waypoint match port",
+			args: args{
+				proxy:     &model.Proxy{Type: model.Waypoint},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_WAYPOINT,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+						Waypoint: &networking.EnvoyFilter_WaypointMatch{
+							PortNumber: 81,
+						},
+					},
+				},
+				cluster: &cluster.Cluster{Name: "inbound-vip|80|v1|foo.bar"},
+			},
+			want: true,
+		},
+		{
+			name: "waypoint match port",
+			args: args{
+				proxy:     &model.Proxy{Type: model.Waypoint},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_WAYPOINT,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+						Waypoint: &networking.EnvoyFilter_WaypointMatch{
+							PortNumber: 81,
+						},
+					},
+				},
+				cluster: &cluster.Cluster{Name: "inbound-vip|80|v1|foo.bar"},
+			},
+			want: false,
+		},
+		{
+			name: "waypoint not match",
+			args: args{
+				proxy:     &model.Proxy{Type: model.Waypoint},
+				operation: networking.EnvoyFilter_Patch_MERGE,
+				efHosts:   []host.Name{"foo.bar1"},
+				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_WAYPOINT,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+						Cluster: &networking.EnvoyFilter_ClusterMatch{
+							PortNumber: 80,
+							Service:    "foo.bar",
+							Subset:     "v1",
+						},
+					},
+				},
+				cluster: &cluster.Cluster{Name: "outbound|80|v1|foo.bar"},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := clusterMatch(tt.args.cluster, &model.EnvoyFilterConfigPatchWrapper{Match: tt.args.matchCondition}, []host.Name{tt.args.host}); got != tt.want {
+			efw := &model.EnvoyFilterConfigPatchWrapper{
+				Match:     tt.args.matchCondition,
+				Hostnames: tt.args.efHosts,
+			}
+			if got := clusterMatch(tt.args.cluster, efw, []host.Name{tt.args.host}); got != tt.want {
 				t.Errorf("clusterMatch() = %v, want %v", got, tt.want)
 			}
 		})

@@ -150,7 +150,6 @@ func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.Merge
 
 func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper, hosts []host.Name) bool {
 	if cp.Match.Context == networking.EnvoyFilter_WAYPOINT {
-		// For waypoint, we should check targetRefs
 		return waypointMatched(cluster, cp)
 	}
 
@@ -200,8 +199,8 @@ func waypointMatched(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchW
 		return true
 	}
 
-	cMatch := cp.Match.GetWaypoint().GetCluster()
-	if cMatch != nil && cMatch.GetPortNumber() != uint32(port) {
+	protNumber := cp.Match.GetWaypoint().PortNumber
+	if protNumber != 0 && protNumber != uint32(port) {
 		return false
 	}
 

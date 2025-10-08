@@ -171,7 +171,7 @@ func convertToEnvoyFilterWrapperWithDomainSuffix(local *config.Config, domainSuf
 		}
 		// For waypoint filters, we need to propagate the targetRefs
 		// to the individual patch wrapper for service match.
-		if cpw.Match.Context == networking.EnvoyFilter_WAYPOINT {
+		if cpw.Match != nil && cpw.Match.Context == networking.EnvoyFilter_WAYPOINT {
 			cpw.Hostnames = make([]host.Name, 0, len(localEnvoyFilter.TargetRefs))
 			for _, targetRef := range localEnvoyFilter.TargetRefs {
 				if matchesGroupKind(targetRef, gvk.Service) {

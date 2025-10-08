@@ -130,7 +130,16 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 	return false
 }
 
-func hasRouteMatch(rp *model.EnvoyFilterConfigPatchWrapper) bool {
+func hasRouteMatch(patchContext networking.EnvoyFilter_PatchContext, rp *model.EnvoyFilterConfigPatchWrapper) bool {
+	if patchContext == networking.EnvoyFilter_WAYPOINT {
+		wMatch := rp.Match.GetWaypoint()
+		if wMatch == nil {
+			return false
+		}
+
+		return wMatch.GetRoute() != nil
+	}
+
 	cMatch := rp.Match.GetRouteConfiguration()
 	if cMatch == nil {
 		return false
@@ -169,14 +178,14 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 			applied = true
 		} else if rp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a route match is same as ADD in the end
-			if !hasRouteMatch(rp) {
+			if !hasRouteMatch(patchContext, rp) {
 				virtualHost.Routes = append(virtualHost.Routes, proto.Clone(rp.Value).(*route.Route))
 				continue
 			}
 			virtualHost.Routes, applied = insertAfterFunc(
 				virtualHost.Routes,
 				func(e *route.Route) (bool, *route.Route) {
-					if routeMatch(e, rp) {
+					if routeMatch(patchContext, e, rp) {
 						return true, proto.Clone(rp.Value).(*route.Route)
 					}
 					return false, nil
@@ -184,14 +193,14 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 			)
 		} else if rp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a route match is same as insert in the beginning
-			if !hasRouteMatch(rp) {
+			if !hasRouteMatch(patchContext, rp) {
 				virtualHost.Routes = append([]*route.Route{proto.Clone(rp.Value).(*route.Route)}, virtualHost.Routes...)
 				continue
 			}
 			virtualHost.Routes, applied = insertBeforeFunc(
 				virtualHost.Routes,
 				func(e *route.Route) (bool, *route.Route) {
-					if routeMatch(e, rp) {
+					if routeMatch(patchContext, e, rp) {
 						return true, proto.Clone(rp.Value).(*route.Route)
 					}
 					return false, nil
@@ -199,7 +208,7 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 			)
 		} else if rp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
 			// insert first without a route match is same as insert in the beginning
-			if !hasRouteMatch(rp) {
+			if !hasRouteMatch(patchContext, rp) {
 				virtualHost.Routes = append([]*route.Route{proto.Clone(rp.Value).(*route.Route)}, virtualHost.Routes...)
 				continue
 			}
@@ -207,7 +216,7 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 			// find the matching route first
 			insertPosition := -1
 			for i := 0; i < len(virtualHost.Routes); i++ {
-				if routeMatch(virtualHost.Routes[i], rp) {
+				if routeMatch(patchContext, virtualHost.Routes[i], rp) {
 					insertPosition = i
 					break
 				}
@@ -242,7 +251,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 		if commonConditionMatch(patchContext, rp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) &&
 			virtualHostMatch(virtualHost, rp) &&
-			routeMatch(virtualHost.Routes[routeIndex], rp) {
+			routeMatch(patchContext, virtualHost.Routes[routeIndex], rp) {
 			if !*clonedVhostRoutes {
 				// different virtualHosts may share same routes pointer
 				virtualHost.Routes = slices.Clone(virtualHost.Routes)
@@ -266,27 +275,11 @@ func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, r
 	rp *model.EnvoyFilterConfigPatchWrapper, portMap model.GatewayPortMap,
 ) bool {
 	if patchContext == networking.EnvoyFilter_WAYPOINT {
-		waypointMatch := rp.Match.GetWaypoint()
-		// match all
-		if waypointMatch == nil {
-			return true
-		}
-
-		rMatch := waypointMatch.GetRoute()
-		// match all
-		if rMatch == nil {
-			return true
-		}
-
 		if len(rp.Hostnames) > 0 {
 			routeHost := extractHostnameFromName(rc.Name)
 			if !hostContains(rp.Hostnames, routeHost) {
 				return false
 			}
-		}
-
-		if rMatch.Name != "" && rMatch.Name != rc.Name {
-			return false
 		}
 
 		return true
@@ -374,7 +367,31 @@ func virtualHostMatch(vh *route.VirtualHost, rp *model.EnvoyFilterConfigPatchWra
 		(match.DomainName == "" || slices.Contains(vh.Domains, match.DomainName))
 }
 
-func routeMatch(httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper) bool {
+func routeMatch(patchContext networking.EnvoyFilter_PatchContext, httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper) bool {
+	if patchContext == networking.EnvoyFilter_WAYPOINT {
+		wMatch := rp.Match.GetWaypoint()
+		if wMatch == nil {
+			return true
+		}
+
+		rMatch := wMatch.GetRoute()
+		if rMatch == nil {
+			// match any route in the waypoint configuration
+			return true
+		}
+
+		if httpRoute == nil {
+			// we have a specific match for particular route but
+			// we do not have a route to match.
+			return false
+		}
+
+		if rMatch.Name != "" && rMatch.Name != httpRoute.Name {
+			return false
+		}
+
+		return true
+	}
 	rMatch := rp.Match.GetRouteConfiguration()
 	if rMatch == nil {
 		return true
@@ -421,7 +438,7 @@ func cloneVhostRouteByRouteIndex(virtualHost *route.VirtualHost, routeIndex int)
 }
 
 // extractHostnameFromName extracts the hostname from a route/filter_chain name.
-// The route name can be in the format of "<TrafficDirection>|<port>|<protocol>|<hostname>".
+// The route name can be in the format of "<TrafficDirection>|<port>|<protocol>/<subset>|<hostname>".
 func extractHostnameFromName(name string) host.Name {
 	parts := strings.Split(name, "|")
 
