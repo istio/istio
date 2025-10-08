@@ -289,6 +289,14 @@ func NewDeploymentController(
 	}))
 
 	gateways.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	dc.env.Watcher.AddMeshHandler(func() {
+		// if there is a change to the meshconfig we need to reprocess all gateways
+		// to reconcile things like the deployment image
+		for _, gw := range dc.gateways.List(corev1.NamespaceAll, klabels.Everything()) {
+			dc.queue.AddObject(gw)
+		}
+	})
+
 	gatewayClasses.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		for _, g := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 			if string(g.Spec.GatewayClassName) == o.GetName() {
@@ -323,6 +331,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.gateways.HasSynced,
 		d.gatewayClasses.HasSynced,
 		d.tagWatcher.HasSynced,
+		d.env.Watcher.AsCollection().HasSynced,
 	)
 	d.queue.Run(stop)
 	controllers.ShutdownAll(
