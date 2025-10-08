@@ -197,8 +197,12 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
+			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
+			identityVerified := proxy.VerifiedIdentity != nil &&
+				proxy.VerifiedIdentity.Namespace == gatewayConfig.Namespace &&
+				(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
 			cn := s.GetTls().GetCredentialName()
-			if cn != "" && proxy.VerifiedIdentity != nil {
+			if cn != "" && identityVerified {
 				gwKind := gvk.KubernetesGateway
 				lookupNamespace := proxy.VerifiedIdentity.Namespace
 				if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.XListenerSet.Kind+"/") {
@@ -588,26 +592,26 @@ func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gatewayNam
 		// this is a http gateway. Parse port number and return empty string for rest
 		port := name[len("http."):]
 		portNumber, _ = strconv.Atoi(port)
-		return
+		return portNumber, portName, gatewayName
 	} else if strings.HasPrefix(name, "https.") && strings.Count(name, ".") == 4 {
 		name = name[len("https."):]
 		// format: https.<port>.<port_name>.<gw name>.<gw namespace>
 		portNums, rest, ok := strings.Cut(name, ".")
 		if !ok {
-			return
+			return portNumber, portName, gatewayName
 		}
 		portNumber, _ = strconv.Atoi(portNums)
 		portName, rest, ok = strings.Cut(rest, ".")
 		if !ok {
-			return
+			return portNumber, portName, gatewayName
 		}
 		gwName, gwNs, ok := strings.Cut(rest, ".")
 		if !ok {
-			return
+			return portNumber, portName, gatewayName
 		}
 		gatewayName = gwNs + "/" + gwName
 	}
-	return
+	return portNumber, portName, gatewayName
 }
 
 // convert ./host to currentNamespace/Host

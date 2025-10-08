@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -49,7 +50,7 @@ func getTestFixure(ctx context.Context) netTestFixture {
 }
 
 // nolint: lll
-func getTestFixureWithIptablesConfig(ctx context.Context, fakeDeps *dependencies.DependenciesStub, hostConfig, podConfig *iptables.IptablesConfig) netTestFixture {
+func getTestFixureWithIptablesConfig(ctx context.Context, fakeDeps *dependencies.DependenciesStub, hostConfig, podConfig *config.AmbientConfig) netTestFixture {
 	podNsMap := newPodNetnsCache(openNsTestOverride)
 	nlDeps := &fakeIptablesDeps{}
 	_, podIptC, _ := iptables.NewIptablesConfigurator(hostConfig, podConfig, fakeDeps, fakeDeps, nlDeps)
@@ -370,7 +371,7 @@ func TestConstructInitialSnapReconcilesPodsIfIptConfiguratorSupportsReconciliati
 	defer cancel()
 	setupLogging()
 
-	podCfg := iptables.IptablesConfig{
+	podCfg := config.AmbientConfig{
 		Reconcile: true,
 	}
 
@@ -403,7 +404,7 @@ func TestConstructInitialSnapDoesNotReconcilePodIfIptablesReconciliationDisabled
 	defer cancel()
 	setupLogging()
 
-	podCfg := iptables.IptablesConfig{
+	podCfg := config.AmbientConfig{
 		Reconcile: false,
 	}
 
@@ -436,7 +437,7 @@ func TestReconcilePodReturnsErrorIfNoNetnsFound(t *testing.T) {
 	defer cancel()
 	setupLogging()
 
-	podCfg := iptables.IptablesConfig{
+	podCfg := config.AmbientConfig{
 		Reconcile: true,
 	}
 
@@ -468,7 +469,7 @@ func TestReconcilePodReturnsNoErrorIfPodReconciles(t *testing.T) {
 	defer cancel()
 	setupLogging()
 
-	podCfg := iptables.IptablesConfig{
+	podCfg := config.AmbientConfig{
 		Reconcile: true,
 	}
 
@@ -503,7 +504,7 @@ func TestReconcilePodReturnsNoErrorIfPodReconciles(t *testing.T) {
 
 var overrideTests = map[string]struct {
 	in  corev1.Pod
-	out iptables.PodLevelOverrides
+	out config.PodLevelOverrides
 }{
 	"pod dns override": {
 		in: corev1.Pod{
@@ -514,10 +515,10 @@ var overrideTests = map[string]struct {
 				Annotations: map[string]string{annotation.AmbientDnsCapture.Name: "true"},
 			},
 		},
-		out: iptables.PodLevelOverrides{
+		out: config.PodLevelOverrides{
 			VirtualInterfaces: []string{},
 			IngressMode:       false,
-			DNSProxy:          iptables.PodDNSEnabled,
+			DNSProxy:          config.PodDNSEnabled,
 		},
 	},
 
@@ -529,10 +530,10 @@ var overrideTests = map[string]struct {
 				UID:       "12345",
 			},
 		},
-		out: iptables.PodLevelOverrides{
+		out: config.PodLevelOverrides{
 			VirtualInterfaces: []string{},
 			IngressMode:       false,
-			DNSProxy:          iptables.PodDNSUnset,
+			DNSProxy:          config.PodDNSUnset,
 		},
 	},
 
@@ -545,10 +546,10 @@ var overrideTests = map[string]struct {
 				Annotations: map[string]string{annotation.AmbientDnsCapture.Name: "false"},
 			},
 		},
-		out: iptables.PodLevelOverrides{
+		out: config.PodLevelOverrides{
 			VirtualInterfaces: []string{},
 			IngressMode:       false,
-			DNSProxy:          iptables.PodDNSDisabled,
+			DNSProxy:          config.PodDNSDisabled,
 		},
 	},
 
@@ -565,10 +566,10 @@ var overrideTests = map[string]struct {
 				},
 			},
 		},
-		out: iptables.PodLevelOverrides{
+		out: config.PodLevelOverrides{
 			VirtualInterfaces: []string{"en0ps1", "en1ps1"},
 			IngressMode:       true,
-			DNSProxy:          iptables.PodDNSEnabled,
+			DNSProxy:          config.PodDNSEnabled,
 		},
 	},
 
@@ -585,10 +586,10 @@ var overrideTests = map[string]struct {
 				},
 			},
 		},
-		out: iptables.PodLevelOverrides{
+		out: config.PodLevelOverrides{
 			VirtualInterfaces: []string{"asd^&&*$&*(#$&*(#&$*()))"},
 			IngressMode:       false,
-			DNSProxy:          iptables.PodDNSUnset,
+			DNSProxy:          config.PodDNSUnset,
 		},
 	},
 }

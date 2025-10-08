@@ -110,7 +110,7 @@ func testSetup(ctx resource.Context) (err error) {
 		Inject: true,
 	})
 	if err != nil {
-		return
+		return err
 	}
 
 	_, err = deployment.New(ctx).
@@ -134,7 +134,7 @@ func testSetup(ctx resource.Context) (err error) {
 		}).
 		Build()
 	if err != nil {
-		return
+		return err
 	}
 
 	ing = ist.IngressFor(ctx.Clusters().Default())
@@ -143,28 +143,28 @@ func testSetup(ctx resource.Context) (err error) {
 		Prefix: "istio-ratelimit",
 	})
 	if err != nil {
-		return
+		return err
 	}
 
 	err = ctx.ConfigIstio().File(ratelimitNs.Name(), "testdata/rate-limit-configmap.yaml").Apply()
 	if err != nil {
-		return
+		return err
 	}
 
 	err = ctx.ConfigIstio().File(ratelimitNs.Name(), filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).
 		Apply()
 	if err != nil {
-		return
+		return err
 	}
 
 	// Wait for redis and ratelimit service to be up.
 	fetchFn := kube.NewPodFetch(ctx.Clusters().Default(), ratelimitNs.Name(), "app=redis")
 	if _, err = kube.WaitUntilPodsAreReady(fetchFn); err != nil {
-		return
+		return err
 	}
 	fetchFn = kube.NewPodFetch(ctx.Clusters().Default(), ratelimitNs.Name(), "app=ratelimit")
 	if _, err = kube.WaitUntilPodsAreReady(fetchFn); err != nil {
-		return
+		return err
 	}
 
 	return nil

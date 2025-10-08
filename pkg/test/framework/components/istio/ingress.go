@@ -125,7 +125,7 @@ func (c *ingressImpl) getAddressesInner(port int) ([]string, []int, error) {
 				return nil, false, fmt.Errorf("the DNS for %q not ready: %v", host, lookupErr)
 			}
 		}
-		return
+		return rawAddrs, completed, err
 	}, getAddressTimeout, getAddressDelay)
 	if err != nil {
 		return nil, nil, err

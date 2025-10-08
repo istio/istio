@@ -224,7 +224,7 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 
 		err = multierror.Append(err, cleanErr)
 
-		return
+		return err
 	})
 }
 

@@ -26,6 +26,8 @@ func init() {
 		"Specifies the namespace in which kiali, tracing providers, graphana, prometheus are deployed.")
 	flag.BoolVar(&settingsFromCommandline.DeployIstio, "istio.test.kube.deploy", settingsFromCommandline.DeployIstio,
 		"Deploy Istio into the target Kubernetes environment.")
+	flag.StringVar(&settingsFromCommandline.BaseIOPFile, "istio.test.kube.helm.baseIopFile", settingsFromCommandline.BaseIOPFile,
+		"Base IstioOperator spec file. This can be an absolute path or relative to repository root.")
 	flag.StringVar(&settingsFromCommandline.PrimaryClusterIOPFile, "istio.test.kube.helm.iopFile", settingsFromCommandline.PrimaryClusterIOPFile,
 		"IstioOperator spec file. This can be an absolute path or relative to repository root.")
 	flag.StringVar(&helmValues, "istio.test.kube.helm.values", helmValues,

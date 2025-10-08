@@ -80,6 +80,12 @@ values:
     istio-egressgateway:
       enabled: false
       `
+			if ctx.Settings().NativeNftables {
+				cfg.ControlPlaneValues += `
+  global:
+    nativeNftables: true
+`
+			}
 		}, cert.CreateCASecretAlt)).
 		Run()
 }

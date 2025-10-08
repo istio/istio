@@ -46,9 +46,12 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 	if connectionPool == nil {
 		connectionPool = &networking.ConnectionPoolSettings{}
 	}
-	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
+	// Apply h2 upgrade s.t. h2 connection pool settings can be applied to the cluster.
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts.mutable, opts.port, opts.mesh, connectionPool)
+	}
+	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
+	if opts.direction != model.TrafficDirectionInbound {
 		applyOutlierDetection(service, opts.mutable.cluster, outlierDetection)
 		applyLoadBalancer(service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
@@ -106,11 +109,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
-			// Envoy only applies MaxRequests in HTTP/2 clusters
 			threshold.MaxRequests = &wrapperspb.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
 		}
 		if settings.Http.Http1MaxPendingRequests > 0 {
-			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
 			threshold.MaxPendingRequests = &wrapperspb.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
 		}
 

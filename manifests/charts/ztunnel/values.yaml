@@ -12,11 +12,10 @@ _internal_defaults_do_not_set:
   # If Image contains a "/", it will replace the entire `image` in the pod.
   image: ztunnel
 
-  # We keep the global namespace around for backwards-compatibility
-  global:
-    # Network defines the network this cluster belong to. This name
-    # corresponds to the networks in the map of mesh networks.
-    network: ""
+  # Same as `global.network`, but will override it if set.
+  # Network defines the network this cluster belong to. This name
+  # corresponds to the networks in the map of mesh networks.
+  network: ""
 
   # resourceName, if set, will override the naming of resources. If not set, will default to 'ztunnel'.
   # If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart.
