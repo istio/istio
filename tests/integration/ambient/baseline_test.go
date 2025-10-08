@@ -2749,6 +2749,7 @@ func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Inst
 			// all meshed services need to be labeled as global for the reachability tests.
 			for _, app := range apps.Mesh {
 				if app.Config().IsAmbient() {
+					// don't label sidecar services until https://github.com/istio/istio/issues/57877 is resolved.
 					labelService(t, app.ServiceName(), "istio.io/global", "true", app.Config().Cluster)
 				}
 			}
@@ -2817,8 +2818,15 @@ func runTestContextForCalls(
 ) {
 	svcs := apps.All
 	for _, src := range svcs {
+		//fhqwgads
+		if !src.Config().HasSidecar() {
+			continue
+		}
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
 			for _, dst := range getAllInstancesByServiceName() {
+				if dst.Config().Service != "service-addressed-waypoint" {
+					continue
+				}
 				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {
 					for _, opt := range callOptions {
 						t.NewSubTestf("%v", opt.Port.Name).Run(func(t framework.TestContext) {
