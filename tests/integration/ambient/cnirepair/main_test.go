@@ -67,6 +67,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMinVersion(24).
+		RequireSingleCluster().
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			return nil

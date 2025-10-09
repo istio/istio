@@ -1099,6 +1099,9 @@ func TestAuthorizationGateway(t *testing.T) {
 					Check:   check.OK(),
 					To:      dst,
 				}
+				if t.Settings().AmbientMultiNetwork {
+					t.Skip("https://github.com/istio/istio/issues/57878")
+				}
 				f(t, istio.DefaultIngressOrFail(t, t), dst, opt)
 			})
 		}
@@ -3748,6 +3751,9 @@ spec:
 func TestWaypointWithSidecarBackend(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/57878")
+			}
 			// Ensure we go through the waypoint (verified by modifying the request) and that we are doing mTLS.
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1

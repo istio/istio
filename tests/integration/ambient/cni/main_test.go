@@ -79,6 +79,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMinVersion(24).
+		RequireSingleCluster().
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			return nil
@@ -189,28 +190,29 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 				IncludeExtAuthz:     false,
 			})
 
-			c := t.Clusters().Default()
-			t.Log("Getting current daemonset")
-			// mostly a correctness check - to make sure it's actually there
-			origDS := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
+			for _, c := range t.Clusters() {
+				t.Log("Getting current daemonset")
+				// mostly a correctness check - to make sure it's actually there
+				origDS := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
 
-			ns := apps.SingleNamespaceView().EchoNamespace.Namespace
-			fetchFn := testKube.NewPodFetch(c, ns.Name())
+				ns := apps.SingleNamespaceView().EchoNamespace.Namespace
+				fetchFn := testKube.NewPodFetch(c, ns.Name())
 
-			if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
-				t.Fatal(err)
+				if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
+					t.Fatal(err)
+				}
+
+				t.Log("Deleting current daemonset")
+				// Delete JUST the daemonset - ztunnel + workloads remain in place
+				util.DeleteCNIDaemonset(t, c, i.Settings().SystemNamespace)
+
+				// Our echo instances have already been deployed/configured by the CNI,
+				// so the CNI being removed should not disrupt them.
+				common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
+
+				// put it back
+				util.DeployCNIDaemonset(t, c, origDS)
 			}
-
-			t.Log("Deleting current daemonset")
-			// Delete JUST the daemonset - ztunnel + workloads remain in place
-			util.DeleteCNIDaemonset(t, c, i.Settings().SystemNamespace)
-
-			// Our echo instances have already been deployed/configured by the CNI,
-			// so the CNI being removed should not disrupt them.
-			common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
-
-			// put it back
-			util.DeployCNIDaemonset(t, c, origDS)
 		})
 }
 

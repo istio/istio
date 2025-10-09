@@ -69,6 +69,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMinVersion(24).
+		RequireSingleCluster().
 		Label(testlabel.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
