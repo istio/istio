@@ -1045,6 +1045,9 @@ func TestWaypointAsEgressGatewayForWildcardEntries(t *testing.T) {
 					if src.Config().HasSidecar() {
 						t.Skip("TODO: sidecars don't properly handle use-waypoint")
 					}
+					if _, v6 :=getSupportedIPFamilies(t); v6 {
+						t.Skip("TODO: skipping test as wildcard DNS doesn't support resolving to IPv6 address")
+					}
 					for _, o := range opts {
 						src.CallOrFail(t, o)
 					}
