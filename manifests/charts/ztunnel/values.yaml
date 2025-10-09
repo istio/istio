@@ -118,6 +118,14 @@ _internal_defaults_do_not_set:
   # TODO Ambient inpod - for OpenShift, set to the following to get writable sockets in hostmounts to work, eventually consider CSI driver instead
   #seLinuxOptions:
   #  type: spc_t
+  
+  # resourceScope controls what resources will be processed by helm.
+  # This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+  # It can be one of:
+  # - all: all resources are processed
+  # - cluster: only cluster-scoped resources are processed
+  # - namespace: only namespace-scoped resources are processed
+  resourceScope: all
 
   # K8s DaemonSet update strategy.
   # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).

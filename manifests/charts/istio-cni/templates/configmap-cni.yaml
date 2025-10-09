@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -40,3 +41,4 @@ data:
   {{ $key }}: "{{ $val }}"
   {{- end }}
   {{- end }}
+{{- end }}
