@@ -21,7 +21,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/gateway/kube"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
@@ -47,9 +47,11 @@ func TestMergeGateways(t *testing.T) {
 	gwPassthrough := makeConfig("foo-passthrough", "not-default-2", "foo.example.com", "tls-foo", "TLS", 443, "ingressgateway", "", networking.ServerTLSSettings_PASSTHROUGH, "", "sa")
 
 	gwSimpleCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
-	gwSimpleCredOther := makeConfig("bar1", "other-ns", "bar1.istio.com", "name2", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
-	gwSimpleCredInternal := makeConfig(kube.InternalGatewayName("foo1", "lname1"), "ns", "foo1.k8s.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
-	gwSimpleCredInternalOther := makeConfig(kube.InternalGatewayName("bar1", "lname1"), "other-ns", "bar1.k8s.com", "name2", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredSameNs := makeConfig("bar1", "ns", "bar1.istio.com", "name2", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredOtherNs := makeConfig("bar2", "other-ns", "bar2.istio.com", "name3", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternal := makeInternalConfig("foo2", "ns", "foo2.k8s.com", "name4", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternalSameNs := makeInternalConfig("bar3", "ns", "bar3.k8s.com", "name5", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternalOtherNs := makeInternalConfig("bar4", "other-ns", "bar4.k8s.com", "name6", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
 	gwMutualCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, "kubernetes-gateway://ns/foo", "sa")
 	gwSimpleCredInAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, fmt.Sprintf("kubernetes-gateway://%s/foo", AllowedNamespace), "sa")
 	// If no SA annotation, then the SA name shouldn't matter
@@ -273,48 +275,48 @@ func TestMergeGateways(t *testing.T) {
 			0,
 		},
 		{
-			"k8s-across-ns",
-			[]config.Config{gwSimpleCredInternal, gwSimpleCredInternalOther},
+			"gwapi",
+			[]config.Config{gwSimpleCredInternal, gwSimpleCredInternalSameNs, gwSimpleCredInternalOtherNs},
+			proxyIdentity,
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+			1,
+		},
+		{
+			"istio",
+			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredOtherNs},
+			proxyIdentity,
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+			1,
+		},
+		{
+			"gwapi-and-istio-same-ns",
+			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredInternal},
 			proxyIdentity,
 			1,
 			2,
 			map[string]int{"http.7": 2},
-			2,
+			3,
 			1,
 		},
 		{
-			"k8s-and-istio-same-ns",
-			[]config.Config{gwSimpleCred, gwSimpleCredInternal},
+			"gwapi-and-istio-different-ns",
+			[]config.Config{gwSimpleCred, gwSimpleCredOtherNs, gwSimpleCredInternalOtherNs},
 			proxyIdentity,
 			1,
 			2,
 			map[string]int{"http.7": 2},
-			2,
-			1,
-		},
-		{
-			"k8s-and-istio-different-ns",
-			[]config.Config{gwSimpleCred, gwSimpleCredInternalOther},
-			proxyIdentity,
-			1,
-			2,
-			map[string]int{"http.7": 2},
-			2,
-			1,
-		},
-		{
-			"istio-across-ns",
-			[]config.Config{gwSimpleCred, gwSimpleCredOther},
-			proxyIdentity,
-			1,
-			1,
-			map[string]int{"http.7": 1},
-			2,
+			3,
 			1,
 		},
 	}
 
-	test.SetForTest(t, &features.EnableStrictGatewayNamespaceChecking, true)
+	test.SetForTest(t, &features.EnableStrictGatewayMerging, true)
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			instances := []gatewayWithInstances{}
@@ -412,6 +414,14 @@ func TestGetAutoPassthroughSNIHosts(t *testing.T) {
 	if !hosts.Equals(expectedHosts) {
 		t.Errorf("expected to get: [a.apps.svc.cluster.local,b.apps.svc.cluster.local], got: %s", hosts.String())
 	}
+}
+
+func makeInternalConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw, bind string,
+	mode networking.ServerTLSSettings_TLSmode, credName, sa string,
+) config.Config {
+	c := makeConfig(name, namespace, host, portName, portProtocol, portNumber, gw, bind, mode, credName, sa)
+	c.Meta.Annotations[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
+	return c
 }
 
 // sa controls which service account names are allowed to get secrets

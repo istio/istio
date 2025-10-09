@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
-	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/monitoring"
@@ -44,8 +43,9 @@ type ServerPort struct {
 
 // MergedServers describes set of servers defined in all gateways per port.
 type MergedServers struct {
-	Servers   []*networking.Server
-	RouteName string // RouteName for http servers. For HTTPS, TLSServerInfo will hold the route name.
+	Servers         []*networking.Server
+	InternalGateway bool   // True if the servers are transformed from GatewayAPi gateways.
+	RouteName       string // RouteName for http servers. For HTTPS, TLSServerInfo will hold the route name.
 }
 
 // TLSServerInfo contains additional information for TLS Servers.
@@ -256,6 +256,12 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
 				serverProtocol := protocol.Parse(serverPort.Protocol)
 				if gatewayPorts.Contains(resolvedPort) {
+					if !canMergeServers(mergedServers[serverPort], gatewayConfig) {
+						log.Debugf("skipping merging server on gateway %s port %s.%d.%s: failed to satisfy merging criteria",
+							gatewayName, s.Port.Name, resolvedPort, s.Port.Protocol)
+						RecordRejectedConfig(gatewayName)
+						continue
+					}
 					// We have two servers on the same port. Should we merge?
 					// 1. Yes if both servers are plain text and HTTP
 					// 2. Yes if both servers are using TLS
@@ -280,25 +286,13 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						if current.Bind != serverPort.Bind {
 							// Merge it to servers with the same port and bind.
 							if mergedServers[serverPort] == nil {
-								mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
+								mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{}, InternalGateway: isInternalGateway(gatewayConfig)}
 								serverPorts = append(serverPorts, serverPort)
-							} else if !canMergeServers(mergedServers[serverPort].Servers, gatewayNameForServer, s, gatewayConfig) {
-								log.Debugf("skipping merging server on gateway %s port %s.%d.%s: failed to satisfy merging criteria",
-									gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
-								RecordRejectedConfig(gatewayName)
-								continue
 							}
 							ms := mergedServers[serverPort]
 							ms.RouteName = routeName
 							ms.Servers = append(ms.Servers, s)
 						} else {
-							// Merge this to current known port with same bind.
-							if !canMergeServers(mergedServers[current].Servers, gatewayNameForServer, s, gatewayConfig) {
-								log.Debugf("skipping merging server on gateway %s port %s.%d.%s: failed to satisfy merging criteria",
-									gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
-								RecordRejectedConfig(gatewayName)
-								continue
-							}
 							ms := mergedServers[current]
 							ms.Servers = append(ms.Servers, s)
 						}
@@ -346,15 +340,9 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							continue
 						}
 						if mergedServers[serverPort] == nil {
-							mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+							mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, InternalGateway: isInternalGateway(gatewayConfig)}
 							serverPorts = append(serverPorts, serverPort)
 						} else {
-							if !canMergeServers(mergedServers[serverPort].Servers, gatewayNameForServer, s, gatewayConfig) {
-								log.Debugf("skipping merging server on gateway %s port %s.%d.%s: failed to satisfy merging criteria",
-									gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
-								RecordRejectedConfig(gatewayName)
-								continue
-							}
 							mergedServers[serverPort].Servers = append(mergedServers[serverPort].Servers, s)
 						}
 
@@ -365,7 +353,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
 							log.Debugf("Server at port %d eligible for HTTP3 upgrade. Add UDP listener for QUIC", serverPort.Number)
 							if mergedQUICServers[serverPort] == nil {
-								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
+								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{}, InternalGateway: isInternalGateway(gatewayConfig)}
 							}
 							mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
 							http3AdvertisingRoutes.Insert(routeName)
@@ -390,11 +378,11 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 								// chains, multiple routes per server port. So just like in TLS server case we do not
 								// track route name here. Instead, TLS server info is used (it is fine for now because
 								// this would be a mirror of an existing non-passthrough HTTPS server)
-								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, InternalGateway: isInternalGateway(gatewayConfig)}
 							}
 						}
 					}
-					mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, RouteName: routeName}
+					mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, RouteName: routeName, InternalGateway: isInternalGateway(gatewayConfig)}
 					serverPorts = append(serverPorts, serverPort)
 				}
 				log.Debugf("mergeGateways: gateway %q merged server %v", gatewayName, s.Hosts)
@@ -483,25 +471,17 @@ func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
 	return (current.IsHTTP() || current == p) && p.IsHTTP()
 }
 
-func canMergeServers(current []*networking.Server, gatewayNameByServer map[*networking.Server]string, server *networking.Server, gateway config.Config) bool {
+func isInternalGateway(config config.Config) bool {
+	return config.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
+}
+
+func canMergeServers(current *MergedServers, config config.Config) bool {
 	// If strict namespace checking is disabled, allow merging servers from different namespaces
-	if !features.EnableStrictGatewayNamespaceChecking {
+	if !features.EnableStrictGatewayMerging {
 		return true
 	}
-	if kube.IsInternalGatewayReference(gateway.Name) {
-		return true
-	}
-
-	for _, s := range current {
-		gatewayName := gatewayNameByServer[s]
-		parts := strings.Split(gatewayName, "/")
-
-		if parts[0] != gateway.Namespace {
-			return false
-		}
-	}
-
-	return true
+	// Check if this was converted from a k8s gateway-api resource
+	return current == nil || current.InternalGateway == isInternalGateway(config)
 }
 
 func GetSNIHostsForServer(server *networking.Server) []string {

@@ -303,11 +303,11 @@ var (
 			"and will not distribute CRL data to namespaces for proxies to consume.",
 	).Get()
 
-	EnableStrictGatewayNamespaceChecking = env.Register(
-		"PILOT_ENABLE_STRICT_GATEWAY_NAMESPACE_CHECKING",
-		false, // Default value (true = feature enabled by default)
-		"If enabled, servers from an Istio gateway definition can only be merged if they are in the same namespace as the existing servers. "+
-			"By default it is disabled and no checking will be performed.",
+	EnableStrictGatewayMerging = env.Register(
+		"PILOT_ENABLE_STRICT_GATEWAY_MERGING",
+		false, // Default value (false = feature disabled by default)
+		"If enabled, GatewayAPI Gateways will not be merged with Istio Gateways. "+
+			"By default it is disabled and GatewayAPI and Istio Gateways will be merged together.",
 	).Get()
 
 	EnableNativeSidecars = func() NativeSidecarMode {
