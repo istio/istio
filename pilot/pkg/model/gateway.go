@@ -293,6 +293,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							ms.RouteName = routeName
 							ms.Servers = append(ms.Servers, s)
 						} else {
+							// Merge this to current known port with same bind.
 							ms := mergedServers[current]
 							ms.Servers = append(ms.Servers, s)
 						}
