@@ -2752,23 +2752,6 @@ var CheckDeny = check.Or(
 // runTest runs a given function against every src/dst pair
 func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		if t.Settings().AmbientMultiNetwork {
-			// all meshed services need to be labeled as global for the reachability tests.
-			for _, app := range apps.Mesh {
-				if app.Config().IsAmbient() {
-					// don't label sidecar services until https://github.com/istio/istio/issues/57877 is resolved.
-					labelService(t, app.ServiceName(), "istio.io/global", "true", app.Config().Cluster)
-				}
-			}
-			t.Cleanup(func() {
-				// cleanup services which other tests expect to be local
-				for _, app := range apps.Mesh {
-					if app.Config().IsAmbient() {
-						unlabelService(t, app.ServiceName(), "istio.io/global", app.Config().Cluster)
-					}
-				}
-			})
-		}
 		runAllTests(t, f)
 	})
 }
@@ -2824,10 +2807,31 @@ func runTestContextForCalls(
 	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
 ) {
 	svcs := apps.All
+	if t.Settings().AmbientMultiNetwork {
+		// all meshed services need to be labeled as global for the reachability tests.
+		for _, app := range apps.Mesh {
+			if app.Config().IsAmbient() {
+				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is resolved.
+				labelService(t, app.ServiceName(), "istio.io/global", "true", app.Config().Cluster)
+			}
+		}
+		t.Cleanup(func() {
+			// cleanup services which other tests expect to be local
+			for _, app := range apps.Mesh {
+				if app.Config().IsAmbient() {
+					unlabelService(t, app.ServiceName(), "istio.io/global", app.Config().Cluster)
+				}
+			}
+		})
+	}
 	for _, src := range svcs {
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
 			for _, dst := range getAllInstancesByServiceName() {
 				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {
+					if t.Settings().AmbientMultiNetwork && (src.Config().HasSidecar() || dst.Config().HasSidecar()) {
+						// Skip sidecar to sidecar in multinetwork, as they will use the east-west gateway which is not tested here.
+						t.Skip("https://github.com/istio/istio/issues/57878")
+					}
 					for _, opt := range callOptions {
 						t.NewSubTestf("%v", opt.Port.Name).Run(func(t framework.TestContext) {
 							// t.NewSubTestf("%v", opt.Port.Name).RunParallel(func(t framework.TestContext) {
