@@ -103,6 +103,8 @@ type clusterWrapper struct {
 	cluster *cluster.Cluster
 	// httpProtocolOptions stores the HttpProtocolOptions which will be marshaled when build is called.
 	httpProtocolOptions *http.HttpProtocolOptions
+	// isDFPCluster indicates whether the cluster is a dynamic forward proxy cluster
+	isDFPCluster bool
 }
 
 // metadataCerts hosts client certificate related metadata specified in proxy metadata.
@@ -192,6 +194,14 @@ func (m *metadataCerts) String() string {
 func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 	return &clusterWrapper{
 		cluster: cluster,
+	}
+}
+
+// newClusterWrapper initializes clusterWrapper with the cluster passed.
+func newDFPClusterWrapper(cluster *cluster.Cluster, isDFPCluster bool) *clusterWrapper {
+	return &clusterWrapper{
+		cluster: cluster,
+		isDFPCluster: isDFPCluster,
 	}
 }
 
@@ -498,14 +508,14 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 				ClusterImplementationSpecifier: &dfpcluster.ClusterConfig_DnsCacheConfig{
 					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
 						Name:            model.BuildDNSCacheName(service.Hostname),
-						DnsLookupFamily: cluster.Cluster_ALL,
+						DnsLookupFamily: cluster.Cluster_V4_ONLY,
 					},
 				},
 			}),
 		}},
 	}
 	c.AltStatName = util.DelimitedStatsPrefix(name)
-	ec := newClusterWrapper(c)
+	ec := newDFPClusterWrapper(c, true)
 	cb.setUpstreamProtocol(ec, port)
 	return ec
 }
@@ -759,19 +769,34 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	// Preserve HTTP/1.x traffic header case
 	isExplicitHTTP := port.Protocol.IsHTTP()
 	isAutoProtocol := port.Protocol.IsUnsupported()
+	log.Infof("jaellio Upstream protocol for Cluster %s. explicit http %t, isAutoProtocol %t", cluster.cluster.Name, isExplicitHTTP, isAutoProtocol)
 
-	if (isExplicitHTTP || isAutoProtocol) && shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
-		// Apply the stateful formatter for HTTP/1.x headers
-		if cluster.httpProtocolOptions == nil {
-			cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
-		}
-		options := cluster.httpProtocolOptions
-		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
-			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
-					HttpProtocolOptions: preserveCaseFormatterConfig,
+	if (isExplicitHTTP || isAutoProtocol) {
+	    if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
+			// Apply the stateful formatter for HTTP/1.x headers
+			if cluster.httpProtocolOptions == nil {
+				cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
+			}
+			options := cluster.httpProtocolOptions
+			options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
+						HttpProtocolOptions: preserveCaseFormatterConfig,
+					},
 				},
-			},
+			}
+		}
+		if cluster.isDFPCluster {
+			log.Infof("jaellio DFP Cluster - setting auto sni and auto san validation for cluster %s", cluster.cluster.Name)
+			if cluster.httpProtocolOptions == nil {
+				cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
+			}
+			options := cluster.httpProtocolOptions
+			// TODO(jaellio): should this happen in every case or only for TLS origination?
+			options.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{
+				AutoSni: true,
+				AutoSanValidation: true,
+			}
 		}
 	}
 
@@ -840,6 +865,7 @@ func (mc *clusterWrapper) build() *cluster.Cluster {
 	if mc == nil {
 		return nil
 	}
+	// Add a field to cluster wrapper for dfp cluster - set auto sni/ suto sans validations
 	// Marshall Http Protocol options if they exist.
 	if mc.httpProtocolOptions != nil {
 		// UpstreamProtocolOptions is required field in Envoy. If we have not set this option earlier
