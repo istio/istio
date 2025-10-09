@@ -549,6 +549,39 @@ spec:
 	g.Expect(clusterType.ClusterType.GetTypedConfig().TypeUrl).To(Equal("type.googleapis.com/envoy.extensions.clusters.dynamic_forward_proxy.v3.ClusterConfig"))
 }
 
+func TestWaypointClusterWithDynamicDNSWithoutWaypoint(t *testing.T) {
+	g := NewWithT(t)
+	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-service-entry
+  namespace: default
+spec:
+  hosts: ["*.domain.com"]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DYNAMIC_DNS`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		dynamicDNSServiceEntry)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	var clusterNames []string
+	for _, c := range clusters {
+		clusterNames = append(clusterNames, c.Name)
+	}
+	g.Expect(len(clusterNames)).To(Equal(4))
+	g.Expect(clusterNames).To(ContainElements([]string{
+		"connect_originate",
+		"outbound|15008||waypoint.default.svc.cluster.local",
+		"main_internal",
+		"encap"}))
+}
+
 func TestWaypointClusterWithDynamicDNSAndTLSOrigination(t *testing.T) {
 	g := NewWithT(t)
 	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
