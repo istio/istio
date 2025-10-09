@@ -992,6 +992,10 @@ func TestAuthorizationL4(t *testing.T) {
 
 			for _, tc := range authzCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					if t.Settings().AmbientMultiNetwork && (src.Config().HasSidecar() || dst.Config().HasSidecar()) {
+						// Sidecar + Ambient is not supported
+						t.Skip("https://github.com/istio/istio/issues/57878")
+					}
 					t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 						"Destination":  dst.Config().Service,
 						"Source":       src.Config().Service,
@@ -3574,7 +3578,11 @@ func TestServiceDynamicEnroll(t *testing.T) {
 		generators := []traffic.Generator{}
 		for _, c := range t.Clusters() {
 			dst := apps.Captured.ForCluster(c.Name())
-			mkGen := func(src echo.Caller) {
+			mkGen := func(src echo.Instance) {
+				if t.Settings().AmbientMultiNetwork && (src.Config().HasSidecar() || dst.Config().HasSidecar()) {
+					// Skip sidecar to sidecar in multinetwork, as they will use the east-west gateway which is not tested here.
+					return
+				}
 				g := traffic.NewGenerator(t, traffic.Config{
 					Source: src,
 					Options: echo.CallOptions{
