@@ -1,0 +1,23 @@
+apiVersion: release-notes/v2
+
+# This YAML file describes the format for specifying a release notes entry for Istio.
+# This should be filled in for all user facing changes.
+
+# kind describes the type of change that this represents.
+# Valid Values are:
+# - bug-fix -- Used to specify that this change represents a bug fix.
+# - security-fix -- Used to specify that this change represents a vulnerability fix.
+# - feature -- Used to specify a new feature that has been added.
+# - test -- Used to describe additional testing added. This file is optional for
+#   tests, but included for completeness.
+kind: security-fix
+
+area: security
+
+issue: []
+
+releaseNotes:
+  - |
+    **Improved**: A feature flag has been added to control the strictness of gateway merging.
+    When enabled, GatewayAPI gateways will not be merged with Istio Gateways.
+    The flag is disabled by default and can be enabled by setting the `PILOT_ENABLE_STRICT_GATEWAY_MERGING` environment variable to `true`.
