@@ -7,3 +7,4 @@ pilot:
     # 1.28 behavioral changes
     DISABLE_SHADOW_HOST_SUFFIX: "false"
     PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY: "false"
+    PILOT_ENABLE_STRICT_GATEWAY_MERGING: "false"

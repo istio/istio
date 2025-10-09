@@ -20,4 +20,4 @@ releaseNotes:
   - |
     **Improved**: A feature flag has been added to control the strictness of gateway merging.
     When enabled, GatewayAPI gateways will not be merged with Istio Gateways.
-    The flag is disabled by default and can be enabled by setting the `PILOT_ENABLE_STRICT_GATEWAY_MERGING` environment variable to `true`.
+    The flag is enabled by default and can be disabled by setting the `PILOT_ENABLE_STRICT_GATEWAY_MERGING` environment variable to `false`.
