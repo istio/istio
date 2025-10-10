@@ -163,6 +163,10 @@ _internal_defaults_do_not_set:
 
     logAsJson: false
 
+    # When enabled, default NetworkPolicy resources will be created
+    networkPolicy:
+      enabled: false
+
     # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
     # to use for pulling any images in pods that reference this ServiceAccount.
     # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
