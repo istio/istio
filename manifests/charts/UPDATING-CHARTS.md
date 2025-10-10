@@ -26,7 +26,7 @@ To avoid this, the project attempts to minimize additions to the `values.yaml` A
 
 - If the change is to a Kubernetes field (such as modifying a Deployment attribute), it will likely need to be install-time configuration. However, that doesn't necessarily mean a PR to add a value will be accepted. The `values.yaml` API is intended to maintain a *minimal core set of configuration* that most users will use. For bespoke use cases, [Helm Chart Customization](https://istio.io/latest/docs/setup/additional-setup/customize-installation-helm/#advanced-helm-chart-customization) can be used to allow arbitrary customizations.
 
-- Avoid exposing a single subkey of a multi-value field if it would be more flexible to expose the entire field as arbitrary YAML. If the change truly is generally purpose, it is generally preferred to have broader APIs. For example, instead of providing direct access to each of the complex fields in [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/), just providing a single `affinity` field that is passed through as-is to the Kubernetes resource. This provides maximum flexibility with minimal API surface overhead.
+- Avoid exposing a single subkey of a multi-value field if it would be more flexible to expose the entire field as arbitrary YAML. If the change truly is general purpose, it is generally preferred to have broader APIs. For example, instead of providing direct access to each of the complex fields in [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/), just providing a single `affinity` field that is passed through as-is to the Kubernetes resource. This provides maximum flexibility with minimal API surface overhead.
 
 - All value additions or removals are user-facing and must come with a release note.
 
@@ -80,6 +80,6 @@ Your PR should pass all the checks if you followed these steps.
 
 - Values may be marked as deprecated, but may not be removed until a minimum of 2 releases after the PR marking them as such is merged.
 
-- If you are _marking_ a value as `deprecated`, the PR doing so **must* add a [release note](../../releasenotes/README.md) mentioning the value being deprecated, and any replacements/alternatives.
+- If you are _marking_ a value as `deprecated`, the PR doing so **must** add a [release note](../../releasenotes/README.md) mentioning the value being deprecated, and any replacements/alternatives.
 
 - When _removing_ a value that has been marked as `deprecated` for a minimum of 2 releases, **both** the `releaseNote` and `upgradeNote` fields must be populated in the release note in the removal PR, mentioning the value being removed, and any replacements/alternatives.

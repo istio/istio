@@ -175,7 +175,7 @@ type RepairConfig struct {
 	// Whether to fix race condition by repairing them
 	RepairPods bool
 
-	// Whether to fix race condition by delete broken pods
+	// Whether to fix race condition by deleting broken pods
 	DeletePods bool
 
 	// Whether to label broken pods

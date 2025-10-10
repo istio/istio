@@ -96,7 +96,7 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 }
 
 // Run starts the installation process, verifies the configuration, then sleeps.
-// If the configuration is invalid, a full redeployal of config, binaries, and svcAcct credentials to the
+// If the configuration is invalid, a full redeployment of config, binaries, and svcAcct credentials to the
 // shared node CNI dir will be attempted.
 //
 // If changes occurred but the config is still valid, only the binaries and (optionally) svcAcct credentials
@@ -288,7 +288,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 			}
 			if len(cfg.CNIConfName) == 0 {
 				// We found the primary CNI config file (or the highest priority config file).
-				// Set the filename to the the CNIConfName if it isn't set
+				// Set the filename to the CNIConfName if it isn't set
 				cfg.CNIConfName = firstCNIConfigFilename
 			}
 			return fmt.Errorf("istio owned CNI config does not exist or is not the highest priority. Got %s instead", firstCNIConfigFilename)
@@ -301,7 +301,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 
 	// cniConfigFilepath is only set once the CNI config file has been validated or created at least once
 	// so even if the CNI config file is valid, it will not be equal to the cniConfigFilepath during the
-	// first call of checkValidCNIConfig and we will return an error so the the cni config file can be
+	// first call of checkValidCNIConfig and we will return an error so the cni config file can be
 	// created or rewritten
 	if defaultCNIConfigFilepath != cniConfigFilepath {
 		log.Infof("cniConfigFilePath mismatch: expected %s but found %s", defaultCNIConfigFilepath, cniConfigFilepath)
