@@ -154,6 +154,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 			model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
 	} else {
 		localCluster = cb.buildDFPCluster(clusterName, svc, &port)
+		log.Debugf("built DFP cluster %s for service %s", clusterName, svc.Hostname)
 	}
 
 	// Ensure VIP cluster has services metadata for stats filter usage
@@ -249,13 +250,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
 
-	if svc.Resolution != model.DynamicDNS {
-		// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
-		localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
-	} else {
-		// For a DFP cluster we don't use internal upstream transport sockets
-		localCluster.cluster.TransportSocket = transportSocket
-	}
+	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
+	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
 
 	return localCluster.build()
 }
