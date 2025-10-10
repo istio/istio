@@ -42,4 +42,5 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	cfg.Values["meshConfig.enableTracing"] = "true"
 	cfg.Values["pilot.traceSampling"] = "100.0"
 	cfg.Values["global.proxy.tracer"] = "zipkin"
+	cfg.Values["meshConfig.extensionProviders[0].zipkin.traceContextOption"] = "USE_B3_WITH_W3C_PROPAGATION"
 }

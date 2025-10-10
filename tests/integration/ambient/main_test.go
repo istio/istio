@@ -19,6 +19,7 @@ package ambient
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -71,6 +72,10 @@ values:
       networking.istio.io/tunnel: "http"
 `
 
+	nativeNftablesValues = `
+  global:
+    nativeNftables: true
+`
 	ambientMultiNetworkControlPlaneValues = `
 values:
   pilot:
@@ -140,6 +145,12 @@ func TestMain(m *testing.M) {
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ambientControlPlaneValues
+
+			if ctx.Settings().NativeNftables {
+				scopes.Framework.Infof("Running the integration tests with nativeNftables enabled")
+				cfg.ControlPlaneValues = strings.TrimRight(ambientControlPlaneValues, "\n") + nativeNftablesValues
+			}
+
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.DeployEastWestGW = true
 				cfg.DeployGatewayAPI = true
@@ -166,7 +177,7 @@ func TestMain(m *testing.M) {
 				if err != nil {
 					return err
 				}
-				return
+				return err
 			},
 		).
 		Run()

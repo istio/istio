@@ -345,14 +345,14 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		ret = action.(clienttesting.CreateAction).GetObject()
 		meta, ok := ret.(metav1.Object)
 		if !ok {
-			return
+			return handled, ret, err
 		}
 
 		if meta.GetName() == "" && meta.GetGenerateName() != "" {
 			meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
 		}
 
-		return
+		return handled, ret, err
 	}
 	for _, fc := range []fakeClient{
 		c.kube.(*fake.Clientset),
@@ -845,7 +845,7 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 
 	stdout = stdoutBuf.String()
 	stderr = stderrBuf.String()
-	return
+	return stdout, stderr, err
 }
 
 func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {

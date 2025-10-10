@@ -16,6 +16,7 @@ package option
 
 import (
 	"strings"
+	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -301,4 +302,12 @@ func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
 
 func EnvoyStatsCompression(value string) Instance {
 	return newOption("stats_compression", value)
+}
+
+func EnvoyStatsFlushInterval(interval time.Duration) Instance {
+	return newOption("stats_flush_interval", interval)
+}
+
+func EnvoyStatsEvictionInterval(interval time.Duration) Instance {
+	return newOption("stats_eviction_interval", interval)
 }

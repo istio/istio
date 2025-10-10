@@ -930,7 +930,7 @@ func GetProxyIDs(namespace *corev1.Namespace) (uid int64, gid int64) {
 	gid = constants.DefaultProxyUIDInt
 
 	if namespace == nil {
-		return
+		return uid, gid
 	}
 
 	// Check for OpenShift specifics and returns the max number in the range specified in the namespace annotation
@@ -941,5 +941,5 @@ func GetProxyIDs(namespace *corev1.Namespace) (uid int64, gid int64) {
 		gid = groups[0].Max
 	}
 
-	return
+	return uid, gid
 }

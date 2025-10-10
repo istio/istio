@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: statusPort
 spec:
   replicas: 7
@@ -24,7 +23,6 @@ spec:
         readiness.status.sidecar.istio.io/periodSeconds: "200"
         sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
         status.sidecar.istio.io/port: "0"
-      creationTimestamp: null
       labels:
         app: status
         security.istio.io/tlsMode: istio

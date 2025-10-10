@@ -126,5 +126,5 @@ func getCertApprovalCondition(status *certv1.CertificateSigningRequestStatus) (a
 			denied = true
 		}
 	}
-	return
+	return approved, denied
 }

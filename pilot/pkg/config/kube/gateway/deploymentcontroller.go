@@ -331,6 +331,14 @@ func NewDeploymentController(
 		}
 	}))
 
+	dc.env.Watcher.AddMeshHandler(func() {
+		// if there is a change to the meshconfig we need to reprocess all gateways
+		// to reconcile things like the deployment image
+		for _, gw := range dc.gateways.List(corev1.NamespaceAll, klabels.Everything()) {
+			dc.queue.AddObject(gw)
+		}
+	})
+
 	// we check if the generation has changed on a gateway, or if the annotations or labels have been updated
 	// reconciliation is expensive, so status updates for attachedRoutes can be skipped.
 
@@ -403,6 +411,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.gateways.HasSynced,
 		d.gatewayClasses.HasSynced,
 		d.tagWatcher.HasSynced,
+		d.env.Watcher.AsCollection().HasSynced,
 	)
 	d.queue.Run(stop)
 	controllers.ShutdownAll(
@@ -976,10 +985,10 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 	portNums := sets.New[int32]()
 	allListeners := append(slices.Clone(gw.Spec.Listeners), listenerSets...)
 	for i, l := range allListeners {
-		if portNums.Contains(int32(l.Port)) {
+		if portNums.Contains(l.Port) {
 			continue
 		}
-		portNums.Insert(int32(l.Port))
+		portNums.Insert(l.Port)
 		name := sanitizeListenerNameForPort(string(l.Name))
 		if name == "" {
 			// Should not happen since name is required, but in case an invalid resource gets in...
@@ -988,7 +997,7 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 		appProtocol := strings.ToLower(string(l.Protocol))
 		svcPorts = append(svcPorts, corev1.ServicePort{
 			Name:        name,
-			Port:        int32(l.Port),
+			Port:        l.Port,
 			AppProtocol: &appProtocol,
 		})
 	}

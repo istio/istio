@@ -645,8 +645,20 @@ message GlobalConfig {
 
   // Settings related to Kubernetes NetworkPolicy.
   NetworkPolicyConfig networkPolicy = 75;
-  // The next available key is 76
+
+  // Specifies resource scope for discovery selectors.
+  // This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+  ResourceScope resourceScope = 76;
+  // The next available key is 77
 }
+
+enum ResourceScope {
+  undefined = 0;
+  all = 1;
+  cluster = 2;
+  namespace = 3;
+}
+
 
 // Configuration for Security Token Service (STS) server.
 //

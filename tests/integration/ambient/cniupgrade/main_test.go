@@ -92,6 +92,12 @@ values:
     env:
       SECRET_TTL: 5m
 `
+			if ctx.Settings().NativeNftables {
+				cfg.ControlPlaneValues += `
+  global:
+    nativeNftables: true
+`
+			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)

@@ -150,7 +150,7 @@ proxyMetadata:
 	mockProm = match.ServiceName(echo.NamespacedName{Name: "mock-prom", Namespace: apps.Namespace}).GetMatches(apps.Echos().All.Instances())
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
-		return
+		return err
 	}
 
 	args := map[string]any{

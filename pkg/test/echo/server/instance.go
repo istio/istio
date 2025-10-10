@@ -191,7 +191,7 @@ func (s *Instance) Close() (err error) {
 			err = multierror.Append(err, s.Close())
 		}
 	}
-	return
+	return err
 }
 
 func (s *Instance) getListenerIPs(port *common.Port) ([]string, error) {

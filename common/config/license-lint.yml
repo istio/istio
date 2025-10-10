@@ -143,3 +143,9 @@ allowlisted_modules:
 
 # Simplified BSD License: https://github.com/gomarkdown/markdown/blob/master/LICENSE.txt
 - github.com/gomarkdown/markdown
+
+# MPL-2.0
+# https://github.com/cyphar/filepath-securejoin/blob/main/LICENSE.MPL-2.0
+# BSD
+# https://github.com/cyphar/filepath-securejoin/blob/main/LICENSE.BSD
+- github.com/cyphar/filepath-securejoin

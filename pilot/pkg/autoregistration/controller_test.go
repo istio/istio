@@ -755,7 +755,7 @@ func checkEntry(
 	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
 	if cfg == nil {
 		err = multierror.Append(fmt.Errorf("expected WorkloadEntry %s/%s to exist", wg.Namespace, name))
-		return
+		return err
 	}
 	tmpl := wg.Spec.(*v1alpha3.WorkloadGroup)
 	we := cfg.Spec.(*v1alpha3.WorkloadEntry)
@@ -816,7 +816,7 @@ func checkEntry(
 			err = multierror.Append(err, fmt.Errorf("labels missing on WorkloadEntry: %s=%s from proxy meta", k, v))
 		}
 	}
-	return
+	return err
 }
 
 func checkEntryOrFail(
@@ -884,7 +884,7 @@ func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, hea
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
 	if cfg == nil || cfg.Status == nil {
 		err = multierror.Append(fmt.Errorf("expected workloadEntry %s/%s to exist", name, proxy.Metadata.Namespace))
-		return
+		return err
 	}
 	stat := cfg.Status.(*v1alpha1.IstioStatus)
 	found := false
@@ -909,7 +909,7 @@ func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, hea
 				name, proxy.Metadata.Namespace))
 		}
 	}
-	return
+	return err
 }
 
 func checkHealthOrFail(t test.Failer, store model.ConfigStoreController, proxy *model.Proxy, healthy bool) {

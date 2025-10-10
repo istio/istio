@@ -691,6 +691,91 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(ConsistOf(hashPolicy))
 	})
 
+	t.Run("for virtual service with cookie hash policy with attributes", func(t *testing.T) {
+		g := NewWithT(t)
+		ttl := durationpb.Duration{Nanos: 100}
+		cg := core.NewConfigGenTest(t, core.TestOptions{
+			Services: exampleService,
+			Configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+						Namespace:        "istio-system",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "*.example.org",
+						TrafficPolicy: &networking.TrafficPolicy{
+							LoadBalancer: &networking.LoadBalancerSettings{
+								LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+									ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+										HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+											HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+												Name: "hash-cookie-with-attributes",
+												Ttl:  &ttl,
+												Path: "/api",
+												Attributes: []*networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie_Attribute{
+													{
+														Name:  "SameSite",
+														Value: "Strict",
+													},
+													{
+														Name:  "Secure",
+														Value: "true",
+													},
+													{
+														Name:  "HttpOnly",
+														Value: "true",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+
+		proxy := node(cg)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualServicePlain)
+		routeOpts := buildRouteOpts(serviceRegistry, hashByDestination)
+		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualServicePlain, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		expectedAttributes := []*envoyroute.RouteAction_HashPolicy_CookieAttribute{
+			{
+				Name:  "SameSite",
+				Value: "Strict",
+			},
+			{
+				Name:  "Secure",
+				Value: "true",
+			},
+			{
+				Name:  "HttpOnly",
+				Value: "true",
+			},
+		}
+
+		hashPolicy := &envoyroute.RouteAction_HashPolicy{
+			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
+				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+					Name:       "hash-cookie-with-attributes",
+					Ttl:        &ttl,
+					Path:       "/api",
+					Attributes: expectedAttributes,
+				},
+			},
+		}
+		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(ConsistOf(hashPolicy))
+		g.Expect(len(routes[0].GetRoute().GetRetryPolicy().RetryHostPredicate)).To(Equal(0))
+	})
+
 	t.Run("for virtual service with subsets and top level traffic policy with ring hash", func(t *testing.T) {
 		g := NewWithT(t)
 

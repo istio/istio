@@ -140,7 +140,7 @@ func (b *KeyCertBundle) GetAllPem() (certBytes, privKeyBytes, certChainBytes, ro
 	certChainBytes = copyBytes(b.certChainBytes)
 	rootCertBytes = copyBytes(b.rootCertBytes)
 	b.mutex.RUnlock()
-	return
+	return certBytes, privKeyBytes, certChainBytes, rootCertBytes
 }
 
 // GetAll returns all key/cert in KeyCertBundle together. Getting all values together avoids inconsistency.
@@ -154,7 +154,7 @@ func (b *KeyCertBundle) GetAll() (cert *x509.Certificate, privKey *crypto.Privat
 	certChainBytes = copyBytes(b.certChainBytes)
 	rootCertBytes = copyBytes(b.rootCertBytes)
 	b.mutex.RUnlock()
-	return
+	return cert, privKey, certChainBytes, rootCertBytes
 }
 
 // GetCertChainPem returns the certificate chain PEM.

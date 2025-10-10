@@ -118,9 +118,9 @@ func GetPlugins(cniConfigMap map[string]any) (plugins []any, err error) {
 	plugins, ok := cniConfigMap["plugins"].([]any)
 	if !ok {
 		err = fmt.Errorf("error reading plugin list from CNI config")
-		return
+		return plugins, err
 	}
-	return
+	return plugins, err
 }
 
 // Given the raw plugin interface, return the plugin asserted as a map[string]interface{}
@@ -128,9 +128,9 @@ func GetPlugin(rawPlugin any) (plugin map[string]any, err error) {
 	plugin, ok := rawPlugin.(map[string]any)
 	if !ok {
 		err = fmt.Errorf("error reading plugin from CNI config plugin list")
-		return
+		return plugin, err
 	}
-	return
+	return plugin, err
 }
 
 // Marshal the CNI config map and append a new line

@@ -395,7 +395,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 	if len(out) == 0 {
 		conflict = true
 	}
-	return
+	return out, conflict
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {

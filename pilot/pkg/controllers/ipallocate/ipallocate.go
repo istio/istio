@@ -390,6 +390,13 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	}
 
 	replaceAddresses, err := json.Marshal([]jsonPatch{
+		// Ensure the existing status we are acting on has not changed since we decided to allocate.
+		// This avoids TOCTOU race conditions
+		{
+			Operation: "test",
+			Path:      "/status/addresses",
+			Value:     se.Status.Addresses,
+		},
 		{
 			Operation: "replace",
 			Path:      "/status/addresses",
@@ -484,9 +491,9 @@ func (i prefixUse) isUsedBy(n netip.Addr, owner types.NamespacedName) (used, use
 		used = true // it is in use
 		res := strings.Compare(foundOwner.String(), owner.String())
 		usedByOwner = res == 0 // is it in use by the providec owner?
-		return
+		return used, usedByOwner
 	}
-	return
+	return used, usedByOwner
 }
 
 // markUsed will store the provided addr as used in this ipAllocator
@@ -494,11 +501,11 @@ func (i prefixUse) isUsedBy(n netip.Addr, owner types.NamespacedName) (used, use
 func (i prefixUse) markUsed(n netip.Addr, owner types.NamespacedName) (used, usedByOwner bool) {
 	if !i.prefix.Contains(n) {
 		// not in our range, no need to track it
-		return
+		return used, usedByOwner
 	}
 	used, usedByOwner = i.isUsedBy(n, owner)
 	if used {
-		return
+		return used, usedByOwner
 	}
 	i.used[n] = owner
 

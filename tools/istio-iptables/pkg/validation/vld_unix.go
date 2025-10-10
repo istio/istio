@@ -35,11 +35,11 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 	tcp, ok := conn.(*net.TCPConn)
 	if !ok {
 		err = errors.New("socket is not tcp")
-		return
+		return daddr, dport, err
 	}
 	file, err := tcp.File()
 	if err != nil {
-		return
+		return daddr, dport, err
 	}
 	defer file.Close()
 	fd := file.Fd()
@@ -53,7 +53,7 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 		isIpv4 = false
 	} else {
 		err = fmt.Errorf("neither ipv6 nor ipv4 original addr: %s", ip)
-		return
+		return daddr, dport, err
 	}
 
 	// golang doesn't provide a struct sockaddr_storage
@@ -68,7 +68,7 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 			constants.SoOriginalDst)
 		if err != nil {
 			log.Errorf("Error ipv4 getsockopt: %v", err)
-			return
+			return daddr, dport, err
 		}
 		// See struct sockaddr_in
 		daddr = net.IPv4(
@@ -79,7 +79,7 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 			constants.SoOriginalDst)
 		if err != nil {
 			log.Errorf("Error to ipv6 getsockopt: %v", err)
-			return
+			return daddr, dport, err
 		}
 		// See struct sockaddr_in6
 		daddr = addr.Addr.Addr[:]
@@ -89,7 +89,7 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 
 	log.Infof("Local addr %s", conn.LocalAddr())
 	log.Infof("Original addr %s: %d", ip, dport)
-	return
+	return daddr, dport, err
 }
 
 // Setup reuse address to run the validation server more robustly

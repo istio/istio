@@ -15,7 +15,7 @@
     "layers": [
       {
         "name": "global config",
-        "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
+        "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"re2.max_program_size.error_level":"32768"}
       },
       {
         "name": "admin",
@@ -429,6 +429,17 @@
             ]
           }
         ]
+      }
+    ]
+  },
+  "overload_manager": {
+    "resource_monitors": [
+      {
+        "name": "envoy.resource_monitors.global_downstream_max_connections",
+        "typed_config": {
+          "@type": "type.googleapis.com/envoy.extensions.resource_monitors.downstream_connections.v3.DownstreamConnectionsConfig",
+          "max_active_downstream_connections": 2147483647
+        }
       }
     ]
   }

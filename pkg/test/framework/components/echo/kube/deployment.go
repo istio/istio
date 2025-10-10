@@ -295,13 +295,13 @@ var RevVMImages = func() map[string]echo.VMDistro {
 // istiod via the east-west gateway, even though they are installed on the same cluster as istiod.
 func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost string, istioIP string) {
 	if ctx == nil {
-		return
+		return istioHost, istioIP
 	}
 
 	ist, err := istio.Get(ctx)
 	if err != nil {
 		log.Warnf("VM config failed to get Istio component for %s: %v", cfg.Cluster.Name(), err)
-		return
+		return istioHost, istioIP
 	}
 
 	// Generate the istiod host the same way as istioctl.
@@ -316,7 +316,7 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	} else {
 		istioIP = istioIPAddr.String()
 	}
-	return
+	return istioHost, istioIP
 }
 
 func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]any, error) {

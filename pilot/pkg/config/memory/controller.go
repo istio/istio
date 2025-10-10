@@ -96,7 +96,7 @@ func (c *Controller) Create(config config.Config) (revision string, err error) {
 			event:  model.EventAdd,
 		})
 	}
-	return
+	return revision, err
 }
 
 func (c *Controller) Update(config config.Config) (newRevision string, err error) {
@@ -108,7 +108,7 @@ func (c *Controller) Update(config config.Config) (newRevision string, err error
 			event:  model.EventUpdate,
 		})
 	}
-	return
+	return newRevision, err
 }
 
 func (c *Controller) UpdateStatus(config config.Config) (newRevision string, err error) {
@@ -120,7 +120,7 @@ func (c *Controller) UpdateStatus(config config.Config) (newRevision string, err
 			event:  model.EventUpdate,
 		})
 	}
-	return
+	return newRevision, err
 }
 
 func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRevision string, err error) {
@@ -138,7 +138,7 @@ func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRev
 			event:  model.EventUpdate,
 		})
 	}
-	return
+	return newRevision, err
 }
 
 func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string, resourceVersion *string) error {

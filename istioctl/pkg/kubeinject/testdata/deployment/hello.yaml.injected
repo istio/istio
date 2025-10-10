@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: hello
 spec:
   replicas: 7
@@ -18,7 +17,6 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":null,"imagePullSecrets":null,"revision":"default"}'
-      creationTimestamp: null
       labels:
         app: hello
         tier: backend

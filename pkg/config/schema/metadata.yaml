@@ -321,11 +321,11 @@ resources:
   - kind: "BackendTLSPolicy"
     plural: "backendtlspolicies"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha3"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha3"
-    proto: "k8s.io.gateway_api.api.v1alpha3.BackendTLSPolicySpec"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    statusProto: "k8s.io.gateway_api.api.v1alpha2.PolicyStatus"
+    version: "v1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    proto: "k8s.io.gateway_api.api.v1.BackendTLSPolicySpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    statusProto: "k8s.io.gateway_api.api.v1.PolicyStatus"
 
   - kind: "XListenerSet"
     identifier: XListenerSet

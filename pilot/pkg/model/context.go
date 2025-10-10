@@ -225,7 +225,7 @@ func (e *Environment) Init() {
 
 func (e *Environment) InitNetworksManager(updater XDSUpdater) (err error) {
 	e.NetworkManager, err = NewNetworkManager(e, updater)
-	return
+	return err
 }
 
 func (e *Environment) ClusterLocal() ClusterLocalProvider {
@@ -560,7 +560,7 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 func (node *Proxy) ShouldUpdateServiceTargets(updates sets.Set[ConfigKey]) bool {
 	// we only care for services which can actually select this proxy
 	for config := range updates {
-		if config.Kind == kind.ServiceEntry || config.Namespace == node.Metadata.Namespace {
+		if config.Kind == kind.ServiceEntry && config.Namespace == node.Metadata.Namespace {
 			return true
 		}
 	}

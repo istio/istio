@@ -109,11 +109,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
-			// Envoy only applies MaxRequests in HTTP/2 clusters
 			threshold.MaxRequests = &wrapperspb.UInt32Value{Value: uint32(settings.Http.Http2MaxRequests)}
 		}
 		if settings.Http.Http1MaxPendingRequests > 0 {
-			// Envoy only applies MaxPendingRequests in HTTP/1.1 clusters
 			threshold.MaxPendingRequests = &wrapperspb.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
 		}
 

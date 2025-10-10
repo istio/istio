@@ -64,7 +64,9 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
-var skippedTests = map[string]string{}
+var skippedTests = map[string]string{
+	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
+}
 
 func TestGatewayConformance(t *testing.T) {
 	framework.

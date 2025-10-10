@@ -141,7 +141,7 @@ func parseStats(input *bytes.Buffer, stats []*stat) (err error) {
 			*stat.value = 0
 		}
 	}
-	return
+	return err
 }
 
 func (s *stat) processLine(line string) error {

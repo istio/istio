@@ -1,0 +1,43 @@
+apiVersion: release-notes/v2
+
+# This YAML file describes the format for specifying a release notes entry for Istio.
+# This should be filled in for all user facing changes.
+
+# kind describes the type of change that this represents.
+# Valid Values are:
+# - bug-fix -- Used to specify that this change represents a bug fix.
+# - security-fix -- Used to specify that this change represents a vulnerability fix.
+# - feature -- Used to specify a new feature that has been added.
+# - test -- Used to describe additional testing added. This file is optional for
+#   tests, but included for completeness.
+kind: bug-fix
+
+# area describes the area that this change affects.
+# Valid values are:
+# - traffic-management
+# - security
+# - telemetry
+# - installation
+# - istioctl
+# - documentation
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue: [57656]
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+  - |
+    **Fixed** an issue where the ambient dataplane did not correctly handle ServiceEntries with resolution set to `NONE`. Previously, The configuration would have a VIP but no endpoints, which would result in a no healthy upstream error. We now configure this as a "PASSTHROUGH" service, meaning the addresses called by the client will be used as the backend.
+
+upgradeNotes:
+  - title: 'Ambient data plane behavior changes for ServiceEntries with resolution set to `NONE`'
+    content: |
+      During an upgrade from a previous version to one supporting "PASSTHROUGH" services, old ztunnel images will report a NACK in XDS because they do not support this new service type. This is expected and should not be overly problematic, however it may represent a data plane behavior change when you see the NACK. During the upgrade, a NACK could result in:
+
+        1. The data plane configuration was not updated because it could not handle the new service type. This is effectively a noop update.
+        2. The service is new and configuration was not accepted by the data plane. This will result in behavior where the data plane behaves as if the ServiceEntry doesn't exist. This results in passthrough behavior where ztunnel does not recognize the service and can not determine if a waypoint is required.
+
+      In both cases, the NACK behavior will resolve once ztunnel is updated to a version that supports the new service type.

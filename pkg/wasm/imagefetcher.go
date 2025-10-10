@@ -95,7 +95,7 @@ func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, e
 	ref, err := name.ParseReference(url)
 	if err != nil {
 		err = fmt.Errorf("could not parse url in image reference: %v", err)
-		return
+		return binaryFetcher, actualDigest, err
 	}
 	wasmLog.Infof("fetching image %s from registry %s with tag %s", ref.Context().RepositoryStr(),
 		ref.Context().RegistryStr(), ref.Identifier())
@@ -113,14 +113,14 @@ func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, e
 
 	if err != nil {
 		err = fmt.Errorf("could not fetch manifest: %v", err)
-		return
+		return binaryFetcher, actualDigest, err
 	}
 
 	// Fetch image.
 	img, err := desc.Image()
 	if err != nil {
 		err = fmt.Errorf("could not fetch image: %v", err)
-		return
+		return binaryFetcher, actualDigest, err
 	}
 
 	// Check Manifest's digest if expManifestDigest is not empty.
@@ -163,7 +163,7 @@ func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, e
 			),
 		)
 	}
-	return
+	return binaryFetcher, actualDigest, err
 }
 
 // extractDockerImage extracts the Wasm binary from the

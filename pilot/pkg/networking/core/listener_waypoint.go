@@ -649,7 +649,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
-	return
+	return pre, post
 }
 
 // buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.

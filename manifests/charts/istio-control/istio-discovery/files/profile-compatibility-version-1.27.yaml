@@ -1,0 +1,9 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
+pilot:
+  env:
+    # 1.28 behavioral changes
+    DISABLE_SHADOW_HOST_SUFFIX: "false"
+    PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY: "false"

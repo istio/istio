@@ -66,6 +66,10 @@ func (e External) Build(t resource.Context, b deployment.Builder) deployment.Bui
 				Version:     "v1",
 				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
+			{
+				Version:     "v2",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+			},
 		},
 	}
 	return b.WithConfig(config)

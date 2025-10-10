@@ -195,7 +195,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 		}
 	}
 
-	return
+	return subsetClusters
 }
 
 // applyTrafficPolicy mutates the give cluster (if not-nil) so that the given merged traffic policy applies.

@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2025-09-02T15-40-33
+BASE_VERSION ?= master-2025-10-01T19-01-35
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -228,7 +228,7 @@ RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl envoy ztunnel c
 # agent: enables agent-specific files. Usually this is used to trim dependencies where they would be hard to trim through standard refactoring
 # disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
 # not set vtprotobuf: this adds some performance improvement, but at a binary cost increase that is not worth it for the agent
-# notrace: helps with https://github.com/istio/istio/issues/56636 and reduces bnary size
+# notrace: helps with https://github.com/istio/istio/issues/56636 and reduces binary size
 AGENT_TAGS=agent,disable_pgv,grpcnotrace,retrynotrace
 # disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
 # vtprotobuf: enables optimized protobuf marshalling.

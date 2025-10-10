@@ -41,7 +41,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Merg
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.
 	out = c
 	if efw == nil {
-		return
+		return out
 	}
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		applied := false

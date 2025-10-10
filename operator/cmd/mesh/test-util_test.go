@@ -93,7 +93,7 @@ func FromHash(hash string) (kind, namespace, name string) {
 		return "Bad hash string: " + hash, "", ""
 	}
 	kind, namespace, name = hv[0], hv[1], hv[2]
-	return
+	return kind, namespace, name
 }
 
 // nameMatches returns a subset of o where objects names match the given regex.

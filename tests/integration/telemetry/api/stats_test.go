@@ -397,7 +397,7 @@ func BuildQueryCommon(labels map[string]string, ns string) (sourceQuery, destina
 	appQuery.Metric = "istio_echo_http_requests_total"
 	appQuery.Labels = map[string]string{"namespace": ns}
 
-	return
+	return sourceQuery, destinationQuery, appQuery
 }
 
 func clone(labels map[string]string) map[string]string {
@@ -432,7 +432,7 @@ func buildQuery(sourceCluster string, enableMXAdditionalLabels bool) (sourceQuer
 		destinationQuery.Labels["downstream_custom_label"] = "a"
 	}
 
-	return
+	return sourceQuery, destinationQuery, appQuery
 }
 
 func buildOutOfMeshServerQuery(sourceCluster string) prometheus.Query {
@@ -614,5 +614,5 @@ func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
 	if !v4 && !v6 {
 		t.Fatalf("pod is neither v4 nor v6? %v", addrs)
 	}
-	return
+	return v4, v6
 }

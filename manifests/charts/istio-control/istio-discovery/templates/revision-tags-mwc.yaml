@@ -33,6 +33,8 @@ a unique prefix to each. */}}
   reinvocationPolicy: "{{ .reinvocationPolicy }}"
   admissionReviewVersions: ["v1"]
 {{- end }}
+
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 {{- if not .Values.global.operatorManageWebhooks }}
 {{- range $tagName := $.Values.revisionTags }}
 apiVersion: admissionregistration.k8s.io/v1
@@ -148,5 +150,6 @@ webhooks:
 
 {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

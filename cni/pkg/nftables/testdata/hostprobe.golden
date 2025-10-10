@@ -1,0 +1,5 @@
+add table inet istio-ambient-nat
+flush table inet istio-ambient-nat
+add chain inet istio-ambient-nat postrouting { type nat hook postrouting priority 100 ; }
+add rule inet istio-ambient-nat postrouting meta l4proto tcp skuid 1000 ip daddr @istio-inpod-probes-v4 counter snat to 169.254.7.127
+add rule inet istio-ambient-nat postrouting meta l4proto tcp skuid 1000 ip6 daddr @istio-inpod-probes-v6 counter snat to e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164

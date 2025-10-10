@@ -379,7 +379,7 @@ func (s *suiteImpl) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error
 		}
 	}()
 	err = fn(ctx)
-	return
+	return err
 }
 
 func (s *suiteImpl) Run() {
@@ -486,7 +486,7 @@ func (s *suiteImpl) run() (errLevel int) {
 	}
 	s.runTeardownFns(ctx)
 
-	return
+	return errLevel
 }
 
 func clusters(ctx resource.Context) []cluster.Cluster {

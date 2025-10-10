@@ -51,7 +51,7 @@ func testRegistrySetup(ctx resource.Context) (err error) {
 
 	registry, err = registryredirector.New(ctx, config)
 	if err != nil {
-		return
+		return err
 	}
 
 	return nil

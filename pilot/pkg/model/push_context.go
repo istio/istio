@@ -2204,7 +2204,7 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {
-				if plugin.MatchListener(selectionOpts, info) && plugin.MatchType(pluginType) {
+				if plugin.MatchType(pluginType) && plugin.MatchListener(selectionOpts, info) {
 					matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 				}
 			}

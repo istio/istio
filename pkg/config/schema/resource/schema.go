@@ -290,7 +290,7 @@ func (s *schemaImpl) Validate() (err error) {
 	if s.reflectType == nil && getProtoMessageType(s.proto) == nil {
 		err = multierror.Append(err, fmt.Errorf("proto message or reflect type not found: %v", s.proto))
 	}
-	return
+	return err
 }
 
 func (s *schemaImpl) String() string {

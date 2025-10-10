@@ -108,7 +108,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bo
 		errs = AppendValidation(errs, agent.ValidateDuration(http.Timeout))
 	}
 
-	return
+	return errs
 }
 
 // validateAuthorityRewrite ensures we only attempt rewrite authority in a single place.
@@ -183,7 +183,7 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute) (errs error) {
 		}
 	}
 
-	return
+	return errs
 }
 
 func validateHTTPRouteConflict(http *networking.HTTPRoute, routeType HTTPRouteType) (errs error) {

@@ -37,6 +37,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/route/retry"
@@ -1441,9 +1442,10 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 func TranslateRequestMirrorPolicy(cluster string, mp *core.RuntimeFractionalPercent,
 ) *route.RouteAction_RequestMirrorPolicy {
 	return &route.RouteAction_RequestMirrorPolicy{
-		Cluster:         cluster,
-		RuntimeFraction: mp,
-		TraceSampled:    &wrapperspb.BoolValue{Value: false},
+		Cluster:                       cluster,
+		RuntimeFraction:               mp,
+		TraceSampled:                  &wrapperspb.BoolValue{Value: false},
+		DisableShadowHostSuffixAppend: features.DisableShadowHostSuffix,
 	}
 }
 
@@ -1479,13 +1481,25 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		if cookie.GetTtl() != nil {
 			ttl = cookie.GetTtl()
 		}
+		cookiePolicy := &route.RouteAction_HashPolicy_Cookie{
+			Name: cookie.GetName(),
+			Ttl:  ttl,
+			Path: cookie.GetPath(),
+		}
+		if len(cookie.GetAttributes()) > 0 {
+			attributes := make([]*route.RouteAction_HashPolicy_CookieAttribute, len(cookie.GetAttributes()))
+			for i, attr := range cookie.GetAttributes() {
+				attributes[i] = &route.RouteAction_HashPolicy_CookieAttribute{
+					Name:  attr.GetName(),
+					Value: attr.GetValue(),
+				}
+			}
+			cookiePolicy.Attributes = attributes
+		}
+
 		return &route.RouteAction_HashPolicy{
 			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
-				Cookie: &route.RouteAction_HashPolicy_Cookie{
-					Name: cookie.GetName(),
-					Ttl:  ttl,
-					Path: cookie.GetPath(),
-				},
+				Cookie: cookiePolicy,
 			},
 		}
 	case *networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp:

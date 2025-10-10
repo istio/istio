@@ -795,7 +795,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 		gvr.InferencePool,
 	} {
 		clienttest.MakeCRDWithAnnotations(t, kc, crd, map[string]string{
-			consts.BundleVersionAnnotation: "v1.1.0",
+			consts.BundleVersionAnnotation: consts.BundleVersion,
 		})
 	}
 }

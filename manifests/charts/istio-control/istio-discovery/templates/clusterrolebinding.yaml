@@ -1,3 +1,5 @@
+# Created if cluster resources are not omitted
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled (or .Values.global.configCluster .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -36,5 +38,6 @@ subjects:
 - kind: ServiceAccount
   name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Values.global.istioNamespace }}
+{{- end }}
 {{- end }}
 {{- end }}
