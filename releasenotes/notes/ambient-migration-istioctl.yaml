@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** new `istioctl ambient migrate` command for sidecar to ambient mesh migration.
+  The migration is performed in 7 phases (pre-reqs, cluster-setup, deploy-waypoints, migrate-policies, use-waypoints, policy-simplification, remove-sidecars) to ensure zero-downtime transition.
+  Features fail-fast behavior, smart detection of existing resources, and automatic L7 policy migration to waypoint-compatible format.
