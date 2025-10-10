@@ -1190,7 +1190,7 @@ spec:
   parentRefs:
   - kind: ServiceEntry
     group: networking.istio.io
-    name: external
+    name: external-wildcard
   rules:
   - backendRefs:
     - kind: Hostname
@@ -1204,7 +1204,7 @@ spec:
 				}, wildcardTLSOriginationRedirect).
 				ApplyOrFail(t)
 
-			runTest(t, "http origination targetPort", "", echo.CallOptions{
+			runTest(t, "http origination route", "", echo.CallOptions{
 				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,

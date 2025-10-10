@@ -1146,11 +1146,11 @@ const (
 	WaypointBound    ConditionType = "istio.io/WaypointBound"
 	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
 	WaypointAccepted ConditionType = "WaypointAccepted"
-	// TODO(jaellio): Block servieEntryInfo creation entirely or set status - Can we still
-	// block sending configuration while setting status?
 	// WaypointMissing is set on a ServiceEntry with a wildcard hostname and not bound to a waypoint.
 	// It is used to inform the user that the ServiceEntry will not be active until it is bound to a waypoint.
 	WaypointMissing ConditionType = "istio.io/WaypointMissing"
+
+	NoWaypointForWildcardService string = "NoWaypointForWildcardService"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1207,7 +1207,7 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		buildMsg.WriteString("No waypoint found for wildcard service. ServiceEntry will not apply until it is bound to a specific waypoint.")
 		set[WaypointMissing] = &Condition{
 			Status:  true,
-			Reason:  "WildcardServiceNoWaypoint",
+			Reason:  NoWaypointForWildcardService,
 			Message: buildMsg.String(),
 		}
 	}
