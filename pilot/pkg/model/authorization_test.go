@@ -563,7 +563,3 @@ func (fs *authzFakeStore) Update(config.Config) (string, error) {
 func (fs *authzFakeStore) UpdateStatus(config.Config) (string, error) {
 	return "not implemented", nil
 }
-
-func (fs *authzFakeStore) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	return "not implemented", nil
-}
