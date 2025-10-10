@@ -150,7 +150,7 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6, forceLegacy bool) (Iptabl
 	//
 	// does the legacy binary set exist, and are legacy rules present?
 	legVer, err := shouldUseBinaryForCurrentContext(legacyBin)
-	if err == nil && legVer.ExistingRules {
+	if err == nil && (legVer.ExistingRules || forceLegacy) {
 		// if so, immediately use it
 		return legVer, nil
 	}
