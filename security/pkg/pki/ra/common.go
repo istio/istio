@@ -102,8 +102,8 @@ func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 	// in the ExtraExtensions field. CreateCertificateRequest would normally add the SAN extensions
 	// from ExtraExtensions to the Extensions field. However, we are only generating the
 	// template here and not the actual CSR since we do not know the exact signing mechanisms
-	// of the client. Additionally, if we compared extensions the the generated CSR and the original
-	// CSR would match since the hosts where constructed from the extracted SAN extensions.
+	// of the client. Additionally, if we compared extensions the generated CSR and the original
+	// CSR would match since the hosts were constructed from the extracted SAN extensions.
 	genCSRTemplate, err := util.GenCSRTemplate(util.CertOptions{Host: hosts})
 	if err != nil {
 		return false

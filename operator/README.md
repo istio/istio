@@ -12,7 +12,7 @@ architecture and a code overview, see [ARCHITECTURE.md](../architecture/environm
 
 ## Introduction
 
-The operator formerly acted as an in-cluster operator, dynamically reconciling and Istio installation.
+The operator formerly acted as an in-cluster operator, dynamically reconciling an Istio installation.
 This mode has now been removed, and it only serves as a client-side CLI tool to install Istio.
 
 The operator uses the [IstioOperator API](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto), which has
@@ -124,7 +124,7 @@ istioctl profile dump -f samples/pilot-k8s.yaml
 # show the differences in the generated manifests between the default profile and a customized install
 istioctl manifest generate > 1.yaml
 istioctl manifest generate -f samples/pilot-k8s.yaml > 2.yaml
-istioctl manifest diff 1.yam1 2.yaml
+istioctl manifest diff 1.yaml 2.yaml
 ```
 
 The profile dump sub-command supports a couple of useful flags:

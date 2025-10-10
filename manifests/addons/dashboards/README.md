@@ -1,7 +1,7 @@
 # Grafana Dashboards
 
 This folder contains Istio's official Grafana dashboards.
-These get publish to [Grafana](https://grafana.com/orgs/istio/dashboards) during release, and are bundled into our
+These get published to [Grafana](https://grafana.com/orgs/istio/dashboards) during release, and are bundled into our
 [Grafana sample](../../../samples/addons/grafana.yaml).
 
 ## Jsonnet
