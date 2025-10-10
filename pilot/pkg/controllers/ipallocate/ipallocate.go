@@ -345,7 +345,6 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	hostsWithAddresses := sets.New[string]()
 	hostsInSpec := sets.New[string]()
 
-	// TODO(jaellio): Make this behavior conditional on ambient mode being enabled
 	for _, host := range slices.Filter(se.Spec.Hosts, func(h string) bool { return keepHost(se, h) }) {
 		hostsInSpec.Insert(host)
 	}
