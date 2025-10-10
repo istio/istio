@@ -149,6 +149,10 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	// This mode is an alternative for iptables. It uses nftables rules for traffic redirection.
 	flag.BindEnv(fs, constants.NativeNftables, "", "Use native nftables instead of iptables rules.",
 		&cfg.NativeNftables)
+
+	// This mode is an alternative for iptables. It uses nftables rules for traffic redirection.
+	flag.BindEnv(fs, constants.ForceLegacyIPTables, "", "Always use iptables-legacy for writing rules even if iptables-nft is available.",
+		&cfg.ForceLegacyIPTables)
 }
 
 func GetCommand(logOpts *log.Options) *cobra.Command {

@@ -130,7 +130,7 @@ const (
 // 2. If so, use `legacy` binary immediately
 // 3. Otherwise, check if we have `iptables-nft` binary in our $PATH and if so, use `nft` binary set
 // 4. Otherwise, see if we have `iptables` binary set, and use that.
-func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, error) {
+func (r *RealDependencies) DetectIptablesVersion(ipV6, forceLegacy bool) (IptablesVersion, error) {
 	// Begin detecting
 	//
 	// iptables variants all have ipv6 variants, so decide which set we're looking for
@@ -156,6 +156,10 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 	}
 	// not critical, may find another.
 	log.Debugf("did not find (or cannot use) iptables binary, error was %v: %+v", err, legVer)
+
+	if forceLegacy {
+		return IptablesVersion{}, fmt.Errorf("force legacy iptables was set but cannot be used: %v", err)
+	}
 
 	// Check again
 	// does the nft binary set exist and seem usable?

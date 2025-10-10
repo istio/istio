@@ -32,5 +32,5 @@ type Dependencies interface {
 	// NOTE that this uses existing rules as part of its heuristic when choosing which binary
 	// to use, so detection should typically happen *once-per-netns*, or different results
 	// might be returned on subsequent calls if the rules in the netnamespace have changed.
-	DetectIptablesVersion(ipV6 bool) (IptablesVersion, error)
+	DetectIptablesVersion(ipV6, forceLegacy bool) (IptablesVersion, error)
 }

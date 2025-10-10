@@ -82,7 +82,7 @@ func NewIptablesConfigurator(
 	//
 	// But that's stunningly unlikely (and would still work either way)
 	err := util.RunAsHost(func() error {
-		iptVer, err := hostDeps.DetectIptablesVersion(false)
+		iptVer, err := hostDeps.DetectIptablesVersion(false, hostCfg.ForceLegacyIPTables)
 		if err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func NewIptablesConfigurator(
 
 		configurator.iptV = iptVer
 
-		ipt6Ver, err := hostDeps.DetectIptablesVersion(true)
+		ipt6Ver, err := hostDeps.DetectIptablesVersion(true, hostCfg.ForceLegacyIPTables)
 		if err != nil {
 			if hostCfg.EnableIPv6 {
 				return err

@@ -67,15 +67,17 @@ type AmbientConfig struct {
 	Reconcile              bool       `json:"RECONCILE"`
 	CleanupOnly            bool       `json:"CLEANUP_ONLY"`
 	ForceApply             bool       `json:"FORCE_APPLY"`
+	ForceLegacyIPTables    bool       `json:"FORCE_LEGACY_IPTABLES"`
 }
 
 // GetConfig converts AmbientConfig to tools common config format
 func GetConfig(c *AmbientConfig) *cfg.Config {
 	return &cfg.Config{
-		EnableIPv6:  c.EnableIPv6,
-		RedirectDNS: c.RedirectDNS,
-		Reconcile:   c.Reconcile,
-		ForceApply:  c.ForceApply,
+		EnableIPv6:          c.EnableIPv6,
+		RedirectDNS:         c.RedirectDNS,
+		Reconcile:           c.Reconcile,
+		ForceApply:          c.ForceApply,
+		ForceLegacyIPTables: c.ForceLegacyIPTables,
 	}
 }
 

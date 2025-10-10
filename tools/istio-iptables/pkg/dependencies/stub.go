@@ -51,7 +51,7 @@ func (s *DependenciesStub) Run(logger *log.Scope,
 	return &bytes.Buffer{}, nil
 }
 
-func (s *DependenciesStub) DetectIptablesVersion(ipV6 bool) (IptablesVersion, error) {
+func (s *DependenciesStub) DetectIptablesVersion(ipV6, forceLegacy bool) (IptablesVersion, error) {
 	if ipV6 {
 		if s.ForceIPv6DetectionFail {
 			return IptablesVersion{}, fmt.Errorf("ip6tables binary not found")

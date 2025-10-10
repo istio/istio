@@ -59,3 +59,11 @@ func ValidateIPv4LoopbackCidr(cidr string) error {
 	}
 	return nil
 }
+
+func ValidateNftLegacyFlags(nativeNftables, forceLegacyIPTables bool) error {
+	if nativeNftables && forceLegacyIPTables {
+		return fmt.Errorf("cannot set both NativeNftables and ForceLegacyIPTables, choose one")
+	}
+
+	return nil
+}

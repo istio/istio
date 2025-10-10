@@ -44,12 +44,12 @@ type IptablesConfigurator struct {
 }
 
 func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) (*IptablesConfigurator, error) {
-	iptVer, err := ext.DetectIptablesVersion(false)
+	iptVer, err := ext.DetectIptablesVersion(false, cfg.ForceLegacyIPTables)
 	if err != nil {
 		return nil, err
 	}
 
-	ipt6Ver, err := ext.DetectIptablesVersion(true)
+	ipt6Ver, err := ext.DetectIptablesVersion(true, cfg.ForceLegacyIPTables)
 	if err != nil {
 		if cfg.EnableIPv6 {
 			return nil, err

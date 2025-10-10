@@ -196,11 +196,11 @@ func TestIptablesHostCleanRoundTrip(t *testing.T) {
 		UsePodScopedXtablesLock: false,
 		NetworkNamespace:        "",
 	}
-	iptVer, err := ext.DetectIptablesVersion(false)
+	iptVer, err := ext.DetectIptablesVersion(false, false)
 	if err != nil {
 		t.Fatalf("Can't detect iptables version: %v", err)
 	}
-	ipt6Ver, err := ext.DetectIptablesVersion(true)
+	ipt6Ver, err := ext.DetectIptablesVersion(true, false)
 	if err != nil {
 		t.Fatalf("Can't detect ip6tables version")
 	}

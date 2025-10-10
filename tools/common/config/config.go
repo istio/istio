@@ -91,6 +91,7 @@ type Config struct {
 	CleanupOnly              bool       `json:"CLEANUP_ONLY"`
 	ForceApply               bool       `json:"FORCE_APPLY"`
 	NativeNftables           bool       `json:"NATIVE_NFTABLES"`
+	ForceLegacyIPTables      bool       `json:"FORCE_LEGACY_IPTABLES"`
 }
 
 type NetworkRange struct {
@@ -144,6 +145,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("CLEANUP_ONLY=%t\n", c.CleanupOnly))
 	b.WriteString(fmt.Sprintf("FORCE_APPLY=%t\n", c.ForceApply))
 	b.WriteString(fmt.Sprintf("NATIVE_NFTABLES=%t\n", c.NativeNftables))
+	b.WriteString(fmt.Sprintf("FORCE_LEGACY_IPTABLES=%t\n", c.ForceLegacyIPTables))
 	log.Infof("Istio config:\n%s", b.String())
 }
 
@@ -151,6 +153,11 @@ func (c *Config) Validate() error {
 	if err := ValidateOwnerGroups(c.OwnerGroupsInclude, c.OwnerGroupsExclude); err != nil {
 		return err
 	}
+
+	if err := ValidateNftLegacyFlags(c.NativeNftables, c.ForceLegacyIPTables); err != nil {
+		return err
+	}
+
 	return ValidateIPv4LoopbackCidr(c.HostIPv4LoopbackCidr)
 }
 
