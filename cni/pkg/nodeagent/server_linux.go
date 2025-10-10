@@ -36,6 +36,7 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		EnableIPv6:             args.EnableIPv6,
 		HostProbeSNATAddress:   HostProbeSNATIP,
 		HostProbeV6SNATAddress: HostProbeSNATIPV6,
+		ForceLegacyIPTables:    args.ForceLegacyIPTables,
 	}
 
 	podCfg := &config.AmbientConfig{
@@ -44,6 +45,7 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		HostProbeSNATAddress:   HostProbeSNATIP,
 		HostProbeV6SNATAddress: HostProbeSNATIPV6,
 		Reconcile:              args.ReconcilePodRulesOnStartup,
+		ForceLegacyIPTables:    args.ForceLegacyIPTables,
 	}
 
 	log.Infof("creating host addressSet manager in the node netns")
