@@ -198,10 +198,10 @@ func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 }
 
 // newClusterWrapper initializes clusterWrapper with the cluster passed.
-func newDFPClusterWrapper(cluster *cluster.Cluster, isDFPCluster bool) *clusterWrapper {
+func newDFPClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 	return &clusterWrapper{
 		cluster:      cluster,
-		isDFPCluster: isDFPCluster,
+		isDFPCluster: true,
 	}
 }
 
@@ -515,7 +515,7 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 		}},
 	}
 	c.AltStatName = util.DelimitedStatsPrefix(name)
-	ec := newDFPClusterWrapper(c, true)
+	ec := newDFPClusterWrapper(c)
 	cb.setUpstreamProtocol(ec, port)
 	return ec
 }
