@@ -679,6 +679,11 @@ spec:
     tls:
       mode: SIMPLE
       insecureSkipVerify: true`
+
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]string{}, tlsOrigination).
+				ApplyOrFail(t)
+			time.Sleep(60 * time.Minute)
 			runTest(t, "http origination targetPort", tlsOrigination, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 8080},
@@ -1045,9 +1050,6 @@ func TestWaypointAsEgressGatewayForWildcardEntries(t *testing.T) {
 					if src.Config().HasSidecar() {
 						t.Skip("TODO: sidecars don't properly handle use-waypoint")
 					}
-					if _, v6 :=getSupportedIPFamilies(t); v6 {
-						t.Skip("TODO: skipping test as wildcard DNS doesn't support resolving to IPv6 address")
-					}
 					for _, o := range opts {
 						src.CallOrFail(t, o)
 					}
@@ -1058,6 +1060,9 @@ func TestWaypointAsEgressGatewayForWildcardEntries(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
+			if _, v6 := getSupportedIPFamilies(t); v6 {
+				t.Skip("TODO: skipping test as wildcard DNS doesn't support resolving to IPv6 address")
+			}
 			egressNamespace, err := namespace.Claim(t, namespace.Config{
 				Prefix: "wildcard-egress",
 				Inject: false,
@@ -1111,7 +1116,6 @@ spec:
 					"EgressNamespace":   egressNamespace.Name(),
 				}, service).
 				ApplyOrFail(t)
-/*
 			// We can send a simple request
 			runTest(t, "basic", "", echo.CallOptions{
 				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
@@ -1149,9 +1153,9 @@ spec:
 				// We expect the request to succeed since Host matches the wildcarded hostname even though it is not the original destination host
 				Check: check.And(check.OK(), IsL7()),
 			})
-*/
+
 			// Test we can do TLS origination, by utilizing ServiceEntry target port
-			wildacardTlsOrigination := `apiVersion: networking.istio.io/v1
+			wildacardTLSOrigination := `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: wildcard-tls-origination
@@ -1165,7 +1169,7 @@ spec:
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), map[string]string{
 					"ExternalNamespace": apps.ExternalNamespace.Name(),
-				}, wildacardTlsOrigination).
+				}, wildacardTLSOrigination).
 				ApplyOrFail(t)
 
 			runTest(t, "http origination targetPort", "", echo.CallOptions{
@@ -1176,7 +1180,37 @@ spec:
 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			})
 
-			time.Sleep(60 * time.Minute)
+			wildcardTLSOriginationRedirect := wildacardTLSOrigination + `
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-port
+spec:
+  parentRefs:
+  - kind: ServiceEntry
+    group: networking.istio.io
+    name: external
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: "*.{{.ExternalNamespace}}.svc.cluster.local"
+      port: 443
+`
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]string{
+					"ExternalNamespace": apps.ExternalNamespace.Name(),
+				}, wildcardTLSOriginationRedirect).
+				ApplyOrFail(t)
+
+			runTest(t, "http origination targetPort", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
 		})
 }
 

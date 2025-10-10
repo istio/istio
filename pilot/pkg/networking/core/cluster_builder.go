@@ -200,7 +200,7 @@ func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 // newClusterWrapper initializes clusterWrapper with the cluster passed.
 func newDFPClusterWrapper(cluster *cluster.Cluster, isDFPCluster bool) *clusterWrapper {
 	return &clusterWrapper{
-		cluster: cluster,
+		cluster:      cluster,
 		isDFPCluster: isDFPCluster,
 	}
 }
@@ -769,10 +769,9 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	// Preserve HTTP/1.x traffic header case
 	isExplicitHTTP := port.Protocol.IsHTTP()
 	isAutoProtocol := port.Protocol.IsUnsupported()
-	log.Infof("jaellio Upstream protocol for Cluster %s. explicit http %t, isAutoProtocol %t", cluster.cluster.Name, isExplicitHTTP, isAutoProtocol)
 
-	if (isExplicitHTTP || isAutoProtocol) {
-	    if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
+	if isExplicitHTTP || isAutoProtocol {
+		if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
 			// Apply the stateful formatter for HTTP/1.x headers
 			if cluster.httpProtocolOptions == nil {
 				cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
@@ -784,18 +783,6 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 						HttpProtocolOptions: preserveCaseFormatterConfig,
 					},
 				},
-			}
-		}
-		if cluster.isDFPCluster {
-			log.Infof("jaellio DFP Cluster - setting auto sni and auto san validation for cluster %s", cluster.cluster.Name)
-			if cluster.httpProtocolOptions == nil {
-				cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
-			}
-			options := cluster.httpProtocolOptions
-			// TODO(jaellio): should this happen in every case or only for TLS origination?
-			options.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{
-				AutoSni: true,
-				AutoSanValidation: true,
 			}
 		}
 	}
