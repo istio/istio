@@ -4,6 +4,7 @@
 {{- $whv := dict
 "revision" .Values.revision
   "injectionPath" .Values.istiodRemote.injectionPath
+  "injectionService" .Values.istiodRemote.injectionService
   "injectionURL" .Values.istiodRemote.injectionURL
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
   "caBundle" .Values.istiodRemote.injectionCABundle
@@ -17,7 +18,11 @@ a unique prefix to each. */}}
     url: "{{ .injectionURL }}"
     {{- else }}
     service:
+      {{- if .injectionService }}
+      name: {{ .injectionService }}
+      {{- else }}
       name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
+      {{- end }}
       namespace: {{ .namespace }}
       path: "{{ .injectionPath }}"
       port: 443
