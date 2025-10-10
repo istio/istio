@@ -28,6 +28,7 @@ import (
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -55,10 +56,20 @@ func (n TypedNamespacedName) String() string {
 	return n.Kind.String() + "/" + n.NamespacedName.String()
 }
 
+type TypedNamespacedNamePerHost struct {
+	Target TypedNamespacedName
+	Host   string
+}
+
+func (t TypedNamespacedNamePerHost) String() string {
+	return t.Target.String() + "/" + t.Host
+}
+
 type BackendPolicy struct {
 	Source       TypedNamespacedName
 	TargetIndex  int
 	Target       TypedNamespacedName
+	Host         string
 	SectionName  *string
 	TLS          *networking.ClientTLSSettings
 	LoadBalancer *networking.LoadBalancerSettings
@@ -67,7 +78,7 @@ type BackendPolicy struct {
 }
 
 func (b BackendPolicy) ResourceName() string {
-	return b.Source.String() + "/" + fmt.Sprint(b.TargetIndex)
+	return b.Source.String() + "/" + fmt.Sprint(b.TargetIndex) + "/" + b.Host
 }
 
 var TypedNamespacedNameIndexCollectionFunc = krt.WithIndexCollectionFromString(func(s string) TypedNamespacedName {
@@ -81,6 +92,23 @@ var TypedNamespacedNameIndexCollectionFunc = krt.WithIndexCollectionFromString(f
 			Name:      parts[2],
 		},
 		Kind: kind.FromString(parts[0]),
+	}
+})
+
+var TypedNamespacedNamePerHostIndexCollectionFunc = krt.WithIndexCollectionFromString(func(s string) TypedNamespacedNamePerHost {
+	parts := strings.Split(s, "/")
+	if len(parts) != 4 {
+		panic("invalid TypedNamespacedNamePerHost: " + s)
+	}
+	return TypedNamespacedNamePerHost{
+		Target: TypedNamespacedName{
+			NamespacedName: types.NamespacedName{
+				Namespace: parts[1],
+				Name:      parts[2],
+			},
+			Kind: kind.FromString(parts[0]),
+		},
+		Host: parts[3],
 	}
 })
 
@@ -104,26 +132,25 @@ func DestinationRuleCollection(
 	services krt.Collection[*v1.Service],
 	opts krt.OptionsBuilder,
 ) krt.Collection[*config.Config] {
-	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, opts)
+	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus)
 
 	// TODO: BackendTrafficPolicy should also probably use ancestorCollection. However, its still up for debate in the
 	// Gateway API community if having the Gateway as an ancestor ref is required or not; we would prefer it to not be if possible.
 	// Until conformance requires it, for now we skip it.
 	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
-	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, opts)
+	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus)
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})
-	byTarget := krt.NewIndex(allPolicies, "target", func(o BackendPolicy) []TypedNamespacedName {
-		return []TypedNamespacedName{o.Target}
+	byTargetAndHost := krt.NewIndex(allPolicies, "targetAndHost", func(o BackendPolicy) []TypedNamespacedNamePerHost {
+		return []TypedNamespacedNamePerHost{{Target: o.Target, Host: o.Host}}
 	})
-	indexOpts := append(opts.WithName("BackendPolicyByTarget"), TypedNamespacedNameIndexCollectionFunc)
+	indexOpts := append(opts.WithName("BackendPolicyByTarget"), TypedNamespacedNamePerHostIndexCollectionFunc)
 	merged := krt.NewCollection(
-		byTarget.AsCollection(indexOpts...),
-		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamespacedName, BackendPolicy]) **config.Config {
-			svc := i.Key
+		byTargetAndHost.AsCollection(indexOpts...),
+		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamespacedNamePerHost, BackendPolicy]) **config.Config {
 			// Sort so we can pick the oldest, which will win.
 			// Not yet standardized but likely will be (https://github.com/kubernetes-sigs/gateway-api/issues/3516#issuecomment-2684039692)
 			pols := slices.SortFunc(i.Objects, func(a, b BackendPolicy) int {
@@ -138,8 +165,11 @@ func DestinationRuleCollection(
 			tlsSet := false
 			lbSet := false
 			rbSet := false
+
+			targetWithHost := i.Key
+			host := targetWithHost.Host
 			spec := &networking.DestinationRule{
-				Host:          svc.Name + "." + svc.Namespace + ".svc." + domainSuffix, // "%s.%s.svc.%v"
+				Host:          host,
 				TrafficPolicy: &networking.TrafficPolicy{},
 			}
 			portLevelSettings := make(map[string]*networking.TrafficPolicy_PortTrafficPolicy)
@@ -187,28 +217,58 @@ func DestinationRuleCollection(
 				}
 			}
 
-			if len(portLevelSettings) > 0 {
-				serviceKey := svc.Namespace + "/" + svc.Name
-				service := ptr.Flatten(krt.FetchOne(ctx, services, krt.FilterKey(serviceKey)))
+			type servicePort struct {
+				Name   string
+				Number uint32
+			}
+			var servicePorts []servicePort
 
-				for portName, portPolicy := range portLevelSettings {
-					if service != nil {
-						for _, port := range service.Spec.Ports {
-							if port.Name == portName {
-								portPolicy.Port = &networking.PortSelector{Number: uint32(port.Port)}
-								break
-							}
+			target := targetWithHost.Target
+			switch target.Kind {
+			case kind.Service:
+				serviceKey := target.Namespace + "/" + target.Name
+				service := ptr.Flatten(krt.FetchOne(ctx, services, krt.FilterKey(serviceKey)))
+				if service != nil {
+					for _, port := range service.Spec.Ports {
+						servicePorts = append(servicePorts, servicePort{
+							Name:   port.Name,
+							Number: uint32(port.Port),
+						})
+					}
+				}
+			case kind.ServiceEntry:
+				serviceEntryObj, err := references.LocalPolicyTargetRef(gw.LocalPolicyTargetReference{
+					Group: "networking.istio.io",
+					Kind:  "ServiceEntry",
+					Name:  gw.ObjectName(target.Name),
+				}, target.Namespace)
+				if err == nil {
+					if serviceEntryPtr, ok := serviceEntryObj.(*networkingclient.ServiceEntry); ok {
+						for _, port := range serviceEntryPtr.Spec.Ports {
+							servicePorts = append(servicePorts, servicePort{
+								Name:   port.Name,
+								Number: port.Number,
+							})
 						}
 					}
-					spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 				}
+			}
+
+			for portName, portPolicy := range portLevelSettings {
+				for _, port := range servicePorts {
+					if port.Name == portName {
+						portPolicy.Port = &networking.PortSelector{Number: port.Number}
+						break
+					}
+				}
+				spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 			}
 
 			cfg := &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
-					Name:             svc.Name + "~" + constants.KubernetesGatewayName,
-					Namespace:        svc.Namespace,
+					Name:             generateDRName(target, host),
+					Namespace:        target.Namespace,
 					Annotations: map[string]string{
 						constants.InternalParentNames: strings.Join(parents, ","),
 					},
@@ -224,6 +284,7 @@ func BackendTLSPolicyCollection(
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
 	ancestors krt.IndexCollection[TypedNamespacedName, AncestorBackend],
 	references *ReferenceSet,
+	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gw.BackendTLSPolicy, gw.PolicyStatus], krt.Collection[BackendPolicy]) {
 	return krt.NewStatusManyCollection(tlsPolicies, func(ctx krt.HandlerContext, i *gw.BackendTLSPolicy) (
@@ -286,6 +347,20 @@ func BackendTLSPolicyCollection(
 							err = fmt.Errorf("sectionName %q does not exist in Service %s/%s", *sectionName, refType.Namespace, refType.Name)
 						}
 					}
+				case *networkingclient.ServiceEntry:
+					if t.SectionName != nil && *t.SectionName != "" {
+						sectionName = ptr.Of(string(*t.SectionName))
+						portExists := false
+						for _, port := range refType.Spec.Ports {
+							if port.Name == *sectionName {
+								portExists = true
+								break
+							}
+						}
+						if !portExists {
+							err = fmt.Errorf("sectionName %q does not exist in ServiceEntry %s/%s", *sectionName, refType.Namespace, refType.Name)
+						}
+					}
 				default:
 					err = fmt.Errorf("unsupported reference kind: %v", t.Kind)
 				}
@@ -296,29 +371,41 @@ func BackendTLSPolicyCollection(
 					Message: "targetRefs invalid: " + err.Error(),
 				}
 			} else {
+				targetKind := gvk.MustToKind(schematypes.GvkFromObject(refo.(controllers.Object)))
 				target := TypedNamespacedName{
 					NamespacedName: types.NamespacedName{
 						Name:      string(t.Name),
 						Namespace: i.Namespace,
 					},
-					Kind: gvk.MustToKind(schematypes.GvkFromObject(refo.(controllers.Object))),
+					Kind: targetKind,
 				}
-				// Only create an object if we can resolve the target
-				res = append(res, BackendPolicy{
-					Source: TypedNamespacedName{
-						NamespacedName: config.NamespacedName(i),
-						Kind:           kind.BackendTLSPolicy,
-					},
-					TargetIndex:  idx,
-					Target:       target,
-					SectionName:  sectionName,
-					TLS:          tls,
-					CreationTime: i.CreationTimestamp.Time,
-				})
-				ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
-				for _, gwl := range ancestorBackends {
-					for _, i := range gwl.Objects {
-						uniqueGateways.Insert(i.Gateway)
+				var hosts []string
+				if targetKind == kind.Service {
+					hosts = []string{string(t.Name) + "." + i.Namespace + ".svc." + domainSuffix}
+				} else if targetKind == kind.ServiceEntry {
+					if serviceEntryPtr, ok := refo.(*networkingclient.ServiceEntry); ok {
+						hosts = serviceEntryPtr.Spec.Hosts
+					}
+				}
+
+				for _, host := range hosts {
+					res = append(res, BackendPolicy{
+						Source: TypedNamespacedName{
+							NamespacedName: config.NamespacedName(i),
+							Kind:           kind.BackendTLSPolicy,
+						},
+						TargetIndex:  idx,
+						Target:       target,
+						Host:         host,
+						SectionName:  sectionName,
+						TLS:          tls,
+						CreationTime: i.CreationTimestamp.Time,
+					})
+					ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
+					for _, gwl := range ancestorBackends {
+						for _, i := range gwl.Objects {
+							uniqueGateways.Insert(i.Gateway)
+						}
 					}
 				}
 			}
@@ -426,6 +513,7 @@ func getBackendTLSCredentialName(
 func BackendTrafficPolicyCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
 	references *ReferenceSet,
+	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gatewayx.XBackendTrafficPolicy, gatewayx.PolicyStatus], krt.Collection[BackendPolicy]) {
 	return krt.NewStatusManyCollection(trafficPolicies, func(ctx krt.HandlerContext, i *gatewayx.XBackendTrafficPolicy) (
@@ -497,6 +585,7 @@ func BackendTrafficPolicyCollection(
 						},
 						Kind: kind.Service,
 					},
+					Host:         string(t.Name) + "." + i.Namespace + ".svc." + domainSuffix,
 					TLS:          nil,
 					LoadBalancer: lb,
 					RetryBudget:  retryBudget,
@@ -575,4 +664,11 @@ func mergeAncestors(existing []gw.PolicyAncestorStatus, incoming []gw.PolicyAnce
 	existing = append(existing, incoming...)
 	// There is a max of 16
 	return existing[:min(len(existing), 16)]
+}
+
+func generateDRName(target TypedNamespacedName, host string) string {
+	if target.Kind == kind.ServiceEntry {
+		return target.Name + "~" + strings.ReplaceAll(host, ".", "-") + "~" + constants.KubernetesGatewayName
+	}
+	return target.Name + "~" + constants.KubernetesGatewayName
 }

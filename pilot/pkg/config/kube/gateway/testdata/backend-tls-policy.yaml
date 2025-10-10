@@ -191,3 +191,91 @@ spec:
         name: blah
         group: ""
     hostname: auth.example.com
+---
+# ServiceEntry with multiple hosts for testing multiple DestinationRules
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: multi-host-service
+  namespace: default
+spec:
+  hosts:
+  - api.example.com
+  - cdn.example.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  - number: 8443
+    name: tls
+    protocol: TLS
+  resolution: DNS
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: multi-host-service-entry
+  namespace: default
+spec:
+  targetRefs:
+    - kind: ServiceEntry
+      name: multi-host-service
+      group: networking.istio.io
+  validation:
+    wellKnownCACertificates: System
+    hostname: cdn.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: multi-host-service-entry-section-name
+  namespace: default
+spec:
+  targetRefs:
+    - kind: ServiceEntry
+      name: multi-host-service
+      group: networking.istio.io
+      sectionName: tls
+  validation:
+    caCertificateRefs:
+      - kind: ConfigMap
+        name: auth-cert
+        group: ""
+    hostname: api.example.com
+---
+# Simple ServiceEntry with 2 ports for testing sectionName
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: external-service
+  namespace: default
+spec:
+  hosts:
+  - external.example.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: tls-external-service-https
+  namespace: default
+spec:
+  targetRefs:
+    - kind: ServiceEntry
+      name: external-service
+      group: networking.istio.io
+      sectionName: https
+    - kind: ServiceEntry
+      name: external-service
+      group: networking.istio.io
+      sectionName: non-existing-port-name
+  validation:
+    wellKnownCACertificates: System
+    hostname: external.example.com

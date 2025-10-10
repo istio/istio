@@ -228,6 +228,7 @@ func NewController(
 
 	references := NewReferenceSet(
 		AddReference(inputs.Services),
+		AddReference(inputs.ServiceEntries),
 		AddReference(inputs.ConfigMaps),
 		AddReference(inputs.Secrets),
 	)
