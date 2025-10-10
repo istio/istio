@@ -373,11 +373,11 @@ func TestGetAutoPassthroughSNIHosts(t *testing.T) {
 func TestMergeGatewaysHttpsFirstBug(t *testing.T) {
 	// Create HTTPS server first (this was causing the bug)
 	gwHTTPS := makeConfig("foo-https", "not-default", "*.example.com", "https-port", "HTTPS", 443, "ingressgateway", "10.0.0.1",
-		networking.ServerTLSSettings_SIMPLE, "")
+		networking.ServerTLSSettings_SIMPLE, "", "")
 
 	// Create HTTP server second (this was failing to create proper routes)
 	gwHTTP := makeConfig("foo-http", "not-default", "*.example.com", "http-port", "HTTP", 443, "ingressgateway", "10.0.0.2",
-		networking.ServerTLSSettings_SIMPLE, "")
+		networking.ServerTLSSettings_SIMPLE, "", "")
 
 	// Test case 1: HTTPS first, then HTTP (reproduces the bug)
 	t.Run("https-first-then-http", func(t *testing.T) {
