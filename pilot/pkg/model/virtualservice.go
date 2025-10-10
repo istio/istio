@@ -34,81 +34,116 @@ import (
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
-	importedVirtualServices := make([]config.Config, 0)
+	key := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
+	// Pre-allocate slice with estimated capacity to reduce reallocations. This might be larger
+	// than the actual size, but avoids reallocations.
+	estimatedCapacity := len(vsidx.privateByNamespaceAndGateway[key]) +
+		len(vsidx.exportedToNamespaceByGateway[key]) +
+		len(vsidx.publicByGateway[constants.IstioMeshGateway])
+
+	importedVirtualServices := make([]config.Config, 0, estimatedCapacity)
 	vsset := sets.New[types.NamespacedName]()
 
-	addVirtualService := func(vs config.Config, hc hostClassification) {
-		key := vs.NamespacedName()
+	wnsImportedHosts, wnsFound := hostsByNamespace[wildcardNamespace]
+
+	// Helper function to process a single virtual service
+	processVirtualService := func(c config.Config) bool {
+		key := c.NamespacedName()
 		if vsset.Contains(key) {
-			return
+			return false
 		}
 
-		rule := vs.Spec.(*networking.VirtualService)
-		useGatewaySemantics := UseGatewaySemantics(vs)
-		for _, vh := range rule.Hosts {
-			if hc.VSMatches(host.Name(vh), useGatewaySemantics) {
-				importedVirtualServices = append(importedVirtualServices, vs)
-				vsset.Insert(key)
-				return
+		rule, ok := c.Spec.(*networking.VirtualService)
+		if !ok {
+			return false
+		}
+		useGatewaySemantics := UseGatewaySemantics(c)
+
+		// Check if there is an explicit import of form ns/* or ns/host
+		if importedHosts, nsFound := hostsByNamespace[c.Namespace]; nsFound {
+			for _, vh := range rule.Hosts {
+				if importedHosts.VSMatches(host.Name(vh), useGatewaySemantics) {
+					importedVirtualServices = append(importedVirtualServices, c)
+					vsset.Insert(key)
+					return true
+				}
 			}
 		}
+
+		// Check if there is an import of form */host or */*
+		if wnsFound {
+			for _, vh := range rule.Hosts {
+				if wnsImportedHosts.VSMatches(host.Name(vh), useGatewaySemantics) {
+					importedVirtualServices = append(importedVirtualServices, c)
+					vsset.Insert(key)
+					return true
+				}
+			}
+		}
+
+		return false
 	}
 
-	wnsImportedHosts, wnsFound := hostsByNamespace[wildcardNamespace]
-	var loopAndAdd func(vses []config.Config)
-	if features.UnifiedSidecarScoping {
-		loopAndAdd = func(vses []config.Config) {
+	// Process virtual services from private namespace
+	if vses := vsidx.privateByNamespaceAndGateway[key]; len(vses) > 0 {
+		if features.UnifiedSidecarScoping {
 			for _, gwMatch := range []bool{true, false} {
 				for _, c := range vses {
 					gwExact := UseGatewaySemantics(c) && c.Namespace == configNamespace
 					if gwMatch != gwExact {
 						continue
 					}
-					configNamespace := c.Namespace
-					// Selection algorithm:
-					// virtualservices have a list of hosts in the API spec
-					// if any host in the list matches one service hostname, select the virtual service
-					// and break out of the loop.
-
-					// Check if there is an explicit import of form ns/* or ns/host
-					if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-						addVirtualService(c, importedHosts)
-					}
-
-					// Check if there is an import of form */host or */*
-					if wnsFound {
-						addVirtualService(c, wnsImportedHosts)
-					}
+					processVirtualService(c)
 				}
 			}
-		}
-	} else {
-		// Legacy path
-		loopAndAdd = func(vses []config.Config) {
+		} else {
+			// Legacy path
 			for _, c := range vses {
-				configNamespace := c.Namespace
-				// Selection algorithm:
-				// virtualservices have a list of hosts in the API spec
-				// if any host in the list matches one service hostname, select the virtual service
-				// and break out of the loop.
-
-				// Check if there is an explicit import of form ns/* or ns/host
-				if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-					addVirtualService(c, importedHosts)
-				}
-
-				// Check if there is an import of form */host or */*
-				if wnsFound {
-					addVirtualService(c, wnsImportedHosts)
-				}
+				processVirtualService(c)
 			}
 		}
 	}
 
-	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
-	loopAndAdd(vsidx.privateByNamespaceAndGateway[n])
-	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
-	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
+	// Process virtual services exported to namespace
+	if vses := vsidx.exportedToNamespaceByGateway[key]; len(vses) > 0 {
+		if features.UnifiedSidecarScoping {
+			for _, gwMatch := range []bool{true, false} {
+				for _, c := range vses {
+					gwExact := UseGatewaySemantics(c) && c.Namespace == configNamespace
+					if gwMatch != gwExact {
+						continue
+					}
+					processVirtualService(c)
+				}
+			}
+		} else {
+			// Legacy path
+			for _, c := range vses {
+				processVirtualService(c)
+			}
+		}
+	}
+
+	// Process public virtual services
+	if vses := vsidx.publicByGateway[constants.IstioMeshGateway]; len(vses) > 0 {
+		if features.UnifiedSidecarScoping {
+			for _, gwMatch := range []bool{true, false} {
+				for _, c := range vses {
+					// Optimization 9: Calculate gwExact once per iteration
+					gwExact := UseGatewaySemantics(c) && c.Namespace == configNamespace
+					if gwMatch != gwExact {
+						continue
+					}
+					processVirtualService(c)
+				}
+			}
+		} else {
+			// Legacy path
+			for _, c := range vses {
+				processVirtualService(c)
+			}
+		}
+	}
 
 	return importedVirtualServices
 }
