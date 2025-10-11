@@ -584,7 +584,8 @@ spec:
 		"connect_originate",
 		"outbound|15008||waypoint.default.svc.cluster.local",
 		"main_internal",
-		"encap"}))
+		"encap",
+	}))
 }
 
 func TestWaypointClusterWithDynamicDNSAndTLSOrigination(t *testing.T) {
