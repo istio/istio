@@ -679,11 +679,6 @@ spec:
     tls:
       mode: SIMPLE
       insecureSkipVerify: true`
-
-			t.ConfigIstio().
-				Eval(apps.Namespace.Name(), map[string]string{}, tlsOrigination).
-				ApplyOrFail(t)
-			time.Sleep(60 * time.Minute)
 			runTest(t, "http origination targetPort", tlsOrigination, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 8080},
