@@ -389,6 +389,13 @@ func serviceEntriesInfo(
 	if wperr != nil {
 		waypoint.Error = wperr
 	}
+
+	// Warn if we have a dynamic DNS service entry with no egress waypoint
+	// This configuration will not be shared with the dataplane
+	if s.Spec.Resolution == v1alpha3.ServiceEntry_DYNAMIC_DNS && (w == nil || wperr != nil) {
+		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
+	}
+
 	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
@@ -454,11 +461,14 @@ func constructServiceEntries(
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
-		// if we have no user-provided hostsAddresses and h is not wildcarded and we have hostsAddresses supported resolution
+		// if we have no user-provided hostsAddresses and we have hostsAddresses supported resolution
 		// we can try to use autoassigned hostsAddresses
 		hostsAddresses := addresses
-		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
-			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
+		if len(hostsAddresses) == 0 && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
+			// block auto IP assignment for wildcards unless the resolution type is DYNAMIC_DNS
+			if host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_DYNAMIC_DNS {
+				log.Debugf("autoassigned IPs only support for wildcarded hosts with dynamic DNS resolution, skipping %s", h)
+			} else if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
 				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
 					return toNetworkAddressFromIP(e, networkGetter(ctx))
 				})
