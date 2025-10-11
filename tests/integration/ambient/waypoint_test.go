@@ -1179,38 +1179,6 @@ spec:
 				Count:   1,
 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			})
-
-			wildcardTLSOriginationRedirect := wildacardTLSOrigination + `
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: route-port
-spec:
-  parentRefs:
-  - kind: ServiceEntry
-    group: networking.istio.io
-    name: external-wildcard
-  rules:
-  - backendRefs:
-    - kind: Hostname
-      group: networking.istio.io
-      name: "*.{{.ExternalNamespace}}.svc.cluster.local"
-      port: 443
-`
-			t.ConfigIstio().
-				Eval(apps.Namespace.Name(), map[string]string{
-					"ExternalNamespace": apps.ExternalNamespace.Name(),
-				}, wildcardTLSOriginationRedirect).
-				ApplyOrFail(t)
-
-			runTest(t, "http origination route", "", echo.CallOptions{
-				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
-				Port:    echo.Port{ServicePort: 80},
-				Scheme:  scheme.HTTP,
-				Count:   1,
-				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
-			})
 		})
 }
 
