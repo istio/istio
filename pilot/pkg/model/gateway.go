@@ -402,7 +402,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	if features.EnableStrictGatewayMerging {
 		filterMergedServers := func(mergedServerMap map[ServerPort]*MergedServers) {
 			// Filter servers: keep GatewayAPI servers and remove Istio Gateway servers not in GatewayAPI namespaces
-			for _, mergedServer := range mergedServerMap {
+			for port, mergedServer := range mergedServerMap {
 				allowedNamespaces := sets.New[string]()
 				for _, s := range mergedServer.Servers {
 					gatewayName := gatewayNameForServer[s]
@@ -429,6 +429,9 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							// Remove from related maps
 							delete(gatewayNameForServer, s)
 							delete(tlsServerInfo, s)
+							log.Infof("skipping server on gateway %s port %s.%d.%s: does not satisfy merging criteria",
+								gatewayName, s.Port.Name, port.Number, port.Protocol)
+							RecordRejectedConfig(gatewayName)
 						}
 					}
 
