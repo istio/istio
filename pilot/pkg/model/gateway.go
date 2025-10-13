@@ -528,10 +528,6 @@ func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
 	return (current.IsHTTP() || current == p) && p.IsHTTP()
 }
 
-func isInternalGateway(config config.Config) bool {
-	return config.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
-}
-
 func GetSNIHostsForServer(server *networking.Server) []string {
 	if server.Tls == nil {
 		return nil
