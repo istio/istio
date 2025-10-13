@@ -770,20 +770,18 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	isExplicitHTTP := port.Protocol.IsHTTP()
 	isAutoProtocol := port.Protocol.IsUnsupported()
 
-	if isExplicitHTTP || isAutoProtocol {
-		if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
-			// Apply the stateful formatter for HTTP/1.x headers
-			if cluster.httpProtocolOptions == nil {
-				cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
-			}
-			options := cluster.httpProtocolOptions
-			options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
-				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
-						HttpProtocolOptions: preserveCaseFormatterConfig,
-					},
+	if (isExplicitHTTP || isAutoProtocol) && shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
+		// Apply the stateful formatter for HTTP/1.x headers
+		if cluster.httpProtocolOptions == nil {
+			cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
+		}
+		options := cluster.httpProtocolOptions
+		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
+					HttpProtocolOptions: preserveCaseFormatterConfig,
 				},
-			}
+			},
 		}
 	}
 
@@ -852,7 +850,6 @@ func (mc *clusterWrapper) build() *cluster.Cluster {
 	if mc == nil {
 		return nil
 	}
-	// Add a field to cluster wrapper for dfp cluster - set auto sni/ suto sans validations
 	// Marshall Http Protocol options if they exist.
 	if mc.httpProtocolOptions != nil {
 		// UpstreamProtocolOptions is required field in Envoy. If we have not set this option earlier

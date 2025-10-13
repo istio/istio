@@ -190,7 +190,6 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		CommonTlsContext: defaultUpstreamCommonTLSContext(),
 		Sni:              tls.Sni,
 	}
-	// TODO(jaellio) - Is auto sni usuable for DFP clusters?
 	setAutoSniAndAutoSanValidation(c, tls)
 
 	// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
@@ -281,8 +280,7 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 
 	setAutoSni := false
 	setAutoSanValidation := false
-	// For DFP clusters, we always set auto_sni if insecure_skip_verify is true.
-	if len(tls.Sni) == 0 || (mc.isDFPCluster && tls.GetInsecureSkipVerify().GetValue()) {
+	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
 	// For DFP clusters, we only set auto_san_validation if insecure_skip_verify is false.
@@ -292,22 +290,24 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 
 	// For DFP clusters, we need to allow_insecure_cluster_options if insecure_skip_verify is true.
 	if mc.isDFPCluster && tls.GetInsecureSkipVerify().GetValue() {
-		if clusterType, ok := mc.cluster.ClusterDiscoveryType.(*cluster.Cluster_ClusterType); ok {
-			if customClusterType := clusterType.ClusterType; customClusterType != nil {
-				dfpCluster := &dfpcluster.ClusterConfig{}
-				if err := customClusterType.TypedConfig.UnmarshalTo(dfpCluster); err != nil {
-					log.Warnf("failed to unmarshal dynamic forward proxy config: %v", err)
-					return
-				}
-				dfpCluster.AllowInsecureClusterOptions = true
-				customClusterType.TypedConfig = protoconv.MessageToAny(dfpCluster)
-				log.Debugf("set allow_insecure_cluster_options for DFP cluster %s", mc.cluster.Name)
-			} else {
-				log.Warnf("failed to set allow_insecure_cluster_options for DFP cluster %s: missing custom cluster type", mc.cluster.Name)
-			}
-		} else {
+		clusterType, ok := mc.cluster.ClusterDiscoveryType.(*cluster.Cluster_ClusterType)
+		if !ok {
 			log.Warnf("failed to set allow_insecure_cluster_options for DFP cluster %s: invalid cluster type", mc.cluster.Name)
+			return
 		}
+		customClusterType := clusterType.ClusterType
+		if customClusterType == nil {
+			log.Warnf("failed to set allow_insecure_cluster_options for DFP cluster %s: missing custom cluster type", mc.cluster.Name)
+			return
+		}
+		dfpCluster := &dfpcluster.ClusterConfig{}
+		if err := customClusterType.TypedConfig.UnmarshalTo(dfpCluster); err != nil {
+			log.Warnf("failed to unmarshal dynamic forward proxy config: %v", err)
+			return
+		}
+		dfpCluster.AllowInsecureClusterOptions = true
+		customClusterType.TypedConfig = protoconv.MessageToAny(dfpCluster)
+		log.Debugf("set allow_insecure_cluster_options for DFP cluster %s", mc.cluster.Name)
 	}
 
 	if setAutoSni || setAutoSanValidation {
