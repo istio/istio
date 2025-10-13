@@ -206,8 +206,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
 	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
 
-	// Unless the LB policy is cluster provided, we apply the LB settings
-	if localCluster.cluster.LbPolicy != cluster.Cluster_CLUSTER_PROVIDED {
+	// Unless the svc resolution type is DynamicDNS, we apply the LB settings
+	if svc.Resolution != model.DynamicDNS {
 		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
 	}
 
