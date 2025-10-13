@@ -55,15 +55,10 @@ Istio is composed of these components:
   > simplifies and enhances how microservices in an application talk to each
   > other over the network provided by the underlying platform.
 
-- **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management. It consists of the following sub-components:
+* **Ztunnel** - A lightweight data plane proxy written in Rust,
+    used in Ambient mesh mode to provide secure connectivity and observability for workloads without sidecar proxies.
 
-    - **Pilot** - Responsible for configuring the proxies at runtime.
-
-    - **Citadel** - Responsible for certificate issuance and rotation.
-
-    - **Galley** - Responsible for validating, ingesting, aggregating, transforming and distributing config within Istio.
-
-- **Operator** - The component provides user friendly options to operate the Istio service mesh.
+- **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management.
 
 ## Repositories
 
@@ -88,8 +83,7 @@ contains platform-specific code to populate the
 when the application topology changes, as well as translate
 [routing rules](https://istio.io/latest/docs/reference/config/networking/) into proxy specific configuration.
 
-    - [security](security/). This directory contains [security](https://istio.io/latest/docs/concepts/security/) related code,
-including Citadel (acting as Certificate Authority), citadel agent, etc.
+    - [security](security/). This directory contains [security](https://istio.io/latest/docs/concepts/security/) related code.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
 extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
