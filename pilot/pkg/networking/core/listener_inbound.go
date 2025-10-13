@@ -345,57 +345,60 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	return l
 }
 
-// inboundChainForOpts builds a set of filter chains
-func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
-	getOrigDstSfs := func(ipAndPort string, isHttp bool) *listener.Filter {
-		celTemplate := `%%CEL('%s' in filter_state ? filter_state['%s']: r'%s')%%`
-		celEval := fmt.Sprintf(celTemplate, xdsfilters.OriginalDstFilterStateKey, xdsfilters.OriginalDstFilterStateKey, ipAndPort)
-		filterStateValue := &sfsvalue.FilterStateValue{
-			Key: &sfsvalue.FilterStateValue_ObjectKey{
-				ObjectKey: "envoy.network.transport_socket.original_dst_address",
-			},
-			Value: &sfsvalue.FilterStateValue_FormatString{
-				FormatString: &core.SubstitutionFormatString{
-					Formatters: []*core.TypedExtensionConfig{
-						{
-							Name:        "envoy.formatter.cel",
-							TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
-						},
+// buildOriginalDestinationSetFilterStateFilter creates a filter that sets the original destination address in filter state.
+// This is used for HBONE connections to preserve the original destination when traffic is tunneled.
+func buildOriginalDestinationSetFilterStateFilter(ipAndPort string, isHttp bool) *listener.Filter {
+	celTemplate := `%%CEL('%s' in filter_state ? filter_state['%s']: r'%s')%%`
+	celEval := fmt.Sprintf(celTemplate, xdsfilters.OriginalDstFilterStateKey, xdsfilters.OriginalDstFilterStateKey, ipAndPort)
+	filterStateValue := &sfsvalue.FilterStateValue{
+		Key: &sfsvalue.FilterStateValue_ObjectKey{
+			ObjectKey: "envoy.network.transport_socket.original_dst_address",
+		},
+		Value: &sfsvalue.FilterStateValue_FormatString{
+			FormatString: &core.SubstitutionFormatString{
+				Formatters: []*core.TypedExtensionConfig{
+					{
+						Name:        "envoy.formatter.cel",
+						TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
 					},
-					Format: &core.SubstitutionFormatString_TextFormatSource{
-						TextFormatSource: &core.DataSource{
-							Specifier: &core.DataSource_InlineString{
-								// If we have a valid original destination in filter state, use it. Else,
-								// fall back to the original destination address.
-								InlineString: celEval,
-							},
+				},
+				Format: &core.SubstitutionFormatString_TextFormatSource{
+					TextFormatSource: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{
+							// If we have a valid original destination in filter state, use it. Else,
+							// fall back to the original destination address.
+							InlineString: celEval,
 						},
 					},
 				},
 			},
+		},
+	}
+	var msg googleproto.Message
+	if isHttp {
+		msg = &sfs.Config{
+			OnRequestHeaders: []*sfsvalue.FilterStateValue{filterStateValue},
 		}
-		var msg googleproto.Message
-		if isHttp {
-			msg = &sfs.Config{
-				OnRequestHeaders: []*sfsvalue.FilterStateValue{filterStateValue},
-			}
-		} else {
-			msg = &sfsnetwork.Config{
-				OnNewConnection: []*sfsvalue.FilterStateValue{filterStateValue},
-			}
-		}
-		return &listener.Filter{
-			Name: "set_dst_address",
-			ConfigType: &listener.Filter_TypedConfig{
-				TypedConfig: protoconv.MessageToAny(msg),
-			},
+	} else {
+		msg = &sfsnetwork.Config{
+			OnNewConnection: []*sfsvalue.FilterStateValue{filterStateValue},
 		}
 	}
+	return &listener.Filter{
+		Name: "set_dst_address",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(msg),
+		},
+	}
+}
+
+// inboundChainForOpts builds a set of filter chains
+func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
 	origDst := fmt.Sprintf("%s:%d", lb.node.IPAddresses[0], cc.port.TargetPort)
 	var filters []*listener.Filter
 	if lb.node.EnableListenFromAmbientEastWestGateway() && cc.hbone &&
 		features.EnableAmbientMulticlusterSidecarInterop {
-		filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
+		filters = []*listener.Filter{buildOriginalDestinationSetFilterStateFilter(origDst, false)}
 	}
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {

@@ -68,11 +68,8 @@ var (
 		false,
 		"If enabled, selector based authorization policies will be enforced as L4 policies in front of the waypoint.").Get()
 
-	// This flag enables is to change the listener inbound filter chains at sidecars
-	// to allow traffic from ambient east-west gateway. This is done by removing the filter chain match
-	// on the main_internal listener and adding FilterChainMatch.
-	// For this filter chain change to take effect, sidecar workload needs to be having
-	// ISTIO_META_LISTEN_FROM_AMBIENT_EAST_WEST_GATEWAY: "true" using proxyConfig for example:
+	// This flag changes sidecar inbound filter chains to accept HBONE connections from ambient east-west gateway.
+	// Requires ISTIO_META_LISTEN_FROM_AMBIENT_EAST_WEST_GATEWAY: "true" to be set on the sidecar workload using ProxyConfig:
 	//
 	// apiVersion: networking.istio.io/v1beta1
 	// kind: ProxyConfig
