@@ -2921,7 +2921,10 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 				errs = AppendValidation(errs, fmt.Errorf("invalid host %s", hostname))
 			} else {
 				errs = AppendValidation(errs, agent.ValidateWildcardDomain(hostname))
-				errs = AppendValidation(errs, WrapWarning(agent.ValidatePartialWildCard(hostname)))
+				// Partial wildcards are not allowed for non-DNS resolution types
+				if serviceEntry.Resolution != networking.ServiceEntry_DYNAMIC_DNS {
+					errs = AppendValidation(errs, WrapWarning(agent.ValidatePartialWildCard(hostname)))
+				}
 			}
 		}
 
@@ -3044,11 +3047,6 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 				errs = AppendValidation(errs, fmt.Errorf("at least one wildcard host must be provided for resolution type %s", serviceEntry.Resolution))
 			}
 			for _, hostname := range serviceEntry.Hosts {
-				if err := agent.ValidateWildcardDomain(hostname); err != nil {
-					errs = AppendValidation(errs,
-						fmt.Errorf("hosts must be valid FQDN which contain only prefix wildcards for resolution mode %s, %v", serviceEntry.Resolution, err))
-					break
-				}
 				if !host.Name(hostname).IsWildCarded() {
 					errs = AppendValidation(errs, fmt.Errorf("host must be wildcarded for resolution mode %s", serviceEntry.Resolution))
 				}
@@ -3061,7 +3059,6 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 				errs = AppendValidation(errs, fmt.Errorf("endpoints cannot be set for resolution type %s. Destination IP address determined from hosts"+
 					"field values", serviceEntry.Resolution))
 			}
-			// TODO(jaellio): Are ports a requirement for dynamic DNS?
 			for _, port := range serviceEntry.Ports {
 				if port == nil {
 					errs = AppendValidation(errs, errors.New("service entry port may not be null"))
