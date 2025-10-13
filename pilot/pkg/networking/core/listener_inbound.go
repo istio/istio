@@ -171,6 +171,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	lb.authzBuilder = authz.NewBuilder(authz.Local, lb.push, lb.node, true)
 	inboundChainConfigs := lb.buildInboundChainConfigs()
 
+	// Build filter chains for each port
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
@@ -178,20 +179,19 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		mtls := authn.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
 		opts := getFilterChainMatchOptions(mtls, lp)
 		chains := lb.inboundChainForOpts(cc, mtls, opts)
-		if lb.node.EnableListenFromAmbientEastWestGateway() &&
-			features.EnableAmbientMulticlusterSidecarInterop {
-			log.Debugf("buildInboundHBONEListeners: building EnableListenFromAmbientEastWestGateway for %v", lb.node.ID)
-			lb.sanitizeListenerForAmbientMulticluster(cc, l)
-		}
 		log.Debugf("buildInboundHBONEListeners: sanitizing HBONE filter chain for %v", lb.node.ID)
 		for _, c := range chains {
 			lb.sanitizeFilterChainForHBONE(c)
 		}
 		l.FilterChains = append(l.FilterChains, chains...)
 	}
+
+	// Build the complete matcher hierarchy (Authority → IP → Port → Application Protocol)
+	// This is done once after all ports are collected to create a flat structure
+	// that would result from incremental per-port building.
 	if lb.node.EnableListenFromAmbientEastWestGateway() &&
 		features.EnableAmbientMulticlusterSidecarInterop {
-		lb.appendPassthroughMatchersForAmbientMulticluster(l)
+		lb.finalizeMatchersForAmbientMulticluster(inboundChainConfigs, l)
 	}
 	for _, passthrough := range buildInboundHBONEPassthroughChain(lb) {
 		lb.sanitizeFilterChainForHBONE(passthrough)
@@ -595,7 +595,41 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 	return chainConfigs
 }
 
-func (lb *ListenerBuilder) sanitizeListenerForAmbientMulticluster(cc inboundChainConfig, l *listener.Listener) {
+// finalizeMatchersForAmbientMulticluster builds the complete filter chain matcher hierarchy for ambient
+// multicluster configuration. This function is called once after all ports have been processed and creates
+// the entire matcher structure in a single, flat hierarchy:
+//
+//	Authority Matcher (hostname:port) - built by this function from ALL ports
+//	├── "productpage.bookinfo.svc.cluster.local:7070" → 0.0.0.0_7070
+//	├── "productpage.bookinfo.svc.cluster.local:7777" → 0.0.0.0_7777
+//	├── "productpage.bookinfo.svc.cluster.local:9080" → 0.0.0.0_9080
+//	├── "productpage.bookinfo.svc.cluster.local:9090" → 0.0.0.0_9090
+//	└── OnNoMatch → IP Matcher (10.20.0.53/32)
+//	    └── OnMatch → Port Matcher (exactMatchMap with ALL ports in one map)
+//	        ├── "7070" → 0.0.0.0_7070
+//	        ├── "7777" → 0.0.0.0_7777
+//	        ├── "9090" → 0.0.0.0_9090
+//	        └── OnNoMatch → Application Protocol Matcher
+//	            ├── 'http/1.1' → virtualInbound-catchall-http
+//	            ├── 'h2c' → virtualInbound-catchall-http
+//	            └── OnNoMatch → virtualInbound (TCP)
+//
+// This approach creates a clean, flat structure instead of deeply nested OnNoMatch chains that would
+// result from building matchers incrementally in a per-port loop.
+func (lb *ListenerBuilder) finalizeMatchersForAmbientMulticluster(inboundChainConfigs []inboundChainConfig, l *listener.Listener) {
+	// Build authority matcher map for all service hostnames across all ports
+	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
+		Map: make(map[string]*matcher.Matcher_OnMatch),
+	}
+	for _, cc := range inboundChainConfigs {
+		for _, st := range lb.node.ServiceTargets {
+			authorityKey := fmt.Sprintf("%s:%d", st.Service.Hostname, cc.port.Port)
+			svcHostnameMap.Map[authorityKey] = match.ToChain(fmt.Sprintf("0.0.0.0_%d", cc.port.TargetPort))
+			break
+		}
+	}
+
+	// Build IP ranges from node addresses
 	ipRange := []*xds.CidrRange{}
 	for _, addr := range lb.node.IPAddresses {
 		cidr := util.ConvertAddressToCidr(addr)
@@ -604,22 +638,38 @@ func (lb *ListenerBuilder) sanitizeListenerForAmbientMulticluster(cc inboundChai
 			PrefixLen:     cidr.PrefixLen,
 		})
 	}
-	ipMatcher := &matcher.IPMatcher{}
 
-	for _, st := range lb.node.ServiceTargets {
-		log.Debugf("buildInboundHBONEListeners:  target svc: %v, port %d", st.Service.Hostname, cc.port.TargetPort)
-		break
-	}
-	portMapper := match.NewDestinationPort()
-	portMapper.Map[strconv.Itoa(int(cc.port.TargetPort))] = match.ToChain(fmt.Sprintf("0.0.0.0_%d", cc.port.TargetPort))
-	if len(ipRange) > 0 {
+	if len(ipRange) == 0 {
 		// Empty can happen if we have workloads, but none have an Address (DNS)
-		ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
-			&matcher.IPMatcher_IPRangeMatcher{
+		return
+	}
+
+	// Build application protocol matcher for passthrough (HTTP/TCP fallback)
+	applicationProtocolMatcher := buildApplicationProtocolPassthroughMatcher()
+
+	// Build port mapper with ALL ports at once
+	portMapper := match.NewDestinationPort()
+	for _, cc := range inboundChainConfigs {
+		portKey := strconv.Itoa(int(cc.port.TargetPort))
+		portMapper.Map[portKey] = match.ToChain(fmt.Sprintf("0.0.0.0_%d", cc.port.TargetPort))
+	}
+	// Set application protocol matcher as fallback when no port matches
+	portMapper.Matcher.OnNoMatch = &matcher.Matcher_OnMatch{
+		OnMatch: &matcher.Matcher_OnMatch_Matcher{
+			Matcher: applicationProtocolMatcher,
+		},
+	}
+
+	// Create IP matcher with all ports in one map
+	ipMatcher := &matcher.IPMatcher{
+		RangeMatchers: []*matcher.IPMatcher_IPRangeMatcher{
+			{
 				Ranges:  ipRange,
 				OnMatch: match.ToMatcher(portMapper.Matcher),
-			})
+			},
+		},
 	}
+
 	// Create IP matcher for fallback matching
 	ipMatcherForFallback := &matcher.Matcher{
 		MatcherType: &matcher.Matcher_MatcherTree_{
@@ -635,18 +685,8 @@ func (lb *ListenerBuilder) sanitizeListenerForAmbientMulticluster(cc inboundChai
 		},
 	}
 
-	// Build authority matcher map for service hostnames
-	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
-		Map: make(map[string]*matcher.Matcher_OnMatch),
-	}
-	for _, st := range lb.node.ServiceTargets {
-		authorityKey := fmt.Sprintf("%s:%d", st.Service.Hostname, cc.port.Port)
-		svcHostnameMap.Map[authorityKey] = match.ToChain(fmt.Sprintf("0.0.0.0_%d", cc.port.TargetPort))
-		break
-	}
-
-	// Create authority matcher as the primary matcher
-	authorityMatcher := &matcher.Matcher{
+	// Create authority matcher as the primary FilterChainMatcher with IP matcher as fallback
+	l.FilterChainMatcher = &matcher.Matcher{
 		MatcherType: &matcher.Matcher_MatcherTree_{
 			MatcherTree: &matcher.Matcher_MatcherTree{
 				Input: match.AuthorityFilterStateInput,
@@ -655,152 +695,11 @@ func (lb *ListenerBuilder) sanitizeListenerForAmbientMulticluster(cc inboundChai
 				},
 			},
 		},
-		// Set IP matcher as fallback when authority doesn't match
 		OnNoMatch: &matcher.Matcher_OnMatch{
 			OnMatch: &matcher.Matcher_OnMatch_Matcher{
 				Matcher: ipMatcherForFallback,
 			},
 		},
-	}
-
-	if l.FilterChainMatcher == nil {
-		// First time: set authority matcher as the primary FilterChainMatcher
-		l.FilterChainMatcher = authorityMatcher
-	} else {
-		// Merge with existing authority matcher if it exists
-		if l.FilterChainMatcher.GetMatcherType() != nil {
-			if om, ok := l.FilterChainMatcher.GetMatcherType().(*matcher.Matcher_MatcherTree_); ok {
-				if em, ok := om.MatcherTree.TreeType.(*matcher.Matcher_MatcherTree_ExactMatchMap); ok {
-					if em.ExactMatchMap == nil {
-						em.ExactMatchMap = &matcher.Matcher_MatcherTree_MatchMap{
-							Map: make(map[string]*matcher.Matcher_OnMatch),
-						}
-					}
-					// Merge new hostname mappings with existing ones
-					for k, v := range svcHostnameMap.Map {
-						em.ExactMatchMap.Map[k] = v
-					}
-					// Ensure IP matcher is set as fallback - traverse recursively to find the deepest OnNoMatch
-					if l.FilterChainMatcher.GetOnNoMatch() == nil {
-						l.FilterChainMatcher.OnNoMatch = &matcher.Matcher_OnMatch{
-							OnMatch: &matcher.Matcher_OnMatch_Matcher{
-								Matcher: ipMatcherForFallback,
-							},
-						}
-					} else {
-						// Recursively find the deepest OnNoMatch that is nil and set IP matcher there
-						const maxDepth = 20
-						current := l.FilterChainMatcher
-						depth := 0
-						for current.GetOnNoMatch() != nil && current.GetOnNoMatch().GetMatcher() != nil && depth < maxDepth {
-							current = current.GetOnNoMatch().GetMatcher()
-							depth++
-						}
-						if depth >= maxDepth {
-							log.Warnf("sanitizeListenerForAmbientMulticluster: reached maximum depth (%d) while traversing matcher chain for existing authority matcher, possible circular reference", maxDepth)
-						} else if current.GetOnNoMatch() == nil {
-							// Set IP matcher at the deepest nil OnNoMatch
-							current.OnNoMatch = &matcher.Matcher_OnMatch{
-								OnMatch: &matcher.Matcher_OnMatch_Matcher{
-									Matcher: ipMatcherForFallback,
-								},
-							}
-						}
-					}
-				} else {
-					// Different tree type, replace with authority matcher
-					l.FilterChainMatcher = authorityMatcher
-				}
-			} else {
-				// Different matcher type, replace with authority matcher
-				l.FilterChainMatcher = authorityMatcher
-			}
-		} else {
-			// No matcher type set, use authority matcher
-			l.FilterChainMatcher = authorityMatcher
-		}
-	}
-
-}
-func (lb *ListenerBuilder) appendPassthroughMatchersForAmbientMulticluster(l *listener.Listener) {
-	applicationProtocolMatcher := &matcher.Matcher{
-		MatcherType: &matcher.Matcher_MatcherTree_{
-			MatcherTree: &matcher.Matcher_MatcherTree{
-				Input: match.ApplicationProtocolInput,
-				TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
-					ExactMatchMap: &matcher.Matcher_MatcherTree_MatchMap{
-						Map: map[string]*matcher.Matcher_OnMatch{
-							"'http/1.1'": match.ToChain(model.VirtualInboundCatchAllHTTPFilterChainName),
-							"'h2c'":      match.ToChain(model.VirtualInboundCatchAllHTTPFilterChainName),
-						},
-					},
-				},
-			},
-		},
-		OnNoMatch: match.ToChain(model.VirtualInboundListenerName),
-	}
-
-	ipRange := []*xds.CidrRange{}
-	for _, addr := range lb.node.IPAddresses {
-		cidr := util.ConvertAddressToCidr(addr)
-		ipRange = append(ipRange, &xds.CidrRange{
-			AddressPrefix: cidr.AddressPrefix,
-			PrefixLen:     cidr.PrefixLen,
-		})
-	}
-	ipMatcher := &matcher.IPMatcher{}
-	if len(ipRange) > 0 {
-		// Empty can happen if we have workloads, but none have an Address (DNS)
-		ipMatcher.RangeMatchers = append(ipMatcher.RangeMatchers,
-			&matcher.IPMatcher_IPRangeMatcher{
-				Ranges:  ipRange,
-				OnMatch: match.ToMatcher(applicationProtocolMatcher),
-			})
-	}
-
-	ipMatcherForPassthrough := &matcher.Matcher{
-		MatcherType: &matcher.Matcher_MatcherTree_{
-			MatcherTree: &matcher.Matcher_MatcherTree{
-				Input: match.DestinationIP,
-				TreeType: &matcher.Matcher_MatcherTree_CustomMatch{
-					CustomMatch: &xds.TypedExtensionConfig{
-						Name:        "ip",
-						TypedConfig: protoconv.MessageToAny(ipMatcher),
-					},
-				},
-			},
-		},
-	}
-
-	if l.FilterChainMatcher == nil {
-		l.FilterChainMatcher = ipMatcherForPassthrough
-	} else {
-		if l.FilterChainMatcher.GetOnNoMatch() == nil {
-			l.FilterChainMatcher.OnNoMatch = &matcher.Matcher_OnMatch{
-				OnMatch: &matcher.Matcher_OnMatch_Matcher{
-					Matcher: ipMatcherForPassthrough,
-				},
-			}
-		} else {
-			// Recursively find the deepest OnNoMatch that is nil and set IP matcher there
-			const maxDepth = 20
-			current := l.FilterChainMatcher
-			depth := 0
-			for current.GetOnNoMatch() != nil && current.GetOnNoMatch().GetMatcher() != nil && depth < maxDepth {
-				current = current.GetOnNoMatch().GetMatcher()
-				depth++
-			}
-			if depth >= maxDepth {
-				log.Warnf("sanitizeListenerForAmbientMulticluster: reached maximum depth (%d) while traversing matcher chain for existing authority matcher, possible circular reference", maxDepth)
-			} else if current.GetOnNoMatch() == nil {
-				// Set IP matcher at the deepest nil OnNoMatch
-				current.OnNoMatch = &matcher.Matcher_OnMatch{
-					OnMatch: &matcher.Matcher_OnMatch_Matcher{
-						Matcher: ipMatcherForPassthrough,
-					},
-				}
-			}
-		}
 	}
 }
 
@@ -1183,4 +1082,26 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound, fcc.policyService)
 	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
 	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
+}
+
+// buildApplicationProtocolPassthroughMatcher creates a matcher for HTTP/TCP passthrough traffic
+// that doesn't match any specific port. It matches HTTP protocols (http/1.1, h2c) and falls back
+// to TCP for all other traffic.
+func buildApplicationProtocolPassthroughMatcher() *matcher.Matcher {
+	return &matcher.Matcher{
+		MatcherType: &matcher.Matcher_MatcherTree_{
+			MatcherTree: &matcher.Matcher_MatcherTree{
+				Input: match.ApplicationProtocolInput,
+				TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
+					ExactMatchMap: &matcher.Matcher_MatcherTree_MatchMap{
+						Map: map[string]*matcher.Matcher_OnMatch{
+							"'http/1.1'": match.ToChain(model.VirtualInboundCatchAllHTTPFilterChainName),
+							"'h2c'":      match.ToChain(model.VirtualInboundCatchAllHTTPFilterChainName),
+						},
+					},
+				},
+			},
+		},
+		OnNoMatch: match.ToChain(model.VirtualInboundListenerName),
+	}
 }
