@@ -192,8 +192,13 @@ func httpGateway(host string, port int, portName, protocol string, gatewayIstioL
 func virtualServiceCases(t TrafficContext) {
 	// reduce the total # of subtests that don't give valuable coverage or just don't work
 	// TODO include proxyless as different features become supported
-	t.SetDefaultSourceMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
-	t.SetDefaultTargetMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
+	matchers := []match.Matcher{match.NotNaked, match.NotHeadless, match.NotProxylessGRPC}
+	if t.Settings().AmbientMultiNetwork {
+		matchers = append(matchers, match.AmbientCaptured())
+	}
+	t.SetDefaultSourceMatchers(matchers...)
+	t.SetDefaultTargetMatchers(matchers...)
+
 	includeProxyless := []match.Matcher{match.NotNaked, match.NotHeadless}
 
 	skipVM := t.Settings().Skip(echo.VM)
