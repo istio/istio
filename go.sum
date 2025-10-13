@@ -147,8 +147,8 @@ github.com/envoyproxy/go-control-plane v0.13.5-0.20250705082150-f8f2cd45490a h1:
 github.com/envoyproxy/go-control-plane v0.13.5-0.20250705082150-f8f2cd45490a/go.mod h1:whHrEUXbTAzBJlzd3Gz4us5zEFP1gL6o3LbfA+a/xbg=
 github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250627145903-197b96a9c7f8 h1:KXgXPtBofHkRHr+8dO058dGZnLHapW7m0yJEgSYdAFA=
 github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250627145903-197b96a9c7f8/go.mod h1:Nx/YcyEeIcgjT13QwKHdcPmS060urxZ835MeO8cLOrg=
-github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250921184633-9a6a6e1d1741 h1:cihocN3Y1vol5fNBh5Zxbk0s72PWbDL9WuKIVpCCkTI=
-github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250921184633-9a6a6e1d1741/go.mod h1:2LcmvJoXsDSrsGZIxGM0Gah9ykiwTn/kgjyQdnNH8Jc=
+github.com/envoyproxy/go-control-plane/envoy v1.35.1-0.20251009075907-cccc37f025be h1:u4SE0TvJwGK/iDu9YIK4zd16VOn19pBRSuKOm9KRskA=
+github.com/envoyproxy/go-control-plane/envoy v1.35.1-0.20251009075907-cccc37f025be/go.mod h1:ty89S1YCCVruQAm9OtKeEkQLTb+Lkz0k8v9W0Oxsv98=
 github.com/envoyproxy/go-control-plane/ratelimit v0.1.0 h1:/G9QYbddjL25KvtKTv3an9lx6VBE2cnb8wp1vEGNYGI=
 github.com/envoyproxy/go-control-plane/ratelimit v0.1.0/go.mod h1:Wk+tMFAFbCXaJPzVVHnPgRKdUdwW/KdbRt94AzgRee4=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
@@ -619,8 +619,8 @@ google.golang.org/grpc v1.27.0/go.mod h1:qbnxyOmOxrQa7FizSgH+ReBfzJrCY1pSN7KXBS8
 google.golang.org/grpc v1.29.1/go.mod h1:itym6AZVZYACWQqET3MqgPpjcuV5QH3BxFS3IjizoKk=
 google.golang.org/grpc v1.75.1 h1:/ODCNEuf9VghjgO3rqLcfg8fiOP0nSluljWFlDxELLI=
 google.golang.org/grpc v1.75.1/go.mod h1:JtPAzKiq4v1xcAB2hydNlWI2RnF85XXcV0mhKXr2ecQ=
-google.golang.org/protobuf v1.36.9 h1:w2gp2mA27hUeUzj9Ex9FBjsBm40zfaDtEWow293U7Iw=
-google.golang.org/protobuf v1.36.9/go.mod h1:fuxRtAxBytpl4zzqUh6/eyUujkJdNiuEkXntxiD/uRU=
+google.golang.org/protobuf v1.36.10 h1:AYd7cD/uASjIL6Q9LiTjz8JLcrh/88q5UObnmY3aOOE=
+google.golang.org/protobuf v1.36.10/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
