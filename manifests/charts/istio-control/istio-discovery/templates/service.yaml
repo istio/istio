@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # Not created if istiod is running remotely
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 apiVersion: v1
@@ -55,4 +56,5 @@ spec:
   trafficDistribution: {{ .Values.trafficDistribution }}
   {{- end }}
 ---
+{{- end }}
 {{- end }}

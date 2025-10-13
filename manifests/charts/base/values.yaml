@@ -10,6 +10,14 @@ _internal_defaults_do_not_set:
 
     # Used to locate istiod.
     istioNamespace: istio-system
+
+    # resourceScope controls what resources will be processed by helm.
+    # This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+    # It can be one of:
+    # - all: all resources are processed
+    # - cluster: only cluster-scoped resources are processed
+    # - namespace: only namespace-scoped resources are processed
+    resourceScope: all
   base:
     # A list of CRDs to exclude. Requires `enableCRDTemplates` to be true.
     # Example: `excludedCRDs: ["envoyfilters.networking.istio.io"]`.

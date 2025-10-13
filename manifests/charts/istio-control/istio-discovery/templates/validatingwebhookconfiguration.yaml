@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled (or .Values.global.configCluster .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
 {{- if .Values.global.configValidation }}
@@ -64,5 +65,6 @@ webhooks:
           - "{{ .Values.revision }}"
           {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

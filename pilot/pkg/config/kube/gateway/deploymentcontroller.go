@@ -331,6 +331,14 @@ func NewDeploymentController(
 		}
 	}))
 
+	dc.env.Watcher.AddMeshHandler(func() {
+		// if there is a change to the meshconfig we need to reprocess all gateways
+		// to reconcile things like the deployment image
+		for _, gw := range dc.gateways.List(corev1.NamespaceAll, klabels.Everything()) {
+			dc.queue.AddObject(gw)
+		}
+	})
+
 	// we check if the generation has changed on a gateway, or if the annotations or labels have been updated
 	// reconciliation is expensive, so status updates for attachedRoutes can be skipped.
 
@@ -403,6 +411,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.gateways.HasSynced,
 		d.gatewayClasses.HasSynced,
 		d.tagWatcher.HasSynced,
+		d.env.Watcher.AsCollection().HasSynced,
 	)
 	d.queue.Run(stop)
 	controllers.ShutdownAll(
