@@ -305,10 +305,8 @@ var (
 
 	EnableStrictGatewayMerging = env.Register(
 		"PILOT_ENABLE_STRICT_GATEWAY_MERGING",
-		true, // Default value (false = feature disabled by default)
-		"If enabled, GatewayAPI Gateways will not be merged with Istio Gateways. "+
-			"By default it is enabled and GatewayAPI and Istio Gateways will be merged together.",
-	).Get()
+		true, // Default value (true = feature enabled by default)
+		"If enabled, GatewayAPI Gateways will not be merged with Istio Gateways unless in the same namespace. ").Get()
 
 	EnableNativeSidecars = func() NativeSidecarMode {
 		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
