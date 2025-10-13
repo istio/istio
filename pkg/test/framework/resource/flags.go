@@ -274,7 +274,7 @@ func initGatewayConformanceTimeouts() {
 		"istio.test.gatewayConformance.tlsRouteMustHaveConditionTimeout", 0,
 		"Gateway conformance test timeout for waiting for an TLSRoute to have a certain condition.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.RouteMustHaveParents, "istio.test.gatewayConformance.routeMustHaveParentsTimeout",
-		0, "Gateway conformance test timeout for the maximum time for an xRoute to have parents in status that match the expected parents.")
+		0, "Maximum time in the Gateway conformance test for an xRoute to have parents in status that match the expected parents before timing out.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.ManifestFetchTimeout, "istio.test.gatewayConformance.manifestFetchTimeout",
 		0, "Gateway conformance test timeout for the maximum time for getting content from a https:// URL.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.MaxTimeToConsistency, "istio.test.gatewayConformance.maxTimeToConsistency",
