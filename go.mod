@@ -2,7 +2,7 @@ module istio.io/istio
 
 go 1.24.0
 
-replace istio.io/api => github.com/zirain/api v0.0.0-20251009094220-d64f974bef8c
+replace istio.io/api => github.com/zirain/api v0.0.0-20251010014730-7ad3ab4a72bb
 
 require (
 	cloud.google.com/go/compute/metadata v0.7.0
