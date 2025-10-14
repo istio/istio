@@ -22,9 +22,9 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
-	"istio.io/api/label"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -682,7 +682,7 @@ func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
 	env := environment(t)
 	env.Env().InitNetworksManager(env.Discovery)
-	var ambientNetworkFiltered = []networkFilterCase{
+	ambientNetworkFiltered := []networkFilterCase{
 		{
 			name:  "from_network1_cluster1a",
 			proxy: makeWaypointProxy("network1", "cluster1a"),
