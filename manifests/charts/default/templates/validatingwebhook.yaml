@@ -38,6 +38,7 @@ webhooks:
           - "*"
     failurePolicy: Ignore
     sideEffects: None
+    timeoutSeconds: {{ .Values.base.validationTimeoutSeconds }}
     admissionReviewVersions: ["v1"]
     objectSelector:
       matchExpressions:
