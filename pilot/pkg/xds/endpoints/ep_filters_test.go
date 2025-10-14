@@ -22,9 +22,9 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
-	"istio.io/api/label"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-        "istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
@@ -682,7 +682,7 @@ func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
 	env := environment(t)
 	env.Env().InitNetworksManager(env.Discovery)
-	var ambientNetworkFiltered = []networkFilterCase{
+	ambientNetworkFiltered := []networkFilterCase{
 		{
 			name:  "from_network1_cluster1a",
 			proxy: makeWaypointProxy("network1", "cluster1a"),
@@ -895,7 +895,7 @@ func makeWaypointProxy(nw network.ID, c cluster.ID) *model.Proxy {
 	}
 	proxy.Labels[label.GatewayManaged.Name] = constants.ManagedGatewayMeshControllerLabel
 	proxy.Type = model.Waypoint
-        return proxy
+	return proxy
 }
 
 // environment defines the networks with:
@@ -916,20 +916,20 @@ func environment(t test.Failer, c ...config.Config) *xds.FakeDiscoveryServer {
 			// in sidecar mode will be used for endpoints in both cluster1a and cluster1b,
 			// but ambient waypoint will not use it at all.
 			{
-				Network:   "network1",
-				Cluster:   "cluster1a",
-				Addr:      "1.1.1.1",
-				Port:      80,
+				Network: "network1",
+				Cluster: "cluster1a",
+				Addr:    "1.1.1.1",
+				Port:    80,
 			},
 
 			// network2 has one gateway in each cluster2a and cluster2b. When targeting a particular
 			// endpoint, only the gateway for its cluster will be selected. Since the clusters do not
 			// have the same number of endpoints, the weights for the gateways will be different.
 			{
-				Network: "network2",
-				Cluster: "cluster2a",
-				Addr:    "2.2.2.2",
-				Port:    80,
+				Network:   "network2",
+				Cluster:   "cluster2a",
+				Addr:      "2.2.2.2",
+				Port:      80,
 				HBONEPort: 15008,
 			},
 			{
