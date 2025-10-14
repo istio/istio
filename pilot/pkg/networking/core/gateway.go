@@ -283,7 +283,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				// codec is used by RBAC later.
 				// This is the case of TCP or PASSTHROUGH.
 				tcpChainOpts := builder.createGatewayTCPFilterChainOpts(
-					server, port.Number, mergedGateway.GatewayNameForServer[server], tlsHostsByPort)
+					server, port.Number, mergedGateway.GatewayNameForServer[server].String(), tlsHostsByPort)
 				opts.filterChainOpts = append(opts.filterChainOpts, tcpChainOpts...)
 			}
 		}
@@ -410,7 +410,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	gatewayVirtualServices := make(map[string][]config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
 	for _, server := range servers {
-		gatewayName := merged.GatewayNameForServer[server]
+		gatewayName := merged.GatewayNameForServer[server].String()
 		port := int(server.Port.Number)
 
 		var virtualServices []config.Config

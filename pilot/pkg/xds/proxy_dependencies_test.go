@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
+	kubetypes "k8s.io/apimachinery/pkg/types"
 )
 
 func TestProxyNeedsPush(t *testing.T) {
@@ -430,8 +431,8 @@ func TestProxyNeedsPush(t *testing.T) {
 	})
 
 	gateway.MergedGateway = &model.MergedGateway{
-		GatewayNameForServer: map[*networking.Server]string{
-			{}: nsName + "/" + generalName,
+		GatewayNameForServer: map[*networking.Server]kubetypes.NamespacedName{
+			{}: {Namespace: nsName, Name: generalName},
 		},
 	}
 	gateway.SetSidecarScope(cg.PushContext())
