@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 
+	kubetypes "k8s.io/apimachinery/pkg/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -29,7 +31,6 @@ import (
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	kubetypes "k8s.io/apimachinery/pkg/types"
 )
 
 // ServerPort defines port for the gateway server.

@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	kubetypes "k8s.io/apimachinery/pkg/types"
+
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
@@ -33,7 +35,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
-	kubetypes "k8s.io/apimachinery/pkg/types"
 )
 
 func TestProxyNeedsPush(t *testing.T) {
