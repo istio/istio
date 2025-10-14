@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -172,10 +173,19 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		// If we put them as a network filter, we get poor logs and cannot return an error at the CONNECT level
 		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
 	}
+	filters = append(filters,
+		xdsfilters.WaypointDownstreamMetadataFilter,
+		xdsfilters.ConnectAuthorityFilter)
+
+	// This filter checks whether the request went through a waypoint already and thefore whether L7 policies have
+	// been applied already. We put that information into filter state for later use when we decide whether to
+	// send the request to a waypoint or skip it.
+	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
+		filters = append(filters, xdsfilters.RequestSourceFilter)
+	}
+
 	// Filters needed to propagate the tunnel metadata to the inner streams.
 	h.HttpFilters = append(filters,
-		xdsfilters.WaypointDownstreamMetadataFilter,
-		xdsfilters.ConnectAuthorityFilter,
 		xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
 			StartChildSpan:       false,
 			SuppressDebugHeaders: ph.SuppressDebugHeaders,
@@ -244,6 +254,27 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
+func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) host.Name {
+	if lb.node.Type != model.Router && !isEastWestGateway(lb.node) {
+		return ""
+	}
+	if !svc.HasAddressOrAssigned(lb.node.Metadata.ClusterID) {
+		return ""
+	}
+	ws := lb.push.ServicesWithWaypoint(svc.Attributes.Namespace + "/" + string(svc.Hostname))
+	if len(ws) == 0 {
+		return ""
+	}
+	if len(ws) > 1 {
+		log.Warnf("unexpected multiple waypoint services for %s", svc.Hostname)
+	}
+	waypoint := ws[0]
+	if !waypoint.IngressUseWaypoint && !isEastWestGateway(lb.node) {
+		return ""
+	}
+	return host.Name(waypoint.WaypointHostname)
+}
+
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	isEastWestGateway := isEastWestGateway(lb.node)
@@ -297,13 +328,52 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			},
 		}
 	}
+
+	hostnames := map[host.Name]bool{}
+	if features.EnableAmbientMultiNetwork {
+		// In ambient multi-network mode of operation we want to check that both services and
+		// their waypoints are listed together. If it's not the case and due to a configuration
+		// mistake the service is marked as global, but the waypoint that service uses is not
+		// the code below will generate incorrect Envoy configuration.
+		//
+		// To detect when waypoints aren't global and avoid generating incorrect Envoy
+		// configuration we do a quick pass over all the services to save them in a map for easy
+		// lookup later. With this map for services with waypoint we can quickly check if waypoint
+		// is in the list.
+		//
+		// TODO(https://github.com/istio/istio/issues/58064): rather than detect the misconfiguration
+		// it's better to not give users an opportunity to misconfigure in the first place. The
+		// linked issue is tracking discussion and possibly fix for this.
+		for _, svc := range svcs {
+			hostnames[svc.Hostname] = true
+		}
+	}
+
 	for _, svc := range svcs {
+		var waypoint host.Name
+		if isEastWestGateway && features.EnableAmbientMultiNetwork {
+			// If service has a waypoint, but waypoint isn't marked as global service - it's
+			// a misconfiguration on user behalf. If we conitunue without this check we'd
+			// generate incorrect configuration in this situation. To avoid that we check for
+			// this condition specifically and when we detect it we skip the service all
+			// together.
+			waypoint = lb.findServiceWaypoint(svc)
+			if waypoint != "" {
+				if _, exists := hostnames[waypoint]; !exists {
+					log.Warnf("service %q uses waypoint %q, but waypoint isn't marked as global.", svc.Hostname, waypoint)
+					continue
+				}
+			}
+		}
+
 		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
+
+
 			portString := strconv.Itoa(port.Port)
 			authorityKey := fmt.Sprintf("%s:%d", svc.Hostname, port.Port)
 			tcpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port)
@@ -340,13 +410,42 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				Name:    cc.clusterName,
 			}
 			if isEastWestGateway && features.EnableAmbientMultiNetwork {
+				// If the service has a waypoint, in ambient multi-network we have to account for the possibility that L7
+				// policies have been applied already, and if so, we need to skip the waypoint. So if the service has a
+				// waypoint we check it here and generate a somewhat different filter chain matching rule.
+				//
+				// How do we check that L7 policies have been applied already?
+				//
+				// - L7 policies have been applied if the request went through a waypoint already. Waypoints add a header
+				//   to the outer CONNECT request that we can use to check that.
+				//
+				// What do we do if L7 policies have been applied already?
+				//
+				// - Instead of routing to a waypoint as we'd do normally, we instead route directly to the service
+				//   endpoint skipping waypoint alltogether.
+				if waypoint != "" {
+					hbonePort := 15008
+					// We rely here on filter chain name and cluster name matching.
+					// We also rely here on the fact that waypoint is also a global service and another iteration of
+					// this loop would generate a cluster and corresponding filter chain for the waypoint service.
+					waypointClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", waypoint, hbonePort)
+
+					m := match.NewRequestSource()
+					m.Map["waypoint"] = match.ToChain(tcpChain.Name)
+					m.OnNoMatch = match.ToChain(waypointClusterName)
+
+					requestSourceMatcher := match.ToMatcher(m.BuildMatcher())
+					portMapper.Map[portString] = requestSourceMatcher
+					svcHostnameMap.Map[authorityKey] = requestSourceMatcher
+				} else {
+					portMapper.Map[portString] = match.ToChain(tcpChain.Name)
+					svcHostnameMap.Map[authorityKey] = match.ToChain(tcpChain.Name)
+				}
 				// We want to send to all ports regardless of protocol, but we want the filter chains to tcp proxy no matter what
 				// (since we're expecting double-hbone). There's no point in sniffing, so we just send to the TCP chain.
 				chains = append(chains, tcpChain)
 				// Pick the TCP chain; as long as the cluster exists (and we'll ensure it does if we're terminating),
 				// traffic should end up at the correct destination
-				portMapper.Map[portString] = match.ToChain(tcpClusterName)
-				svcHostnameMap.Map[authorityKey] = match.ToChain(tcpChain.Name)
 				portProtocols[port.Port] = protocol.TCP // Inner HBONE with no SNI == TCP protocol for listener purposes
 			} else {
 				if port.Protocol.IsUnsupported() {
@@ -669,7 +768,7 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 						Format: &core.SubstitutionFormatString_TextFormatSource{
 							TextFormatSource: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: "%DYNAMIC_METADATA(istio.double_hbone:hbone_target_address)%",
+									InlineString: "%DYNAMIC_METADATA(istio:double_hbone:hbone_target_address)%",
 								},
 							},
 						},
