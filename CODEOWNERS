@@ -21,7 +21,9 @@ Makefile*                                                        @istio/wg-test-
 /pilot/pkg/model/                                                @istio/wg-networking-maintainers-pilot
 /pilot/pkg/networking/core                                       @istio/wg-networking-maintainers-pilot
 /pilot/pkg/proxy                                                 @istio/wg-networking-maintainers-pilot
-/pkg/                                                            @istio/wg-test-and-release-maintainers
+/pkg/                                                            @istio/wg-networking-maintainers
+/pkg/test/                                                       @istio/wg-test-and-release-maintainers
+/pkg/testcerts/                                                  @istio/wg-test-and-release-maintainers
 /pkg/adsc/                                                       @istio/wg-networking-maintainers
 /pkg/bootstrap/                                                  @istio/wg-networking-maintainers
 /pkg/config/                                                     @istio/wg-networking-maintainers
@@ -30,7 +32,10 @@ Makefile*                                                        @istio/wg-test-
 /pkg/envoy/                                                      @istio/wg-networking-maintainers
 /pkg/istio-agent/                                                @istio/wg-networking-maintainers @istio/wg-security-maintainers
 /pkg/keepalive/                                                  @istio/wg-networking-maintainers
+/pkg/log/                                                        @istio/wg-networking-maintainers @istio/wg-policies-and-telemetry-maintainers
 /pkg/monitoring/                                                 @istio/wg-networking-maintainers @istio/wg-policies-and-telemetry-maintainers
+/pkg/tracing/                                                    @istio/wg-networking-maintainers @istio/wg-policies-and-telemetry-maintainers
+/pkg/wasm/                                                       @istio/wg-networking-maintainers @istio/wg-policies-and-telemetry-maintainers
 /pkg/kube/                                                       @istio/wg-networking-maintainers
 /pkg/mcp/                                                        @istio/wg-networking-maintainers
 /pkg/queue/                                                      @istio/wg-networking-maintainers
@@ -38,8 +43,6 @@ Makefile*                                                        @istio/wg-test-
 /pkg/spiffe/                                                     @istio/wg-security-maintainers
 /pkg/test/                                                       @istio/wg-test-and-release-maintainers
 /pkg/fuzz/                                                       @istio/wg-test-and-release-maintainers
-/pkg/tracing/                                                    @istio/wg-policies-and-telemetry-maintainers
-/pkg/wasm/                                                       @istio/wg-policies-and-telemetry-maintainers
 /pkg/webhooks/                                                   @istio/wg-environments-maintainers
 /pkg/workloadapi/                                                @istio/wg-networking-maintainers
 /prow/                                                           @istio/wg-test-and-release-maintainers
