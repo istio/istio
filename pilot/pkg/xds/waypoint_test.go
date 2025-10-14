@@ -543,9 +543,9 @@ spec:
 
 	clusters := xdstest.ExtractClusters(d.Clusters(p))
 	cluster := clusters["inbound-vip|80|http|*.domain.com"]
+	g.Expect(cluster).NotTo(BeNil())
 	g.Expect(cluster.TransportSocket.GetTypedConfig().TypeUrl).
 		To(Equal("type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport"))
-	g.Expect(cluster).NotTo(BeNil())
 	clusterType := cluster.ClusterDiscoveryType.(*clusterv3.Cluster_ClusterType)
 	g.Expect(clusterType).NotTo(BeNil())
 	g.Expect(clusterType.ClusterType.GetTypedConfig().TypeUrl).

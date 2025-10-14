@@ -3051,7 +3051,7 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					errs = AppendValidation(errs, fmt.Errorf("host must be wildcarded for resolution mode %s", serviceEntry.Resolution))
 				}
 			}
-			if len(serviceEntry.Addresses) > 0 {
+			if len(serviceEntry.Addresses) != 0 {
 				errs = AppendValidation(errs, fmt.Errorf("addresses cannot be set for resolution type %s. HTTP route domains will only be generated"+
 					"from the hosts field values", serviceEntry.Resolution))
 			}

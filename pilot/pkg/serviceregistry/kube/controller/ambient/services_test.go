@@ -487,7 +487,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Namespace: "ns",
 					Labels: map[string]string{
 						label.IoIstioUseWaypoint.Name:          "waypoint",
-						label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
+						label.IoIstioUseWaypointNamespace.Name: "ns",
 					},
 				},
 				Spec: networking.ServiceEntry{

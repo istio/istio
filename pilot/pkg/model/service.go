@@ -1196,19 +1196,22 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 			Reason:  string(WaypointAccepted),
 			Message: buildMsg.String(),
 		}
-	} else if i.Waypoint.Error != nil {
-		set[WaypointBound] = &Condition{
-			Status:  false,
-			Reason:  i.Waypoint.Error.Reason,
-			Message: i.Waypoint.Error.Message,
+	} else {
+		if i.Waypoint.Error != nil {
+			set[WaypointBound] = &Condition{
+				Status:  false,
+				Reason:  i.Waypoint.Error.Reason,
+				Message: i.Waypoint.Error.Message,
+			}
 		}
-	} else if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
-		buildMsg := strings.Builder{}
-		buildMsg.WriteString("No waypoint found for wildcard service. ServiceEntry will not apply until it is bound to a specific waypoint.")
-		set[WaypointMissing] = &Condition{
-			Status:  true,
-			Reason:  NoWaypointForWildcardService,
-			Message: buildMsg.String(),
+		if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
+			buildMsg := strings.Builder{}
+			buildMsg.WriteString("ServiceEntry will not apply until it is bound to a valid waypoint.")
+			set[WaypointMissing] = &Condition{
+				Status:  true,
+				Reason:  NoWaypointForWildcardService,
+				Message: buildMsg.String(),
+			}
 		}
 	}
 

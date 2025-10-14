@@ -1043,7 +1043,7 @@ func TestWaypointAsEgressGatewayForWildcardEntries(t *testing.T) {
 				}
 				t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
 					if src.Config().HasSidecar() {
-						t.Skip("TODO: sidecars don't properly handle use-waypoint")
+						t.Skip("TODO: sidecars don't properly handle use-waypoint. See https://github.com/istio/istio/issues/51445")
 					}
 					for _, o := range opts {
 						src.CallOrFail(t, o)
