@@ -682,13 +682,6 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: InnerConnectOriginate},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%FILTER_STATE(istio.waypoint.hbone_target_address:PLAIN)%",
-			HeadersToAdd: []*core.HeaderValueOption{{
-				AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
-				Header: &core.HeaderValue{
-					Key:   l7PoliciesStatusHeader,
-					Value: "true",
-				},
-			}},
 		},
 	}
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
