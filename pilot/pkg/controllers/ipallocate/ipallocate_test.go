@@ -460,7 +460,7 @@ func TestIPAllocate(t *testing.T) {
 		},
 	)
 
-	// test that adding a wildcard host to the list of hosts allocates an ip for it when
+	// test that an IP is allocated for a wildcard host when
 	// resolution is set to DYNAMIC_DNS
 	se = rig.se.Get("pre-existing", "default")
 	se.Spec.Hosts = []string{"*.wildcard.testing.io"}

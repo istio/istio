@@ -54,7 +54,7 @@ func TestServiceEntryServices(t *testing.T) {
 	waypoint := Waypoint{
 		Named: krt.Named{
 			Name:      "waypoint",
-			Namespace: "waypoint-ns",
+			Namespace: "ns",
 		},
 		TrafficType: constants.AllTraffic,
 		Address:     waypointAddr,

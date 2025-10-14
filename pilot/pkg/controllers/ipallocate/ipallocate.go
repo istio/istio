@@ -332,7 +332,7 @@ type jsonPatch struct {
 }
 
 func keepHost(se *networkingv1.ServiceEntry, h string) bool {
-	// Only keep wildcarded hosts if the resolution is not dynamic DNS
+	// Only keep wildcarded hosts if the resolution is dynamic DNS
 	return !cfghost.Name(h).IsWildCarded() || se.Spec.Resolution == apiv1alpha3.ServiceEntry_DYNAMIC_DNS
 }
 
