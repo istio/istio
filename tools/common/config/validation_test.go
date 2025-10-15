@@ -150,6 +150,10 @@ func TestValidateIptablesVersion(t *testing.T) {
 			input: "iptables-legacy",
 		},
 		{
+			name:  "empty_iptables_version",
+			input: "",
+		},
+		{
 			name:     "rejected_iptables_version",
 			input:    "random",
 			expected: fmt.Errorf("iptables version random not supported"),

@@ -72,7 +72,7 @@ const (
 
 func ValidateIptablesVersion(iptv string) error {
 	switch iptv {
-	case iptablesBin, iptablesNftBin, iptablesLegacyBin,
+	case "", iptablesBin, iptablesNftBin, iptablesLegacyBin,
 		ip6tablesBin, ip6tablesNftBin, ip6tablesLegacyBin:
 		return nil
 	default:
