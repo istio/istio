@@ -18,9 +18,12 @@ import (
 	"time"
 
 	mysql "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/mysql_proxy/v3"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	dfp "github.com/envoyproxy/go-control-plane/envoy/extensions/common/dynamic_forward_proxy/v3"
 	mongo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mongo_proxy/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
+	snidfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	hashpolicy "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -74,6 +77,23 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy,
 	return tcpFilter
 }
 
+func buildSNIDFPFilter(port int, svc *model.Service) *listener.Filter {
+	sniDfp := &snidfp.FilterConfig{
+		DnsCacheConfig: &dfp.DnsCacheConfig{
+			Name:            model.BuildDNSCacheName(svc.Hostname),
+			DnsLookupFamily: cluster.Cluster_V4_ONLY,
+		},
+		PortSpecifier: &snidfp.FilterConfig_PortValue{
+			PortValue: uint32(port),
+		},
+	}
+
+	return &listener.Filter{
+		Name:       wellknown.SNIDynamicForwardProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(sniDfp)},
+	}
+}
+
 // buildOutboundNetworkFiltersWithSingleDestination takes a single cluster name
 // and builds a stack of network filters.
 func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
@@ -113,6 +133,7 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 		useFilterState := lb.node.Type == model.Waypoint
 		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
 		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)
+
 	}
 
 	var filters []*listener.Filter

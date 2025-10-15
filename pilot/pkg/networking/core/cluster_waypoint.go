@@ -153,6 +153,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		localCluster = cb.buildCluster(clusterName, discoveryType, lbEndpoints,
 			model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
 	} else {
+		// DynamicDNS uses a custom cluster type and has the same cluster for HTTP and TLS protocols
 		localCluster = cb.buildDFPCluster(clusterName, svc, &port)
 	}
 
@@ -293,7 +294,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 		for _, port := range svc.Ports {
 			// We don't support UDP. And for dynamic DNS (dynamic forward proxy) we only support HTTP
 			// TODO(jaellio): add support for TCP/HTTPS with SNI DFP
-			if port.Protocol == protocol.UDP || (svc.Resolution == model.DynamicDNS && port.Protocol != protocol.HTTP) {
+			if port.Protocol == protocol.UDP || (svc.Resolution == model.DynamicDNS && (port.Protocol != protocol.HTTP && port.Protocol != protocol.TLS)) {
 				log.Debugf("skipping waypoint VIP cluster for unsupported protocol %s for service %s", port.Protocol, svc.Hostname)
 				continue
 			}

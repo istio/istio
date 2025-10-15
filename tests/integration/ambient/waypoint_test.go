@@ -1083,7 +1083,6 @@ spec:
 			t.ConfigIstio().
 				Eval(egressNamespace.Name(), apps.Namespace.Name(), waypointSpec).
 				ApplyOrFail(t, apply.CleanupConditionally)
-
 			service := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
@@ -1098,6 +1097,9 @@ spec:
   - name: http
     number: 80
     protocol: HTTP
+  - name: tls
+    number: 443
+    protocol: TLS
   - name: http-for-tls
     number: 8080
     protocol: HTTP
@@ -1148,6 +1150,21 @@ spec:
 				// We expect the request to succeed since Host matches the wildcarded hostname even though it is not the original destination host
 				Check: check.And(check.OK(), IsL7()),
 			})
+
+			// We can send a simple request
+			runTest(t, "basic TLS", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 443},
+				Scheme:  scheme.TLS,
+				TLS: echo.TLS{
+					InsecureSkipVerify: true,
+					ServerName:         fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				},
+				Count: 1,
+				Check: check.And(check.OK(), IsL7()),
+			})
+
+			time.Sleep(60 * time.Minute)
 
 			// Test we can do TLS origination, by utilizing ServiceEntry target port
 			wildacardTLSOrigination := `apiVersion: networking.istio.io/v1
