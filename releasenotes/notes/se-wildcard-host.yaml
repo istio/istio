@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 54540
+releaseNotes:
+  - |
+    **Added** support for wildcard hosts in ServiceEntries with DYNAMIC_DNS resolution.
+    Only supported for HTTP traffic. Requires ambient mode and a waypoint configured as
+    an egress gateway.

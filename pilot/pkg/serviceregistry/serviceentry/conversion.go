@@ -115,6 +115,8 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		resolution = networking.ServiceEntry_DNS_ROUND_ROBIN // 3
 	case model.ClientSideLB: // 0
 		resolution = networking.ServiceEntry_STATIC // 1
+	case model.DynamicDNS:
+		resolution = networking.ServiceEntry_DYNAMIC_DNS
 	}
 	se.Resolution = resolution
 
@@ -176,6 +178,8 @@ func convertServices(cfg config.Config) []*model.Service {
 		resolution = model.DNSRoundRobinLB
 	case networking.ServiceEntry_STATIC:
 		resolution = model.ClientSideLB
+	case networking.ServiceEntry_DYNAMIC_DNS:
+		resolution = model.DynamicDNS
 	}
 
 	trafficDistribution := model.GetTrafficDistribution(nil, cfg.Annotations)
