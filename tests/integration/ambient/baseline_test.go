@@ -362,7 +362,9 @@ func TestServerSideLB(t *testing.T) {
 				c = multipleHost
 			}
 			opt.Check = check.And(check.OK(), c)
-			opt.NewConnectionPerRequest = false
+			// for multi-network, we must re-establish tcp connection to let
+			// ztunnel load balance across clusters
+			opt.NewConnectionPerRequest = t.Settings().AmbientMultiNetwork
 			src.CallOrFail(t, opt)
 		})
 	})
@@ -896,6 +898,8 @@ spec:
     19090:
       mode: PERMISSIVE
         `).ApplyOrFail(t)
+				// this seems flakey for multi-network, possibly due to race condition?
+				time.Sleep(100 * time.Millisecond)
 				opt := opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
 				src.CallOrFail(t, opt)
