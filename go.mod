@@ -2,8 +2,6 @@ module istio.io/istio
 
 go 1.24.0
 
-replace istio.io/api => github.com/zirain/api v0.0.0-20251010014730-7ad3ab4a72bb
-
 require (
 	cloud.google.com/go/compute/metadata v0.7.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -96,8 +94,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.18.6
-	istio.io/api v1.26.0-alpha.0.0.20251013193626-3200bbf5795e
-	istio.io/client-go v1.26.0-alpha.0.0.20251013194303-fbfbcf30e44a
+	istio.io/api v1.26.0-alpha.0.0.20251015011804-20d26b484932
+	istio.io/client-go v1.26.0-alpha.0.0.20251015012202-cefa3d1342ba
 	k8s.io/api v0.34.1
 	k8s.io/apiextensions-apiserver v0.34.1
 	k8s.io/apimachinery v0.34.1
