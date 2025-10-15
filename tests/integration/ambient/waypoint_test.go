@@ -1074,7 +1074,7 @@ func TestWaypointLocalRatelimit(t *testing.T) {
 				return
 			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": "waypoint",
+				"Destination": dst.ServiceName(),
 			}, `apiVersion: networking.istio.io/v1alpha3
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
