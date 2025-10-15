@@ -88,7 +88,7 @@ const (
 	CleanupOnly               = "cleanup-only"
 	ForceApply                = "force-apply"
 	NativeNftables            = "native-nftables"
-	ForceIpTablesVersion      = "force-iptables-version"
+	ForceIptablesBinary       = "force-iptables-version"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.

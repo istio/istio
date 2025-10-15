@@ -147,7 +147,7 @@ func TestValidateIptablesVersion(t *testing.T) {
 	}{
 		{
 			name:  "accepted_iptables_version",
-			input: "iptables-legacy",
+			input: "legacy",
 		},
 		{
 			name:  "empty_iptables_version",

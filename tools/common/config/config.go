@@ -91,7 +91,7 @@ type Config struct {
 	CleanupOnly              bool       `json:"CLEANUP_ONLY"`
 	ForceApply               bool       `json:"FORCE_APPLY"`
 	NativeNftables           bool       `json:"NATIVE_NFTABLES"`
-	ForceIpTablesVersion     string     `json:"FORCE_IPTABLES_VERSION"`
+	ForceIptablesBinary      string     `json:"FORCE_IPTABLES_BINARY"`
 }
 
 type NetworkRange struct {
@@ -145,7 +145,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("CLEANUP_ONLY=%t\n", c.CleanupOnly))
 	b.WriteString(fmt.Sprintf("FORCE_APPLY=%t\n", c.ForceApply))
 	b.WriteString(fmt.Sprintf("NATIVE_NFTABLES=%t\n", c.NativeNftables))
-	b.WriteString(fmt.Sprintf("FORCE_IPTABLES_VERSION=%s\n", c.ForceIpTablesVersion))
+	b.WriteString(fmt.Sprintf("FORCE_IPTABLES_BINARY=%s\n", c.ForceIptablesBinary))
 	log.Infof("Istio config:\n%s", b.String())
 }
 
@@ -154,7 +154,7 @@ func (c *Config) Validate() error {
 		return err
 	}
 
-	if err := ValidateIptablesVersion(c.ForceIpTablesVersion); err != nil {
+	if err := ValidateIptablesVersion(c.ForceIptablesBinary); err != nil {
 		return err
 	}
 	return ValidateIPv4LoopbackCidr(c.HostIPv4LoopbackCidr)

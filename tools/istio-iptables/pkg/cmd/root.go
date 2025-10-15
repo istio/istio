@@ -151,8 +151,8 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 		&cfg.NativeNftables)
 
 	// This allows the user to specify the iptables version to use.
-	flag.BindEnv(fs, constants.ForceIpTablesVersion, "", "Break glass option to choose which iptables binary to use.",
-		&cfg.ForceIpTablesVersion)
+	flag.BindEnv(fs, constants.ForceIptablesBinary, "", "Break glass option to choose which iptables binary to use.",
+		&cfg.ForceIptablesBinary)
 }
 
 func GetCommand(logOpts *log.Options) *cobra.Command {
@@ -219,7 +219,7 @@ func ProgramIptables(cfg *config.Config) error {
 		ext = &dep.RealDependencies{
 			UsePodScopedXtablesLock: cfg.HostFilesystemPodNetwork,
 			NetworkNamespace:        cfg.NetworkNamespace,
-			ForceIpTablesVersion:    cfg.ForceIpTablesVersion,
+			ForceIptablesBinary:     cfg.ForceIptablesBinary,
 		}
 	}
 

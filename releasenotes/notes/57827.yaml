@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+- 57827
+
+releaseNotes:
+  - |
+    **Added** support for a user defined environment variable to override iptables backend detection and use a specific binary.

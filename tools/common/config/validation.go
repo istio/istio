@@ -62,18 +62,13 @@ func ValidateIPv4LoopbackCidr(cidr string) error {
 
 // copied over from the dependency implementation package to avoid circular imports
 const (
-	iptablesBin        = "iptables"
-	iptablesNftBin     = "iptables-nft"
-	iptablesLegacyBin  = "iptables-legacy"
-	ip6tablesBin       = "ip6tables"
-	ip6tablesNftBin    = "ip6tables-nft"
-	ip6tablesLegacyBin = "ip6tables-legacy"
+	legacy = "legacy"
+	nft    = "nft"
 )
 
 func ValidateIptablesVersion(iptv string) error {
 	switch iptv {
-	case "", iptablesBin, iptablesNftBin, iptablesLegacyBin,
-		ip6tablesBin, ip6tablesNftBin, ip6tablesLegacyBin:
+	case "", legacy, nft:
 		return nil
 	default:
 		return fmt.Errorf("iptables version %s not supported", iptv)

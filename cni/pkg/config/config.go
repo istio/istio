@@ -160,7 +160,7 @@ type InstallConfig struct {
 	NativeNftables bool
 
 	// Choose the version of iptables to use
-	ForceIptablesVersion string
+	ForceIptablesBinary string
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -199,7 +199,7 @@ type RepairConfig struct {
 	NativeNftables bool
 
 	// Choose the version of iptables to use
-	ForceIptablesVersion string
+	ForceIptablesBinary string
 }
 
 func (c InstallConfig) String() string {
@@ -237,7 +237,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("AmbientReconcilePodRulesOnStartup: " + fmt.Sprint(c.AmbientReconcilePodRulesOnStartup) + "\n")
 
 	b.WriteString("NativeNftables: " + fmt.Sprint(c.NativeNftables) + "\n")
-	b.WriteString("ForceIptablesVersion: " + fmt.Sprint(c.ForceIptablesVersion) + "\n")
+	b.WriteString("ForceIptablesBinary: " + fmt.Sprint(c.ForceIptablesBinary) + "\n")
 	return b.String()
 }
 
@@ -256,6 +256,6 @@ func (c RepairConfig) String() string {
 	b.WriteString("LabelSelectors: " + c.LabelSelectors + "\n")
 	b.WriteString("FieldSelectors: " + c.FieldSelectors + "\n")
 	b.WriteString("NativeNftables: " + fmt.Sprint(c.NativeNftables) + "\n")
-	b.WriteString("ForceIptablesVersion: " + fmt.Sprint(c.ForceIptablesVersion) + "\n")
+	b.WriteString("ForceIptablesBinary: " + fmt.Sprint(c.ForceIptablesBinary) + "\n")
 	return b.String()
 }
