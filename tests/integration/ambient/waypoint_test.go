@@ -1129,8 +1129,8 @@ spec:
                       value: /headers
                   token_bucket:
                     fill_interval: 30s
-                    max_tokens: 6
-                    tokens_per_fill: 6
+                    max_tokens: 2
+                    tokens_per_fill: 2
               enable_x_ratelimit_headers: DRAFT_VERSION_03
               filter_enabled:
                 default_value:
