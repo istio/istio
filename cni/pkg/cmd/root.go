@@ -122,6 +122,7 @@ var rootCmd = &cobra.Command{
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
 					NativeNftables:             cfg.InstallConfig.NativeNftables,
+					ForceIpTablesVersion:       cfg.InstallConfig.ForceIptablesVersion,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -324,7 +325,8 @@ func constructConfig() (*config.Config, error) {
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),
 		AmbientReconcilePodRulesOnStartup: viper.GetBool(constants.AmbientReconcilePodRulesOnStartup),
 
-		NativeNftables: viper.GetBool(constants.NativeNftables),
+		NativeNftables:       viper.GetBool(constants.NativeNftables),
+		ForceIptablesVersion: os.Getenv("FORCE_IPTABLES_VERSION"),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
@@ -342,20 +344,21 @@ func constructConfig() (*config.Config, error) {
 	}
 
 	repairCfg := config.RepairConfig{
-		Enabled:            viper.GetBool(constants.RepairEnabled),
-		RepairPods:         viper.GetBool(constants.RepairRepairPods),
-		DeletePods:         viper.GetBool(constants.RepairDeletePods),
-		LabelPods:          viper.GetBool(constants.RepairLabelPods),
-		LabelKey:           viper.GetString(constants.RepairLabelKey),
-		LabelValue:         viper.GetString(constants.RepairLabelValue),
-		NodeName:           viper.GetString(constants.RepairNodeName),
-		SidecarAnnotation:  viper.GetString(constants.RepairSidecarAnnotation),
-		InitContainerName:  viper.GetString(constants.RepairInitContainerName),
-		InitTerminationMsg: viper.GetString(constants.RepairInitTerminationMsg),
-		InitExitCode:       viper.GetInt(constants.RepairInitExitCode),
-		LabelSelectors:     viper.GetString(constants.RepairLabelSelectors),
-		FieldSelectors:     viper.GetString(constants.RepairFieldSelectors),
-		NativeNftables:     viper.GetBool(constants.NativeNftables),
+		Enabled:              viper.GetBool(constants.RepairEnabled),
+		RepairPods:           viper.GetBool(constants.RepairRepairPods),
+		DeletePods:           viper.GetBool(constants.RepairDeletePods),
+		LabelPods:            viper.GetBool(constants.RepairLabelPods),
+		LabelKey:             viper.GetString(constants.RepairLabelKey),
+		LabelValue:           viper.GetString(constants.RepairLabelValue),
+		NodeName:             viper.GetString(constants.RepairNodeName),
+		SidecarAnnotation:    viper.GetString(constants.RepairSidecarAnnotation),
+		InitContainerName:    viper.GetString(constants.RepairInitContainerName),
+		InitTerminationMsg:   viper.GetString(constants.RepairInitTerminationMsg),
+		InitExitCode:         viper.GetInt(constants.RepairInitExitCode),
+		LabelSelectors:       viper.GetString(constants.RepairLabelSelectors),
+		FieldSelectors:       viper.GetString(constants.RepairFieldSelectors),
+		NativeNftables:       viper.GetBool(constants.NativeNftables),
+		ForceIptablesVersion: os.Getenv("FORCE_IPTABLES_VERSION"),
 	}
 
 	return &config.Config{InstallConfig: installCfg, RepairConfig: repairCfg}, nil
