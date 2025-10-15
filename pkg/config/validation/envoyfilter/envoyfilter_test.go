@@ -609,7 +609,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-			error:   "Envoy filter: applyTo HTTP_FILTER for waypoint have filter match",
+			error:   "Envoy filter: applyTo HTTP_FILTER for waypoint must have filter match",
 			warning: "",
 		},
 		{

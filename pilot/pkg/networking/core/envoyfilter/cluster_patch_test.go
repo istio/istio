@@ -196,7 +196,7 @@ func Test_clusterMatch(t *testing.T) {
 					Context: networking.EnvoyFilter_WAYPOINT,
 					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
 						Waypoint: &networking.EnvoyFilter_WaypointMatch{
-							PortNumber: 81,
+							PortNumber: 80,
 						},
 					},
 				},
@@ -205,7 +205,7 @@ func Test_clusterMatch(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "waypoint match port",
+			name: "waypoint not match port",
 			args: args{
 				proxy:     &model.Proxy{Type: model.Waypoint},
 				operation: networking.EnvoyFilter_Patch_MERGE,
