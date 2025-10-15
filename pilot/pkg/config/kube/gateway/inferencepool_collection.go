@@ -153,6 +153,11 @@ func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents s
 		return nil
 	}
 
+	targetPortsLength := 1
+	if len(pool.Spec.TargetPorts) == 0 {
+		targetPortsLength = 0
+	}
+
 	shadowSvcInfo := shadowServiceInfo{
 		key: types.NamespacedName{
 			Name:      svcName,
@@ -160,7 +165,7 @@ func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents s
 		},
 		selector:    make(map[string]string, len(pool.Spec.Selector.MatchLabels)),
 		poolName:    pool.GetName(),
-		targetPorts: make([]targetPort, 0, len(pool.Spec.TargetPorts)),
+		targetPorts: make([]targetPort, targetPortsLength, targetPortsLength),
 		poolUID:     pool.GetUID(),
 	}
 
@@ -168,8 +173,8 @@ func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents s
 		shadowSvcInfo.selector[string(k)] = string(v)
 	}
 
-	for _, port := range pool.Spec.TargetPorts {
-		shadowSvcInfo.targetPorts = append(shadowSvcInfo.targetPorts, targetPort{port: int32(port.Number)})
+	if targetPortsLength == 1 {
+		shadowSvcInfo.targetPorts[0] = targetPort{port: int32(pool.Spec.TargetPorts[0].Number)}
 	}
 
 	return &InferencePool{
