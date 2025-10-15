@@ -1,3 +1,4 @@
+{{- if or (eq .Values.resourceScope "all") (eq .Values.resourceScope "namespace") }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -115,9 +116,9 @@ spec:
         - name: LOG_FORMAT
           value: json
         {{- end}}
-        {{- if .Values.global.network }}
+        {{- if .Values.network }}
         - name: NETWORK
-          value: {{ .Values.global.network | quote }}
+          value: {{ .Values.network | quote }}
         {{- end }}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
@@ -192,7 +193,7 @@ spec:
         projected:
           sources:
           - clusterTrustBundle:
-              name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+              name: istio.io:istiod-ca:{{ .Values.trustBundleName | default "root-cert" }}
               path: root-cert.pem
         {{- else }}
         configMap:
@@ -208,3 +209,4 @@ spec:
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 6}}
       {{- end }}
+{{- end }}

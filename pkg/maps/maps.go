@@ -96,3 +96,15 @@ func SeqStable[M ~map[K]V, K cmp.Ordered, V any](m M) iter.Seq2[K, V] {
 		}
 	}
 }
+
+func SeqStableBy[M ~map[K]V, K cmp.Ordered, V any](m M) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		k := Keys(m)
+		slices.Sort(k)
+		for _, key := range k {
+			if !yield(key, m[key]) {
+				return
+			}
+		}
+	}
+}

@@ -693,6 +693,8 @@ func TestConvertResources(t *testing.T) {
 			name: "backend-tls-policy",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
 				"default/echo-https",
+				"default/external-service",
+				"default/multi-host-service",
 			),
 		},
 		{name: "mix-backend-policy"},
@@ -795,7 +797,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 		gvr.InferencePool,
 	} {
 		clienttest.MakeCRDWithAnnotations(t, kc, crd, map[string]string{
-			consts.BundleVersionAnnotation: "v1.1.0",
+			consts.BundleVersionAnnotation: consts.BundleVersion,
 		})
 	}
 }

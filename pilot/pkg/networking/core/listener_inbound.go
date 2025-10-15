@@ -309,6 +309,12 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	if !bindToPort && lb.node.GetInterceptionMode() == model.InterceptionTproxy {
 		l.Transparent = proto.BoolTrue
 	}
+	if bindToPort {
+		// This only applies to listeners that actually bind to a port given that only those listeners
+		// interface with the OS.
+		// See https://github.com/envoyproxy/envoy/blob/v1.35.3/source/common/network/tcp_listener_impl.cc#L57
+		l.MaxConnectionsToAcceptPerSocketEvent = maxConnectionsToAcceptPerSocketEvent()
+	}
 
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	l.FilterChains = chains
@@ -810,7 +816,7 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *httpListenerOpts {
 	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	httpOpts := &httpListenerOpts{
-		routeConfig:      buildSidecarInboundHTTPRouteConfig(lb, cc),
+		routeConfig:      buildSidecarInboundHTTPRouteConfig(nil, lb, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{

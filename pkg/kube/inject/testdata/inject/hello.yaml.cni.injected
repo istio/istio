@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: hello
 spec:
   replicas: 7
@@ -25,7 +24,6 @@ spec:
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: '*'
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
-      creationTimestamp: null
       labels:
         app: hello
         security.istio.io/tlsMode: istio

@@ -25,6 +25,7 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
+	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -152,7 +153,7 @@ func ListenerSetCollection(
 				standardListener := convertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
 				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
-					obj, originalStatus, standardListener, i, controllerName, portErr)
+					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
 				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
 
 				servers = append(servers, server)
@@ -164,6 +165,11 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
+				serviceAccountName := model.GetOrDefault(
+					obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+					getDefaultName(obj.GetName(), &parentGwObj.Spec, classInfo.disableNameSuffix),
+				)
+				meta[constants.InternalServiceAccount] = serviceAccountName
 
 				// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 				gatewayConfig := config.Config{
@@ -268,8 +274,19 @@ func GatewayCollection(
 			return status, nil
 		}
 
+		// See: https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#manual-deployment
+		// If we set and address of type hostname, then we have no idea what service accounts the gateway workloads will use.
+		// Thus, we don't enforce service account name restrictions (still look at namespaces though).
+		serviceAccountName := ""
+		if IsManaged(&obj.Spec) {
+			serviceAccountName = model.GetOrDefault(
+				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+				getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix),
+			)
+		}
+
 		for i, l := range kgw.Listeners {
-			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, l, i, controllerName, nil)
+			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
 			servers = append(servers, server)
@@ -281,6 +298,8 @@ func GatewayCollection(
 			meta := parentMeta(obj, &l.Name)
 			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+
+			meta[constants.InternalServiceAccount] = serviceAccountName
 
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 			gatewayConfig := config.Config{

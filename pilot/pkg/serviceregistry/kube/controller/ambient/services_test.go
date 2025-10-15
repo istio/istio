@@ -40,6 +40,39 @@ import (
 )
 
 func TestServiceEntryServices(t *testing.T) {
+	waypointAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: "ns",
+				Hostname:  "hostname.example",
+			},
+		},
+		// TODO: look up the HBONE port instead of hardcoding it
+		HboneMtlsPort: 15008,
+	}
+
+	waypoint := Waypoint{
+		Named: krt.Named{
+			Name:      "waypoint",
+			Namespace: "ns",
+		},
+		TrafficType: constants.AllTraffic,
+		Address:     waypointAddr,
+		AllowedRoutes: WaypointSelector{
+			FromNamespaces: gatewayv1.NamespacesFromSelector,
+			Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+		},
+	}
+
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "ns",
+			},
+		},
+	}
+
 	cases := []struct {
 		name   string
 		inputs []any
@@ -379,7 +412,7 @@ func TestServiceEntryServices(t *testing.T) {
 			},
 		},
 		{
-			name:   "Does not use auto-assigned addresses for wildcard host",
+			name:   "Does not use auto-assigned addresses for wildcard host with DNS resolution",
 			inputs: []any{},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
@@ -439,6 +472,67 @@ func TestServiceEntryServices(t *testing.T) {
 						TargetPort:  80,
 					}},
 					SubjectAltNames: []string{"san1"},
+				},
+			},
+		},
+		{
+			name: "Uses auto assigned addresses for wildcard host",
+			inputs: []any{
+				waypoint,
+				ns,
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wildcard",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "ns",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Hosts: []string{"*.wildcard.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					SubjectAltNames: []string{"san1"},
+					Resolution:      networking.ServiceEntry_DYNAMIC_DNS,
+				},
+				Status: networking.ServiceEntryStatus{
+					Addresses: []*networking.ServiceEntryAddress{
+						{
+							Host:  "*.wildcard.example.com",
+							Value: "240.240.0.1",
+						},
+						{
+							Host:  "*.wildcard.example.com",
+							Value: "2001:2::1",
+						},
+					},
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "wildcard",
+					Namespace: "ns",
+					Hostname:  "*.wildcard.example.com",
+					Addresses: []*workloadapi.NetworkAddress{
+						{
+							Network: testNW,
+							Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
+						},
+						{
+							Network: testNW,
+							Address: netip.MustParseAddr("2001:2::1").AsSlice(),
+						},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+					SubjectAltNames: []string{"san1"},
+					Waypoint:        waypointAddr,
 				},
 			},
 		},

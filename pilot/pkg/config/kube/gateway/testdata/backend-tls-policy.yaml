@@ -1,6 +1,43 @@
 # echo-https must be created by the kube-client, because it's used in a test
 # that verifies `sectionName`, which is internally read from krt,
 # so it could be just a `model.ServiceInstance`
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio
+  listeners:
+    - name: default
+      hostname: "*.domain.example"
+      port: 80
+      protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: gateway
+  rules:
+    - backendRefs:
+        - name: echo-https
+          namespace: default
+          port: 80
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -15,7 +52,7 @@ spec:
     port: 443
     protocol: TCP
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: tls-upstream-echo
@@ -32,7 +69,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: tls-upstream-echo-https-merged-rules
@@ -57,7 +94,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: existing-status
@@ -87,7 +124,7 @@ status:
       type: Accepted
     controllerName: example.com/some-other-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: bad-service
@@ -104,7 +141,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: unknown-configmap
@@ -121,7 +158,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: malformed-configmap
@@ -138,7 +175,7 @@ spec:
         group: ""
     hostname: auth.example.com
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: bad-configmap-type
@@ -154,3 +191,91 @@ spec:
         name: blah
         group: ""
     hostname: auth.example.com
+---
+# ServiceEntry with multiple hosts for testing multiple DestinationRules
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: multi-host-service
+  namespace: default
+spec:
+  hosts:
+  - api.example.com
+  - cdn.example.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  - number: 8443
+    name: tls
+    protocol: TLS
+  resolution: DNS
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: multi-host-service-entry
+  namespace: default
+spec:
+  targetRefs:
+    - kind: ServiceEntry
+      name: multi-host-service
+      group: networking.istio.io
+  validation:
+    wellKnownCACertificates: System
+    hostname: cdn.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: multi-host-service-entry-section-name
+  namespace: default
+spec:
+  targetRefs:
+    - kind: ServiceEntry
+      name: multi-host-service
+      group: networking.istio.io
+      sectionName: tls
+  validation:
+    caCertificateRefs:
+      - kind: ConfigMap
+        name: auth-cert
+        group: ""
+    hostname: api.example.com
+---
+# Simple ServiceEntry with 2 ports for testing sectionName
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: external-service
+  namespace: default
+spec:
+  hosts:
+  - external.example.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: tls-external-service-https
+  namespace: default
+spec:
+  targetRefs:
+    - kind: ServiceEntry
+      name: external-service
+      group: networking.istio.io
+      sectionName: https
+    - kind: ServiceEntry
+      name: external-service
+      group: networking.istio.io
+      sectionName: non-existing-port-name
+  validation:
+    wellKnownCACertificates: System
+    hostname: external.example.com

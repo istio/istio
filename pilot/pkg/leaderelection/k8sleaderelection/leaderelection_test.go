@@ -451,13 +451,13 @@ func TestLeaseSpecToLeaderElectionRecordRoundTrip(t *testing.T) {
 	newSpec := rl.LeaderElectionRecordToLeaseSpec(oldRecord)
 
 	if !equality.Semantic.DeepEqual(oldSpec, newSpec) {
-		t.Errorf("diff: %v", diff.ObjectReflectDiff(oldSpec, newSpec))
+		t.Errorf("diff: %v", diff.ObjectGoPrintSideBySide(oldSpec, newSpec))
 	}
 
 	newRecord := rl.LeaseSpecToLeaderElectionRecord(&newSpec)
 
 	if !equality.Semantic.DeepEqual(oldRecord, newRecord) {
-		t.Errorf("diff: %v", diff.ObjectReflectDiff(oldRecord, newRecord))
+		t.Errorf("diff: %v", diff.ObjectGoPrintSideBySide(oldRecord, newRecord))
 	}
 }
 

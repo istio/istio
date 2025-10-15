@@ -127,6 +127,4 @@ nft reset counters table inet istio-proxy-nat
 
 ## Limitations and Known Issues
 
-- **Supports only sidecar mode with debug images:**. The `nft` binary is currently available only in the debug version of the Istio proxy
-    and is not included in the [distroless image](https://github.com/istio/istio/issues/57237).
 - **nftables version**: Requires `nft` binary version 1.0.1 or later.

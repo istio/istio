@@ -11,6 +11,15 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
+  # TODO: test per-port
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+            - group: ""
+              kind: ConfigMap
+              name: my-cert-http
   addresses:
   - value: istio-ingressgateway
     type: Hostname
@@ -71,11 +80,6 @@ spec:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
-      frontendValidation:
-        caCertificateRefs:
-        - group: ""
-          kind: ConfigMap
-          name: my-cert-http
   - name: terminate-mtls-frontendvalidation-secret
     hostname: "frontendvalidation-secret.example"
     port: 34000
@@ -87,11 +91,6 @@ spec:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
-      frontendValidation:
-        caCertificateRefs:
-        - group: ""
-          kind: Secret
-          name: my-cert-http
   - name: terminate-istio-mtls
     hostname: "egress.example"
     port: 34000

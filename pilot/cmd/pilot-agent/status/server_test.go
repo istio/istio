@@ -32,6 +32,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
 	"go.uber.org/atomic"
@@ -377,7 +378,7 @@ my_metric{app="bar"} 0
 				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
 			}
 
-			parser := expfmt.TextParser{}
+			parser := expfmt.NewTextParser(model.LegacyValidation)
 			mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 			if err != nil && !tt.expectParseError {
 				t.Fatalf("failed to parse metrics: %v", err)
@@ -520,7 +521,7 @@ my_other_metric{} 0
 			}
 
 			if negotiateMetricsFormat(rec.Header().Get("Content-Type")) == FmtText {
-				textParser := expfmt.TextParser{}
+				textParser := expfmt.NewTextParser(model.LegacyValidation)
 				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 				if err != nil {
 					t.Fatalf("failed to parse text metrics: %v", err)

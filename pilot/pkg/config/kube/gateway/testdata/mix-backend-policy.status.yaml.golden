@@ -1,7 +1,6 @@
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackendTrafficPolicy
 metadata:
-  creationTimestamp: null
   name: lb-policy
   namespace: default
 spec: null
@@ -18,12 +17,11 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
-    controllerName: istio.io/gateway-controller
+    controllerName: istio.io/mesh-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  creationTimestamp: null
   name: tls-upstream-echo
   namespace: default
 spec: null
@@ -39,12 +37,16 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
-    controllerName: istio.io/gateway-controller
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  creationTimestamp: null
   name: tls-upstream-echo-extra
   namespace: default
 spec: null
@@ -60,5 +62,10 @@ status:
       reason: Accepted
       status: "True"
       type: Accepted
-    controllerName: istio.io/gateway-controller
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
 ---

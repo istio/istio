@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- if and .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
 # if the remotePilotAddress is an IP addr
 {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
@@ -36,5 +37,6 @@ ports:
   name: tcp-webhook
   protocol: TCP
 ---
+{{- end }}
 {{- end }}
 {{- end }}
