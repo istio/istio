@@ -55,5 +55,5 @@ type AmbientArgs struct {
 	EnableIPv6                 bool
 	ReconcilePodRulesOnStartup bool
 	NativeNftables             bool
-	ForceIpTablesVersion       string
+	ForceIptablesBinary        string
 }

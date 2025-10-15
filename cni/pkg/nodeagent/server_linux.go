@@ -62,8 +62,8 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		NativeNftables: args.NativeNftables,
 		HostConfig:     hostCfg,
 		PodConfig:      podCfg,
-		HostDeps:       realDependenciesHost(args.ForceIpTablesVersion),
-		PodDeps:        realDependenciesInpod(UseScopedIptablesLegacyLocking, args.ForceIpTablesVersion),
+		HostDeps:       realDependenciesHost(args.ForceIptablesBinary),
+		PodDeps:        realDependenciesInpod(UseScopedIptablesLegacyLocking, args.ForceIptablesBinary),
 		NlDeps:         iptables.RealNlDeps(),
 	})
 	if err != nil {
@@ -113,18 +113,18 @@ func createHostNetworkAddrSetManager(useNftables bool, isV6 bool) (set.AddressSe
 	return setManager, runErr
 }
 
-func realDependenciesHost(forceIptablesVersion string) *dep.RealDependencies {
+func realDependenciesHost(forceIptablesBinary string) *dep.RealDependencies {
 	return &dep.RealDependencies{
 		UsePodScopedXtablesLock: false,
 		NetworkNamespace:        "",
-		ForceIpTablesVersion:    forceIptablesVersion,
+		ForceIptablesBinary:     forceIptablesBinary,
 	}
 }
 
-func realDependenciesInpod(useScopedLocks bool, forceIptablesVersion string) *dep.RealDependencies {
+func realDependenciesInpod(useScopedLocks bool, forceIptablesBinary string) *dep.RealDependencies {
 	return &dep.RealDependencies{
 		UsePodScopedXtablesLock: useScopedLocks,
 		NetworkNamespace:        "",
-		ForceIpTablesVersion:    forceIptablesVersion,
+		ForceIptablesBinary:     forceIptablesBinary,
 	}
 }

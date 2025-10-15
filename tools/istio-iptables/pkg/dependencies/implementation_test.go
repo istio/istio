@@ -91,7 +91,7 @@ func TestDetectIptablesVersion(t *testing.T) {
 		expected        error
 	}{
 		{
-			name: "force_iptables_version_is_found",
+			name: "FORCE_IPTABLES_BINARY_is_found",
 			shouldUseBinary: func(s string) (IptablesVersion, error) {
 				if s == iptablesNftBin {
 					return IptablesVersion{DetectedBinary: iptablesNftBin}, nil
@@ -100,18 +100,18 @@ func TestDetectIptablesVersion(t *testing.T) {
 				return IptablesVersion{}, fmt.Errorf("binary not found")
 			},
 			dep: &RealDependencies{
-				ForceIpTablesVersion: "iptables-nft",
+				ForceIptablesBinary: "iptables-nft",
 			},
 			result:   IptablesVersion{DetectedBinary: iptablesNftBin},
 			expected: nil,
 		},
 		{
-			name: "force_iptables_version_not_found",
+			name: "FORCE_IPTABLES_BINARY_not_found",
 			shouldUseBinary: func(s string) (IptablesVersion, error) {
 				return IptablesVersion{}, fmt.Errorf("binary not found")
 			},
 			dep: &RealDependencies{
-				ForceIpTablesVersion: "iptables-legacy",
+				ForceIptablesBinary: "iptables-legacy",
 			},
 			result:   IptablesVersion{},
 			expected: fmt.Errorf("binary not found"),
@@ -126,7 +126,7 @@ func TestDetectIptablesVersion(t *testing.T) {
 				return IptablesVersion{}, fmt.Errorf("binary not found")
 			},
 			dep: &RealDependencies{
-				ForceIpTablesVersion: "iptables-nft",
+				ForceIptablesBinary: "iptables-nft",
 			},
 			result:   IptablesVersion{DetectedBinary: iptablesNftBin},
 			expected: nil,

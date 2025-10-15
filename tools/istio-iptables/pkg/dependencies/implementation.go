@@ -60,7 +60,7 @@ type RealDependencies struct {
 	// as it's faster and reduces contention for legacy iptables versions that use file-based locking.
 	UsePodScopedXtablesLock bool
 
-	ForceIpTablesVersion string
+	ForceIptablesBinary string
 }
 
 const iptablesVersionPattern = `v([0-9]+(\.[0-9]+)+)`
@@ -111,6 +111,8 @@ const (
 	ip6tablesBin       = "ip6tables"
 	ip6tablesNftBin    = "ip6tables-nft"
 	ip6tablesLegacyBin = "ip6tables-legacy"
+	legacy             = "legacy"
+	nft                = "nft"
 )
 
 // adding this function redirect to enable unit testing for DetectIptablesVersion
@@ -152,24 +154,22 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 
 	// the user has specifically chosen an iptables
 	// version so use that binary or fail
-	if r.ForceIpTablesVersion != "" {
-		switch r.ForceIpTablesVersion {
-		case legacyBin:
+	if r.ForceIptablesBinary != "" {
+		switch r.ForceIptablesBinary {
+		case legacy:
 			legVer, err := shouldUseBinaryForContext(legacyBin)
 			if err != nil {
 				log.Errorf("did not find iptables binary, error was %v: %+v", err, legVer)
 				return IptablesVersion{}, err
 			}
 			return legVer, nil
-		case nftBin:
+		case nft:
 			nftVer, err := shouldUseBinaryForContext(nftBin)
 			if err != nil {
 				log.Errorf("did not find iptables binary, error was %v: %+v", err, nftVer)
 				return IptablesVersion{}, err
 			}
 			return nftVer, nil
-		case plainBin:
-			return shouldUseBinaryForContext(plainBin)
 		}
 	}
 
