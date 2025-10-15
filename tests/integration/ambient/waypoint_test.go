@@ -1151,7 +1151,7 @@ spec:
 				Check: check.And(check.OK(), IsL7()),
 			})
 
-			// We can send a simple request
+			// We can send a simple request over TLS (no HTTP)
 			runTest(t, "basic TLS", "", echo.CallOptions{
 				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
 				Port:    echo.Port{ServicePort: 443},
@@ -1161,10 +1161,21 @@ spec:
 					ServerName:         fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
 				},
 				Count: 1,
-				Check: check.And(check.OK(), IsL7()),
+				Check: check.NoError(),
 			})
 
-			time.Sleep(60 * time.Minute)
+			// We can send a HTTPS request
+			runTest(t, "basic HTTPS", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 443},
+				Scheme:  scheme.HTTPS,
+				TLS: echo.TLS{
+					InsecureSkipVerify: true,
+					ServerName:         fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				},
+				Count: 1,
+				Check: check.OK(),
+			})
 
 			// Test we can do TLS origination, by utilizing ServiceEntry target port
 			wildacardTLSOrigination := `apiVersion: networking.istio.io/v1
