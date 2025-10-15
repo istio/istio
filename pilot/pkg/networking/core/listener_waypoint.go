@@ -705,7 +705,6 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 	var svcHostname host.Name
 	var subsetName string
 
-	// TODO(jaellio): Does this already match the cluster name we want?
 	statPrefix := fcc.clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
