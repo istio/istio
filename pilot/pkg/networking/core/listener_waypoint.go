@@ -678,8 +678,8 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 		},
 	}
 	tcpProxy := &tcp.TcpProxy{
-		StatPrefix:       InnerConnectOriginate,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: InnerConnectOriginate},
+		StatPrefix:       DoubleHBONEInnerConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%FILTER_STATE(istio.waypoint.hbone_target_address:PLAIN)%",
 		},
@@ -687,7 +687,7 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
 
 	l := &listener.Listener{
-		Name:              InnerConnectOriginate,
+		Name:              DoubleHBONEInnerConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		FilterChains: []*listener.FilterChain{{
@@ -720,8 +720,8 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 // inner_connect_originate already captured and put in the filter state.
 func buildWaypointOuterConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
 	tcpProxy := &tcp.TcpProxy{
-		StatPrefix:       OuterConnectOriginate,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: OuterConnectOriginate},
+		StatPrefix:       DoubleHBONEOuterConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEOuterConnectOriginate},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%FILTER_STATE(istio.waypoint.hbone_target_address:PLAIN)%",
 			HeadersToAdd: []*core.HeaderValueOption{{
@@ -736,7 +736,7 @@ func buildWaypointOuterConnectOriginateListener(push *model.PushContext, proxy *
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
 
 	l := &listener.Listener{
-		Name:              OuterConnectOriginate,
+		Name:              DoubleHBONEOuterConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{

@@ -346,20 +346,20 @@ func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy,
 	})
 
 	c := &cluster.Cluster{
-		Name:                 InnerConnectOriginate,
+		Name:                 DoubleHBONEInnerConnectOriginate,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		CircuitBreakers: &cluster.CircuitBreakers{
 			Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 		},
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
-			ClusterName: InnerConnectOriginate,
-			Endpoints:   util.BuildInternalEndpoint(OuterConnectOriginate, nil),
+			ClusterName: DoubleHBONEInnerConnectOriginate,
+			Endpoints:   util.BuildInternalEndpoint(DoubleHBONEOuterConnectOriginate, nil),
 		},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
 		TransportSocket:               transportSocket,
 	}
 
-	c.AltStatName = util.DelimitedStatsPrefix(InnerConnectOriginate)
+	c.AltStatName = util.DelimitedStatsPrefix(DoubleHBONEInnerConnectOriginate)
 
 	return c
 }
@@ -368,7 +368,7 @@ func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy,
 // It's basically equivalent to the regular waypoint ConnectOriginate cluster and does the same thing, the only real difference is that
 // it wraps the data already wrapped into a CONNECT once.
 func (cb *ClusterBuilder) buildWaypointOuterConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	return cb.buildConnectOriginate(OuterConnectOriginate, proxy, push, nil)
+	return cb.buildConnectOriginate(DoubleHBONEOuterConnectOriginate, proxy, push, nil)
 }
 
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {

@@ -39,11 +39,12 @@ const (
 	// EncapClusterName is the name of the cluster used for traffic to the connect_originate listener.
 	EncapClusterName = "encap"
 
-	// InnerConnectOriginate and OuterConnectOriginate is the name for resources (cluster and listener) associated
-	// with estabslishing double HBONE (CONNECT within CONNECT) tunnel. InnerConnectOriginate is used for the inner
-	// CONNECT tunnel and OuterConnectOriginate is used for the outer CONNECT tunnel.
-	InnerConnectOriginate = "inner_connect_originate"
-	OuterConnectOriginate = "outer_connect_originate"
+	// DoubleHBONEInnerConnectOriginate and DoubleHBONEOuterConnectOriginate is the name for resources (cluster and
+	// listener) associated with estabslishing double HBONE (CONNECT within CONNECT) tunnel.
+	// DoubleHBONEInnerConnectOriginate is used for the inner CONNECT tunnel and DoubleHBONEOuterConnectOriginate
+	// is used for the outer CONNECT tunnel.
+	DoubleHBONEInnerConnectOriginate = "inner_connect_originate"
+	DoubleHBONEOuterConnectOriginate = "outer_connect_originate"
 
 	// ConnectUpgradeType is the type of upgrade for HTTP CONNECT.
 	ConnectUpgradeType = "CONNECT"
