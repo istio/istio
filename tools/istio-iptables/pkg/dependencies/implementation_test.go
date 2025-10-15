@@ -136,6 +136,9 @@ func TestDetectIptablesVersion(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			shouldUseBinaryForContext = tt.shouldUseBinary
+			defer func() {
+				shouldUseBinaryForContext = shouldUseBinaryForCurrentContext
+			}()
 			r, e := tt.dep.DetectIptablesVersion(false)
 			assert.Equal(t, tt.result, r)
 			assert.Equal(t, tt.expected, e)
