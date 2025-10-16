@@ -17,6 +17,7 @@ package gateway
 import (
 	"fmt"
 	"iter"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -777,6 +778,20 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 			// append parents
 			base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
 				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
+			// append Extras
+			if thisExtraPerRoute, ok := config.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs]; ok {
+				if base.Extra == nil {
+					base.Extra = make(map[string]any)
+				}
+
+				if _, ok := base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs]; !ok {
+					base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = make(map[string]kube.InferencePoolRouteRuleConfig)
+				}
+
+				// skipping type assertion below as this is the only possible one.
+				baseExtraPerRoute := base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]kube.InferencePoolRouteRuleConfig)
+				maps.Copy(baseExtraPerRoute, thisExtraPerRoute.(map[string]kube.InferencePoolRouteRuleConfig))
+			}
 		}
 		sortHTTPRoutes(baseVS.Http)
 		base.Name = strings.ReplaceAll(object.Key, "/", "~")
