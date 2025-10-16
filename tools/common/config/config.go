@@ -154,7 +154,7 @@ func (c *Config) Validate() error {
 		return err
 	}
 
-	if err := ValidateIptablesVersion(c.ForceIptablesBinary); err != nil {
+	if err := ValidateIptablesBinary(c.ForceIptablesBinary); err != nil {
 		return err
 	}
 	return ValidateIPv4LoopbackCidr(c.HostIPv4LoopbackCidr)

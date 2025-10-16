@@ -139,7 +139,7 @@ func TestValidateIPv4LoopbackCidr_Invalid(t *testing.T) {
 	}
 }
 
-func TestValidateIptablesVersion(t *testing.T) {
+func TestValidateIptablesBinary(t *testing.T) {
 	cases := []struct {
 		name     string
 		input    string
@@ -162,7 +162,7 @@ func TestValidateIptablesVersion(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expected, ValidateIptablesVersion(tc.input))
+			assert.Equal(t, tc.expected, ValidateIptablesBinary(tc.input))
 		})
 	}
 }
