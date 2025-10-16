@@ -375,7 +375,9 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 	}
 	translateFunc, f := translationMap[resourceGVK]
 	if !f {
-		cl.logger.Errorf("translation function for %v not found", resourceGVK)
+		if !s.IsSynthetic() {
+			cl.logger.Errorf("translation function for %v not found", resourceGVK)
+		}
 		return
 	}
 
