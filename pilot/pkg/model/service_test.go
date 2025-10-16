@@ -219,8 +219,8 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run("WorkloadInstancesEqual: "+testCase.name, func(t *testing.T) {
-			isEq := WorkloadInstancesEqual(testCase.comparer, testCase.comparee)
-			isEqReverse := WorkloadInstancesEqual(testCase.comparee, testCase.comparer)
+			isEq := testCase.comparer.Equals(testCase.comparee)
+			isEqReverse := testCase.comparee.Equals(testCase.comparer)
 
 			if isEq != isEqReverse {
 				t.Errorf(
@@ -248,24 +248,6 @@ func TestServicesEqual(t *testing.T) {
 		shouldEq bool
 		name     string
 	}{
-		{
-			first:    nil,
-			other:    &Service{},
-			shouldEq: false,
-			name:     "first nil services",
-		},
-		{
-			first:    &Service{},
-			other:    nil,
-			shouldEq: false,
-			name:     "other nil services",
-		},
-		{
-			first:    nil,
-			other:    nil,
-			shouldEq: true,
-			name:     "both nil services",
-		},
 		{
 			first:    &Service{},
 			other:    &Service{},
