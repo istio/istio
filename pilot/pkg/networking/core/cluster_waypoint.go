@@ -120,7 +120,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// For context, ambient E/W gateway will terminiate the outer HBONE tunnel and will redirect the inner
 	// HBONE tunnel to either a waypoint or service backend as an opaque stream of bytes - E/W gateway does
 	// not know that the data is actually an HBONE tunnel.
-	if features.EnableAmbientMultiNetwork && features.EnableAmbientWaypointMultiNetwork {
+	if features.EnableAmbientMultiNetwork && features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(proxy) {
 		clusters = append(
 			clusters,
 			cb.buildWaypointInnerConnectOriginate(proxy, push),

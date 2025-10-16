@@ -105,7 +105,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 		listeners = append(listeners, buildWaypointConnectOriginateListener(lb.push, lb.node))
 	}
 
-	if features.EnableAmbientMultiNetwork && features.EnableAmbientWaypointMultiNetwork && !isEastWestGateway(lb.node) {
+	if features.EnableAmbientMultiNetwork && features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(lb.node) {
 		listeners = append(listeners,
 			buildWaypointInnerConnectOriginateListener(lb.push, lb.node),
 			buildWaypointOuterConnectOriginateListener(lb.push, lb.node))
