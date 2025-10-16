@@ -75,16 +75,16 @@ func (a *index) ServicesCollection(
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...)
-	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []types.NamespacedName {
-		return []types.NamespacedName{{
+	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []string {
+		return []string{types.NamespacedName{
 			Name:      se.Service.Hostname,
 			Namespace: "default",
-		}}
+		}.String()}
 	})
 
 	DedupedServiceEntriesInfo := krt.NewCollection(
 		serviceEntryByHostname.AsCollection(),
-		func(ctx krt.HandlerContext, se krt.IndexObject[types.NamespacedName, ServiceEntryInfo]) *model.ServiceInfo {
+		func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) *model.ServiceInfo {
 			if len(se.Objects) == 0 {
 				return nil
 			}
