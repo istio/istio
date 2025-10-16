@@ -109,6 +109,10 @@ func compareCRDandWebhookValidation(t *testing.T, fuzz bool, item string, v *crd
 			// Even strict mode in json processing is not enough as it is case insensitive.
 			t.Skip(openAPI)
 		}
+		if (openAPI != nil) && strings.Contains(openAPI.Error(), "EnvoyFilter") {
+			// EnvoyFilter has CEL validation never implement in webhook.
+			t.Skip(openAPI)
+		}
 		if webhook != nil && strings.Contains(webhook.Error(), "jwks parse error") {
 			// We cannot parse this in CEL yet
 			t.Skip(webhook)

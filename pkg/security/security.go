@@ -296,7 +296,7 @@ type SecretManager interface {
 	GenerateSecret(resourceName string) (*SecretItem, error)
 }
 
-// SecretItem is the cached item in in-memory secret store.
+// SecretItem is the cached item in an in-memory secret store.
 type SecretItem struct {
 	CertificateChain []byte
 	PrivateKey       []byte

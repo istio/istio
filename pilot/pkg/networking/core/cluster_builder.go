@@ -22,6 +22,8 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	dfpcluster "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
+	dfpcommon "github.com/envoyproxy/go-control-plane/envoy/extensions/common/dynamic_forward_proxy/v3"
 	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
 	roundrobin "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/round_robin/v3"
 	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
@@ -101,6 +103,8 @@ type clusterWrapper struct {
 	cluster *cluster.Cluster
 	// httpProtocolOptions stores the HttpProtocolOptions which will be marshaled when build is called.
 	httpProtocolOptions *http.HttpProtocolOptions
+	// isDFPCluster indicates whether the cluster is a dynamic forward proxy cluster
+	isDFPCluster bool
 }
 
 // metadataCerts hosts client certificate related metadata specified in proxy metadata.
@@ -190,6 +194,14 @@ func (m *metadataCerts) String() string {
 func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 	return &clusterWrapper{
 		cluster: cluster,
+	}
+}
+
+// newClusterWrapper initializes clusterWrapper with the cluster passed.
+func newDFPClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
+	return &clusterWrapper{
+		cluster:      cluster,
+		isDFPCluster: true,
 	}
 }
 
@@ -481,6 +493,30 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		}
 	}
 
+	return ec
+}
+
+// Builds a dynamic forward proxy cluster with DNS cache config, stats configuration
+// and upstream protocol settings.
+func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, port *model.Port) *clusterWrapper {
+	c := &cluster.Cluster{
+		Name:     name,
+		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+		ClusterDiscoveryType: &cluster.Cluster_ClusterType{ClusterType: &cluster.Cluster_CustomClusterType{
+			Name: "envoy.clusters.dynamic_forward_proxy",
+			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
+				ClusterImplementationSpecifier: &dfpcluster.ClusterConfig_DnsCacheConfig{
+					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
+						Name:            model.BuildDNSCacheName(service.Hostname),
+						DnsLookupFamily: cluster.Cluster_V4_ONLY,
+					},
+				},
+			}),
+		}},
+	}
+	c.AltStatName = util.DelimitedStatsPrefix(name)
+	ec := newDFPClusterWrapper(c)
+	cb.setUpstreamProtocol(ec, port)
 	return ec
 }
 

@@ -186,7 +186,7 @@ Additionally, `splice` will be used to make this proxying more efficient when po
 
 For traffic in the mesh, things are a bit more complex:
 
-1. If the destination has a waypoint proxy, we must send to it to the waypoint (using HBONE).
+1. If the destination has a waypoint proxy, we must send it to the waypoint (using HBONE).
    When we do this, we will want to preserve the original destination Service IP, as the waypoint can do a better job picking a backend pod than we can.
    Note: the application itself may have already resolved the Service IP to a specific pod if it has Kubernetes native routing built in; since we don't have the Service information in this case we will use the destination IP we received (a pod). Most notably, sidecar proxies behave this way.
 1. If the destination is on our node, we "fast path" the request and convert this into an inbound request.

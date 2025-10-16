@@ -26,7 +26,7 @@ Installation in `kube-system` is recommended to ensure the [`system-node-critica
 
 ## Configuration
 
-To view support configuration options and documentation, run:
+To view supported configuration options and documentation, run:
 
 ```console
 helm show values istio/istio-cni

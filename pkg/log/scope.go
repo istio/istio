@@ -345,11 +345,19 @@ func (s *Scope) emitWithTime(level zapcore.Level, msg string, t time.Time) {
 		fields = make([]zapcore.Field, 0, len(s.labelKeys))
 		for _, k := range s.labelKeys {
 			v := s.labels[k]
-			fields = append(fields, zap.Field{
-				Key:       k,
-				Interface: v,
-				Type:      zapcore.ReflectType,
-			})
+			if d, ok := v.(time.Duration); ok {
+				fields = append(fields, zap.Field{
+					Key:     k,
+					Integer: int64(d),
+					Type:    zapcore.DurationType,
+				})
+			} else {
+				fields = append(fields, zap.Field{
+					Key:       k,
+					Interface: v,
+					Type:      zapcore.ReflectType,
+				})
+			}
 		}
 	} else if len(s.labelKeys) > 0 {
 		sb := &strings.Builder{}

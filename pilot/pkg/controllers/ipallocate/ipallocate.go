@@ -331,9 +331,9 @@ type jsonPatch struct {
 	Value     interface{} `json:"value"`
 }
 
-// filter out any wildcarded hosts
-func removeWildCarded(h string) bool {
-	return !cfghost.Name(h).IsWildCarded()
+func keepHost(se *networkingv1.ServiceEntry, h string) bool {
+	// Only keep wildcarded hosts if the resolution is dynamic DNS
+	return !cfghost.Name(h).IsWildCarded() || se.Spec.Resolution == apiv1alpha3.ServiceEntry_DYNAMIC_DNS
 }
 
 func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, forcedReassign bool) ([]byte, []byte, error) {
@@ -345,7 +345,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	hostsWithAddresses := sets.New[string]()
 	hostsInSpec := sets.New[string]()
 
-	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+	for _, host := range slices.Filter(se.Spec.Hosts, func(h string) bool { return keepHost(se, h) }) {
 		hostsInSpec.Insert(host)
 	}
 	existingAddresses := []netip.Addr{}
@@ -372,7 +372,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 
 	// construct the assigned addresses datastructure to patch
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
-	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+	for _, host := range slices.Filter(se.Spec.Hosts, func(h string) bool { return keepHost(se, h) }) {
 		if assignedHosts.InsertContains(host) {
 			continue
 		}

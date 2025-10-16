@@ -61,7 +61,7 @@ func IsKubeAtLeastOrLessThanVersion(clusterVersion *kubeVersion.Info, minorVersi
 	return cv.LessThan(ev)
 }
 
-// GetVersionAsInt returns the the kubernetes version as an integer.
+// GetVersionAsInt returns the kubernetes version as an integer.
 // For example, on Kubernetes v1.15.2, GetVersionAsInt returns 115
 func GetVersionAsInt(client Client) int {
 	clusterVersion, err := client.GetKubernetesVersion()

@@ -1031,6 +1031,152 @@ spec:
 	})
 }
 
+func TestWaypointAsEgressGatewayForWildcardEntries(t *testing.T) {
+	runTest := func(t framework.TestContext, name string, config string, opts ...echo.CallOptions) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			if config != "" {
+				t.ConfigIstio().YAML(apps.Namespace.Name(), config).ApplyOrFail(t)
+			}
+			for _, src := range apps.All {
+				if !hboneClient(src) {
+					continue
+				}
+				t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
+					if src.Config().HasSidecar() {
+						t.Skip("TODO: sidecars don't properly handle use-waypoint. See https://github.com/istio/istio/issues/51445")
+					}
+					for _, o := range opts {
+						src.CallOrFail(t, o)
+					}
+				})
+			}
+		})
+	}
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			if _, v6 := getSupportedIPFamilies(t); v6 {
+				t.Skip("TODO: skipping test as wildcard DNS doesn't support resolving to IPv6 address")
+			}
+			egressNamespace, err := namespace.Claim(t, namespace.Config{
+				Prefix: "wildcard-egress",
+				Inject: false,
+			})
+			assert.NoError(t, err)
+			waypointSpec := `apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: wildcard-egress-gateway
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            kubernetes.io/metadata.name: "{{.}}"
+`
+			t.ConfigIstio().
+				Eval(egressNamespace.Name(), apps.Namespace.Name(), waypointSpec).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			service := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: external-wildcard
+  labels:
+    istio.io/use-waypoint: wildcard-egress-gateway
+    istio.io/use-waypoint-namespace: {{.EgressNamespace}}
+spec:
+  hosts:
+  - "*.{{.ExternalNamespace}}.svc.cluster.local"
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: http-for-tls
+    number: 8080
+    protocol: HTTP
+    targetPort: 443
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS`
+			// ServiceEntry in app namespace, points to waypoint in EgressNamespace. Backend is in ExternalNamespace
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]string{
+					"ExternalNamespace": apps.ExternalNamespace.Name(),
+					"EgressNamespace":   egressNamespace.Name(),
+				}, service).
+				ApplyOrFail(t)
+			// We can send a simple request
+			runTest(t, "basic", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7()),
+			})
+
+			// Try to use a different Host header than the target host
+			invalidHeader := make(http.Header, 1)
+			invalidHeader.Add("Host", "external.non-existent.svc.cluster.local")
+			runTest(t, "overriding with invalid Host header", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				HTTP: echo.HTTP{
+					Headers: invalidHeader,
+				},
+				// We expect the request to return a 404 since the Host does not match the wildcarded hostname
+				Check: check.And(check.Status(404)),
+			})
+
+			matchingHeader := make(http.Header, 1)
+			matchingHeader.Add("Host", fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()))
+			runTest(t, "overriding with matching Host header", "", echo.CallOptions{
+				Address: fmt.Sprintf("non-existent.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				HTTP: echo.HTTP{
+					Headers: matchingHeader,
+				},
+				// We expect the request to succeed since Host matches the wildcarded hostname even though it is not the original destination host
+				Check: check.And(check.OK(), IsL7()),
+			})
+
+			// Test we can do TLS origination, by utilizing ServiceEntry target port
+			wildacardTLSOrigination := `apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: wildcard-tls-origination
+spec:
+  host: "*.{{.ExternalNamespace}}.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+`
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]string{
+					"ExternalNamespace": apps.ExternalNamespace.Name(),
+				}, wildacardTLSOrigination).
+				ApplyOrFail(t)
+
+			runTest(t, "http origination targetPort", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 8080},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+		})
+}
+
 func SetIngressUseWaypoint(t framework.TestContext, name, ns string) {
 	for _, c := range t.Clusters() {
 		set := func(service bool) error {

@@ -131,7 +131,7 @@ func GetLoggingOptions(cfg *Config) *log.Options {
 		// Also tee to a rolling log on the node's local filesystem, in case the UDS server is down.
 		loggingOptions.WithTeeToRollingLocal(filepath.Join(cfg.CNIAgentRunDir, constants.LocalRollingLogName), constants.RollingLogMaxSizeMB)
 
-		// Override plugin log level based on their config. Not we use "all" (OverrideScopeName) since there is no scoping in the plugin.
+		// Override plugin log level based on their config. Note we use "all" (OverrideScopeName) since there is no scoping in the plugin.
 		if cfg.PluginLogLevel != "" {
 			loggingOptions.SetDefaultOutputLevel(log.OverrideScopeName, log.StringToLevel(cfg.PluginLogLevel))
 		}
