@@ -355,7 +355,7 @@ func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy,
 			ClusterName: DoubleHBONEInnerConnectOriginate,
 			Endpoints:   util.BuildInternalEndpoint(DoubleHBONEOuterConnectOriginate, nil),
 		},
-		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		TypedExtensionProtocolOptions: h2connectUpgradeWithNoPooling(),
 		TransportSocket:               transportSocket,
 	}
 
@@ -368,7 +368,34 @@ func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy,
 // It's basically equivalent to the regular waypoint ConnectOriginate cluster and does the same thing, the only real difference is that
 // it wraps the data already wrapped into a CONNECT once.
 func (cb *ClusterBuilder) buildWaypointOuterConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	return cb.buildConnectOriginate(DoubleHBONEOuterConnectOriginate, proxy, push, nil)
+	ctx := buildCommonConnectTLSContext(proxy, push)
+	sec_model.EnforceCompliance(ctx)
+	c := &cluster.Cluster{
+		Name:                          DoubleHBONEOuterConnectOriginate,
+		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
+		CleanupInterval:               durationpb.New(60 * time.Second),
+		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
+		TypedExtensionProtocolOptions: h2connectUpgradeWithNoPooling(),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UpstreamPortOverride: &wrappers.UInt32Value{
+					Value: model.HBoneInboundListenPort,
+				},
+			},
+		},
+		TransportSocket: &core.TransportSocket{
+			Name: "tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tlsv3.UpstreamTlsContext{
+				CommonTlsContext: ctx,
+			})},
+		},
+	}
+
+	c.AltStatName = util.DelimitedStatsPrefix(DoubleHBONEOuterConnectOriginate)
+
+	return c
 }
 
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
@@ -489,3 +516,27 @@ func h2connectUpgrade() map[string]*anypb.Any {
 		}),
 	}
 }
+
+func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
+	return map[string]*anypb.Any{
+		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+                        CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				// This has very little effect as there is connection pooling at the level of the service
+				// cluster that already multiplexes multiple HTTP requests over the same connection before
+				// this option takes effect. However doing this is better than nothing.
+				//
+				// In the future though a better solution is needed to achieve sensible connection pooling
+				// without lasering a particular backend in the remote network.
+                                MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 1},
+                        },
+			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+					Http2ProtocolOptions: &core.Http2ProtocolOptions{
+						AllowConnect: true,
+					},
+				},
+			}},
+		}),
+	}
+}
+
