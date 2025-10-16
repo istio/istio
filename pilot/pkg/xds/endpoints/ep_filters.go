@@ -222,7 +222,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				// We need to add original dst metadata key with the actual E/W gateway address that we will connect to
 				gwEp.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(gwAddr, gwPort, "")
 				// and we need the original service domain name and port that to put in the :authority of the HTTP2 CONNECT.
-				gwEp.Metadata.FilterMetadata[util.WaypointMetadataKey] = util.BuildDoubleTunnelMetadataStruct(string(b.service.Hostname), svcPort.Port)
+				util.AppendDoubleHBONEMetadata(string(b.service.Hostname), svcPort.Port, gwEp.Metadata)
 			} else {
 				epAddr := util.BuildAddress(gw.Addr, gw.Port)
 				gwEp = &endpoint.LbEndpoint{

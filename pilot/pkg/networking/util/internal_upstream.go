@@ -47,9 +47,6 @@ func InternalUpstreamTransportSocket(name string, transport *core.TransportSocke
 // DefaultInternalUpstreamTransportSocket provides an internal_upstream transport that does not passthrough any metadata.
 var DefaultInternalUpstreamTransportSocket = InternalUpstreamTransportSocket("internal_upstream", RawBufferTransport())
 
-// WaypointMetadataKey is the name of the dynamic metadata structure in Envoy containing authority for double-HBONE connections.
-const WaypointMetadataKey = "waypoint"
-
 // WaypointInternalUpstreamTransportSocket builds an internal upstream transport socket suitable for usage in a waypoint
 // This will passthrough the OrigDst key and HBONE destination address.
 func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.TransportSocket {
@@ -63,7 +60,7 @@ func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.
 				},
 				{
 					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
-					Name: WaypointMetadataKey,
+					Name: "istio",
 				},
 			},
 

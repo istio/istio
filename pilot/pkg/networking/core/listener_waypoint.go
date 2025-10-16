@@ -662,14 +662,14 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 			},
 			{
 				Key: &sfsvalue.FilterStateValue_ObjectKey{
-					ObjectKey: "istio.waypoint.hbone_target_address",
+					ObjectKey: "istio.double_hbone.hbone_target_address",
 				},
 				Value: &sfsvalue.FilterStateValue_FormatString{
 					FormatString: &core.SubstitutionFormatString{
 						Format: &core.SubstitutionFormatString_TextFormatSource{
 							TextFormatSource: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: "%DYNAMIC_METADATA(waypoint:hbone_target_address)%",
+									InlineString: "%DYNAMIC_METADATA(istio.double_hbone:hbone_target_address)%",
 								},
 							},
 						},
@@ -684,7 +684,7 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 		StatPrefix:       DoubleHBONEInnerConnectOriginate,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%FILTER_STATE(istio.waypoint.hbone_target_address:PLAIN)%",
+			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
 		},
 	}
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
@@ -726,7 +726,7 @@ func buildWaypointOuterConnectOriginateListener(push *model.PushContext, proxy *
 		StatPrefix:       DoubleHBONEOuterConnectOriginate,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEOuterConnectOriginate},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%FILTER_STATE(istio.waypoint.hbone_target_address:PLAIN)%",
+			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
 			HeadersToAdd: []*core.HeaderValueOption{{
 				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 				Header: &core.HeaderValue{

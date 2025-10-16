@@ -724,7 +724,15 @@ func BuildTunnelMetadataStruct(address string, port int, waypoint string) *struc
 	return st
 }
 
-func BuildDoubleTunnelMetadataStruct(service string, port int) *structpb.Struct {
+func AppendDoubleHBONEMetadata(service string, port int, envoyMetadata *core.Metadata) {
+	if envoyMetadata.FilterMetadata == nil {
+		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
+	}
+	target := buildDoubleHBONEMetadataStruct(service, port)
+	addIstioEndpointLabel(envoyMetadata, "double_hbone", structpb.NewStructValue(target))
+}
+
+func buildDoubleHBONEMetadataStruct(service string, port int) *structpb.Struct {
 	m := map[string]interface{}{
 		// the actual service domain name and port that we want to connect to, these are used
 		// in the HTTP2 CONNECT request :authority
