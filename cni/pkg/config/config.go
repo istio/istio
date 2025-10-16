@@ -159,7 +159,7 @@ type InstallConfig struct {
 	// Whether native nftables should be used instead of iptable rules for traffic redirection
 	NativeNftables bool
 
-	// Choose the version of iptables to use
+	// Choose which iptables binary to use (legacy or nft)
 	ForceIptablesBinary string
 }
 
@@ -198,7 +198,7 @@ type RepairConfig struct {
 	// Whether to repair pods by running nftables rules
 	NativeNftables bool
 
-	// Choose the version of iptables to use
+	// Choose which iptables binary to use (legacy or nft)
 	ForceIptablesBinary string
 }
 

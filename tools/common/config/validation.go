@@ -66,11 +66,12 @@ const (
 	nft    = "nft"
 )
 
-func ValidateIptablesVersion(iptv string) error {
-	switch iptv {
+func ValidateIptablesBinary(iptb string) error {
+	switch iptb {
 	case "", legacy, nft:
 		return nil
 	default:
-		return fmt.Errorf("iptables version %s not supported", iptv)
+		return fmt.Errorf("invalid FORCE_IPTABLES_BINARY value %q", iptb)
+
 	}
 }
