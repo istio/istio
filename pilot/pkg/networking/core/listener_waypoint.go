@@ -853,7 +853,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
 		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
-		return
+		return out
 	}
 
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
@@ -863,7 +863,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	})
 	if vs == nil {
 		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
-		return
+		return out
 	}
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
@@ -872,7 +872,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	routes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
 	if err != nil {
 		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
-		return
+		return out
 	}
 
 	inboundVHost := &route.VirtualHost{
