@@ -65,9 +65,12 @@ import (
 
 // These are both the current defaults used by the ztunnel hyper http2 server
 const (
-	h2KeepaliveInterval    = 10 * time.Second
-	h2KeepaliveTimeout     = 20 * time.Second
-	l7PoliciesStatusHeader = "istio-l7-policies-applied"
+	h2KeepaliveInterval = 10 * time.Second
+	h2KeepaliveTimeout  = 20 * time.Second
+	// We use this header to indicate to the next proxy (e.g., E/W gateway), that the request
+	// came from a waypoint and the next proxy then can infer that L7 policies have been
+	// applied already.
+	downstreamSourceHeader = "x-istio-source"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -727,8 +730,8 @@ func buildWaypointOuterConnectOriginateListener(push *model.PushContext, proxy *
 			HeadersToAdd: []*core.HeaderValueOption{{
 				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 				Header: &core.HeaderValue{
-					Key:   l7PoliciesStatusHeader,
-					Value: "true",
+					Key:   downstreamSourceHeader,
+					Value: "waypoint",
 				},
 			}},
 		},
