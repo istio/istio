@@ -138,6 +138,13 @@ func (s *Service) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: s.Attributes.Name, Namespace: s.Attributes.Namespace}
 }
 
+func (s *Service) ResourceName() string {
+	return s.Attributes.Namespace + "/" +
+		s.Attributes.K8sAttributes.ObjectName + "/" +
+		s.Hostname.String() + "/" +
+		s.DefaultAddress
+}
+
 func (s *Service) Key() string {
 	if s == nil {
 		return ""
@@ -320,7 +327,15 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
-func (instance *ServiceInstance) CmpOpts() []cmp.Option {
+func (si *ServiceInstance) ResourceName() string {
+	return si.Service.ResourceName() + "/" + si.Endpoint.Key() + "/" + strconv.Itoa(si.ServicePort.Port)
+}
+
+func (si *ServiceInstance) Equals(other *ServiceInstance) bool {
+	return si.Service.Equals(other.Service) && si.ServicePort.Equals(other.ServicePort) && si.Endpoint.Equals(other.Endpoint)
+}
+
+func (si *ServiceInstance) CmpOpts() []cmp.Option {
 	res := []cmp.Option{}
 	res = append(res, istioEndpointCmpOpts...)
 	return res
@@ -362,14 +377,14 @@ func (instance *ServiceInstance) ShallowCopy() *ServiceInstance {
 }
 
 // DeepCopy creates a copy of ServiceInstance.
-func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
+func (si *ServiceInstance) DeepCopy() *ServiceInstance {
 	return &ServiceInstance{
-		Service:  instance.Service.DeepCopy(),
-		Endpoint: instance.Endpoint.DeepCopy(),
+		Service:  si.Service.DeepCopy(),
+		Endpoint: si.Endpoint.DeepCopy(),
 		ServicePort: &Port{
-			Name:     instance.ServicePort.Name,
-			Port:     instance.ServicePort.Port,
-			Protocol: instance.ServicePort.Protocol,
+			Name:     si.ServicePort.Name,
+			Port:     si.ServicePort.Port,
+			Protocol: si.ServicePort.Protocol,
 		},
 	}
 }
@@ -403,6 +418,14 @@ type WorkloadInstance struct {
 	PortMap  map[string]uint32 `json:"portMap,omitempty"`
 	// Can only be selected by service entry of DNS type.
 	DNSServiceEntryOnly bool `json:"dnsServiceEntryOnly,omitempty"`
+}
+
+func (instance *WorkloadInstance) ResourceName() string {
+	return instance.Kind.String() + "/" + instance.Namespace + "/" + instance.Name
+}
+
+func (instance *WorkloadInstance) GetLabels() map[string]string {
+	return instance.Endpoint.Labels
 }
 
 func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
@@ -641,7 +664,7 @@ func (ep *IstioEndpoint) FirstAddressOrNil() string {
 
 // Key returns a function suitable for usage to distinguish this IstioEndpoint from another
 func (ep *IstioEndpoint) Key() string {
-	return ep.FirstAddressOrNil() + "/" + ep.WorkloadName + "/" + ep.ServicePortName
+	return ep.Namespace + "/" + ep.WorkloadName + "/" + ep.FirstAddressOrNil() + "/" + ep.ServicePortName
 }
 
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.

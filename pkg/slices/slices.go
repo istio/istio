@@ -52,7 +52,7 @@ func EqualUnordered[E comparable](s1, s2 []E) bool {
 // EqualFunc returns false. Otherwise, the elements are compared in
 // increasing index order, and the comparison stops at the first index
 // for which eq returns false.
-func EqualFunc[E1, E2 comparable](s1 []E1, s2 []E2, eq func(E1, E2) bool) bool {
+func EqualFunc[E1, E2 any](s1 []E1, s2 []E2, eq func(E1, E2) bool) bool {
 	return slices.EqualFunc(s1, s2, eq)
 }
 
