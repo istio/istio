@@ -122,6 +122,10 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 		synced: j.synced,
 	}
 
+	if o.metadata != nil {
+		j.mergejoin.metadata = o.metadata
+	}
+
 	maybeRegisterCollectionForDebugging(j, o.debugger)
 
 	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
