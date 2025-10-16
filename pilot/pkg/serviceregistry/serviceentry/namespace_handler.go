@@ -30,13 +30,23 @@ func (s *Controller) NamespaceDiscoveryHandler(namespace string, event model.Eve
 
 	cfgs := s.store.List(gvk.WorkloadEntry, namespace)
 	for _, cfg := range cfgs {
-		s.workloadEntryHandler(cfg, cfg, event)
+		switch event {
+		case model.EventDelete:
+			s.inputs.WorkloadEntries.DeleteObject(cfg.NamespacedName().String())
+		default:
+			s.inputs.WorkloadEntries.UpdateObject(cfg)
+		}
 	}
 
 	if !s.workloadEntryController {
 		cfgs := s.store.List(gvk.ServiceEntry, namespace)
 		for _, cfg := range cfgs {
-			s.serviceEntryHandler(cfg, cfg, event)
+			switch event {
+			case model.EventDelete:
+				s.inputs.ServiceEntries.DeleteObject(cfg.NamespacedName().String())
+			default:
+				s.inputs.ServiceEntries.UpdateObject(cfg)
+			}
 		}
 	}
 }
