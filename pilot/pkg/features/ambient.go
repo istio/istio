@@ -67,7 +67,7 @@ var (
 	// While we don't provide much guarantees for alpha features like ambient multi-network, if it's easy to avoid breaking users unnecessarily
 	// we should do that.
 	//
-	// Set default to true once all the changes required to enable waypoints to talk cross network land.
+	// TODO(krinkin.m.u): set default to true once all the changes required to enable waypoints to talk cross network land.
 	EnableAmbientWaypointMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK_WAYPOINT", false, false,
 		"If true and AMBIENT_ENABLE_MULTI_NETWORK is also true, it will enable waypoints to route requests to clusters on remote networks, "+
 			"while by default waypoints will keep traffic local.")
