@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -74,13 +75,16 @@ func (a *index) ServicesCollection(
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...)
-	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []string {
-		return []string{se.Service.Hostname}
+	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []types.NamespacedName {
+		return []types.NamespacedName{{
+			Name:      se.Service.Hostname,
+			Namespace: "default",
+		}}
 	})
 
 	DedupedServiceEntriesInfo := krt.NewCollection(
 		serviceEntryByHostname.AsCollection(),
-		func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) *model.ServiceInfo {
+		func(ctx krt.HandlerContext, se krt.IndexObject[types.NamespacedName, ServiceEntryInfo]) *model.ServiceInfo {
 			if len(se.Objects) == 0 {
 				return nil
 			}
