@@ -17,7 +17,6 @@ package gateway
 import (
 	"fmt"
 	"iter"
-	"maps"
 	"strconv"
 	"strings"
 
@@ -788,9 +787,12 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 					base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = make(map[string]kube.InferencePoolRouteRuleConfig)
 				}
 
-				// skipping type assertion below as this is the only possible one.
+				// skipping type assertion below as this is the only possible type.
 				baseExtraPerRoute := base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]kube.InferencePoolRouteRuleConfig)
-				maps.Copy(baseExtraPerRoute, thisExtraPerRoute.(map[string]kube.InferencePoolRouteRuleConfig))
+
+				for k, v := range thisExtraPerRoute.(map[string]kube.InferencePoolRouteRuleConfig) {
+					baseExtraPerRoute[k] = v
+				}
 			}
 		}
 		sortHTTPRoutes(baseVS.Http)
