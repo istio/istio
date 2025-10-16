@@ -42,6 +42,9 @@ type Schema interface {
 	// IsClusterScoped indicates that this resource is scoped to a particular namespace within a cluster.
 	IsClusterScoped() bool
 
+	// IsSynthetic indicates that this resource is Synthetic (resource that do not actually exist in a cluster).
+	IsSynthetic() bool
+
 	// IsBuiltin indicates that this resource is builtin (not a CRD)
 	IsBuiltin() bool
 
@@ -224,6 +227,10 @@ func (s *schemaImpl) GroupVersionResource() schema.GroupVersionResource {
 		Version:  s.Version(),
 		Resource: s.Plural(),
 	}
+}
+
+func (s *schemaImpl) IsSynthetic() bool {
+	return s.synthetic
 }
 
 func (s *schemaImpl) IsClusterScoped() bool {
