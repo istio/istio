@@ -12,8 +12,6 @@ spec:
             name: "envoy.filters.network.http_connection_manager"
             subFilter:
               name: "envoy.filters.http.router"
-      patch:
-        operation: REMOVE
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -25,8 +23,6 @@ spec:
       match:
         context: WAYPOINT
         waypoint: {}
-      patch:
-        operation: REMOVE
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
