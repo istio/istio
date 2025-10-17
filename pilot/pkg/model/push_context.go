@@ -2267,7 +2267,7 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 		}
 		// Rebuild the envoy filter in all other cases.
 		if efw == nil {
-			efw = convertToEnvoyFilterWrapperWithDomainSuffix(&envoyFilterConfig, env.DomainSuffix)
+			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
 		}
 		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
 	}

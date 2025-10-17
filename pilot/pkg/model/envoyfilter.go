@@ -110,10 +110,6 @@ var wellKnownVersions = map[string]string{
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
 func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
-	return convertToEnvoyFilterWrapperWithDomainSuffix(local, "")
-}
-
-func convertToEnvoyFilterWrapperWithDomainSuffix(local *config.Config, domainSuffix string) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
 	out := &EnvoyFilterWrapper{
@@ -273,10 +269,4 @@ func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {
 		return ""
 	}
 	return cpw.FullName
-}
-
-// ServiceHostname produces FQDN for a k8s service
-// TODO: this's a copy of pilot/pkg/serviceregistry/kube/conversion.go to avoid import cycle
-func serviceHostname(name, namespace, domainSuffix string) host.Name {
-	return host.Name(name + "." + namespace + "." + "svc" + "." + domainSuffix) // Format: "%s.%s.svc.%s"
 }
