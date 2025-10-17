@@ -125,6 +125,9 @@ func TestCrossNamespaceWaypoint(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/57878")
+			}
 			// Steps:
 			// 1. create namespace for the waypoint
 			// 2. deploy a gateway to the namespace
