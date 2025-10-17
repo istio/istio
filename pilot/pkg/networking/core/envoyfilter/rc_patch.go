@@ -24,7 +24,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/slices"
@@ -428,12 +427,4 @@ func routeMatch(patchContext networking.EnvoyFilter_PatchContext, httpRoute *rou
 
 func cloneVhostRouteByRouteIndex(virtualHost *route.VirtualHost, routeIndex int) {
 	virtualHost.Routes[routeIndex] = protomarshal.Clone(virtualHost.Routes[routeIndex])
-}
-
-// extractHostnameFromName extracts the hostname from a route/filter_chain name.
-// The route name can be in the format of "<TrafficDirection>|<port>|<protocol>/<subset>|<hostname>".
-func extractHostnameFromName(name string) host.Name {
-	parts := strings.Split(name, "|")
-
-	return host.Name(parts[len(parts)-1])
 }
