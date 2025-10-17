@@ -114,7 +114,7 @@ var rootCmd = &cobra.Command{
 			}
 
 			if cfg.InstallConfig.NativeNftables && cfg.InstallConfig.ForceIptablesBinary != "" {
-				log.Warn("NativeNftables is enabled along with ForceIptablesBinary. Using native nftables and ignoring iptables backend")
+				log.Warn("NativeNftables is enabled along with ForceIptablesBinary. Using native nftables and ignoring iptables")
 			}
 
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
