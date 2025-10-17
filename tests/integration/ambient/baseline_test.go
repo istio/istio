@@ -2819,12 +2819,21 @@ func runTestContextForCalls(
 				labelService(t, app.ServiceName(), "istio.io/global", "true", app.Config().Cluster)
 			}
 		}
+		// waypoint proxies also need to be labeled as global
+		for _, cls := range t.Clusters() {
+			labelService(t, apps.ServiceAddressedWaypoint.ServiceName(), "istio.io/global", "true", cls)
+			labelService(t, apps.WorkloadAddressedWaypoint.ServiceName(), "istio.io/global", "true", cls)
+		}
 		t.Cleanup(func() {
 			// cleanup services which other tests expect to be local
 			for _, app := range apps.Mesh {
 				if app.Config().IsAmbient() {
 					unlabelService(t, app.ServiceName(), "istio.io/global", app.Config().Cluster)
 				}
+			}
+			for _, cls := range t.Clusters() {
+				unlabelService(t, apps.ServiceAddressedWaypoint.ServiceName(), "istio.io/global", cls)
+				unlabelService(t, apps.WorkloadAddressedWaypoint.ServiceName(), "istio.io/global", cls)
 			}
 		})
 	}

@@ -3305,11 +3305,16 @@ func protocolSniffingCases(t TrafficContext) {
 
 	// so we can check all clusters are hit
 	for _, call := range protocols {
+		skip := skip{}
+		if call.scheme == scheme.TCP {
+			skip.skip = true
+			skip.reason = "https://github.com/istio/istio/issues/26798: enable sniffing tcp"
+		} else if call.scheme == scheme.HTTP && t.Settings().AmbientMultiNetwork {
+			skip.skip = true
+			skip.reason = "https://github.com/istio/istio/issues/58010"
+		}
 		t.RunTraffic(TrafficTestCase{
-			skip: skip{
-				skip:   call.scheme == scheme.TCP,
-				reason: "https://github.com/istio/istio/issues/26798: enable sniffing tcp",
-			},
+			skip: skip,
 			name: call.port,
 			opts: echo.CallOptions{
 				Count: 1,
