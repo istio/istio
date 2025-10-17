@@ -275,13 +275,6 @@ func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, r
 	rp *model.EnvoyFilterConfigPatchWrapper, portMap model.GatewayPortMap,
 ) bool {
 	if patchContext == networking.EnvoyFilter_WAYPOINT {
-		if len(rp.Hostnames) > 0 {
-			routeHost := extractHostnameFromName(rc.Name)
-			if !hostContains(rp.Hostnames, routeHost) {
-				return false
-			}
-		}
-
 		return true
 	}
 

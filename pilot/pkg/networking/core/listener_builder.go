@@ -173,7 +173,18 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 
 func (lb *ListenerBuilder) patchListeners() {
-	lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
+	if lb.node.Type == model.Waypoint {
+		// For waypoint, we need filter EnvoyFilter base on Service
+		_, wps := findWaypointResources(lb.node, lb.push)
+		wpServices := make([]*model.Service, 0, len(wps.services))
+		for _, svc := range wps.services {
+			wpServices = append(wpServices, svc)
+		}
+		lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node, wpServices...)
+	} else {
+		lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
+	}
+
 	if lb.envoyFilterWrapper == nil {
 		return
 	}

@@ -25,7 +25,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -422,7 +421,6 @@ func Test_routeConfigurationMatch(t *testing.T) {
 							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
 						},
 					},
-					Hostnames: []host.Name{"foo.bar.svc.cluster.local"},
 				},
 				rc: &route.RouteConfiguration{Name: "inbound-vip|8000|http|foo.bar.svc.cluster.local"},
 				portMap: map[int]sets.Set[int]{
@@ -430,48 +428,6 @@ func Test_routeConfigurationMatch(t *testing.T) {
 				},
 			},
 			want: true,
-		},
-		{
-			name: "waypoint hostnames not match",
-			args: args{
-				patchContext: networking.EnvoyFilter_WAYPOINT,
-				cp: &model.EnvoyFilterConfigPatchWrapper{
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
-							Waypoint: &networking.EnvoyFilter_WaypointMatch{},
-						},
-					},
-					Hostnames: []host.Name{"foo.bar1.svc.cluster.local"},
-				},
-				rc: &route.RouteConfiguration{Name: "inbound-vip|8000|http|foo.bar.svc.cluster.local"},
-				portMap: map[int]sets.Set[int]{
-					8443: {443: {}},
-				},
-			},
-			want: false,
-		},
-		{
-			name: "waypoint hostnames not match",
-			args: args{
-				patchContext: networking.EnvoyFilter_WAYPOINT,
-				cp: &model.EnvoyFilterConfigPatchWrapper{
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
-							Waypoint: &networking.EnvoyFilter_WaypointMatch{
-								Route: &networking.EnvoyFilter_WaypointMatch_RouteMatch{
-									Name: "inbound-vip|8000|http|foo.bar1.svc.cluster.local",
-								},
-							},
-						},
-					},
-					Hostnames: []host.Name{"foo.bar1.svc.cluster.local"},
-				},
-				rc: &route.RouteConfiguration{Name: "inbound-vip|8000|http|foo.bar.svc.cluster.local"},
-				portMap: map[int]sets.Set[int]{
-					8443: {443: {}},
-				},
-			},
-			want: false,
 		},
 	}
 	for _, tt := range tests {

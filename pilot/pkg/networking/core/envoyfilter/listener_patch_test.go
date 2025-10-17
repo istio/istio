@@ -42,9 +42,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -97,6 +99,11 @@ func buildWaypointEnvoyFilterConfigStoreWithConfig(configPatches []*networking.E
 					{
 						Kind: "Service",
 						Name: "foo",
+					},
+					{
+						Group: "networking.istio.io",
+						Kind:  "ServiceEntry",
+						Name:  "foo",
 					},
 				},
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
@@ -2533,6 +2540,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		proxy        *model.Proxy
 		push         *model.PushContext
 		listeners    []*listener.Listener
+		services     []*model.Service
 		skipAdds     bool
 	}
 	tests := []struct {
@@ -2596,20 +2604,57 @@ func TestApplyListenerPatches(t *testing.T) {
 			want: sidecarVirtualInboundOut,
 		},
 		{
-			name: "waypoint",
+			name: "waypoint match service",
 			args: args{
 				patchContext: networking.EnvoyFilter_WAYPOINT,
 				proxy:        waypointProxy,
 				push:         waypointPush,
 				listeners:    waypointInbound,
 				skipAdds:     false,
+				services: []*model.Service{
+					{
+						Hostname: host.Name("foo.not-default.svc.cluster.local"),
+						Attributes: model.ServiceAttributes{
+							Namespace: "not-default",
+							Name:      "foo",
+							K8sAttributes: model.K8sAttributes{
+								ObjectName: "foo",
+							},
+							ServiceRegistry: provider.Kubernetes,
+						},
+					},
+				},
+			},
+			want: waypointFilterChainOut,
+		},
+		{
+			name: "waypoint match serviceentry",
+			args: args{
+				patchContext: networking.EnvoyFilter_WAYPOINT,
+				proxy:        waypointProxy,
+				push:         waypointPush,
+				listeners:    waypointInbound,
+				skipAdds:     false,
+				services: []*model.Service{
+					{
+						Hostname: host.Name("foo.not-default.svc.cluster.local"),
+						Attributes: model.ServiceAttributes{
+							Namespace: "not-default",
+							Name:      "foo",
+							K8sAttributes: model.K8sAttributes{
+								ObjectName: "foo",
+							},
+							ServiceRegistry: provider.External,
+						},
+					},
+				},
 			},
 			want: waypointFilterChainOut,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ApplyListenerPatches(tt.args.patchContext, tt.args.push.EnvoyFilters(tt.args.proxy),
+			got := ApplyListenerPatches(tt.args.patchContext, tt.args.push.EnvoyFilters(tt.args.proxy, tt.args.services...),
 				tt.args.listeners, tt.args.skipAdds)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)

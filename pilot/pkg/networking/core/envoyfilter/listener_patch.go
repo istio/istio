@@ -646,13 +646,6 @@ func filterChainMatch(patchContext networking.EnvoyFilter_PatchContext,
 	listener *listener.Listener, fc *listener.FilterChain, lp *model.EnvoyFilterConfigPatchWrapper,
 ) bool {
 	if patchContext == networking.EnvoyFilter_WAYPOINT {
-		if len(lp.Hostnames) > 0 {
-			fcHost := extractHostnameFromName(fc.Name)
-			if !hostContains(lp.Hostnames, fcHost) {
-				return false
-			}
-		}
-
 		waypointMatch := lp.Match.GetWaypoint()
 		if waypointMatch == nil {
 			return true

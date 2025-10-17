@@ -45,7 +45,6 @@ type WorkloadPolicyMatcher struct {
 	IsWaypoint        bool
 	Services          []ServiceInfoForPolicyMatcher
 	RootNamespace     string
-	MatchAllServices  bool
 }
 
 type ServiceInfoForPolicyMatcher struct {
@@ -97,12 +96,6 @@ func (p WorkloadPolicyMatcher) WithServices(services []*Service) WorkloadPolicyM
 	for _, svc := range services {
 		p = p.WithService(svc)
 	}
-	return p
-}
-
-// WithAllServices indicates that all services are considered part of the selection criteria.
-func (p WorkloadPolicyMatcher) WithAllServices() WorkloadPolicyMatcher {
-	p.MatchAllServices = true
 	return p
 }
 
@@ -160,9 +153,6 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 
 		// Service attached
 		if p.IsWaypoint && matchesGroupKind(targetRef, gvk.Service) {
-			if p.MatchAllServices {
-				return true
-			}
 			for _, svc := range p.Services {
 				if target == svc.Name &&
 					policyName.Namespace == svc.Namespace &&
@@ -174,9 +164,6 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 
 		// ServiceEntry attached
 		if p.IsWaypoint && matchesGroupKind(targetRef, gvk.ServiceEntry) {
-			if p.MatchAllServices {
-				return true
-			}
 			for _, svc := range p.Services {
 				if target == svc.Name &&
 					policyName.Namespace == svc.Namespace &&

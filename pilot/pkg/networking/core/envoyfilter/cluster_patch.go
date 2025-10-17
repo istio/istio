@@ -187,20 +187,13 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 }
 
 func waypointMatched(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
-	_, _, hostname, port := model.ParseSubsetKey(cluster.Name)
-	// match all
-	if len(cp.Hostnames) > 0 {
-		if !hostContains(cp.Hostnames, hostname) {
-			return false
-		}
-	}
-
+	_, _, _, port := model.ParseSubsetKey(cluster.Name)
 	if cp.Match.GetWaypoint() == nil {
 		return true
 	}
 
-	protNumber := cp.Match.GetWaypoint().PortNumber
-	if protNumber != 0 && protNumber != uint32(port) {
+	portNumber := cp.Match.GetWaypoint().PortNumber
+	if portNumber != 0 && portNumber != uint32(port) {
 		return false
 	}
 

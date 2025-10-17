@@ -846,7 +846,7 @@ func buildRouteVHostDomains(svc *model.Service) []string {
 
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) (out *route.RouteConfiguration) {
 	defer func() {
-		efw := lb.push.EnvoyFilters(lb.node)
+		efw := lb.push.EnvoyFilters(lb.node, svc)
 		out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_WAYPOINT, lb.node, efw, out)
 	}()
 
