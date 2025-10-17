@@ -227,39 +227,6 @@ func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
 	return cr.Update(cfg)
 }
 
-func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	cr.mutex.Lock()
-	defer cr.mutex.Unlock()
-
-	gvk := orig.GroupVersionKind
-	s, ok := cr.schemas.FindByGroupVersionKind(gvk)
-	if !ok {
-		return "", fmt.Errorf("unknown type %v", gvk)
-	}
-
-	cfg, _ := patchFn(orig)
-	if !cr.skipValidation {
-		if _, err := s.ValidateConfig(cfg); err != nil {
-			return "", err
-		}
-	}
-
-	_, ok = cr.data[gvk]
-	if !ok {
-		return "", errNotFound
-	}
-	ns, exists := cr.data[gvk][orig.Namespace]
-	if !exists {
-		return "", errNotFound
-	}
-
-	rev := time.Now().String()
-	cfg.ResourceVersion = rev
-	ns[cfg.Name] = cfg
-
-	return rev, nil
-}
-
 // hasConflict checks if the two resources have a conflict, which will block Update calls
 func hasConflict(existing, replacement config.Config) bool {
 	if replacement.ResourceVersion == "" {
