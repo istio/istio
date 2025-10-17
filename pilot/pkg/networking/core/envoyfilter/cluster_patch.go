@@ -189,7 +189,7 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 func waypointMatched(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	_, _, _, port := model.ParseSubsetKey(cluster.Name)
 	if cp.Match.GetWaypoint() == nil {
-		return true
+		return false
 	}
 
 	portNumber := cp.Match.GetWaypoint().PortNumber
