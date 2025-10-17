@@ -67,6 +67,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMinVersion(24).
+		RequireSingleCluster().
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			return nil
@@ -76,9 +77,6 @@ func TestMain(m *testing.M) {
 			ctx.Settings().SkipVMs()
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
-			if ctx.Settings().AmbientMultiNetwork {
-				cfg.SkipDeployCrossClusterSecrets = true
-			}
 			cfg.ControlPlaneValues = `
 values:
   cni:
