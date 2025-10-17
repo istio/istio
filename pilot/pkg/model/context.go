@@ -921,7 +921,7 @@ func (node *Proxy) EnableHBONEListen() bool {
 	return node.IsAmbient() || (features.EnableSidecarHBONEListening && bool(node.Metadata.EnableHBONE))
 }
 
-func (node *Proxy) EnableListenFromAmbientEastWestGateway() bool {
+func (node *Proxy) EnableListenFromAmbientEastWestGatewayForSidecar() bool {
 	return !node.IsAmbient() && bool(node.Metadata.ListenFromAmbientEastWestGateway)
 }
 

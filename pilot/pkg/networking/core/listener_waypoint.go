@@ -159,15 +159,23 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		// If we put them as a network filter, we get poor logs and cannot return an error at the CONNECT level
 		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
 	}
+	filters = append(filters, xdsfilters.WaypointDownstreamMetadataFilter)
+	filters = append(filters, xdsfilters.ConnectAuthorityFilter)
+
+	// Add fallback filter to set original destination if not already set
+	if lb.node.EnableListenFromAmbientEastWestGatewayForSidecar() && features.EnableAmbientMulticlusterSidecarInterop {
+		if len(lb.node.IPAddresses) > 0 {
+			filters = append(filters, xdsfilters.BuildConnectOriginalDstFallbackFilter(lb.node.IPAddresses[0]))
+		}
+	}
+
+	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       false,
+		SuppressDebugHeaders: ph.SuppressDebugHeaders,
+	}))
+
 	// Filters needed to propagate the tunnel metadata to the inner streams.
-	h.HttpFilters = append(filters,
-		xdsfilters.WaypointDownstreamMetadataFilter,
-		xdsfilters.ConnectAuthorityFilter,
-		xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
-			StartChildSpan:       false,
-			SuppressDebugHeaders: ph.SuppressDebugHeaders,
-		}),
-	)
+	h.HttpFilters = filters
 	return []*listener.Filter{{
 		Name:       wellknown.HTTPConnectionManager,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},

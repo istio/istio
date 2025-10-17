@@ -17,21 +17,13 @@ package core
 import (
 	"fmt"
 	"sort"
-	"strconv"
 
-	xds "github.com/cncf/xds/go/xds/core/v3"
-	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
-	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	googleproto "google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -40,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
-	"istio.io/istio/pilot/pkg/networking/core/match"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -170,8 +161,6 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	oldBuilder := lb.authzBuilder
 	lb.authzBuilder = authz.NewBuilder(authz.Local, lb.push, lb.node, true)
 	inboundChainConfigs := lb.buildInboundChainConfigs()
-
-	// Build filter chains for each port
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
@@ -179,19 +168,10 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		mtls := authn.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
 		opts := getFilterChainMatchOptions(mtls, lp)
 		chains := lb.inboundChainForOpts(cc, mtls, opts)
-		log.Debugf("buildInboundHBONEListeners: sanitizing HBONE filter chain for %v", lb.node.ID)
 		for _, c := range chains {
 			lb.sanitizeFilterChainForHBONE(c)
 		}
 		l.FilterChains = append(l.FilterChains, chains...)
-	}
-
-	// Build the complete matcher hierarchy (Authority → IP → Port → Application Protocol)
-	// This is done once after all ports are collected to create a flat structure
-	// that would result from incremental per-port building.
-	if lb.node.EnableListenFromAmbientEastWestGateway() &&
-		features.EnableAmbientMulticlusterSidecarInterop {
-		lb.finalizeMatchersForAmbientMulticluster(inboundChainConfigs, l)
 	}
 	for _, passthrough := range buildInboundHBONEPassthroughChain(lb) {
 		lb.sanitizeFilterChainForHBONE(passthrough)
@@ -221,14 +201,6 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 
 func (lb *ListenerBuilder) sanitizeFilterChainForHBONE(c *listener.FilterChain) {
 	fcm := c.GetFilterChainMatch()
-	if lb.node.EnableListenFromAmbientEastWestGateway() &&
-		features.EnableAmbientMulticlusterSidecarInterop {
-		c.FilterChainMatch = nil
-		log.Debugf(
-			"sanitizeFilterChainForHBONE: setting fcm to nil because of EnableListenFromAmbientEastWestGateway for %v",
-			lb.node.ID)
-		return
-	}
 	if fcm == nil {
 		fcm = &listener.FilterChainMatch{}
 		c.FilterChainMatch = fcm
@@ -345,61 +317,8 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	return l
 }
 
-// buildOriginalDestinationSetFilterStateFilter creates a filter that sets the original destination address in filter state.
-// This is used for HBONE connections to preserve the original destination when traffic is tunneled.
-func buildOriginalDestinationSetFilterStateFilter(ipAndPort string, isHttp bool) *listener.Filter {
-	celTemplate := `%%CEL('%s' in filter_state ? filter_state['%s']: r'%s')%%`
-	celEval := fmt.Sprintf(celTemplate, xdsfilters.OriginalDstFilterStateKey, xdsfilters.OriginalDstFilterStateKey, ipAndPort)
-	filterStateValue := &sfsvalue.FilterStateValue{
-		Key: &sfsvalue.FilterStateValue_ObjectKey{
-			ObjectKey: "envoy.network.transport_socket.original_dst_address",
-		},
-		Value: &sfsvalue.FilterStateValue_FormatString{
-			FormatString: &core.SubstitutionFormatString{
-				Formatters: []*core.TypedExtensionConfig{
-					{
-						Name:        "envoy.formatter.cel",
-						TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
-					},
-				},
-				Format: &core.SubstitutionFormatString_TextFormatSource{
-					TextFormatSource: &core.DataSource{
-						Specifier: &core.DataSource_InlineString{
-							// If we have a valid original destination in filter state, use it. Else,
-							// fall back to the original destination address.
-							InlineString: celEval,
-						},
-					},
-				},
-			},
-		},
-	}
-	var msg googleproto.Message
-	if isHttp {
-		msg = &sfs.Config{
-			OnRequestHeaders: []*sfsvalue.FilterStateValue{filterStateValue},
-		}
-	} else {
-		msg = &sfsnetwork.Config{
-			OnNewConnection: []*sfsvalue.FilterStateValue{filterStateValue},
-		}
-	}
-	return &listener.Filter{
-		Name: "set_dst_address",
-		ConfigType: &listener.Filter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(msg),
-		},
-	}
-}
-
 // inboundChainForOpts builds a set of filter chains
 func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
-	origDst := fmt.Sprintf("%s:%d", lb.node.IPAddresses[0], cc.port.TargetPort)
-	var filters []*listener.Filter
-	if lb.node.EnableListenFromAmbientEastWestGateway() && cc.hbone &&
-		features.EnableAmbientMulticlusterSidecarInterop {
-		filters = []*listener.Filter{buildOriginalDestinationSetFilterStateFilter(origDst, false)}
-	}
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {
 		var filterChain *listener.FilterChain
@@ -408,7 +327,7 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 		case istionetworking.ListenerProtocolHTTP:
 			filterChain = &listener.FilterChain{
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
-				Filters:          append(slices.Clone(filters), lb.buildInboundNetworkFiltersForHTTP(cc)...),
+				Filters:          lb.buildInboundNetworkFiltersForHTTP(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
 				Name:             cc.Name(opt.Protocol),
 			}
@@ -416,7 +335,7 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 		case istionetworking.ListenerProtocolTCP:
 			filterChain = &listener.FilterChain{
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
-				Filters:          append(slices.Clone(filters), lb.buildInboundNetworkFilters(cc)...),
+				Filters:          lb.buildInboundNetworkFilters(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
 				Name:             cc.Name(opt.Protocol),
 			}
@@ -596,114 +515,6 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 	})
 
 	return chainConfigs
-}
-
-// finalizeMatchersForAmbientMulticluster builds the complete filter chain matcher hierarchy for ambient
-// multicluster configuration. This function is called once after all ports have been processed and creates
-// the entire matcher structure in a single, flat hierarchy:
-//
-//	Authority Matcher (hostname:port) - built by this function from ALL ports
-//	├── "productpage.bookinfo.svc.cluster.local:7070" → 0.0.0.0_7070
-//	├── "productpage.bookinfo.svc.cluster.local:7777" → 0.0.0.0_7777
-//	├── "productpage.bookinfo.svc.cluster.local:9080" → 0.0.0.0_9080
-//	├── "productpage.bookinfo.svc.cluster.local:9090" → 0.0.0.0_9090
-//	└── OnNoMatch → IP Matcher (10.20.0.53/32)
-//	    └── OnMatch → Port Matcher (exactMatchMap with ALL ports in one map)
-//	        ├── "7070" → 0.0.0.0_7070
-//	        ├── "7777" → 0.0.0.0_7777
-//	        ├── "9090" → 0.0.0.0_9090
-//	        └── OnNoMatch → Application Protocol Matcher
-//	            ├── 'http/1.1' → virtualInbound-catchall-http
-//	            ├── 'h2c' → virtualInbound-catchall-http
-//	            └── OnNoMatch → virtualInbound (TCP)
-//
-// This approach creates a clean, flat structure instead of deeply nested OnNoMatch chains that would
-// result from building matchers incrementally in a per-port loop.
-func (lb *ListenerBuilder) finalizeMatchersForAmbientMulticluster(inboundChainConfigs []inboundChainConfig, l *listener.Listener) {
-	// Build authority matcher map for all service hostnames across all ports
-	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
-		Map: make(map[string]*matcher.Matcher_OnMatch),
-	}
-	for _, cc := range inboundChainConfigs {
-		for _, st := range lb.node.ServiceTargets {
-			authorityKey := fmt.Sprintf("%s:%d", st.Service.Hostname, cc.port.Port)
-			svcHostnameMap.Map[authorityKey] = match.ToChain(fmt.Sprintf("0.0.0.0_%d", cc.port.TargetPort))
-			break
-		}
-	}
-
-	// Build IP ranges from node addresses
-	ipRange := []*xds.CidrRange{}
-	for _, addr := range lb.node.IPAddresses {
-		cidr := util.ConvertAddressToCidr(addr)
-		ipRange = append(ipRange, &xds.CidrRange{
-			AddressPrefix: cidr.AddressPrefix,
-			PrefixLen:     cidr.PrefixLen,
-		})
-	}
-
-	if len(ipRange) == 0 {
-		// Empty can happen if we have workloads, but none have an Address (DNS)
-		return
-	}
-
-	// Build application protocol matcher for passthrough (HTTP/TCP fallback)
-	applicationProtocolMatcher := buildApplicationProtocolPassthroughMatcher()
-
-	// Build port mapper with ALL ports at once
-	portMapper := match.NewDestinationPort()
-	for _, cc := range inboundChainConfigs {
-		portKey := strconv.Itoa(int(cc.port.TargetPort))
-		portMapper.Map[portKey] = match.ToChain(fmt.Sprintf("0.0.0.0_%d", cc.port.TargetPort))
-	}
-	// Set application protocol matcher as fallback when no port matches
-	portMapper.Matcher.OnNoMatch = &matcher.Matcher_OnMatch{
-		OnMatch: &matcher.Matcher_OnMatch_Matcher{
-			Matcher: applicationProtocolMatcher,
-		},
-	}
-
-	// Create IP matcher with all ports in one map
-	ipMatcher := &matcher.IPMatcher{
-		RangeMatchers: []*matcher.IPMatcher_IPRangeMatcher{
-			{
-				Ranges:  ipRange,
-				OnMatch: match.ToMatcher(portMapper.Matcher),
-			},
-		},
-	}
-
-	// Create IP matcher for fallback matching
-	ipMatcherForFallback := &matcher.Matcher{
-		MatcherType: &matcher.Matcher_MatcherTree_{
-			MatcherTree: &matcher.Matcher_MatcherTree{
-				Input: match.DestinationIP,
-				TreeType: &matcher.Matcher_MatcherTree_CustomMatch{
-					CustomMatch: &xds.TypedExtensionConfig{
-						Name:        "ip",
-						TypedConfig: protoconv.MessageToAny(ipMatcher),
-					},
-				},
-			},
-		},
-	}
-
-	// Create authority matcher as the primary FilterChainMatcher with IP matcher as fallback
-	l.FilterChainMatcher = &matcher.Matcher{
-		MatcherType: &matcher.Matcher_MatcherTree_{
-			MatcherTree: &matcher.Matcher_MatcherTree{
-				Input: match.AuthorityFilterStateInput,
-				TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
-					ExactMatchMap: svcHostnameMap,
-				},
-			},
-		},
-		OnNoMatch: &matcher.Matcher_OnMatch{
-			OnMatch: &matcher.Matcher_OnMatch_Matcher{
-				Matcher: ipMatcherForFallback,
-			},
-		},
-	}
 }
 
 // getBindToPort determines whether we should bind to port based on the chain-specific config and the proxy
@@ -1085,26 +896,4 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound, fcc.policyService)
 	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
 	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
-}
-
-// buildApplicationProtocolPassthroughMatcher creates a matcher for HTTP/TCP passthrough traffic
-// that doesn't match any specific port. It matches HTTP protocols (http/1.1, h2c) and falls back
-// to TCP for all other traffic.
-func buildApplicationProtocolPassthroughMatcher() *matcher.Matcher {
-	return &matcher.Matcher{
-		MatcherType: &matcher.Matcher_MatcherTree_{
-			MatcherTree: &matcher.Matcher_MatcherTree{
-				Input: match.ApplicationProtocolInput,
-				TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
-					ExactMatchMap: &matcher.Matcher_MatcherTree_MatchMap{
-						Map: map[string]*matcher.Matcher_OnMatch{
-							"'http/1.1'": match.ToChain(model.VirtualInboundCatchAllHTTPFilterChainName),
-							"'h2c'":      match.ToChain(model.VirtualInboundCatchAllHTTPFilterChainName),
-						},
-					},
-				},
-			},
-		},
-		OnNoMatch: match.ToChain(model.VirtualInboundListenerName),
-	}
 }

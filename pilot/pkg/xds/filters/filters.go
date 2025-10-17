@@ -15,6 +15,8 @@
 package filters
 
 import (
+	"fmt"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -35,6 +37,7 @@ import (
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
+	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	resourcedetectors "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
@@ -357,6 +360,50 @@ var (
 				}},
 			}),
 		},
+	}
+	// BuildConnectOriginalDstFallbackFilter builds a filter that sets the original destination
+	// filter state. It uses the pod IP and extracts the port from the :authority header.
+	// This ensures the filter state is populated with a valid IP:port for routing.
+	BuildConnectOriginalDstFallbackFilter = func(podIP string) *hcm.HttpFilter {
+		// Mixed format string: podIP is literal, port is extracted via CEL regex
+		// This will overwrite any failed attempts by ConnectAuthorityFilter to set this filter state with hostname values
+		// Note: Use 2 backslashes in Go raw string literal - protobuf marshaling will double them to 4 in JSON
+		// The JSON will show \\\\1 (4 backslashes), and CEL will interpret as \\1 for the regex backreference
+		celTemplate := `%s:%%CEL(re.extract(request.headers[':authority'], ':([0-9]+)$', '\\1'))%%`
+		celEval := fmt.Sprintf(celTemplate, podIP)
+
+		return &hcm.HttpFilter{
+			Name: "connect_original_dst_fallback",
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: protoconv.MessageToAny(&sfs.Config{
+					OnRequestHeaders: []*sfsvalue.FilterStateValue{
+						{
+							Key: &sfsvalue.FilterStateValue_ObjectKey{
+								ObjectKey: OriginalDstFilterStateKey,
+							},
+							Value: &sfsvalue.FilterStateValue_FormatString{
+								FormatString: &core.SubstitutionFormatString{
+									Formatters: []*core.TypedExtensionConfig{
+										{
+											Name:        "envoy.formatter.cel",
+											TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
+										},
+									},
+									Format: &core.SubstitutionFormatString_TextFormatSource{
+										TextFormatSource: &core.DataSource{
+											Specifier: &core.DataSource_InlineString{
+												InlineString: celEval,
+											},
+										},
+									},
+								},
+							},
+							SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+						},
+					},
+				}),
+			},
+		}
 	}
 )
 
