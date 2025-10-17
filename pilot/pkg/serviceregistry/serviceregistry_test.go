@@ -1530,12 +1530,12 @@ func setHealth(cfg config.Config, healthy bool) config.Config {
 	}
 	cfg.Annotations[status.WorkloadEntryHealthCheckAnnotation] = "true"
 	if healthy {
-		return status.UpdateConfigCondition(cfg, &v1alpha1.IstioCondition{
+		return status.UpdateIstioConfigCondition(cfg, &v1alpha1.IstioCondition{
 			Type:   status.ConditionHealthy,
 			Status: status.StatusTrue,
 		})
 	}
-	return status.UpdateConfigCondition(cfg, &v1alpha1.IstioCondition{
+	return status.UpdateIstioConfigCondition(cfg, &v1alpha1.IstioCondition{
 		Type:   status.ConditionHealthy,
 		Status: status.StatusFalse,
 	})

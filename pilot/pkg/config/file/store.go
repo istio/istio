@@ -101,10 +101,6 @@ func (s *KubeSource) UpdateStatus(config config.Config) (newRevision string, err
 	return s.inner.UpdateStatus(config)
 }
 
-func (s *KubeSource) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	return s.inner.Patch(orig, patchFn)
-}
-
 func (s *KubeSource) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
 	return s.inner.Delete(typ, name, namespace, resourceVersion)
 }
