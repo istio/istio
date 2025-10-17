@@ -797,6 +797,9 @@ spec:
 
 func TestPeerAuthentication(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/58020")
+		}
 		applyDrainingWorkaround(t)
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
