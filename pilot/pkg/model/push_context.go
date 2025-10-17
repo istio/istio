@@ -877,7 +877,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy, patches *MergedEnvoyFilterW
 	// system during initial installation.
 	if proxy.MergedGateway != nil {
 		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
+			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw.String()])
 		}
 	}
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
@@ -914,7 +914,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace strin
 		return true
 	}
 	for _, g := range gw.GatewayNameForServer {
-		if hosts := ps.virtualServiceIndex.destinationsByGateway[g]; hosts != nil {
+		if hosts := ps.virtualServiceIndex.destinationsByGateway[g.String()]; hosts != nil {
 			if hosts.Contains(hostname) {
 				return true
 			}
