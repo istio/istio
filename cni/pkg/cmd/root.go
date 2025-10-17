@@ -112,6 +112,11 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 			}
+
+			if cfg.InstallConfig.NativeNftables && cfg.InstallConfig.ForceIptablesBinary != "" {
+				log.Warn("NativeNftables is enabled along with ForceIptablesBinary. Using native nftables and ignoring iptables backend")
+			}
+
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
 					SystemNamespace:            nodeagent.SystemNamespace,

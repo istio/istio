@@ -156,7 +156,7 @@ func TestValidateIptablesBinary(t *testing.T) {
 		{
 			name:     "rejected_iptables_version",
 			input:    "random",
-			expected: fmt.Errorf("iptables version random not supported"),
+			expected: fmt.Errorf("invalid FORCE_IPTABLES_BINARY value %q", "random"),
 		},
 	}
 
