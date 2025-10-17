@@ -2819,24 +2819,24 @@ func runTestContextForCalls(
 		for _, app := range apps.Mesh {
 			if app.Config().IsAmbient() {
 				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is resolved.
-				labelService(t, app.ServiceName(), "istio.io/global", "true", app.Config().Cluster)
+				labelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
 			}
 		}
 		// waypoint proxies also need to be labeled as global
 		for _, cls := range t.Clusters() {
-			labelService(t, apps.ServiceAddressedWaypoint.ServiceName(), "istio.io/global", "true", cls)
-			labelService(t, apps.WorkloadAddressedWaypoint.ServiceName(), "istio.io/global", "true", cls)
+			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), cls)
+			labelServiceGlobal(t, apps.WorkloadAddressedWaypoint.ServiceName(), cls)
 		}
 		t.Cleanup(func() {
 			// cleanup services which other tests expect to be local
 			for _, app := range apps.Mesh {
 				if app.Config().IsAmbient() {
-					unlabelService(t, app.ServiceName(), "istio.io/global", app.Config().Cluster)
+					unlabelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
 				}
 			}
 			for _, cls := range t.Clusters() {
-				unlabelService(t, apps.ServiceAddressedWaypoint.ServiceName(), "istio.io/global", cls)
-				unlabelService(t, apps.WorkloadAddressedWaypoint.ServiceName(), "istio.io/global", cls)
+				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), cls)
+				unlabelServiceGlobal(t, apps.WorkloadAddressedWaypoint.ServiceName(), cls)
 			}
 		})
 	}
@@ -3446,7 +3446,7 @@ func TestDirect(t *testing.T) {
 				})
 
 				capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
-				labelService(t, capturedSvc, "istio.io/global", "true", cluster)
+				labelServiceGlobal(t, capturedSvc, cluster)
 				run("global service", echo.CallOptions{
 					To:          apps.Captured.ForCluster(cluster.Name()),
 					Count:       1,
@@ -3669,7 +3669,14 @@ func labelService(t framework.TestContext, svcName, k, v string, cs ...cluster.C
 	}
 }
 
+func labelServiceGlobal(t framework.TestContext, svcName string, cls cluster.Cluster) {
+	k := "istio.io/global"
+	v := "true"
+	labelService(t, svcName, k, v, t.Clusters().Configs()...)
+}
+
 func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, svcName, k, v string) {
+
 	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
 	if v == "" {
@@ -3682,9 +3689,9 @@ func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, svcName, 
 	}
 }
 
-func unlabelService(t framework.TestContext, svcName, k string, cls cluster.Cluster) {
+func unlabelServiceGlobal(t framework.TestContext, svcName string, cls cluster.Cluster) {
 	patchOpts := metav1.PatchOptions{}
-	patchData := fmt.Sprintf(`{"metadata":{"labels":{ %q: null}}}`, k)
+	patchData := fmt.Sprintf(`{"metadata":{"labels":{ %q: null}}}`, "istio.io/global")
 	s := cls.Kube().CoreV1().Services(apps.Namespace.Name())
 	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
