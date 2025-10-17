@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	"istio.io/istio/pilot/pkg/networking/core/match"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
@@ -96,7 +97,6 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 		lb.buildWaypointInboundConnectTerminate(),
 		lb.buildWaypointInternal(wls, orderedWPS),
 		forwarder)
-
 	return listeners
 }
 
@@ -844,10 +844,16 @@ func buildRouteVHostDomains(svc *model.Service) []string {
 	return domains
 }
 
-func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
+func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) (out *route.RouteConfiguration) {
+	defer func() {
+		efw := lb.push.EnvoyFilters(lb.node, svc)
+		out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_WAYPOINT, lb.node, efw, out)
+	}()
+
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
-		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		return out
 	}
 
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
@@ -856,7 +862,8 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		return c.Spec.(*networking.VirtualService).Http != nil
 	})
 	if vs == nil {
-		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		return out
 	}
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
@@ -864,7 +871,8 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
 	routes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
 	if err != nil {
-		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		return out
 	}
 
 	inboundVHost := &route.VirtualHost{
@@ -873,11 +881,13 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		Routes:  routes,
 	}
 
-	return &route.RouteConfiguration{
+	out = &route.RouteConfiguration{
 		Name:             cc.clusterName,
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
+
+	return out
 }
 
 // Select the config pertaining to the service being processed.

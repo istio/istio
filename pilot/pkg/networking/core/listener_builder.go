@@ -173,7 +173,18 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 
 func (lb *ListenerBuilder) patchListeners() {
-	lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
+	if lb.node.Type == model.Waypoint {
+		// For waypoint, we need filter EnvoyFilter base on Service
+		_, wps := findWaypointResources(lb.node, lb.push)
+		wpServices := make([]*model.Service, 0, len(wps.services))
+		for _, svc := range wps.services {
+			wpServices = append(wpServices, svc)
+		}
+		lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node, wpServices...)
+	} else {
+		lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
+	}
+
 	if lb.envoyFilterWrapper == nil {
 		return
 	}
@@ -188,6 +199,9 @@ func (lb *ListenerBuilder) patchListeners() {
 	lb.virtualInboundListener = lb.patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
 	lb.httpProxyListener = lb.patchOneListener(lb.httpProxyListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.envoyFilterWrapper, lb.inboundListeners, false)
+	if lb.node.Type == model.Waypoint {
+		lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_WAYPOINT, lb.envoyFilterWrapper, lb.inboundListeners, true)
+	}
 	lb.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, lb.envoyFilterWrapper, lb.outboundListeners, false)
 }
 
