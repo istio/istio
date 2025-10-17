@@ -10,6 +10,9 @@ _internal_defaults_do_not_set:
     # For example: https://$remotePilotAddress:15017/validate
     validationURL: ""
 
+    # Timeout for validation webhook
+    validationTimeoutSeconds: 10
+
   istiodRemote:
     # Sidecar injector mutating webhook configuration url
     # For example: https://$remotePilotAddress:15017/inject
