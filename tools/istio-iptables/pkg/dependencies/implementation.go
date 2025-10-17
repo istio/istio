@@ -172,7 +172,7 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 			return nftVer, nil
 		default:
 			log.Errorf("iptables binary unsupported: %s, supported values are 'legacy' or 'nft'", r.ForceIptablesBinary)
-			return IptablesVersion{}, fmt.Errorf("iptables binary unsupported")
+			return IptablesVersion{}, fmt.Errorf("iptables binary %q unsupported", r.ForceIptablesBinary)
 		}
 	}
 

@@ -125,7 +125,7 @@ func TestDetectIptablesVersion(t *testing.T) {
 				ForceIptablesBinary: "iptables",
 			},
 			result:   IptablesVersion{},
-			expected: fmt.Errorf("iptables binary unsupported"),
+			expected: fmt.Errorf("iptables binary %q unsupported", "iptables"),
 		},
 		{
 			name: "selection_logic_finds_nft",
