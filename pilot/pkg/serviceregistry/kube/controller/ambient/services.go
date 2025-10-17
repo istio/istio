@@ -77,8 +77,8 @@ func (a *index) ServicesCollection(
 		)...)
 	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []string {
 		return []string{types.NamespacedName{
-			Name:      se.Service.Hostname,
-			Namespace: "default",
+			Name:      se.Service.Name,
+			Namespace: se.Service.Namespace,
 		}.String()}
 	})
 
