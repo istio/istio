@@ -2347,7 +2347,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	waypointInbound := []*listener.Listener{
+	waypointServcieInbound := []*listener.Listener{
 		{
 			Name:              "main_internal",
 			ListenerSpecifier: &listener.Listener_InternalListener{},
@@ -2410,7 +2410,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	waypointFilterChainOut := []*listener.Listener{
+	waypointServiceOut := []*listener.Listener{
 		{
 			Name:              "main_internal",
 			ListenerSpecifier: &listener.Listener_InternalListener{},
@@ -2443,6 +2443,142 @@ func TestApplyListenerPatches(t *testing.T) {
 																Route: &route.RouteAction{
 																	ClusterSpecifier: &route.RouteAction_Cluster{
 																		Cluster: "inbound-vip|8000|http|foo.not-default.svc.cluster.local",
+																	},
+																	ClusterNotFoundResponseCode: route.RouteAction_INTERNAL_SERVER_ERROR,
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+									HttpFilters: []*hcm.HttpFilter{
+										{Name: "http-filter0"},
+										{
+											Name:       wellknown.Fault,
+											ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
+										},
+										{Name: "http-filter3"},
+										{Name: "http-filter2"},
+										{Name: "http-filter4"},
+										{Name: "http-filter-to-be-removed-then-add"},
+									},
+								}),
+							},
+						},
+					},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									AlpnProtocols: []string{"h2-6380", "http/1.1-6380"},
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	waypointServiceEntryInbound := []*listener.Listener{
+		{
+			Name:              "main_internal",
+			ListenerSpecifier: &listener.Listener_InternalListener{},
+			FilterChains: []*listener.FilterChain{
+				{
+					Name: "inbound-vip|8000|http|foo.bar.com",
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
+										RouteConfig: &route.RouteConfiguration{
+											Name: "inbound-vip|8000|http|foo.bar.com",
+											VirtualHosts: []*route.VirtualHost{
+												{
+													Name:    "inbound-vip|8000|http|foo.bar.com",
+													Domains: []string{"*"},
+													Routes: []*route.Route{
+														{
+															Name: "bar.foo.0",
+															Match: &route.RouteMatch{
+																PathSpecifier: &route.RouteMatch_PathSeparatedPrefix{
+																	PathSeparatedPrefix: "/",
+																},
+																CaseSensitive: wrapperspb.Bool(true),
+															},
+															Action: &route.Route_Route{
+																Route: &route.RouteAction{
+																	ClusterSpecifier: &route.RouteAction_Cluster{
+																		Cluster: "inbound-vip|8000|http|foo.bar.com",
+																	},
+																	ClusterNotFoundResponseCode: route.RouteAction_INTERNAL_SERVER_ERROR,
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+									HttpFilters: []*hcm.HttpFilter{
+										{Name: "http-filter0"},
+										{
+											Name:       wellknown.Fault,
+											ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
+										},
+										{Name: "http-filter3"},
+										{Name: "http-filter2"},
+										{Name: "http-filter-5"},
+										{Name: "http-filter4"},
+										{Name: "http-filter-to-be-removed-then-add"},
+									},
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	waypointServiceEntryOut := []*listener.Listener{
+		{
+			Name:              "main_internal",
+			ListenerSpecifier: &listener.Listener_InternalListener{},
+			FilterChains: []*listener.FilterChain{
+				{
+					Name: "inbound-vip|8000|http|foo.bar.com",
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.HTTPConnectionManager,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+									MaxRequestHeadersKb: wrapperspb.UInt32(96),
+									RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
+										RouteConfig: &route.RouteConfiguration{
+											Name: "inbound-vip|8000|http|foo.bar.com",
+											VirtualHosts: []*route.VirtualHost{
+												{
+													Name:    "inbound-vip|8000|http|foo.bar.com",
+													Domains: []string{"*"},
+													Routes: []*route.Route{
+														{
+															Name: "bar.foo.0",
+															Match: &route.RouteMatch{
+																PathSpecifier: &route.RouteMatch_PathSeparatedPrefix{
+																	PathSeparatedPrefix: "/",
+																},
+																CaseSensitive: wrapperspb.Bool(true),
+															},
+															Action: &route.Route_Route{
+																Route: &route.RouteAction{
+																	ClusterSpecifier: &route.RouteAction_Cluster{
+																		Cluster: "inbound-vip|8000|http|foo.bar.com",
 																	},
 																	ClusterNotFoundResponseCode: route.RouteAction_INTERNAL_SERVER_ERROR,
 																},
@@ -2604,12 +2740,12 @@ func TestApplyListenerPatches(t *testing.T) {
 			want: sidecarVirtualInboundOut,
 		},
 		{
-			name: "waypoint match service",
+			name: "waypoint match Service",
 			args: args{
 				patchContext: networking.EnvoyFilter_WAYPOINT,
 				proxy:        waypointProxy,
 				push:         waypointPush,
-				listeners:    waypointInbound,
+				listeners:    waypointServcieInbound,
 				skipAdds:     false,
 				services: []*model.Service{
 					{
@@ -2625,19 +2761,19 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			want: waypointFilterChainOut,
+			want: waypointServiceOut,
 		},
 		{
-			name: "waypoint match serviceentry",
+			name: "waypoint match ServiceEntry",
 			args: args{
 				patchContext: networking.EnvoyFilter_WAYPOINT,
 				proxy:        waypointProxy,
 				push:         waypointPush,
-				listeners:    waypointInbound,
+				listeners:    waypointServiceEntryInbound,
 				skipAdds:     false,
 				services: []*model.Service{
 					{
-						Hostname: host.Name("foo.not-default.svc.cluster.local"),
+						Hostname: host.Name("foo.bar.com"),
 						Attributes: model.ServiceAttributes{
 							Namespace: "not-default",
 							Name:      "foo",
@@ -2649,7 +2785,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
-			want: waypointFilterChainOut,
+			want: waypointServiceEntryOut,
 		},
 	}
 	for _, tt := range tests {

@@ -148,37 +148,14 @@ func Test_clusterMatch(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "waypoint match hostnames",
+			name: "waypoint match",
 			args: args{
 				proxy:     &model.Proxy{Type: model.Waypoint},
 				operation: networking.EnvoyFilter_Patch_MERGE,
 				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 					Context: networking.EnvoyFilter_WAYPOINT,
-					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-						Cluster: &networking.EnvoyFilter_ClusterMatch{
-							PortNumber: 80,
-							Service:    "foo.bar",
-							Subset:     "v1",
-						},
-					},
-				},
-				cluster: &cluster.Cluster{Name: "outbound|80|v1|foo.bar"},
-			},
-			want: true,
-		},
-		{
-			name: "waypoint match without hostnames",
-			args: args{
-				proxy:     &model.Proxy{Type: model.Waypoint},
-				operation: networking.EnvoyFilter_Patch_MERGE,
-				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-					Context: networking.EnvoyFilter_WAYPOINT,
-					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-						Cluster: &networking.EnvoyFilter_ClusterMatch{
-							PortNumber: 80,
-							Service:    "foo.bar",
-							Subset:     "v1",
-						},
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+						Waypoint: &networking.EnvoyFilter_WaypointMatch{},
 					},
 				},
 				cluster: &cluster.Cluster{Name: "outbound|80|v1|foo.bar"},
