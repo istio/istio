@@ -352,6 +352,9 @@ type NodeMetadata struct {
 	// Name of the socket file which will be used for workload SDS.
 	WorkloadIdentitySocketFile string `json:"WORKLOAD_IDENTITY_SOCKET_FILE,omitempty"`
 
+	// If set on proxy, filter chains will be adjusted to accept traffic from ambient east-west gateway.
+	ListenFromAmbientEastWestGateway StringBool `json:"LISTEN_FROM_AMBIENT_EAST_WEST_GATEWAY,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]any `json:"-"`
