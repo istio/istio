@@ -15,7 +15,6 @@
 */
 
 package file
-
 import (
 	"bufio"
 	"bytes"
@@ -298,12 +297,50 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 }
 
 func (s *KubeSource) parseContentReader(r *collection.Schemas, name string, reader *bufio.Reader) ([]kubeResource, error) {
-	var resources []kubeResource
-	var errs error
+	var (
+		resourcesMu sync.Mutex
+		resources   []kubeResource
+		errsMu      sync.Mutex
+		errs        error
+	)
 
 	decoder := kubeyaml2.NewYAMLReader(reader)
-	chunkCount := -1
+	type job struct {
+		line  int
+		chunk []byte
+		idx   int
+	}
+	jobs := make(chan job, 64)
+	const workers = 4
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for w := 0; w < workers; w++ {
+		go func() {
+			defer wg.Done()
+			for j := range jobs {
+				chunkResources, err := s.parseChunk(r, name, j.line, j.chunk)
+				if err != nil {
+					var uerr *unknownSchemaError
+					if errors.As(err, &uerr) {
+						scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
+						continue
+					}
+					e := fmt.Errorf("error processing %s[%d]: %v", name, j.idx, err)
+					scope.Warnf("%v - skipping", e)
+					scope.Debugf("Failed to parse yaml chunk")
+					errsMu.Lock()
+					errs = multierror.Append(errs, e)
+					errsMu.Unlock()
+					continue
+				}
+				resourcesMu.Lock()
+				resources = append(resources, chunkResources...)
+				resourcesMu.Unlock()
+			}
+		}()
+	}
 
+	chunkCount := -1
 	for {
 		chunkCount++
 		doc, lineNum, err := decoder.Read()
@@ -314,30 +351,19 @@ func (s *KubeSource) parseContentReader(r *collection.Schemas, name string, read
 			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
 			scope.Warnf("%v - skipping", e)
 			scope.Debug("Failed to parse yamlText chunk")
+			errsMu.Lock()
 			errs = multierror.Append(errs, e)
+			errsMu.Unlock()
 			break
 		}
-
 		chunk := bytes.TrimSpace(doc)
 		if len(chunk) == 0 {
 			continue
 		}
-		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
-		if err != nil {
-			var uerr *unknownSchemaError
-			if errors.As(err, &uerr) {
-				scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
-			} else {
-				e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
-				scope.Warnf("%v - skipping", e)
-				scope.Debugf("Failed to parse yaml chunk")
-				errs = multierror.Append(errs, e)
-			}
-			continue
-		}
-		resources = append(resources, chunkResources...)
+		jobs <- job{line: lineNum, chunk: chunk, idx: chunkCount}
 	}
-
+	close(jobs)
+	wg.Wait()
 	return resources, errs
 }
 
@@ -354,18 +380,16 @@ func (e unknownSchemaError) Error() string {
 
 func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) ([]kubeResource, error) {
 	resources := make([]kubeResource, 0)
-	// Convert to JSON
+	// Convert to JSON once
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
 		return resources, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
-
 	// ignore null json
 	if len(jsonChunk) == 0 || bytes.Equal(jsonChunk, []byte("null")) {
 		return resources, nil
 	}
-
-	// Peek at the beginning of the JSON to
+	// Interpret GVK from JSON
 	groupVersionKind, err := kubeJson.DefaultMetaFactory.Interpret(jsonChunk)
 	if err != nil {
 		return resources, fmt.Errorf("failed interpreting jsonChunk: %v", err)
