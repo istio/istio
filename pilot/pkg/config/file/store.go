@@ -15,6 +15,7 @@
 */
 
 package file
+
 import (
 	"bufio"
 	"bytes"
