@@ -365,12 +365,25 @@ var (
 	// filter state. It uses the pod IP and extracts the port from the :authority header.
 	// This ensures the filter state is populated with a valid IP:port for routing.
 	BuildConnectOriginalDstFallbackFilter = func(podIP string) *hcm.HttpFilter {
-		// Mixed format string: podIP is literal, port is extracted via CEL regex
-		// This will overwrite any failed attempts by ConnectAuthorityFilter to set this filter state with hostname values
+		// Template-level concatenation approach - avoid using CEL + operator
+		// Logic: If filter state key exists, use its value as-is
+		// If filter state key doesn't exist, use fallback IP with extracted port
 		// Note: Use 2 backslashes in Go raw string literal - protobuf marshaling will double them to 4 in JSON
 		// The JSON will show \\\\1 (4 backslashes), and CEL will interpret as \\1 for the regex backreference
-		celTemplate := `%s:%%CEL(re.extract(request.headers[':authority'], ':([0-9]+)$', '\\1'))%%`
-		celEval := fmt.Sprintf(celTemplate, podIP)
+
+		keyCheck := fmt.Sprintf("'%s' in filter_state", OriginalDstFilterStateKey)
+
+		// Part 1: Use existing filter state value OR empty string
+		part1 := fmt.Sprintf("%%CEL(%s ? filter_state['%s'] : '')%%", keyCheck, OriginalDstFilterStateKey)
+
+		// Part 2: Use empty string OR fallback IP with colon
+		part2 := fmt.Sprintf("%%CEL(%s ? '' : '%s:')%%", keyCheck, podIP)
+
+		// Part 3: Use empty string OR extracted port
+		part3 := fmt.Sprintf("%%CEL(%s ? '' : re.extract(request.headers[':authority'], ':([0-9]+)$', '\\\\1'))%%", keyCheck)
+
+		// Concatenate all parts at template level
+		celEval := part1 + part2 + part3
 
 		return &hcm.HttpFilter{
 			Name: "connect_original_dst_fallback",
