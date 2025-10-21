@@ -527,6 +527,9 @@ func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
 				//
 				// In the future though a better solution is needed to achieve sensible connection pooling
 				// without lasering a particular backend in the remote network.
+				//
+				// TODO(https://github.com/istio/istio/issues/58039): remove it after deploying a sensible
+				// connection pooling fix for ambient multi-network.
 				MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 1},
 			},
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
