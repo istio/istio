@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
@@ -33,6 +34,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
@@ -675,6 +677,98 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	runNetworkFilterTest(t, ds, networkFiltered, "")
 }
 
+func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
+	env := environment(t)
+	env.Env().InitNetworksManager(env.Discovery)
+	ambientNetworkFiltered := []networkFilterCase{
+		{
+			name:  "from_network1_cluster1a",
+			proxy: makeWaypointProxy("network1", "cluster1a"),
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						// 3 local endpoints on network1
+						{Address: "10.0.0.1", Weight: 6},
+						{Address: "10.0.0.2", Weight: 6},
+						{Address: "10.0.0.3", Weight: 6},
+						// 1 endpoint on network2, cluster2a
+						{Address: "2.2.2.2", Weight: 6},
+						// 2 endpoints on network2, cluster2b
+						{Address: "2.2.2.20", Weight: 6},
+						{Address: "2.2.2.21", Weight: 6},
+						// 1 endpoint on network4 is not considered reachable in ambient mode without a gateway
+					},
+					Weight: 36,
+				},
+			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1b",
+				";;;;cluster2a",
+				";;;;cluster2b",
+				";;;;cluster2b",
+			},
+		},
+		{
+			name:  "from_network1_cluster1b",
+			proxy: makeWaypointProxy("network1", "cluster1b"),
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						// 3 local endpoints on network1
+						{Address: "10.0.0.1", Weight: 6},
+						{Address: "10.0.0.2", Weight: 6},
+						{Address: "10.0.0.3", Weight: 6},
+						// 1 endpoint on network2, cluster2a
+						{Address: "2.2.2.2", Weight: 6},
+						// 2 endpoints on network2, cluster2b
+						{Address: "2.2.2.20", Weight: 6},
+						{Address: "2.2.2.21", Weight: 6},
+						// 1 endpoint on network4 is not considered reachable in ambient mode without a gateway
+					},
+					Weight: 36,
+				},
+			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1b",
+				";;;;cluster2a",
+				";;;;cluster2b",
+				";;;;cluster2b",
+			},
+		},
+		{
+			name:  "from_network2_cluster2a",
+			proxy: makeWaypointProxy("network2", "cluster2a"),
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						// 3 local endpoints in network2
+						{Address: "20.0.0.1", Weight: 6},
+						{Address: "20.0.0.2", Weight: 6},
+						{Address: "20.0.0.3", Weight: 6},
+						// Nothing on network1 since gateway there does not listen on HBONE port
+						// 1 endpoint on network4 is not considered reachable in ambient mode without a gateway
+					},
+					Weight: 18,
+				},
+			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster2a",
+				";ns;example;;cluster2b",
+				";ns;example;;cluster2b",
+			},
+		},
+	}
+	// The tests below are calling the endpoints filter from each one of the
+	// networks and examines the returned filtered endpoints
+	runNetworkFilterTest(t, env, ambientNetworkFiltered, "")
+}
+
 type networkFilterCase struct {
 	name                 string
 	proxy                *model.Proxy
@@ -794,6 +888,16 @@ func makeProxy(nw network.ID, c cluster.ID) *model.Proxy {
 	}
 }
 
+func makeWaypointProxy(nw network.ID, c cluster.ID) *model.Proxy {
+	proxy := makeProxy(nw, c)
+	if proxy.Labels == nil {
+		proxy.Labels = make(map[string]string)
+	}
+	proxy.Labels[label.GatewayManaged.Name] = constants.ManagedGatewayMeshControllerLabel
+	proxy.Type = model.Waypoint
+	return proxy
+}
+
 // environment defines the networks with:
 //   - 1 gateway for network1
 //   - 3 gateway for network2
@@ -808,8 +912,9 @@ func environment(t test.Failer, c ...config.Config) *xds.FakeDiscoveryServer {
 			Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
 		}},
 		Gateways: []model.NetworkGateway{
-			// network1 has only 1 gateway in cluster1a, which will be used for the endpoints
-			// in both cluster1a and cluster1b.
+			// network1 has only 1 gateway in cluster1a and no HBONEPort, so this gateway
+			// in sidecar mode will be used for endpoints in both cluster1a and cluster1b,
+			// but ambient waypoint will not use it at all.
 			{
 				Network: "network1",
 				Cluster: "cluster1a",
@@ -821,30 +926,34 @@ func environment(t test.Failer, c ...config.Config) *xds.FakeDiscoveryServer {
 			// endpoint, only the gateway for its cluster will be selected. Since the clusters do not
 			// have the same number of endpoints, the weights for the gateways will be different.
 			{
-				Network: "network2",
-				Cluster: "cluster2a",
-				Addr:    "2.2.2.2",
-				Port:    80,
+				Network:   "network2",
+				Cluster:   "cluster2a",
+				Addr:      "2.2.2.2",
+				Port:      80,
+				HBONEPort: 15008,
 			},
 			{
-				Network: "network2",
-				Cluster: "cluster2b",
-				Addr:    "2.2.2.20",
-				Port:    80,
+				Network:   "network2",
+				Cluster:   "cluster2b",
+				Addr:      "2.2.2.20",
+				Port:      80,
+				HBONEPort: 15008,
 			},
 			{
-				Network: "network2",
-				Cluster: "cluster2b",
-				Addr:    "2.2.2.21",
-				Port:    80,
+				Network:   "network2",
+				Cluster:   "cluster2b",
+				Addr:      "2.2.2.21",
+				Port:      80,
+				HBONEPort: 15008,
 			},
 
 			// network3 has a gateway in cluster3, but no endpoints.
 			{
-				Network: "network3",
-				Cluster: "cluster3",
-				Addr:    "3.3.3.3",
-				Port:    443,
+				Network:   "network3",
+				Cluster:   "cluster3",
+				Addr:      "3.3.3.3",
+				Port:      443,
+				HBONEPort: 15008,
 			},
 		},
 	})
@@ -884,8 +993,9 @@ func testShards() *model.EndpointIndex {
 
 		// network3 has no endpoints.
 
-		// network4 has a single endpoint, but not gateway so it will always
-		// be considered directly reachable.
+		// network4 has a single endpoint, but not gateway so it will be considered reachable
+		// in sidecar mode, but not reachable in ambient mode, since in ambient mode we require
+		// E/W gateway.
 		{Cluster: "cluster4"}: {
 			{Network: "network4", Addresses: []string{"40.0.0.1"}},
 		},
