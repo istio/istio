@@ -2347,8 +2347,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy, services ...*Service) *MergedE
 // if there is a workload selector, check for matching workload labels
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string, services ...*Service) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
-	// We need to know all the EnvoyFilters that target to Service/ServiceEntry
-	matcher := PolicyMatcherForProxy(proxy).WithServices(services)
+	matcher := PolicyMatcherForProxy(proxy).WithRootNamespace(ps.Mesh.GetRootNamespace()).WithServices(services)
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
 		if matcher.ShouldAttachPolicy(gvk.EnvoyFilter, efw.NamespacedName(), efw) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)

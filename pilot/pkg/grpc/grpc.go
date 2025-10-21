@@ -20,7 +20,6 @@ import (
 	"math"
 	"strings"
 
-	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -39,7 +38,7 @@ func ServerOptions(options *istiokeepalive.Options, handleNewMaxMessageSize func
 	maxRecvMsgSize := features.MaxRecvMsgSize
 
 	grpcOptions := []grpc.ServerOption{
-		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
+		grpc.ChainUnaryInterceptor(interceptors...),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.MaxRecvMsgSize(maxRecvMsgSize),
 		// Ensure we allow clients sufficient ability to send keep alives. If this is higher than client
