@@ -311,7 +311,7 @@ func TestEnvoyFilters(t *testing.T) {
 		proxy                     *Proxy
 		expectedListenerPatches   int
 		expectedClusterPatches    int
-		expectedHttpFilterPatches int
+		expectedHTTPFilterPatches int
 	}{
 		{
 			name: "proxy matches two envoyfilters",
@@ -322,7 +322,7 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 			expectedListenerPatches:   2,
 			expectedClusterPatches:    2,
-			expectedHttpFilterPatches: 0,
+			expectedHTTPFilterPatches: 0,
 		},
 		{
 			name: "proxy in root namespace matches an envoyfilter",
@@ -333,7 +333,7 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 			expectedListenerPatches:   1,
 			expectedClusterPatches:    1,
-			expectedHttpFilterPatches: 0,
+			expectedHTTPFilterPatches: 0,
 		},
 		{
 			name: "proxy matches no envoyfilter",
@@ -344,7 +344,7 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 			expectedListenerPatches:   0,
 			expectedClusterPatches:    0,
-			expectedHttpFilterPatches: 0,
+			expectedHTTPFilterPatches: 0,
 		},
 		{
 			name: "proxy matches envoyfilter in root ns",
@@ -355,7 +355,7 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 			expectedListenerPatches:   1,
 			expectedClusterPatches:    1,
-			expectedHttpFilterPatches: 0,
+			expectedHTTPFilterPatches: 0,
 		},
 		{
 			name: "proxy version matches no envoyfilters",
@@ -366,7 +366,7 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 			expectedListenerPatches:   0,
 			expectedClusterPatches:    0,
-			expectedHttpFilterPatches: 0,
+			expectedHTTPFilterPatches: 0,
 		},
 		{
 			name: "proxy matched target ref",
@@ -377,7 +377,7 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 			expectedListenerPatches:   0,
 			expectedClusterPatches:    2,
-			expectedHttpFilterPatches: 0,
+			expectedHTTPFilterPatches: 0,
 		},
 		{
 			name: "waypoint matched",
@@ -389,7 +389,7 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 			expectedListenerPatches:   0,
 			expectedClusterPatches:    2,
-			expectedHttpFilterPatches: 1,
+			expectedHTTPFilterPatches: 1,
 		},
 		{
 			name: "waypoint matched gatewayclass in root namespace",
@@ -401,7 +401,7 @@ func TestEnvoyFilters(t *testing.T) {
 			},
 			expectedListenerPatches:   0,
 			expectedClusterPatches:    0,
-			expectedHttpFilterPatches: 1,
+			expectedHTTPFilterPatches: 1,
 		},
 	}
 
@@ -409,7 +409,7 @@ func TestEnvoyFilters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			filter := push.EnvoyFilters(tt.proxy)
 			if filter == nil {
-				if tt.expectedClusterPatches != 0 || tt.expectedListenerPatches != 0 || tt.expectedHttpFilterPatches != 0 {
+				if tt.expectedClusterPatches != 0 || tt.expectedListenerPatches != 0 || tt.expectedHTTPFilterPatches != 0 {
 					t.Errorf("Got no envoy filter")
 				}
 				return
@@ -420,8 +420,8 @@ func TestEnvoyFilters(t *testing.T) {
 			if len(filter.Patches[networking.EnvoyFilter_LISTENER]) != tt.expectedListenerPatches {
 				t.Errorf("Expect %d envoy filter listener patches, but got %d", tt.expectedListenerPatches, len(filter.Patches[networking.EnvoyFilter_LISTENER]))
 			}
-			if len(filter.Patches[networking.EnvoyFilter_HTTP_FILTER]) != tt.expectedHttpFilterPatches {
-				t.Errorf("Expect %d envoy filter http filter patches, but got %d", tt.expectedHttpFilterPatches, len(filter.Patches[networking.EnvoyFilter_HTTP_FILTER]))
+			if len(filter.Patches[networking.EnvoyFilter_HTTP_FILTER]) != tt.expectedHTTPFilterPatches {
+				t.Errorf("Expect %d envoy filter http filter patches, but got %d", tt.expectedHTTPFilterPatches, len(filter.Patches[networking.EnvoyFilter_HTTP_FILTER]))
 			}
 		})
 	}
