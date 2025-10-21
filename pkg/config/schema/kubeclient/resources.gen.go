@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"istio.io/istio/pkg/typemap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,6 +44,13 @@ import (
 )
 
 func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
+	reg := typemap.Get[TypeRegistration[T]](registerTypes)
+	if reg != nil {
+		w := (*reg).Write(c, namespace)
+		if w != nil {
+			return w
+		}
+	}
 	switch any(ptr.Empty[T]()).(type) {
 	case *apiistioioapisecurityv1.AuthorizationPolicy:
 		return c.Istio().SecurityV1().AuthorizationPolicies(namespace).(ktypes.WriteAPI[T])
