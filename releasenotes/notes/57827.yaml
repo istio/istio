@@ -9,4 +9,4 @@ issue:
 
 releaseNotes:
   - |
-    **Added** support for a user defined environment variable to override iptables backend detection and use a specific binary.
+    **Added** support for environment variable `FORCE_IPTABLES_BINARY` to override iptables backend detection and use a specific binary.
