@@ -147,10 +147,6 @@ type ConfigStore interface {
 	Update(config config.Config) (newRevision string, err error)
 	UpdateStatus(config config.Config) (newRevision string, err error)
 
-	// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
-	// read-modify-write conflicts when there are many concurrent-writers to the same resource.
-	Patch(orig config.Config, patchFn config.PatchFunc) (string, error)
-
 	// Delete removes an object from the store by key
 	// For k8s, resourceVersion must be fulfilled before a deletion is carried out.
 	// If not possible, a 409 Conflict status will be returned.

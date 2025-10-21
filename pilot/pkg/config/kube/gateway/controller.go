@@ -542,10 +542,6 @@ func (c *Controller) UpdateStatus(config config.Config) (newRevision string, err
 	return "", errUnsupportedOp
 }
 
-func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	return "", errUnsupportedOp
-}
-
 func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string, _ *string) error {
 	return errUnsupportedOp
 }
