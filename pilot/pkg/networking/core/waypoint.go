@@ -39,6 +39,13 @@ const (
 	// EncapClusterName is the name of the cluster used for traffic to the connect_originate listener.
 	EncapClusterName = "encap"
 
+	// DoubleHBONEInnerConnectOriginate and DoubleHBONEOuterConnectOriginate is the name for resources (cluster and
+	// listener) associated with estabslishing double HBONE (CONNECT within CONNECT) tunnel.
+	// DoubleHBONEInnerConnectOriginate is used for the inner CONNECT tunnel and DoubleHBONEOuterConnectOriginate
+	// is used for the outer CONNECT tunnel.
+	DoubleHBONEInnerConnectOriginate = "inner_connect_originate"
+	DoubleHBONEOuterConnectOriginate = "outer_connect_originate"
+
 	// ConnectUpgradeType is the type of upgrade for HTTP CONNECT.
 	ConnectUpgradeType = "CONNECT"
 )
@@ -128,4 +135,17 @@ func isEastWestGateway(node *model.Proxy) bool {
 	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
 
 	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
+}
+
+// isWaypointProxy checks if the proxy is an actual waypoint and not say an E/W gateway.
+// We need it because as you can see by looking at isEastWestGateway above, E/W gateway is also
+// considered a waypoint proxy, so to tell if it's actually a waypoint just checking node type
+// isn't enough
+func isWaypointProxy(node *model.Proxy) bool {
+	if node == nil || node.Type != model.Waypoint {
+		return false
+	}
+	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
+
+	return isManagedGateway && controller == constants.ManagedGatewayMeshControllerLabel
 }
