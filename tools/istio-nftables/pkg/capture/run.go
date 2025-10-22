@@ -15,8 +15,10 @@ package capture
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"sigs.k8s.io/knftables"
@@ -48,7 +50,17 @@ func NewNftablesConfigurator(cfg *config.Config, nftProvider NftProviderFunc) (*
 
 	if nftProvider == nil {
 		nftProvider = func(family knftables.Family, table string) (builder.NftablesAPI, error) {
-			return builder.NewNftImpl(family, table)
+			nftImpl, err := builder.NewNftImpl(family, table)
+			if err != nil {
+				if errors.Is(err, exec.ErrNotFound) {
+					if cfg.HostFilesystemPodNetwork {
+						return nil, fmt.Errorf("nativeNftables is enabled, but the nft binary is missing on the host filesystem: %w", err)
+					}
+					return nil, fmt.Errorf("nativeNftables is enabled, but the nft binary is missing in the sidecar container image: %w", err)
+				}
+				return nil, err
+			}
+			return nftImpl, nil
 		}
 	}
 

@@ -59,6 +59,8 @@ type RealDependencies struct {
 	// context (the node, an agent container) into a pod to do iptables stuff,
 	// as it's faster and reduces contention for legacy iptables versions that use file-based locking.
 	UsePodScopedXtablesLock bool
+
+	ForceIptablesBinary string
 }
 
 const iptablesVersionPattern = `v([0-9]+(\.[0-9]+)+)`
@@ -109,7 +111,12 @@ const (
 	ip6tablesBin       = "ip6tables"
 	ip6tablesNftBin    = "ip6tables-nft"
 	ip6tablesLegacyBin = "ip6tables-legacy"
+	legacy             = "legacy"
+	nft                = "nft"
 )
+
+// adding this function redirect to enable unit testing for DetectIptablesVersion
+var shouldUseBinaryForContext = shouldUseBinaryForCurrentContext
 
 // It is not sufficient to check for the presence of one binary or the other in $PATH -
 // we must choose a binary that is
@@ -145,11 +152,35 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 		plainBin = iptablesBin
 	}
 
+	// the user has specifically chosen an iptables
+	// version so use that binary or fail
+	if r.ForceIptablesBinary != "" {
+		switch r.ForceIptablesBinary {
+		case legacy:
+			legVer, err := shouldUseBinaryForContext(legacyBin)
+			if err != nil {
+				log.Errorf("did not find iptables binary, error was %v: %+v", err, legVer)
+				return IptablesVersion{}, err
+			}
+			return legVer, nil
+		case nft:
+			nftVer, err := shouldUseBinaryForContext(nftBin)
+			if err != nil {
+				log.Errorf("did not find iptables binary, error was %v: %+v", err, nftVer)
+				return IptablesVersion{}, err
+			}
+			return nftVer, nil
+		default:
+			log.Errorf("iptables binary unsupported: %s, supported values are 'legacy' or 'nft'", r.ForceIptablesBinary)
+			return IptablesVersion{}, fmt.Errorf("iptables binary %q unsupported", r.ForceIptablesBinary)
+		}
+	}
+
 	// 1. What binaries we have
 	// 2. What binary we should use, based on existing rules defined in our current context.
 	//
 	// does the legacy binary set exist, and are legacy rules present?
-	legVer, err := shouldUseBinaryForCurrentContext(legacyBin)
+	legVer, err := shouldUseBinaryForContext(legacyBin)
 	if err == nil && legVer.ExistingRules {
 		// if so, immediately use it
 		return legVer, nil
@@ -161,7 +192,7 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 	// does the nft binary set exist and seem usable?
 	// (at this point we don't need to check for existing rules,
 	// since we know legacy doesn't have any, and `nft` is usable, prefer `nft`)
-	nftVer, err := shouldUseBinaryForCurrentContext(nftBin)
+	nftVer, err := shouldUseBinaryForContext(nftBin)
 	if err == nil {
 		// if so, immediately use it.
 		return nftVer, nil
@@ -175,7 +206,7 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 	// just use it. In practice this should *never* happen, as the non-suffixed binary is invariably
 	// softlinked to one or the other binary.
 	// Either way, this is our last option, so just propagate the error if it fails, we can't do anything either way.
-	return shouldUseBinaryForCurrentContext(plainBin)
+	return shouldUseBinaryForContext(plainBin)
 }
 
 // TODO BML verify this won't choke on "-save" binaries having slightly diff. version string prefixes

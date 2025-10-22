@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/atomic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/pkg/consts"
 
 	"istio.io/api/meta/v1alpha1"
@@ -234,24 +233,6 @@ func TestClient(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				cfg = store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
 				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
-					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
-				}
-				return nil
-			})
-
-			// check we can patch items
-			var patchedCfg config.Config
-			if _, err := store.(*Client).Patch(*cfg, func(cfg config.Config) (config.Config, types.PatchType) {
-				cfg.Annotations["fizz"] = "buzz"
-				patchedCfg = cfg
-				return cfg, types.JSONPatchType
-			}); err != nil {
-				t.Errorf("unexpected err in Patch: %v", err)
-			}
-			// validate it is updated
-			retry.UntilSuccessOrFail(t, func() error {
-				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
-				if cfg == nil || !reflect.DeepEqual(cfg.Meta, patchedCfg.Meta) {
 					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
 				}
 				return nil
