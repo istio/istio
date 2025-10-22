@@ -90,11 +90,16 @@ type XdsProxy struct {
 	proxyAddresses       []string
 	ia                   *Agent
 
-	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
-	connected                 *ProxyConnection
+	// connections map for active gRPC streams. Multiple concurrent connections
+	// are needed for compatibility with grpc-go.
+	// Each connection maintains independent xDS state (nonces, ACKs, resource watches)
+	connections map[uint32]*ProxyConnection
+	// initialHealthRequest stores the most recent health status for this workload.
+	// Shared across all connections since they represent the same workload
+	// instance. Last writer wins.
 	initialHealthRequest      *discovery.DiscoveryRequest
 	initialDeltaHealthRequest *discovery.DeltaDiscoveryRequest
-	connectedMutex            sync.RWMutex
+	connectionsMutex            sync.RWMutex
 
 	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
 	wasmCache wasm.Cache
@@ -218,33 +223,45 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 // sendHealthCheckRequest sends a request to the currently connected proxy. Additionally, on any reconnection
 // to the upstream XDS request we will resend this request.
 func (p *XdsProxy) sendHealthCheckRequest(req *discovery.DiscoveryRequest) {
-	p.connectedMutex.Lock()
-	// Immediately send if we are currently connected.
-	if p.connected != nil && p.connected.requestsChan != nil {
-		p.connected.requestsChan.Put(req)
+	p.connectionsMutex.Lock()
+	// Immediately send if we have any connections
+	for _, conn := range p.connections {
+		if conn.requestsChan != nil {
+			conn.requestsChan.Put(req)
+		}
 	}
-	// Otherwise place it as our initial request for new connections
+	// Also place it as our initial request for new connections
 	p.initialHealthRequest = req
-	p.connectedMutex.Unlock()
+	p.connectionsMutex.Unlock()
 }
 
 func (p *XdsProxy) unregisterStream(c *ProxyConnection) {
-	p.connectedMutex.Lock()
-	defer p.connectedMutex.Unlock()
-	if p.connected != nil && p.connected == c {
-		close(p.connected.stopChan)
-		p.connected = nil
+	p.connectionsMutex.Lock()
+	defer p.connectionsMutex.Unlock()
+
+	if conn, ok := p.connections[c.conID]; ok && conn == c {
+		close(c.stopChan)
+		delete(p.connections, c.conID)
+		proxyLog.Infof("unregistered xDS stream for connection %d (total: %d remaining)", c.conID, len(p.connections))
 	}
 }
 
 func (p *XdsProxy) registerStream(c *ProxyConnection) {
-	p.connectedMutex.Lock()
-	defer p.connectedMutex.Unlock()
-	if p.connected != nil {
-		proxyLog.Warnf("registered overlapping stream; closing previous")
-		close(p.connected.stopChan)
+	p.connectionsMutex.Lock()
+	defer p.connectionsMutex.Unlock()
+
+	if p.connections == nil {
+		p.connections = make(map[uint32]*ProxyConnection)
 	}
-	p.connected = c
+
+	// If this conID already exists, close the old one (real duplicate)
+	if existing, ok := p.connections[c.conID]; ok {
+		proxyLog.Warnf("duplicate connection ID %d; closing previous", c.conID)
+		close(existing.stopChan)
+	}
+
+	p.connections[c.conID] = c
+	proxyLog.Infof("registered xDS stream for connection %d (total: %d active)", c.conID, len(p.connections))
 }
 
 // ProxyConnection represents connection to downstream proxy.
@@ -433,12 +450,12 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				// set flag before sending the initial request to prevent race.
 				initialRequestsSent.Store(true)
 				// Fire of a configured initial request, if there is one
-				p.connectedMutex.RLock()
+				p.connectionsMutex.RLock()
 				initialRequest := p.initialHealthRequest
 				if initialRequest != nil {
 					con.sendRequest(initialRequest)
 				}
-				p.connectedMutex.RUnlock()
+				p.connectionsMutex.RUnlock()
 			}
 		}
 	}()

@@ -31,6 +31,7 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	wasmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -109,9 +111,9 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	// Setup test helpers
 	waitDisconnect := func() {
 		retry.UntilSuccessOrFail(t, func() error {
-			proxy.connectedMutex.Lock()
-			defer proxy.connectedMutex.Unlock()
-			if proxy.connected != nil {
+			proxy.connectionsMutex.Lock()
+			defer proxy.connectionsMutex.Unlock()
+			if len(proxy.connections) > 0 {
 				return fmt.Errorf("still connected")
 			}
 			return nil
@@ -275,9 +277,9 @@ var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", co
 func TestXdsProxyReconnects(t *testing.T) {
 	waitDisconnect := func(proxy *XdsProxy) {
 		retry.UntilSuccessOrFail(t, func() error {
-			proxy.connectedMutex.Lock()
-			defer proxy.connectedMutex.Unlock()
-			if proxy.connected != nil {
+			proxy.connectionsMutex.Lock()
+			defer proxy.connectionsMutex.Unlock()
+			if len(proxy.connections) > 0 {
 				return fmt.Errorf("still connected")
 			}
 			return nil
@@ -611,4 +613,85 @@ func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 
 func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
+}
+
+// Test multiple concurrent connections
+func TestXdsProxyMultipleConnections(t *testing.T) {
+	proxy := &XdsProxy{
+		connections: make(map[uint32]*ProxyConnection),
+	}
+
+	// Create 3 concurrent connections (simulating grpc-go 1.66+ behavior)
+	conn1 := &ProxyConnection{conID: 1, stopChan: make(chan struct{})}
+	conn2 := &ProxyConnection{conID: 2, stopChan: make(chan struct{})}
+	conn3 := &ProxyConnection{conID: 3, stopChan: make(chan struct{})}
+
+	// Register all connections
+	proxy.registerStream(conn1)
+	proxy.registerStream(conn2)
+	proxy.registerStream(conn3)
+
+	// Verify all are tracked
+	if len(proxy.connections) != 3 {
+		t.Errorf("Expected 3 connections, got %d", len(proxy.connections))
+	}
+
+	// Unregister one connection
+	proxy.unregisterStream(conn2)
+
+	// Verify only 2 remain
+	if len(proxy.connections) != 2 {
+		t.Errorf("Expected 2 connections after unregister, got %d", len(proxy.connections))
+	}
+
+	// Verify correct connections remain
+	if _, exists := proxy.connections[1]; !exists {
+		t.Error("Connection 1 should still exist")
+	}
+	if _, exists := proxy.connections[3]; !exists {
+		t.Error("Connection 3 should still exist")
+	}
+	if _, exists := proxy.connections[2]; exists {
+		t.Error("Connection 2 should not exist")
+	}
+}
+
+// Test health check requests are sent to all connections
+func TestXdsProxyHealthCheckMultipleConnections(t *testing.T) {
+	proxy := &XdsProxy{
+		connections: make(map[uint32]*ProxyConnection),
+	}
+
+	// Create connections with request channels
+	var receivedCount atomic.Int32
+	for i := uint32(1); i <= 3; i++ {
+		conn := &ProxyConnection{
+			conID:        i,
+			stopChan:     make(chan struct{}),
+			requestsChan: channels.NewUnbounded[*discovery.DiscoveryRequest](),
+		}
+		proxy.registerStream(conn)
+
+		// Start goroutine to count received requests
+		go func(c *ProxyConnection) {
+			select {
+			case <-c.requestsChan.Get():
+				receivedCount.Inc()
+			case <-time.After(200 * time.Millisecond):
+				return
+			}
+		}(conn)
+	}
+
+	// Send health check request
+	healthReq := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
+	proxy.sendHealthCheckRequest(healthReq)
+
+	// Wait a bit for async processing
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify all 3 connections received the health check
+	if receivedCount.Load() != 3 {
+		t.Errorf("Expected health check sent to 3 connections, got %d", receivedCount.Load())
+	}
 }

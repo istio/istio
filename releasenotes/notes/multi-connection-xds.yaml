@@ -1,0 +1,26 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issues:
+  - 53532
+releaseNotes:
+  - |
+    **Fixed** pilot-agent to support multiple concurrent xDS connections.
+    Previously, only a single xDS connection was supported, which led to
+    "registered overlapping stream" warnings and high xds request failure rates
+    for grpc-go in proxyless mode. The fixes interoperability with grpc-go 1.66.0+
+
+upgradeNotes:
+  - title: pilot-agent now supports multiple xDS connections
+    content: |
+      pilot-agent (grpc-agent mode) now handles multiple concurrent xDS client connections.
+      This enables compatibility with grpc-go 1.66.0+ which creates separate
+      xDS clients per named service. No configuration changes required - the
+      feature works automatically.
+      
+      **Impact**: Services using grpc-go proxyless can upgrade beyond version 1.65.0.
+      
+      **Architecture**: Each downstream client connection creates its own
+      upstream connection to istiod (1:1 mapping), maintaining independent xDS
+      state (nonces, ACKs, resource watches). This may result in increased
+      concurrent connections at istiod.
