@@ -298,11 +298,11 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 	}
 }
 
-// NewDelayedWriter returns a "delayed" client for the given GVR that is writeable.
-// It is the client's responsibility to not write to the client if the type is not available; the "Delay" is not impacting
+// NewFilteredDelayed returns a "delayed" client for the given GVR that is writeable.
+// It is the caller's responsibility to not write to the client if the type is not available; the "Delay" is not impacting
 // the write flow. The reason for this is typically the writes are for status, which is in response to the object existing,
 // which implies the GVR exists.
-func NewDelayedWriter[T controllers.ComparableObject](
+func NewFilteredDelayed[T controllers.ComparableObject](
 	c kube.Client,
 	gvr schema.GroupVersionResource,
 	filter Filter,
