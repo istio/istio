@@ -59,3 +59,19 @@ func ValidateIPv4LoopbackCidr(cidr string) error {
 	}
 	return nil
 }
+
+// copied over from the dependency implementation package to avoid circular imports
+const (
+	legacy = "legacy"
+	nft    = "nft"
+)
+
+func ValidateIptablesBinary(iptb string) error {
+	switch iptb {
+	case "", legacy, nft:
+		return nil
+	default:
+		return fmt.Errorf("invalid FORCE_IPTABLES_BINARY value %q", iptb)
+
+	}
+}

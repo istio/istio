@@ -753,7 +753,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// Run through all the workload instances, select ones that match the service labels
 	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
-	// as InstancesByPort is called by the aggregate controller. We dont want to include
+	// as InstancesByPort is called by the aggregate controller. We don't want to include
 	// workload instances for any other registry
 	workloadInstancesExist := !c.workloadInstancesIndex.Empty()
 	c.RLock()

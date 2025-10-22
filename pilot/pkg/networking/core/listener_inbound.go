@@ -816,7 +816,7 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *httpListenerOpts {
 	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	httpOpts := &httpListenerOpts{
-		routeConfig:      buildSidecarInboundHTTPRouteConfig(lb, cc),
+		routeConfig:      buildSidecarInboundHTTPRouteConfig(nil, lb, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{

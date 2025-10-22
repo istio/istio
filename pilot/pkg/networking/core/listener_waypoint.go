@@ -329,41 +329,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		}
 	}
 
-	hostnames := map[host.Name]bool{}
-	if features.EnableAmbientMultiNetwork {
-		// In ambient multi-network mode of operation we want to check that both services and
-		// their waypoints are listed together. If it's not the case and due to a configuration
-		// mistake the service is marked as global, but the waypoint that service uses is not
-		// the code below will generate incorrect Envoy configuration.
-		//
-		// To detect when waypoints aren't global and avoid generating incorrect Envoy
-		// configuration we do a quick pass over all the services to save them in a map for easy
-		// lookup later. With this map for services with waypoint we can quickly check if waypoint
-		// is in the list.
-		//
-		// TODO(https://github.com/istio/istio/issues/58064): rather than detect the misconfiguration
-		// it's better to not give users an opportunity to misconfigure in the first place. The
-		// linked issue is tracking discussion and possibly fix for this.
-		for _, svc := range svcs {
-			hostnames[svc.Hostname] = true
-		}
-	}
-
 	for _, svc := range svcs {
 		var waypoint host.Name
 		if isEastWestGateway && features.EnableAmbientMultiNetwork {
-			// If service has a waypoint, but waypoint isn't marked as global service - it's
-			// a misconfiguration on user behalf. If we conitunue without this check we'd
-			// generate incorrect configuration in this situation. To avoid that we check for
-			// this condition specifically and when we detect it we skip the service all
-			// together.
 			waypoint = lb.findServiceWaypoint(svc)
-			if waypoint != "" {
-				if _, exists := hostnames[waypoint]; !exists {
-					log.Warnf("service %q uses waypoint %q, but waypoint isn't marked as global.", svc.Hostname, waypoint)
-					continue
-				}
-			}
 		}
 
 		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
@@ -372,7 +341,6 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-
 
 			portString := strconv.Itoa(port.Port)
 			authorityKey := fmt.Sprintf("%s:%d", svc.Hostname, port.Port)
@@ -423,6 +391,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				//
 				// - Instead of routing to a waypoint as we'd do normally, we instead route directly to the service
 				//   endpoint skipping waypoint alltogether.
+				//
+				// NOTE: we expect waypoint service to be among the services that this loop handles. This is true and
+				// currently handled ambient index that explicitly includes service waypoints alongside the service
+				// even when the waypoint isn't explicitly marked as global.
 				if waypoint != "" {
 					hbonePort := 15008
 					// We rely here on filter chain name and cluster name matching.
@@ -1071,10 +1043,21 @@ func getTCPRouteMatch(tcp []*networking.TCPRoute, port int) []*networking.RouteD
 	return nil
 }
 
+func buildRouteVHostDomains(svc *model.Service) []string {
+	// This avoids HTTP Host injection to take advantage of dynamic forward proxy
+	// hostnames when wildcards are present by restricting accepted hostnames to those
+	// matching the original wildcarded service host.
+	domains := []string{"*"}
+	if svc != nil && svc.Resolution == model.DynamicDNS {
+		domains = []string{svc.Hostname.String()}
+	}
+	return domains
+}
+
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
-		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
@@ -1083,7 +1066,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		return c.Spec.(*networking.VirtualService).Http != nil
 	})
 	if vs == nil {
-		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
@@ -1091,12 +1074,12 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
 	routes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
 	if err != nil {
-		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
 	inboundVHost := &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
-		Domains: []string{"*"},
+		Domains: buildRouteVHostDomains(svc),
 		Routes:  routes,
 	}
 
