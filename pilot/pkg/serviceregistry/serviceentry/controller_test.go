@@ -2186,7 +2186,7 @@ func Test_legacyAutoAllocateIP_values(t *testing.T) {
 	}
 	gotServices := autoAllocateIPs(inServices)
 
-	// We dont expect the following pattern of IPs.
+	// We don't expect the following pattern of IPs.
 	// 240.240.0.0
 	// 240.240.0.255
 	// 240.240.1.0

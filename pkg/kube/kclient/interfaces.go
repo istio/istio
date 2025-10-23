@@ -85,7 +85,7 @@ type Writer[T controllers.Object] interface {
 	Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
 	// PatchStatus patches the resource's status, returning the newly applied resource.
 	PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) (T, error)
-	// ApplyStatus does a server-side Apply of the the resource's status, returning the newly applied resource.
+	// ApplyStatus does a server-side Apply of the resource's status, returning the newly applied resource.
 	// fieldManager is a required field; see https://kubernetes.io/docs/reference/using-api/server-side-apply/#managers.
 	ApplyStatus(name, namespace string, pt apitypes.PatchType, data []byte, fieldManager string) (T, error)
 	// Delete removes a resource.
@@ -121,7 +121,7 @@ type Patcher interface {
 	Patch(name, namespace string, pt apitypes.PatchType, data []byte) error
 	// PatchStatus patches the resource's status, returning the newly applied resource.
 	PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) error
-	// ApplyStatus does a server-side Apply of the the resource's status, returning the newly applied resource.
+	// ApplyStatus does a server-side Apply of the resource's status, returning the newly applied resource.
 	// fieldManager is a required field; see https://kubernetes.io/docs/reference/using-api/server-side-apply/#managers.
 	ApplyStatus(name, namespace string, pt apitypes.PatchType, data []byte, fieldManager string) error
 }

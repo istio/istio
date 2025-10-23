@@ -64,7 +64,7 @@ func GetCondition(conditions []*v1alpha1.IstioCondition, condition string) *v1al
 	return nil
 }
 
-func UpdateConfigCondition(cfg config.Config, condition *v1alpha1.IstioCondition) config.Config {
+func UpdateIstioConfigCondition(cfg config.Config, condition *v1alpha1.IstioCondition) config.Config {
 	cfg = cfg.DeepCopy()
 	var status *v1alpha1.IstioStatus
 	if cfg.Status == nil {
@@ -86,7 +86,7 @@ func updateCondition(conditions []*v1alpha1.IstioCondition, condition *v1alpha1.
 	return append(conditions, condition)
 }
 
-func DeleteConfigCondition(cfg config.Config, condition string) config.Config {
+func DeleteIstioConfigCondition(cfg config.Config, condition string) config.Config {
 	c, ok := cfg.Status.(*v1alpha1.IstioStatus)
 	if !ok {
 		return cfg

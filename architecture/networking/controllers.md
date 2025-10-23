@@ -31,7 +31,7 @@ Aside from this, there are a few conveniences and workarounds built-in to the cl
 *All Istio Kubernetes usage should use this library and not operate on Kubernetes clients directly.*
 
 **`kclient.Client`** is a higher level wrapper around a Kubernetes resource, and is built up of sub-parts `kclient.Reader`, `kclient.Writer`, and `kclient.Informer`.
-Typically, the whole `kclient.Client` is used,though.
+Typically, the whole `kclient.Client` is used, though.
 
 Functionality offered by `kclient` includes:
 * Typed clients (via generics) and more ergonomic APIs
@@ -61,7 +61,7 @@ With a few exceptions, Istio controllers typically are split in two phases: cons
 
 Construction should create informers (via `kclient.New`), setup a queue (via `controllers.NewQueue`), and register event handlers on the informers.
 Often, these handlers are adding something to the queue like `client.AddEventHandler(controllers.ObjectHandler(queue.AddObject))`.
-Construction should NOT actually start running all of these things, do I/O, or block in anyway.
+Construction should NOT actually start running all of these things, do I/O, or block in any way.
 
 Running the controller actually starts processing things.
 Normally, this just means running the queue.
