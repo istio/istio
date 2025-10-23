@@ -242,6 +242,15 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 	})
 }
 
+func ApplyFilterChainPatches(patchContext networking.EnvoyFilter_PatchContext,
+	efw *model.MergedEnvoyFilterWrapper, lis *listener.Listener, fc *listener.FilterChain) {
+	if efw == nil {
+		return
+	}
+
+	patchFilterChain(patchContext, efw.Patches, lis, fc)
+}
+
 func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	lis *listener.Listener,

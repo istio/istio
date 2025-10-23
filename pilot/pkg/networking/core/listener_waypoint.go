@@ -341,6 +341,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				Filters: append(slices.Clone(filters), lb.buildWaypointInboundHTTPFilters(svc, cc, efw)...),
 				Name:    cc.clusterName,
 			}
+			envoyfilter.ApplyFilterChainPatches(networking.EnvoyFilter_WAYPOINT, efw, nil, httpChain)
 			if isEastWestGateway && features.EnableAmbientMultiNetwork {
 				// We want to send to all ports regardless of protocol, but we want the filter chains to tcp proxy no matter what
 				// (since we're expecting double-hbone). There's no point in sniffing, so we just send to the TCP chain.

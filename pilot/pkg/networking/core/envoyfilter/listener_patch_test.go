@@ -2347,7 +2347,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	waypointServcieInbound := []*listener.Listener{
+	waypointServiceInbound := []*listener.Listener{
 		{
 			Name:              "main_internal",
 			ListenerSpecifier: &listener.Listener_InternalListener{},
@@ -2745,7 +2745,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				patchContext: networking.EnvoyFilter_WAYPOINT,
 				proxy:        waypointProxy,
 				push:         waypointPush,
-				listeners:    waypointServcieInbound,
+				listeners:    waypointServiceInbound,
 				skipAdds:     false,
 				services: []*model.Service{
 					{
