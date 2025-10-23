@@ -160,6 +160,7 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+              divisor: "1"
         {{- with .Values.env }}
         {{- range $key, $val := . }}
         - name: {{ $key }}
