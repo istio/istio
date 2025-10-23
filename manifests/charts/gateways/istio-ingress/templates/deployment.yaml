@@ -176,6 +176,7 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.cpu
+                divisor: "1"
           - name: SERVICE_ACCOUNT
             valueFrom:
               fieldRef:
