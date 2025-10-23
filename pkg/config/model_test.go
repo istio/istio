@@ -257,7 +257,7 @@ func TestToJSON(t *testing.T) {
 		// Kubernetes type
 		{
 			input: &corev1.PodSpec{ServiceAccountName: "foobar"},
-			json:  `{"serviceAccountName":"foobar"}`,
+			json:  `{"containers":null,"serviceAccountName":"foobar"}`,
 		},
 		// gateway-api type
 		{
