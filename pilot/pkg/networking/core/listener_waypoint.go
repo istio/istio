@@ -390,7 +390,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				// What do we do if L7 policies have been applied already?
 				//
 				// - Instead of routing to a waypoint as we'd do normally, we instead route directly to the service
-				//   endpoint skipping waypoint alltogether.
+				//   endpoint skipping waypoint altogether.
 				//
 				// NOTE: we expect waypoint service to be among the services that this loop handles. This is true and
 				// currently handled ambient index that explicitly includes service waypoints alongside the service
