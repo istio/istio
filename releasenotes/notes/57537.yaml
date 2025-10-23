@@ -9,4 +9,4 @@ issue:
 
 releaseNotes:
   - |
-    Enable waypoints to route traffic to remote networks in ambient multi-cluster.
+    **Enabled** waypoints to route traffic to remote networks in ambient multi-cluster.
