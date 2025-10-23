@@ -18,6 +18,7 @@ package istio.workload;
 
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package="pkg/workloadapi";
 
@@ -89,6 +90,9 @@ message Service {
 
   // Extension provides a mechanism to attach arbitrary additional configuration to an object.
   repeated Extension extensions = 10;
+
+  // The creation timestamp of the service.
+  google.protobuf.Timestamp creation_timestamp = 11;
 }
 
 enum IPFamilies {
