@@ -1,3 +1,4 @@
 pilot:
   env:
+    # 1.29 behavioral changes
     DISABLE_TRACK_REMAINING_CB_METRICS: "false"
