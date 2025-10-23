@@ -92,8 +92,9 @@ type XdsProxy struct {
 
 	// connections map for active gRPC streams. Multiple concurrent connections
 	// are needed for compatibility with grpc-go.
-	// Each connection maintains independent xDS state (nonces, ACKs, resource watches)
-	connections map[uint32]*ProxyConnection
+	// Each connection maintains independent xDS state (nonces, ACKs, resource watches).
+	// Uses pointer as key for guaranteed uniqueness; conID is for logging only.
+	connections map[*ProxyConnection]*ProxyConnection
 	// initialHealthRequest stores the most recent health status for this workload.
 	// Shared across all connections since they represent the same workload
 	// instance. Last writer wins.
@@ -239,9 +240,9 @@ func (p *XdsProxy) unregisterStream(c *ProxyConnection) {
 	p.connectionsMutex.Lock()
 	defer p.connectionsMutex.Unlock()
 
-	if conn, ok := p.connections[c.conID]; ok && conn == c {
+	if _, ok := p.connections[c]; ok {
 		close(c.stopChan)
-		delete(p.connections, c.conID)
+		delete(p.connections, c)
 		proxyLog.Infof("unregistered xDS stream for connection %d (total: %d remaining)", c.conID, len(p.connections))
 	}
 }
@@ -251,16 +252,10 @@ func (p *XdsProxy) registerStream(c *ProxyConnection) {
 	defer p.connectionsMutex.Unlock()
 
 	if p.connections == nil {
-		p.connections = make(map[uint32]*ProxyConnection)
+		p.connections = make(map[*ProxyConnection]*ProxyConnection)
 	}
 
-	// If this conID already exists, close the old one (real duplicate)
-	if existing, ok := p.connections[c.conID]; ok {
-		proxyLog.Warnf("duplicate connection ID %d; closing previous", c.conID)
-		close(existing.stopChan)
-	}
-
-	p.connections[c.conID] = c
+	p.connections[c] = c
 	proxyLog.Infof("registered xDS stream for connection %d (total: %d active)", c.conID, len(p.connections))
 }
 

@@ -618,7 +618,7 @@ func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 // Test multiple concurrent connections
 func TestXdsProxyMultipleConnections(t *testing.T) {
 	proxy := &XdsProxy{
-		connections: make(map[uint32]*ProxyConnection),
+		connections: make(map[*ProxyConnection]*ProxyConnection),
 	}
 
 	// Create 3 concurrent connections (simulating grpc-go 1.66+ behavior)
@@ -644,14 +644,14 @@ func TestXdsProxyMultipleConnections(t *testing.T) {
 		t.Errorf("Expected 2 connections after unregister, got %d", len(proxy.connections))
 	}
 
-	// Verify correct connections remain
-	if _, exists := proxy.connections[1]; !exists {
+	// Verify correct connections remain (using pointer keys)
+	if _, exists := proxy.connections[conn1]; !exists {
 		t.Error("Connection 1 should still exist")
 	}
-	if _, exists := proxy.connections[3]; !exists {
+	if _, exists := proxy.connections[conn3]; !exists {
 		t.Error("Connection 3 should still exist")
 	}
-	if _, exists := proxy.connections[2]; exists {
+	if _, exists := proxy.connections[conn2]; exists {
 		t.Error("Connection 2 should not exist")
 	}
 }
@@ -659,7 +659,7 @@ func TestXdsProxyMultipleConnections(t *testing.T) {
 // Test health check requests are sent to all connections
 func TestXdsProxyHealthCheckMultipleConnections(t *testing.T) {
 	proxy := &XdsProxy{
-		connections: make(map[uint32]*ProxyConnection),
+		connections: make(map[*ProxyConnection]*ProxyConnection),
 	}
 
 	// Create connections with request channels
