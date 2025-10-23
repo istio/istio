@@ -243,7 +243,8 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 func ApplyFilterChainPatches(patchContext networking.EnvoyFilter_PatchContext,
-	efw *model.MergedEnvoyFilterWrapper, lis *listener.Listener, fc *listener.FilterChain) {
+	efw *model.MergedEnvoyFilterWrapper, lis *listener.Listener, fc *listener.FilterChain,
+) {
 	if efw == nil {
 		return
 	}
