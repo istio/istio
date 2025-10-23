@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+  - 57537
+
+releaseNotes:
+  - |
+    Enable waypoints to route traffic to remote networks in ambient multi-cluster.
