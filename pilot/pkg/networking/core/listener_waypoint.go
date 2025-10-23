@@ -301,6 +301,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	for _, svc := range svcs {
 		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
 		portMapper := match.NewDestinationPort()
+		efw := lb.push.EnvoyFilters(lb.node, svc)
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -337,7 +338,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 			cc.clusterName = httpClusterName
 			httpChain = &listener.FilterChain{
-				Filters: append(slices.Clone(filters), lb.buildWaypointInboundHTTPFilters(svc, cc)...),
+				Filters: append(slices.Clone(filters), lb.buildWaypointInboundHTTPFilters(svc, cc, efw)...),
 				Name:    cc.clusterName,
 			}
 			if isEastWestGateway && features.EnableAmbientMultiNetwork {
@@ -432,7 +433,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			Filters: append([]*listener.Filter{
 				xdsfilters.ConnectAuthorityNetworkFilter,
 			},
-				lb.buildWaypointInboundHTTPFilters(nil, cc)...),
+				lb.buildWaypointInboundHTTPFilters(nil, cc, nil)...),
 			Name: "direct-http",
 		}
 
@@ -794,12 +795,12 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 
 // buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
-func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
+func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig, efw *model.MergedEnvoyFilterWrapper) []*listener.Filter {
 	pre, post := lb.buildWaypointHTTPFilters(svc)
 	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	var filters []*listener.Filter
 	httpOpts := &httpListenerOpts{
-		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
+		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc, efw),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
@@ -984,9 +985,8 @@ func buildRouteVHostDomains(svc *model.Service) []string {
 	return domains
 }
 
-func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) (out *route.RouteConfiguration) {
+func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig, efw *model.MergedEnvoyFilterWrapper) (out *route.RouteConfiguration) {
 	defer func() {
-		efw := lb.push.EnvoyFilters(lb.node, svc)
 		out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_WAYPOINT, lb.node, efw, out)
 	}()
 
