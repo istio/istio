@@ -100,7 +100,7 @@ type XdsProxy struct {
 	// instance. Last writer wins.
 	initialHealthRequest      *discovery.DiscoveryRequest
 	initialDeltaHealthRequest *discovery.DeltaDiscoveryRequest
-	connectionsMutex            sync.RWMutex
+	connectionsMutex          sync.RWMutex
 
 	// Wasm cache and ecds channel are used to replace wasm remote load with local file.
 	wasmCache wasm.Cache

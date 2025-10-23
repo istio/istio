@@ -8,7 +8,7 @@ releaseNotes:
     **Fixed** pilot-agent to support multiple concurrent xDS connections.
     Previously, only a single xDS connection was supported, which led to
     "registered overlapping stream" warnings and high xds request failure rates
-    for grpc-go in proxyless mode. The fixes interoperability with grpc-go 1.66.0+
+    for grpc-go in proxyless mode. This fixes interoperability with grpc-go 1.66.0+
 
 upgradeNotes:
   - title: pilot-agent now supports multiple xDS connections
