@@ -111,7 +111,6 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 	if revision != "" {
 		labels[label.IoIstioRev.Name] = revision
 	}
-	waypointSelector := klabels.Set(labels).AsSelectorPreValidated()
 	if iopName != "" {
 		labels[manifest.OwningResourceName] = iopName
 	}
@@ -164,6 +163,7 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 		usList = append(usList, result)
 	}
 
+	waypointSelector := klabels.Set(labels).AsSelectorPreValidated()
 	waypointResult, err := getWaypointResources(clt, waypointSelector.String())
 	if err != nil {
 		return nil, err
