@@ -20,6 +20,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -521,6 +522,8 @@ func constructServiceEntries(
 		}
 	}
 
+	creationTimestamp := timestamppb.New(svc.CreationTimestamp.Time)
+
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
@@ -543,14 +546,15 @@ func constructServiceEntries(
 				"host %s since the feature is disabled", svc.Name, h)
 		}
 		res = append(res, &workloadapi.Service{
-			Name:            svc.Name,
-			Namespace:       svc.Namespace,
-			Hostname:        h,
-			Addresses:       hostsAddresses,
-			Ports:           ports,
-			Waypoint:        w.GetAddress(),
-			SubjectAltNames: svc.Spec.SubjectAltNames,
-			LoadBalancing:   lb,
+			Name:              svc.Name,
+			Namespace:         svc.Namespace,
+			Hostname:          h,
+			Addresses:         hostsAddresses,
+			Ports:             ports,
+			Waypoint:          w.GetAddress(),
+			SubjectAltNames:   svc.Spec.SubjectAltNames,
+			LoadBalancing:     lb,
+			CreationTimestamp: creationTimestamp,
 		})
 	}
 	return res
@@ -623,14 +627,15 @@ func constructService(
 	// This is only checking one cluster - we'll merge later in the nested join to make sure
 	// we get service VIPs from other clusters
 	return &workloadapi.Service{
-		Name:          svc.Name,
-		Namespace:     svc.Namespace,
-		Hostname:      string(kube.ServiceHostname(svc.Name, svc.Namespace, domainSuffix)),
-		Addresses:     addresses,
-		Ports:         ports,
-		Waypoint:      w.GetAddress(),
-		LoadBalancing: lb,
-		IpFamilies:    ipFamily,
+		Name:              svc.Name,
+		Namespace:         svc.Namespace,
+		Hostname:          string(kube.ServiceHostname(svc.Name, svc.Namespace, domainSuffix)),
+		Addresses:         addresses,
+		Ports:             ports,
+		Waypoint:          w.GetAddress(),
+		LoadBalancing:     lb,
+		IpFamilies:        ipFamily,
+		CreationTimestamp: timestamppb.New(svc.CreationTimestamp.Time),
 	}
 }
 

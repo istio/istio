@@ -10,6 +10,7 @@ package workloadapi
 import (
 	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
 	anypb "github.com/planetscale/vtprotobuf/types/known/anypb"
+	timestamppb "github.com/planetscale/vtprotobuf/types/known/timestamppb"
 	wrapperspb "github.com/planetscale/vtprotobuf/types/known/wrapperspb"
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -181,6 +182,9 @@ func (this *Service) EqualVT(that *Service) bool {
 				return false
 			}
 		}
+	}
+	if !(*timestamppb.Timestamp)(this.CreationTimestamp).EqualVT((*timestamppb.Timestamp)(that.CreationTimestamp)) {
+		return false
 	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
@@ -731,6 +735,16 @@ func (m *Service) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.CreationTimestamp != nil {
+		size, err := (*timestamppb.Timestamp)(m.CreationTimestamp).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x5a
 	}
 	if len(m.Extensions) > 0 {
 		for iNdEx := len(m.Extensions) - 1; iNdEx >= 0; iNdEx-- {
@@ -1683,6 +1697,10 @@ func (m *Service) SizeVT() (n int) {
 			l = e.SizeVT()
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
+	}
+	if m.CreationTimestamp != nil {
+		l = (*timestamppb.Timestamp)(m.CreationTimestamp).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n
