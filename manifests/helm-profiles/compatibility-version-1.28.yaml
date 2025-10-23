@@ -1,0 +1,3 @@
+pilot:
+  env:
+    DISABLE_TRACK_REMAINING_CB_METRICS: "false"
