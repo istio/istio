@@ -637,6 +637,14 @@ func (c *Controller) HasSynced() bool {
 	return c.queue.HasSynced()
 }
 
+func (c *Controller) shutdownInformerHandlers() {
+	c.namespaces.ShutdownHandlers()
+	c.services.ShutdownHandlers()
+	c.endpoints.slices.ShutdownHandlers()
+	c.pods.pods.ShutdownHandlers()
+	c.nodes.ShutdownHandlers()
+}
+
 func (c *Controller) informersSynced() bool {
 	return c.namespaces.HasSynced() &&
 		c.services.HasSynced() &&
