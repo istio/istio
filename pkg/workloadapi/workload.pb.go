@@ -24,6 +24,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
@@ -665,9 +666,11 @@ type Service struct {
 	// IP families provides configuration about the IP families this service supports.
 	IpFamilies IPFamilies `protobuf:"varint,9,opt,name=ip_families,json=ipFamilies,proto3,enum=istio.workload.IPFamilies" json:"ip_families,omitempty"`
 	// Extension provides a mechanism to attach arbitrary additional configuration to an object.
-	Extensions    []*Extension `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Extensions []*Extension `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
+	// The creation timestamp of the service.
+	CreationTimestamp *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=creation_timestamp,json=creationTimestamp,proto3" json:"creation_timestamp,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Service) Reset() {
@@ -766,6 +769,13 @@ func (x *Service) GetIpFamilies() IPFamilies {
 func (x *Service) GetExtensions() []*Extension {
 	if x != nil {
 		return x.Extensions
+	}
+	return nil
+}
+
+func (x *Service) GetCreationTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreationTimestamp
 	}
 	return nil
 }
@@ -1625,11 +1635,11 @@ var File_workloadapi_workload_proto protoreflect.FileDescriptor
 
 const file_workloadapi_workload_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkloadapi/workload.proto\x12\x0eistio.workload\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x19google/protobuf/any.proto\"~\n" +
+	"\x1aworkloadapi/workload.proto\x12\x0eistio.workload\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x19google/protobuf/any.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"~\n" +
 	"\aAddress\x126\n" +
 	"\bworkload\x18\x01 \x01(\v2\x18.istio.workload.WorkloadH\x00R\bworkload\x123\n" +
 	"\aservice\x18\x02 \x01(\v2\x17.istio.workload.ServiceH\x00R\aserviceB\x06\n" +
-	"\x04type\"\xe7\x03\n" +
+	"\x04type\"\xb2\x04\n" +
 	"\aService\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1a\n" +
@@ -1644,7 +1654,8 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\n" +
 	"extensions\x18\n" +
 	" \x03(\v2\x19.istio.workload.ExtensionR\n" +
-	"extensions\"\xcd\x03\n" +
+	"extensions\x12I\n" +
+	"\x12creation_timestamp\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x11creationTimestamp\"\xcd\x03\n" +
 	"\rLoadBalancing\x12R\n" +
 	"\x12routing_preference\x18\x01 \x03(\x0e2#.istio.workload.LoadBalancing.ScopeR\x11routingPreference\x126\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\".istio.workload.LoadBalancing.ModeR\x04mode\x12O\n" +
@@ -1791,8 +1802,9 @@ var file_workloadapi_workload_proto_goTypes = []any{
 	(*NamespacedHostname)(nil),      // 19: istio.workload.NamespacedHostname
 	(*Extension)(nil),               // 20: istio.workload.Extension
 	nil,                             // 21: istio.workload.Workload.ServicesEntry
-	(*wrapperspb.UInt32Value)(nil),  // 22: google.protobuf.UInt32Value
-	(*anypb.Any)(nil),               // 23: google.protobuf.Any
+	(*timestamppb.Timestamp)(nil),   // 22: google.protobuf.Timestamp
+	(*wrapperspb.UInt32Value)(nil),  // 23: google.protobuf.UInt32Value
+	(*anypb.Any)(nil),               // 24: google.protobuf.Any
 }
 var file_workloadapi_workload_proto_depIdxs = []int32{
 	12, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
@@ -1803,31 +1815,32 @@ var file_workloadapi_workload_proto_depIdxs = []int32{
 	11, // 5: istio.workload.Service.load_balancing:type_name -> istio.workload.LoadBalancing
 	0,  // 6: istio.workload.Service.ip_families:type_name -> istio.workload.IPFamilies
 	20, // 7: istio.workload.Service.extensions:type_name -> istio.workload.Extension
-	5,  // 8: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
-	6,  // 9: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
-	7,  // 10: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
-	4,  // 11: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
-	17, // 12: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
-	17, // 13: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
-	3,  // 14: istio.workload.Workload.workload_type:type_name -> istio.workload.WorkloadType
-	16, // 15: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
-	21, // 16: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
-	2,  // 17: istio.workload.Workload.status:type_name -> istio.workload.WorkloadStatus
-	13, // 18: istio.workload.Workload.locality:type_name -> istio.workload.Locality
-	1,  // 19: istio.workload.Workload.network_mode:type_name -> istio.workload.NetworkMode
-	20, // 20: istio.workload.Workload.extensions:type_name -> istio.workload.Extension
-	22, // 21: istio.workload.Workload.capacity:type_name -> google.protobuf.UInt32Value
-	15, // 22: istio.workload.PortList.ports:type_name -> istio.workload.Port
-	8,  // 23: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
-	19, // 24: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
-	18, // 25: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
-	23, // 26: istio.workload.Extension.config:type_name -> google.protobuf.Any
-	14, // 27: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	22, // 8: istio.workload.Service.creation_timestamp:type_name -> google.protobuf.Timestamp
+	5,  // 9: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
+	6,  // 10: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
+	7,  // 11: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
+	4,  // 12: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
+	17, // 13: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
+	17, // 14: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
+	3,  // 15: istio.workload.Workload.workload_type:type_name -> istio.workload.WorkloadType
+	16, // 16: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
+	21, // 17: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
+	2,  // 18: istio.workload.Workload.status:type_name -> istio.workload.WorkloadStatus
+	13, // 19: istio.workload.Workload.locality:type_name -> istio.workload.Locality
+	1,  // 20: istio.workload.Workload.network_mode:type_name -> istio.workload.NetworkMode
+	20, // 21: istio.workload.Workload.extensions:type_name -> istio.workload.Extension
+	23, // 22: istio.workload.Workload.capacity:type_name -> google.protobuf.UInt32Value
+	15, // 23: istio.workload.PortList.ports:type_name -> istio.workload.Port
+	8,  // 24: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
+	19, // 25: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
+	18, // 26: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
+	24, // 27: istio.workload.Extension.config:type_name -> google.protobuf.Any
+	14, // 28: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
+	29, // [29:29] is the sub-list for method output_type
+	29, // [29:29] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_workloadapi_workload_proto_init() }
