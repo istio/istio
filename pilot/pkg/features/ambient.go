@@ -76,6 +76,26 @@ var (
 		"ENABLE_LAYERED_WAYPOINT_AUTHORIZATION_POLICIES",
 		false,
 		"If enabled, selector based authorization policies will be enforced as L4 policies in front of the waypoint.").Get()
+
+	// This flag changes sidecar inbound filter chains to accept HBONE connections from ambient east-west gateway.
+	// Requires ISTIO_META_LISTEN_FROM_AMBIENT_EAST_WEST_GATEWAY: "true" to be set on the sidecar workload using ProxyConfig:
+	//
+	// apiVersion: networking.istio.io/v1beta1
+	// kind: ProxyConfig
+	// metadata:
+	//   name: ambient-multicluster-interop
+	//   namespace: helloworld
+	// spec:
+	//   selector:
+	//     matchLabels:
+	//       app: helloworld
+	//   environmentVariables:
+	//     ISTIO_META_LISTEN_FROM_AMBIENT_EAST_WEST_GATEWAY: "true"
+	EnableAmbientMulticlusterSidecarInterop = registerAmbient(
+		"ENABLE_PILOT_AMBIENT_MULTICLUSTER_SIDECAR_INTEROP",
+		false,
+		false,
+		"If enabled, ambient clients will be able to failover for sidecar injected services as well to remote clusters")
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set
