@@ -435,7 +435,7 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 		MaxRequests:        &wrapperspb.UInt32Value{Value: math.MaxUint32},
 		MaxConnections:     &wrapperspb.UInt32Value{Value: math.MaxUint32},
 		MaxPendingRequests: &wrapperspb.UInt32Value{Value: math.MaxUint32},
-		TrackRemaining:     true,
+		TrackRemaining:     !features.DisableTrackRemainingMetrics,
 	}
 }
 
