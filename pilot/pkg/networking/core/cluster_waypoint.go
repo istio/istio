@@ -293,8 +293,13 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 	for _, svc := range svcs {
 		for _, port := range svc.Ports {
 			// We don't support UDP. And for dynamic DNS (dynamic forward proxy) we only support HTTP and TLS
-			if port.Protocol == protocol.UDP || (svc.Resolution == model.DynamicDNS && (port.Protocol != protocol.HTTP && port.Protocol != protocol.TLS)) {
+			if port.Protocol == protocol.UDP {
 				log.Debugf("skipping waypoint VIP cluster for unsupported protocol %s for service %s", port.Protocol, svc.Hostname)
+				continue
+			}
+			// For dynamic DNS (dynamic forward proxy) resolution protocol other than HTTP and TLS are not supported
+			if svc.Resolution == model.DynamicDNS && port.Protocol != protocol.HTTP && port.Protocol != protocol.TLS {
+				log.Debugf("skipping waypoint VIP cluster for unsupported protocol %s for service %s with DynamicDNS resolution", port.Protocol, svc.Hostname)
 				continue
 			}
 			if isEastWestGateway(proxy) {

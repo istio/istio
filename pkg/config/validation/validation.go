@@ -3060,7 +3060,8 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					"field values", serviceEntry.Resolution))
 			}
 			for _, port := range serviceEntry.Ports {
-				if protocol.Parse(port.Protocol) != protocol.HTTP && protocol.Parse(port.Protocol) != protocol.TLS {
+				proto := protocol.Parse(port.Protocol)
+				if proto != protocol.HTTP && proto != protocol.TLS {
 					errs = AppendValidation(errs, fmt.Errorf("only HTTP and TLS protocol is supported for resolution type %s", serviceEntry.Resolution))
 				}
 			}
