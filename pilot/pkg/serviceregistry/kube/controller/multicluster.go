@@ -66,6 +66,7 @@ func (k *kubeController) Close() {
 	if k.opts.XDSUpdater != nil {
 		k.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.ClusterUpdate), Forced: true})
 	}
+	k.Controller.shutdownInformerHandlers()
 }
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
