@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 54540
+releaseNotes:
+  - |
+    **Added** support for wildcard hosts in ServiceEntries with DYNAMIC_DNS resolution
+    for TLS hosts. TLS `protocol` implies the connection will be routed based on the
+    request's SNI (from the TLS handshake) without terminating the TLS connection to
+    inspect the Host header for routing.
