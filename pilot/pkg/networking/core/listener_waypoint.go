@@ -255,12 +255,6 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 }
 
 func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) host.Name {
-	if lb.node.Type != model.Router && !isEastWestGateway(lb.node) {
-		return ""
-	}
-	if !svc.HasAddressOrAssigned(lb.node.Metadata.ClusterID) {
-		return ""
-	}
 	ws := lb.push.ServicesWithWaypoint(svc.Attributes.Namespace + "/" + string(svc.Hostname))
 	if len(ws) == 0 {
 		return ""
