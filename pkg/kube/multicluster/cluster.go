@@ -79,6 +79,11 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 	// Build a namespace watcher. This must have no filter, since this is our input to the filter itself.
 	// This must be done before we build components, so they can access the filter.
 	namespaces := kclient.New[*corev1.Namespace](c.Client)
+	// When this cluster stops, clean up the namespace watcher
+	go func() {
+		<-c.stop
+		namespaces.ShutdownHandlers()
+	}()
 	// This will start a namespace informer and wait for it to be ready. So we must start it in a go routine to avoid blocking.
 	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, c.stop)
 	kube.SetObjectFilter(c.Client, filter)
@@ -97,7 +102,7 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 		return
 	}
 	for _, h := range syncers {
-		if !kube.WaitForCacheSync("cluster"+string(c.ID), c.stop, h.HasSynced) {
+		if !kube.WaitForCacheSync("cluster "+string(c.ID), c.stop, h.HasSynced) {
 			log.Warnf("remote cluster %s failed to sync handler", c.ID)
 			return
 		}
