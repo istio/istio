@@ -17,6 +17,7 @@ package route_test
 import (
 	"log"
 	"reflect"
+	"strconv"
 	"testing"
 
 	envoycore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -1474,6 +1475,47 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetResponseHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
 		g.Expect(extProcPerRoute.GetOverrides().GetFailureModeAllow().GetValue()).To(BeTrue())
 	})
+
+	t.Run("for shadow service with inference pool with multiple targetPorts", func(t *testing.T) {
+		g := NewWithT(t)
+		destination := &networking.Destination{
+			Host: "test.inference.org",
+		}
+		service1 := &model.Service{
+			Ports: model.PortList{
+				&model.Port{Name: "rank0", Port: 8000, Protocol: protocol.TCP},
+				&model.Port{Name: "rank1", Port: 8001, Protocol: protocol.TCP},
+				&model.Port{Name: "rank2", Port: 8002, Protocol: protocol.TCP},
+				&model.Port{Name: "rank3", Port: 8003, Protocol: protocol.TCP},
+			},
+			Hostname: "test-inference-pool-ip",
+			Attributes: model.ServiceAttributes{
+				Labels: map[string]string {
+					constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
+				},
+			},
+		}
+		service2 := &model.Service{
+			Ports: model.PortList{
+				&model.Port{Name: "port0", Port: 8000, Protocol: protocol.TCP},
+				&model.Port{Name: "port1", Port: 8001, Protocol: protocol.TCP},
+				&model.Port{Name: "port2", Port: 8002, Protocol: protocol.TCP},
+				&model.Port{Name: "port3", Port: 8003, Protocol: protocol.TCP},
+			},
+			Hostname: "test-org",
+		}
+
+		// Test with a shadow service from an Inference Pool
+		cluster := route.GetDestinationCluster(destination, service1, 80)
+		expectedClusterName := "outbound|" + strconv.Itoa(service1.Ports[0].Port) + "||" + destination.Host
+		g.Expect(cluster).To(Equal(expectedClusterName))
+
+		// Test with a "regular" service
+		cluster = route.GetDestinationCluster(destination, service2, 80)
+		expectedClusterName = "outbound|80||" + destination.Host
+		g.Expect(cluster).To(Equal(expectedClusterName))
+	})
+
 	t.Run("for virtualservices with with wildcard hosts outside of the serviceregistry (on port 80)", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{
