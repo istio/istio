@@ -38,3 +38,23 @@ istio.io/rev: {{ . | quote }}
 {{- .Values.serviceAccount.name | default "default" }}
 {{- end }}
 {{- end }}
+
+{{/*
+Clean null values from a dictionary recursively
+This is needed because Helm's merge functions can introduce null values
+which Kubernetes interprets as 0 or causes validation errors
+*/}}
+{{- define "gateway.cleanNullValues" -}}
+{{- $result := dict }}
+{{- range $key, $val := . }}
+  {{- if kindIs "map" $val }}
+    {{- $cleaned := include "gateway.cleanNullValues" $val | fromYaml }}
+    {{- if $cleaned }}
+      {{- $_ := set $result $key $cleaned }}
+    {{- end }}
+  {{- else if ne $val nil }}
+    {{- $_ := set $result $key $val }}
+  {{- end }}
+{{- end }}
+{{- $result | toYaml }}
+{{- end }}
