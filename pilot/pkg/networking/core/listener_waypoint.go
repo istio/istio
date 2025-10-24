@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	"istio.io/istio/pilot/pkg/networking/core/match"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
@@ -300,6 +301,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	for _, svc := range svcs {
 		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
 		portMapper := match.NewDestinationPort()
+		efw := lb.push.EnvoyFilters(lb.node, svc)
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -336,9 +338,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 			cc.clusterName = httpClusterName
 			httpChain = &listener.FilterChain{
-				Filters: append(slices.Clone(filters), lb.buildWaypointInboundHTTPFilters(svc, cc)...),
+				Filters: append(slices.Clone(filters), lb.buildWaypointInboundHTTPFilters(svc, cc, efw)...),
 				Name:    cc.clusterName,
 			}
+			envoyfilter.ApplyFilterChainPatches(networking.EnvoyFilter_WAYPOINT, efw, nil, httpChain)
 			if isEastWestGateway && features.EnableAmbientMultiNetwork {
 				// We want to send to all ports regardless of protocol, but we want the filter chains to tcp proxy no matter what
 				// (since we're expecting double-hbone). There's no point in sniffing, so we just send to the TCP chain.
@@ -431,7 +434,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			Filters: append([]*listener.Filter{
 				xdsfilters.ConnectAuthorityNetworkFilter,
 			},
-				lb.buildWaypointInboundHTTPFilters(nil, cc)...),
+				lb.buildWaypointInboundHTTPFilters(nil, cc, nil)...),
 			Name: "direct-http",
 		}
 
@@ -793,12 +796,12 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 
 // buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
-func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig) []*listener.Filter {
+func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig, efw *model.MergedEnvoyFilterWrapper) []*listener.Filter {
 	pre, post := lb.buildWaypointHTTPFilters(svc)
 	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	var filters []*listener.Filter
 	httpOpts := &httpListenerOpts{
-		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
+		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc, efw),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
@@ -983,10 +986,17 @@ func buildRouteVHostDomains(svc *model.Service) []string {
 	return domains
 }
 
-func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
+func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service,
+	cc inboundChainConfig, efw *model.MergedEnvoyFilterWrapper,
+) (out *route.RouteConfiguration) {
+	defer func() {
+		out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_WAYPOINT, lb.node, efw, out)
+	}()
+
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
-		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		return out
 	}
 
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
@@ -995,7 +1005,8 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		return c.Spec.(*networking.VirtualService).Http != nil
 	})
 	if vs == nil {
-		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		return out
 	}
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
@@ -1003,7 +1014,8 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
 	routes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
 	if err != nil {
-		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+		return out
 	}
 
 	inboundVHost := &route.VirtualHost{
@@ -1012,11 +1024,13 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		Routes:  routes,
 	}
 
-	return &route.RouteConfiguration{
+	out = &route.RouteConfiguration{
 		Name:             cc.clusterName,
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
+
+	return out
 }
 
 // Select the config pertaining to the service being processed.

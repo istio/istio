@@ -126,6 +126,7 @@ func buildSidecarInboundHTTPRouteConfig(svc *model.Service, lb *ListenerBuilder,
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
+	// TODO: do we need to check proxy type here to avoid support SIDECAR_INBOUND on waypoint?
 	efw := lb.push.EnvoyFilters(lb.node)
 	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node, efw, r)
 	return r
