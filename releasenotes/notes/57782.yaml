@@ -5,5 +5,5 @@ issue:
   - 57291
 releaseNotes:
   - |
-    **Fixed** ServiceEntry with overlapping hostnames within the same namespace cusing unpredictable
+    **Fixed** ServiceEntry with overlapping hostnames within the same namespace causing unpredictable
     behavior in ambient mode.
