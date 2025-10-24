@@ -101,7 +101,7 @@ func (a *index) WorkloadsCollection(
 	// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
 	ServiceEntryWorkloads := krt.NewManyCollection(
 		serviceEntries,
-		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces),
+		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces, workloadServices),
 		opts.WithName("ServiceEntryWorkloads")...,
 	)
 	// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
@@ -227,6 +227,7 @@ func MergedGlobalWorkloadsCollection(
 			localPeerAuths,
 			localWaypoints,
 			localCluster.Namespaces(),
+			localWorkloadServices,
 			localClusterGetter,
 			localNetworkGetter,
 			globalNetworks.NetworkGateways,
@@ -507,6 +508,7 @@ func MergedGlobalWorkloadsCollection(
 					localPeerAuths,
 					waypoints,
 					namespaces,
+					globalWorkloadServices,
 					func(ctx krt.HandlerContext) cluster.ID {
 						return c.ID
 					},
@@ -1033,6 +1035,7 @@ func serviceEntryWorkloadBuilder(
 	peerAuths krt.Collection[*securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	workloadServices krt.Collection[model.ServiceInfo],
 	clusterGetter func(krt.HandlerContext) cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
 	networkGateways krt.Collection[NetworkGateway],
@@ -1053,7 +1056,19 @@ func serviceEntryWorkloadBuilder(
 		cluster := clusterGetter(ctx)
 		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
 		// `allServices` (since we are building workloads here, not services).
-		allServices := serviceEntriesInfo(ctx, se, nil, nil, networkGetter)
+		allServices := krt.Fetch(ctx, workloadServices, krt.FilterGeneric(
+			func(a any) bool {
+				si := a.(model.ServiceInfo)
+				source := si.Source
+				// check for workload services which are from this ServiceEntry
+				return source.Kind == kind.ServiceEntry && source.NamespacedName.Namespace == se.Namespace && source.NamespacedName.Name == se.Name
+			},
+		))
+		if len(allServices) == 0 {
+			// this ServiceEntry was pruned entirely by deduplication in the WorkloadServices collection, it's endpoints should not be sent to the data plane
+			log.Infof("No workload services found for ServiceEntry %s/%s", se.Namespace, se.Name)
+			return nil
+		}
 		if implicitEndpoints {
 			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
 				return &networkingv1alpha3.WorkloadEntry{Address: si.Service.Hostname}
@@ -1142,6 +1157,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 	peerAuths krt.Collection[*securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	workloadServices krt.Collection[model.ServiceInfo],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
 	return serviceEntryWorkloadBuilder(
 		meshConfig,
@@ -1149,6 +1165,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 		peerAuths,
 		waypoints,
 		namespaces,
+		workloadServices,
 		func(ctx krt.HandlerContext) cluster.ID {
 			return a.ClusterID
 		},
