@@ -19,20 +19,19 @@ package ambient
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -99,7 +98,7 @@ func TestMultinetworkFailover(t *testing.T) {
 			})
 
 			waypointName := "waypoint"
-			deployWaypointsOrFail(t, remote, local, waypointName, nsConfig)
+			deployWaypointsOrFail(t, local, waypointName, nsConfig)
 
 			runTest(t, local, remote, nsConfig)
 		})
@@ -183,23 +182,12 @@ func deployEchoOrFail(t framework.TestContext, serviceName string, healthy, unhe
 // deployWaypointsOrFail deploys global (a.k.a. multi-network) waypoints in two clusters.
 // One of the clusters designated as unhealthy the deployed waypoint will be unhealthy there.
 // The other cluster is designated as healthy and deployed waypoint will be healthy there.
-func deployWaypointsOrFail(t framework.TestContext, healthy, unhealthy cluster.Cluster, waypoint string, ns namespace.Instance) {
+func deployWaypointsOrFail(t framework.TestContext, unhealthy cluster.Cluster, waypoint string, ns namespace.Instance) {
 	t.Helper()
 
-	for _, c := range []cluster.Cluster{healthy, unhealthy} {
-		istioctl.NewOrFail(t, istioctl.Config{Cluster: c}).InvokeOrFail(t, []string{
-			"waypoint",
-			"apply",
-			"--namespace",
-			ns.Name(),
-			"--name",
-			waypoint,
-			"--enroll-namespace",
-			"--wait",
-		})
-		retry.UntilSuccessOrFail(t, func() error {
-			return checkWaypointIsReadyInCluster(c, ns.Name(), waypoint)
-		}, retry.Timeout(2*time.Minute))
+	_ = ambient.NewWaypointProxyOrFail(t, ns, waypoint)
+	ambient.SetWaypointForNamespace(t, ns, waypoint)
+	for _, c := range t.AllClusters() {
 		labelServiceInCluster(t, c, ns.Name(), waypoint, "istio.io/global", "true")
 	}
 
