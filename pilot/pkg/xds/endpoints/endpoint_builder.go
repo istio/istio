@@ -864,7 +864,7 @@ func getSubSetLabels(dr *v1alpha3.DestinationRule, subsetName string) labels.Ins
 // Lookup the service, find its waypoint, then find the waypoint's endpoints.
 func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
 	// Currently we only support routers (gateways)
-	if b.nodeType != model.Router && !isEastWestGateway(b.proxy) {
+	if b.nodeType != model.Router && !isEastWestGateway(b.proxy) && b.nodeType != model.SidecarProxy {
 		// Currently only ingress and e/w gateway will call waypoints
 		return nil, false
 	}
@@ -883,9 +883,10 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 	}
 	svc := svcs[0]
 	// They need to explicitly opt-in on the service to send from ingress -> waypoint
-	if !svc.IngressUseWaypoint && !isEastWestGateway(b.proxy) {
+	if !svc.IngressUseWaypoint && !isEastWestGateway(b.proxy) && !svc.SidecarUseWaypoint {
 		return nil, false
 	}
+
 	waypointClusterName := model.BuildSubsetKey(
 		model.TrafficDirectionOutbound,
 		"",
