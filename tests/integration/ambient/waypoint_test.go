@@ -212,10 +212,10 @@ func TestWaypoint(t *testing.T) {
 }
 
 func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
-	return checkWaypointIsReadyInCluster(t, t.AllClusters()[0], ns, name)
+	return checkWaypointIsReadyInCluster(t.AllClusters()[0], ns, name)
 }
 
-func checkWaypointIsReadyInCluster(t framework.TestContext, c cluster.Cluster, ns, name string) error {
+func checkWaypointIsReadyInCluster(c cluster.Cluster, ns, name string) error {
 	fetch := kubetest.NewPodFetch(c, ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err

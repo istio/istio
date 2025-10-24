@@ -198,7 +198,7 @@ func deployWaypointsOrFail(t framework.TestContext, healthy, unhealthy cluster.C
 			"--wait",
 		})
 		retry.UntilSuccessOrFail(t, func() error {
-			return checkWaypointIsReadyInCluster(t, c, ns.Name(), waypoint)
+			return checkWaypointIsReadyInCluster(c, ns.Name(), waypoint)
 		}, retry.Timeout(2*time.Minute))
 		labelServiceInCluster(t, c, ns.Name(), waypoint, "istio.io/global", "true")
 	}
@@ -223,11 +223,11 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 	retry.UntilSuccessOrFail(t, func() error {
 		s, err := c.Kube().AppsV1().Deployments(namespace).GetScale(t.Context(), name, metav1.GetOptions{})
 		if err != nil {
-			fmt.Errorf("failed to find deployment %s in namespace %s: %w", name, namespace, err)
+			return fmt.Errorf("failed to find deployment %s in namespace %s: %w", name, namespace, err)
 		}
 		pods, err := c.PodsForSelector(t.Context(), namespace, s.Status.Selector)
 		if err != nil {
-			fmt.Errorf("failed to query pods matching selector %s in namespace %s: %w", s.Status.Selector, namespace, err)
+			return fmt.Errorf("failed to query pods matching selector %s in namespace %s: %w", s.Status.Selector, namespace, err)
 		}
 		if s.Status.Replicas == scale && len(pods.Items) == int(scale) {
 			return nil
