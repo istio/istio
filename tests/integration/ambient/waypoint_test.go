@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -211,7 +212,11 @@ func TestWaypoint(t *testing.T) {
 }
 
 func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
-	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
+	return checkWaypointIsReadyInCluster(t, t.AllClusters()[0], ns, name)
+}
+
+func checkWaypointIsReadyInCluster(t framework.TestContext, c cluster.Cluster, ns, name string) error {
+	fetch := kubetest.NewPodFetch(c, ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err
 }

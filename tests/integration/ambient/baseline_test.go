@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -3531,12 +3532,16 @@ func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
 }
 
 func labelService(t framework.TestContext, svcName, k, v string) {
+	labelServiceInCluster(t, t.Clusters().Default(), apps.Namespace.Name(), svcName, k, v)
+}
+
+func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, ns, svcName, k, v string) {
 	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
 	if v == "" {
 		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
 	}
-	s := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name())
+	s := c.Kube().CoreV1().Services(ns)
 	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
