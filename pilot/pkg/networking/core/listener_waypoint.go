@@ -269,9 +269,6 @@ func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) host.Name {
 		log.Warnf("unexpected multiple waypoint services for %s", svc.Hostname)
 	}
 	waypoint := ws[0]
-	if !waypoint.IngressUseWaypoint && !isEastWestGateway(lb.node) {
-		return ""
-	}
 	return host.Name(waypoint.WaypointHostname)
 }
 
