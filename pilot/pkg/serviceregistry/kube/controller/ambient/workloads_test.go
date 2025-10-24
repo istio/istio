@@ -1577,6 +1577,7 @@ func TestServiceEntryWorkloads(t *testing.T) {
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
+				krttest.GetMockCollection[model.ServiceInfo](mock),
 			)
 			res := builder(krt.TestingDummyContext{}, tt.se)
 			wl := slices.Map(res, func(e model.WorkloadInfo) *workloadapi.Workload {

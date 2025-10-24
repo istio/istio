@@ -369,6 +369,90 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 	}
 }
 
+func TestAmbientIndex_ServiceOverlap(t *testing.T) {
+	addServiceEntry := func(s *ambientTestServer, i int, host string) {
+		s.addServiceEntry(
+			t,
+			host,
+			[]string{fmt.Sprintf("10.255.0.%d", i)},
+			fmt.Sprintf("se-%d", i),
+			testNS,
+			map[string]string{},
+			[]string{fmt.Sprintf("10.10.0.%d", i)},
+		)
+	}
+	addService := func(s *ambientTestServer, i int, name string) {
+		s.addService(
+			t,
+			name,
+			map[string]string{},
+			map[string]string{},
+			[]int32{80},
+			map[string]string{},
+			fmt.Sprintf("10.255.255.%d", i),
+		)
+	}
+	deleteServiceEntry := func(s *ambientTestServer, i int) {
+		s.deleteServiceEntry(t, fmt.Sprintf("se-%d", i))
+	}
+
+	t.Run("serviceentry overlap", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+
+		// TODO: Whatever we do here needs to work with wildcard hosts as well
+
+		// initial SE
+		addServiceEntry(s, 1, "foo.com")
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "foo.com"),
+			s.seIPXdsName("se-1", "10.10.0.1"),
+		)
+		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
+		s.assertNoEvent(t)
+
+		// overlapping SE - the old one takes precedence, new one is not in indexes
+		addServiceEntry(s, 2, "foo.com")
+		s.assertNoEvent(t)
+		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
+		s.assertAddresses(t, testNW+"/10.255.0.2")
+		s.assertNoEvent(t)
+
+		// the original one goes away, the new one takes over
+		deleteServiceEntry(s, 1)
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "foo.com"),
+			// this is pretty terrible as we may observe one or two events
+			// for foo.com, right now this is pretty flake as a result
+			// s.xdsNamespacedHostname(testNS, "foo.com"),
+			s.seIPXdsName("se-2", "10.10.0.2"),
+			s.seIPXdsName("se-1", "10.10.0.1"))
+		s.assertAddresses(t, testNW+"/10.255.0.1")
+		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+	})
+
+	t.Run("serviceentry and service overlap", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+
+		// initial svc
+		addService(s, 1, "svc1")
+		s.assertEvent(t, s.svcXdsName("svc1"))
+		s.assertAddresses(t, testNW+"/10.255.255.1", "svc1")
+		s.assertNoEvent(t)
+
+		// overlapping SE - the old one takes precedence, new one is not in indexes
+		addServiceEntry(s, 2, "svc1.ns1.svc.company.com")
+		s.assertNoEvent(t) // this should be totally filtered as duplicate with a Kubernetes Service
+		s.assertAddresses(t, testNW+"/10.255.255.1", "svc1")
+		s.assertAddresses(t, testNW+"/10.255.0.2")
+
+		// the original one goes away, the new one takes over
+		s.deleteService(t, "svc1")
+		time.Sleep(time.Millisecond * 50) // hack: maybe handle flakes from indeterminate number of events
+		s.assertUnorderedEvent(t, s.svcXdsName("svc1"), s.seIPXdsName("se-2", "10.10.0.2"))
+		s.assertAddresses(t, testNW+"/10.255.255.1")
+		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+		s.assertNoEvent(t)
+	})
+}
+
 func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 	cases := []struct {
 		name         string
@@ -2467,6 +2551,9 @@ func (s *ambientTestServer) addServiceEntryForClient(t *testing.T,
 			Name:      name,
 			Namespace: ns,
 			Labels:    labels,
+			CreationTimestamp: metav1.Time{
+				Time: time.Now(),
+			},
 		},
 		Spec:   *generateServiceEntry(hostStr, addresses, labels, epAddresses),
 		Status: v1alpha3.ServiceEntryStatus{},
@@ -2509,8 +2596,8 @@ func generateServiceEntry(host string, addresses []string, labels map[string]str
 	}
 }
 
-func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name, ns string) {
-	s.deleteServiceEntryForClient(t, name, ns, s.se)
+func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name string) {
+	s.deleteServiceEntryForClient(t, name, testNS, s.se)
 }
 
 func (s *ambientTestServer) deleteServiceEntryForClient(t *testing.T, name, ns string, se clienttest.TestWriter[*apiv1alpha3.ServiceEntry]) {
@@ -2725,6 +2812,10 @@ func (s *ambientTestServer) svcXdsName(serviceName string) string {
 // Returns the hostname for the given service.
 func (s *ambientTestServer) hostnameForService(serviceName string) string {
 	return fmt.Sprintf("%s.%s.svc.company.com", serviceName, testNS)
+}
+
+func (s *ambientTestServer) xdsNamespacedHostname(ns, hostname string) string {
+	return fmt.Sprintf("%s/%s", ns, hostname)
 }
 
 // Returns the XDS resource name for the given WorkloadEntry.
