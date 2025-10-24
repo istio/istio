@@ -196,7 +196,7 @@ function setup_kind_cluster() {
   if [[ -n "${DEVCONTAINER:-}" ]]; then
     # identify our docker container id using proc and regex
     containerid=$(grep 'resolv.conf' /proc/self/mountinfo | sed 's/.*\/docker\/containers\/\([0-9a-f]*\).*/\1/')
-    docker network connect kind "$containerid"
+    docker network connect kind "$containerid" 2>/dev/null || true
     kind export kubeconfig --name="${NAME}" --internal
   fi
 

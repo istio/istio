@@ -192,6 +192,9 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				doTest(t, src, dsts)
 			})
 		} else if c.viaIngress {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/57878")
+			}
 			echoT.RunViaIngress(func(t framework.TestContext, from ingress.Instance, to echo.Target) {
 				doTest(t, from, echo.Services{to.Instances()})
 			})
