@@ -275,6 +275,49 @@ func SetWaypointForService(t framework.TestContext, ns namespace.Instance, servi
 	}
 }
 
+// SetWaypointForNamespace enrolls the whole namespace to use the specified waypoint.
+func SetWaypointForNamespace(t framework.TestContext, ns namespace.Instance, waypoint string) {
+	t.Helper()
+
+	for _, c := range t.AllClusters() {
+		oldNs, err := c.Kube().CoreV1().Namespaces().Get(t.Context(), ns.Name(), metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("error getting namespace %s: %w", ns.Name(), err)
+		}
+		oldLabels := oldNs.ObjectMeta.GetLabels()
+		if oldLabels == nil {
+			oldLabels = make(map[string]string, 1)
+		}
+		newLabels := maps.Clone(oldLabels)
+		if waypoint != "" {
+			newLabels[label.IoIstioUseWaypoint.Name] = waypoint
+		} else {
+			delete(newLabels, label.IoIstioUseWaypoint.Name)
+		}
+
+		doLabel := func(labels map[string]string) error {
+			// At least try to update the latest version
+			n, err := c.Kube().CoreV1().Namespaces().Get(t.Context(), ns.Name(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			n.ObjectMeta.SetLabels(labels)
+			_, err = c.Kube().CoreV1().Namespaces().Update(t.Context(), n, metav1.UpdateOptions{})
+			return err
+		}
+
+		if err = doLabel(newLabels); err != nil {
+			t.Fatalf("error updating namespace %s: %w", ns.Name(), err)
+		}
+		t.Cleanup(func() {
+			if err := doLabel(oldLabels); err != nil {
+				scopes.Framework.Errorf("failed resetting waypoint for %s; this will likely break other tests", ns.Name())
+			}
+		})
+
+	}
+}
+
 func DeleteWaypoint(t framework.TestContext, ns namespace.Instance, waypoint string) {
 	istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
 		"waypoint",
