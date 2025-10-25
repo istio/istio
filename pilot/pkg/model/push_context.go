@@ -1239,6 +1239,12 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	if service == nil {
 		return nil
 	}
+
+	hasGenericDestinationRule := func(dr *ConsolidatedDestRule) bool {
+		rule := dr.rule.Spec.(*networking.DestinationRule)
+		return len(rule.GetWorkloadSelector().GetMatchLabels()) == 0
+	}
+
 	// If the proxy config namespace is same as the root config namespace
 	// look for dest rules in the service's namespace first. This hack is needed
 	// because sometimes, istio-system tends to become the root config namespace.
@@ -1249,6 +1255,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	// rules anyway, later in the code
 
 	// 1. select destination rule from proxy config namespace
+	var localDestRules []*ConsolidatedDestRule
 	if proxyNameSpace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxyNameSpace] != nil {
@@ -1256,7 +1263,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].specificDestRules,
 				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].wildcardDestRules,
 			); ok {
-				return drs
+				localDestRules = drs
 			}
 		}
 	} else {
@@ -1267,8 +1274,11 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 			ps.destinationRuleIndex.rootNamespaceLocal.specificDestRules,
 			ps.destinationRuleIndex.rootNamespaceLocal.wildcardDestRules,
 		); ok {
-			return drs
+			localDestRules = drs
 		}
+	}
+	if slices.FindFunc(localDestRules, hasGenericDestinationRule) != nil {
+		return localDestRules
 	}
 
 	// 2. select destination rule from service namespace
@@ -1289,18 +1299,28 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for exported rules
 	if svcNs != "" {
-		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxyNameSpace); len(out) > 0 {
+		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxyNameSpace); slices.FindFunc(out, hasGenericDestinationRule) != nil {
+			if len(localDestRules) > 0 {
+				// Currently, merging across namespaces is not supported.
+				return append(slices.Clone(localDestRules), slices.Filter(out, hasGenericDestinationRule)...)
+			}
 			return out
 		}
 	}
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any exported destination rule in the config root namespace
-	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxyNameSpace); len(out) > 0 {
+	if out := ps.getExportedDestinationRuleFromNamespace(
+		ps.Mesh.RootNamespace, service.Hostname, proxyNameSpace,
+	); slices.FindFunc(out, hasGenericDestinationRule) != nil {
+		if len(localDestRules) > 0 {
+			// Currently, merging across namespaces is not supported.
+			return append(slices.Clone(localDestRules), slices.Filter(out, hasGenericDestinationRule)...)
+		}
 		return out
 	}
 
-	return nil
+	return localDestRules
 }
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*ConsolidatedDestRule {
