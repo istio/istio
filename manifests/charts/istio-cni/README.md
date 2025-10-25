@@ -63,3 +63,5 @@ On GKE, 'kube-system' is required.
 
 If using `helm template`, `--set cni.cniBinDir=/home/kubernetes/bin` is required - with `helm install`
 it is auto-detected.
+
+Helm 3.19.0+ breaks auto-detection due to version normalization. Use `--set profile=platform-gke` or manually set `--set cni.cniBinDir=/home/kubernetes/bin`.

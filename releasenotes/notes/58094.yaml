@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue: [58094]
+releaseNotes:
+- |
+  **Fixed** GKE CNI bin directory detection broken by Helm 3.19.0+ version normalization.
+  GKE users should use `--set profile=platform-gke` or manually set `--set cni.cniBinDir="/home/kubernetes/bin"`.

@@ -5,6 +5,7 @@
 #
 # $detectedBinDir exists to support a GKE-specific platform override,
 # and is deprecated in favor of using the explicit `gke` platform profile.
+# NOTE: Auto-detection is broken with Helm 3.19.0+ due to version normalization.
 {{- $detectedBinDir := (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
     "/home/kubernetes/bin"
     "/opt/cni/bin"
