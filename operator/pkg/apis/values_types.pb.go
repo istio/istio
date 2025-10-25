@@ -3062,9 +3062,11 @@ type PilotConfig struct {
 	// Configuration for the istio-discovery chart when istiod is running in a remote cluster (e.g. "remote control plane").
 	IstiodRemote *IstiodRemoteConfig `protobuf:"bytes,61,opt,name=istiodRemote,proto3" json:"istiodRemote,omitempty"`
 	// Configuration for the istio-discovery chart
-	EnvVarFrom    []*structpb.Struct `protobuf:"bytes,62,rep,name=envVarFrom,proto3" json:"envVarFrom,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	EnvVarFrom []*structpb.Struct `protobuf:"bytes,62,rep,name=envVarFrom,proto3" json:"envVarFrom,omitempty"`
+	// Select a custom name for istiod's plugged-in CA CRL ConfigMap.
+	CrlConfigMapName string `protobuf:"bytes,63,opt,name=crlConfigMapName,proto3" json:"crlConfigMapName,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *PilotConfig) Reset() {
@@ -3384,6 +3386,13 @@ func (x *PilotConfig) GetEnvVarFrom() []*structpb.Struct {
 		return x.EnvVarFrom
 	}
 	return nil
+}
+
+func (x *PilotConfig) GetCrlConfigMapName() string {
+	if x != nil {
+		return x.CrlConfigMapName
+	}
+	return ""
 }
 
 type PilotTaintControllerConfig struct {
@@ -5732,7 +5741,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\x98\x13\n" +
+	"\rREGISTRY_ONLY\x10\x01\"\xc4\x13\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -5777,7 +5786,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\fistiodRemote\x18= \x01(\v2+.istio.operator.v1alpha1.IstiodRemoteConfigR\fistiodRemote\x127\n" +
 	"\n" +
 	"envVarFrom\x18> \x03(\v2\x17.google.protobuf.StructR\n" +
-	"envVarFrom\"T\n" +
+	"envVarFrom\x12*\n" +
+	"\x10crlConfigMapName\x18? \x01(\tR\x10crlConfigMapName\"T\n" +
 	"\x1aPilotTaintControllerConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xc6\x01\n" +

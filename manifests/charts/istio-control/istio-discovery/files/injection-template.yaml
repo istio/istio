@@ -519,7 +519,7 @@ spec:
   {{- end }}
   - name: istio-ca-crl
     configMap:
-      name: istio-ca-crl
+      name: {{ .Values.pilot.crlConfigMapName | default "istio-ca-crl" }}
       optional: true
   {{- if .Values.global.mountMtlsCerts }}
   # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
