@@ -17,17 +17,4 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      istio-ext-authz-default-ns[foo]-policy[httpbin-2]-rule[0]:
-        permissions:
-        - andRules:
-            rules:
-            - orRules:
-                rules:
-                - urlPath:
-                    path:
-                      exact: /httpbin2
-        principals:
-        - andIds:
-            ids:
-            - any: true
   shadowRulesStatPrefix: istio_ext_authz_
