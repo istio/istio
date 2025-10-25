@@ -16,6 +16,7 @@ package krt
 
 import (
 	"fmt"
+	"sync"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -107,6 +108,7 @@ func (i index[K, O]) AsCollection(opts ...CollectionOption) IndexCollection[K, O
 		id:             nextUID(),
 		collectionName: fmt.Sprintf("index/%s", o.name),
 		fromKey:        o.indexCollectionFromString,
+		internalState:  make(map[string][]O),
 	}
 	if c.fromKey == nil {
 		if _, ok := any(ptr.Empty[K]()).(string); !ok {
@@ -120,8 +122,8 @@ func (i index[K, O]) AsCollection(opts ...CollectionOption) IndexCollection[K, O
 	if o.metadata != nil {
 		c.metadata = o.metadata
 	}
-	maybeRegisterCollectionForDebugging(c, o.debugger)
-	return c
+	maybeRegisterCollectionForDebugging(&c, o.debugger)
+	return &c
 }
 
 // nolint: unused // (not true)
@@ -167,20 +169,24 @@ type indexCollection[K comparable, O any] struct {
 	// nolint: unused // (not true, its to implement an interface)
 	collectionName string
 	fromKey        func(string) any
+
+	// internalState tracks objects by key, updated from events to avoid querying parent asynchronously.
+	mu            sync.RWMutex
+	internalState map[string][]O
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (i indexCollection[K, O]) name() string {
+func (i *indexCollection[K, O]) name() string {
 	return i.collectionName
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (i indexCollection[K, O]) uid() collectionUID {
+func (i *indexCollection[K, O]) uid() collectionUID {
 	return i.id
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (i indexCollection[K, O]) dump() CollectionDump {
+func (i *indexCollection[K, O]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs:         i.dumpOutput(),
 		InputCollection: i.idx.c.(internalCollection[O]).name(),
@@ -189,17 +195,29 @@ func (i indexCollection[K, O]) dump() CollectionDump {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (i indexCollection[K, O]) augment(a any) any {
+func (i *indexCollection[K, O]) augment(a any) any {
 	return a
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (i indexCollection[K, O]) index(name string, extract func(o IndexObject[K, O]) []string) indexer[IndexObject[K, O]] {
+func (i *indexCollection[K, O]) index(name string, extract func(o IndexObject[K, O]) []string) indexer[IndexObject[K, O]] {
 	panic("an index cannot be indexed")
 }
 
-func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
+func (i *indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 	tk := i.fromKey(k).(K)
+
+	// Use internal state if available for consistency with processed events.
+	i.mu.RLock()
+	if objs, exists := i.internalState[k]; exists {
+		i.mu.RUnlock()
+		return &IndexObject[K, O]{
+			Key:     tk,
+			Objects: objs,
+		}
+	}
+	i.mu.RUnlock()
+
 	objs := i.idx.Lookup(tk)
 	return &IndexObject[K, O]{
 		Key:     tk,
@@ -207,14 +225,14 @@ func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 	}
 }
 
-func (i indexCollection[K, O]) List() []IndexObject[K, O] {
+func (i *indexCollection[K, O]) List() []IndexObject[K, O] {
 	panic("an index collection cannot be listed")
 }
 
 // dumpOutput dumps the current state. This has no synchronization, so it's not perfect.
 // This will not result in a Go level data-race, but can give incorrect information so is best-effort only.
 // nolint: unused // (not true...)
-func (i indexCollection[K, O]) dumpOutput() map[string]any {
+func (i *indexCollection[K, O]) dumpOutput() map[string]any {
 	o := i.idx.c.List()
 	keys := sets.New[K]()
 	for _, oo := range o {
@@ -228,19 +246,19 @@ func (i indexCollection[K, O]) dumpOutput() map[string]any {
 	return res
 }
 
-func (i indexCollection[K, O]) WaitUntilSynced(stop <-chan struct{}) bool {
+func (i *indexCollection[K, O]) WaitUntilSynced(stop <-chan struct{}) bool {
 	return i.idx.c.WaitUntilSynced(stop)
 }
 
-func (i indexCollection[K, O]) HasSynced() bool {
+func (i *indexCollection[K, O]) HasSynced() bool {
 	return i.idx.c.HasSynced()
 }
 
-func (i indexCollection[K, O]) Metadata() Metadata {
+func (i *indexCollection[K, O]) Metadata() Metadata {
 	return i.metadata
 }
 
-func (i indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) HandlerRegistration {
+func (i *indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) HandlerRegistration {
 	return i.RegisterBatch(func(events []Event[IndexObject[K, O]]) {
 		for _, o := range events {
 			f(o)
@@ -248,32 +266,61 @@ func (i indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) Hand
 	}, true)
 }
 
-func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]), runExistingState bool) HandlerRegistration {
+func (i *indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]), runExistingState bool) HandlerRegistration {
 	return i.idx.c.RegisterBatch(func(o []Event[O]) {
+		i.mu.Lock()
+		defer i.mu.Unlock()
+
+		// Update internal state from events instead of querying parent.
+		// This ensures IndexObject.Objects matches the events we've processed,
+		// avoiding races where parent has moved ahead (fixes #58014).
 		allKeys := sets.New[K]()
 		for _, ev := range o {
 			if ev.Old != nil {
-				allKeys.InsertAll(i.idx.extractKeys(*ev.Old)...)
+				keys := i.idx.extractKeys(*ev.Old)
+				allKeys.InsertAll(keys...)
+				// Remove old object from all its keys
+				for _, key := range keys {
+					keyStr := toString(key)
+					objects := i.internalState[keyStr]
+					// Filter out the old object
+					filtered := make([]O, 0, len(objects))
+					for _, obj := range objects {
+						if !Equal(obj, *ev.Old) {
+							filtered = append(filtered, obj)
+						}
+					}
+					if len(filtered) == 0 {
+						delete(i.internalState, keyStr)
+					} else {
+						i.internalState[keyStr] = filtered
+					}
+				}
 			}
 			if ev.New != nil {
-				allKeys.InsertAll(i.idx.extractKeys(*ev.New)...)
+				keys := i.idx.extractKeys(*ev.New)
+				allKeys.InsertAll(keys...)
+				// Add new object to all its keys
+				for _, key := range keys {
+					keyStr := toString(key)
+					i.internalState[keyStr] = append(i.internalState[keyStr], *ev.New)
+				}
 			}
 		}
+
+		// Build downstream events from internal state.
 		downstream := make([]Event[IndexObject[K, O]], 0, len(allKeys))
 		for key := range allKeys {
-			v := i.GetKey(toString(key))
-			// Due to the semantics around indexes, we cannot reasonably compute exactly correctly.
-			// However, we don't really need to: simply triggering an Add/Delete is close enough to work.
-			// Building a collection from an indexCollection only uses the events to determine the changed keys, which is
-			// available with this information.
-			if len(v.Objects) == 0 {
+			keyStr := toString(key)
+			objects, exists := i.internalState[keyStr]
+			if !exists || len(objects) == 0 {
 				downstream = append(downstream, Event[IndexObject[K, O]]{
 					Old:   &IndexObject[K, O]{Key: key, Objects: nil},
 					Event: controllers.EventDelete,
 				})
 			} else {
 				downstream = append(downstream, Event[IndexObject[K, O]]{
-					New:   v,
+					New:   &IndexObject[K, O]{Key: key, Objects: objects},
 					Event: controllers.EventAdd,
 				})
 			}
