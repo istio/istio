@@ -3,7 +3,7 @@
 # If you want to make a change in this file, edit the original one and run "make gen".
 
 cni:
-  cniBinDir: "" # intentionally unset for gke to allow template-based autodetection to work
+  cniBinDir: /home/kubernetes/bin
   resourceQuotas:
     enabled: true
 resourceQuotas:
