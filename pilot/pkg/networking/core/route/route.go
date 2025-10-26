@@ -366,7 +366,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		if service.UseInferenceSemantics() {
 			// If this is a service created from a GIE InferencePool, use the first port
 			port = service.Ports[0].Port
-		} else if  len(service.Ports) == 1 {
+		} else if len(service.Ports) == 1 {
 			// if service only has one port defined, use that as the port, otherwise use default listenerPort
 			port = service.Ports[0].Port
 		}

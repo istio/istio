@@ -1490,7 +1490,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 			Hostname: "test-inference-pool-ip",
 			Attributes: model.ServiceAttributes{
-				Labels: map[string]string {
+				Labels: map[string]string{
 					constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
 				},
 			},
