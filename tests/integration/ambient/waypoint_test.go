@@ -241,7 +241,7 @@ spec:
   environmentVariables:
     ISTIO_META_DISABLE_HBONE_SEND: "true"
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: simple-http-waypoint
@@ -287,7 +287,7 @@ spec:
     port: 15008
     protocol: TCP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: {{.Service}}-httproute

@@ -67,7 +67,7 @@ spec:
   labels:
     gateway.networking.k8s.io/gateway-name: waypoint
 `
-	waypointGateway = `apiVersion: gateway.networking.k8s.io/v1beta1
+	waypointGateway = `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: waypoint
@@ -423,7 +423,7 @@ spec:
   labels:
     gateway.networking.k8s.io/gateway-name: waypoint`
 
-	waypointGateway := `apiVersion: gateway.networking.k8s.io/v1beta1
+	waypointGateway := `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: waypoint

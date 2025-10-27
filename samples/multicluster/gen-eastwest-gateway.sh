@@ -71,7 +71,7 @@ if [[ "${AMBIENT}" -eq 1 ]]; then
     exit 1
   fi
 GW=$(cat <<EOF
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: istio-eastwestgateway
