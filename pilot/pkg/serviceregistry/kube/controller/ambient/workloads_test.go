@@ -1433,7 +1433,8 @@ func TestServiceEntryWorkloads(t *testing.T) {
 					PortNames: map[int32]model.ServicePortName{
 						80: {PortName: "http"},
 					},
-					Source: model.TypedObject{Kind: kind.ServiceEntry,
+					Source: model.TypedObject{
+						Kind: kind.ServiceEntry,
 						NamespacedName: types.NamespacedName{
 							Namespace: "ns",
 							Name:      "name",
@@ -1453,7 +1454,8 @@ func TestServiceEntryWorkloads(t *testing.T) {
 					PortNames: map[int32]model.ServicePortName{
 						80: {PortName: "http"},
 					},
-					Source: model.TypedObject{Kind: kind.ServiceEntry,
+					Source: model.TypedObject{
+						Kind: kind.ServiceEntry,
 						NamespacedName: types.NamespacedName{
 							Namespace: "ns",
 							Name:      "name",
@@ -1549,7 +1551,8 @@ func TestServiceEntryWorkloads(t *testing.T) {
 					PortNames: map[int32]model.ServicePortName{
 						80: {PortName: "http"},
 					},
-					Source: model.TypedObject{Kind: kind.ServiceEntry,
+					Source: model.TypedObject{
+						Kind: kind.ServiceEntry,
 						NamespacedName: types.NamespacedName{
 							Namespace: "ns",
 							Name:      "name",
