@@ -401,7 +401,7 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 
 		// initial SE
 		addServiceEntry(s, 1, "foo.com")
-		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "foo.com"),
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com"),
 			s.seIPXdsName("se-1", "10.10.0.1"),
 		)
 		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
@@ -416,7 +416,7 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 
 		// the original one goes away, the new one takes over
 		deleteServiceEntry(s, 1)
-		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "foo.com"),
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com"),
 			s.seIPXdsName("se-2", "10.10.0.2"),
 			s.seIPXdsName("se-1", "10.10.0.1"))
 		s.assertAddresses(t, testNW+"/10.255.0.1")
@@ -427,7 +427,7 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 
 		// initial SE
 		addServiceEntry(s, 1, "*.foo.com")
-		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "*.foo.com"),
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com"),
 			s.seIPXdsName("se-1", "10.10.0.1"),
 		)
 		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
@@ -442,7 +442,7 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 
 		// the original one goes away, the new one takes over
 		deleteServiceEntry(s, 1)
-		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "*.foo.com"),
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com"),
 			s.seIPXdsName("se-2", "10.10.0.2"),
 			s.seIPXdsName("se-1", "10.10.0.1"))
 		s.assertAddresses(t, testNW+"/10.255.0.1")
@@ -2834,8 +2834,8 @@ func (s *ambientTestServer) hostnameForService(serviceName string) string {
 	return fmt.Sprintf("%s.%s.svc.company.com", serviceName, testNS)
 }
 
-func (s *ambientTestServer) xdsNamespacedHostname(ns, hostname string) string {
-	return fmt.Sprintf("%s/%s", ns, hostname)
+func (s *ambientTestServer) xdsNamespacedHostname(hostname string) string {
+	return fmt.Sprintf("%s/%s", testNS, hostname)
 }
 
 // Returns the XDS resource name for the given WorkloadEntry.
