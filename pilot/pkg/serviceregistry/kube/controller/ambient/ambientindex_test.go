@@ -399,8 +399,6 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 	t.Run("serviceentry overlap", func(t *testing.T) {
 		s := newAmbientTestServer(t, testC, testNW, "")
 
-		// TODO: Whatever we do here needs to work with wildcard hosts as well
-
 		// initial SE
 		addServiceEntry(s, 1, "foo.com")
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "foo.com"),
@@ -419,6 +417,32 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		// the original one goes away, the new one takes over
 		deleteServiceEntry(s, 1)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "foo.com"),
+			s.seIPXdsName("se-2", "10.10.0.2"),
+			s.seIPXdsName("se-1", "10.10.0.1"))
+		s.assertAddresses(t, testNW+"/10.255.0.1")
+		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+	})
+	t.Run("wildcard serviceentry overlap", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+
+		// initial SE
+		addServiceEntry(s, 1, "*.foo.com")
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "*.foo.com"),
+			s.seIPXdsName("se-1", "10.10.0.1"),
+		)
+		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
+		s.assertNoEvent(t)
+
+		// overlapping SE - the old one takes precedence, new one is not in indexes
+		addServiceEntry(s, 2, "*.foo.com")
+		s.assertNoEvent(t)
+		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
+		s.assertAddresses(t, testNW+"/10.255.0.2")
+		s.assertNoEvent(t)
+
+		// the original one goes away, the new one takes over
+		deleteServiceEntry(s, 1)
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "*.foo.com"),
 			s.seIPXdsName("se-2", "10.10.0.2"),
 			s.seIPXdsName("se-1", "10.10.0.1"))
 		s.assertAddresses(t, testNW+"/10.255.0.1")
