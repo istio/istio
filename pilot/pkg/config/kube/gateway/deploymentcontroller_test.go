@@ -32,7 +32,6 @@ import (
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -74,7 +73,7 @@ var (
 func TestConfigureIstioGateway(t *testing.T) {
 	discoveryNamespacesFilter := buildFilter("default")
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
-	customClass := &k8sbeta.GatewayClass{
+	customClass := &k8s.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "custom",
 		},
@@ -139,7 +138,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 	proxyConfig := model.GetProxyConfigs(store, mesh.DefaultMeshConfig())
 	tests := []struct {
 		name                     string
-		gw                       k8sbeta.Gateway
+		gw                       k8s.Gateway
 		objects                  []runtime.Object
 		pcs                      *model.ProxyConfigs
 		values                   string
@@ -149,7 +148,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 	}{
 		{
 			name: "simple",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -165,7 +164,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "simple",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -180,7 +179,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "manual-sa",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -195,7 +194,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "manual-ip",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -214,7 +213,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "cluster-ip",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -237,7 +236,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "multinetwork",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -258,7 +257,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "waypoint",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "namespace",
 					Namespace: "default",
@@ -283,7 +282,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "waypoint-no-network-label",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "namespace",
 					Namespace: "default",
@@ -305,7 +304,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "istio-east-west",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "eastwestgateway",
 					Namespace: "istio-system",
@@ -333,7 +332,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "proxy-config-crd",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -347,7 +346,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "custom-class",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -360,7 +359,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "infrastructure-labels-annotations",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -379,7 +378,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "kube-gateway-ambient-redirect",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -396,7 +395,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "kube-gateway-ambient-redirect-infra",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -414,7 +413,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "istio-upgrade-to-1.24",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-upgrade",
 					Namespace: "default",
@@ -436,7 +435,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "customizations",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "namespace",
 					Namespace: "default",
@@ -482,7 +481,7 @@ spec:
 		},
 		{
 			name: "illegal_customizations",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "namespace",
 					Namespace: "default",
@@ -511,7 +510,7 @@ metadata:
 		},
 		{
 			name: "copy-labels-annotations-disabled-infra-set",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -531,7 +530,7 @@ metadata:
 		},
 		{
 			name: "copy-labels-annotations-disabled-infra-nil",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -547,7 +546,7 @@ metadata:
 		},
 		{
 			name: "copy-labels-annotations-enabled-infra-nil",
-			gw: k8sbeta.Gateway{
+			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -571,8 +570,8 @@ metadata:
 			client := kube.NewFakeClient(tt.objects...)
 			kube.SetObjectFilter(client, tt.discoveryNamespaceFilter)
 			client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
-			kclient.NewWriteClient[*k8sbeta.GatewayClass](client).Create(customClass)
-			kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(tt.gw.DeepCopy())
+			kclient.NewWriteClient[*k8s.GatewayClass](client).Create(customClass)
+			kclient.NewWriteClient[*k8s.Gateway](client).Create(tt.gw.DeepCopy())
 			kclient.NewWriteClient[*appsv1.Deployment](client).Create(upgradeDeployment)
 			stop := test.NewStop(t)
 			env := newTestEnv()
@@ -662,7 +661,7 @@ func TestMeshGatewayReconciliation(t *testing.T) {
 
 	// create the initial gateway for the deployment controller
 	// to reconcile when the meshconfig changes
-	defaultGateway := &k8sbeta.Gateway{
+	defaultGateway := &k8s.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gw",
 			Namespace: "default",
@@ -742,7 +741,7 @@ func TestVersionManagement(t *testing.T) {
 	c.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 	// Create a gateway, we should mark our ownership
-	defaultGateway := &k8sbeta.Gateway{
+	defaultGateway := &k8s.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gw",
 			Namespace: "default",
@@ -805,7 +804,7 @@ func TestVersionManagement(t *testing.T) {
 
 func TestHandlerEnqueueFunction(t *testing.T) {
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
-	defaultGatewayClass := &k8sbeta.GatewayClass{
+	defaultGatewayClass := &k8s.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: features.GatewayAPIDefaultGatewayClass,
 		},
@@ -827,7 +826,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			name: "add event",
 			event: controllers.Event{
 				Event: controllers.EventAdd,
-				New: &k8sbeta.Gateway{
+				New: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "new-add",
 						Namespace:   defaultNamespace.GetName(),
@@ -846,7 +845,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			name: "delete event",
 			event: controllers.Event{
 				Event: controllers.EventDelete,
-				Old: &k8sbeta.Gateway{
+				Old: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "old-delete",
 						Namespace:   defaultNamespace.GetName(),
@@ -865,7 +864,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			name: "update event change annotation",
 			event: controllers.Event{
 				Event: controllers.EventUpdate,
-				New: &k8sbeta.Gateway{
+				New: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "update-1",
 						Namespace:   defaultNamespace.GetName(),
@@ -883,7 +882,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 						},
 					},
 				},
-				Old: &k8sbeta.Gateway{
+				Old: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "update-1",
 						Namespace:   defaultNamespace.GetName(),
@@ -909,7 +908,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			name: "update event change label",
 			event: controllers.Event{
 				Event: controllers.EventUpdate,
-				New: &k8sbeta.Gateway{
+				New: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "update-2",
 						Namespace:   defaultNamespace.GetName(),
@@ -927,7 +926,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 						},
 					},
 				},
-				Old: &k8sbeta.Gateway{
+				Old: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "update-2",
 						Namespace:   defaultNamespace.GetName(),
@@ -953,7 +952,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			name: "update event change gateway spec",
 			event: controllers.Event{
 				Event: controllers.EventUpdate,
-				New: &k8sbeta.Gateway{
+				New: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "update-3",
 						Namespace:   defaultNamespace.GetName(),
@@ -972,7 +971,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 						},
 					},
 				},
-				Old: &k8sbeta.Gateway{
+				Old: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "update-3",
 						Namespace:   defaultNamespace.GetName(),
@@ -999,7 +998,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			name: "update event no change gateway spec",
 			event: controllers.Event{
 				Event: controllers.EventUpdate,
-				New: &k8sbeta.Gateway{
+				New: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "update-4",
 						Namespace:   defaultNamespace.GetName(),
@@ -1018,7 +1017,7 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 						},
 					},
 				},
-				Old: &k8sbeta.Gateway{
+				Old: &k8s.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "update-4",
 						Namespace:   defaultNamespace.GetName(),
@@ -1083,29 +1082,29 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 
 			switch tt.event.Event {
 			case controllers.EventAdd:
-				gw := tt.event.New.(*k8sbeta.Gateway)
-				kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(gw.DeepCopy())
+				gw := tt.event.New.(*k8s.Gateway)
+				kclient.NewWriteClient[*k8s.Gateway](client).Create(gw.DeepCopy())
 			case controllers.EventDelete:
 				// For delete events, first create the gateway, then delete it
-				gw := tt.event.Old.(*k8sbeta.Gateway)
-				kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(gw.DeepCopy())
+				gw := tt.event.Old.(*k8s.Gateway)
+				kclient.NewWriteClient[*k8s.Gateway](client).Create(gw.DeepCopy())
 				kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 				// Wait for the create event reconciliation to complete
 				<-reconcileDone
 				// Reset counter after create, so we only count the delete event
 				reconciles.Store(0)
-				kclient.NewWriteClient[*k8sbeta.Gateway](client).Delete(gw.Name, gw.Namespace)
+				kclient.NewWriteClient[*k8s.Gateway](client).Delete(gw.Name, gw.Namespace)
 			case controllers.EventUpdate:
 				// For update events, first create the old gateway, then update it
-				newGw := tt.event.New.(*k8sbeta.Gateway)
-				oldGw := tt.event.Old.(*k8sbeta.Gateway)
-				kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(oldGw.DeepCopy())
+				newGw := tt.event.New.(*k8s.Gateway)
+				oldGw := tt.event.Old.(*k8s.Gateway)
+				kclient.NewWriteClient[*k8s.Gateway](client).Create(oldGw.DeepCopy())
 				kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 				// Wait for the create event reconciliation to complete
 				<-reconcileDone
 				// Reset counter after create, so we only count the update event
 				reconciles.Store(0)
-				kclient.NewWriteClient[*k8sbeta.Gateway](client).Update(newGw.DeepCopy())
+				kclient.NewWriteClient[*k8s.Gateway](client).Update(newGw.DeepCopy())
 			}
 			kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 
@@ -1154,7 +1153,7 @@ global:
 // was always used so the function has been
 // adjusted to hardcode ControllerVersion
 func buildPatch() string {
-	return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1beta1
+	return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   annotations:
