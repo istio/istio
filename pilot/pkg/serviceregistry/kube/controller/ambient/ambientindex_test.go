@@ -419,9 +419,6 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		// the original one goes away, the new one takes over
 		deleteServiceEntry(s, 1)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname(testNS, "foo.com"),
-			// this is pretty terrible as we may observe one or two events
-			// for foo.com, right now this is pretty flake as a result
-			// s.xdsNamespacedHostname(testNS, "foo.com"),
 			s.seIPXdsName("se-2", "10.10.0.2"),
 			s.seIPXdsName("se-1", "10.10.0.1"))
 		s.assertAddresses(t, testNW+"/10.255.0.1")
