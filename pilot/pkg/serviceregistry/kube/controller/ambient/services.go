@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
@@ -78,10 +77,20 @@ func (a *index) ServicesCollection(
 		return []string{fmt.Sprintf("%s/%s", se.Service.Namespace, se.Service.Hostname)}
 	})
 
+	serviceByHostname := krt.NewIndex(ServicesInfo, "serviceByHostname", func(s model.ServiceInfo) []string {
+		return []string{s.Service.Hostname}
+	})
+
 	DedupedServiceEntriesInfo := krt.NewCollection(
 		serviceEntryByHostname.AsCollection(),
 		func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) *model.ServiceInfo {
 			if len(se.Objects) == 0 {
+				return nil
+			}
+
+			s := krt.FetchOne(ctx, ServicesInfo, krt.FilterIndex(serviceByHostname, se.Objects[0].Service.Hostname))
+			if s != nil {
+				// if we have a hostname conflict with a kubernetes service, we should eliminate all the ServiceEntry ServiceInfos for this hostname
 				return nil
 			}
 
@@ -99,20 +108,10 @@ func (a *index) ServicesCollection(
 			}),
 		)...,
 	)
-	WorkloadServices := krt.JoinWithMergeCollection(
+	WorkloadServices := krt.JoinCollection(
 		[]krt.Collection[model.ServiceInfo]{
 			ServicesInfo,
 			DedupedServiceEntriesInfo,
-		},
-		func(conflicting []model.ServiceInfo) *model.ServiceInfo {
-			// we'll never have more than 2 here - Service can't have hostname conflict
-			// we already de-duplicated ServiceEntries above
-			for _, c := range conflicting {
-				if c.Source.Kind == kind.Service {
-					return &c
-				}
-			}
-			return &conflicting[0]
 		},
 		append(opts.WithName("WorkloadServices"), krt.WithMetadata(
 			krt.Metadata{
