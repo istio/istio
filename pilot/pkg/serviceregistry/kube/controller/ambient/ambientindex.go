@@ -659,20 +659,6 @@ func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.Ser
 	// TODO(jaellio): Improve this to use a more efficient lookup/index since this is in the
 	// hot path for east west gateway updates/configuration.
 	for _, svc := range a.services.List() {
-		workloads := a.workloads.ByServiceKey.Lookup(svc.ResourceName())
-		localWorkloads := false
-		for _, wl := range workloads {
-			if wl.Workload.Network == key.Network {
-				localWorkloads = true
-				break
-			}
-		}
-		if !localWorkloads {
-			log.Debugf("Skipping service %s/%s in network %s, as it has no local workloads in the network %s",
-				svc.Service.Namespace, svc.Service.Name, key.Network, key.Network)
-			continue
-		}
-
 		if svc.Scope != model.Global {
 			// Check if the service is a waypoint. If the service is not a waypoint
 			// or it's a waypoint containing no services then the Lookup will return
