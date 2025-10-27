@@ -15,7 +15,7 @@ metadata:
   {{- if ge .KubeVersion 128 }}
   # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: "{{.Name}}"
     uid: "{{.UID}}"
@@ -37,7 +37,7 @@ metadata:
         "gateway.istio.io/managed" "istio.io-gateway-controller"
       ) | nindent 4 }}
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: {{.Name}}
     uid: "{{.UID}}"
@@ -338,7 +338,7 @@ metadata:
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: {{.Name}}
     uid: {{.UID}}
@@ -373,7 +373,7 @@ metadata:
           "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
           ) | nindent 4 }}
   ownerReferences:
-    - apiVersion: gateway.networking.k8s.io/v1beta1
+    - apiVersion: gateway.networking.k8s.io/v1
       kind: Gateway
       name: {{.Name}}
       uid: "{{.UID}}"
@@ -399,7 +399,7 @@ metadata:
           "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
           ) | nindent 4 }}
   ownerReferences:
-    - apiVersion: gateway.networking.k8s.io/v1beta1
+    - apiVersion: gateway.networking.k8s.io/v1
       kind: Gateway
       name: {{.Name}}
       uid: "{{.UID}}"
