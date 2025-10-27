@@ -1,6 +1,38 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
+  name: http-filter
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        # context omitted so that this applies to both sidecars and gateways
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.filters.network.http_connection_manager"
+      patch:
+        operation: INSERT_FIRST
+        value:
+          name: envoy.filters.http.ext_proc
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+            failure_mode_allow: false
+            allow_mode_override: true
+            processing_mode:
+              request_header_mode: "SEND"
+              response_header_mode: "SKIP"
+              request_body_mode: "FULL_DUPLEX_STREAMED"
+              response_body_mode: "NONE"
+              request_trailer_mode: "SEND"
+              response_trailer_mode: "SKIP"
+            grpc_service:
+              envoy_grpc:
+                cluster_name: fake-cluster
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
   name: waypoint-http-filter
 spec:
   configPatches:
