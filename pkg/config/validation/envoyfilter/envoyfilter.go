@@ -69,12 +69,6 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 			errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: stylecheck
 			continue
 		}
-
-		if cp.Match != nil && cp.Match.Context == networking.EnvoyFilter_WAYPOINT {
-			// TODO(zirain): Add validation for waypoint proxy
-			continue
-		}
-
 		if cp.ApplyTo == networking.EnvoyFilter_INVALID {
 			errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: stylecheck
 			continue
