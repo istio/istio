@@ -1042,6 +1042,12 @@ func serviceEntryWorkloadBuilder(
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
+	serviceEntryInfosByNamespaceAndName := krt.NewIndex(workloadServices, "serviceEntryInfosByNamespaceAndName", func(si model.ServiceInfo) []string {
+		if si.Source.Kind != kind.ServiceEntry {
+			return nil
+		}
+		return []string{si.Source.NamespacedName.Namespace + "/" + si.Source.NamespacedName.Name}
+	})
 	return func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
 		eps := se.Spec.Endpoints
 		// If we have a DNS service, endpoints are not required
@@ -1056,17 +1062,10 @@ func serviceEntryWorkloadBuilder(
 		cluster := clusterGetter(ctx)
 		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
 		// `allServices` (since we are building workloads here, not services).
-		allServices := krt.Fetch(ctx, workloadServices, krt.FilterGeneric(
-			func(a any) bool {
-				si := a.(model.ServiceInfo)
-				source := si.Source
-				// check for workload services which are from this ServiceEntry
-				return source.Kind == kind.ServiceEntry && source.NamespacedName.Namespace == se.Namespace && source.NamespacedName.Name == se.Name
-			},
-		))
+		allServices := krt.Fetch(ctx, workloadServices, krt.FilterIndex(serviceEntryInfosByNamespaceAndName, se.Namespace+"/"+se.Name))
 		if len(allServices) == 0 {
 			// this ServiceEntry was pruned entirely by deduplication in the WorkloadServices collection, it's endpoints should not be sent to the data plane
-			log.Infof("No workload services found for ServiceEntry %s/%s", se.Namespace, se.Name)
+			log.Debugf("No WorkloadServices found for ServiceEntry %s/%s", se.Namespace, se.Name)
 			return nil
 		}
 		if implicitEndpoints {
