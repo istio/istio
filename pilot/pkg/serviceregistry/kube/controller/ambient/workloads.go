@@ -1065,7 +1065,7 @@ func serviceEntryWorkloadBuilder(
 		allServices := krt.Fetch(ctx, workloadServices, krt.FilterIndex(serviceEntryInfosByNamespaceAndName, se.Namespace+"/"+se.Name))
 		if len(allServices) == 0 {
 			// this ServiceEntry was pruned entirely by deduplication in the WorkloadServices collection, it's endpoints should not be sent to the data plane
-			log.Debugf("No WorkloadServices found for ServiceEntry %s/%s", se.Namespace, se.Name)
+			log.Debugf("ServiceEntry %s/%s was pruned by deduplication. Endpoints from this ServiceEntry will not be sent to the data plane.", se.Namespace, se.Name)
 			return nil
 		}
 		if implicitEndpoints {
