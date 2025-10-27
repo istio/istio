@@ -445,7 +445,6 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 
 		// the original one goes away, the new one takes over
 		s.deleteService(t, "svc1")
-		time.Sleep(time.Millisecond * 50) // hack: maybe handle flakes from indeterminate number of events
 		s.assertUnorderedEvent(t, s.svcXdsName("svc1"), s.seIPXdsName("se-2", "10.10.0.2"))
 		s.assertAddresses(t, testNW+"/10.255.255.1")
 		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
