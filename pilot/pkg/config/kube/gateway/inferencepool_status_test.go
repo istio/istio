@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/status"
@@ -523,30 +522,30 @@ func InNamespace(namespace string) Option {
 
 func WithController(name string) Option {
 	return func(obj client.Object) {
-		gw, ok := obj.(*gateway.GatewayClass)
+		gw, ok := obj.(*gatewayv1.GatewayClass)
 		if ok {
-			gw.Spec.ControllerName = gateway.GatewayController(name)
+			gw.Spec.ControllerName = gatewayv1.GatewayController(name)
 		}
 	}
 }
 
 func WithGatewayClass(name string) Option {
 	return func(obj client.Object) {
-		gw, ok := obj.(*gateway.Gateway)
+		gw, ok := obj.(*gatewayv1.Gateway)
 		if ok {
-			gw.Spec.GatewayClassName = gateway.ObjectName(name)
+			gw.Spec.GatewayClassName = gatewayv1.ObjectName(name)
 		}
 	}
 }
 
 func WithParentRef(name, namespace string) Option {
 	return func(obj client.Object) {
-		hr, ok := obj.(*gateway.HTTPRoute)
+		hr, ok := obj.(*gatewayv1.HTTPRoute)
 		if ok {
-			namespaceName := gateway.Namespace(namespace)
-			hr.Spec.ParentRefs = []gateway.ParentReference{
+			namespaceName := gatewayv1.Namespace(namespace)
+			hr.Spec.ParentRefs = []gatewayv1.ParentReference{
 				{
-					Name:      gateway.ObjectName(name),
+					Name:      gatewayv1.ObjectName(name),
 					Namespace: &namespaceName,
 				},
 			}
@@ -556,26 +555,26 @@ func WithParentRef(name, namespace string) Option {
 
 func WithParentRefAndStatus(name, namespace, controllerName string) Option {
 	return func(obj client.Object) {
-		hr, ok := obj.(*gateway.HTTPRoute)
+		hr, ok := obj.(*gatewayv1.HTTPRoute)
 		if ok {
-			namespaceName := gateway.Namespace(namespace)
+			namespaceName := gatewayv1.Namespace(namespace)
 			if hr.Spec.ParentRefs == nil {
-				hr.Spec.ParentRefs = []gateway.ParentReference{}
+				hr.Spec.ParentRefs = []gatewayv1.ParentReference{}
 			}
-			hr.Spec.ParentRefs = append(hr.Spec.ParentRefs, gateway.ParentReference{
-				Name:      gateway.ObjectName(name),
+			hr.Spec.ParentRefs = append(hr.Spec.ParentRefs, gatewayv1.ParentReference{
+				Name:      gatewayv1.ObjectName(name),
 				Namespace: &namespaceName,
 			})
 			if hr.Status.Parents == nil {
-				hr.Status.Parents = []gateway.RouteParentStatus{}
+				hr.Status.Parents = []gatewayv1.RouteParentStatus{}
 			}
 
-			parentStatusRef := &gateway.RouteParentStatus{
-				ParentRef: gateway.ParentReference{
-					Name:      gateway.ObjectName(name),
+			parentStatusRef := &gatewayv1.RouteParentStatus{
+				ParentRef: gatewayv1.ParentReference{
+					Name:      gatewayv1.ObjectName(name),
 					Namespace: &namespaceName,
 				},
-				ControllerName: gateway.GatewayController(controllerName),
+				ControllerName: gatewayv1.GatewayController(controllerName),
 			}
 			hr.Status.Parents = append(hr.Status.Parents, *parentStatusRef)
 		}
@@ -584,7 +583,7 @@ func WithParentRefAndStatus(name, namespace, controllerName string) Option {
 
 func WithRouteParentCondition(conditionType string, status metav1.ConditionStatus, reason, message string) Option {
 	return func(obj client.Object) {
-		hr, ok := obj.(*gateway.HTTPRoute)
+		hr, ok := obj.(*gatewayv1.HTTPRoute)
 		if ok && len(hr.Status.Parents) > 0 {
 			// Add condition to the last parent status (most recently added)
 			lastParentIdx := len(hr.Status.Parents) - 1
@@ -607,20 +606,20 @@ func WithRouteParentCondition(conditionType string, status metav1.ConditionStatu
 
 func WithBackendRef(name, namespace string) Option {
 	return func(obj client.Object) {
-		hr, ok := obj.(*gateway.HTTPRoute)
+		hr, ok := obj.(*gatewayv1.HTTPRoute)
 		if ok {
-			namespaceName := gateway.Namespace(namespace)
+			namespaceName := gatewayv1.Namespace(namespace)
 			if hr.Spec.Rules == nil {
-				hr.Spec.Rules = []gateway.HTTPRouteRule{}
+				hr.Spec.Rules = []gatewayv1.HTTPRouteRule{}
 			}
-			group := gateway.Group(gvk.InferencePool.Group)
-			kind := gateway.Kind(gvk.InferencePool.Kind)
-			hr.Spec.Rules = append(hr.Spec.Rules, gateway.HTTPRouteRule{
-				BackendRefs: []gateway.HTTPBackendRef{
+			group := gatewayv1.Group(gvk.InferencePool.Group)
+			kind := gatewayv1.Kind(gvk.InferencePool.Kind)
+			hr.Spec.Rules = append(hr.Spec.Rules, gatewayv1.HTTPRouteRule{
+				BackendRefs: []gatewayv1.HTTPBackendRef{
 					{
-						BackendRef: gateway.BackendRef{
-							BackendObjectReference: gateway.BackendObjectReference{
-								Name:      gateway.ObjectName(name),
+						BackendRef: gatewayv1.BackendRef{
+							BackendObjectReference: gatewayv1.BackendObjectReference{
+								Name:      gatewayv1.ObjectName(name),
 								Namespace: &namespaceName,
 								Kind:      &kind,
 								Group:     &group,
@@ -719,13 +718,13 @@ func WithExtensionRef(kind, name string) Option {
 
 // --- Object Creation Functions ---
 
-func NewGateway(name string, opts ...Option) *gateway.Gateway {
-	gw := &gateway.Gateway{
+func NewGateway(name string, opts ...Option) *gatewayv1.Gateway {
+	gw := &gatewayv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: DefaultTestNS,
 		},
-		Spec: gateway.GatewaySpec{
+		Spec: gatewayv1.GatewaySpec{
 			GatewayClassName: "istio",
 		},
 	}
@@ -735,8 +734,8 @@ func NewGateway(name string, opts ...Option) *gateway.Gateway {
 	return gw
 }
 
-func NewHTTPRoute(name string, opts ...Option) *gateway.HTTPRoute {
-	hr := &gateway.HTTPRoute{
+func NewHTTPRoute(name string, opts ...Option) *gatewayv1.HTTPRoute {
+	hr := &gatewayv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: DefaultTestNS,

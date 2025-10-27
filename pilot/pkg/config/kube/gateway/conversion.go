@@ -34,7 +34,6 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
@@ -100,7 +99,7 @@ func sortedConfigByCreationTime(configs []config.Config) []config.Config {
 }
 
 func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
-	obj *k8sbeta.HTTPRoute, pos int, enforceRefGrant bool,
+	obj *k8s.HTTPRoute, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *inferencePoolConfig, *ConfigError) {
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
@@ -1652,8 +1651,8 @@ func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
 
 func reportGatewayStatus(
 	r *GatewayContext,
-	obj *k8sbeta.Gateway,
-	gs *k8sbeta.GatewayStatus,
+	obj *k8s.Gateway,
+	gs *k8s.GatewayStatus,
 	classInfo classInfo,
 	gatewayServices []string,
 	servers []*istio.Server,
@@ -1756,7 +1755,7 @@ func reportGatewayStatus(
 
 func reportListenerSetStatus(
 	r *GatewayContext,
-	parentGwObj *k8sbeta.Gateway,
+	parentGwObj *k8s.Gateway,
 	obj *gatewayx.XListenerSet,
 	gs *gatewayx.ListenerSetStatus,
 	gatewayServices []string,
@@ -1827,8 +1826,8 @@ func setProgrammedCondition(gatewayConditions map[string]*condition, internal []
 // For these gateways, we don't deploy them. However, all gateways ought to have a status message, even if its basically
 // just to say something read it
 func reportUnmanagedGatewayStatus(
-	status *k8sbeta.GatewayStatus,
-	obj *k8sbeta.Gateway,
+	status *k8s.GatewayStatus,
+	obj *k8s.Gateway,
 ) {
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
@@ -1930,7 +1929,7 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 	return false
 }
 
-func extractGatewayServices(domainSuffix string, kgw *k8sbeta.Gateway, info classInfo) ([]string, *ConfigError) {
+func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info classInfo) ([]string, *ConfigError) {
 	if IsManaged(&kgw.Spec) {
 		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], getDefaultName(kgw.Name, &kgw.Spec, info.disableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, kgw.Namespace, domainSuffix)}, nil
@@ -2431,7 +2430,7 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 }
 
 // namespaceAcceptedByAllowListeners determines a list of allowed namespaces for a given AllowedListener
-func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8sbeta.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
+func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8s.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
 	lr := parent.Spec.AllowedListeners
 	// Default allows none
 	if lr == nil || lr.Namespaces == nil {
@@ -2505,7 +2504,7 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
 	case *k8salpha.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute
-	case *k8sbeta.HTTPRoute:
+	case *k8s.HTTPRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.HTTPRoute
 	case *k8s.GRPCRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.GRPCRoute
@@ -2521,7 +2520,7 @@ func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 		return t.Status.Parents
 	case *k8salpha.TLSRoute:
 		return t.Status.Parents
-	case *k8sbeta.HTTPRoute:
+	case *k8s.HTTPRoute:
 		return t.Status.Parents
 	case *k8s.GRPCRoute:
 		return t.Status.Parents
@@ -2578,13 +2577,13 @@ func GetStatus[I, IS any](spec I) IS {
 		return any(t.Status).(IS)
 	case *k8salpha.TLSRoute:
 		return any(t.Status).(IS)
-	case *k8sbeta.HTTPRoute:
+	case *k8s.HTTPRoute:
 		return any(t.Status).(IS)
 	case *k8s.GRPCRoute:
 		return any(t.Status).(IS)
-	case *k8sbeta.Gateway:
+	case *k8s.Gateway:
 		return any(t.Status).(IS)
-	case *k8sbeta.GatewayClass:
+	case *k8s.GatewayClass:
 		return any(t.Status).(IS)
 	case *gatewayx.XBackendTrafficPolicy:
 		return any(t.Status).(IS)
