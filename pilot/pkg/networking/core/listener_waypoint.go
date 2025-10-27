@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -358,6 +359,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 						portProtocols[port.Port] = protocol.HTTP
 					}
 				} else {
+					if port.Protocol.IsTLS() && svc.Hostname.IsWildCarded() && svc.Resolution == model.DynamicDNS &&
+						!features.EnableWildcardHostServiceEntriesForTLS {
+						log.Debugf("skipping waypoint inbound chain for TLS protocol for service %s since the feature is disabled", svc.Hostname)
+						continue
+					}
 					// Note that this could include double hbone
 					chains = append(chains, tcpChain)
 					portMapper.Map[portString] = match.ToChain(tcpChain.Name)

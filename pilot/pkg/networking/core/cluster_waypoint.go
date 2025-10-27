@@ -302,6 +302,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				log.Debugf("skipping waypoint VIP cluster for unsupported protocol %s for service %s with DynamicDNS resolution", port.Protocol, svc.Hostname)
 				continue
 			}
+			if svc.Resolution == model.DynamicDNS && port.Protocol == protocol.TLS && !features.EnableWildcardHostServiceEntriesForTLS {
+				log.Debugf("skipping waypoint VIP cluster for TLS protocol for service %s with DynamicDNS resolution since the feature is disabled", svc.Hostname)
+				continue
+			}
 			if isEastWestGateway(proxy) {
 				// East-west gateways don't respect DestinationRule, so don't read it here
 				// TODO: Confirm this decision

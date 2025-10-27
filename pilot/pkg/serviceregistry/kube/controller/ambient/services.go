@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
@@ -426,10 +427,14 @@ func constructServiceEntries(
 		autoassignedHostAddresses = serviceentry.GetHostAddressesFromServiceEntry(svc)
 	}
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
+	containsTLSPort := false
 	for _, p := range svc.Spec.Ports {
 		target := p.TargetPort
 		if target == 0 {
 			target = p.Number
+		}
+		if p.Protocol == string(protocol.TLS) {
+			containsTLSPort = true
 		}
 		ports = append(ports, &workloadapi.Port{
 			ServicePort: p.Number,
@@ -473,6 +478,12 @@ func constructServiceEntries(
 					return toNetworkAddressFromIP(e, networkGetter(ctx))
 				})
 			}
+		}
+		if host.Name(h).IsWildCarded() && containsTLSPort && svc.Spec.Resolution == v1alpha3.ServiceEntry_DYNAMIC_DNS &&
+			!features.EnableWildcardHostServiceEntriesForTLS {
+			log.Debugf("xds configuration will not be generated for the TLS port belonging to the service %s with wildcard "+
+				"host %s since the feature is disabled", svc.Name, h)
+			continue
 		}
 		res = append(res, &workloadapi.Service{
 			Name:            svc.Name,
