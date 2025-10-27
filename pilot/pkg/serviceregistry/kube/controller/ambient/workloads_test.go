@@ -15,6 +15,7 @@
 package ambient
 
 import (
+	"cmp"
 	"net/netip"
 	"testing"
 
@@ -1649,6 +1650,9 @@ func TestServiceEntryWorkloads(t *testing.T) {
 			res := builder(krt.TestingDummyContext{}, tt.se)
 			wl := slices.Map(res, func(e model.WorkloadInfo) *workloadapi.Workload {
 				return e.Workload
+			})
+			slices.SortFunc(wl, func(a, b *workloadapi.Workload) int {
+				return cmp.Compare(a.Uid, b.Uid)
 			})
 			assert.Equal(t, wl, tt.result)
 		})
