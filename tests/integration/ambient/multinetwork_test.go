@@ -187,9 +187,7 @@ func deployWaypointsOrFail(t framework.TestContext, unhealthy cluster.Cluster, w
 
 	_ = ambient.NewWaypointProxyOrFail(t, ns, waypoint)
 	ambient.SetWaypointForNamespace(t, ns, waypoint)
-	for _, c := range t.AllClusters() {
-		labelServiceInCluster(t, c, ns.Name(), waypoint, "istio.io/global", "true")
-	}
+	labelService(t, ns.Name(), waypoint, "istio.io/global", "true", t.AllClusters()...)
 
 	scaleDeploymentOrFail(t, unhealthy, ns.Name(), waypoint, 0)
 }
