@@ -114,7 +114,7 @@ func (a *index) ServicesCollection(
 			}
 			return &conflicting[0]
 		},
-		append(opts.WithName("WorkloadService"), krt.WithMetadata(
+		append(opts.WithName("WorkloadServices"), krt.WithMetadata(
 			krt.Metadata{
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			},
