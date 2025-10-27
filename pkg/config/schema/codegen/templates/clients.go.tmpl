@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/typemap"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/informerfactory"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
@@ -31,6 +32,13 @@ import (
 )
 
 func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
+	reg := typemap.Get[TypeRegistration[T]](registerTypes)
+	if reg != nil {
+		w := (*reg).Write(c, namespace)
+		if w != nil {
+			return w
+		}
+	}
 	switch any(ptr.Empty[T]()).(type) {
 {{- range .Entries }}
 	{{- if not .Resource.Synthetic }}

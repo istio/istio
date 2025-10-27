@@ -1,3 +1,4 @@
+{{- if or (eq .Values.resourceScope "all") (eq .Values.resourceScope "namespace") }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -159,6 +160,7 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+              divisor: "1"
         {{- with .Values.env }}
         {{- range $key, $val := . }}
         - name: {{ $key }}
@@ -208,3 +210,4 @@ spec:
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 6}}
       {{- end }}
+{{- end }}

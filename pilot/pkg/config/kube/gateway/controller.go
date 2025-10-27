@@ -228,6 +228,7 @@ func NewController(
 
 	references := NewReferenceSet(
 		AddReference(inputs.Services),
+		AddReference(inputs.ServiceEntries),
 		AddReference(inputs.ConfigMaps),
 		AddReference(inputs.Secrets),
 	)
@@ -538,10 +539,6 @@ func (c *Controller) Update(config config.Config) (newRevision string, err error
 }
 
 func (c *Controller) UpdateStatus(config config.Config) (newRevision string, err error) {
-	return "", errUnsupportedOp
-}
-
-func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	return "", errUnsupportedOp
 }
 

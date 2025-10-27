@@ -1,3 +1,5 @@
+# Created if cluster resources are not omitted
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
 {{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled (or .Values.global.configCluster .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
 {{ $mcsAPIGroup := or .Values.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
@@ -209,5 +211,6 @@ rules:
   - apiGroups: [""]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "serviceaccounts"]
+{{- end }}
 {{- end }}
 {{- end }}

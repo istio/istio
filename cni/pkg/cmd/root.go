@@ -112,6 +112,11 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 			}
+
+			if cfg.InstallConfig.NativeNftables && cfg.InstallConfig.ForceIptablesBinary != "" {
+				log.Warn("NativeNftables is enabled along with ForceIptablesBinary. Using native nftables and ignoring iptables")
+			}
+
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
 					SystemNamespace:            nodeagent.SystemNamespace,
@@ -122,6 +127,7 @@ var rootCmd = &cobra.Command{
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
 					NativeNftables:             cfg.InstallConfig.NativeNftables,
+					ForceIptablesBinary:        cfg.InstallConfig.ForceIptablesBinary,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -133,25 +139,27 @@ var rootCmd = &cobra.Command{
 			// if it is, we do NOT remove the plugin, and do
 			// NOT do ambient watch server cleanup
 			defer func() {
-				var isUpgrade bool
+				var shouldStopCleanup bool
 				if cfg.InstallConfig.AmbientDisableSafeUpgrade {
 					log.Info("Ambient node agent safe upgrade explicitly disabled via env")
-					isUpgrade = false
+					shouldStopCleanup = false
 				} else {
-					isUpgrade = ambientAgent.ShouldStopForUpgrade("istio-cni", nodeagent.PodNamespace)
+					shouldStopCleanup = ambientAgent.ShouldStopCleanup("istio-cni", nodeagent.PodNamespace, cfg.InstallConfig.IstioOwnedCNIConfig)
 				}
-				log.Infof("Ambient node agent shutting down - is upgrade shutdown? %t", isUpgrade)
+				log.Infof("Ambient node agent shutting down - should stop cleanup? %t", shouldStopCleanup)
+
+				// TODO(jaellio) - do we want to add support for a partial cleanup
 				// if we are doing an "upgrade shutdown", then
 				// we do NOT want to remove/cleanup the CNI plugin.
 				//
 				// This is important - we want it to remain in place to "stall"
 				// new ambient-enabled pods while our replacement spins up.
-				if !isUpgrade {
+				if !shouldStopCleanup {
 					if cleanErr := installer.Cleanup(); cleanErr != nil {
 						log.Error(cleanErr.Error())
 					}
 				}
-				ambientAgent.Stop(isUpgrade)
+				ambientAgent.Stop(shouldStopCleanup)
 			}()
 
 			ambientAgent.Start()
@@ -322,7 +330,8 @@ func constructConfig() (*config.Config, error) {
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),
 		AmbientReconcilePodRulesOnStartup: viper.GetBool(constants.AmbientReconcilePodRulesOnStartup),
 
-		NativeNftables: viper.GetBool(constants.NativeNftables),
+		NativeNftables:      viper.GetBool(constants.NativeNftables),
+		ForceIptablesBinary: os.Getenv("FORCE_IPTABLES_BINARY"),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
@@ -340,20 +349,21 @@ func constructConfig() (*config.Config, error) {
 	}
 
 	repairCfg := config.RepairConfig{
-		Enabled:            viper.GetBool(constants.RepairEnabled),
-		RepairPods:         viper.GetBool(constants.RepairRepairPods),
-		DeletePods:         viper.GetBool(constants.RepairDeletePods),
-		LabelPods:          viper.GetBool(constants.RepairLabelPods),
-		LabelKey:           viper.GetString(constants.RepairLabelKey),
-		LabelValue:         viper.GetString(constants.RepairLabelValue),
-		NodeName:           viper.GetString(constants.RepairNodeName),
-		SidecarAnnotation:  viper.GetString(constants.RepairSidecarAnnotation),
-		InitContainerName:  viper.GetString(constants.RepairInitContainerName),
-		InitTerminationMsg: viper.GetString(constants.RepairInitTerminationMsg),
-		InitExitCode:       viper.GetInt(constants.RepairInitExitCode),
-		LabelSelectors:     viper.GetString(constants.RepairLabelSelectors),
-		FieldSelectors:     viper.GetString(constants.RepairFieldSelectors),
-		NativeNftables:     viper.GetBool(constants.NativeNftables),
+		Enabled:             viper.GetBool(constants.RepairEnabled),
+		RepairPods:          viper.GetBool(constants.RepairRepairPods),
+		DeletePods:          viper.GetBool(constants.RepairDeletePods),
+		LabelPods:           viper.GetBool(constants.RepairLabelPods),
+		LabelKey:            viper.GetString(constants.RepairLabelKey),
+		LabelValue:          viper.GetString(constants.RepairLabelValue),
+		NodeName:            viper.GetString(constants.RepairNodeName),
+		SidecarAnnotation:   viper.GetString(constants.RepairSidecarAnnotation),
+		InitContainerName:   viper.GetString(constants.RepairInitContainerName),
+		InitTerminationMsg:  viper.GetString(constants.RepairInitTerminationMsg),
+		InitExitCode:        viper.GetInt(constants.RepairInitExitCode),
+		LabelSelectors:      viper.GetString(constants.RepairLabelSelectors),
+		FieldSelectors:      viper.GetString(constants.RepairFieldSelectors),
+		NativeNftables:      viper.GetBool(constants.NativeNftables),
+		ForceIptablesBinary: os.Getenv("FORCE_IPTABLES_BINARY"),
 	}
 
 	return &config.Config{InstallConfig: installCfg, RepairConfig: repairCfg}, nil

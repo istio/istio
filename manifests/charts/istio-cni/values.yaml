@@ -163,6 +163,10 @@ _internal_defaults_do_not_set:
 
     logAsJson: false
 
+    # When enabled, default NetworkPolicy resources will be created
+    networkPolicy:
+      enabled: false
+
     # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
     # to use for pulling any images in pods that reference this ServiceAccount.
     # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
@@ -179,6 +183,14 @@ _internal_defaults_do_not_set:
 
     # In order to use native nftable rules instead of iptable rules, set this flag to true.
     nativeNftables: false
+
+    # resourceScope controls what resources will be processed by helm.
+    # This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+    # It can be one of:
+    # - all: all resources are processed
+    # - cluster: only cluster-scoped resources are processed
+    # - namespace: only namespace-scoped resources are processed
+    resourceScope: all
 
   # A `key: value` mapping of environment variables to add to the pod
   env: {}

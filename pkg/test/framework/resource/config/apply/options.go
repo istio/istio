@@ -20,7 +20,4 @@ import "istio.io/istio/pkg/test/framework/resource/config/cleanup"
 type Options struct {
 	// Cleanup strategy
 	Cleanup cleanup.Strategy
-
-	// Wait for configuration to be propagated.
-	Wait bool
 }

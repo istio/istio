@@ -15,6 +15,7 @@
 package config
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -134,6 +135,34 @@ func TestValidateIPv4LoopbackCidr_Invalid(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ValidateIPv4LoopbackCidr(tc.cidr)
 			assert.Error(t, err)
+		})
+	}
+}
+
+func TestValidateIptablesBinary(t *testing.T) {
+	cases := []struct {
+		name     string
+		input    string
+		expected error
+	}{
+		{
+			name:  "accepted_iptables_version",
+			input: "legacy",
+		},
+		{
+			name:  "empty_iptables_version",
+			input: "",
+		},
+		{
+			name:     "rejected_iptables_version",
+			input:    "random",
+			expected: fmt.Errorf("invalid FORCE_IPTABLES_BINARY value %q", "random"),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, ValidateIptablesBinary(tc.input))
 		})
 	}
 }
