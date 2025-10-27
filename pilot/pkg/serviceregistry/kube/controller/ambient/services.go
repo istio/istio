@@ -483,7 +483,6 @@ func constructServiceEntries(
 			!features.EnableWildcardHostServiceEntriesForTLS {
 			log.Debugf("xds configuration will not be generated for the TLS port belonging to the service %s with wildcard "+
 				"host %s since the feature is disabled", svc.Name, h)
-			continue
 		}
 		res = append(res, &workloadapi.Service{
 			Name:            svc.Name,
