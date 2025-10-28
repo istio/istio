@@ -16,6 +16,7 @@ package kclient
 
 import (
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
@@ -25,6 +26,7 @@ import (
 	"sigs.k8s.io/gateway-api/pkg/consts"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -54,10 +56,15 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 		callbacks: map[string][]func(){},
 	}
 
+	filters := []filterFunction{minimumVersionFilter}
+	if features.IgnorePilotResources {
+		filters = append(filters, filterPilotResources(features.BypassCRDFilter))
+	}
+
 	c.queue = controllers.NewQueue("crd watcher",
 		controllers.WithReconciler(c.Reconcile))
 	c.crds = NewMetadata(client, gvr.CustomResourceDefinition, Filter{
-		ObjectFilter: kubetypes.NewStaticObjectFilter(minimumVersionFilter),
+		ObjectFilter: kubetypes.NewStaticObjectFilter(unionFilter(filters)),
 	})
 	c.crds.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	return c
@@ -66,6 +73,50 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 var minimumCRDVersions = map[string]*semver.Version{
 	"grpcroutes.gateway.networking.k8s.io":         semver.New(1, 1, 0, "", ""),
 	"backendtlspolicies.gateway.networking.k8s.io": semver.New(1, 4, 0, "", ""),
+}
+
+type filterFunction = func(obj any) bool
+
+// unionFilter can be used to establish multiple object filters on CRD types.
+// We can use it for cases where we care about filtering out a CRD for a specific
+// version, or a specific group.
+// As an example, it may be desired to not reconcile CRDs from istio.io group and also
+// not reconcile CRDs that contains an older version
+func unionFilter(fns []filterFunction) filterFunction {
+	return func(obj any) bool {
+		// if any of the functions returns false, early return the union
+		for _, f := range fns {
+			if !f(obj) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// filterPilotResources can be used in case we want to start the controller
+// ignoring any Pilot resource. A list of resources that should be bypassed from
+// this filter can be sent as a parameter. As an example, some cluster admin that
+// wants to have a Gateway API implementation but still allow the usage of wasmplugins
+// can pass the resource "wasmplugins.extensions.istio.io"
+func filterPilotResources(bypassResources []string) filterFunction {
+	pilotCollections := collections.Pilot.All()
+	return func(t any) bool {
+		crd := t.(*metav1.PartialObjectMetadata)
+		if slices.Contains(bypassResources, crd.Name) {
+			log.Info(fmt.Sprintf("bypassing %s from pilot CRD filter", crd.Name))
+			return true
+		}
+		for _, p := range pilotCollections {
+			name := fmt.Sprintf("%s.%s", p.Plural(), p.Group())
+			// If this CRD matches, we should exclude it (so return false)
+			if crd.Name == name {
+				log.Info(fmt.Sprintf("excluding %s due to pilot CRD filter", crd.Name))
+				return false
+			}
+		}
+		return true
+	}
 }
 
 // minimumVersionFilter filters CRDs that do not meet a minimum "version".
