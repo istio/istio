@@ -359,6 +359,26 @@ func virtualHostMatch(vh *route.VirtualHost, rp *model.EnvoyFilterConfigPatchWra
 		(match.DomainName == "" || slices.Contains(vh.Domains, match.DomainName))
 }
 
+type RouteWithNameMatch interface {
+	GetName() string
+}
+
+func routeNameMatch(httpRoute *route.Route, nameMatch RouteWithNameMatch) bool {
+	if httpRoute == nil {
+		// we have a specific match for particular route but
+		// we do not have a route to match.
+		return false
+	}
+
+	// check if httpRoute names match
+	name := nameMatch.GetName()
+	if name != "" && name != httpRoute.Name {
+		return false
+	}
+
+	return true
+}
+
 func routeMatch(patchContext networking.EnvoyFilter_PatchContext, httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper) bool {
 	if patchContext == networking.EnvoyFilter_WAYPOINT {
 		wMatch := rp.Match.GetWaypoint()
@@ -372,13 +392,7 @@ func routeMatch(patchContext networking.EnvoyFilter_PatchContext, httpRoute *rou
 			return true
 		}
 
-		if httpRoute == nil {
-			// we have a specific match for particular route but
-			// we do not have a route to match.
-			return false
-		}
-
-		if rMatch.Name != "" && rMatch.Name != httpRoute.Name {
+		if !routeNameMatch(httpRoute, rMatch) {
 			return false
 		}
 
@@ -401,14 +415,7 @@ func routeMatch(patchContext networking.EnvoyFilter_PatchContext, httpRoute *rou
 		return true
 	}
 
-	if httpRoute == nil {
-		// we have a specific match for particular httpRoute but
-		// we do not have a httpRoute to match.
-		return false
-	}
-
-	// check if httpRoute names match
-	if match.Name != "" && match.Name != httpRoute.Name {
+	if !routeNameMatch(httpRoute, match) {
 		return false
 	}
 
