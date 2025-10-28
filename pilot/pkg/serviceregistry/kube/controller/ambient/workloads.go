@@ -1064,8 +1064,9 @@ func serviceEntryWorkloadBuilder(
 		// `allServices` (since we are building workloads here, not services).
 		allServices := krt.Fetch(ctx, workloadServices, krt.FilterIndex(serviceEntryInfosByNamespaceAndName, se.Namespace+"/"+se.Name))
 		if len(allServices) == 0 {
-			// this ServiceEntry was pruned entirely by deduplication in the WorkloadServices collection, it's endpoints should not be sent to the data plane
-			log.Debugf("ServiceEntry %s/%s was pruned by deduplication. Endpoints from this ServiceEntry will not be sent to the data plane.", se.Namespace, se.Name)
+			// This ServiceEntry was pruned entirely by deduplication in the WorkloadServices collection, it's endpoints should not be sent to the data plane.
+			// TODO: Once we write deduplication results to ServiceEntry status, we should consider lowering this to Debug to reduce noise in the logs. For now, we warn.
+			log.Warnf("ServiceEntry %s/%s was pruned by deduplication. Endpoints from this ServiceEntry will not be sent to the data plane.", se.Namespace, se.Name)
 			return nil
 		}
 		if implicitEndpoints {
