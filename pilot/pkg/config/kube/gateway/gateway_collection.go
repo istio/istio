@@ -368,7 +368,9 @@ func FinalGatewayStatusCollection(
 ) krt.StatusCollection[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
 	return krt.NewCollection(
 		gatewayStatuses,
-		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus]) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
+		func(
+			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
+		) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
 			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
 			counts := map[string]int32{}
 			for _, r := range tcpRoutes {
