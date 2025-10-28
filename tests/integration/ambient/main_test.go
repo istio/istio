@@ -58,6 +58,10 @@ var (
 const (
 	ambientControlPlaneValues = `
 values:
+  pilot:
+    env:
+      # Note: support is alpha and env var is tightly scoped
+      ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
   cni:
     # The CNI repair feature is disabled for these tests because this is a controlled environment,
     # and it is important to catch issues that might otherwise be automatically fixed.
@@ -81,6 +85,8 @@ values:
   pilot:
     env:
       AMBIENT_ENABLE_MULTI_NETWORK: "true"
+      # Note: support is alpha and env var is tightly scoped
+      ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:

@@ -433,6 +433,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 						portProtocols[port.Port] = protocol.HTTP
 					}
 				} else {
+					if port.Protocol.IsTLS() && svc.Hostname.IsWildCarded() && svc.Resolution == model.DynamicDNS &&
+						!features.EnableWildcardHostServiceEntriesForTLS {
+						log.Debugf("skipping waypoint inbound chain for TLS protocol for service %s since the feature is disabled", svc.Hostname)
+						continue
+					}
 					// Note that this could include double hbone
 					chains = append(chains, tcpChain)
 					portMapper.Map[portString] = match.ToChain(tcpChain.Name)
@@ -916,6 +921,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
 	}
 	var destinationRule *networking.DestinationRule
+	var sniDFPFilter *listener.Filter
 	if svc != nil {
 		svcHostname = svc.Hostname
 		virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
@@ -953,6 +959,11 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 			}
 			tcpProxy.ClusterSpecifier = clusterSpecifier
 		}
+
+		// Conditionally build SNI DFP for wildcard hosts with Dynamic DNS resolution
+		if svcHostname.IsWildCarded() && svc.Resolution == model.DynamicDNS {
+			sniDFPFilter = buildSNIDFPFilter(fcc.port.Port, svc)
+		}
 	}
 
 	// To align with sidecars, subsets are ignored here...?
@@ -968,6 +979,10 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound, fcc.policyService)
 	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
+	if sniDFPFilter != nil {
+		// Add SNI DFP before the TCP proxy so it can use SNI to resolve DNS
+		networkFilterstack = append([]*listener.Filter{sniDFPFilter}, networkFilterstack...)
+	}
 	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
 }
 
