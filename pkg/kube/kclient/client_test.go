@@ -215,7 +215,10 @@ func TestDelayedClientWithRegisteredType(t *testing.T) {
 			}, nil
 		},
 		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1beta1().DestinationRules(namespace).Watch(context.Background(), o)
+			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace).Watch(context.Background(), o)
+		},
+		func(c kubeclient.ClientGetter, namespace string) kubetypes.WriteAPI[*oldistionetclient.DestinationRule] {
+			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace)
 		},
 	)
 

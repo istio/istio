@@ -136,7 +136,7 @@ spec:
         - name: ISTIO_CPU_LIMIT
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
+              divisor: "1"
               resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
@@ -152,12 +152,12 @@ spec:
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
+              divisor: "1"
               resource: limits.memory
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
+              divisor: "1"
               resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes

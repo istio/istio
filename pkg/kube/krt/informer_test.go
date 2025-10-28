@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -105,6 +106,9 @@ func TestUnregisteredTypeCollection(t *testing.T) {
 		},
 		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().NetworkingV1().NetworkPolicies(namespace).Watch(context.Background(), o)
+		},
+		func(c kubeclient.ClientGetter, namespace string) kubetypes.WriteAPI[*v1.NetworkPolicy] {
+			return c.Kube().NetworkingV1().NetworkPolicies(namespace)
 		},
 	)
 	npcoll := krt.NewInformer[*v1.NetworkPolicy](c, opts.WithName("NetworkPolicies")...)

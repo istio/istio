@@ -57,6 +57,12 @@ var (
 			Key: filters.AuthorityFilterStateKey,
 		}),
 	}
+	RequestSourceFilterStateInput = &xds.TypedExtensionConfig{
+		Name: "request-source-filter-state",
+		TypedConfig: protoconv.MessageToAny(&network.FilterStateInput{
+			Key: filters.RequestSourceFilterStateKey,
+		}),
+	}
 )
 
 type Mapper struct {
@@ -92,6 +98,10 @@ func NewSourceIP() Mapper {
 
 func NewDestinationPort() Mapper {
 	return newMapper(DestinationPort)
+}
+
+func NewRequestSource() Mapper {
+	return newMapper(RequestSourceFilterStateInput)
 }
 
 type ProtocolMatch struct {

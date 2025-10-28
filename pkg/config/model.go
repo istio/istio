@@ -21,9 +21,6 @@ import (
 	"reflect"
 	"time"
 
-	gogojsonpb "github.com/gogo/protobuf/jsonpb" // nolint: depguard
-	gogoproto "github.com/gogo/protobuf/proto"   // nolint: depguard
-	gogotypes "github.com/gogo/protobuf/types"   // nolint: depguard
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -37,7 +34,6 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -155,18 +151,6 @@ func ToProto(s Spec) (*anypb.Any, error) {
 		return protoconv.MessageToAnyWithError(pb)
 	}
 
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		gogoany, err := gogotypes.MarshalAny(pb)
-		if err != nil {
-			return nil, err
-		}
-		return &anypb.Any{
-			TypeUrl: gogoany.TypeUrl,
-			Value:   gogoany.Value,
-		}, nil
-	}
-
 	js, err := json.Marshal(s)
 	if err != nil {
 		return nil, err
@@ -212,12 +196,6 @@ func toJSON(s Spec, pretty bool) ([]byte, error) {
 		}
 	}
 
-	b := &bytes.Buffer{}
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		err := (&gogojsonpb.Marshaler{Indent: indent}).Marshal(b, pb)
-		return b.Bytes(), err
-	}
 	if pretty {
 		return json.MarshalIndent(s, "", indent)
 	}
@@ -239,12 +217,6 @@ func ApplyJSONStrict(s Spec, js string) error {
 		}
 	}
 
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		err := gogoprotomarshal.ApplyJSONStrict(js, pb)
-		return err
-	}
-
 	d := json.NewDecoder(bytes.NewReader([]byte(js)))
 	d.DisallowUnknownFields()
 	return d.Decode(&s)
@@ -261,15 +233,10 @@ func ApplyJSON(s Spec, js string) error {
 		}
 	}
 
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		err := gogoprotomarshal.ApplyJSON(js, pb)
-		return err
-	}
-
 	return json.Unmarshal([]byte(js), &s)
 }
 
+// DeepCopy the object. Note: this does not use the correct DeepCopy on Kubernetes types; only use with Istio types.
 func DeepCopy(s any) any {
 	if s == nil {
 		return nil
@@ -286,11 +253,6 @@ func DeepCopy(s any) any {
 		if pb, ok := s.(proto.Message); ok {
 			return protomarshal.Clone(pb)
 		}
-	}
-
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		return gogoproto.Clone(pb)
 	}
 
 	// If we don't have a deep copy method, we will have to do some reflection magic. Its not ideal,
@@ -383,7 +345,6 @@ func equals(a any, b any) bool {
 			return proto.Equal(pb, b.(proto.Message))
 		}
 	}
-	// We do NOT do gogo here. The reason is Kubernetes has hacked up almost-gogo types that do not allow Equals() calls
 
 	return reflect.DeepEqual(a, b)
 }

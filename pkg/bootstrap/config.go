@@ -376,6 +376,7 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig, policy string) map[stri
 		"re2.max_program_size.error_level": "32768",
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
+		"envoy.reloadable_features.fixed_heap_use_allocated":                                                   true,
 	}
 	if policy == common_features.FIPS_140_2 {
 		// This flag limits google_grpc client in Envoy to TLSv1.2 as the maximum version.

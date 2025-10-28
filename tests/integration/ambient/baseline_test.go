@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -3364,7 +3365,7 @@ func TestDirect(t *testing.T) {
 			})
 
 			capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
-			labelService(t, capturedSvc, "istio.io/global", "true")
+			labelService(t, apps.Namespace.Name(), capturedSvc, "istio.io/global", "true", t.Clusters().Default())
 			run("global service", echo.CallOptions{
 				To:          apps.Captured.ForCluster(cluster.Name()),
 				Count:       1,
@@ -3530,14 +3531,22 @@ func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
 	}
 }
 
-func labelService(t framework.TestContext, svcName, k, v string) {
+func labelService(t framework.TestContext, ns, svcName, k, v string, cs ...cluster.Cluster) {
+	t.Helper()
+
+	for _, c := range cs {
+		labelServiceInCluster(t, c, ns, svcName, k, v)
+	}
+}
+
+func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, ns, svcName, k, v string) {
 	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
 	if v == "" {
 		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
 	}
-	s := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name())
-	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	s := c.Kube().CoreV1().Services(ns)
+	_, err := s.Patch(t.Context(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
 	}

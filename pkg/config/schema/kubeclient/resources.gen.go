@@ -16,6 +16,7 @@ import (
 	"istio.io/istio/pkg/kube/informerfactory"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/typemap"
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
@@ -43,6 +44,13 @@ import (
 )
 
 func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.WriteAPI[T] {
+	reg := typemap.Get[TypeRegistration[T]](registerTypes)
+	if reg != nil {
+		w := (*reg).Write(c, namespace)
+		if w != nil {
+			return w
+		}
+	}
 	switch any(ptr.Empty[T]()).(type) {
 	case *apiistioioapisecurityv1.AuthorizationPolicy:
 		return c.Istio().SecurityV1().AuthorizationPolicies(namespace).(ktypes.WriteAPI[T])

@@ -39,6 +39,9 @@ func TestCustomRegistration(t *testing.T) {
 		func(c ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().NetworkingV1().NetworkPolicies(namespace).Watch(context.Background(), o)
 		},
+		func(c ClientGetter, namespace string) ktypes.WriteAPI[*v1.NetworkPolicy] {
+			return c.Kube().NetworkingV1().NetworkPolicies(namespace)
+		},
 	)
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "funkyns"}}
 

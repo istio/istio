@@ -183,7 +183,7 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 		yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(data, 512*1024)
 		for {
 			un := &unstructured.Unstructured{}
-			err = yamlDecoder.Decode(&un)
+			err = yamlDecoder.Decode(un)
 			if err == io.EOF {
 				break
 			}
@@ -218,6 +218,9 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 				if err := apiextensionsv1beta1.Convert_v1beta1_CustomResourceDefinition_To_apiextensions_CustomResourceDefinition(&crdv1beta1, &crd, nil); err != nil {
 					return nil, err
 				}
+			case schema.GroupVersionKind{}:
+				// Not a CRD, skip. Sometimes people put empty objects in YAML files.
+				continue
 			default:
 				return nil, fmt.Errorf("unknown CRD type: %v", un.GroupVersionKind())
 			}

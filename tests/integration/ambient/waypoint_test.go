@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -211,7 +212,11 @@ func TestWaypoint(t *testing.T) {
 }
 
 func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
-	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
+	return checkWaypointIsReadyInCluster(t.AllClusters()[0], ns, name)
+}
+
+func checkWaypointIsReadyInCluster(c cluster.Cluster, ns, name string) error {
+	fetch := kubetest.NewPodFetch(c, ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err
 }
@@ -1083,7 +1088,6 @@ spec:
 			t.ConfigIstio().
 				Eval(egressNamespace.Name(), apps.Namespace.Name(), waypointSpec).
 				ApplyOrFail(t, apply.CleanupConditionally)
-
 			service := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
@@ -1098,6 +1102,9 @@ spec:
   - name: http
     number: 80
     protocol: HTTP
+  - name: tls
+    number: 443
+    protocol: TLS
   - name: http-for-tls
     number: 8080
     protocol: HTTP
@@ -1147,6 +1154,32 @@ spec:
 				},
 				// We expect the request to succeed since Host matches the wildcarded hostname even though it is not the original destination host
 				Check: check.And(check.OK(), IsL7()),
+			})
+
+			// We can send a simple request over TLS (no HTTP)
+			runTest(t, "basic TLS", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 443},
+				Scheme:  scheme.TLS,
+				TLS: echo.TLS{
+					InsecureSkipVerify: true,
+					ServerName:         fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				},
+				Count: 1,
+				Check: check.NoError(),
+			})
+
+			// We can send a HTTPS request
+			runTest(t, "basic HTTPS", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 443},
+				Scheme:  scheme.HTTPS,
+				TLS: echo.TLS{
+					InsecureSkipVerify: true,
+					ServerName:         fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				},
+				Count: 1,
+				Check: check.OK(),
 			})
 
 			// Test we can do TLS origination, by utilizing ServiceEntry target port
