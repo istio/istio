@@ -567,11 +567,8 @@ spec:
 				t.Skip("not enough external service instances")
 			}
 
-			subsetServices := servicesForSubsets(t, external)
-			externalIPs := []string{}
-			for _, s := range subsetServices {
-				externalIPs = append(externalIPs, s.ClusterIP)
-			}
+			// Use the first subset service for testing consistency
+			subsetService := servicesForSubsets(t, external)[0]
 
 			resolutionNoneServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -590,14 +587,12 @@ spec:
   resolution: NONE
   location: MESH_EXTERNAL
   addresses:
-{{ range $ip := .IPs }}
-  - "{{$ip}}"
-{{ end }}
+  - {{.IP}}
 `
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), map[string]any{
 					"EgressNamespace": egressNamespace.Name(),
-					"IPs":             externalIPs,
+					"IP":              subsetService.ClusterIP,
 				}, resolutionNoneServiceEntry).
 				ApplyOrFail(t, apply.CleanupConditionally)
 
@@ -605,31 +600,25 @@ spec:
 			hostHeader.Set("Host", "fake-passthrough.example.com")
 
 			// Test that we send traffic through the waypoint successfully
-			for i, sss := range subsetServices {
-				if i != 0 {
-					// Presently, only the first IP will be used by the waypoint proxy.
-					continue
-				}
-				// The setup for this testing would be tricky in multi-network because the VIPs being used
-				// are not in the mesh, but they are in a cluster.
-				// This means each cluster's VIPs would need to be unique.
-				// That isn't useful for testing though because it's just turning the multi-cluster
-				// tests into multiple single-cluster tests.
-				// Arguably, egress gateways should never be accessed across a cluster-boundary,
-				// so perhaps the skips need not be removed as even in multi-cluster testing we expect egress
-				// to behave as though it is single-cluster.
-				testName := fmt.Sprintf("resolution none %s", sss.ClusterIP)
-				runTest(t, testName, "",
-					"relies on unmeshed ClusterIPs as a simulated external service IP",
-					echo.CallOptions{
-						Address: sss.ClusterIP,
-						HTTP:    echo.HTTP{Headers: hostHeader},
-						Port:    echo.Port{ServicePort: 8080},
-						Scheme:  scheme.HTTP,
-						Count:   1,
-						Check:   check.And(check.OK(), IsL7(), check.Hostname(sss.Hostname)),
-					})
-			}
+			// The setup for this testing would be tricky in multi-network because the VIPs being used
+			// are not in the mesh, but they are in a cluster.
+			// This means each cluster's VIPs would need to be unique.
+			// That isn't useful for testing though because it's just turning the multi-cluster
+			// tests into multiple single-cluster tests.
+			// Arguably, egress gateways should never be accessed across a cluster-boundary,
+			// so perhaps the skips need not be removed as even in multi-cluster testing we expect egress
+			// to behave as though it is single-cluster.
+			testName := fmt.Sprintf("resolution none %s", subsetService.ClusterIP)
+			runTest(t, testName, "",
+				"relies on unmeshed ClusterIPs as a simulated external service IP",
+				echo.CallOptions{
+					Address: subsetService.ClusterIP,
+					HTTP:    echo.HTTP{Headers: hostHeader},
+					Port:    echo.Port{ServicePort: 8080},
+					Scheme:  scheme.HTTP,
+					Count:   1,
+					Check:   check.And(check.OK(), IsL7(), check.Hostname(subsetService.Hostname)),
+				})
 
 			service := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
