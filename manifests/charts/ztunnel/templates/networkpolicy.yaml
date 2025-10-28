@@ -55,6 +55,8 @@ spec:
     ports:
       - protocol: TCP
         port: 15053
+      - protocol: UDP
+        port: 15053
   egress:
   # Allow all egress
   - {}
