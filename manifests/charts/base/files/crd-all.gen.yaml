@@ -6664,9 +6664,8 @@ spec:
                       type: object
                       x-kubernetes-validations:
                       - message: only support waypointMatch when context is WAYPOINT
-                        rule: |-
-                          self.context == "WAYPOINT" && has(self.waypoint) || self.context != "WAYPOINT" &&
-                          !has(self.waypoint)
+                        rule: 'has(self.context) ? ((self.context == "WAYPOINT") ?
+                          has(self.waypoint) : !has(self.waypoint)) : !has(self.waypoint)'
                     patch:
                       description: The patch to apply along with the operation.
                       properties:

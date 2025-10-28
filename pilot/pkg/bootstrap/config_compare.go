@@ -17,7 +17,6 @@ package bootstrap
 import (
 	"strings"
 
-	gogoproto "github.com/gogo/protobuf/proto" // nolint: depguard
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/config"
@@ -60,11 +59,6 @@ func needsPush(prev config.Config, curr config.Config) bool {
 	currspecProto, okProtoC := curr.Spec.(proto.Message)
 	if okProtoP && okProtoC {
 		return !proto.Equal(prevspecProto, currspecProto)
-	}
-	prevspecGogo, okGogoP := prev.Spec.(gogoproto.Message)
-	currspecGogo, okGogoC := curr.Spec.(gogoproto.Message)
-	if okGogoP && okGogoC {
-		return !gogoproto.Equal(prevspecGogo, currspecGogo)
 	}
 	return true
 }
