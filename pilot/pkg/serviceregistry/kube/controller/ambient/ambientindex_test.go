@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -755,7 +754,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 
 func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW, "")
-	s.gwcls.Update(&k8sbeta.GatewayClass{
+	s.gwcls.Update(&k8sv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.WaypointGatewayClassName,
 			Annotations: map[string]string{
@@ -2068,8 +2067,8 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 			pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 			sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 			ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-			grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
-			gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+			grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+			gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
 			se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
 			we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
 			pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
@@ -2079,7 +2078,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	}
 
 	// assume this is installed with istio
-	a.gwcls.Create(&k8sbeta.GatewayClass{
+	a.gwcls.Create(&k8sv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.WaypointGatewayClassName,
 		},
@@ -2087,7 +2086,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 			ControllerName: constants.ManagedGatewayMeshController,
 		},
 	})
-	a.gwcls.Create(&k8sbeta.GatewayClass{
+	a.gwcls.Create(&k8sv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.EastWestGatewayClassName,
 		},
@@ -2181,12 +2180,12 @@ func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 	})
 }
 
-func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sv1.Gateway]) {
 	t.Helper()
 	grc.Delete(name, testNS)
 }
 
-func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, network string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, network string, grc clienttest.TestWriter[*k8sv1.Gateway]) {
 	s.addNetworkGatewaySpecificAddressForClient(t, ip, "", "east-west", network, true, grc)
 }
 
@@ -2194,17 +2193,17 @@ func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
 	t *testing.T,
 	ip, hostname, name, network string,
 	ready bool,
-	grc clienttest.TestWriter[*k8sbeta.Gateway],
+	grc clienttest.TestWriter[*k8sv1.Gateway],
 ) {
 	t.Helper()
-	gatewaySpec := k8sbeta.GatewaySpec{
+	gatewaySpec := k8sv1.GatewaySpec{
 		GatewayClassName: constants.EastWestGatewayClassName,
-		Listeners: []k8sbeta.Listener{
+		Listeners: []k8sv1.Listener{
 			{
 				Name:     "mesh",
 				Port:     15008,
 				Protocol: "HBONE",
-				TLS: &k8sbeta.ListenerTLSConfig{
+				TLS: &k8sv1.ListenerTLSConfig{
 					Mode: ptr.Of(k8sv1.TLSModeTerminate),
 					Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
 						"gateway.istio.io/tls-terminate-mode": "ISTIO_MUTUAL",
@@ -2214,7 +2213,7 @@ func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
 		},
 	}
 
-	gateway := k8sbeta.Gateway{
+	gateway := k8sv1.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       gvk.KubernetesGateway.Kind,
 			APIVersion: gvk.KubernetesGateway.GroupVersion(),
@@ -2227,18 +2226,18 @@ func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
 			},
 		},
 		Spec:   gatewaySpec,
-		Status: k8sbeta.GatewayStatus{},
+		Status: k8sv1.GatewayStatus{},
 	}
 
 	if ready {
 		addr := []k8sv1.GatewayStatusAddress{}
 		if ip != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.IPAddressType), Value: ip})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.IPAddressType), Value: ip})
 		}
 		if hostname != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.HostnameAddressType), Value: hostname})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.HostnameAddressType), Value: hostname})
 		}
-		gateway.Status = k8sbeta.GatewayStatus{
+		gateway.Status = k8sv1.GatewayStatus{
 			Addresses: addr,
 		}
 	}
@@ -2250,7 +2249,7 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType stri
 	s.addWaypointForClient(t, ip, name, trafficType, ready, s.grc)
 }
 
-func (s *ambientTestServer) addWaypointForClient(t *testing.T, ip, name, trafficType string, ready bool, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+func (s *ambientTestServer) addWaypointForClient(t *testing.T, ip, name, trafficType string, ready bool, grc clienttest.TestWriter[*k8sv1.Gateway]) {
 	s.addWaypointSpecificAddressForClient(t, ip, fmt.Sprintf("%s.%s.svc.%s", name, testNS, s.DomainSuffix), name, trafficType, ready, grc)
 }
 
@@ -2258,19 +2257,19 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 	t *testing.T,
 	ip, hostname, name, trafficType string,
 	ready bool,
-	grc clienttest.TestWriter[*k8sbeta.Gateway],
+	grc clienttest.TestWriter[*k8sv1.Gateway],
 ) {
 	t.Helper()
 	fromSame := k8sv1.NamespacesFromSame
-	gatewaySpec := k8sbeta.GatewaySpec{
+	gatewaySpec := k8sv1.GatewaySpec{
 		GatewayClassName: constants.WaypointGatewayClassName,
-		Listeners: []k8sbeta.Listener{
+		Listeners: []k8sv1.Listener{
 			{
 				Name:     "mesh",
 				Port:     15008,
 				Protocol: "HBONE",
-				AllowedRoutes: &k8sbeta.AllowedRoutes{
-					Namespaces: &k8sbeta.RouteNamespaces{
+				AllowedRoutes: &k8sv1.AllowedRoutes{
+					Namespaces: &k8sv1.RouteNamespaces{
 						From: &fromSame,
 					},
 				},
@@ -2278,7 +2277,7 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 		},
 	}
 
-	gateway := k8sbeta.Gateway{
+	gateway := k8sv1.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       gvk.KubernetesGateway.Kind,
 			APIVersion: gvk.KubernetesGateway.GroupVersion(),
@@ -2288,7 +2287,7 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 			Namespace: testNS,
 		},
 		Spec:   gatewaySpec,
-		Status: k8sbeta.GatewayStatus{},
+		Status: k8sv1.GatewayStatus{},
 	}
 	labels := make(map[string]string, 2)
 	if trafficType != "" && validTrafficTypes.Contains(trafficType) {
@@ -2301,12 +2300,12 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 	if ready {
 		addr := []k8sv1.GatewayStatusAddress{}
 		if ip != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.IPAddressType), Value: ip})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.IPAddressType), Value: ip})
 		}
 		if hostname != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.HostnameAddressType), Value: hostname})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.HostnameAddressType), Value: hostname})
 		}
-		gateway.Status = k8sbeta.GatewayStatus{
+		gateway.Status = k8sv1.GatewayStatus{
 			Addresses: addr,
 		}
 	}
@@ -2323,7 +2322,7 @@ func (s *ambientTestServer) deleteWaypoint(t *testing.T, name string) {
 	s.deleteWaypointForClient(t, name, s.grc)
 }
 
-func (s *ambientTestServer) deleteWaypointForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+func (s *ambientTestServer) deleteWaypointForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sv1.Gateway]) {
 	t.Helper()
 	grc.Delete(name, testNS)
 }
