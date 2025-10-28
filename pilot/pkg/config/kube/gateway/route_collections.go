@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -71,6 +72,16 @@ func HTTPRouteCollection(
 		[]RouteWithKey,
 	) {
 		ctx := inputs.WithCtx(krtctx)
+		// Explicitly fetch the namespace to register a dependency on it.
+		// This ensures the route is recomputed when the namespace's revision label changes.
+		_ = krt.FetchOne(krtctx, inputs.Namespaces, krt.FilterKey(obj.Namespace))
+		
+		// Check if this route belongs to our revision (supports namespace label inheritance)
+		tw := inputs.TagWatcher.Get(krtctx)
+		if !tw.IsMine(obj.ObjectMeta) {
+			return nil, nil
+		}
+		
 		inferencePoolCfgPairs := []struct {
 			name string
 			cfg  *inferencePoolConfig
@@ -277,6 +288,16 @@ func GRPCRouteCollection(
 		[]RouteWithKey,
 	) {
 		ctx := inputs.WithCtx(krtctx)
+		// Explicitly fetch the namespace to register a dependency on it.
+		// This ensures the route is recomputed when the namespace's revision label changes.
+		_ = krt.FetchOne(krtctx, inputs.Namespaces, krt.FilterKey(obj.Namespace))
+		
+		// Check if this route belongs to our revision (supports namespace label inheritance)
+		tw := inputs.TagWatcher.Get(krtctx)
+		if !tw.IsMine(obj.ObjectMeta) {
+			return nil, nil
+		}
+		
 		// routeRuleToInferencePoolCfg stores inference pool configs discovered during route rule conversion.
 		// Note: GRPCRoute currently doesn't have inference pool logic, but adding for consistency.
 		routeRuleToInferencePoolCfg := make(map[string]*inferencePoolConfig)
@@ -421,6 +442,16 @@ func TCPRouteCollection(
 		[]*config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
+		// Explicitly fetch the namespace to register a dependency on it.
+		// This ensures the route is recomputed when the namespace's revision label changes.
+		_ = krt.FetchOne(krtctx, inputs.Namespaces, krt.FilterKey(obj.Namespace))
+		
+		// Check if this route belongs to our revision (supports namespace label inheritance)
+		tw := inputs.TagWatcher.Get(krtctx)
+		if !tw.IsMine(obj.ObjectMeta) {
+			return nil, nil
+		}
+		
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj,
@@ -512,6 +543,16 @@ func TLSRouteCollection(
 		[]*config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
+		// Explicitly fetch the namespace to register a dependency on it.
+		// This ensures the route is recomputed when the namespace's revision label changes.
+		_ = krt.FetchOne(krtctx, inputs.Namespaces, krt.FilterKey(obj.Namespace))
+		
+		// Check if this route belongs to our revision (supports namespace label inheritance)
+		tw := inputs.TagWatcher.Get(krtctx)
+		if !tw.IsMine(obj.ObjectMeta) {
+			return nil, nil
+		}
+		
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx,
@@ -651,6 +692,7 @@ type RouteContextInputs struct {
 	Namespaces      krt.Collection[*corev1.Namespace]
 	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
 	InferencePools  krt.Collection[*inferencev1.InferencePool]
+	TagWatcher      krt.RecomputeProtected[revisions.TagWatcher]
 	internalContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
 }
 

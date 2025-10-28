@@ -27,6 +27,7 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
+	"istio.io/api/label"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
@@ -51,6 +52,7 @@ import (
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var log = istiolog.RegisterScope("gateway", "gateway-api controller")
@@ -302,6 +304,7 @@ func NewController(
 		Namespaces:      inputs.Namespaces,
 		ServiceEntries:  inputs.ServiceEntries,
 		InferencePools:  inputs.InferencePools,
+		TagWatcher:      c.tagWatcher,
 		internalContext: c.gatewayContext,
 	}
 	tcpRoutes := TCPRouteCollection(
@@ -466,8 +469,11 @@ func buildClient[I controllers.ComparableObject](
 		ObjectFilter: kubetypes.ComposeFilters(kc.ObjectFilter(), c.inRevision),
 	}
 
-	// all other types are filtered by revision, but for gateways we need to select tags as well
-	if res == gvr.KubernetesGateway {
+	// Gateway and Route resources need to check revision in the KRT collection (not informer filter)
+	// to support namespace label inheritance and dynamic namespace changes.
+	// The revision check happens in the collection functions using tagWatcher.IsMine().
+	if res == gvr.KubernetesGateway || res == gvr.HTTPRoute || res == gvr.GRPCRoute ||
+		res == gvr.TCPRoute || res == gvr.TLSRoute {
 		filter.ObjectFilter = kc.ObjectFilter()
 	}
 
@@ -626,5 +632,21 @@ func (c *Controller) inRevision(obj any) bool {
 	if object == nil {
 		return false
 	}
-	return config.LabelsInRevision(object.GetLabels(), c.revision)
+
+	// Check if object has explicit revision label
+	if _, hasLabel := object.GetLabels()[label.IoIstioRev.Name]; hasLabel {
+		// Object has explicit label, use standard revision check
+		return config.LabelsInRevision(object.GetLabels(), c.revision)
+	}
+
+	// Object has no revision label, check if namespace has one
+	// This allows Gateway API resources (HTTPRoute, etc.) to inherit revision from namespace
+	// Build an ObjectMeta from the controllers.Object interface
+	objectMeta := metav1.ObjectMeta{
+		Name:      object.GetName(),
+		Namespace: object.GetNamespace(),
+		Labels:    object.GetLabels(),
+	}
+	tw := c.tagWatcher.AccessUnprotected()
+	return tw.IsMine(objectMeta)
 }
