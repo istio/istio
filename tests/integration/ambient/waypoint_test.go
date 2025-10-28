@@ -60,7 +60,7 @@ func TestWaypointStatus(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("gateway class").Run(func(t framework.TestContext) {
-				client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+				client := t.Clusters().Default().GatewayAPI().GatewayV1().GatewayClasses()
 
 				check := func() error {
 					gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})

@@ -77,8 +77,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		}
 		gw := gateway.Gateway{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       gvk.KubernetesGateway_v1.Kind,
-				APIVersion: gvk.KubernetesGateway_v1.GroupVersion(),
+				Kind:       gvk.KubernetesGateway.Kind,
+				APIVersion: gvk.KubernetesGateway.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      waypointName,

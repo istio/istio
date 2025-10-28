@@ -117,7 +117,7 @@ spec:
 `).ApplyOrFail(t)
 
 	// Make sure Gateway becomes programmed..
-	client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().Gateways(apps.Namespace.Name())
+	client := t.Clusters().Default().GatewayAPI().GatewayV1().Gateways(apps.Namespace.Name())
 	check := func() error {
 		gw, _ := client.Get(context.Background(), "managed-owner", metav1.GetOptions{})
 		if gw == nil {
@@ -875,7 +875,7 @@ spec:
 			})
 			t.NewSubTest("status").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
-					gwc, err := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+					gwc, err := t.Clusters().Default().GatewayAPI().GatewayV1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -916,7 +916,7 @@ spec:
 }
 
 func StatusGatewayTest(t framework.TestContext) {
-	client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+	client := t.Clusters().Default().GatewayAPI().GatewayV1().GatewayClasses()
 
 	check := func() error {
 		gwc, _ := client.Get(context.Background(), "istio", metav1.GetOptions{})
