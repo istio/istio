@@ -50,6 +50,11 @@ spec:
     ports:
     - protocol: TCP
       port: 15006
+  # DNS Captures
+  - from: [ ]
+    ports:
+      - protocol: TCP
+        port: 15053
   egress:
   # Allow all egress
   - {}
