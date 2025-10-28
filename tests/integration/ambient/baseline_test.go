@@ -797,9 +797,6 @@ spec:
 
 func TestPeerAuthentication(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		if t.Settings().AmbientMultiNetwork {
-			t.Skip("https://github.com/istio/istio/issues/58020")
-		}
 		applyDrainingWorkaround(t)
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
@@ -905,7 +902,9 @@ spec:
       mode: PERMISSIVE
         `).ApplyOrFail(t)
 				// this seems flakey for multi-network, possibly due to race condition?
-				time.Sleep(100 * time.Millisecond)
+				if opt.Port.Protocol == protocol.TCP && t.Settings().AmbientMultiNetwork {
+					time.Sleep(1000 * time.Millisecond)
+				}
 				opt := opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
 				src.CallOrFail(t, opt)
@@ -3460,49 +3459,49 @@ func TestDirect(t *testing.T) {
 					// Global services are expected to be reachable via the east-west gateway
 					Check: check.OK(),
 				})
-			}
-			i := istio.GetOrFail(t)
-			ewgaddresses, ewgports := ewginstance.HBONEAddresses()
-			if len(ewgaddresses) == 0 || len(ewgports) == 0 {
-				t.Fatal("east-west gateway address or ports not found")
-			}
-			ewgaddr := ewgaddresses[0]
-			ewgport := ewgports[0]
-			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
-			if err != nil {
-				t.Fatal(err)
-			}
-			hbsvc := echo.HBONE{
-				Address:            fmt.Sprintf("%s:%v", ewgaddr, ewgport),
-				Headers:            nil,
-				Cert:               string(cert.ClientCert),
-				Key:                string(cert.Key),
-				CaCert:             string(cert.RootCert),
-				InsecureSkipVerify: true,
-			}
-			run("local service", echo.CallOptions{
-				To:          apps.Captured.ForCluster(cluster.Name()),
-				Count:       1,
-				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-				Port:        echo.Port{Name: ports.HTTP.Name},
-				HBONE:       hbsvc,
-				DoubleHBONE: hbsvc,
-				// Local services are not expected to be reachable via the east-west gateway
-				Check: check.Error(),
-			})
+				i = istio.GetOrFail(t)
+				ewgaddresses, ewgports = ewginstance.HBONEAddresses()
+				if len(ewgaddresses) == 0 || len(ewgports) == 0 {
+					t.Fatal("east-west gateway address or ports not found")
+				}
+				ewgaddr = ewgaddresses[0]
+				ewgport = ewgports[0]
+				cert, err = istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
+				if err != nil {
+					t.Fatal(err)
+				}
+				hbsvc = echo.HBONE{
+					Address:            fmt.Sprintf("%s:%v", ewgaddr, ewgport),
+					Headers:            nil,
+					Cert:               string(cert.ClientCert),
+					Key:                string(cert.Key),
+					CaCert:             string(cert.RootCert),
+					InsecureSkipVerify: true,
+				}
+				run("local service", echo.CallOptions{
+					To:          apps.Captured.ForCluster(cluster.Name()),
+					Count:       1,
+					Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+					Port:        echo.Port{Name: ports.HTTP.Name},
+					HBONE:       hbsvc,
+					DoubleHBONE: hbsvc,
+					// Local services are not expected to be reachable via the east-west gateway
+					Check: check.Error(),
+				})
 
-			capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
-			labelService(t, apps.Namespace.Name(), capturedSvc, "istio.io/global", "true", t.Clusters().Default())
-			run("global service", echo.CallOptions{
-				To:          apps.Captured.ForCluster(cluster.Name()),
-				Count:       1,
-				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-				Port:        echo.Port{Name: ports.HTTP.Name},
-				HBONE:       hbsvc,
-				DoubleHBONE: hbsvc,
-				// Global services are expected to be reachable via the east-west gateway
-				Check: check.OK(),
-			})
+				capturedSvc = apps.Captured.ForCluster(cluster.Name()).ServiceName()
+				labelServiceGlobal(t, capturedSvc, t.Clusters().Default())
+				run("global service", echo.CallOptions{
+					To:          apps.Captured.ForCluster(cluster.Name()),
+					Count:       1,
+					Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+					Port:        echo.Port{Name: ports.HTTP.Name},
+					HBONE:       hbsvc,
+					DoubleHBONE: hbsvc,
+					// Global services are expected to be reachable via the east-west gateway
+					Check: check.OK(),
+				})
+			}
 		})
 	})
 }
@@ -3664,28 +3663,28 @@ func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
 	}
 }
 
-func labelService(t framework.TestContext, svcName, k, v string, cs ...cluster.Cluster) {
+func labelService(t framework.TestContext, nsName, svcName, k, v string, cs ...cluster.Cluster) {
 	t.Helper()
 
 	for _, c := range cs {
-		labelServiceInCluster(t, c, svcName, k, v)
+		labelServiceInCluster(t, c, nsName, svcName, k, v)
 	}
 }
 
 func labelServiceGlobal(t framework.TestContext, svcName string, cls cluster.Cluster) {
 	k := "istio.io/global"
 	v := "true"
-	labelService(t, svcName, k, v, t.Clusters().Configs()...)
+	labelService(t, apps.Namespace.Name(), svcName, k, v, t.Clusters().Configs()...)
 }
 
-func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, svcName, k, v string) {
+func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, nsName, svcName, k, v string) {
 
 	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
 	if v == "" {
 		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
 	}
-	s := c.Kube().CoreV1().Services(apps.Namespace.Name())
+	s := c.Kube().CoreV1().Services(nsName)
 	_, err := s.Patch(t.Context(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
