@@ -15,6 +15,7 @@
 package features
 
 import (
+	"strings"
 	"time"
 
 	"go.uber.org/atomic"
@@ -22,6 +23,14 @@ import (
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
+
+// ResourceFilter contains a filter definition parsed from the flags. In case
+// the filter is passed with "*." the filter will be marked as Prefix type and
+// the check will match the value as a suffix, and not as an exact match
+type ResourceFilterConfig struct {
+	Prefix bool
+	Value  string
+}
 
 // Define experimental features here.
 var (
@@ -208,4 +217,41 @@ var (
 		"If enabled, ServiceEntries with wildcard hosts and dynamic dns resolution will be allowed for TLS traffic. "+
 			"This is a security risk, susceptible to SNI spoofing, and should be used with caution. "+
 			"Only consider using this feature if the client is trusted and you understand the risks.").Get()
+
+	PilotIgnoreResourcesEnv = env.Register(
+		"PILOT_IGNORE_RESOURCES",
+		"",
+		"If set, the resources set on this list will be ignored and never reconciled."+
+			"This value should be a comma-separated list of resources names."+
+			"Items on this list can be prefixed with a '*.' meaning a whole group should be ignored.",
+	).Get()
+
+	PilotIncludeResourcesEnv = env.Register(
+		"PILOT_INCLUDE_RESOURCES",
+		"",
+		"If set, and combined with 'PILOT_IGNORE_RESOURCES' the resources set on this list will not be ignored."+
+			"This value should be a comma-separated list of resources names."+
+			"Items on this list can be prefixed with a '*.' meaning a whole group should be included regardless of the ignore list.",
+	).Get()
+
+	// FetchResourceFilter is used to fetch the filters (ignore or include) from the
+	// flags.
+	FetchResourceFilter = func(filters string) []ResourceFilterConfig {
+		resourceFilter := make([]ResourceFilterConfig, 0)
+
+		for filter := range strings.SplitSeq(filters, ",") {
+			val := strings.TrimSpace(filter)
+			prefix := false
+			if strings.HasPrefix(val, "*.") {
+				prefix = true
+				val = strings.TrimPrefix(val, "*.")
+			}
+			filterConf := ResourceFilterConfig{
+				Value:  val,
+				Prefix: prefix,
+			}
+			resourceFilter = append(resourceFilter, filterConf)
+		}
+		return resourceFilter
+	}
 )
