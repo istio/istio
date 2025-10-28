@@ -66,6 +66,7 @@ func (a *index) ServicesCollection(
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...)
+
 	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
 		append(
 			opts.WithName("ServiceEntriesInfo"),
@@ -73,9 +74,47 @@ func (a *index) ServicesCollection(
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...)
+	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []string {
+		return []string{fmt.Sprintf("%s/%s", se.Service.Namespace, se.Service.Hostname)}
+	})
+
+	serviceByHostname := krt.NewIndex(ServicesInfo, "serviceByHostname", func(s model.ServiceInfo) []string {
+		return []string{s.Service.Hostname}
+	})
+
+	DedupedServiceEntriesInfo := krt.NewCollection(
+		serviceEntryByHostname.AsCollection(),
+		func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) *model.ServiceInfo {
+			if len(se.Objects) == 0 {
+				return nil
+			}
+
+			s := krt.FetchOne(ctx, ServicesInfo, krt.FilterIndex(serviceByHostname, se.Objects[0].Service.Hostname))
+			if s != nil {
+				// if we have a hostname conflict with a kubernetes service, we should eliminate all the ServiceEntry ServiceInfos for this hostname
+				return nil
+			}
+
+			var oldest *model.ServiceInfo
+			for _, o := range se.Objects {
+				if oldest == nil || o.CreationTime.Before(oldest.CreationTime) {
+					oldest = &o.ServiceInfo
+				}
+			}
+			return oldest
+		}, append(
+			opts.WithName("DedupedServiceEntriesInfo"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: clusterID,
+			}),
+		)...,
+	)
 	WorkloadServices := krt.JoinCollection(
-		[]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo},
-		append(opts.WithName("WorkloadService"), krt.WithMetadata(
+		[]krt.Collection[model.ServiceInfo]{
+			ServicesInfo,
+			DedupedServiceEntriesInfo,
+		},
+		append(opts.WithName("WorkloadServices"), krt.WithMetadata(
 			krt.Metadata{
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			},
@@ -228,6 +267,7 @@ func serviceServiceBuilder(
 			Source:        MakeSource(s),
 			Waypoint:      waypointStatus,
 			Scope:         serviceScope,
+			CreationTime:  s.CreationTimestamp.Time,
 		}
 		if precompute {
 			return precomputeServicePtr(svcInfo)
@@ -353,14 +393,31 @@ func MakeSource(o controllers.Object) model.TypedObject {
 	}
 }
 
+// ServiceEntryInfo is a wrapper around ServiceInfo that handles key conflicts
+// on hostname.
+type ServiceEntryInfo struct {
+	model.ServiceInfo
+}
+
+func (s ServiceEntryInfo) ResourceName() string {
+	return s.GetNamespace() + "/" + s.GetName() + "/" + s.Service.GetHostname()
+}
+
+func (s ServiceEntryInfo) Equals(other ServiceEntryInfo) bool {
+	return s.ServiceInfo.Equals(other.ServiceInfo)
+}
+
 func (a *index) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
-) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
-	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
+) krt.TransformationMulti[*networkingclient.ServiceEntry, ServiceEntryInfo] {
+	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []ServiceEntryInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		return serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
+		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
+		})
+		return slices.Map(serviceInfos, func(si model.ServiceInfo) ServiceEntryInfo {
+			return ServiceEntryInfo{ServiceInfo: si}
 		})
 	}
 }
@@ -404,6 +461,7 @@ func serviceEntriesInfo(
 			LabelSelector: sel,
 			Source:        MakeSource(s),
 			Waypoint:      waypoint,
+			CreationTime:  s.CreationTimestamp.Time,
 		})
 	})
 }
