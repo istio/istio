@@ -225,6 +225,7 @@ func (i *instance) RevisionOrDefault(rev string) string {
 			i.defaultWatcher = revisions.NewDefaultWatcher(basicClient, "")
 			basicClient.RunAndWait(stop)
 			go i.defaultWatcher.Run(stop)
+			kube.WaitForCacheSync("default revision watcher", stop, i.defaultWatcher.HasSynced)
 		}
 	}
 
