@@ -17,7 +17,9 @@ package ambient
 import (
 	"net/netip"
 	"testing"
+	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -73,6 +75,9 @@ func TestServiceEntryServices(t *testing.T) {
 		},
 	}
 
+	// generate a stable creation timestamp for service entries to use so we may make assertions on the creation timestamp
+	creationTimestamp := timestamppb.New(time.Now())
+
 	cases := []struct {
 		name   string
 		inputs []any
@@ -84,8 +89,9 @@ func TestServiceEntryServices(t *testing.T) {
 			inputs: []any{},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
+					Name:              "name",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Addresses: []string{"1.2.3.4"},
@@ -111,7 +117,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 				{
 					Name:      "name",
@@ -125,7 +132,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -134,8 +142,9 @@ func TestServiceEntryServices(t *testing.T) {
 			inputs: []any{},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "auto-assigned",
-					Namespace: "ns",
+					Name:              "auto-assigned",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{"assign-me.example.com"},
@@ -178,7 +187,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -187,8 +197,9 @@ func TestServiceEntryServices(t *testing.T) {
 			inputs: []any{},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "multi-host-auto-assigned",
-					Namespace: "ns",
+					Name:              "multi-host-auto-assigned",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{
@@ -242,7 +253,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 				{
 					Name:      "multi-host-auto-assigned",
@@ -262,7 +274,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -271,8 +284,9 @@ func TestServiceEntryServices(t *testing.T) {
 			inputs: []any{},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "user-provided",
-					Namespace: "ns",
+					Name:              "user-provided",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Addresses: []string{"1.2.3.4"},
@@ -312,7 +326,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -321,8 +336,9 @@ func TestServiceEntryServices(t *testing.T) {
 			inputs: []any{},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "none-resolution",
-					Namespace: "ns",
+					Name:              "none-resolution",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{"none-resolution.example.com"},
@@ -360,7 +376,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -374,6 +391,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Labels: map[string]string{
 						label.NetworkingEnableAutoallocateIp.Name: "false",
 					},
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{"user-opt-out.example.com"},
@@ -407,7 +425,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -416,8 +435,9 @@ func TestServiceEntryServices(t *testing.T) {
 			inputs: []any{},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "partial-wildcard",
-					Namespace: "ns",
+					Name:              "partial-wildcard",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{"*.wildcard.example.com", "this-is-ok.example.com"},
@@ -451,7 +471,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 				{
 					Name:      "partial-wildcard",
@@ -471,7 +492,8 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -489,6 +511,7 @@ func TestServiceEntryServices(t *testing.T) {
 						label.IoIstioUseWaypoint.Name:          "waypoint",
 						label.IoIstioUseWaypointNamespace.Name: "ns",
 					},
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Hosts: []string{"*.wildcard.example.com"},
@@ -531,8 +554,9 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
-					Waypoint:        waypointAddr,
+					SubjectAltNames:   []string{"san1"},
+					CreationTimestamp: creationTimestamp,
+					Waypoint:          waypointAddr,
 				},
 			},
 		},
@@ -546,6 +570,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Annotations: map[string]string{
 						"networking.istio.io/traffic-distribution": "PreferSameNode",
 					},
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Addresses: []string{"1.2.3.4"},
@@ -580,6 +605,7 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -593,6 +619,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Annotations: map[string]string{
 						"networking.istio.io/traffic-distribution": "PreferSameZone",
 					},
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Addresses: []string{"1.2.3.4"},
@@ -625,6 +652,7 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -638,6 +666,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Annotations: map[string]string{
 						"networking.istio.io/traffic-distribution": "PreferClose",
 					},
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: networking.ServiceEntry{
 					Addresses: []string{"1.2.3.4"},
@@ -670,6 +699,7 @@ func TestServiceEntryServices(t *testing.T) {
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
+					CreationTimestamp: creationTimestamp,
 				},
 			},
 		},
@@ -702,6 +732,8 @@ func TestServiceServices(t *testing.T) {
 		// TODO: look up the HBONE port instead of hardcoding it
 		HboneMtlsPort: 15008,
 	}
+	// generate a stable creation timestamp for services to use so we may make assertions on the creation timestamp
+	creationTimestamp := timestamppb.New(time.Now())
 	cases := []struct {
 		name   string
 		inputs []any
@@ -713,8 +745,9 @@ func TestServiceServices(t *testing.T) {
 			inputs: []any{},
 			svc: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
+					Name:              "name",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					ClusterIP: "1.2.3.4",
@@ -735,6 +768,8 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				CreationTimestamp: creationTimestamp,
+				Canonical:         true,
 			},
 		},
 		{
@@ -742,8 +777,9 @@ func TestServiceServices(t *testing.T) {
 			inputs: []any{},
 			svc: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
+					Name:              "name",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					Type:         v1.ServiceTypeExternalName,
@@ -757,8 +793,9 @@ func TestServiceServices(t *testing.T) {
 			inputs: []any{},
 			svc: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
+					Name:              "name",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					ClusterIP: "1.2.3.4",
@@ -791,6 +828,8 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 8080,
 					TargetPort:  0,
 				}},
+				CreationTimestamp: creationTimestamp,
+				Canonical:         true,
 			},
 		},
 		{
@@ -798,8 +837,9 @@ func TestServiceServices(t *testing.T) {
 			inputs: []any{},
 			svc: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
+					Name:              "name",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{{
@@ -815,6 +855,8 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				CreationTimestamp: creationTimestamp,
+				Canonical:         true,
 			},
 		},
 		{
@@ -822,8 +864,9 @@ func TestServiceServices(t *testing.T) {
 			inputs: []any{},
 			svc: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
+					Name:              "name",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					TrafficDistribution: ptr.Of(v1.ServiceTrafficDistributionPreferClose),
@@ -853,6 +896,8 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				CreationTimestamp: creationTimestamp,
+				Canonical:         true,
 			},
 		},
 
@@ -861,8 +906,9 @@ func TestServiceServices(t *testing.T) {
 			inputs: []any{},
 			svc: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
+					Name:              "name",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					TrafficDistribution: ptr.Of(v1.ServiceTrafficDistributionPreferSameZone),
@@ -892,6 +938,8 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				CreationTimestamp: creationTimestamp,
+				Canonical:         true,
 			},
 		},
 
@@ -900,8 +948,9 @@ func TestServiceServices(t *testing.T) {
 			inputs: []any{},
 			svc: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
+					Name:              "name",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					TrafficDistribution: ptr.Of(v1.ServiceTrafficDistributionPreferSameNode),
@@ -933,6 +982,8 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				CreationTimestamp: creationTimestamp,
+				Canonical:         true,
 			},
 		},
 		{
@@ -940,8 +991,9 @@ func TestServiceServices(t *testing.T) {
 			inputs: []any{},
 			svc: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
+					Name:              "name",
+					Namespace:         "ns",
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					PublishNotReadyAddresses: true,
@@ -966,6 +1018,8 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				CreationTimestamp: creationTimestamp,
+				Canonical:         true,
 			},
 		},
 		{
@@ -1000,6 +1054,7 @@ func TestServiceServices(t *testing.T) {
 						label.IoIstioUseWaypoint.Name:          "waypoint",
 						label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
 					},
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					ClusterIP: "1.2.3.4",
@@ -1021,6 +1076,8 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				CreationTimestamp: creationTimestamp,
+				Canonical:         true,
 			},
 		},
 		{
@@ -1055,6 +1112,7 @@ func TestServiceServices(t *testing.T) {
 						label.IoIstioUseWaypoint.Name:          "waypoint",
 						label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
 					},
+					CreationTimestamp: metav1.Time{Time: creationTimestamp.AsTime()},
 				},
 				Spec: v1.ServiceSpec{
 					ClusterIP: "1.2.3.4",
@@ -1076,6 +1134,8 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				CreationTimestamp: creationTimestamp,
+				Canonical:         true,
 			},
 		},
 	}
