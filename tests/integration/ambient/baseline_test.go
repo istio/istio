@@ -324,9 +324,6 @@ func TestServerSideLB(t *testing.T) {
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
-			if dst.Config().HasServiceAddressedWaypointProxy() && t.Settings().AmbientMultiNetwork {
-				t.Skip("https://github.com/istio/istio/issues/58013")
-			}
 			var singleHost echo.Checker = func(result echo.CallResult, _ error) error {
 				hostnames := make([]string, len(result.Responses))
 				for i, r := range result.Responses {
