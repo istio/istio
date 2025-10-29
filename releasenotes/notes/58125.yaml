@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58125
+releaseNotes:
+  - |
+    **Fixed** a race condition in ServiceTargets access that caused intermittent 502 errors during istiod rolling updates.
