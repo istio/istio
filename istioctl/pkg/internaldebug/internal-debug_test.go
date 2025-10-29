@@ -45,6 +45,7 @@ import (
 
 type execTestCase struct {
 	args     []string
+	// revision should default to "default" if not set
 	revision string
 	noIstiod bool
 
@@ -83,6 +84,9 @@ func TestInternalDebug(t *testing.T) {
 	})
 
 	for i, c := range cases {
+		if c.revision == "" {
+			c.revision = "default"
+		}
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
 				IstioNamespace: "istio-system",
@@ -192,6 +196,9 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 	}
 
 	for _, c := range cases {
+		if c.testcase.revision == "" {
+			c.testcase.revision = "default"
+		}
 		t.Run(c.name, func(t *testing.T) {
 			defer func() {
 				getXdsResponseCall = 0
@@ -201,7 +208,7 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
 				IstioNamespace: "istio-system",
 			})
-			client, err := ctx.CLIClient()
+			client, err := ctx.CLIClientWithRevision(c.testcase.revision)
 			require.NoError(t, err)
 
 			_, err = client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
@@ -210,6 +217,7 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 					Namespace: "istio-system",
 					Labels: map[string]string{
 						"app": "istiod",
+						label.IoIstioRev.Name: c.testcase.revision,
 					},
 				},
 				Status: corev1.PodStatus{
@@ -223,7 +231,8 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 					Name:      "istiod-test-2",
 					Namespace: "istio-system",
 					Labels: map[string]string{
-						"app": "istiod",
+						"app":                 "istiod",
+						label.IoIstioRev.Name: c.testcase.revision,
 					},
 				},
 				Status: corev1.PodStatus{
