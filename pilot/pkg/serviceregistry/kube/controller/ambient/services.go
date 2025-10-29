@@ -98,7 +98,7 @@ func (a *index) ServicesCollection(
 
 			var oldest *model.ServiceInfo
 			for _, o := range se.Objects {
-				if oldest == nil || o.CreationTime.Before(oldest.CreationTime) {
+				if oldest == nil || o.Service.CreationTimestamp.AsTime().Before(oldest.Service.CreationTimestamp.AsTime()) {
 					oldest = &o.ServiceInfo
 				}
 			}
@@ -268,7 +268,6 @@ func serviceServiceBuilder(
 			Source:        MakeSource(s),
 			Waypoint:      waypointStatus,
 			Scope:         serviceScope,
-			CreationTime:  s.CreationTimestamp.Time,
 		}
 		if precompute {
 			return precomputeServicePtr(svcInfo)
@@ -462,7 +461,6 @@ func serviceEntriesInfo(
 			LabelSelector: sel,
 			Source:        MakeSource(s),
 			Waypoint:      waypoint,
-			CreationTime:  s.CreationTimestamp.Time,
 		})
 	})
 }
