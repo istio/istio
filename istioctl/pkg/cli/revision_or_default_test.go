@@ -30,9 +30,9 @@ func TestRevisionOrDefaultWithMockDefaultRevision(t *testing.T) {
 			expectedResult: "test-revision",
 		},
 		{
-			description:    "return empty string when no revision provided (fake context has no default detection)",
+			description:    "return default when no revision provided (fake context has no default detection)",
 			inputRevision:  "",
-			expectedResult: "",
+			expectedResult: "default",
 		},
 	}
 
@@ -59,10 +59,10 @@ func TestRevisionOrDefaultCaching(t *testing.T) {
 		t.Fatalf("expected stable-revision, got %v", result1)
 	}
 
-	// Test that empty revisions return empty (since fake context has no default detection)
+	// Test that empty revisions return "default" (since fake context has no default detection)
 	result2 := ctx.RevisionOrDefault("")
-	if result2 != "" {
-		t.Fatalf("expected empty string, got %v", result2)
+	if result2 != "default" {
+		t.Fatalf("expected default, got %v", result2)
 	}
 
 	// Test consistency

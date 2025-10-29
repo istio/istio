@@ -63,9 +63,9 @@ func TestRevisionOrDefault(t *testing.T) {
 			expectedResult: "test-revision",
 		},
 		{
-			description:    "return empty string when no revision provided and no default available",
+			description:    "return default when no revision provided and no default watcher available",
 			inputRevision:  "",
-			expectedResult: "",
+			expectedResult: "default",
 		},
 	}
 
@@ -78,5 +78,39 @@ func TestRevisionOrDefault(t *testing.T) {
 				t.Fatalf("unexpected result: wanted %v got %v", tt.expectedResult, got)
 			}
 		})
+	}
+}
+
+func TestRevisionOrDefaultWithWatcher(t *testing.T) {
+	client := kube.NewFakeClient()
+	stop := make(chan struct{})
+	defer close(stop)
+	
+	// Create a default tag webhook pointing to "stable" revision
+	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "istio-revision-tag-default",
+			Labels: map[string]string{
+				"istio.io/rev": "stable",
+			},
+		},
+	}
+	client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
+	
+	inst := &instance{
+		clients:        map[string]kube.CLIClient{},
+		defaultWatcher: revisions.NewDefaultWatcher(client, "default"),
+		RootFlags: RootFlags{
+			kubeconfig:    ptr.Of(""),
+			configContext: ptr.Of(""),
+		},
+	}
+	
+	client.RunAndWait(stop)
+	go inst.defaultWatcher.Run(stop)
+	
+	got := inst.RevisionOrDefault("")
+	if got != "stable" {
+		t.Errorf("expected 'stable' from synced watcher, got %q", got)
 	}
 }
