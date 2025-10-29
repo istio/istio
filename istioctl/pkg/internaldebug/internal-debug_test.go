@@ -44,7 +44,7 @@ import (
 )
 
 type execTestCase struct {
-	args     []string
+	args []string
 	// revision should default to "default" if not set
 	revision string
 	noIstiod bool
@@ -216,7 +216,7 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 					Name:      "istiod-test-1",
 					Namespace: "istio-system",
 					Labels: map[string]string{
-						"app": "istiod",
+						"app":                 "istiod",
 						label.IoIstioRev.Name: c.testcase.revision,
 					},
 				},
