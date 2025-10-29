@@ -2411,6 +2411,9 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	}
 	gatewayInstances := make([]gatewayWithInstances, 0)
 
+	// Use GetServiceTargetsSnapshot to avoid race conditions with concurrent updates.
+	serviceTargets := proxy.GetServiceTargetsSnapshot()
+
 	var configs []config.Config
 	if features.ScopeGatewayToNamespace {
 		configs = ps.gatewayIndex.namespace[proxy.ConfigNamespace]
@@ -2424,8 +2427,8 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			gwsvcs := strings.Split(gwsvcstr, ",")
 			known := sets.New[string](gwsvcs...)
 			cfgNamespace := ptr.NonEmptyOrDefault(cfg.Annotations[constants.InternalParentNamespace], cfg.Namespace)
-			matchingInstances := make([]ServiceTarget, 0, len(proxy.ServiceTargets))
-			for _, si := range proxy.ServiceTargets {
+			matchingInstances := make([]ServiceTarget, 0, len(serviceTargets))
+			for _, si := range serviceTargets {
 				if _, f := known[string(si.Service.Hostname)]; f && si.Service.Attributes.Namespace == cfgNamespace {
 					matchingInstances = append(matchingInstances, si)
 				}
@@ -2436,11 +2439,11 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 		} else if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets})
+			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, serviceTargets})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			if gatewaySelector.SubsetOf(proxy.Labels) {
-				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets})
+				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, serviceTargets})
 			}
 		}
 	}

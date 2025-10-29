@@ -373,7 +373,8 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort() map[uint32]inboundChai
 		ingressPortListSet = getSidecarIngressPortList(lb.node)
 	}
 	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
-	for _, i := range lb.node.ServiceTargets {
+	// Use the snapshot of ServiceTargets to avoid race conditions with concurrent updates
+	for _, i := range lb.serviceTargets {
 		bindToPort := getBindToPort(networking.CaptureMode_DEFAULT, lb.node)
 		// Skip ports we cannot bind to
 		wildcard := wildCards[lb.node.GetIPMode()][0]

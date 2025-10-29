@@ -63,6 +63,10 @@ type ListenerBuilder struct {
 	virtualOutboundListener *listener.Listener
 	virtualInboundListener  *listener.Listener
 
+	// serviceTargets is a read-locked snapshot of the proxy's ServiceTargets at the time of builder creation.
+	// This prevents race conditions when ServiceTargets are updated concurrently during listener generation.
+	serviceTargets []model.ServiceTarget
+
 	envoyFilterWrapper *model.MergedEnvoyFilterWrapper
 
 	// authnBuilder provides access to authn (mTLS) configuration for the given proxy.
@@ -80,9 +84,14 @@ type enabledInspector struct {
 }
 
 func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBuilder {
+	// Take a read-locked snapshot of ServiceTargets to prevent race conditions.
+	// ServiceTargets may be updated concurrently by computeProxyState during NDS pushes.
+	serviceTargets := node.GetServiceTargetsSnapshot()
+
 	builder := &ListenerBuilder{
-		node: node,
-		push: push,
+		node:           node,
+		push:           push,
+		serviceTargets: serviceTargets,
 	}
 	builder.authnBuilder = authn.NewBuilder(push, node)
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node, node.Type == model.Waypoint)

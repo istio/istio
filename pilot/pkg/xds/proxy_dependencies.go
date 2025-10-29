@@ -50,8 +50,10 @@ func filterRelevantUpdates(proxy *model.Proxy, req *model.PushRequest) *model.Pu
 	}
 
 	// If the proxy's service updated, need push for it.
-	if len(proxy.ServiceTargets) > 0 && req.ConfigsUpdated != nil {
-		for _, svc := range proxy.ServiceTargets {
+	// Use GetServiceTargetsSnapshot to avoid race conditions with concurrent updates.
+	serviceTargets := proxy.GetServiceTargetsSnapshot()
+	if len(serviceTargets) > 0 && req.ConfigsUpdated != nil {
+		for _, svc := range serviceTargets {
 			key := model.ConfigKey{
 				Kind:      kind.ServiceEntry,
 				Name:      string(svc.Service.Hostname),

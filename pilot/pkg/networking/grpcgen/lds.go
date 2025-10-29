@@ -75,8 +75,10 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 	}
 	var out model.Resources
 	mtlsPolicy := authn.NewMtlsPolicy(push, node.Metadata.Namespace, node.Labels, node.IsWaypointProxy())
+	// Use GetServiceTargetsSnapshot to avoid race conditions with concurrent updates.
+	serviceTargets := node.GetServiceTargetsSnapshot()
 	serviceInstancesByPort := map[uint32]model.ServiceTarget{}
-	for _, si := range node.ServiceTargets {
+	for _, si := range serviceTargets {
 		serviceInstancesByPort[si.Port.TargetPort] = si
 	}
 

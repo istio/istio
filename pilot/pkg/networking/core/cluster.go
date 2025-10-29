@@ -222,7 +222,8 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
 	cb := NewClusterBuilder(proxy, req, configgen.Cache)
-	instances := proxy.ServiceTargets
+	// Use the snapshot from ClusterBuilder to avoid race conditions
+	instances := cb.serviceTargets
 	cacheStats := cacheStats{}
 	switch proxy.Type {
 	case model.SidecarProxy:

@@ -586,6 +586,17 @@ func (node *Proxy) SetServiceTargets(serviceDiscovery ServiceDiscovery) {
 	node.ServiceTargets = instances
 }
 
+// GetServiceTargetsSnapshot returns a read-locked snapshot of ServiceTargets.
+// This should be used instead of directly accessing ServiceTargets to prevent race conditions
+// when ServiceTargets are updated concurrently by computeProxyState.
+func (node *Proxy) GetServiceTargetsSnapshot() []ServiceTarget {
+	node.RLock()
+	defer node.RUnlock()
+	snapshot := make([]ServiceTarget, len(node.ServiceTargets))
+	copy(snapshot, node.ServiceTargets)
+	return snapshot
+}
+
 // SetWorkloadLabels will set the node.Labels.
 // It merges both node meta labels and workload labels and give preference to workload labels.
 func (node *Proxy) SetWorkloadLabels(env *Environment) {

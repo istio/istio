@@ -123,7 +123,9 @@ func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
 	}
 
 	// If there is no Sidecar, check if the port is appearing in any service.
-	for _, si := range node.ServiceTargets {
+	// Use GetServiceTargetsSnapshot to avoid race conditions with concurrent updates.
+	serviceTargets := node.GetServiceTargetsSnapshot()
+	for _, si := range serviceTargets {
 		if port == si.Port.TargetPort {
 			return false
 		}

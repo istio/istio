@@ -148,8 +148,12 @@ type ClusterBuilder struct {
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
+	// Take a read-locked snapshot of ServiceTargets to prevent race conditions.
+	// ServiceTargets may be updated concurrently by computeProxyState during NDS pushes.
+	serviceTargets := proxy.GetServiceTargetsSnapshot()
+
 	cb := &ClusterBuilder{
-		serviceTargets:     proxy.ServiceTargets,
+		serviceTargets:     serviceTargets,
 		proxyID:            proxy.ID,
 		proxyMetadata:      proxy.Metadata,
 		proxyType:          proxy.Type,

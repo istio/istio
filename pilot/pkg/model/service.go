@@ -993,7 +993,9 @@ func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 		Network:          node.Metadata.Network.String(),
 		IsNetworkGateway: externalAddresses, // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 	}
-	for _, svct := range node.ServiceTargets {
+	// Use GetServiceTargetsSnapshot to avoid race conditions with concurrent updates.
+	serviceTargets := node.GetServiceTargetsSnapshot()
+	for _, svct := range serviceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
 
 		var ips []string
