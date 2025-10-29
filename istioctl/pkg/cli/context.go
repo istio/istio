@@ -218,10 +218,18 @@ func (i *instance) RevisionOrDefault(rev string) string {
 	if i.defaultWatcher == nil {
 		// Try to initialize the default watcher using a basic client
 		if basicClient := i.getBasicClientForDefaultWatcher(); basicClient != nil {
-			i.defaultWatcher = revisions.NewDefaultWatcher(basicClient, "")
+			i.defaultWatcher = revisions.NewDefaultWatcher(basicClient, "default")
+			basicClient.RunAndWait(stop)
+			go i.defaultWatcher.Run(stop)
 		}
 	}
 
+	for {
+		synced := i.defaultWatcher.HasSynced()
+		if synced {
+			break
+		}
+	}
 	if i.defaultWatcher != nil {
 		if defaultRev := i.defaultWatcher.GetDefault(); defaultRev != "" {
 			return defaultRev
