@@ -186,6 +186,9 @@ func (this *Service) EqualVT(that *Service) bool {
 	if !(*timestamppb.Timestamp)(this.CreationTimestamp).EqualVT((*timestamppb.Timestamp)(that.CreationTimestamp)) {
 		return false
 	}
+	if this.Canonical != that.Canonical {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -735,6 +738,16 @@ func (m *Service) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.Canonical {
+		i--
+		if m.Canonical {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x60
 	}
 	if m.CreationTimestamp != nil {
 		size, err := (*timestamppb.Timestamp)(m.CreationTimestamp).MarshalToSizedBufferVTStrict(dAtA[:i])
@@ -1701,6 +1714,9 @@ func (m *Service) SizeVT() (n int) {
 	if m.CreationTimestamp != nil {
 		l = (*timestamppb.Timestamp)(m.CreationTimestamp).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.Canonical {
+		n += 2
 	}
 	n += len(m.unknownFields)
 	return n

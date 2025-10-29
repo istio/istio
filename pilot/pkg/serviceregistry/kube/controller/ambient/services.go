@@ -555,6 +555,7 @@ func constructServiceEntries(
 			SubjectAltNames:   svc.Spec.SubjectAltNames,
 			LoadBalancing:     lb,
 			CreationTimestamp: creationTimestamp,
+			Canonical:         false,
 		})
 	}
 	return res
@@ -636,6 +637,7 @@ func constructService(
 		LoadBalancing:     lb,
 		IpFamilies:        ipFamily,
 		CreationTimestamp: timestamppb.New(svc.CreationTimestamp.Time),
+		Canonical:         true,
 	}
 }
 

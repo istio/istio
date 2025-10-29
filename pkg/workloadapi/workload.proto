@@ -93,6 +93,12 @@ message Service {
 
   // The creation timestamp of the service.
   google.protobuf.Timestamp creation_timestamp = 11;
+  // Whether or not this service is considered canonical.
+  // In most contexts, this will mean that it's from a Kubernetes Service.
+  // If there is a canonical service, it will be used except when another service from the same namespace as the client
+  // shares the same hostname.
+  // In the data plane, having multiple services with the same hostname defined as canonical is undefined behavior.
+  bool canonical = 12;
 }
 
 enum IPFamilies {

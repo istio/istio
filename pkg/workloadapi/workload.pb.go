@@ -669,8 +669,14 @@ type Service struct {
 	Extensions []*Extension `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
 	// The creation timestamp of the service.
 	CreationTimestamp *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=creation_timestamp,json=creationTimestamp,proto3" json:"creation_timestamp,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Whether or not this service is considered canonical.
+	// In most contexts, this will mean that it's from a Kubernetes Service.
+	// If there is a canonical service, it will be used except when another service from the same namespace as the client
+	// shares the same hostname.
+	// In the data plane, having multiple services with the same hostname defined as canonical is undefined behavior.
+	Canonical     bool `protobuf:"varint,12,opt,name=canonical,proto3" json:"canonical,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Service) Reset() {
@@ -778,6 +784,13 @@ func (x *Service) GetCreationTimestamp() *timestamppb.Timestamp {
 		return x.CreationTimestamp
 	}
 	return nil
+}
+
+func (x *Service) GetCanonical() bool {
+	if x != nil {
+		return x.Canonical
+	}
+	return false
 }
 
 type LoadBalancing struct {
@@ -1639,7 +1652,7 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\aAddress\x126\n" +
 	"\bworkload\x18\x01 \x01(\v2\x18.istio.workload.WorkloadH\x00R\bworkload\x123\n" +
 	"\aservice\x18\x02 \x01(\v2\x17.istio.workload.ServiceH\x00R\aserviceB\x06\n" +
-	"\x04type\"\xb2\x04\n" +
+	"\x04type\"\xd0\x04\n" +
 	"\aService\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1a\n" +
@@ -1655,7 +1668,8 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"extensions\x18\n" +
 	" \x03(\v2\x19.istio.workload.ExtensionR\n" +
 	"extensions\x12I\n" +
-	"\x12creation_timestamp\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x11creationTimestamp\"\xcd\x03\n" +
+	"\x12creation_timestamp\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x11creationTimestamp\x12\x1c\n" +
+	"\tcanonical\x18\f \x01(\bR\tcanonical\"\xcd\x03\n" +
 	"\rLoadBalancing\x12R\n" +
 	"\x12routing_preference\x18\x01 \x03(\x0e2#.istio.workload.LoadBalancing.ScopeR\x11routingPreference\x126\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\".istio.workload.LoadBalancing.ModeR\x04mode\x12O\n" +
