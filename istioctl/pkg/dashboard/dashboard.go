@@ -426,15 +426,14 @@ func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
 				c.Println(c.UsageString())
 				return fmt.Errorf("only one of name, --selector, or --revision can be specified")
 			}
-			resolvedRevision := ctx.RevisionOrDefault(opts.Revision)
-			client, err := ctx.CLIClientWithRevision(resolvedRevision)
+			client, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
-			if resolvedRevision != "" {
-				labelSelector = "istio.io/rev=" + resolvedRevision + ", app=istiod"
+			if opts.Revision != "" {
+				labelSelector = "istio.io/rev=" + opts.Revision + ", app=istiod"
 			}
 
 			if labelSelector != "" {

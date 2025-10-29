@@ -35,7 +35,7 @@ func ClustersCommand(ctx cli.Context) *cobra.Command {
 		Use:   "remote-clusters",
 		Short: "Lists the remote clusters each istiod instance is connected to.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}

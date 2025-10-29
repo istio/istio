@@ -476,19 +476,20 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 		RunE: func(logCmd *cobra.Command, args []string) error {
-			resolvedRevision := ctx.RevisionOrDefault(opts.Revision)
-			client, err := ctx.CLIClientWithRevision(resolvedRevision)
+			client, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
 			if len(args) == 0 {
-				// resolvedRevision is already set by ctx.RevisionOrDefault(opts.Revision)
+				if opts.Revision == "" {
+					opts.Revision = "default"
+				}
 				if len(istiodLabelSelector) > 0 {
-					istiodLabelSelector = fmt.Sprintf("%s,%s=%s", istiodLabelSelector, label.IoIstioRev.Name, resolvedRevision)
+					istiodLabelSelector = fmt.Sprintf("%s,%s=%s", istiodLabelSelector, label.IoIstioRev.Name, opts.Revision)
 				} else {
-					istiodLabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, resolvedRevision)
+					istiodLabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, opts.Revision)
 				}
 				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.IstioNamespace()), istiodLabelSelector)
 				if err != nil {

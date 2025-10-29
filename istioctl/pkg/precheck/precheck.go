@@ -126,7 +126,7 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 }
 
 func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages, error) {
-	cli, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(revision))
+	cli, err := ctx.CLIClientWithRevision(revision)
 	if err != nil {
 		return nil, err
 	}

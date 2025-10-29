@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -37,8 +36,6 @@ type Context interface {
 	CLIClient() (kube.CLIClient, error)
 	// CLIClientWithRevision returns a client for the given revision
 	CLIClientWithRevision(rev string) (kube.CLIClient, error)
-	// RevisionOrDefault returns the given revision if non-empty, otherwise returns the default revision
-	RevisionOrDefault(rev string) string
 	// InferPodInfoFromTypedResource returns the pod name and namespace for the given typed resource
 	InferPodInfoFromTypedResource(name, namespace string) (pod string, ns string, err error)
 	// InferPodsFromTypedResource returns the pod names and namespace for the given typed resource
@@ -58,8 +55,6 @@ type instance struct {
 	clients map[string]kube.CLIClient
 	// remoteClients are cached clients for each context with empty revision.
 	remoteClients map[string]kube.CLIClient
-	// defaultWatcher watches for changes to the default revision
-	defaultWatcher revisions.DefaultWatcher
 	RootFlags
 }
 
@@ -208,46 +203,6 @@ func handleNamespace(ns, defaultNamespace string) string {
 	return ns
 }
 
-func (i *instance) RevisionOrDefault(rev string) string {
-	if rev != "" {
-		return rev
-	}
-
-	// Try to get the default revision from the default watcher
-	// We create a simple approach that doesn't cause circular dependencies
-	if i.defaultWatcher == nil {
-		// Try to initialize the default watcher using a basic client
-		if basicClient := i.getBasicClientForDefaultWatcher(); basicClient != nil {
-			i.defaultWatcher = revisions.NewDefaultWatcher(basicClient, "")
-		}
-	}
-
-	if i.defaultWatcher != nil {
-		if defaultRev := i.defaultWatcher.GetDefault(); defaultRev != "" {
-			return defaultRev
-		}
-	}
-
-	// If no default revision found, return empty string (which means default behavior)
-	return ""
-}
-
-// getBasicClientForDefaultWatcher creates a basic kube client just for watching default revisions
-// This avoids circular dependencies by not using RevisionOrDefault
-func (i *instance) getBasicClientForDefaultWatcher() kube.Client {
-	timeout, err := i.KubeClientTimeout()
-	if err != nil {
-		return nil
-	}
-
-	client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, "", timeout, i.getImpersonateConfig())
-	if err != nil {
-		return nil
-	}
-
-	return client
-}
-
 type fakeInstance struct {
 	// clients are cached clients for each revision
 	clients   map[string]kube.CLIClient
@@ -315,11 +270,6 @@ func (f *fakeInstance) Namespace() string {
 
 func (f *fakeInstance) IstioNamespace() string {
 	return f.rootFlags.IstioNamespace()
-}
-
-func (f *fakeInstance) RevisionOrDefault(rev string) string {
-	// For fake instance, just return the revision as-is (no default resolution)
-	return rev
 }
 
 type NewFakeContextOption struct {

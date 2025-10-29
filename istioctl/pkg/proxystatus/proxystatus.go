@@ -122,7 +122,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
   istioctl proxy-status --output json`,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return err
 			}
