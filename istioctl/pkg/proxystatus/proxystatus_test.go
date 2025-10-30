@@ -58,7 +58,7 @@ type execTestCase struct {
 
 func TestProxyStatus(t *testing.T) {
 	cases := []execTestCase{
-		{ // case 0, with no Isitod instance
+		{ // case 0, with no Istiod instance
 			args:           []string{},
 			noIstiod:       true,
 			expectedOutput: "Error: no running Istio pods in \"istio-system\"\n",
@@ -106,6 +106,9 @@ func TestProxyStatus(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			if c.revision == "" {
+				c.revision = "default"
+			}
 			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
 				IstioNamespace: "istio-system",
 			})
