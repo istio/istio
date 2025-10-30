@@ -985,16 +985,16 @@ func TestAuthorizationL4(t *testing.T) {
         principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}", "cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]
   `,
 				},
-				// 				{
-				// 					name:  "not allow",
-				// 					check: CheckDeny,
-				// 					spec: `
-				//   rules:
-				//   - from:
-				//     - source:
-				//         principals: ["cluster.local/ns/something/sa/else"]
-				//           `,
-				// 				},
+				{
+					name:  "not allow",
+					check: CheckDeny,
+					spec: `
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/something/sa/else"]
+`,
+				},
 			}
 
 			for _, tc := range authzCases {
