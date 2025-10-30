@@ -113,6 +113,21 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 	}
 
+	// This bit creates clusters needed to handle requests going to a remote network.
+	// In ambient, requests going to a remote network have to be wrapped in a double-HBONE tunnel (e.g.,
+	// HBONE inside another HBONE).
+	//
+	// For context, ambient E/W gateway will terminiate the outer HBONE tunnel and will redirect the inner
+	// HBONE tunnel to either a waypoint or service backend as an opaque stream of bytes - E/W gateway does
+	// not know that the data is actually an HBONE tunnel.
+	if features.EnableAmbientMultiNetwork && features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(proxy) {
+		clusters = append(
+			clusters,
+			cb.buildWaypointInnerConnectOriginate(proxy, push),
+			cb.buildWaypointOuterConnectOriginate(proxy, push),
+		)
+	}
+
 	for _, c := range clusters {
 		if c.TransportSocket != nil && c.TransportSocketMatches != nil {
 			log.Errorf("invalid cluster, multiple matches: %v", c.Name)
@@ -135,19 +150,27 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	terminate := isEastWestGateway(proxy)
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
-	discoveryType := convertResolution(cb.proxyType, svc)
-	var lbEndpoints []*endpoint.LocalityLbEndpoints
-	if discoveryType == cluster.Cluster_STRICT_DNS || discoveryType == cluster.Cluster_LOGICAL_DNS {
-		lbEndpoints = endpoints.NewCDSEndpointBuilder(
-			proxy,
-			cb.req.Push,
-			clusterName,
-			model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port,
-			svc, nil,
-		).FromServiceEndpoints()
+	var localCluster *clusterWrapper
+	// All non custom DiscoveryTypes use the same cluster creation logic
+	// DynamicDNS uses a custom DiscoveryType
+	if svc.Resolution != model.DynamicDNS {
+		discoveryType := convertResolution(cb.proxyType, svc)
+		var lbEndpoints []*endpoint.LocalityLbEndpoints
+		if discoveryType == cluster.Cluster_STRICT_DNS || discoveryType == cluster.Cluster_LOGICAL_DNS {
+			lbEndpoints = endpoints.NewCDSEndpointBuilder(
+				proxy,
+				cb.req.Push,
+				clusterName,
+				model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port,
+				svc, nil,
+			).FromServiceEndpoints()
+		}
+		localCluster = cb.buildCluster(clusterName, discoveryType, lbEndpoints,
+			model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
+	} else {
+		// DynamicDNS uses a custom cluster type and has the same cluster for HTTP and TLS protocols
+		localCluster = cb.buildDFPCluster(clusterName, svc, &port)
 	}
-	localCluster := cb.buildCluster(clusterName, discoveryType, lbEndpoints,
-		model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
 
 	// Ensure VIP cluster has services metadata for stats filter usage
 	im := getOrCreateIstioMetadata(localCluster.cluster)
@@ -197,7 +220,11 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
 	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
-	applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+
+	// Unless the svc resolution type is DynamicDNS, we apply the LB settings
+	if svc.Resolution != model.DynamicDNS {
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+	}
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result
 	if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
@@ -237,6 +264,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	}
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
+
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
 
@@ -277,10 +305,20 @@ func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSe
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
 func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
-
 	for _, svc := range svcs {
 		for _, port := range svc.Ports {
+			// We don't support UDP. And for dynamic DNS (dynamic forward proxy) we only support HTTP and TLS
 			if port.Protocol == protocol.UDP {
+				log.Debugf("skipping waypoint VIP cluster for unsupported protocol %s for service %s", port.Protocol, svc.Hostname)
+				continue
+			}
+			// For dynamic DNS (dynamic forward proxy) resolution protocol other than HTTP and TLS are not supported
+			if svc.Resolution == model.DynamicDNS && port.Protocol != protocol.HTTP && port.Protocol != protocol.TLS {
+				log.Debugf("skipping waypoint VIP cluster for unsupported protocol %s for service %s with DynamicDNS resolution", port.Protocol, svc.Hostname)
+				continue
+			}
+			if svc.Resolution == model.DynamicDNS && port.Protocol == protocol.TLS && !features.EnableWildcardHostServiceEntriesForTLS {
+				log.Warnf("skipping waypoint VIP cluster for TLS protocol for service %s with DynamicDNS resolution since the feature is disabled", svc.Hostname)
 				continue
 			}
 			if isEastWestGateway(proxy) {
@@ -312,18 +350,89 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 	return clusters
 }
 
+// buildWaypointInnerConnectOriginate creates a cluster that innitiate inner HBONE tunnel of double-HBONE.
+// InnerConnectOrigiante cluster is responsible for creating the inner CONNECT tunnel and forwarding to an internal listener that
+// will wrap the traffic into outer HBONE tunnel.
+func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+	// Normally for clusters that just redirect to internal listeners we would use util.DefaultInternalUpstreamTransportSocket.
+	// util.DefaultInternalUpstreamTransportSocket is a InternalUpstreamTransport socket wrapping a RawBufferTransport socket.
+	// For double HBONE we want something slightly different - we still need to use InternalUpstreamTransport socket because
+	// we redirect to an internal listener, but instead of keeping data as-is we want to encrypt it using TLS, so instead of the
+	// RawBufferTransport we want to wrap a TLS transport socket.
+	tlsCtx := buildCommonConnectTLSContext(proxy, push)
+	sec_model.EnforceCompliance(tlsCtx)
+	transportSocket := util.InternalUpstreamTransportSocket("internal_upstream_with_tls", &core.TransportSocket{
+		Name: "tls",
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tlsv3.UpstreamTlsContext{
+			CommonTlsContext: tlsCtx,
+		})},
+	})
+
+	c := &cluster.Cluster{
+		Name:                 DoubleHBONEInnerConnectOriginate,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+		CircuitBreakers: &cluster.CircuitBreakers{
+			Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
+		},
+		LoadAssignment: &endpoint.ClusterLoadAssignment{
+			ClusterName: DoubleHBONEInnerConnectOriginate,
+			Endpoints:   util.BuildInternalEndpoint(DoubleHBONEOuterConnectOriginate, nil),
+		},
+		TypedExtensionProtocolOptions: h2connectUpgradeWithNoPooling(),
+		TransportSocket:               transportSocket,
+	}
+
+	c.AltStatName = util.DelimitedStatsPrefix(DoubleHBONEInnerConnectOriginate)
+
+	return c
+}
+
+// buildWaypointOuterConnectOriginate creates a cluster that finishes wrapping traffic in double HBONE by finalizing outer HBONE tunnel.
+// It's basically equivalent to the regular waypoint ConnectOriginate cluster and does the same thing, the only real difference is that
+// it wraps the data already wrapped into a CONNECT once.
+func (cb *ClusterBuilder) buildWaypointOuterConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+	ctx := buildCommonConnectTLSContext(proxy, push)
+	sec_model.EnforceCompliance(ctx)
+	c := &cluster.Cluster{
+		Name:                          DoubleHBONEOuterConnectOriginate,
+		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
+		CleanupInterval:               durationpb.New(60 * time.Second),
+		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
+		TypedExtensionProtocolOptions: h2connectUpgradeWithNoPooling(),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UpstreamPortOverride: &wrappers.UInt32Value{
+					Value: model.HBoneInboundListenPort,
+				},
+			},
+		},
+		TransportSocket: &core.TransportSocket{
+			Name: "tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tlsv3.UpstreamTlsContext{
+				CommonTlsContext: ctx,
+			})},
+		},
+	}
+
+	c.AltStatName = util.DelimitedStatsPrefix(DoubleHBONEOuterConnectOriginate)
+
+	return c
+}
+
 func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	// needed to enable cross-namespace waypoints when SkipValidateTrustDomain is set
 	// this ensures the match_typed_subject_alt_names list for the envoy config cluster is always empty
 	if features.SkipValidateTrustDomain {
-		return cb.buildConnectOriginate(proxy, push, nil)
+		return cb.buildConnectOriginate(ConnectOriginate, proxy, push, nil)
 	}
 	m := &matcher.StringMatcher{}
 
 	m.MatchPattern = &matcher.StringMatcher_Prefix{
 		Prefix: spiffe.URIPrefix + push.Mesh.GetTrustDomain() + "/ns/" + proxy.Metadata.Namespace + "/sa/",
 	}
-	return cb.buildConnectOriginate(proxy, push, m)
+	return cb.buildConnectOriginate(ConnectOriginate, proxy, push, m)
 }
 
 func (cb *ClusterBuilder) buildWaypointForwardInnerConnect() *cluster.Cluster {
@@ -362,7 +471,12 @@ func (cb *ClusterBuilder) buildForwardInnerConnect() *cluster.Cluster {
 	return c
 }
 
-func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatchers ...*matcher.StringMatcher) *cluster.Cluster {
+func (cb *ClusterBuilder) buildConnectOriginate(
+	name string,
+	proxy *model.Proxy,
+	push *model.PushContext,
+	uriSanMatchers ...*matcher.StringMatcher,
+) *cluster.Cluster {
 	ctx := buildCommonConnectTLSContext(proxy, push)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
 	for _, uriSanMatcher := range uriSanMatchers {
@@ -376,7 +490,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 	// Compliance for Envoy tunnel upstreams.
 	sec_model.EnforceCompliance(ctx)
 	c := &cluster.Cluster{
-		Name:                          ConnectOriginate,
+		Name:                          name,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
 		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
@@ -407,7 +521,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 		},
 	}
 
-	c.AltStatName = util.DelimitedStatsPrefix(ConnectOriginate)
+	c.AltStatName = util.DelimitedStatsPrefix(name)
 
 	return c
 }
@@ -415,6 +529,32 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 func h2connectUpgrade() map[string]*anypb.Any {
 	return map[string]*anypb.Any{
 		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+					Http2ProtocolOptions: &core.Http2ProtocolOptions{
+						AllowConnect: true,
+					},
+				},
+			}},
+		}),
+	}
+}
+
+func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
+	return map[string]*anypb.Any{
+		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				// This has very little effect as there is connection pooling at the level of the service
+				// cluster that already multiplexes multiple HTTP requests over the same connection before
+				// this option takes effect. However doing this is better than nothing.
+				//
+				// In the future though a better solution is needed to achieve sensible connection pooling
+				// without lasering a particular backend in the remote network.
+				//
+				// TODO(https://github.com/istio/istio/issues/58039): remove it after deploying a sensible
+				// connection pooling fix for ambient multi-network.
+				MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 1},
+			},
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{

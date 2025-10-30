@@ -298,6 +298,22 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 	}
 }
 
+// NewFilteredDelayed returns a "delayed" client for the given GVR that is writeable.
+// It is the caller's responsibility to not write to the client if the type is not available; the "Delay" is not impacting
+// the write flow. The reason for this is typically the writes are for status, which is in response to the object existing,
+// which implies the GVR exists.
+func NewFilteredDelayed[T controllers.ComparableObject](
+	c kube.Client,
+	gvr schema.GroupVersionResource,
+	filter Filter,
+) Client[T] {
+	inf := NewDelayedInformer[T](c, gvr, kubetypes.StandardInformer, filter)
+	return &fullClient[T]{
+		writeClient: writeClient[T]{client: c},
+		Informer:    inf,
+	}
+}
+
 // NewDelayedInformer returns a "delayed" client for the given GVR. This is read-only.
 // A delayed client is used for CRD watches when the CRD may or may not exist. When the CRD is not present, the client will return
 // empty results for all operations and watch for the CRD creation. Once created, watchers will be started and read operations will

@@ -328,6 +328,9 @@ var (
 
 	DisableShadowHostSuffix = env.Register("DISABLE_SHADOW_HOST_SUFFIX", true,
 		"If disabled, the shadow host suffix will be added to the hostnames of the mirrored requests.").Get()
+
+	DisableTrackRemainingMetrics = env.Register("DISABLE_TRACK_REMAINING_CB_METRICS", true,
+		"If disabled, the remaining metrics for circuit breakers will not be tracked.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

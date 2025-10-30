@@ -19,8 +19,10 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	dfpcommon "github.com/envoyproxy/go-control-plane/envoy/extensions/common/dynamic_forward_proxy/v3"
 	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
 	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
+	dfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
 	extproc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
@@ -74,6 +76,11 @@ const (
 	// Authority Key is another filter state key where we store :authority. Because this is not a
 	// well-known filter state key, we can store non-IP address :authorities in here
 	AuthorityFilterStateKey = "io.istio.connect_authority"
+
+	// RequestSourceFilterStateKey is a filter state key where we store the value of x-istio-source header
+	// for incoming HBONE connections. This header when set to waypoint indicates that request has been processed
+	// by a waypoint already and therfore L7 policies have been applied already and we should skip them.
+	RequestSourceFilterStateKey = "io.istio.source"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -237,6 +244,40 @@ var (
 						},
 					},
 				}),
+		},
+	}
+
+	// This filter is used to capture value of istio-l7-policies-applied header from the HBONE connect request in the filter state.
+	// This header in multi-network ambient mode indicates whether L7 policies have been applied already to the
+	// request. For example, if the request went from ztunnel to waypoint and then to E/W gateway, then waypoint would have already
+	// applied L7 policies to the request, so E/W gateway should not send the request to waypoint to avoid applying the L7 policies
+	// again. On the other hand, if ztunnel directly sent the request to the E/W gateway, then the request still needs L7 policies
+	// to be applied and so has to be routed to the waypoint if the service has one.
+	RequestSourceFilter = &hcm.HttpFilter{
+		Name: "request_source",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfs.Config{
+				OnRequestHeaders: []*sfsvalue.FilterStateValue{
+					{
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: RequestSourceFilterStateKey,
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(x-istio-source)%",
+										},
+									},
+								},
+							},
+						},
+						FactoryKey:         "envoy.string",
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					},
+				},
+			}),
 		},
 	}
 
@@ -527,5 +568,24 @@ var (
 func additionalLabels(cfg map[string]any) {
 	if additionalLabels := features.MetadataExchangeAdditionalLabels; len(additionalLabels) != 0 {
 		cfg["additional_labels"] = additionalLabels
+	}
+}
+
+// BuildWaypointInboundDFPFilter builds a dynamic forward proxy filter for waypoint inbound listeners
+// using the specified DNS cache config name. This name must match the name used in the corresponding
+// dynamic forward proxy cluster.
+func BuildWaypointInboundDFPFilter(dnsCacheConfigName string) *hcm.HttpFilter {
+	return &hcm.HttpFilter{
+		Name: "envoy.filters.http.dynamic_forward_proxy",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&dfp.FilterConfig{
+				ImplementationSpecifier: &dfp.FilterConfig_DnsCacheConfig{
+					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
+						Name:            dnsCacheConfigName,
+						DnsLookupFamily: cluster.Cluster_V4_ONLY,
+					},
+				},
+			}),
+		},
 	}
 }

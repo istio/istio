@@ -15,6 +15,7 @@
 package dependencies
 
 import (
+	"fmt"
 	"testing"
 
 	utilversion "k8s.io/apimachinery/pkg/util/version"
@@ -77,6 +78,79 @@ func TestOverrideVersionIsCorrectlyParsed(t *testing.T) {
 				t.Fatal(err)
 			}
 			assert.Equal(t, got.String(), tt.want.String())
+		})
+	}
+}
+
+func TestDetectIptablesVersion(t *testing.T) {
+	cases := []struct {
+		name            string
+		shouldUseBinary func(string) (IptablesVersion, error)
+		dep             *RealDependencies
+		result          IptablesVersion
+		expected        error
+	}{
+		{
+			name: "FORCE_IPTABLES_BINARY_is_found",
+			shouldUseBinary: func(s string) (IptablesVersion, error) {
+				if s == iptablesNftBin {
+					return IptablesVersion{DetectedBinary: iptablesNftBin}, nil
+				}
+
+				return IptablesVersion{}, fmt.Errorf("binary not found")
+			},
+			dep: &RealDependencies{
+				ForceIptablesBinary: "nft",
+			},
+			result:   IptablesVersion{DetectedBinary: iptablesNftBin},
+			expected: nil,
+		},
+		{
+			name: "FORCE_IPTABLES_BINARY_not_found",
+			shouldUseBinary: func(s string) (IptablesVersion, error) {
+				return IptablesVersion{}, fmt.Errorf("binary not found")
+			},
+			dep: &RealDependencies{
+				ForceIptablesBinary: "legacy",
+			},
+			result:   IptablesVersion{},
+			expected: fmt.Errorf("binary not found"),
+		},
+		{
+			name: "FORCE_IPTABLES_BINARY_not_valid",
+			shouldUseBinary: func(s string) (IptablesVersion, error) {
+				return IptablesVersion{}, fmt.Errorf("binary not found")
+			},
+			dep: &RealDependencies{
+				ForceIptablesBinary: "iptables",
+			},
+			result:   IptablesVersion{},
+			expected: fmt.Errorf("iptables binary %q unsupported", "iptables"),
+		},
+		{
+			name: "selection_logic_finds_nft",
+			shouldUseBinary: func(s string) (IptablesVersion, error) {
+				if s == iptablesNftBin {
+					return IptablesVersion{DetectedBinary: iptablesNftBin}, nil
+				}
+
+				return IptablesVersion{}, fmt.Errorf("binary not found")
+			},
+			dep:      &RealDependencies{},
+			result:   IptablesVersion{DetectedBinary: iptablesNftBin},
+			expected: nil,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			shouldUseBinaryForContext = tt.shouldUseBinary
+			defer func() {
+				shouldUseBinaryForContext = shouldUseBinaryForCurrentContext
+			}()
+			r, e := tt.dep.DetectIptablesVersion(false)
+			assert.Equal(t, tt.result, r)
+			assert.Equal(t, tt.expected, e)
 		})
 	}
 }

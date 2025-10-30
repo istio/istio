@@ -2921,7 +2921,10 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 				errs = AppendValidation(errs, fmt.Errorf("invalid host %s", hostname))
 			} else {
 				errs = AppendValidation(errs, agent.ValidateWildcardDomain(hostname))
-				errs = AppendValidation(errs, WrapWarning(agent.ValidatePartialWildCard(hostname)))
+				// Partial wildcards are not allowed for non-DNS resolution types
+				if serviceEntry.Resolution != networking.ServiceEntry_DYNAMIC_DNS {
+					errs = AppendValidation(errs, WrapWarning(agent.ValidatePartialWildCard(hostname)))
+				}
 			}
 		}
 
@@ -2988,7 +2991,8 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 				for _, hostname := range serviceEntry.Hosts {
 					if err := agent.ValidateFQDN(hostname); err != nil {
 						errs = AppendValidation(errs,
-							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode %s", serviceEntry.Resolution))
+							fmt.Errorf("hosts must be FQDN or contain only prefix wildcards if no endpoints are provided for resolution mode %s, %v", serviceEntry.Resolution, err))
+						break
 					}
 				}
 			}
@@ -3036,6 +3040,33 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 						break
 					}
 				}
+			}
+		// Only supported by ztunnel and waypoints
+		case networking.ServiceEntry_DYNAMIC_DNS:
+			if len(serviceEntry.Hosts) == 0 {
+				errs = AppendValidation(errs, fmt.Errorf("at least one wildcard host must be provided for resolution type %s", serviceEntry.Resolution))
+			}
+			for _, hostname := range serviceEntry.Hosts {
+				if !host.Name(hostname).IsWildCarded() {
+					errs = AppendValidation(errs, fmt.Errorf("host must be wildcarded for resolution mode %s", serviceEntry.Resolution))
+				}
+			}
+			if len(serviceEntry.Addresses) != 0 {
+				errs = AppendValidation(errs, fmt.Errorf("addresses cannot be set for resolution type %s. HTTP route domains will only be generated"+
+					"from the hosts field values", serviceEntry.Resolution))
+			}
+			if len(serviceEntry.Endpoints) != 0 {
+				errs = AppendValidation(errs, fmt.Errorf("endpoints cannot be set for resolution type %s. Destination IP address determined from hosts"+
+					"field values", serviceEntry.Resolution))
+			}
+			for _, port := range serviceEntry.Ports {
+				proto := protocol.Parse(port.Protocol)
+				if proto != protocol.HTTP && proto != protocol.TLS {
+					errs = AppendValidation(errs, fmt.Errorf("only HTTP and TLS protocol is supported for resolution type %s", serviceEntry.Resolution))
+				}
+			}
+			if serviceEntry.Location != networking.ServiceEntry_MESH_EXTERNAL {
+				errs = AppendValidation(errs, fmt.Errorf("location must be MESH_EXTERNAL for resolution type %s", serviceEntry.Resolution))
 			}
 		default:
 			errs = AppendValidation(errs, fmt.Errorf("unsupported resolution type %s",

@@ -158,6 +158,9 @@ type InstallConfig struct {
 
 	// Whether native nftables should be used instead of iptable rules for traffic redirection
 	NativeNftables bool
+
+	// Choose which iptables binary to use (legacy or nft)
+	ForceIptablesBinary string
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -175,7 +178,7 @@ type RepairConfig struct {
 	// Whether to fix race condition by repairing them
 	RepairPods bool
 
-	// Whether to fix race condition by delete broken pods
+	// Whether to fix race condition by deleting broken pods
 	DeletePods bool
 
 	// Whether to label broken pods
@@ -194,6 +197,9 @@ type RepairConfig struct {
 
 	// Whether to repair pods by running nftables rules
 	NativeNftables bool
+
+	// Choose which iptables binary to use (legacy or nft)
+	ForceIptablesBinary string
 }
 
 func (c InstallConfig) String() string {
@@ -231,6 +237,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("AmbientReconcilePodRulesOnStartup: " + fmt.Sprint(c.AmbientReconcilePodRulesOnStartup) + "\n")
 
 	b.WriteString("NativeNftables: " + fmt.Sprint(c.NativeNftables) + "\n")
+	b.WriteString("ForceIptablesBinary: " + fmt.Sprint(c.ForceIptablesBinary) + "\n")
 	return b.String()
 }
 
@@ -249,5 +256,6 @@ func (c RepairConfig) String() string {
 	b.WriteString("LabelSelectors: " + c.LabelSelectors + "\n")
 	b.WriteString("FieldSelectors: " + c.FieldSelectors + "\n")
 	b.WriteString("NativeNftables: " + fmt.Sprint(c.NativeNftables) + "\n")
+	b.WriteString("ForceIptablesBinary: " + fmt.Sprint(c.ForceIptablesBinary) + "\n")
 	return b.String()
 }

@@ -87,6 +87,8 @@ const (
 	ExternalAuthorization = "envoy.filters.network.ext_authz"
 	// RoleBasedAccessControl network filter
 	RoleBasedAccessControl = "envoy.filters.network.rbac"
+	// SNIDynamicForwardProxy network filter
+	SNIDynamicForwardProxy = "envoy.extensions.filters.network.sni_dynamic_forward_proxy"
 )
 
 // Listener filter names

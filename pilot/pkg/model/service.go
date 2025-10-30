@@ -188,6 +188,8 @@ const (
 	DNSRoundRobinLB
 	// Alias defines a Service that is an alias for another.
 	Alias
+	// DynamicDNS implies that the proxy will resolve a the address from SNI or host header for wildcard services
+	DynamicDNS
 )
 
 // String converts Resolution in to String.
@@ -302,6 +304,9 @@ const (
 	trafficDirectionOutboundSrvPrefix = string(TrafficDirectionOutbound) + "_"
 	// trafficDirectionInboundSrvPrefix the prefix for a DNS SRV type subset key
 	trafficDirectionInboundSrvPrefix = string(TrafficDirectionInbound) + "_"
+
+	// dnsCacheConfigNameSuffix is the suffix used for DNS cache config names
+	dnsCacheConfigNameSuffix = "_dfp_dns_cache"
 )
 
 // ServiceInstance represents an individual instance of a specific version
@@ -1125,6 +1130,9 @@ type ServiceInfo struct {
 	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
 	// the hotpath
 	AsAddress AddressInfo
+	// CreationTime is the time when the service was created. Note this is used internally only
+	// for conflict resolution.
+	CreationTime time.Time
 }
 
 func (i ServiceInfo) GetLabelSelector() map[string]string {
@@ -1141,6 +1149,11 @@ const (
 	WaypointBound    ConditionType = "istio.io/WaypointBound"
 	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
 	WaypointAccepted ConditionType = "WaypointAccepted"
+	// WaypointMissing is set on a ServiceEntry with a wildcard hostname and not bound to a waypoint.
+	// It is used to inform the user that the ServiceEntry will not be active until it is bound to a waypoint.
+	WaypointMissing ConditionType = "istio.io/WaypointMissing"
+
+	NoWaypointForWildcardService string = "NoWaypointForWildcardService"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1165,6 +1178,10 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
 	}
+	if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
+		// Only prune WaypointMissing condition if we have a wildcard service entry
+		set[WaypointMissing] = nil
+	}
 
 	if i.Waypoint.ResourceName != "" {
 		buildMsg := strings.Builder{}
@@ -1182,11 +1199,22 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 			Reason:  string(WaypointAccepted),
 			Message: buildMsg.String(),
 		}
-	} else if i.Waypoint.Error != nil {
-		set[WaypointBound] = &Condition{
-			Status:  false,
-			Reason:  i.Waypoint.Error.Reason,
-			Message: i.Waypoint.Error.Message,
+	} else {
+		if i.Waypoint.Error != nil {
+			set[WaypointBound] = &Condition{
+				Status:  false,
+				Reason:  i.Waypoint.Error.Reason,
+				Message: i.Waypoint.Error.Message,
+			}
+		}
+		if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
+			buildMsg := strings.Builder{}
+			buildMsg.WriteString("ServiceEntry will not apply until it is bound to a valid waypoint.")
+			set[WaypointMissing] = &Condition{
+				Status:  true,
+				Reason:  NoWaypointForWildcardService,
+				Message: buildMsg.String(),
+			}
 		}
 	}
 
@@ -1218,6 +1246,10 @@ func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: i.Service.Name, Namespace: i.Service.Namespace}
+}
+
+func (i ServiceInfo) GetName() string {
+	return i.Service.Name
 }
 
 func (i ServiceInfo) GetNamespace() string {
@@ -1582,6 +1614,11 @@ func BuildInboundSubsetKey(port int) string {
 // The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
 func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
 	return string(direction) + "_." + strconv.Itoa(port) + "_." + subsetName + "_." + string(hostname)
+}
+
+// BuildDNSCacheName generates a hostname specific DNS cache config name.
+func BuildDNSCacheName(hostname host.Name) string {
+	return hostname.String() + dnsCacheConfigNameSuffix
 }
 
 // IsValidSubsetKey checks if a string is valid for subset key parsing.

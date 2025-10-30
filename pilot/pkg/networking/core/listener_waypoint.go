@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -67,6 +68,10 @@ import (
 const (
 	h2KeepaliveInterval = 10 * time.Second
 	h2KeepaliveTimeout  = 20 * time.Second
+	// We use this header to indicate to the next proxy (e.g., E/W gateway), that the request
+	// came from a waypoint and the next proxy then can infer that L7 policies have been
+	// applied already.
+	downstreamSourceHeader = "x-istio-source"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -74,29 +79,38 @@ func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 }
 
 func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
-	listeners := []*listener.Listener{}
-	// We create 3 listeners:
+	// For the common single-network case We create 3 listeners:
 	// 1. Decapsulation CONNECT listener.
 	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
 	// 3. One of two options based on the type of waypoint:
 	//    a. East-West Gateway: Forward the inner CONNECT to the backend ztunnel or waypoint.
 	//    b. Regular Waypoint: Encapsulate the inner CONNECT and forward to the ztunnel.
-	var forwarder *listener.Listener
+	//
+	// In case where we need to support multiple networks, we need to support double-HBONE
+	// and for that we need two additional listeners to encapsulate the traffic into HBONE
+	// twice - we only need that in waypoints, so we skip generating those in E/W gateway.
 	var orderedWPS []*model.Service
 	wls, wps := findWaypointResources(lb.node, lb.push)
 	if wps != nil {
 		orderedWPS = wps.orderedServices
 	}
-	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
-		forwarder = buildWaypointForwardInnerConnectListener(lb.push, lb.node)
-	} else {
-		forwarder = buildWaypointConnectOriginateListener(lb.push, lb.node)
-	}
-	listeners = append(listeners,
+
+	listeners := []*listener.Listener{
 		lb.buildWaypointInboundConnectTerminate(),
 		lb.buildWaypointInternal(wls, orderedWPS),
-		forwarder)
+	}
 
+	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
+		listeners = append(listeners, buildWaypointForwardInnerConnectListener(lb.push, lb.node))
+	} else {
+		listeners = append(listeners, buildWaypointConnectOriginateListener(lb.push, lb.node))
+	}
+
+	if features.EnableAmbientMultiNetwork && features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(lb.node) {
+		listeners = append(listeners,
+			buildWaypointInnerConnectOriginateListener(lb.push, lb.node),
+			buildWaypointOuterConnectOriginateListener(lb.push, lb.node))
+	}
 	return listeners
 }
 
@@ -159,10 +173,19 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		// If we put them as a network filter, we get poor logs and cannot return an error at the CONNECT level
 		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
 	}
+	filters = append(filters,
+		xdsfilters.WaypointDownstreamMetadataFilter,
+		xdsfilters.ConnectAuthorityFilter)
+
+	// This filter checks whether the request went through a waypoint already and thefore whether L7 policies have
+	// been applied already. We put that information into filter state for later use when we decide whether to
+	// send the request to a waypoint or skip it.
+	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
+		filters = append(filters, xdsfilters.RequestSourceFilter)
+	}
+
 	// Filters needed to propagate the tunnel metadata to the inner streams.
 	h.HttpFilters = append(filters,
-		xdsfilters.WaypointDownstreamMetadataFilter,
-		xdsfilters.ConnectAuthorityFilter,
 		xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
 			StartChildSpan:       false,
 			SuppressDebugHeaders: ph.SuppressDebugHeaders,
@@ -231,6 +254,18 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
+func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) host.Name {
+	ws := lb.push.ServicesWithWaypoint(svc.Attributes.Namespace + "/" + string(svc.Hostname))
+	if len(ws) == 0 {
+		return ""
+	}
+	if len(ws) > 1 {
+		log.Warnf("unexpected multiple waypoint services for %s", svc.Hostname)
+	}
+	waypoint := ws[0]
+	return host.Name(waypoint.WaypointHostname)
+}
+
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	isEastWestGateway := isEastWestGateway(lb.node)
@@ -284,13 +319,20 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			},
 		}
 	}
+
 	for _, svc := range svcs {
+		var waypoint host.Name
+		if isEastWestGateway && features.EnableAmbientMultiNetwork {
+			waypoint = lb.findServiceWaypoint(svc)
+		}
+
 		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
+
 			portString := strconv.Itoa(port.Port)
 			authorityKey := fmt.Sprintf("%s:%d", svc.Hostname, port.Port)
 			tcpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port)
@@ -327,13 +369,46 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				Name:    cc.clusterName,
 			}
 			if isEastWestGateway && features.EnableAmbientMultiNetwork {
+				// If the service has a waypoint, in ambient multi-network we have to account for the possibility that L7
+				// policies have been applied already, and if so, we need to skip the waypoint. So if the service has a
+				// waypoint we check it here and generate a somewhat different filter chain matching rule.
+				//
+				// How do we check that L7 policies have been applied already?
+				//
+				// - L7 policies have been applied if the request went through a waypoint already. Waypoints add a header
+				//   to the outer CONNECT request that we can use to check that.
+				//
+				// What do we do if L7 policies have been applied already?
+				//
+				// - Instead of routing to a waypoint as we'd do normally, we instead route directly to the service
+				//   endpoint skipping waypoint altogether.
+				//
+				// NOTE: we expect waypoint service to be among the services that this loop handles. This is true and
+				// currently handled ambient index that explicitly includes service waypoints alongside the service
+				// even when the waypoint isn't explicitly marked as global.
+				if waypoint != "" {
+					hbonePort := 15008
+					// We rely here on filter chain name and cluster name matching.
+					// We also rely here on the fact that waypoint is also a global service and another iteration of
+					// this loop would generate a cluster and corresponding filter chain for the waypoint service.
+					waypointClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", waypoint, hbonePort)
+
+					m := match.NewRequestSource()
+					m.Map["waypoint"] = match.ToChain(tcpChain.Name)
+					m.OnNoMatch = match.ToChain(waypointClusterName)
+
+					requestSourceMatcher := match.ToMatcher(m.BuildMatcher())
+					portMapper.Map[portString] = requestSourceMatcher
+					svcHostnameMap.Map[authorityKey] = requestSourceMatcher
+				} else {
+					portMapper.Map[portString] = match.ToChain(tcpChain.Name)
+					svcHostnameMap.Map[authorityKey] = match.ToChain(tcpChain.Name)
+				}
 				// We want to send to all ports regardless of protocol, but we want the filter chains to tcp proxy no matter what
 				// (since we're expecting double-hbone). There's no point in sniffing, so we just send to the TCP chain.
 				chains = append(chains, tcpChain)
 				// Pick the TCP chain; as long as the cluster exists (and we'll ensure it does if we're terminating),
 				// traffic should end up at the correct destination
-				portMapper.Map[portString] = match.ToChain(tcpClusterName)
-				svcHostnameMap.Map[authorityKey] = match.ToChain(tcpChain.Name)
 				portProtocols[port.Port] = protocol.TCP // Inner HBONE with no SNI == TCP protocol for listener purposes
 			} else {
 				if port.Protocol.IsUnsupported() {
@@ -358,6 +433,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 						portProtocols[port.Port] = protocol.HTTP
 					}
 				} else {
+					if port.Protocol.IsTLS() && svc.Hostname.IsWildCarded() && svc.Resolution == model.DynamicDNS &&
+						!features.EnableWildcardHostServiceEntriesForTLS {
+						log.Debugf("skipping waypoint inbound chain for TLS protocol for service %s since the feature is disabled", svc.Hostname)
+						continue
+					}
 					// Note that this could include double hbone
 					chains = append(chains, tcpChain)
 					portMapper.Map[portString] = match.ToChain(tcpChain.Name)
@@ -572,6 +652,10 @@ func buildForwardInnerConnectListener(push *model.PushContext, proxy *model.Prox
 	return buildConnectForwarder(push, proxy, class, ForwardInnerConnect, false)
 }
 
+func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) *listener.Listener {
+	return buildConnectForwarder(push, proxy, class, ConnectOriginate, true)
+}
+
 func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass,
 	clusterName string, tunnel bool,
 ) *listener.Listener {
@@ -615,8 +699,130 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 	return l
 }
 
-func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) *listener.Listener {
-	return buildConnectForwarder(push, proxy, class, ConnectOriginate, true)
+// buildWaypointInnerConnectOriginateListener creates configuration for the waypoint inner_connect_originate listener.
+// This listener together with the corresponding cluster is responsible for the creating the inner HBONE tunnel of the
+// double-HBONE connection needed to communicate across networks in ambient mode.
+//
+// In terms of Envoy configuration this listener has two important bits:
+//
+// 1. It uses TCP Proxy network filter to establish a CONNECT tunnel
+// 2. It captures and propagates metadata about the actual destination and service name required for double-HBONE.
+func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	setFilterState := &sfsnetwork.Config{
+		OnNewConnection: []*sfsvalue.FilterStateValue{
+			{
+				Key: &sfsvalue.FilterStateValue_ObjectKey{
+					ObjectKey: "envoy.filters.listener.original_dst.local_ip",
+				},
+				Value: &sfsvalue.FilterStateValue_FormatString{
+					FormatString: &core.SubstitutionFormatString{
+						Format: &core.SubstitutionFormatString_TextFormatSource{
+							TextFormatSource: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: "%DYNAMIC_METADATA(envoy.filters.listener.original_dst:local)%",
+								},
+							},
+						},
+					},
+				},
+				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+			},
+			{
+				Key: &sfsvalue.FilterStateValue_ObjectKey{
+					ObjectKey: "istio.double_hbone.hbone_target_address",
+				},
+				Value: &sfsvalue.FilterStateValue_FormatString{
+					FormatString: &core.SubstitutionFormatString{
+						Format: &core.SubstitutionFormatString_TextFormatSource{
+							TextFormatSource: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: "%DYNAMIC_METADATA(istio:double_hbone:hbone_target_address)%",
+								},
+							},
+						},
+					},
+				},
+				FactoryKey:         "envoy.string",
+				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+			},
+		},
+	}
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       DoubleHBONEInnerConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+		},
+	}
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+
+	l := &listener.Listener{
+		Name:              DoubleHBONEInnerConnectOriginate,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{
+				{
+					Name: "propagate_endpoint_metadata",
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(setFilterState),
+					},
+				},
+				{
+					Name: wellknown.TCPProxy,
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(tcpProxy),
+					},
+				},
+			},
+		}},
+	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	return l
+}
+
+// buildWaypointOuterConnectOriginateListener creates configuration for the waypoint outer_connect_originate listener.
+// This listener together with the corresponding cluster is responsible for the creating the outer HBONE tunnel of the
+// double-HBONE connection needed to communicate across networks in ambient mode.
+//
+// Just like the inner_connect_originate listener above it uses TCP Proxy network filter to wrap traffic in HTTP CONNECT
+// tunnel, but unlike the inner_connect_originate it does not need to capture any metadata - it uses what
+// inner_connect_originate already captured and put in the filter state.
+func buildWaypointOuterConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       DoubleHBONEOuterConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEOuterConnectOriginate},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+			HeadersToAdd: []*core.HeaderValueOption{{
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				Header: &core.HeaderValue{
+					Key:   downstreamSourceHeader,
+					Value: "waypoint",
+				},
+			}},
+		},
+	}
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+
+	l := &listener.Listener{
+		Name:              DoubleHBONEOuterConnectOriginate,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		ListenerFilters: []*listener.ListenerFilter{
+			xdsfilters.OriginalDestination,
+		},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(tcpProxy),
+				},
+			}},
+		}},
+	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	return l
 }
 
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
@@ -715,6 +921,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
 	}
 	var destinationRule *networking.DestinationRule
+	var sniDFPFilter *listener.Filter
 	if svc != nil {
 		svcHostname = svc.Hostname
 		virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
@@ -752,6 +959,11 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 			}
 			tcpProxy.ClusterSpecifier = clusterSpecifier
 		}
+
+		// Conditionally build SNI DFP for wildcard hosts with Dynamic DNS resolution
+		if svcHostname.IsWildCarded() && svc.Resolution == model.DynamicDNS {
+			sniDFPFilter = buildSNIDFPFilter(fcc.port.Port, svc)
+		}
 	}
 
 	// To align with sidecars, subsets are ignored here...?
@@ -767,6 +979,10 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound, fcc.policyService)
 	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
+	if sniDFPFilter != nil {
+		// Add SNI DFP before the TCP proxy so it can use SNI to resolve DNS
+		networkFilterstack = append([]*listener.Filter{sniDFPFilter}, networkFilterstack...)
+	}
 	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
 }
 
@@ -833,10 +1049,21 @@ func getTCPRouteMatch(tcp []*networking.TCPRoute, port int) []*networking.RouteD
 	return nil
 }
 
+func buildRouteVHostDomains(svc *model.Service) []string {
+	// This avoids HTTP Host injection to take advantage of dynamic forward proxy
+	// hostnames when wildcards are present by restricting accepted hostnames to those
+	// matching the original wildcarded service host.
+	domains := []string{"*"}
+	if svc != nil && svc.Resolution == model.DynamicDNS {
+		domains = []string{svc.Hostname.String()}
+	}
+	return domains
+}
+
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
-		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
@@ -845,7 +1072,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		return c.Spec.(*networking.VirtualService).Http != nil
 	})
 	if vs == nil {
-		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
@@ -853,12 +1080,12 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
 	routes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
 	if err != nil {
-		return buildSidecarInboundHTTPRouteConfig(lb, cc)
+		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
 	inboundVHost := &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
-		Domains: []string{"*"},
+		Domains: buildRouteVHostDomains(svc),
 		Routes:  routes,
 	}
 
