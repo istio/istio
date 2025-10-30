@@ -927,3 +927,7 @@ func isWaypointProxy(node *model.Proxy) bool {
 
 	return isManagedGateway && controller == constants.ManagedGatewayMeshControllerLabel
 }
+
+func isSidecarProxy(node *model.Proxy) bool {
+	return node != nil && node.Type == model.SidecarProxy
+}
