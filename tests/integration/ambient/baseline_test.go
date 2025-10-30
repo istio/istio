@@ -951,7 +951,7 @@ func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
 		// pairs x allow/deny
-		fhqwgadsContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if opt.Scheme != scheme.TCP {
 				t.Skip("this test is only for L4/TCP")
 			}
@@ -962,7 +962,6 @@ func TestAuthorizationL4(t *testing.T) {
 			overrideCheck := func(_ echo.Instance, dst echo.Target, opt *echo.CallOptions) {
 				if !dst.Config().HasProxyCapabilities() {
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
-					t.Skip("fhqwgads")
 					opt.Check = check.OK()
 				}
 				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
@@ -2800,25 +2799,6 @@ func runTestContextIndividual(t framework.TestContext, f func(t framework.TestCo
 			})
 		}
 	})
-}
-
-func fhqwgadsContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
-	opt := echo.CallOptions{
-		Port:   echo.Port{Name: "tcp"},
-		Scheme: scheme.TCP,
-		Count:  1,
-	}
-	for i := 0; i < 20; i++ {
-		t.NewSubTest("fhqwgads").Run(func(t framework.TestContext) {
-			src := apps.WorkloadAddressedWaypoint.ForCluster("primary")
-			dst := apps.ServiceAddressedWaypoint
-			opt := opt.DeepCopy()
-			opt.To = dst
-			opt.Check = check.OK()
-			opt.Retry.Options = []retry.Option{retry.Timeout(10 * time.Second)}
-			f(t, src[0], dst, opt)
-		})
-	}
 }
 
 func runTestContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
