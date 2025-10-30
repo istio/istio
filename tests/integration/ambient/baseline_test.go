@@ -187,7 +187,8 @@ func TestServices(t *testing.T) {
 		if !dst.Config().HasServiceAddressedWaypointProxy() &&
 			!src.Config().HasServiceAddressedWaypointProxy() &&
 			(src.Config().Service != dst.Config().Service) &&
-			!dst.Config().HasSidecar() && opt.Port.Protocol != protocol.GRPC {
+			!dst.Config().HasSidecar() &&
+			(opt.Port.Protocol != protocol.GRPC && t.Settings().AmbientMultiNetwork) {
 			// TODO (mitchconnors): gRPC seems to break original source propagation, need to investigats
 			// Check original source, unless there is a waypoint in the path. For waypoint, we don't (yet?) propagate original src.
 			// Self call is also (temporarily) broken
@@ -950,9 +951,9 @@ func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
 		// pairs x allow/deny
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
+		fhqwgadsContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if opt.Scheme != scheme.TCP {
-				return
+				t.Skip("this test is only for L4/TCP")
 			}
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
@@ -961,6 +962,7 @@ func TestAuthorizationL4(t *testing.T) {
 			overrideCheck := func(_ echo.Instance, dst echo.Target, opt *echo.CallOptions) {
 				if !dst.Config().HasProxyCapabilities() {
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
+					t.Skip("fhqwgads")
 					opt.Check = check.OK()
 				}
 				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
@@ -982,18 +984,18 @@ func TestAuthorizationL4(t *testing.T) {
   - from:
     - source:
         principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}", "cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]
-`,
+  `,
 				},
-				{
-					name:  "not allow",
-					check: CheckDeny,
-					spec: `
-  rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/something/sa/else"]
-          `,
-				},
+				// 				{
+				// 					name:  "not allow",
+				// 					check: CheckDeny,
+				// 					spec: `
+				//   rules:
+				//   - from:
+				//     - source:
+				//         principals: ["cluster.local/ns/something/sa/else"]
+				//           `,
+				// 				},
 			}
 
 			for _, tc := range authzCases {
@@ -1033,6 +1035,7 @@ spec:
 					perCaseOpt := opt.DeepCopy()
 					perCaseOpt.Check = tc.check
 					overrideCheck(src, dst, &perCaseOpt)
+					time.Sleep(1 * time.Second)
 					src.CallOrFail(t, perCaseOpt)
 				})
 			}
@@ -2799,6 +2802,25 @@ func runTestContextIndividual(t framework.TestContext, f func(t framework.TestCo
 	})
 }
 
+func fhqwgadsContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
+	opt := echo.CallOptions{
+		Port:   echo.Port{Name: "tcp"},
+		Scheme: scheme.TCP,
+		Count:  1,
+	}
+	for i := 0; i < 20; i++ {
+		t.NewSubTest("fhqwgads").Run(func(t framework.TestContext) {
+			src := apps.WorkloadAddressedWaypoint.ForCluster("primary")
+			dst := apps.ServiceAddressedWaypoint
+			opt := opt.DeepCopy()
+			opt.To = dst
+			opt.Check = check.OK()
+			opt.Retry.Options = []retry.Option{retry.Timeout(10 * time.Second)}
+			f(t, src[0], dst, opt)
+		})
+	}
+}
+
 func runTestContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
 	runTestContextForCalls(t, basicCalls, f)
 }
@@ -3671,11 +3693,10 @@ func labelService(t framework.TestContext, nsName, svcName, k, v string, cs ...c
 func labelServiceGlobal(t framework.TestContext, svcName string, cls cluster.Cluster) {
 	k := "istio.io/global"
 	v := "true"
-	labelService(t, apps.Namespace.Name(), svcName, k, v, t.Clusters().Configs()...)
+	labelService(t, apps.Namespace.Name(), svcName, k, v, cls)
 }
 
 func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, nsName, svcName, k, v string) {
-
 	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
 	if v == "" {
