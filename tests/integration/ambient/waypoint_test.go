@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -464,6 +465,7 @@ type externalSubsetService struct {
 }
 
 // servicesForSubsets is a helper function to create a kubernetes service for all subsets of a service
+// Assumes a single pod per subset
 func servicesForSubsets(t framework.TestContext, instance echo.Instance) []externalSubsetService {
 	ns := instance.Config().Namespace.Name()
 	services := []externalSubsetService{}
@@ -495,13 +497,27 @@ func servicesForSubsets(t framework.TestContext, instance echo.Instance) []exter
 		if err != nil {
 			t.Fatalf("failed to create service %s: %v", svc.Name, err)
 		}
-		t.Cleanup(func() {
+
+		t.CleanupConditionally(func() {
 			t.Clusters().Default().Kube().CoreV1().Services(ns).Delete(context.TODO(), s.Name, metav1.DeleteOptions{})
 		})
+
+		pods, err := t.Clusters().Default().Kube().CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"app":     instance.Config().Service,
+				"version": subset.Version,
+			}).String(),
+		})
+		if err != nil {
+			t.Fatalf("failed to list pods: %v", err)
+		}
+		if len(pods.Items) != 1 {
+			t.Fatalf("expected 1 pod found for service %s, got %d", svc.Name, len(pods.Items))
+		}
 		services = append(services, externalSubsetService{
 			Name:      s.Name,
 			SubsetKey: subset.Version,
-			Hostname:  instance.WorkloadsOrFail(t)[0].PodName(),
+			Hostname:  pods.Items[0].Name,
 			ClusterIP: s.Spec.ClusterIP,
 		})
 	}
@@ -569,7 +585,6 @@ spec:
 
 			// Use the first subset service for testing consistency
 			subsetService := servicesForSubsets(t, external)[0]
-
 			resolutionNoneServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
