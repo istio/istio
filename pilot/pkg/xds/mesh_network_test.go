@@ -576,7 +576,7 @@ func gatewaySvc(name, ip, network string) *corev1.Service {
 			Labels:    map[string]string{label.TopologyNetwork.Name: network},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
+			Type:  corev1.ServiceTypeLoadBalancer,
 			Ports: []corev1.ServicePort{{Port: 15443}},
 		},
 		Status: corev1.ServiceStatus{
