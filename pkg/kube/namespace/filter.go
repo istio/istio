@@ -61,7 +61,7 @@ func NewDiscoveryNamespacesFilter(
 	// Clean up mesh handler on stop
 	go func() {
 		<-stop
-		reg.Remove()
+		mesh.DeleteMeshHandler(reg)
 	}()
 
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
