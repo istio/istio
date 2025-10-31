@@ -50,7 +50,7 @@ spec:
                 - path: spec.template.spec.initContainers
                   value:
                     - name: wait-for-spire-socket
-                      image: busybox:1.28
+                      image: docker.io/library/busybox:1.28
                       volumeMounts:
                         - name: workload-socket
                           mountPath: /run/secrets/workload-spiffe-uds
