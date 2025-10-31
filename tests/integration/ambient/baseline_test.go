@@ -951,6 +951,19 @@ spec:
 	})
 }
 
+func sidecarInjected(t framework.TestContext, es ...echo.Target) bool {
+	t.Helper()
+
+	for _, e := range es {
+		for _, w := range e.WorkloadsOrFail(t) {
+			if w.Sidecar() != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
@@ -959,6 +972,20 @@ func TestAuthorizationL4(t *testing.T) {
 			if opt.Scheme != scheme.TCP {
 				t.Skip("this test is only for L4/TCP")
 			}
+
+			if t.Settings().AmbientMultiNetwork && sidecarInjected(t, src) && !sidecarInjected(t, dst) {
+				// Currently sidecars cannot talk to ambient endpoints on a remote network.
+				//
+				// Sidecars can't use double-HBONE and therefore cannot use ambient E/W gateways.
+				// And if we filter out all the ambient gateways, due to an old bug/feature, EDS
+				// generation code, when it can't find any E/W gateways for an endpoint, it just
+				// assumes that it's directly reachable and does not even try to use HBONE - this
+				// is not correct.
+				//
+				// See the linked bug for more details.
+				t.Skip("https://github.com/istio/istio/issues/57878")
+			}
+
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
