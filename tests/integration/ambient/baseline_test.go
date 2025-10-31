@@ -708,6 +708,9 @@ spec:
 
 func TestTrafficSplit(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/58140")
+		}
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need at least one waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
@@ -752,6 +755,7 @@ spec:
     labels:
       version: v2
 `).ApplyOrFail(t)
+			time.Sleep(100 * time.Millisecond)
 			t.NewSubTest("v1").Run(func(t framework.TestContext) {
 				opt := opt.DeepCopy()
 				opt.Count = 5
