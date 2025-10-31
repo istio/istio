@@ -220,6 +220,11 @@ func (t *T) RunViaIngress(testFn ingressTest) {
 			doTest(ctx, ctx.Clusters()[0], dstInstances)
 		} else {
 			t.fromEachCluster(ctx, func(ctx framework.TestContext, c cluster.Cluster) {
+				if ctx.Settings().AmbientMultiNetwork {
+					// Ambient multi-network does not yet support routing across clusters from ingress
+					// https://github.com/istio/istio/issues/57537
+					dstInstances = dstInstances.ForCluster(c.Name())
+				}
 				doTest(ctx, c, dstInstances)
 			})
 		}
