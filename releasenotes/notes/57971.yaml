@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/issues/43720
+
+releaseNotes:
+  - |
+    **Added** support for EnvoyFilter in waypoint.

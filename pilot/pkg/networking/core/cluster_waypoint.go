@@ -96,6 +96,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	cb *ClusterBuilder,
 	proxy *model.Proxy,
 	push *model.PushContext,
+	cp clusterPatcher,
 	svcs map[host.Name]*model.Service,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
@@ -103,7 +104,15 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// Creates "encap" cluster to route to the encap listener.
 	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster(proxy))
 	// Creates per-VIP load balancing upstreams.
-	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
+	inboundClusters := cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)
+	for _, c := range inboundClusters {
+		patched := cp.doPatch(nil, c)
+		if patched != nil {
+			clusters = append(clusters, patched)
+		} else {
+			clusters = append(clusters, c)
+		}
+	}
 
 	// Upstream of the "encap" listener.
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
@@ -267,7 +276,6 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
-
 	return localCluster.build()
 }
 
