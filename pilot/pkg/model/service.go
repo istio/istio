@@ -1100,6 +1100,7 @@ func (i AddressInfo) ResourceName() string {
 type ServiceWaypointInfo struct {
 	Service            *workloadapi.Service
 	IngressUseWaypoint bool
+	SidecarUseWaypoint bool
 	WaypointHostname   string
 }
 
@@ -1193,6 +1194,11 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		} else if i.Waypoint.IngressLabelPresent {
 			buildMsg.WriteString(". Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.")
 		}
+		if i.Waypoint.SidecarUseWaypoint {
+			buildMsg.WriteString(". Sidecar traffic will traverse the waypoint")
+		} else if i.Waypoint.SidecarLabelPresent {
+			buildMsg.WriteString(". Sidecar traffic is not using the waypoint, set the istio.io/sidecar-use-waypoint label to true if desired.")
+		}
 
 		set[WaypointBound] = &Condition{
 			Status:  true,
@@ -1228,6 +1234,8 @@ type WaypointBindingStatus struct {
 	IngressUseWaypoint bool
 	// IngressLabelPresent specifies whether the istio.io/ingress-use-waypoint label is set on the service.
 	IngressLabelPresent bool
+	SidecarUseWaypoint  bool
+	SidecarLabelPresent bool
 	// Error represents some error
 	Error *StatusMessage
 }
@@ -1241,6 +1249,8 @@ func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
 	return i.ResourceName == other.ResourceName &&
 		i.IngressUseWaypoint == other.IngressUseWaypoint &&
 		i.IngressLabelPresent == other.IngressLabelPresent &&
+		i.SidecarUseWaypoint == other.SidecarUseWaypoint &&
+		i.SidecarLabelPresent == other.SidecarLabelPresent &&
 		ptr.Equal(i.Error, other.Error)
 }
 
@@ -1517,6 +1527,7 @@ func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
 type NamespaceInfo struct {
 	Name               string
 	IngressUseWaypoint bool
+	SidecarUseWaypoint bool
 }
 
 func (i NamespaceInfo) ResourceName() string {
