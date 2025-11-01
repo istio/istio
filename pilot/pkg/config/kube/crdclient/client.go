@@ -176,6 +176,12 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	}
 	<-stop
 	close(cl.stop)
+	// Cleanup handlers
+	for _, h := range cl.allKinds() {
+		for _, reg := range h.handlers {
+			reg.UnregisterHandler()
+		}
+	}
 	cl.logger.Infof("controller terminated")
 }
 
