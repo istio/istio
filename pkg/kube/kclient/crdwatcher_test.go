@@ -15,11 +15,13 @@
 package kclient_test
 
 import (
+	"fmt"
 	"testing"
 
 	"go.uber.org/atomic"
 	"sigs.k8s.io/gateway-api/pkg/consts"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -112,4 +114,62 @@ func TestCRDWatcherMinimumVersion(t *testing.T) {
 		consts.BundleVersionAnnotation: "v1.1.0",
 	})
 	assert.EventuallyEqual(t, calls.Load, 1)
+}
+
+// This test will verify:
+// - If the Pilot filter is working, removing all of Pilot resources
+// - But Wasm plugins, which we want to keep
+// - Also BackendTLSPolicy on v1.3.0 should be excluded
+// - But not GatewayClass on any version
+func TestCRDWatcherWithUnionFilter(t *testing.T) {
+	test.SetForTest(t, &features.IgnorePilotResources, true)
+	test.SetForTest(t, &features.BypassCRDFilter, []string{fmt.Sprintf("%s.%s", gvr.VirtualService.Resource, gvr.VirtualService.Group)})
+	stop := test.NewStop(t)
+	c := kube.NewFakeClient()
+
+	// VirtualService will be bypassed and should be known
+	clienttest.MakeCRD(t, c, gvr.VirtualService)
+	// WasmPlugin should be filtered out
+	clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+
+	// BackendTLSPolicy should be filtered out due to its version
+	clienttest.MakeCRDWithAnnotations(t, c, gvr.BackendTLSPolicy, map[string]string{
+		consts.BundleVersionAnnotation: "v1.3.0",
+	})
+
+	// GatewayClass should be known
+	clienttest.MakeCRD(t, c, gvr.GatewayClass)
+
+	//
+	calls := atomic.NewInt32(0)
+
+	ctl := c.CrdWatcher()
+	// Created before informer runs: not ready yet
+
+	c.RunAndWait(stop)
+
+	assert.Equal(t, ctl.KnownOrCallback(gvr.GatewayClass, func(s <-chan struct{}) {
+		assert.Equal(t, s, stop)
+		calls.Inc()
+	}), true)
+
+	assert.Equal(t, ctl.KnownOrCallback(gvr.VirtualService, func(s <-chan struct{}) {
+		assert.Equal(t, s, stop)
+		calls.Inc()
+	}), true)
+
+	// This will be false, as the BackendTLSPolicy is a too "old" version
+	assert.Equal(t, ctl.KnownOrCallback(gvr.BackendTLSPolicy, func(s <-chan struct{}) {
+		assert.Equal(t, s, stop)
+		calls.Inc()
+	}), false)
+
+	// This will be false, as we are enforcing ignoring the WASM Plugin
+	assert.Equal(t, ctl.KnownOrCallback(gvr.WasmPlugin, func(s <-chan struct{}) {
+		assert.Equal(t, s, stop)
+		calls.Inc()
+	}), false)
+
+	// calls should be always zero as we are not enabling the CRDs here
+	assert.Equal(t, calls.Load(), 0)
 }
