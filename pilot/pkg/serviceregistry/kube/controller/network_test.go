@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -158,44 +157,44 @@ func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
 // and it does so on an IP and a hostname
 func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int) {
 	passthroughMode := k8sv1.TLSModePassthrough
-	ipType := v1beta1.IPAddressType
-	hostnameType := v1beta1.HostnameAddressType
-	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).CreateOrUpdate(&v1beta1.Gateway{
+	ipType := k8sv1.IPAddressType
+	hostnameType := k8sv1.HostnameAddressType
+	clienttest.Wrap(t, kclient.New[*k8sv1.Gateway](c.client)).CreateOrUpdate(&k8sv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "eastwest-gwapi",
 			Namespace: "istio-system",
 			Labels:    map[string]string{label.TopologyNetwork.Name: "nw2"},
 		},
-		Spec: v1beta1.GatewaySpec{
+		Spec: k8sv1.GatewaySpec{
 			GatewayClassName: "istio",
-			Addresses: []v1beta1.GatewaySpecAddress{
+			Addresses: []k8sv1.GatewaySpecAddress{
 				{Type: &ipType, Value: "1.2.3.4"},
 				{Type: &hostnameType, Value: "some hostname"},
 			},
-			Listeners: []v1beta1.Listener{
+			Listeners: []k8sv1.Listener{
 				{
 					Name: "detected-by-options",
-					TLS: &v1beta1.ListenerTLSConfig{
+					TLS: &k8sv1.ListenerTLSConfig{
 						Mode: &passthroughMode,
-						Options: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
+						Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
 							constants.ListenerModeOption: constants.ListenerModeAutoPassthrough,
 						},
 					},
-					Port: v1beta1.PortNumber(customPort),
+					Port: k8sv1.PortNumber(customPort),
 				},
 				{
 					Name: "detected-by-number",
-					TLS:  &v1beta1.ListenerTLSConfig{Mode: &passthroughMode},
+					TLS:  &k8sv1.ListenerTLSConfig{Mode: &passthroughMode},
 					Port: 15443,
 				},
 			},
 		},
-		Status: v1beta1.GatewayStatus{},
+		Status: k8sv1.GatewayStatus{},
 	})
 }
 
 func removeGatewayResource(t *testing.T, c *FakeController) {
-	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).Delete("eastwest-gwapi", "istio-system")
+	clienttest.Wrap(t, kclient.New[*k8sv1.Gateway](c.client)).Delete("eastwest-gwapi", "istio-system")
 }
 
 func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher meshwatcher.TestNetworksWatcher) {
@@ -371,9 +370,9 @@ func TestAmbientSync(t *testing.T) {
 	go s.Run(stop)
 	assert.EventuallyEqual(t, s.ambientIndex.HasSynced, true)
 
-	gtw := clienttest.NewWriter[*v1beta1.Gateway](t, s.client)
+	gtw := clienttest.NewWriter[*k8sv1.Gateway](t, s.client)
 
-	gateway := &v1beta1.Gateway{
+	gateway := &k8sv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "remote-beta",
 			Namespace: "default",
@@ -384,32 +383,32 @@ func TestAmbientSync(t *testing.T) {
 				label.TopologyNetwork.Name: "beta",
 			},
 		},
-		Spec: v1beta1.GatewaySpec{
+		Spec: k8sv1.GatewaySpec{
 			GatewayClassName: "istio-remote",
-			Addresses: []v1beta1.GatewaySpecAddress{
+			Addresses: []k8sv1.GatewaySpecAddress{
 				{
-					Type:  ptr.Of(v1beta1.IPAddressType),
+					Type:  ptr.Of(k8sv1.IPAddressType),
 					Value: "172.18.1.45",
 				},
 			},
-			Listeners: []v1beta1.Listener{
+			Listeners: []k8sv1.Listener{
 				{
 					Name:     "cross-network",
 					Port:     15008,
-					Protocol: v1beta1.ProtocolType("HBONE"),
-					TLS: &v1beta1.ListenerTLSConfig{
-						Mode: ptr.Of(v1beta1.TLSModeType("Passthrough")),
-						Options: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
+					Protocol: k8sv1.ProtocolType("HBONE"),
+					TLS: &k8sv1.ListenerTLSConfig{
+						Mode: ptr.Of(k8sv1.TLSModeType("Passthrough")),
+						Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
 							"gateway.istio.io/listener-protocol": "auto-passthrough",
 						},
 					},
 				},
 			},
 		},
-		Status: v1beta1.GatewayStatus{
+		Status: k8sv1.GatewayStatus{
 			Addresses: []k8sv1.GatewayStatusAddress{
 				{
-					Type:  ptr.Of(v1beta1.IPAddressType),
+					Type:  ptr.Of(k8sv1.IPAddressType),
 					Value: "172.18.1.45",
 				},
 			},

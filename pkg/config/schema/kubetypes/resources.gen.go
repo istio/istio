@@ -74,9 +74,9 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.Gateway, true
 	case *apiistioioapinetworkingv1.Gateway:
 		return gvk.Gateway, true
-	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
+	case *sigsk8siogatewayapiapisv1.GatewayClass:
 		return gvk.GatewayClass, true
-	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
+	case *sigsk8siogatewayapiapisv1.HTTPRoute:
 		return gvk.HTTPRoute, true
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return gvk.HorizontalPodAutoscaler, true
@@ -86,7 +86,7 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.Ingress, true
 	case *k8sioapinetworkingv1.IngressClass:
 		return gvk.IngressClass, true
-	case *sigsk8siogatewayapiapisv1beta1.Gateway:
+	case *sigsk8siogatewayapiapisv1.Gateway:
 		return gvk.KubernetesGateway, true
 	case *k8sioapicoordinationv1.Lease:
 		return gvk.Lease, true

@@ -21,7 +21,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
@@ -45,8 +44,8 @@ type ambientclients struct {
 	sc    clienttest.TestClient[*corev1.Service]
 	sec   clienttest.TestWriter[*corev1.Secret]
 	ns    clienttest.TestWriter[*corev1.Namespace]
-	grc   clienttest.TestWriter[*k8sbeta.Gateway]
-	gwcls clienttest.TestWriter[*k8sbeta.GatewayClass]
+	grc   clienttest.TestWriter[*k8sv1.Gateway]
+	gwcls clienttest.TestWriter[*k8sv1.GatewayClass]
 	se    clienttest.TestWriter[*apiv1alpha3.ServiceEntry]
 	we    clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]
 	pa    clienttest.TestWriter[*clientsecurityv1beta1.PeerAuthentication]
@@ -136,8 +135,8 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 						pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 						sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 						ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-						grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
-						gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+						grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+						gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
 						se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
 						we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
 						pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
@@ -209,7 +208,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 							Labels: map[string]string{label.TopologyNetwork.Name: clusterToNetwork[client.clusterID]},
 						},
 					})
-					client.gwcls.Create(&k8sbeta.GatewayClass{
+					client.gwcls.Create(&k8sv1.GatewayClass{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.EastWestGatewayClassName,
 						},
@@ -435,8 +434,8 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-				grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
-				gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
 				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
 				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
@@ -561,8 +560,8 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-				grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
-				gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
 				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
 				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),

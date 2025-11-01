@@ -80,10 +80,10 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.Gateway:
 		return c.Istio().NetworkingV1().Gateways(namespace).(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
-		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
-		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1.GatewayClass:
+		return c.GatewayAPI().GatewayV1().GatewayClasses().(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1.HTTPRoute:
+		return c.GatewayAPI().GatewayV1().HTTPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiinferenceextensionapiv1.InferencePool:
@@ -92,8 +92,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().NetworkingV1().Ingresses(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapinetworkingv1.IngressClass:
 		return c.Kube().NetworkingV1().IngressClasses().(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1beta1.Gateway:
-		return c.GatewayAPI().GatewayV1beta1().Gateways(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1.Gateway:
+		return c.GatewayAPI().GatewayV1().Gateways(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicoordinationv1.Lease:
 		return c.Kube().CoordinationV1().Leases(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration:
@@ -183,10 +183,10 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.Gateway:
 		return c.Istio().NetworkingV1().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
-		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
-		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1.GatewayClass:
+		return c.GatewayAPI().GatewayV1().GatewayClasses().(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1.HTTPRoute:
+		return c.GatewayAPI().GatewayV1().HTTPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiinferenceextensionapiv1.InferencePool:
@@ -195,8 +195,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().NetworkingV1().Ingresses(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapinetworkingv1.IngressClass:
 		return c.Kube().NetworkingV1().IngressClasses().(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1beta1.Gateway:
-		return c.GatewayAPI().GatewayV1beta1().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1.Gateway:
+		return c.GatewayAPI().GatewayV1().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicoordinationv1.Lease:
 		return c.Kube().CoordinationV1().Leases(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration:
@@ -287,9 +287,9 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.Gateway:
 		return &apiistioioapinetworkingv1.Gateway{}
 	case gvr.GatewayClass:
-		return &sigsk8siogatewayapiapisv1beta1.GatewayClass{}
+		return &sigsk8siogatewayapiapisv1.GatewayClass{}
 	case gvr.HTTPRoute:
-		return &sigsk8siogatewayapiapisv1beta1.HTTPRoute{}
+		return &sigsk8siogatewayapiapisv1.HTTPRoute{}
 	case gvr.HorizontalPodAutoscaler:
 		return &k8sioapiautoscalingv2.HorizontalPodAutoscaler{}
 	case gvr.InferencePool:
@@ -299,7 +299,7 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.IngressClass:
 		return &k8sioapinetworkingv1.IngressClass{}
 	case gvr.KubernetesGateway:
-		return &sigsk8siogatewayapiapisv1beta1.Gateway{}
+		return &sigsk8siogatewayapiapisv1.Gateway{}
 	case gvr.Lease:
 		return &k8sioapicoordinationv1.Lease{}
 	case gvr.MutatingWebhookConfiguration:
@@ -464,17 +464,17 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 	case gvr.GatewayClass:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1beta1().GatewayClasses().List(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().GatewayClasses().List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1beta1().GatewayClasses().Watch(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().GatewayClasses().Watch(context.Background(), options)
 		}
 	case gvr.HTTPRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(opts.Namespace).List(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().HTTPRoutes(opts.Namespace).List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(opts.Namespace).Watch(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().HTTPRoutes(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.HorizontalPodAutoscaler:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
@@ -506,10 +506,10 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 	case gvr.KubernetesGateway:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1beta1().Gateways(opts.Namespace).List(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().Gateways(opts.Namespace).List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1beta1().Gateways(opts.Namespace).Watch(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().Gateways(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.Lease:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

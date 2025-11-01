@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/constants"
@@ -29,34 +28,34 @@ import (
 )
 
 func TestMakeAllowedRoutes(t *testing.T) {
-	istioWaypointClass := &gatewayv1beta1.GatewayClass{
+	istioWaypointClass := &gatewayv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "istio-waypoint",
 		},
-		Spec: gatewayv1beta1.GatewayClassSpec{
+		Spec: gatewayv1.GatewayClassSpec{
 			ControllerName: constants.ManagedGatewayMeshController,
 		},
 	}
-	sandwichedWaypointClass := &gatewayv1beta1.GatewayClass{
+	sandwichedWaypointClass := &gatewayv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sandwiched-waypoint",
 		},
-		Spec: gatewayv1beta1.GatewayClassSpec{
+		Spec: gatewayv1.GatewayClassSpec{
 			ControllerName: "sandwiched-controller",
 		},
 	}
 	tests := []struct {
 		name         string
-		gateway      *gatewayv1beta1.Gateway
-		gatewayClass *gatewayv1beta1.GatewayClass
+		gateway      *gatewayv1.Gateway
+		gatewayClass *gatewayv1.GatewayClass
 		expected     WaypointSelector
 	}{
 		{
 			name: "istio-waypoint defaults to same namespace",
-			gateway: &gatewayv1beta1.Gateway{
-				Spec: gatewayv1beta1.GatewaySpec{
+			gateway: &gatewayv1.Gateway{
+				Spec: gatewayv1.GatewaySpec{
 					GatewayClassName: gatewayv1.ObjectName(istioWaypointClass.Name),
-					Listeners:        []gatewayv1beta1.Listener{},
+					Listeners:        []gatewayv1.Listener{},
 				},
 			},
 			gatewayClass: istioWaypointClass,
@@ -66,11 +65,11 @@ func TestMakeAllowedRoutes(t *testing.T) {
 		},
 		{
 			name: "istio-waypoint matching listener with no allowed routes",
-			gateway: &gatewayv1beta1.Gateway{
-				Spec: gatewayv1beta1.GatewaySpec{
-					Listeners: []gatewayv1beta1.Listener{
+			gateway: &gatewayv1.Gateway{
+				Spec: gatewayv1.GatewaySpec{
+					Listeners: []gatewayv1.Listener{
 						{
-							Protocol: gatewayv1beta1.ProtocolType("HBONE"),
+							Protocol: gatewayv1.ProtocolType("HBONE"),
 							Port:     15008,
 						},
 					},
@@ -83,13 +82,13 @@ func TestMakeAllowedRoutes(t *testing.T) {
 		},
 		{
 			name: "istio-waypoint matching listener with allowed routes",
-			gateway: &gatewayv1beta1.Gateway{
-				Spec: gatewayv1beta1.GatewaySpec{
-					Listeners: []gatewayv1beta1.Listener{
+			gateway: &gatewayv1.Gateway{
+				Spec: gatewayv1.GatewaySpec{
+					Listeners: []gatewayv1.Listener{
 						{
-							Protocol: gatewayv1beta1.ProtocolType("HBONE"),
+							Protocol: gatewayv1.ProtocolType("HBONE"),
 							Port:     15008,
-							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
 									From: ptr.Of(gatewayv1.NamespacesFromAll),
 								},
@@ -105,13 +104,13 @@ func TestMakeAllowedRoutes(t *testing.T) {
 		},
 		{
 			name: "istio-waypoint matching listener with selector",
-			gateway: &gatewayv1beta1.Gateway{
-				Spec: gatewayv1beta1.GatewaySpec{
-					Listeners: []gatewayv1beta1.Listener{
+			gateway: &gatewayv1.Gateway{
+				Spec: gatewayv1.GatewaySpec{
+					Listeners: []gatewayv1.Listener{
 						{
-							Protocol: gatewayv1beta1.ProtocolType("HBONE"),
+							Protocol: gatewayv1.ProtocolType("HBONE"),
 							Port:     15008,
-							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
 									From: ptr.Of(gatewayv1.NamespacesFromSelector),
 									Selector: &metav1.LabelSelector{
@@ -130,17 +129,17 @@ func TestMakeAllowedRoutes(t *testing.T) {
 		},
 		{
 			name: "sandwiched waypoint defaults to same namespace",
-			gateway: &gatewayv1beta1.Gateway{
+			gateway: &gatewayv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						annotation.AmbientWaypointInboundBinding.Name: "PROXY/15088",
 					},
 				},
-				Spec: gatewayv1beta1.GatewaySpec{
+				Spec: gatewayv1.GatewaySpec{
 					GatewayClassName: gatewayv1.ObjectName(sandwichedWaypointClass.Name),
-					Listeners: []gatewayv1beta1.Listener{
+					Listeners: []gatewayv1.Listener{
 						{
-							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
+							Protocol: gatewayv1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15088,
 						},
 					},
@@ -153,20 +152,20 @@ func TestMakeAllowedRoutes(t *testing.T) {
 		},
 		{
 			name: "sandwiched waypoint with listener with allowed routes",
-			gateway: &gatewayv1beta1.Gateway{
+			gateway: &gatewayv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						annotation.AmbientWaypointInboundBinding.Name: "PROXY/15088",
 					},
 				},
-				Spec: gatewayv1beta1.GatewaySpec{
+				Spec: gatewayv1.GatewaySpec{
 					GatewayClassName: gatewayv1.ObjectName(sandwichedWaypointClass.Name),
-					Listeners: []gatewayv1beta1.Listener{
+					Listeners: []gatewayv1.Listener{
 						{
 							Name:     "should be ignored",
-							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
+							Protocol: gatewayv1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15089,
-							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
 									From: ptr.Of(gatewayv1.NamespacesFromSame),
 								},
@@ -174,9 +173,9 @@ func TestMakeAllowedRoutes(t *testing.T) {
 						},
 						{
 							Name:     "should be used",
-							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
+							Protocol: gatewayv1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15088,
-							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
 									From: ptr.Of(gatewayv1.NamespacesFromAll),
 								},
@@ -193,25 +192,25 @@ func TestMakeAllowedRoutes(t *testing.T) {
 		},
 		{
 			name: "sandwiched waypoint with listener with allowed routes",
-			gateway: &gatewayv1beta1.Gateway{
+			gateway: &gatewayv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						annotation.AmbientWaypointInboundBinding.Name: "PROXY/15088",
 					},
 				},
-				Spec: gatewayv1beta1.GatewaySpec{
+				Spec: gatewayv1.GatewaySpec{
 					GatewayClassName: gatewayv1.ObjectName(sandwichedWaypointClass.Name),
-					Listeners: []gatewayv1beta1.Listener{
+					Listeners: []gatewayv1.Listener{
 						{
 							Name:     "should be ignored",
-							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
+							Protocol: gatewayv1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15089,
 						},
 						{
 							Name:     "should be used",
-							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
+							Protocol: gatewayv1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15088,
-							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
 									From: ptr.Of(gatewayv1.NamespacesFromAll),
 								},
@@ -228,20 +227,20 @@ func TestMakeAllowedRoutes(t *testing.T) {
 		},
 		{
 			name: "sandwiched waypoint with listener with allowed routes on port 0",
-			gateway: &gatewayv1beta1.Gateway{
+			gateway: &gatewayv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						annotation.AmbientWaypointInboundBinding.Name: "PROXY",
 					},
 				},
-				Spec: gatewayv1beta1.GatewaySpec{
+				Spec: gatewayv1.GatewaySpec{
 					GatewayClassName: gatewayv1.ObjectName(sandwichedWaypointClass.Name),
-					Listeners: []gatewayv1beta1.Listener{
+					Listeners: []gatewayv1.Listener{
 						{
 							Name:     "should be used",
-							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
+							Protocol: gatewayv1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15015,
-							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
+							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
 									From: ptr.Of(gatewayv1.NamespacesFromAll),
 								},
