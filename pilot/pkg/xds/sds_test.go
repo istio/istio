@@ -91,6 +91,17 @@ var (
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
 		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem")),
 	})
+	// Test secret for bug #58146 - same secret referenced with and without namespace
+	bookinfoCert = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bookinfo-certs",
+			Namespace: "bookinfo",
+		},
+		Data: map[string][]byte{
+			credentials.GenericScrtCert: []byte(readFile(filepath.Join(certDir, "default/cert-chain.pem"))),
+			credentials.GenericScrtKey:  []byte(readFile(filepath.Join(certDir, "default/key.pem"))),
+		},
+	}
 )
 
 func readFile(name string) string {
@@ -369,6 +380,26 @@ func TestGenerateSDS(t *testing.T) {
 			accessReviewResponse: func(action k8stesting.Action) (bool, runtime.Object, error) {
 				return true, nil, errors.New("not authorized")
 			},
+		},
+		{
+			// Regression test for https://github.com/istio/istio/issues/58146
+			// Verifies that the same k8s Secret referenced as both `secret-name` and `namespace/secret-name`
+			// returns secrets with different resource names, preventing cache key collisions.
+			name:      "same secret with and without namespace in resource name",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "bookinfo"}, Type: model.Router},
+			resources: []string{"kubernetes://bookinfo-certs", "kubernetes://bookinfo/bookinfo-certs"},
+			request:   &model.PushRequest{Full: true, Forced: true},
+			expect: map[string]Expected{
+				"kubernetes://bookinfo-certs": {
+					Key:  string(bookinfoCert.Data[credentials.GenericScrtKey]),
+					Cert: string(bookinfoCert.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://bookinfo/bookinfo-certs": {
+					Key:  string(bookinfoCert.Data[credentials.GenericScrtKey]),
+					Cert: string(bookinfoCert.Data[credentials.GenericScrtCert]),
+				},
+			},
+			objects: []runtime.Object{bookinfoCert},
 		},
 	}
 	for _, tt := range cases {
