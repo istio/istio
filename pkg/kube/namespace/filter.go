@@ -54,9 +54,15 @@ func NewDiscoveryNamespacesFilter(
 		namespaces:          namespaces,
 		discoveryNamespaces: sets.New[string](),
 	}
-	mesh.AddMeshHandler(func() {
+	reg := mesh.AddMeshHandler(func() {
 		f.selectorsChanged(mesh.Mesh().GetDiscoverySelectors(), true)
 	})
+
+	// Clean up mesh handler on stop
+	go func() {
+		<-stop
+		mesh.DeleteMeshHandler(reg)
+	}()
 
 	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
 		AddFunc: func(ns *corev1.Namespace) {
