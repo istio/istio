@@ -391,6 +391,9 @@ func (c *Controller) Cleanup() error {
 		c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandlerRegistration)
 	}
 
+	// Shutdown all the informer handlers
+	c.shutdownInformerHandlers()
+
 	return nil
 }
 

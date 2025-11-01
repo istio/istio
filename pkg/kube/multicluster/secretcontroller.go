@@ -288,8 +288,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			}
 			// stop previous remote cluster
 			prev.Stop()
-			// TODO(keithmattix): Is it safe to shutdown the kubeclient here as well? If we don't
-			// the goroutine will continue to run and the client will leak.
+			prev.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
 			logger.Warnf("cluster has already been registered")

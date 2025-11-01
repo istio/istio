@@ -154,6 +154,10 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	}
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
 	cl.queue.Run(stop)
+	// Cleanup handlers
+	for _, h := range cl.allKinds() {
+		h.ShutdownHandlers()
+	}
 	cl.logger.Infof("controller terminated")
 }
 
