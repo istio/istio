@@ -993,6 +993,9 @@ message PilotConfig {
 
   // Configuration for the istio-discovery chart
   repeated google.protobuf.Struct envVarFrom = 62;
+
+  // Select a custom name for istiod's plugged-in CA CRL ConfigMap.
+  string crlConfigMapName = 63;
 }
 
 message PilotTaintControllerConfig {

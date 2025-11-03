@@ -22,6 +22,9 @@ import (
 	"net/http"
 	"testing"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -120,7 +123,9 @@ meshConfig:
 values:
   global:
     trustBundleName: usergroup-2-ca-root-cert
-    istioNamespace: %s`, userGroup2NS.Name(), userGroup2NS.Name())
+    istioNamespace: %s
+  pilot:
+    crlConfigMapName: usergroup-2-ca-crl`, userGroup2NS.Name(), userGroup2NS.Name())
 		})).
 		SetupParallel(
 			// application namespaces are labeled according to the required control plane ownership.
@@ -272,6 +277,55 @@ func TestCustomResourceScoping(t *testing.T) {
 							check.ErrorOrStatus(tc.statusCode),
 						),
 					})
+				})
+			}
+		})
+}
+
+// TestCRLConfigMapNames verifies that CRL ConfigMaps are correctly propagated to workload namespaces
+func TestCRLConfigMapNames(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			testCases := []struct {
+				name           string
+				namespace      namespace.Instance
+				shouldExist    []string
+				shouldNotExist []string
+			}{
+				{
+					name:           "echo1 namespace has default CRL ConfigMap",
+					namespace:      echo1NS,
+					shouldExist:    []string{"istio-ca-crl"},
+					shouldNotExist: []string{"usergroup-2-ca-crl"},
+				},
+				{
+					name:           "echo2 namespace has custom CRL ConfigMap",
+					namespace:      echo2NS,
+					shouldExist:    []string{"usergroup-2-ca-crl"},
+					shouldNotExist: []string{"istio-ca-crl"},
+				},
+				{
+					name:           "shared namespace has both CRL ConfigMaps",
+					namespace:      sharedNS,
+					shouldExist:    []string{"istio-ca-crl", "usergroup-2-ca-crl"},
+					shouldNotExist: []string{},
+				},
+			}
+
+			for _, tc := range testCases {
+				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					for _, cm := range tc.shouldExist {
+						_, err := t.Clusters().Default().Kube().CoreV1().ConfigMaps(tc.namespace.Name()).Get(t.Context(), cm, metav1.GetOptions{})
+						if err != nil {
+							t.Fatalf("%s should exist in %s: %v", cm, tc.namespace.Name(), err)
+						}
+					}
+					for _, cm := range tc.shouldNotExist {
+						_, err := t.Clusters().Default().Kube().CoreV1().ConfigMaps(tc.namespace.Name()).Get(t.Context(), cm, metav1.GetOptions{})
+						if err == nil || !k8serrors.IsNotFound(err) {
+							t.Fatalf("%s should not exist in %s", cm, tc.namespace.Name())
+						}
+					}
 				})
 			}
 		})
