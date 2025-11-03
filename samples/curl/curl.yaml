@@ -52,7 +52,7 @@ spec:
       serviceAccountName: curl
       containers:
       - name: curl
-        image: curlimages/curl
+        image: docker.io/curlimages/curl:8.16.0
         command: ["/bin/sleep", "infinity"]
         imagePullPolicy: IfNotPresent
         volumeMounts:
