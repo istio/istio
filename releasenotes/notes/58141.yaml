@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 58141
+releaseNotes:
+- |
+  **Fixed** the issue when EDS endpoints are generated incorrectly in ambient multi-network mode.
