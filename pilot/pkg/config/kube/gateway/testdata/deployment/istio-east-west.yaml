@@ -124,6 +124,8 @@ spec:
           value: Kubernetes
         - name: ISTIO_META_NETWORK
           value: network-1
+        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+          value: network-1
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
