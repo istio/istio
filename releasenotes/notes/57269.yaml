@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 57269
+releaseNotes:
+- |
+  **Fixed** a goroutine leak in multicluster where krt collections with data from remote clusters would stay in memory even after that cluster was removed.

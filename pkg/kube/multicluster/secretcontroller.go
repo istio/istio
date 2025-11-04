@@ -288,6 +288,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			}
 			// stop previous remote cluster
 			prev.Stop()
+			prev.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
 			logger.Warnf("cluster has already been registered")
@@ -330,6 +331,7 @@ func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 	cluster.Stop()
 	c.handleDelete(cluster.ID)
 	c.cs.Delete(secretKey, cluster.ID)
+	cluster.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }

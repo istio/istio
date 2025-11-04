@@ -391,6 +391,9 @@ func (c *Controller) Cleanup() error {
 		c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandlerRegistration)
 	}
 
+	// Shutdown all the informer handlers
+	c.shutdownInformerHandlers()
+
 	return nil
 }
 
@@ -630,6 +633,14 @@ func (c *Controller) HasSynced() bool {
 		return false
 	}
 	return c.queue.HasSynced()
+}
+
+func (c *Controller) shutdownInformerHandlers() {
+	c.namespaces.ShutdownHandlers()
+	c.services.ShutdownHandlers()
+	c.endpoints.slices.ShutdownHandlers()
+	c.pods.pods.ShutdownHandlers()
+	c.nodes.ShutdownHandlers()
 }
 
 func (c *Controller) informersSynced() bool {
