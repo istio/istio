@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -197,8 +198,9 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
 			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
+			expectedNS := ptr.NonEmptyOrDefault(gatewayConfig.Annotations[constants.InternalParentNamespace], gatewayConfig.Namespace)
 			identityVerified := proxy.VerifiedIdentity != nil &&
-				proxy.VerifiedIdentity.Namespace == gatewayConfig.Namespace &&
+				proxy.VerifiedIdentity.Namespace == expectedNS &&
 				(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
 			cn := s.GetTls().GetCredentialName()
 			if cn != "" && identityVerified {
