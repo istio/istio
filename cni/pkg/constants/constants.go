@@ -84,6 +84,7 @@ const (
 	ReadinessPort                      = "8000"
 	ServiceAccountPath                 = "/var/run/secrets/kubernetes.io/serviceaccount"
 	SelfNetNSPath                      = "/proc/self/ns/net"
+	SelfCgroupNSPath                      = "/proc/self/ns/cgroup"
 	DefaultIstioOwnedCNIConfigFilename = "02-istio-cni.conflist"
 )
 
@@ -99,10 +100,12 @@ var (
 	// environment variable is set to true (see CNI daemonset), which updates it to "/host/proc/1/ns/net" to align with the actual
 	// host network namespace.
 	HostNetNSPath = SelfNetNSPath
+	HostCgroupNSPath = SelfCgroupNSPath
 )
 
 func init() {
 	if allowSwitch, err := strconv.ParseBool(os.Getenv("ALLOW_SWITCH_TO_HOST_NS")); err == nil && allowSwitch {
 		HostNetNSPath = HostMountsPath + "/proc/1/ns/net"
+		HostCgroupNSPath = HostMountsPath + "/proc/1/ns/cgroup"
 	}
 }
