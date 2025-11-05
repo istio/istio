@@ -22,7 +22,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
-	pm "istio.io/istio/pkg/model"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -56,6 +55,7 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
