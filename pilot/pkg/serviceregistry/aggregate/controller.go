@@ -174,6 +174,19 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressI
 	return i, removed
 }
 
+func (c *Controller) ServiceScope(key string) model.ServiceScope {
+	if !features.EnableAmbientMultiNetwork {
+		return ""
+	}
+	for _, p := range c.GetRegistries() {
+		// When it comes to service scope, we only care about what the local cluster thinks about it
+		if p.Cluster() == c.configClusterID && p.Provider() == provider.Kubernetes {
+			return p.ServiceScope(key)
+		}
+	}
+	return ""
+}
+
 type registryEntry struct {
 	serviceregistry.Instance
 	// stop if not nil is the per-registry stop chan. If null, the server stop chan should be used to Run the registry.
