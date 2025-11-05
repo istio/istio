@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -58,6 +57,10 @@ var (
 const (
 	ambientControlPlaneValues = `
 values:
+  pilot:
+    env:
+      # Note: support is alpha and env var is tightly scoped
+      ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
   cni:
     # The CNI repair feature is disabled for these tests because this is a controlled environment,
     # and it is important to catch issues that might otherwise be automatically fixed.
@@ -81,6 +84,8 @@ values:
   pilot:
     env:
       AMBIENT_ENABLE_MULTI_NETWORK: "true"
+      # Note: support is alpha and env var is tightly scoped
+      ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
@@ -124,7 +129,7 @@ type EchoDeployments struct {
 	MockExternal echo.Instances
 
 	// WaypointProxies by
-	WaypointProxies map[string]ambient.WaypointProxy
+	WaypointProxies map[string]ambient.Waypoints
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -155,9 +160,7 @@ func TestMain(m *testing.M) {
 				cfg.DeployEastWestGW = true
 				cfg.DeployGatewayAPI = true
 				cfg.ControlPlaneValues = ambientMultiNetworkControlPlaneValues
-				// TODO: Remove once we're actually ready to test the multi-cluster
-				// features
-				cfg.SkipDeployCrossClusterSecrets = true
+				cfg.SkipDeployCrossClusterSecrets = false
 			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
@@ -384,7 +387,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 
 	if apps.WaypointProxies == nil {
-		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
+		apps.WaypointProxies = make(map[string]ambient.Waypoints)
 	}
 
 	for _, echo := range echos {

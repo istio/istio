@@ -3060,12 +3060,9 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					"field values", serviceEntry.Resolution))
 			}
 			for _, port := range serviceEntry.Ports {
-				if port == nil {
-					errs = AppendValidation(errs, errors.New("service entry port may not be null"))
-					continue
-				}
-				if protocol.Parse(port.Protocol) != protocol.HTTP {
-					errs = AppendValidation(errs, fmt.Errorf("only HTTP protocol is supported for resolution type %s", serviceEntry.Resolution))
+				proto := protocol.Parse(port.Protocol)
+				if proto != protocol.HTTP && proto != protocol.TLS {
+					errs = AppendValidation(errs, fmt.Errorf("only HTTP and TLS protocol is supported for resolution type %s", serviceEntry.Resolution))
 				}
 			}
 			if serviceEntry.Location != networking.ServiceEntry_MESH_EXTERNAL {

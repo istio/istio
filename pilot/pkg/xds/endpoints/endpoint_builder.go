@@ -340,19 +340,10 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	if features.EnableIngressWaypointRouting {
-		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
-			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
-			locLbEps := b.generate(waypointEps, true)
-			return b.createClusterLoadAssignment(locLbEps)
-		}
-	}
-
-	// If we're an east west gateway, then we also want to send to waypoints
-	// TODO: depending on the final design, there will be times we DON'T want
-	// the e/w gateway to send to waypoints. That conditional logic will either live
-	// here or in the listener logic.
-	if features.EnableAmbientMultiNetwork && isEastWestGateway(b.proxy) {
+	// features.EnableIngressWaypointRouting only makes sense for ingress gateways and for E/W gateways
+	// we don't want this behavior, so additionally check that we are not generating endpoints for the
+	// E/W gateway.
+	if features.EnableIngressWaypointRouting && !isEastWestGateway(b.proxy) {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 			locLbEps := b.generate(waypointEps, true)
@@ -935,4 +926,8 @@ func isWaypointProxy(node *model.Proxy) bool {
 	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
 
 	return isManagedGateway && controller == constants.ManagedGatewayMeshControllerLabel
+}
+
+func isSidecarProxy(node *model.Proxy) bool {
+	return node != nil && node.Type == model.SidecarProxy
 }

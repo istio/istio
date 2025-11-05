@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -163,7 +162,7 @@ spec:
 // ManifestsChartPath is path of local Helm charts used for testing.
 var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
-// getValuesOverrides returns the values file created to pass into Helm override default values
+// GetValuesOverrides returns the values file created to pass into Helm override default values
 // for the hub and tag.
 //
 // Tag can be the empty string, which means the values file will not have a

@@ -195,9 +195,17 @@ var (
 	CACertConfigMapName = env.Register("PILOT_CA_CERT_CONFIGMAP", "istio-ca-root-cert",
 		"The name of the ConfigMap that stores the Root CA Certificate that is used by istiod").Get()
 
+	CRLConfigMapName = env.Register("PILOT_CRL_CONFIGMAP", "istio-ca-crl",
+		"The name of the ConfigMap that stores the Certificate Revocation List (CRL) for a plugged-in CA").Get()
+
 	EnvoyStatusPortEnableProxyProtocol = env.Register("ENVOY_STATUS_PORT_ENABLE_PROXY_PROTOCOL", false,
 		"If enabled, Envoy will support requests with proxy protocol on its status port").Get()
 
 	EnableGatewayAPIInferenceExtension = env.Register("ENABLE_GATEWAY_API_INFERENCE_EXTENSION", false,
 		"If true, support gateway inference extension routing apis").Get()
+
+	EnableWildcardHostServiceEntriesForTLS = env.Register("ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS", false,
+		"If enabled, ServiceEntries with wildcard hosts and dynamic dns resolution will be allowed for TLS traffic. "+
+			"This is a security risk, susceptible to SNI spoofing, and should be used with caution. "+
+			"Only consider using this feature if the client is trusted and you understand the risks.").Get()
 )

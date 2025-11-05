@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 57291
+releaseNotes:
+  - |
+    **Fixed** ServiceEntry with overlapping hostnames within the same namespace causing unpredictable
+    behavior in ambient mode.

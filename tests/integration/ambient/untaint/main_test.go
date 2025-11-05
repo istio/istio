@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -52,9 +51,6 @@ func TestMain(m *testing.M) {
 			// can't deploy VMs without eastwest gateway
 			ctx.Settings().SkipVMs()
 			cfg.DeployEastWestGW = false
-			if ctx.Settings().AmbientMultiNetwork {
-				cfg.SkipDeployCrossClusterSecrets = true
-			}
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 values:
   pilot:

@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+issue:
+  - https://github.com/istio/api/issues/56877
+
+releaseNotes:
+  - |
+    **Added** optional NetworkPolicy deployment for ztunnel.
+
+    You can set `global.networkPolicy.enabled=true` to deploy a default NetworkPolicy for ztunnel.

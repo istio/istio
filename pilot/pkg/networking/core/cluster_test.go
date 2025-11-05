@@ -1970,7 +1970,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 100},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-				TrackRemaining:     true,
+				TrackRemaining:     false,
 			},
 		},
 		{
@@ -2003,7 +2003,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-				TrackRemaining:     true,
+				TrackRemaining:     false,
 			},
 		},
 	}

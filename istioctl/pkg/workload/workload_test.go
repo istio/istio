@@ -400,7 +400,7 @@ func runTestCmd(t *testing.T, createResourceFunc func(client kube.CLIClient), re
 	})
 	rootCmd := Cmd(ctx)
 	rootCmd.SetArgs(args)
-	client, err := ctx.CLIClientWithRevision(rev)
+	client, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(rev))
 	if err != nil {
 		return "", err
 	}

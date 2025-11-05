@@ -39,14 +39,14 @@ const (
 	//
 	// 5ms, 10ms, 20ms, 40ms, 80ms
 	maxRetries = 5
-
-	// CRLNamespaceConfigMap is the name of the ConfigMap in each namespace storing the CRL of plugged in CA certificates.
-	CRLNamespaceConfigMap = "istio-ca-crl"
 )
 
 var (
 	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMap = features.CACertConfigMapName
+
+	// CRLNamespaceConfigMap is the name of the ConfigMap in each namespace storing the CRL of plugged in CA certificates.
+	CRLNamespaceConfigMap = features.CRLConfigMapName
 
 	configMapLabel = map[string]string{"istio.io/config": "true"}
 )
