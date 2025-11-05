@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	pm "istio.io/istio/pkg/model"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/autoregistration"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/xds"
 )
