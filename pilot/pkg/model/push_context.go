@@ -2433,7 +2433,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 
-	return MergeGateways(gatewayInstances, proxy, ps)
+	return mergeGateways(gatewayInstances, proxy, ps)
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

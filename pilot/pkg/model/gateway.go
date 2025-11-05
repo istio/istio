@@ -154,12 +154,12 @@ func RecordRejectedConfig(gatewayName string) {
 // use.
 const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gateway-port-translation"
 
-// MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
+// mergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
 // Servers with different protocols on the same port are handled as follows:
 // - If servers have the same bind address, conflicting protocols are rejected (e.g., TCP vs HTTP)
 // - If servers have different bind addresses, they can coexist as separate listeners
 // - TLS and non-TLS servers can coexist on the same port with different bind addresses
-func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
+func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
 	gatewayPorts := sets.New[uint32]()
 	nonPlainTextGatewayPortsBindMap := map[uint32]sets.String{}
 	mergedServers := make(map[ServerPort]*MergedServers)
