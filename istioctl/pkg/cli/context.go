@@ -233,7 +233,7 @@ func (i *instance) RevisionOrDefault(rev string) string {
 		if defaultRev := i.defaultWatcher.GetDefault(); defaultRev != "" {
 			return defaultRev
 		}
-		log.Warnf("default revision watcher not synced, falling back to \"default\"")
+		log.Debug("default revision watcher not synced, falling back to \"default\"")
 	}
 
 	return "default"
