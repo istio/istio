@@ -419,6 +419,11 @@ const (
 	k8sSeparator = "."
 )
 
+// GetLocalityLabel returns the locality label from the labels map.
+// It checks labels in the following priority order
+// 1. topology.istio.io/locality
+// 2. istio-locality (legacy label for backwards compatibility)
+// returns empty string if no locality label is found.
 func GetLocalityLabel(labels map[string]string) string {
 	// "topology.istio.io/locality" take first
 	if loc, ok := labels[apilabel.TopologyLocality.Name]; ok {

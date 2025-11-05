@@ -278,7 +278,7 @@ func TestController_GetPodLocality(t *testing.T) {
 				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}),
 			},
 			wantAZ: map[*corev1.Pod]string{
-				podOverride: "regionOverride/zoneOverride/subzoneOverride",
+				podOverride2: "regionOverride/zoneOverride/subzoneOverride",
 			},
 		},
 	}
