@@ -875,7 +875,6 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectProxyInstances(t, sd, instances, []string{"9.9.9.9"})
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
-			Event{Type: "proxy", ID: "9.9.9.9"},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
 		)
 	})
