@@ -2607,3 +2607,9 @@ func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
 func (ps *PushContext) ServicesWithWaypoint(key string) []ServiceWaypointInfo {
 	return ps.ambientIndex.ServicesWithWaypoint(key)
 }
+
+// ServiceScope returns the scope (Local or Global) of the given service.
+// Key identifiies the service and expected to be in the form of 'namespace/hostname'.
+func (ps *PushContext) ServiceScope(key string) ServiceScope {
+	return ps.ambientIndex.ServiceScope(key)
+}
