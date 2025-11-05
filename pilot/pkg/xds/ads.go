@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	pm "istio.io/istio/pkg/model"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/autoregistration"
@@ -346,9 +347,9 @@ func localityFromProxyLabels(proxy *model.Proxy) *core.Locality {
 	if !f1 && !f2 && !f3 {
 		// If no labels set, we didn't find the locality from the service registry. We do support a (mostly undocumented/internal)
 		// label to override the locality, so respect that here as well.
-		ls, f := proxy.Labels[model.LocalityLabel]
-		if f {
-			return util.ConvertLocality(ls)
+		localityLabel := pm.GetLocalityLabel(proxy.Labels)
+		if localityLabel != "" {
+			return util.ConvertLocality(localityLabel)
 		}
 		return nil
 	}

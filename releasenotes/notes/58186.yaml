@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue: []
+releaseNotes:
+  - |
+    **Added** support for istio locality label `topology.istio.io/locality`, which take precedence over `istio-locality`.
