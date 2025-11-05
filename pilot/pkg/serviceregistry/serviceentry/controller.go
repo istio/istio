@@ -248,7 +248,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		event = model.EventDelete
 	}
 
-	wi := s.convertWorkloadEntryToWorkloadInstance(curr, s.Cluster())
+	wi := s.convertWorkloadEntryToWorkloadInstance(wle, curr.Meta, s.Cluster())
 	if wi != nil && !wi.DNSServiceEntryOnly {
 		// fire off the k8s handlers
 		s.NotifyWorkloadInstanceHandlers(wi, event)
@@ -273,7 +273,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 	currSes := getWorkloadServiceEntries(cfgs, wle)
 	var oldSes map[types.NamespacedName]*config.Config
 	if oldWle != nil {
-		if labels.Instance(oldWle.Labels).Equals(curr.Labels) {
+		if labels.Instance(oldWle.Labels).Equals(wle.Labels) {
 			oldSes = currSes
 		} else {
 			// labels update should trigger proxy update
