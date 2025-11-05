@@ -262,7 +262,7 @@ const (
 	k8sSeparator = "."
 )
 
-func TestGetLocalityLabel(t *testing.T) {
+func TestSanitizeLocalityLabel(t *testing.T) {
 	cases := []struct {
 		name     string
 		label    string
@@ -287,7 +287,7 @@ func TestGetLocalityLabel(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			got := model.GetLocalityLabel(testCase.label)
+			got := model.SanitizeLocalityLabel(testCase.label)
 			if got != testCase.expected {
 				t.Errorf("expected locality %s, but got %s", testCase.expected, got)
 			}

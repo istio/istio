@@ -25,6 +25,7 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	apilabel "istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
@@ -418,9 +419,23 @@ const (
 	k8sSeparator = "."
 )
 
-// GetLocalityLabel returns the locality from the supplied label. Because Kubernetes
+func GetLocalityLabel(labels map[string]string) string {
+	// "topology.istio.io/locality" take first
+	if loc, ok := labels[apilabel.TopologyLocality.Name]; ok {
+		return loc
+	}
+
+	// check the old label(istio-locality)
+	if loc, ok := labels[LocalityLabel]; ok {
+		return loc
+	}
+
+	return ""
+}
+
+// SanitizeLocalityLabel returns the locality from the supplied label. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
-func GetLocalityLabel(label string) string {
+func SanitizeLocalityLabel(label string) string {
 	if len(label) > 0 {
 		// if there are /'s present we don't need to replace
 		if strings.Contains(label, "/") {

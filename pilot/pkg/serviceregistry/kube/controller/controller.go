@@ -22,6 +22,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
+	pm "istio.io/istio/pkg/model"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -736,8 +737,9 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 // getPodLocality retrieves the locality for a pod.
 func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	// if pod has `istio-locality` label, skip below ops
-	if len(pod.Labels[model.LocalityLabel]) > 0 {
-		return model.GetLocalityLabel(pod.Labels[model.LocalityLabel])
+	localityLabel := pm.GetLocalityLabel(pod.Labels)
+	if localityLabel != "" {
+		return pm.SanitizeLocalityLabel(localityLabel)
 	}
 
 	// NodeName is set by the scheduler after the pod is created
