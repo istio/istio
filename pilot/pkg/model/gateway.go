@@ -160,7 +160,7 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 // - If servers have the same bind address, conflicting protocols are rejected (e.g., TCP vs HTTP)
 // - If servers have different bind addresses, they can coexist as separate listeners
 // - TLS and non-TLS servers can coexist on the same port with different bind addresses
-func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
+func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
 	gatewayPorts := sets.New[uint32]()
 	nonPlainTextGatewayPortsBindMap := map[uint32]sets.String{}
 	mergedServers := make(map[ServerPort]*MergedServers)
@@ -283,18 +283,30 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						if current.Bind != serverPort.Bind {
 							// Different bind, create new server
 							if mergedServers[serverPort] == nil {
-								mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
-								serverPorts = append(serverPorts, serverPort)
+								addPlainTextServer(s, serverPort, routeName, plainTextServers, serversByRouteName, mergedServers, &serverPorts)
+							} else {
+								ms := mergedServers[serverPort]
+								ms.RouteName = routeName
+								ms.Servers = append(ms.Servers, s)
+								serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
 							}
-							ms := mergedServers[serverPort]
-							ms.RouteName = routeName
-							ms.Servers = append(ms.Servers, s)
+							// Handle QUIC for HTTP servers with different bind addresses
+							if gateway.IsHTTPServer(s) && features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
+								udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
+								log.Debugf("Server at port %d with bind %s eligible for HTTP3 upgrade. Add UDP listener for QUIC", serverPort.Number, serverPort.Bind)
+								if mergedQUICServers[serverPort] == nil {
+									mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+								} else {
+									mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
+								}
+								http3AdvertisingRoutes.Insert(routeName)
+							}
 						} else {
 							// Same bind, merge with existing server
 							ms := mergedServers[current]
 							ms.Servers = append(ms.Servers, s)
+							serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
 						}
-						serversByRouteName[routeName] = append(serversByRouteName[routeName], s)
 					} else {
 						// No existing plaintext server on this port
 						// Check if current server is plaintext and should be handled differently
@@ -372,28 +384,21 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				} else {
 					// This is a new gateway on this port. Create MergedServers for it.
 					gatewayPorts.Insert(resolvedPort)
-					if !gateway.IsTLSServer(s) {
-						plainTextServers[resolvedPort] = serverPort
-					}
-					if gateway.IsHTTPServer(s) {
-						serversByRouteName[routeName] = []*networking.Server{s}
+					addPlainTextServer(s, serverPort, routeName, plainTextServers, serversByRouteName, mergedServers, &serverPorts)
 
-						if features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
-							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
-							log.Debugf("Server at port %d eligible for HTTP3 upgrade. So QUIC listener will be added", serverPort.Number)
-							http3AdvertisingRoutes.Insert(routeName)
+					if gateway.IsHTTPServer(s) && features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
+						udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
+						log.Debugf("Server at port %d eligible for HTTP3 upgrade. So QUIC listener will be added", serverPort.Number)
+						http3AdvertisingRoutes.Insert(routeName)
 
-							if mergedQUICServers[serverPort] == nil {
-								// This should be treated like non-passthrough HTTPS case. There will be multiple filter
-								// chains, multiple routes per server port. So just like in TLS server case we do not
-								// track route name here. Instead, TLS server info is used (it is fine for now because
-								// this would be a mirror of an existing non-passthrough HTTPS server)
-								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
-							}
+						if mergedQUICServers[serverPort] == nil {
+							// This should be treated like non-passthrough HTTPS case. There will be multiple filter
+							// chains, multiple routes per server port. So just like in TLS server case we do not
+							// track route name here. Instead, TLS server info is used (it is fine for now because
+							// this would be a mirror of an existing non-passthrough HTTPS server)
+							mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
 						}
 					}
-					mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, RouteName: routeName}
-					serverPorts = append(serverPorts, serverPort)
 				}
 				log.Debugf("mergeGateways: gateway %q merged server %v", gatewayName, s.Hosts)
 			}
@@ -479,6 +484,30 @@ func resolvePorts(number uint32, instances []ServiceTarget, legacyGatewaySelecto
 
 func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
 	return (current.IsHTTP() || current == p) && p.IsHTTP()
+}
+
+// addPlainTextServer adds a new plaintext server to the merged gateway state.
+// It handles registration in plainTextServers, serversByRouteName, and mergedServers maps.
+func addPlainTextServer(
+	s *networking.Server,
+	serverPort ServerPort,
+	routeName string,
+	plainTextServers map[uint32]ServerPort,
+	serversByRouteName map[string][]*networking.Server,
+	mergedServers map[ServerPort]*MergedServers,
+	serverPorts *[]ServerPort,
+) {
+	// No existing plaintext server on this port
+	// Check if current server is plaintext and should be handled differently
+	if !gateway.IsTLSServer(s) {
+		// This is a plain text server, add it to the map
+		plainTextServers[serverPort.Number] = serverPort
+	}
+	if gateway.IsHTTPServer(s) {
+		serversByRouteName[routeName] = []*networking.Server{s}
+	}
+	mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, RouteName: routeName}
+	*serverPorts = append(*serverPorts, serverPort)
 }
 
 func GetSNIHostsForServer(server *networking.Server) []string {
