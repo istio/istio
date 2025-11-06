@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -503,8 +504,16 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, nsConfig 
 func SetRevisionTagWithVersion(ctx framework.TestContext, h *helm.Helm, revision, revisionTag, version string) {
 	scopes.Framework.Infof("=== setting revision tag with version === ")
 	// Prepend ~ to the version, so that we can refer to the latest patch version of a minor version
+	sv, err := semver.NewVersion(version)
+	if err != nil {
+		ctx.Fatalf("failed to parse version %s: %v", version, err)
+	}
+	tagTemplate := "templates/revision-tags.yaml"
+	if sv.Major() == 1 && sv.Minor() >= 28 {
+		tagTemplate = "templates/revision-tags-mwc.yaml"
+	}
 	template, err := h.Template(IstiodReleaseName+"-"+revision, RepoDiscoveryChartPath,
-		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--version", "~"+version, "--repo", ctx.Settings().HelmRepo, "--set",
+		IstioNamespace, tagTemplate, Timeout, "--version", "~"+version, "--repo", ctx.Settings().HelmRepo, "--set",
 		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
 	if err != nil {
 		ctx.Fatalf("failed to template istio %s chart", DiscoveryChartsDir)
