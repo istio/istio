@@ -464,8 +464,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this workload instance when selecting workload entries
-func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
-	we := ConvertWorkloadEntry(cfg)
+func (s *Controller) convertWorkloadEntryToWorkloadInstance(we *networking.WorkloadEntry, meta config.Meta, clusterID cluster.ID) *model.WorkloadInstance {
 	addr := we.GetAddress()
 	dnsServiceEntryOnly := false
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
@@ -479,7 +478,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(s.meshWatcher.Mesh(), cfg.Namespace, we.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(s.meshWatcher.Mesh(), meta.Namespace, we.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(we)
 	locality := we.Locality
@@ -498,17 +497,17 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 				ClusterID: clusterID,
 			},
 			LbWeight:  we.Weight,
-			Namespace: cfg.Namespace,
+			Namespace: meta.Namespace,
 			// Workload entry config name is used as workload name, which will appear in metric label.
 			// After VM auto registry is introduced, workload group annotation should be used for workload name.
-			WorkloadName:   labels.WorkloadNameFromWorkloadEntry(cfg.Name, cfg.Annotations, cfg.Labels),
+			WorkloadName:   labels.WorkloadNameFromWorkloadEntry(meta.Name, meta.Annotations, meta.Labels),
 			Labels:         lbls,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},
 		PortMap:             we.Ports,
-		Namespace:           cfg.Namespace,
-		Name:                cfg.Name,
+		Namespace:           meta.Namespace,
+		Name:                meta.Name,
 		Kind:                model.WorkloadEntryKind,
 		DNSServiceEntryOnly: dnsServiceEntryOnly,
 	}
