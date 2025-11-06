@@ -511,7 +511,7 @@ spec:
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v3.7.3"
+          image: "docker.io/prom/prometheus:v3.7.3"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d
