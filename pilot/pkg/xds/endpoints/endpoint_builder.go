@@ -15,6 +15,7 @@
 package endpoints
 
 import (
+	"fmt"
 	"math"
 	"net"
 	"sort"
@@ -82,6 +83,7 @@ type EndpointBuilder struct {
 	push         *model.PushContext
 	proxy        *model.Proxy
 	dir          model.TrafficDirection
+	serviceInfo  *model.ServiceInfo
 
 	mtlsChecker *mtlsChecker
 }
@@ -129,6 +131,9 @@ func NewCDSEndpointBuilder(
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
+	if features.EnableAmbientMultiNetwork {
+		b.populateAmbientServiceInfo()
+	}
 	return &b
 }
 
@@ -172,6 +177,18 @@ func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
 			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, lbSetting.FailoverPriority)
 		}
+	}
+}
+
+func (b *EndpointBuilder) populateAmbientServiceInfo() {
+	if !b.ServiceFound() {
+		return
+	}
+
+	svc := fmt.Sprintf("%s/%s", b.service.Attributes.Namespace, b.hostname)
+	b.serviceInfo = b.push.ServiceInfo(svc)
+	if b.serviceInfo == nil {
+		log.Debugf("can not find ServiceInfo for %s while operating with ambient multicluster enabled", svc)
 	}
 }
 
@@ -528,6 +545,12 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 			return false
 		}
 	}
+	// If we are in ambient mode, the service is not global and the endpoint is in a different cluster
+	// we filter it out.
+	if b.serviceInfo != nil && b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
+		return false
+	}
+
 	return true
 }
 
