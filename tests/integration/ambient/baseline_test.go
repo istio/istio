@@ -2276,6 +2276,10 @@ func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
 func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/58224")
+			}
+
 			testCases := []struct {
 				location   v1alpha3.ServiceEntry_Location
 				resolution v1alpha3.ServiceEntry_Resolution
@@ -3435,6 +3439,7 @@ func TestDirect(t *testing.T) {
 			if !t.Settings().AmbientMultiNetwork {
 				t.Skip("only test east west gateway service scope in multi-network mode")
 			}
+			t.Skip("https://github.com/istio/istio/issues/58225")
 			c := common.NewCaller()
 			for _, cluster := range t.Clusters() {
 				ewginstance := i.EastWestGatewayForAmbient(cluster)
@@ -3544,6 +3549,9 @@ func TestServiceRestart(t *testing.T) {
 	}
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/58226")
+		}
 		generators := []traffic.Generator{}
 		mkGen := func(src echo.Caller, dst echo.Instances) {
 			g := traffic.NewGenerator(t, traffic.Config{
@@ -3586,6 +3594,9 @@ func TestZtunnelRestart(t *testing.T) {
 	const sidecarSuccessThreshold = .9
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/58227")
+		}
 		mkGen := func(src echo.Caller, dst echo.Instances) traffic.Generator {
 			g := traffic.NewGenerator(t, traffic.Config{
 				Source: src,
@@ -3626,6 +3637,9 @@ func TestServiceDynamicEnroll(t *testing.T) {
 	successThreshold := 0.5
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/58228")
+		}
 		generators := []traffic.Generator{}
 		for _, c := range t.Clusters() {
 			dst := apps.Captured.ForCluster(c.Name())
