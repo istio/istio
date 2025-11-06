@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/keepalive"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
@@ -429,7 +430,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 		},
 	}
 	proxy := fakeProxy("10.0.0.1", group, "nw1", "sa")
-	proxy.Labels[model.LocalityLabel] = "rgn2/zone2/subzone2"
+	proxy.Labels[pm.LocalityLabel] = "rgn2/zone2/subzone2"
 	proxy.XdsNode = fakeNode("rgn2", "zone2", "subzone2")
 
 	wantLabels := map[string]string{

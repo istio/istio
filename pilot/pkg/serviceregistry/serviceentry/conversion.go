@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/labels"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
@@ -315,8 +316,9 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 	}
 	networkID := s.workloadEntryNetwork(wle)
 	locality := wle.Locality
-	if locality == "" && len(wle.Labels[model.LocalityLabel]) > 0 {
-		locality = model.GetLocalityLabel(wle.Labels[model.LocalityLabel])
+	localityLabel := pm.GetLocalityLabel(wle.Labels)
+	if locality == "" && localityLabel != "" {
+		locality = pm.SanitizeLocalityLabel(localityLabel)
 	}
 	labels := labelutil.AugmentLabels(wle.Labels, clusterID, locality, "", networkID)
 	return &model.ServiceInstance{
@@ -481,8 +483,9 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 	}
 	networkID := s.workloadEntryNetwork(we)
 	locality := we.Locality
-	if locality == "" && len(we.Labels[model.LocalityLabel]) > 0 {
-		locality = model.GetLocalityLabel(we.Labels[model.LocalityLabel])
+	localityLabel := pm.GetLocalityLabel(we.Labels)
+	if locality == "" && localityLabel != "" {
+		locality = pm.SanitizeLocalityLabel(localityLabel)
 	}
 	lbls := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
 	return &model.WorkloadInstance{

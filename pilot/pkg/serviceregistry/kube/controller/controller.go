@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
@@ -736,8 +737,9 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 // getPodLocality retrieves the locality for a pod.
 func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	// if pod has `istio-locality` label, skip below ops
-	if len(pod.Labels[model.LocalityLabel]) > 0 {
-		return model.GetLocalityLabel(pod.Labels[model.LocalityLabel])
+	localityLabel := pm.GetLocalityLabel(pod.Labels)
+	if localityLabel != "" {
+		return pm.SanitizeLocalityLabel(localityLabel)
 	}
 
 	// NodeName is set by the scheduler after the pod is created
