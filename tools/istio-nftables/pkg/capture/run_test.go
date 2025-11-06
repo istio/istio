@@ -166,6 +166,13 @@ func getCommonTestCases() []struct {
 			},
 		},
 		{
+			"inbound-ports-empty-tproxy",
+			func(cfg *config.Config) {
+				cfg.InboundPortsInclude = ""
+				cfg.InboundInterceptionMode = "TPROXY"
+			},
+		},
+		{
 			"dns-uid-gid",
 			func(cfg *config.Config) {
 				cfg.RedirectDNS = true
