@@ -174,17 +174,17 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressI
 	return i, removed
 }
 
-func (c *Controller) ServiceScope(key string) model.ServiceScope {
+func (c *Controller) ServiceInfo(key string) *model.ServiceInfo {
 	if !features.EnableAmbientMultiNetwork {
-		return ""
+		return nil
 	}
 	for _, p := range c.GetRegistries() {
-		// When it comes to service scope, we only care about what the local cluster thinks about it
+		// When it comes to service info in ambient multicluster setup, only the local cluster matter.
 		if p.Cluster() == c.configClusterID && p.Provider() == provider.Kubernetes {
-			return p.ServiceScope(key)
+			return p.ServiceInfo(key)
 		}
 	}
-	return ""
+	return nil
 }
 
 type registryEntry struct {

@@ -388,8 +388,8 @@ func (sd *ServiceDiscovery) WorkloadsForWaypoint(model.WaypointKey) []model.Work
 	return nil
 }
 
-func (sd *ServiceDiscovery) ServiceScope(string) model.ServiceScope {
-	return ""
+func (sd *ServiceDiscovery) ServiceInfo(string) *model.ServiceInfo {
+	return nil
 }
 
 func (sd *ServiceDiscovery) AddWorkloadInfo(infos ...*model.WorkloadInfo) {

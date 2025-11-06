@@ -785,11 +785,11 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	return model.SortWorkloadsByCreationTime(maps.Values(out))
 }
 
-func (a *index) ServiceScope(key string) model.ServiceScope {
+func (a *index) ServiceInfo(key string) *model.ServiceInfo {
 	if svc := a.lookupService(key); svc != nil {
-		return svc.Scope
+		return svc
 	}
-	return ""
+	return nil
 }
 
 func (a *index) AdditionalPodSubscriptions(
