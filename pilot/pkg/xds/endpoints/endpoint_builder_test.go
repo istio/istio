@@ -15,27 +15,34 @@
 package endpoints
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 // MockDiscovery is an in-memory ServiceDiscover with mock services
 type localServiceDiscovery struct {
 	services         []*model.Service
 	serviceInstances []*model.ServiceInstance
+	serviceInfos     []*model.ServiceInfo
 
 	model.NoopAmbientIndexes
 	model.NetworkGatewaysHandler
@@ -75,6 +82,16 @@ func (l *localServiceDiscovery) NetworkGateways() []model.NetworkGateway {
 }
 
 func (l *localServiceDiscovery) MCSServices() []model.MCSServiceInfo {
+	return nil
+}
+
+func (l *localServiceDiscovery) ServiceInfo(key string) *model.ServiceInfo {
+	for _, info := range l.serviceInfos {
+		svcKey := fmt.Sprintf("%s/%s", info.GetNamespace(), info.Service.GetHostname())
+		if key == svcKey {
+			return info
+		}
+	}
 	return nil
 }
 
@@ -294,12 +311,18 @@ func TestPopulateFailoverPriorityLabels(t *testing.T) {
 	}
 }
 
-func TestFilterIstioEndpoint(t *testing.T) {
-	servicePort := &model.Port{
-		Name:     "default",
-		Port:     80,
-		Protocol: protocol.HTTP,
+func makeService(namespace, hostname string, scope model.ServiceScope) *model.ServiceInfo {
+	svc := &workloadapi.Service{
+		Namespace: namespace,
+		Hostname:  hostname,
 	}
+	return &model.ServiceInfo{
+		Service: svc,
+		Scope:   scope,
+	}
+}
+
+func TestFilterIstioEndpoint(t *testing.T) {
 	svc := &model.Service{
 		Hostname: "example.ns.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
@@ -312,7 +335,9 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		Resolution: model.DNSLB,
 		Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
 	}
-	proxy := &model.Proxy{
+	localSvc := makeService("ns", "example.ns.svc.cluster.local", model.Local)
+	globalSvc := makeService("ns", "example.ns.svc.cluster.local", model.Global)
+	sidecar := &model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"111.111.111.111", "1111:2222::1"},
 		ID:          "v0.default",
@@ -323,66 +348,107 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		},
 		ConfigNamespace: "not-default",
 	}
+	waypoint := &model.Proxy{
+		Type: model.Waypoint,
+		Metadata: &model.NodeMetadata{
+			Namespace: "default",
+			NodeName:  "example",
+			ClusterID: "local",
+		},
+		Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
+	}
 	ep0 := &model.IstioEndpoint{
-		Addresses:       []string{"1.1.1.1"},
-		NodeName:        "example",
-		ServicePortName: "not-default",
+		Addresses: []string{"1.1.1.1"},
+		NodeName:  "example",
 	}
 	ep1 := &model.IstioEndpoint{
-		Addresses:       []string{"1.1.1.1"},
-		NodeName:        "example",
-		ServicePortName: "default",
+		Addresses: []string{"1.1.1.1"},
+		NodeName:  "example",
 	}
 	ep2 := &model.IstioEndpoint{
-		Addresses:       []string{"2001:1::1"},
-		NodeName:        "example",
-		ServicePortName: "default",
+		Addresses: []string{"2001:1::1"},
+		NodeName:  "example",
 	}
 	ep3 := &model.IstioEndpoint{
-		Addresses:       []string{"1.1.1.1", "2001:1::1"},
-		NodeName:        "example",
-		ServicePortName: "default",
+		Addresses: []string{"1.1.1.1", "2001:1::1"},
+		NodeName:  "example",
 	}
 	ep4 := &model.IstioEndpoint{
-		Addresses:       []string{},
-		NodeName:        "example",
-		ServicePortName: "default",
+		Addresses: []string{},
+		NodeName:  "example",
+	}
+	localEp := &model.IstioEndpoint{
+		Addresses: []string{"1.1.1.1"},
+		Locality:  model.Locality{ClusterID: "local"},
+	}
+	remoteEp := &model.IstioEndpoint{
+		Addresses: []string{"1.1.1.1"},
+		Locality:  model.Locality{ClusterID: "remote"},
 	}
 
 	tests := []struct {
 		name     string
+		proxy    *model.Proxy
 		ep       *model.IstioEndpoint
-		p        *model.Port
+		svcInfo  *model.ServiceInfo
 		expected bool
 	}{
 		{
 			name:     "test endpoint with different service port name",
+			proxy:    sidecar,
 			ep:       ep0,
-			p:        servicePort,
 			expected: true,
 		},
 		{
 			name:     "test endpoint with ipv4 address",
+			proxy:    sidecar,
 			ep:       ep1,
-			p:        servicePort,
 			expected: true,
 		},
 		{
 			name:     "test endpoint with ipv6 address",
+			proxy:    sidecar,
 			ep:       ep2,
-			p:        servicePort,
 			expected: true,
 		},
 		{
 			name:     "test endpoint with both ipv4 and ipv6 addresses",
+			proxy:    sidecar,
 			ep:       ep3,
-			p:        servicePort,
 			expected: true,
 		},
 		{
 			name:     "test endpoint without address",
+			proxy:    sidecar,
 			ep:       ep4,
-			p:        servicePort,
+			expected: false,
+		},
+		{
+			name:     "test ambient endpoint in local cluster for global service",
+			proxy:    waypoint,
+			ep:       localEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in remote cluster for global service",
+			proxy:    waypoint,
+			ep:       remoteEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in local cluster for local service",
+			proxy:    waypoint,
+			ep:       localEp,
+			svcInfo:  localSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in remote cluster for local service",
+			proxy:    waypoint,
+			ep:       remoteEp,
+			svcInfo:  localSvc,
 			expected: false,
 		},
 	}
@@ -399,11 +465,17 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			if err := env.InitNetworksManager(xdsUpdater); err != nil {
 				t.Fatal(err)
 			}
+			var svcInfos []*model.ServiceInfo
+			if tt.svcInfo != nil {
+				svcInfos = []*model.ServiceInfo{tt.svcInfo}
+				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+			}
 			env.ServiceDiscovery = &localServiceDiscovery{
 				services: []*model.Service{svc},
 				serviceInstances: []*model.ServiceInstance{{
 					Endpoint: tt.ep,
 				}},
+				serviceInfos: svcInfos,
 			}
 			env.Init()
 
@@ -416,7 +488,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			}
 
 			builder := NewCDSEndpointBuilder(
-				proxy, push,
+				tt.proxy, push,
 				"outbound||example.ns.svc.cluster.local",
 				model.TrafficDirectionOutbound, "", "example.ns.svc.cluster.local", 80,
 				svc, nil)
