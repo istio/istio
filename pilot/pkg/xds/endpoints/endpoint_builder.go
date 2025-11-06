@@ -188,7 +188,7 @@ func (b *EndpointBuilder) populateAmbientServiceInfo() {
 	svc := fmt.Sprintf("%s/%s", b.service.Attributes.Namespace, b.hostname)
 	b.serviceInfo = b.push.ServiceInfo(svc)
 	if b.serviceInfo == nil {
-		log.Debugf("can not find service scope for %s while operating with ambient multicluster enabled", svc)
+		log.Debugf("can not find ServiceInfo for %s while operating with ambient multicluster enabled", svc)
 	}
 }
 
