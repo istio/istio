@@ -2392,6 +2392,9 @@ spec:
 								"IngressHttpPort": ports[i],
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								if t.Settings().AmbientMultiNetwork && from.Config().HasSidecar() {
+									t.Skip("https://github.com/istio/istio/issues/57878")
+								}
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 								from.CallOrFail(t, echo.CallOptions{
 									Address:   "dummy.example.com",
@@ -2426,6 +2429,9 @@ spec:
 								"IngressHttpPort": ports[idx],
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								if t.Settings().AmbientMultiNetwork && from.Config().HasSidecar() {
+									t.Skip("https://github.com/istio/istio/issues/57878")
+								}
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 								from.CallOrFail(t, echo.CallOptions{
 									Address:   "dummy.example.com",
@@ -3502,6 +3508,9 @@ func TestServiceRestart(t *testing.T) {
 	}
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/58226")
+		}
 		generators := []traffic.Generator{}
 		mkGen := func(src echo.Caller, dst echo.Instances) {
 			g := traffic.NewGenerator(t, traffic.Config{
@@ -3544,6 +3553,9 @@ func TestZtunnelRestart(t *testing.T) {
 	const sidecarSuccessThreshold = .9
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/58227")
+		}
 		mkGen := func(src echo.Caller, dst echo.Instances) traffic.Generator {
 			g := traffic.NewGenerator(t, traffic.Config{
 				Source: src,
@@ -3584,6 +3596,9 @@ func TestServiceDynamicEnroll(t *testing.T) {
 	successThreshold := 0.5
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/58228")
+		}
 		generators := []traffic.Generator{}
 		for _, c := range t.Clusters() {
 			dst := apps.Captured.ForCluster(c.Name())
