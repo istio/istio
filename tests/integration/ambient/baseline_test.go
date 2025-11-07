@@ -2276,10 +2276,6 @@ func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
 func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			if t.Settings().AmbientMultiNetwork {
-				t.Skip("https://github.com/istio/istio/issues/58224")
-			}
-
 			testCases := []struct {
 				location   v1alpha3.ServiceEntry_Location
 				resolution v1alpha3.ServiceEntry_Resolution
@@ -2396,6 +2392,9 @@ spec:
 								"IngressHttpPort": ports[i],
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								if t.Settings().AmbientMultiNetwork && from.Config().HasSidecar() {
+									t.Skip("https://github.com/istio/istio/issues/57878")
+								}
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 								from.CallOrFail(t, echo.CallOptions{
 									Address:   "dummy.example.com",
@@ -2430,6 +2429,9 @@ spec:
 								"IngressHttpPort": ports[idx],
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								if t.Settings().AmbientMultiNetwork && from.Config().HasSidecar() {
+									t.Skip("https://github.com/istio/istio/issues/57878")
+								}
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 								from.CallOrFail(t, echo.CallOptions{
 									Address:   "dummy.example.com",
