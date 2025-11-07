@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -49,6 +51,7 @@ import (
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -689,6 +692,44 @@ spec:
       mode: SIMPLE
       insecureSkipVerify: true`
 			runTest(t, "http origination targetPort", tlsOrigination, "", echo.CallOptions{
+				Address: "fake-egress.example.com",
+				Port:    echo.Port{ServicePort: 8080},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+
+			rootCert := file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem"))
+			caConfigMap := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: external-ca-cert
+data:
+  ca.crt: |
+{{.RootCert | indent 4}}
+`
+			t.ConfigIstio().
+				Eval(egressNamespace.Name(), map[string]any{"RootCert": rootCert}, caConfigMap).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			// Test we can do TLS origination, by utilizing ServiceEntry target port
+			backendTLSPolicy := `apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: fake-egress-tls
+spec:
+  targetRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: external
+    sectionName: http-for-tls
+  validation:
+    hostname: server.default.svc
+    caCertificateRefs:
+    - kind: ConfigMap
+      name: external-ca-cert
+      group: ""`
+			runTest(t, "http origination targetPort with BackendTLSPolicy", backendTLSPolicy, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 8080},
 				Scheme:  scheme.HTTP,
