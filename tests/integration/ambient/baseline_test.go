@@ -3441,7 +3441,6 @@ func TestDirect(t *testing.T) {
 			if !t.Settings().AmbientMultiNetwork {
 				t.Skip("only test east west gateway service scope in multi-network mode")
 			}
-			t.Skip("https://github.com/istio/istio/issues/58225")
 			c := common.NewCaller()
 			for _, cluster := range t.Clusters() {
 				ewginstance := i.EastWestGatewayForAmbient(cluster)
