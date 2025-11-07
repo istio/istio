@@ -315,8 +315,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 		if service.Resolution == model.Alias || service.Resolution == model.DynamicDNS {
 			continue
 		}
-		for _, port := range service.Ports {
+		for i, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
+				continue
+			}
+			// For InferencePool services, only build cluster for the first port
+			// All endpoints from all ports are merged into this single cluster
+			if service.UseInferenceSemantics() && i > 0 {
 				continue
 			}
 			clusterKey := buildClusterKey(service, port, cb, proxy, efKeys)
