@@ -370,9 +370,14 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 
 	svcEps := b.snapshotShards(endpointIndex)
 	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
-		// filter out endpoints that don't match the service port
-		if svcPort.Name != ep.ServicePortName {
-			return false
+		// For InferencePool services, include endpoints from all service ports
+		// They use multiple service ports (54321+i) mapped to different targetPorts
+		// but we want all endpoints in a single cluster so the EPP can load-balance across them
+		if !b.service.UseInferenceSemantics() {
+			// filter out endpoints that don't match the service port
+			if svcPort.Name != ep.ServicePortName {
+				return false
+			}
 		}
 		// filter out endpoint that has invalid ip address, mostly domain name. Because this is generated from ServiceEntry.
 		// There are other two cases that should not be filtered out:
