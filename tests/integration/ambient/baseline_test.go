@@ -3494,48 +3494,6 @@ func TestDirect(t *testing.T) {
 					// Global services are expected to be reachable via the east-west gateway
 					Check: check.OK(),
 				})
-				i = istio.GetOrFail(t)
-				ewgaddresses, ewgports = ewginstance.HBONEAddresses()
-				if len(ewgaddresses) == 0 || len(ewgports) == 0 {
-					t.Fatal("east-west gateway address or ports not found")
-				}
-				ewgaddr = ewgaddresses[0]
-				ewgport = ewgports[0]
-				cert, err = istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
-				if err != nil {
-					t.Fatal(err)
-				}
-				hbsvc = echo.HBONE{
-					Address:            fmt.Sprintf("%s:%v", ewgaddr, ewgport),
-					Headers:            nil,
-					Cert:               string(cert.ClientCert),
-					Key:                string(cert.Key),
-					CaCert:             string(cert.RootCert),
-					InsecureSkipVerify: true,
-				}
-				run("local service", echo.CallOptions{
-					To:          apps.Captured.ForCluster(cluster.Name()),
-					Count:       1,
-					Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-					Port:        echo.Port{Name: ports.HTTP.Name},
-					HBONE:       hbsvc,
-					DoubleHBONE: hbsvc,
-					// Local services are not expected to be reachable via the east-west gateway
-					Check: check.Error(),
-				})
-
-				capturedSvc = apps.Captured.ForCluster(cluster.Name()).ServiceName()
-				labelServiceGlobal(t, capturedSvc, t.Clusters().Default())
-				run("global service", echo.CallOptions{
-					To:          apps.Captured.ForCluster(cluster.Name()),
-					Count:       1,
-					Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-					Port:        echo.Port{Name: ports.HTTP.Name},
-					HBONE:       hbsvc,
-					DoubleHBONE: hbsvc,
-					// Global services are expected to be reachable via the east-west gateway
-					Check: check.OK(),
-				})
 			}
 		})
 	})

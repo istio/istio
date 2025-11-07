@@ -192,6 +192,10 @@ spec:
         {{- if $network }}
         - name: ISTIO_META_NETWORK
           value: "{{ $network }}"
+        {{- if eq .ControllerLabel "istio.io-eastwest-controller" }}
+        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+          value: "{{ $network }}"
+        {{- end }}
         {{- end }}
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
