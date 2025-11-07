@@ -233,7 +233,7 @@ func (s *Instance) getListenerIPs(port *common.Port) ([]string, error) {
 }
 
 func (s *Instance) newEndpoint(port *common.Port, listenerIP string, udsServer string) (endpoint.Instance, error) {
-	return endpoint.New(endpoint.Config{
+	epConfig := endpoint.Config{
 		Port:          port,
 		UDSServer:     udsServer,
 		IsServerReady: s.isReady,
@@ -247,7 +247,11 @@ func (s *Instance) newEndpoint(port *common.Port, listenerIP string, udsServer s
 		ListenerIP:    listenerIP,
 		DisableALPN:   s.DisableALPN,
 		IstioVersion:  s.IstioVersion,
-	})
+	}
+	if port != nil && port.EndpointPicker {
+		epConfig.EndpointPicker = true
+	}
+	return endpoint.New(epConfig)
 }
 
 func (s *Instance) isReady() bool {
