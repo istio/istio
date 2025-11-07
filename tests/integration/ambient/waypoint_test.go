@@ -709,7 +709,8 @@ data:
 				ApplyOrFail(t, apply.CleanupConditionally)
 
 			// Test we can do TLS origination, by utilizing ServiceEntry target port
-			backendTLSPolicy := `apiVersion: gateway.networking.k8s.io/v1
+			backendTLSPolicy := func(portName string) string {
+				return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
   name: fake-egress-tls
@@ -718,14 +719,16 @@ spec:
   - group: networking.istio.io
     kind: ServiceEntry
     name: external
-    sectionName: http-for-tls
+    sectionName: %s
   validation:
     hostname: server.default.svc
     caCertificateRefs:
     - kind: ConfigMap
       name: external-ca-cert
-      group: ""`
-			runTest(t, "http origination targetPort with BackendTLSPolicy", backendTLSPolicy, "", echo.CallOptions{
+      group: ""`, portName)
+			}
+
+			runTest(t, "http origination targetPort with BackendTLSPolicy", backendTLSPolicy("http-for-tls"), "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 8080},
 				Scheme:  scheme.HTTP,
@@ -733,7 +736,7 @@ spec:
 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			})
 
-			tlsOriginationRedirect := tlsOrigination + `
+			httpRoute := `
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -749,9 +752,17 @@ spec:
     - kind: Hostname
       group: networking.istio.io
       name: fake-egress.example.com
-      port: 443
-`
-			runTest(t, "http origination route", tlsOriginationRedirect, "", echo.CallOptions{
+      port: 443`
+
+			runTest(t, "http origination route", tlsOrigination+httpRoute, "", echo.CallOptions{
+				Address: "fake-egress.example.com",
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+
+			runTest(t, "http origination route with BackendTLSPolicy", backendTLSPolicy("https")+httpRoute, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
