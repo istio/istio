@@ -364,8 +364,8 @@ github.com/prometheus/otlptranslator v0.0.0-20250717125610-8549f4ab4f8f h1:QQB6S
 github.com/prometheus/otlptranslator v0.0.0-20250717125610-8549f4ab4f8f/go.mod h1:P8AwMgdD7XEr6QRUJ2QWLpiAZTgTE2UYgjlu3svompI=
 github.com/prometheus/procfs v0.17.0 h1:FuLQ+05u4ZI+SS/w9+BWEM2TXiHKsUQ9TADiRH7DuK0=
 github.com/prometheus/procfs v0.17.0/go.mod h1:oPQLaDAMRbA+u8H5Pbfq+dl3VDAvHxMUOVhe0wYB2zw=
-github.com/prometheus/prometheus v0.305.0 h1:UO/LsM32/E9yBDtvQj8tN+WwhbyWKR10lO35vmFLx0U=
-github.com/prometheus/prometheus v0.305.0/go.mod h1:JG+jKIDUJ9Bn97anZiCjwCxRyAx+lpcEQ0QnZlUlbwY=
+github.com/prometheus/prometheus v0.306.0 h1:Q0Pvz/ZKS6vVWCa1VSgNyNJlEe8hxdRlKklFg7SRhNw=
+github.com/prometheus/prometheus v0.306.0/go.mod h1:7hMSGyZHt0dcmZ5r4kFPJ/vxPQU99N5/BGwSPDxeZrQ=
 github.com/prometheus/sigv4 v0.2.0 h1:qDFKnHYFswJxdzGeRP63c4HlH3Vbn1Yf/Ao2zabtVXk=
 github.com/prometheus/sigv4 v0.2.0/go.mod h1:D04rqmAaPPEUkjRQxGqjoxdyJuyCh6E0M18fZr0zBiE=
 github.com/quic-go/qpack v0.5.1 h1:giqksBPnT/HDtZ6VhtFKgoLOWmlyo9Ei6u9PqzIMbhI=
@@ -545,8 +545,8 @@ gomodules.xyz/jsonpatch/v2 v2.5.0 h1:JELs8RLM12qJGXU4u/TO3V25KW8GreMKl9pdkk14RM0
 gomodules.xyz/jsonpatch/v2 v2.5.0/go.mod h1:AH3dM2RI6uoBZxn3LVrfvJ3E0/9dG4cSrbuBJT4moAY=
 gonum.org/v1/gonum v0.16.0 h1:5+ul4Swaf3ESvrOnidPp4GZbzf0mxVQpDCYUQE7OJfk=
 gonum.org/v1/gonum v0.16.0/go.mod h1:fef3am4MQ93R2HHpKnLk4/Tbh/s0+wqD5nfa6Pnwy4E=
-google.golang.org/api v0.238.0 h1:+EldkglWIg/pWjkq97sd+XxH7PxakNYoe/rkSTbnvOs=
-google.golang.org/api v0.238.0/go.mod h1:cOVEm2TpdAGHL2z+UwyS+kmlGr3bVWQQ6sYEqkKje50=
+google.golang.org/api v0.239.0 h1:2hZKUnFZEy81eugPs4e2XzIJ5SOwQg0G82bpXD65Puo=
+google.golang.org/api v0.239.0/go.mod h1:cOVEm2TpdAGHL2z+UwyS+kmlGr3bVWQQ6sYEqkKje50=
 google.golang.org/genproto/googleapis/api v0.0.0-20251020155222-88f65dc88635 h1:1wvBeYv+A2zfEbxROscJl69OP0m74S8wGEO+Syat26o=
 google.golang.org/genproto/googleapis/api v0.0.0-20251020155222-88f65dc88635/go.mod h1:fDMmzKV90WSg1NbozdqrE64fkuTv6mlq2zxo9ad+3yo=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20251020155222-88f65dc88635 h1:3uycTxukehWrxH4HtPRtn1PDABTU331ViDjyqrUbaog=
@@ -608,8 +608,8 @@ sigs.k8s.io/controller-runtime v0.22.1 h1:Ah1T7I+0A7ize291nJZdS1CabF/lB4E++WizgV
 sigs.k8s.io/controller-runtime v0.22.1/go.mod h1:FwiwRjkRPbiN+zp2QRp7wlTCzbUXxZ/D4OzuQUDwBHY=
 sigs.k8s.io/gateway-api v1.4.0 h1:ZwlNM6zOHq0h3WUX2gfByPs2yAEsy/EenYJB78jpQfQ=
 sigs.k8s.io/gateway-api v1.4.0/go.mod h1:AR5RSqciWP98OPckEjOjh2XJhAe2Na4LHyXD2FUY7Qk=
-sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250917095812-173ad587b675 h1:CW+VWxazW54YzQnlHkyCE/WmAvF0YK7HOl+OK8IO3Ug=
-sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250917095812-173ad587b675/go.mod h1:Tqmt4U654MNQkzC1lFYVa43wbUW7K8r8Lv6Sq2I3HCc=
+sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751 h1:02xtteK+vH0484psoJ8QuncdEF8e4ElliMBUuKoWWZY=
+sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751/go.mod h1:x4ydLmxI0lGo0g7DY3qkIImagLGq5JuPHaDu3NLDj8k=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730/go.mod h1:mdzfpAEoE6DHQEN0uh9ZbOCuHbLK5wOm7dK4ctXE9Tg=
 sigs.k8s.io/knftables v0.0.19-0.20250623122614-e4307300abb5 h1:IvJLfQapBuBLXavhpQmA1raQx+VmPKTtRIT0Vmc0MvA=

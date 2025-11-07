@@ -1,4 +1,4 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=173ad587b6752a881884933fef9e792c87420232"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=0a3bb20107519af18c2fecb6706c3ff59148a645"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -346,7 +346,8 @@ spec:
               targetPorts:
                 description: |-
                   TargetPorts defines a list of ports that are exposed by this InferencePool.
-                  Currently, the list may only include a single port definition.
+                  Every port will be treated as a distinctive endpoint by EPP,
+                  addressable as a 'podIP:portNumber' combination.
                 items:
                   description: Port defines the network port that will be exposed
                     by this InferencePool.
@@ -362,10 +363,13 @@ spec:
                   required:
                   - number
                   type: object
-                maxItems: 1
+                maxItems: 8
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
+                x-kubernetes-validations:
+                - message: port number must be unique
+                  rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
             required:
             - endpointPickerRef
             - selector
