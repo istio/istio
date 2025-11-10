@@ -3484,6 +3484,9 @@ func TestDirect(t *testing.T) {
 
 				capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
 				labelServiceGlobal(t, capturedSvc, cluster)
+				t.Cleanup(func() {
+					unlabelServiceGlobal(t, capturedSvc, cluster)
+				})
 				run("global service", echo.CallOptions{
 					To:          apps.Captured.ForCluster(cluster.Name()),
 					Count:       1,
@@ -3673,10 +3676,10 @@ func labelService(t framework.TestContext, nsName, svcName, k, v string, cs ...c
 	}
 }
 
-func labelServiceGlobal(t framework.TestContext, svcName string, cls cluster.Cluster) {
+func labelServiceGlobal(t framework.TestContext, svcName string, cls ...cluster.Cluster) {
 	k := "istio.io/global"
 	v := "true"
-	labelService(t, apps.Namespace.Name(), svcName, k, v, cls)
+	labelService(t, apps.Namespace.Name(), svcName, k, v, cls...)
 }
 
 func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, nsName, svcName, k, v string) {
@@ -3692,10 +3695,16 @@ func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, nsName, s
 	}
 }
 
-func unlabelServiceGlobal(t framework.TestContext, svcName string, cls cluster.Cluster) {
+func unlabelServiceGlobal(t framework.TestContext, svcName string, cls ...cluster.Cluster) {
+	for _, cl := range cls {
+		unlabelServiceGlobalInCluster(t, svcName, cl)
+	}
+}
+
+func unlabelServiceGlobalInCluster(t framework.TestContext, svcName string, cl cluster.Cluster) {
 	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{"metadata":{"labels":{ %q: null}}}`, "istio.io/global")
-	s := cls.Kube().CoreV1().Services(apps.Namespace.Name())
+	s := cl.Kube().CoreV1().Services(apps.Namespace.Name())
 	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)

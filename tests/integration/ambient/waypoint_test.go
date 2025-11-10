@@ -957,6 +957,14 @@ spec:
           port: 9093
           weight: 1
 `).ApplyOrFail(t)
+		if t.Settings().AmbientMultiNetwork {
+			labelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+				unlabelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			})
+		}
 		apps.Captured[0].CallOrFail(t, echo.CallOptions{
 			To:    apps.ServiceAddressedWaypoint,
 			Port:  ports.TCP,
@@ -1010,6 +1018,14 @@ spec:
           port: 9093
           weight: 1
 `).ApplyOrFail(t)
+		if t.Settings().AmbientMultiNetwork {
+			labelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+				unlabelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			})
+		}
 		apps.Captured[0].CallOrFail(t, echo.CallOptions{
 			To:    apps.ServiceAddressedWaypoint,
 			Port:  ports.TCP,
