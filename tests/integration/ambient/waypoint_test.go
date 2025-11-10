@@ -936,9 +936,6 @@ spec:
 
 func TestTCPRoute(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		if t.Settings().AmbientMultiNetwork {
-			t.Skip("https://github.com/istio/istio/issues/58229")
-		}
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
@@ -960,6 +957,14 @@ spec:
           port: 9093
           weight: 1
 `).ApplyOrFail(t)
+		if t.Settings().AmbientMultiNetwork {
+			labelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+				unlabelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			})
+		}
 		apps.Captured[0].CallOrFail(t, echo.CallOptions{
 			To:    apps.ServiceAddressedWaypoint,
 			Port:  ports.TCP,
@@ -992,9 +997,6 @@ spec:
 
 func TestTLSRoute(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		if t.Settings().AmbientMultiNetwork {
-			t.Skip("https://github.com/istio/istio/issues/58230")
-		}
 		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
@@ -1016,6 +1018,14 @@ spec:
           port: 9093
           weight: 1
 `).ApplyOrFail(t)
+		if t.Settings().AmbientMultiNetwork {
+			labelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+				unlabelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			})
+		}
 		apps.Captured[0].CallOrFail(t, echo.CallOptions{
 			To:    apps.ServiceAddressedWaypoint,
 			Port:  ports.TCP,
