@@ -293,6 +293,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
 		ObjectFilter:    kubeClient.ObjectFilter(),
 		ObjectTransform: kubelib.StripPodUnusedFields,
+		FieldSelector:   "status.phase=Failed",
 	})
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
 		c.queue.Push(func() error {
