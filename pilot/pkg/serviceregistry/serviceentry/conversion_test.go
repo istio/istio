@@ -1401,7 +1401,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	for _, tt := range workloadInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Controller{networkIDCallback: tt.getNetworkIDCb, meshWatcher: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())}
-			instance := s.convertWorkloadEntryToWorkloadInstance(tt.wle, cluster.ID(clusterID))
+			wle := ConvertWorkloadEntry(tt.wle)
+			instance := s.convertWorkloadEntryToWorkloadInstance(wle, tt.wle.Meta, cluster.ID(clusterID))
 			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)
 			}
