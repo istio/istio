@@ -68,24 +68,68 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, w *model.WatchedResou
 
 // buildCommonTLSContext creates a TLS context that assumes 'default' name, and credentials/tls/certprovider/pemfile
 // (see grpc/xds/internal/client/xds.go securityConfigFromCluster).
+//
+// This function sends both current and deprecated xDS certificate provider fields for backward compatibility:
+// - Current fields (field 14, ca_certificate_provider_instance): supported by grpc-go >= 1.66, grpc-cpp >= 1.66
+// - Deprecated fields (field 11, field 4): for older gRPC clients
+//
+// The deprecated fields will be removed in a future release. See https://github.com/istio/istio/issues/TBD
 func buildCommonTLSContext(sans []string) *tls.CommonTlsContext {
 	var sanMatch []*matcher.StringMatcher
 	if len(sans) > 0 {
 		sanMatch = util.StringToExactMatch(sans)
 	}
+
+	// Create certificate provider instances for deprecated fields (field 11 and field 4)
+	// These use the CommonTlsContext_CertificateProviderInstance type
+	deprecatedCertProviderInstance := &tls.CommonTlsContext_CertificateProviderInstance{
+		InstanceName:    "default",
+		CertificateName: "default",
+	}
+
+	deprecatedCaProviderInstance := &tls.CommonTlsContext_CertificateProviderInstance{
+		InstanceName:    "default",
+		CertificateName: "ROOTCA",
+	}
+
+	// Create certificate provider instances for current fields (field 14 and ca_certificate_provider_instance)
+	// These use the CertificateProviderPluginInstance type
+	currentCertProviderInstance := &tls.CertificateProviderPluginInstance{
+		InstanceName:    "default",
+		CertificateName: "default",
+	}
+
+	currentCaProviderInstance := &tls.CertificateProviderPluginInstance{
+		InstanceName:    "default",
+		CertificateName: "ROOTCA",
+	}
+
 	return &tls.CommonTlsContext{
-		TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
-			InstanceName:    "default",
-			CertificateName: "default",
-		},
+		// Current field (field 14) - introduced in Envoy 1.28
+		// Supported by grpc-go >= 1.66, grpc-cpp >= 1.66, modern grpc-java
+		// Uses CertificateProviderPluginInstance type
+		TlsCertificateProviderInstance: currentCertProviderInstance,
+
+		// DEPRECATED field (field 11) - kept for backward compatibility with older gRPC clients
+		// TODO: Remove this field after 2 releases (when all users have upgraded gRPC clients)
+		// See https://github.com/grpc/grpc-java/commit/65d0bb8a4d9ee111f1eeb02c43321bbb99143151
+		// Uses CommonTlsContext_CertificateProviderInstance type
+		TlsCertificateCertificateProviderInstance: deprecatedCertProviderInstance,
+
 		ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				ValidationContextCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
-					InstanceName:    "default",
-					CertificateName: "ROOTCA",
-				},
+				// DEPRECATED field (field 4) - kept for backward compatibility with older gRPC clients
+				// TODO: Remove this field after 2 releases (when all users have upgraded gRPC clients)
+				// Uses CommonTlsContext_CertificateProviderInstance type
+				ValidationContextCertificateProviderInstance: deprecatedCaProviderInstance,
+
 				DefaultValidationContext: &tls.CertificateValidationContext{
 					MatchSubjectAltNames: sanMatch,
+
+					// Current field - CA certificate provider in default_validation_context
+					// This is the recommended way to specify CA certificates per the xDS specification
+					// Uses CertificateProviderPluginInstance type
+					CaCertificateProviderInstance: currentCaProviderInstance,
 				},
 			},
 		},
