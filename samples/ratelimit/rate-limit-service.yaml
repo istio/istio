@@ -64,7 +64,7 @@ spec:
         app: redis
     spec:
       containers:
-      - image: redis:alpine
+      - image: docker.io/redis:alpine
         imagePullPolicy: IfNotPresent
         name: redis
         ports:
