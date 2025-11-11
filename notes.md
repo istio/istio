@@ -1,35 +1,38 @@
 # Notes
 
-Initial build takes a really long time, maybe we should have them do some steps to get that rolling up front?
-
-
 ## Prep Steps
 
 1. launch a codespace from your fork of istio/istio
 1. checkout a feature branch from master, call it what you'd like. Perhaps `contribfest`
-    ```shell
-    export TAG=1.29-alpha.5dcad23c9e9086eadce05381890a29dea3f97fb6
-    export HUB=gcr.io/istio-testing
-    ```
-1. `./prow/integ-suite-kind.sh --skip-cleanup --skip-build`
+
+```shell
+export TAG=1.29-alpha.5dcad23c9e9086eadce05381890a29dea3f97fb6
+export HUB=gcr.io/istio-testing
+./prow/integ-suite-kind.sh --skip-cleanup --skip-build
+```
 
 ## Install Istio
 
-1. `make -B $(pwd)/out/linux_amd64/release/istioctl-linux-amd64`
-1. `alias istioctl="$(pwd)/out/linux_amd64/release/istioctl-linux-amd64"`
-1. `istioctl install --set profile=ambient --skip-confirmation --set tag=$TAG --set hub=$HUB`
-1. `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.0/standard-install.yaml`
+```shell
+# Build istioctl binary
+make -B $(pwd)/out/linux_amd64/release/istioctl-linux-amd64
+# Convenience alias
+alias istioctl="$(pwd)/out/linux_amd64/release/istioctl-linux-amd64"
+istioctl install --set profile=ambient --skip-confirmation --set tag=$TAG --set hub=$HUB
+# waypoints are Kubernetes Gateway API Resources, install the CRDs
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.0/standard-install.yaml
+```
 
 ## Setup and test a basic playground
 
 ```shell
 kubectl create namespace server
 kubectl label namespace server istio.io/dataplane-mode=ambient
-kubectl apply -f https://raw.githubusercontent.com/istio/istio/refs/heads/master/samples/httpbin/httpbin.yaml -n server
+kubectl apply -f ./samples/httpbin/httpbin.yaml -n server
 kubectl label -n server svc httpbin istio.io/use-waypoint=waypoint
 kubectl create namespace client
 kubectl label namespace client istio.io/dataplane-mode=ambient
-kubectl apply -f https://raw.githubusercontent.com/istio/istio/refs/heads/master/samples/sleep/sleep.yaml -n client
+kubectl apply -f ./samples/sleep/sleep.yaml -n client
 ```
 
 check the environment
@@ -45,8 +48,7 @@ kubectl logs -n istio-system ds/ztunnel | grep outbound | tail -1
 
 ```shell
 istioctl waypoint apply -n server
-istioctl waypoint status -n server
-# success!
+istioctl waypoint status -n server --waypoint-timeout=10s
 ```
 
 ## Recreate the bug
@@ -87,7 +89,11 @@ export DOCKER_TARGETS='docker.pilot docker.proxyv2 docker.ztunnel docker.install
 export DOCKER_BUILD_VARIANTS="distroless"
 ```
 
-Next, setup a new kind cluster. This time we won't skip build though: `./prow/integ-suite-kind.sh --skip-cleanup`
+Next, setup a new kind cluster. This time we won't skip build though:
+
+```shell
+./prow/integ-suite-kind.sh --skip-cleanup
+```
 
 The tag here could be whatever you want, but the HUB is rather interesting. When you used these arguments for prow script to build you KinD envionment, you may have noticed there's an extra registry container running in docker. This registry image let's you build and push images to your local development environment. It requires a little bit of special plumbing in KinD which is also taken care of for you by our prow scripts.
 
