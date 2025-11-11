@@ -3366,6 +3366,9 @@ func TestDirect(t *testing.T) {
 
 			capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
 			labelService(t, apps.Namespace.Name(), capturedSvc, "istio.io/global", "true", t.Clusters().Default())
+			t.Cleanup(func() {
+				labelService(t, apps.Namespace.Name(), capturedSvc, "istio.io/global", "")
+			})
 			run("global service", echo.CallOptions{
 				To:          apps.Captured.ForCluster(cluster.Name()),
 				Count:       1,
