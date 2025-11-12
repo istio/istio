@@ -1,0 +1,30 @@
+diff --git a/istioctl/pkg/waypoint/waypoint.go b/istioctl/pkg/waypoint/waypoint.go
+index 30ddbd1968..2c639520af 100644
+--- a/istioctl/pkg/waypoint/waypoint.go
++++ b/istioctl/pkg/waypoint/waypoint.go
+@@ -59,6 +59,8 @@ var (
+ 	waypointName    = constants.DefaultNamespaceWaypoint
+ 	enrollNamespace bool
+ 	overwrite       bool
++
++	statusWaitReady bool
+ )
+ 
+ const waitTimeout = 90 * time.Second
+@@ -465,6 +467,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
+ 	waypointApplyCmd.Flags().DurationVar(&waypointTimeout, "waypoint-timeout", waitTimeout, "Timeout for waiting for waypoint ready")
+ 	waypointGenerateCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
+ 	waypointStatusCmd.Flags().DurationVar(&waypointTimeout, "waypoint-timeout", waitTimeout, "Timeout for retrieving status for waypoint")
++	waypointStatusCmd.Flags().BoolVarP(&statusWaitReady, "wait", "w", true, "Wait for waypoint to be programmed before reporting status")
+ 	waypointCmd.AddCommand(waypointGenerateCmd)
+ 	waypointCmd.AddCommand(waypointDeleteCmd)
+ 	waypointCmd.AddCommand(waypointListCmd)
+@@ -629,7 +632,7 @@ func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.C
+ 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
+ 			}
+ 
+-			if programmed {
++			if !statusWaitReady || programmed {
+ 				break
+ 			}
+ 
