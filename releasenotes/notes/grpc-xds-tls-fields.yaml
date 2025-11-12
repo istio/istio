@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: networking
+area: traffic-management
 releaseNotes:
   - |
     **Fixed** gRPC xDS Listener to send both current and deprecated TLS certificate provider fields,
