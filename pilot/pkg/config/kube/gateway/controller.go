@@ -319,6 +319,7 @@ func NewController(
 	httpRoutes := HTTPRouteCollection(
 		inputs.HTTPRoutes,
 		routeInputs,
+		c.tagWatcher,
 		opts,
 	)
 	status.RegisterStatus(c.status, httpRoutes.Status, GetStatus)
