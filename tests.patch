@@ -1,0 +1,140 @@
+diff --git a/istioctl/pkg/waypoint/testdata/waypoint/waypoint-notready-wait b/istioctl/pkg/waypoint/testdata/waypoint/waypoint-notready-wait
+new file mode 100644
+index 0000000000..94cd6597ba
+--- /dev/null
++++ b/istioctl/pkg/waypoint/testdata/waypoint/waypoint-notready-wait
+@@ -0,0 +1,2 @@
++Error: failed to print waypoint status: timed out while retrieving status for waypoint	default/waypoint
++
+diff --git a/istioctl/pkg/waypoint/testdata/waypoint/waypoint-status-notready b/istioctl/pkg/waypoint/testdata/waypoint/waypoint-status-notready
+new file mode 100644
+index 0000000000..ea4c0da202
+--- /dev/null
++++ b/istioctl/pkg/waypoint/testdata/waypoint/waypoint-status-notready
+@@ -0,0 +1,2 @@
++NAME         STATUS     TYPE           REASON     MESSAGE
++waypoint     False      Programmed                
+diff --git a/istioctl/pkg/waypoint/testdata/waypoint/waypoint-status-ready b/istioctl/pkg/waypoint/testdata/waypoint/waypoint-status-ready
+new file mode 100644
+index 0000000000..49e6206698
+--- /dev/null
++++ b/istioctl/pkg/waypoint/testdata/waypoint/waypoint-status-ready
+@@ -0,0 +1,2 @@
++NAME         STATUS     TYPE           REASON     MESSAGE
++waypoint     True       Programmed                
+diff --git a/istioctl/pkg/waypoint/waypoint_test.go b/istioctl/pkg/waypoint/waypoint_test.go
+index 0874b90462..fcc6592ce3 100644
+--- a/istioctl/pkg/waypoint/waypoint_test.go
++++ b/istioctl/pkg/waypoint/waypoint_test.go
+@@ -22,6 +22,7 @@ import (
+ 	"strings"
+ 	"testing"
+ 
++	"github.com/spf13/cobra"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	gateway "sigs.k8s.io/gateway-api/apis/v1"
+ 
+@@ -117,6 +118,103 @@ func TestWaypointList(t *testing.T) {
+ 	}
+ }
+ 
++func TestWaypointStatus(t *testing.T) {
++	cases := []struct {
++		name            string
++		args            []string
++		gateways        []*gateway.Gateway
++		expectedOutFile string
++	}{
++		{
++			name: "waypoint ready",
++			args: strings.Split("status", " "),
++			gateways: []*gateway.Gateway{
++				makeGateway(constants.DefaultNamespaceWaypoint, "default", true, true),
++			},
++			expectedOutFile: "waypoint-status-ready",
++		},
++		{
++			name: "waypoint ready with --wait",
++			args: strings.Split("status --wait=true", " "),
++			gateways: []*gateway.Gateway{
++				makeGateway(constants.DefaultNamespaceWaypoint, "default", true, true),
++			},
++			expectedOutFile: "waypoint-status-ready",
++		},
++		{
++			name: "waypoint ready with --wait=false",
++			args: strings.Split("status --wait=false", " "),
++			gateways: []*gateway.Gateway{
++				makeGateway(constants.DefaultNamespaceWaypoint, "default", true, true),
++			},
++			expectedOutFile: "waypoint-status-ready",
++		},
++		{
++			name: "waypoint not ready without --wait",
++			args: strings.Split("status --waypoint-timeout 0.5s", " "),
++			gateways: []*gateway.Gateway{
++				makeGateway(constants.DefaultNamespaceWaypoint, "default", false, true),
++			},
++			expectedOutFile: "waypoint-notready-wait",
++		},
++		{
++			name: "waypoint not ready with --wait",
++			args: strings.Split("status --wait --waypoint-timeout 0.5s", " "),
++			gateways: []*gateway.Gateway{
++				makeGateway(constants.DefaultNamespaceWaypoint, "default", false, true),
++			},
++			expectedOutFile: "waypoint-notready-wait",
++		},
++		{
++			name: "waypoint not ready with --wait=false",
++			args: strings.Split("status --wait=false --waypoint-timeout 0.5s", " "),
++			gateways: []*gateway.Gateway{
++				makeGateway(constants.DefaultNamespaceWaypoint, "default", false, true),
++			},
++			expectedOutFile: "waypoint-status-notready",
++		},
++	}
++	for _, tt := range cases {
++		t.Run(tt.name, func(t *testing.T) {
++			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
++				Namespace: "default",
++			})
++			client, err := ctx.CLIClient()
++			if err != nil {
++				t.Fatal(err)
++			}
++
++			for _, gw := range tt.gateways {
++				_, _ = client.GatewayAPI().GatewayV1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
++			}
++			defaultFile, err := os.ReadFile(fmt.Sprintf("testdata/waypoint/%s", tt.expectedOutFile))
++			if err != nil {
++				t.Fatal(err)
++			}
++			expectedOut := string(defaultFile)
++			if len(expectedOut) == 0 {
++				t.Fatal("expected output is empty")
++			}
++
++			var out bytes.Buffer
++			rootCmd := Cmd(ctx)
++			rootCmd.SetArgs(tt.args)
++			rootCmd.SetOut(&out)
++			rootCmd.SetErr(&out)
++			// disable Usage
++			rootCmd.SetUsageFunc(func(cmd *cobra.Command) error {
++				return nil
++			})
++
++			rootCmd.Execute()
++			output := out.String()
++			if output != expectedOut {
++				t.Fatalf("expected %s, got %s", expectedOut, output)
++			}
++		})
++	}
++}
++
+ func makeGateway(name, namespace string, programmed, isWaypoint bool) *gateway.Gateway {
+ 	conditions := make([]metav1.Condition, 0)
+ 	if programmed {
