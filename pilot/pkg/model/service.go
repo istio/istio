@@ -209,14 +209,6 @@ func (resolution Resolution) String() string {
 }
 
 const (
-	// LocalityLabel indicates the region/zone/subzone of an instance. It is used to override the native
-	// registry's value.
-	//
-	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
-	LocalityLabel = pm.LocalityLabel
-)
-
-const (
 	// TunnelLabel defines the label workloads describe to indicate that they support tunneling.
 	// Values are expected to be a CSV list, sorted by preference, of protocols supported.
 	// Currently supported values:
@@ -468,12 +460,6 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 		return false
 	}
 	return true
-}
-
-// GetLocalityLabel returns the locality from the supplied label. Because Kubernetes
-// labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
-func GetLocalityLabel(label string) string {
-	return pm.GetLocalityLabel(label)
 }
 
 // Locality information for an IstioEndpoint
@@ -962,6 +948,9 @@ type AmbientIndexes interface {
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
 	ServicesForWaypoint(WaypointKey) []ServiceInfo
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+	// ServiceScope returns service information for services matching the key.
+	// The key idenitifies a service and is in form of namespace/hostname string.
+	ServiceInfo(key string) *ServiceInfo
 }
 
 // WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
@@ -1051,6 +1040,10 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 }
 
 func (u NoopAmbientIndexes) ServicesWithWaypoint(string) []ServiceWaypointInfo {
+	return nil
+}
+
+func (u NoopAmbientIndexes) ServiceInfo(key string) *ServiceInfo {
 	return nil
 }
 

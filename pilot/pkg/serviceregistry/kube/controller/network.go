@@ -312,28 +312,43 @@ func (n *networkManager) extractGatewaysInner(svc *model.Service) bool {
 
 // getGatewayDetails returns gateways without the address populated, only the network and (unmapped) port for a given service.
 func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGateway {
-	// TODO should we start checking if svc's Ports contain the gateway port?
-
 	// We have different types of E/W gateways - those that use mTLS (those are used in sidecar mode when talking cross networks)
 	// and those that use double-HBONE (those are used in ambient mode when talking cross cluster). A gateway service may or may
 	// not listen on the mTLS (15443, by default) or HBONE (15008) ports, depending on the mode of operation used by the mesh
 	// in the remote cluster. We should not use gateways that don't really listen on the right port.
-	hbonePort := uint32(DefaultNetworkGatewayHBONEPort)
-	if _, exists := svc.Ports.GetByPort(DefaultNetworkGatewayHBONEPort); !exists {
-		hbonePort = 0
-	}
 
 	// label based gateways
 	// TODO label based gateways could support being the gateway for multiple networks
 	if nw := svc.Attributes.Labels[label.TopologyNetwork.Name]; nw != "" {
+		hbonePort := DefaultNetworkGatewayHBONEPort
+		gwPort := DefaultNetworkGatewayPort
+
 		if gwPortStr := svc.Attributes.Labels[label.NetworkingGatewayPort.Name]; gwPortStr != "" {
-			if gwPort, err := strconv.Atoi(gwPortStr); err == nil {
-				return []model.NetworkGateway{{Port: uint32(gwPort), HBONEPort: hbonePort, Network: network.ID(nw)}}
+			port, err := strconv.Atoi(gwPortStr)
+			if err != nil {
+				log.Warnf("could not parse %q for %s on %s/%s; defaulting to %d",
+					gwPortStr, label.NetworkingGatewayPort.Name, svc.Attributes.Namespace, svc.Attributes.Name, DefaultNetworkGatewayPort)
+			} else {
+				gwPort = port
 			}
-			log.Warnf("could not parse %q for %s on %s/%s; defaulting to %d",
-				gwPortStr, label.NetworkingGatewayPort.Name, svc.Attributes.Namespace, svc.Attributes.Name, DefaultNetworkGatewayPort)
 		}
-		return []model.NetworkGateway{{Port: DefaultNetworkGatewayPort, HBONEPort: hbonePort, Network: network.ID(nw)}}
+
+		_, acceptMTLS := svc.Ports.GetByPort(gwPort)
+		_, acceptHBONE := svc.Ports.GetByPort(hbonePort)
+
+		if !acceptMTLS && !acceptHBONE {
+			log.Warnf("service %s/%s is labeled as gateway, but does not listen neither on port %d nor on port %d",
+				svc.Attributes.Namespace, svc.Attributes.Name, gwPort, hbonePort)
+			return nil
+		}
+
+		if !acceptMTLS {
+			gwPort = 0
+		}
+		if !acceptHBONE {
+			hbonePort = 0
+		}
+		return []model.NetworkGateway{{Port: uint32(gwPort), HBONEPort: uint32(hbonePort), Network: network.ID(nw)}}
 	}
 
 	// meshNetworks registryServiceName+fromRegistry

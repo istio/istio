@@ -731,12 +731,13 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}
 
 	var l *core.Locality
-	if meta.Labels[model.LocalityLabel] == "" && options.Platform != nil {
+	localityLabel := model.GetLocalityLabel(meta.Labels)
+	if localityLabel == "" && options.Platform != nil {
 		// The locality string was not set, try to get locality from platform
 		l = options.Platform.Locality()
 	} else {
 		// replace "." with "/"
-		localityString := model.GetLocalityLabel(meta.Labels[model.LocalityLabel])
+		localityString := model.SanitizeLocalityLabel(localityLabel)
 		if localityString != "" {
 			// override the label with the sanitized value
 			meta.Labels[model.LocalityLabel] = localityString

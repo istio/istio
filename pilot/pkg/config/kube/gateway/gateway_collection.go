@@ -166,8 +166,8 @@ func ListenerSetCollection(
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
 				serviceAccountName := model.GetOrDefault(
-					obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-					getDefaultName(obj.GetName(), &parentGwObj.Spec, classInfo.disableNameSuffix),
+					parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+					getDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.disableNameSuffix),
 				)
 				meta[constants.InternalServiceAccount] = serviceAccountName
 

@@ -44,7 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	xds "istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubeclient "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
 	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -1934,7 +1935,7 @@ func TestLocality(t *testing.T) {
 			name: "pod specific label",
 			pod: func() *v1.Pod {
 				p := basePod.DeepCopy()
-				p.Labels[model.LocalityLabel] = "r.z.s"
+				p.Labels[pm.LocalityLabel] = "r.z.s"
 				return p
 			}(),
 			node: baseNode,
@@ -1964,7 +1965,7 @@ func TestLocality(t *testing.T) {
 			name: "pod and node labels",
 			pod: func() *v1.Pod {
 				p := basePod.DeepCopy()
-				p.Labels[model.LocalityLabel] = "r.z.s"
+				p.Labels[pm.LocalityLabel] = "r.z.s"
 				return p
 			}(),
 			node: func() *v1.Node {
@@ -2018,7 +2019,7 @@ func TestLocality(t *testing.T) {
 					Endpoints: []*networking.WorkloadEntry{{
 						Address: "1.2.3.4",
 						Labels: map[string]string{
-							model.LocalityLabel: "r.z.s",
+							pm.LocalityLabel: "r.z.s",
 						},
 					}},
 					Resolution: networking.ServiceEntry_STATIC,
@@ -2045,7 +2046,7 @@ func TestLocality(t *testing.T) {
 						Address:  "1.2.3.4",
 						Locality: "r/z/s",
 						Labels: map[string]string{
-							model.LocalityLabel: "lr.lz.ls",
+							pm.LocalityLabel: "lr.lz.ls",
 						},
 					}},
 					Resolution: networking.ServiceEntry_STATIC,

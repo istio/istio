@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -176,7 +177,9 @@ func TestController_GetPodLocality(t *testing.T) {
 	pod1 := generatePod([]string{"128.0.1.1"}, "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
 	pod2 := generatePod([]string{"128.0.1.2"}, "pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
 	podOverride := generatePod([]string{"128.0.1.2"}, "pod2", "nsB", "",
-		"node1", map[string]string{"app": "prod-app", model.LocalityLabel: "regionOverride.zoneOverride.subzoneOverride"}, map[string]string{})
+		"node1", map[string]string{"app": "prod-app", pm.LocalityLabel: "regionOverride.zoneOverride.subzoneOverride"}, map[string]string{})
+	podOverride2 := generatePod([]string{"128.0.1.2"}, "pod2", "nsB", "",
+		"node1", map[string]string{"app": "prod-app", label.TopologyLocality.Name: "regionOverride.zoneOverride.subzoneOverride"}, map[string]string{})
 	testCases := []struct {
 		name   string
 		pods   []*corev1.Pod
@@ -266,6 +269,16 @@ func TestController_GetPodLocality(t *testing.T) {
 			},
 			wantAZ: map[*corev1.Pod]string{
 				podOverride: "regionOverride/zoneOverride/subzoneOverride",
+			},
+		},
+		{
+			name: "should return correct az with new label",
+			pods: []*corev1.Pod{podOverride2},
+			nodes: []*corev1.Node{
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}),
+			},
+			wantAZ: map[*corev1.Pod]string{
+				podOverride2: "regionOverride/zoneOverride/subzoneOverride",
 			},
 		},
 	}

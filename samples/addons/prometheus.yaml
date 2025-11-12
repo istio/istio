@@ -7,8 +7,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v3.7.1
-    helm.sh/chart: prometheus-27.41.1
+    app.kubernetes.io/version: v3.7.3
+    helm.sh/chart: prometheus-27.42.2
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -23,8 +23,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v3.7.1
-    helm.sh/chart: prometheus-27.41.1
+    app.kubernetes.io/version: v3.7.3
+    helm.sh/chart: prometheus-27.42.2
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -354,8 +354,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v3.7.1
-    helm.sh/chart: prometheus-27.41.1
+    app.kubernetes.io/version: v3.7.3
+    helm.sh/chart: prometheus-27.42.2
     app.kubernetes.io/part-of: prometheus
   name: prometheus
 rules:
@@ -404,8 +404,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v3.7.1
-    helm.sh/chart: prometheus-27.41.1
+    app.kubernetes.io/version: v3.7.3
+    helm.sh/chart: prometheus-27.42.2
     app.kubernetes.io/part-of: prometheus
   name: prometheus
 subjects:
@@ -425,8 +425,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v3.7.1
-    helm.sh/chart: prometheus-27.41.1
+    app.kubernetes.io/version: v3.7.3
+    helm.sh/chart: prometheus-27.42.2
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -451,8 +451,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v3.7.1
-    helm.sh/chart: prometheus-27.41.1
+    app.kubernetes.io/version: v3.7.3
+    helm.sh/chart: prometheus-27.42.2
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -473,8 +473,8 @@ spec:
         app.kubernetes.io/component: server
         app.kubernetes.io/name: prometheus
         app.kubernetes.io/instance: prometheus
-        app.kubernetes.io/version: v3.7.1
-        helm.sh/chart: prometheus-27.41.1
+        app.kubernetes.io/version: v3.7.3
+        helm.sh/chart: prometheus-27.42.2
         app.kubernetes.io/part-of: prometheus
         
         sidecar.istio.io/inject: "false"
@@ -511,7 +511,7 @@ spec:
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v3.7.1"
+          image: "docker.io/prom/prometheus:v3.7.3"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d

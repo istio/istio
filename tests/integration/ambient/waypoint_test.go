@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -464,6 +465,7 @@ type externalSubsetService struct {
 }
 
 // servicesForSubsets is a helper function to create a kubernetes service for all subsets of a service
+// Assumes a single pod per subset
 func servicesForSubsets(t framework.TestContext, instance echo.Instance) []externalSubsetService {
 	ns := instance.Config().Namespace.Name()
 	services := []externalSubsetService{}
@@ -495,13 +497,27 @@ func servicesForSubsets(t framework.TestContext, instance echo.Instance) []exter
 		if err != nil {
 			t.Fatalf("failed to create service %s: %v", svc.Name, err)
 		}
-		t.Cleanup(func() {
+
+		t.CleanupConditionally(func() {
 			t.Clusters().Default().Kube().CoreV1().Services(ns).Delete(context.TODO(), s.Name, metav1.DeleteOptions{})
 		})
+
+		pods, err := t.Clusters().Default().Kube().CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"app":     instance.Config().Service,
+				"version": subset.Version,
+			}).String(),
+		})
+		if err != nil {
+			t.Fatalf("failed to list pods: %v", err)
+		}
+		if len(pods.Items) != 1 {
+			t.Fatalf("expected 1 pod found for service %s, got %d", svc.Name, len(pods.Items))
+		}
 		services = append(services, externalSubsetService{
 			Name:      s.Name,
 			SubsetKey: subset.Version,
-			Hostname:  instance.WorkloadsOrFail(t)[0].PodName(),
+			Hostname:  pods.Items[0].Name,
 			ClusterIP: s.Spec.ClusterIP,
 		})
 	}
@@ -567,12 +583,8 @@ spec:
 				t.Skip("not enough external service instances")
 			}
 
-			subsetServices := servicesForSubsets(t, external)
-			externalIPs := []string{}
-			for _, s := range subsetServices {
-				externalIPs = append(externalIPs, s.ClusterIP)
-			}
-
+			// Use the first subset service for testing consistency
+			subsetService := servicesForSubsets(t, external)[0]
 			resolutionNoneServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
@@ -590,14 +602,12 @@ spec:
   resolution: NONE
   location: MESH_EXTERNAL
   addresses:
-{{ range $ip := .IPs }}
-  - "{{$ip}}"
-{{ end }}
+  - {{.IP}}
 `
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), map[string]any{
 					"EgressNamespace": egressNamespace.Name(),
-					"IPs":             externalIPs,
+					"IP":              subsetService.ClusterIP,
 				}, resolutionNoneServiceEntry).
 				ApplyOrFail(t, apply.CleanupConditionally)
 
@@ -605,31 +615,25 @@ spec:
 			hostHeader.Set("Host", "fake-passthrough.example.com")
 
 			// Test that we send traffic through the waypoint successfully
-			for i, sss := range subsetServices {
-				if i != 0 {
-					// Presently, only the first IP will be used by the waypoint proxy.
-					continue
-				}
-				// The setup for this testing would be tricky in multi-network because the VIPs being used
-				// are not in the mesh, but they are in a cluster.
-				// This means each cluster's VIPs would need to be unique.
-				// That isn't useful for testing though because it's just turning the multi-cluster
-				// tests into multiple single-cluster tests.
-				// Arguably, egress gateways should never be accessed across a cluster-boundary,
-				// so perhaps the skips need not be removed as even in multi-cluster testing we expect egress
-				// to behave as though it is single-cluster.
-				testName := fmt.Sprintf("resolution none %s", sss.ClusterIP)
-				runTest(t, testName, "",
-					"relies on unmeshed ClusterIPs as a simulated external service IP",
-					echo.CallOptions{
-						Address: sss.ClusterIP,
-						HTTP:    echo.HTTP{Headers: hostHeader},
-						Port:    echo.Port{ServicePort: 8080},
-						Scheme:  scheme.HTTP,
-						Count:   1,
-						Check:   check.And(check.OK(), IsL7(), check.Hostname(sss.Hostname)),
-					})
-			}
+			// The setup for this testing would be tricky in multi-network because the VIPs being used
+			// are not in the mesh, but they are in a cluster.
+			// This means each cluster's VIPs would need to be unique.
+			// That isn't useful for testing though because it's just turning the multi-cluster
+			// tests into multiple single-cluster tests.
+			// Arguably, egress gateways should never be accessed across a cluster-boundary,
+			// so perhaps the skips need not be removed as even in multi-cluster testing we expect egress
+			// to behave as though it is single-cluster.
+			testName := fmt.Sprintf("resolution none %s", subsetService.ClusterIP)
+			runTest(t, testName, "",
+				"relies on unmeshed ClusterIPs as a simulated external service IP",
+				echo.CallOptions{
+					Address: subsetService.ClusterIP,
+					HTTP:    echo.HTTP{Headers: hostHeader},
+					Port:    echo.Port{ServicePort: 8080},
+					Scheme:  scheme.HTTP,
+					Count:   1,
+					Check:   check.And(check.OK(), IsL7(), check.Hostname(subsetService.Hostname)),
+				})
 
 			service := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -953,6 +957,14 @@ spec:
           port: 9093
           weight: 1
 `).ApplyOrFail(t)
+		if t.Settings().AmbientMultiNetwork {
+			labelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+				unlabelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			})
+		}
 		apps.Captured[0].CallOrFail(t, echo.CallOptions{
 			To:    apps.ServiceAddressedWaypoint,
 			Port:  ports.TCP,
@@ -1006,6 +1018,14 @@ spec:
           port: 9093
           weight: 1
 `).ApplyOrFail(t)
+		if t.Settings().AmbientMultiNetwork {
+			labelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+				unlabelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			})
+		}
 		apps.Captured[0].CallOrFail(t, echo.CallOptions{
 			To:    apps.ServiceAddressedWaypoint,
 			Port:  ports.TCP,

@@ -133,6 +133,10 @@ func (n Named) GetNamespace() string {
 	return n.Namespace
 }
 
+func (n Named) String() string {
+	return n.ResourceName()
+}
+
 // GetApplyConfigKey returns the key for the ApplyConfig.
 // If there is none, this will return nil.
 func GetApplyConfigKey[O any](a O) *string {

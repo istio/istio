@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58249
+releaseNotes:
+- |
+  **Fixed** IPv6 nftables rules are no longer programmed when IPv6 is explicitly disabled in ambient mode.
