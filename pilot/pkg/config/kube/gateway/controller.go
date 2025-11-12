@@ -307,12 +307,14 @@ func NewController(
 	tcpRoutes := TCPRouteCollection(
 		inputs.TCPRoutes,
 		routeInputs,
+		c.tagWatcher,
 		opts,
 	)
 	status.RegisterStatus(c.status, tcpRoutes.Status, GetStatus)
 	tlsRoutes := TLSRouteCollection(
 		inputs.TLSRoutes,
 		routeInputs,
+		c.tagWatcher,
 		opts,
 	)
 	status.RegisterStatus(c.status, tlsRoutes.Status, GetStatus)
@@ -326,6 +328,7 @@ func NewController(
 	grpcRoutes := GRPCRouteCollection(
 		inputs.GRPCRoutes,
 		routeInputs,
+		c.tagWatcher,
 		opts,
 	)
 	status.RegisterStatus(c.status, grpcRoutes.Status, GetStatus)
