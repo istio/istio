@@ -224,7 +224,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 
 		// CLI: nft add rule inet istio-ambient-nat istio-prerouting meta l4proto tcp ip6 saddr
 		// fd16:9254:7127:1337:ffff:ffff:ffff:ffff counter accept
-		cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientNatTable,
+		cfg.ruleBuilder.AppendV6RuleIfSupported(IstioPreroutingChain, AmbientNatTable,
 			"meta l4proto tcp",
 			"ip6 saddr", cfg.cfg.HostProbeV6SNATAddress.String(), Counter,
 			"accept",
@@ -240,7 +240,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	)
 
 	// CLI: nft add rule inet istio-ambient-nat istio-output meta l4proto tcp ip6 daddr fd16:9254:7127:1337:ffff:ffff:ffff:ffff counter accept
-	cfg.ruleBuilder.AppendRule(IstioOutputChain, AmbientNatTable,
+	cfg.ruleBuilder.AppendV6RuleIfSupported(IstioOutputChain, AmbientNatTable,
 		"meta l4proto tcp",
 		"ip6 daddr", cfg.cfg.HostProbeV6SNATAddress.String(), Counter,
 		"accept",
@@ -259,7 +259,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 			"redirect to", ":"+fmt.Sprint(config.ZtunnelInboundPlaintextPort),
 		)
 
-		cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientNatTable,
+		cfg.ruleBuilder.AppendV6RuleIfSupported(IstioPreroutingChain, AmbientNatTable,
 			"ip6 daddr", "!=", "::1/128",
 			"tcp dport", "!=", fmt.Sprint(config.ZtunnelInboundPort),
 			"mark and 0xfff", "!=", fmt.Sprintf("0x%x", config.InpodMark), Counter,
@@ -301,7 +301,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		)
 
 		// CLI: nft add rule inet istio-ambient-nat istio-output ip6 daddr != ::1/128 tcp dport 53 mark and 0xfff != 0x539 counter redirect to :15053
-		cfg.ruleBuilder.AppendRule(
+		cfg.ruleBuilder.AppendV6RuleIfSupported(
 			IstioOutputChain, AmbientNatTable,
 			"ip6 daddr", "!=", "::1/128",
 			"tcp dport", "53",
@@ -356,7 +356,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	)
 
 	// CLI: nft add rule inet istio-ambient-nat istio-output oifname "lo" ip6 daddr != ::1/128 counter accept
-	cfg.ruleBuilder.AppendRule(
+	cfg.ruleBuilder.AppendV6RuleIfSupported(
 		IstioOutputChain, AmbientNatTable,
 		"oifname", "lo",
 		"ip6 daddr",
@@ -377,7 +377,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		"redirect to", ":"+fmt.Sprintf("%d", config.ZtunnelOutboundPort),
 	)
 
-	cfg.ruleBuilder.AppendRule(
+	cfg.ruleBuilder.AppendV6RuleIfSupported(
 		IstioOutputChain, AmbientNatTable,
 		"meta l4proto tcp",
 		"ip6 daddr",
@@ -473,7 +473,7 @@ func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 		"ip", "daddr", fmt.Sprintf("@%s-v4", config.ProbeIPSet), Counter, "snat", "to", cfg.cfg.HostProbeSNATAddress.String())
 
 	// For V6 we have to use a different set and a different SNAT IP
-	cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "meta l4proto tcp", "skuid", kubeletUID,
+	cfg.ruleBuilder.AppendV6RuleIfSupported(PostroutingChain, AmbientNatTable, "meta l4proto tcp", "skuid", kubeletUID,
 		"ip6", "daddr", fmt.Sprintf("@%s-v6", config.ProbeIPSet), Counter, "snat", "to", cfg.cfg.HostProbeV6SNATAddress.String())
 
 	return util.RunAsHost(func() error {
