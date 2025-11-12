@@ -2,11 +2,13 @@
 
 ## Prep Steps
 
+The issue we will suggest tackling today can be viewed at https://github.com/istio/istio/issues/57075.
+
 1. launch a codespace from your fork of istio/istio
 1. checkout a feature branch from master, call it what you'd like. Perhaps `contribfest`
 
 ```shell
-export TAG=1.29-alpha.5dcad23c9e9086eadce05381890a29dea3f97fb6
+export TAG=1.29-dev
 export HUB=gcr.io/istio-testing
 ./prow/integ-suite-kind.sh --skip-cleanup --skip-build
 ```
@@ -75,6 +77,52 @@ make -B $(pwd)/out/linux_amd64/release/istioctl-linux-amd64
 # test istioctl
 istioctl waypoint status -n server --waypoint-timeout=10s --my-fixed-flag=my-flag-setting
 ```
+
+## Automated Testing
+
+In order to ensure that your features or fixes are not broken by another change, Istio will typically ask that tests be included. For this fix, unit tests would belong in `istioctl/pkg/waypoint/waypoint_test.go`.
+
+## If you are stuck
+
+If you're feeling stuck, you can ask one of the maintainors or contributors involved in the session for help. We've also included patches to help get you unstuck. `fix.patch` contains a proposed fix. You can look at the patch for a hint, or to apply it use `git apply fix.patch` if you'd rather just move on. Additionally, we've supplied `tests.patch` with some suggested patches. If you apply `tests.patch`, the unit test can be run using `go test -p 1 -race -run ^TestWaypointStatus$ ./istioctl/pkg/waypoint/`
+
+## Release notes
+
+Well formatted and clear release notes are a critical part of helping the Istio release managers produce timely and well documented releases. This helps users of istio know what's new, improved or different about the release which includes your work.
+
+In Istio, release notes are found in `releasenotes/notes`. Commonly, the note's file name will be the number of the issue which produced the work you've done. The contents are yaml explaining the change. In our case, it might look something like this:
+
+```yaml
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 57075
+releaseNotes:
+- |
+    **Fixed** an issue where istioctl waypoint status always timed out if the waypoint did not reach a programmed state. This adds a new --wait flag, which defaults to true if not specified but allows a user to disable the original wait behavior and view the status for all waypoint states.
+```
+
+This file should be included in a commit in your branch when you file a PR. CI will check for a release note and the test fails if one has not be provided. If you forget, that's ok. You can simply create a release note, commit it and push again using the steps we show in the next section. Ever push to your branch after the PR is openeing will trigger new tests in CI, including running the release note check.
+
+## Add, commit, push
+
+As you make progress, it's good to save your work. Let's walk through how to use git to publish your contribution.
+
+```shell
+# first, see what files you have changed
+git status
+# use git to view a diff if you are unsure what was changed
+git diff
+# next, you add the files you wish to publish
+git add istioctl/pkg/waypoint/waypoint.go
+# after this, make a commit and give it a message to help you idenitify the contents later
+git commit -m "fix for istioctl waypoint status timing out when gateway resource is not programmed"
+# finally, publish your work to your fork by pushing
+git push -u origin <name of your branch>"
+```
+
+Once your code is pushed to your fork, you can move on to filing a Pull Request, commonly referred to as a PR. We'll walk through the PR process in slides.
 
 ## BONUS CONTENT: On building your own Istio images
 
