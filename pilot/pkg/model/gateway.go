@@ -173,19 +173,15 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
 	autoPassthrough := false
-	internalGateways := sets.New[string]()
 
 	log.Debugf("mergeGateways: merging %d gateways", len(gateways))
 	for _, gwAndInstance := range gateways {
 		gatewayConfig := gwAndInstance.gateway
 		gatewayName := kubetypes.NamespacedName{Namespace: gatewayConfig.Namespace, Name: gatewayConfig.Name}
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
-		isInternalGateway := gatewayConfig.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
 		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName.String(), gatewayCfg)
 		snames := sets.String{}
-		if isInternalGateway {
-			internalGateways.Insert(gatewayName.String())
-		}
+
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
 				if snames.InsertContains(s.Name) {
@@ -397,66 +393,6 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				if s.GetTls().GetMode() == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 					autoPassthroughSNIHosts.InsertAll(s.Hosts...)
 				}
-			}
-		}
-	}
-
-	if features.EnableStrictGatewayMerging {
-		filterMergedServers := func(mergedServerMap map[ServerPort]*MergedServers) {
-			// Filter servers: keep GatewayAPI servers and remove Istio Gateway servers not in GatewayAPI namespaces
-			for port, mergedServer := range mergedServerMap {
-				allowedNamespaces := sets.New[string]()
-				for _, s := range mergedServer.Servers {
-					gatewayName := gatewayNameForServer[s]
-					if exists := internalGateways.Contains(gatewayName.String()); exists {
-						gatewayNamespace := gatewayName.Namespace
-						allowedNamespaces.Insert(gatewayNamespace)
-					}
-				}
-
-				// When there is no GatewayAPI server, we keep usual Istio gateway merging.
-				if allowedNamespaces.Len() > 0 {
-					filteredServers := []*networking.Server{}
-					for _, s := range mergedServer.Servers {
-						gatewayName := gatewayNameForServer[s]
-						gatewayNamespace := gatewayName.Namespace
-
-						// Check if this is a GatewayAPI gateway using the pre-built map
-						isGatewayAPI := internalGateways.Contains(gatewayName.String())
-
-						// Keep GatewayAPI servers or Istio Gateway servers in allowed namespaces for this port
-						if isGatewayAPI || allowedNamespaces.Contains(gatewayNamespace) {
-							filteredServers = append(filteredServers, s)
-						} else {
-							// Remove from related maps
-							delete(gatewayNameForServer, s)
-							delete(tlsServerInfo, s)
-							log.Infof("skipping server on gateway %s port %s.%d.%s: does not satisfy merging criteria",
-								gatewayName.String(), s.Port.Name, port.Number, port.Protocol)
-							RecordRejectedConfig(gatewayName.String())
-						}
-					}
-
-					// Update the merged server with filtered servers
-					mergedServer.Servers = filteredServers
-				}
-			}
-		}
-
-		filterMergedServers(mergedServers)
-		filterMergedServers(mergedQUICServers)
-
-		for routeName, servers := range serversByRouteName {
-			filteredServers := []*networking.Server{}
-			for _, s := range servers {
-				if _, exists := gatewayNameForServer[s]; exists {
-					filteredServers = append(filteredServers, s)
-				}
-			}
-			if len(filteredServers) == 0 {
-				delete(serversByRouteName, routeName)
-			} else {
-				serversByRouteName[routeName] = filteredServers
 			}
 		}
 	}
@@ -686,4 +622,73 @@ func getTargetPortMap(serversByRouteName map[string][]*networking.Server) Gatewa
 		}
 	}
 	return pm
+}
+
+// filterMergedGatewayServers filters merged gateway servers based on strict gateway merging rules.
+// It keeps GatewayAPI servers and removes Istio Gateway servers that are not in GatewayAPI namespaces.
+// internalGateways is a set of namespaced names of GatewayAPI gateways.
+func filterMergedGatewayServers(mgw *MergedGateway, internalGateways sets.Set[string]) {
+	gatewayNameForServer := mgw.GatewayNameForServer
+	tlsServerInfo := mgw.TLSServerInfo
+	serversByRouteName := mgw.ServersByRouteName
+	mergedServers := mgw.MergedServers
+	mergedQUICServers := mgw.MergedQUICTransportServers
+
+	filterMergedServers := func(mergedServerMap map[ServerPort]*MergedServers) {
+		// Filter servers: keep GatewayAPI servers and remove Istio Gateway servers not in GatewayAPI namespaces
+		for port, mergedServer := range mergedServerMap {
+			allowedNamespaces := sets.New[string]()
+			for _, s := range mergedServer.Servers {
+				gatewayName := gatewayNameForServer[s]
+				if exists := internalGateways.Contains(gatewayName.String()); exists {
+					gatewayNamespace := gatewayName.Namespace
+					allowedNamespaces.Insert(gatewayNamespace)
+				}
+			}
+
+			// When there is no GatewayAPI server, we keep usual Istio gateway merging.
+			if allowedNamespaces.Len() > 0 {
+				filteredServers := []*networking.Server{}
+				for _, s := range mergedServer.Servers {
+					gatewayName := gatewayNameForServer[s]
+					gatewayNamespace := gatewayName.Namespace
+
+					// Check if this is a GatewayAPI gateway using the pre-built map
+					isGatewayAPI := internalGateways.Contains(gatewayName.String())
+
+					// Keep GatewayAPI servers or Istio Gateway servers in allowed namespaces for this port
+					if isGatewayAPI || allowedNamespaces.Contains(gatewayNamespace) {
+						filteredServers = append(filteredServers, s)
+					} else {
+						// Remove from related maps
+						delete(gatewayNameForServer, s)
+						delete(tlsServerInfo, s)
+						log.Infof("skipping server on gateway %s port %s.%d.%s: does not satisfy merging criteria",
+							gatewayName.String(), s.Port.Name, port.Number, port.Protocol)
+						RecordRejectedConfig(gatewayName.String())
+					}
+				}
+
+				// Update the merged server with filtered servers
+				mergedServer.Servers = filteredServers
+			}
+		}
+	}
+
+	filterMergedServers(mergedServers)
+	filterMergedServers(mergedQUICServers)
+
+	for routeName, servers := range serversByRouteName {
+		filteredServers := []*networking.Server{}
+		for _, s := range servers {
+			if _, exists := gatewayNameForServer[s]; exists {
+				filteredServers = append(filteredServers, s)
+			}
+		}
+		if len(filteredServers) == 0 {
+			delete(serversByRouteName, routeName)
+		} else {
+			serversByRouteName[routeName] = filteredServers
+		}
+	}
 }

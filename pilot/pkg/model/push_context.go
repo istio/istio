@@ -26,6 +26,7 @@ import (
 
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
+	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -2410,6 +2411,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 	gatewayInstances := make([]gatewayWithInstances, 0)
+	internalGateways := sets.New[string]()
 
 	var configs []config.Config
 	if features.ScopeGatewayToNamespace {
@@ -2419,6 +2421,12 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	}
 
 	for _, cfg := range configs {
+		isInternalGateway := cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
+		gatewayName := kubetypes.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
+		if isInternalGateway {
+			internalGateways.Insert(gatewayName.String())
+		}
+
 		gw := cfg.Spec.(*networking.Gateway)
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
@@ -2449,7 +2457,12 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 
-	return mergeGateways(gatewayInstances, proxy, ps)
+	mgw := mergeGateways(gatewayInstances, proxy, ps)
+	if !features.EnableStrictGatewayMerging {
+		filterMergedGatewayServers(mgw, internalGateways)
+	}
+
+	return mgw
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

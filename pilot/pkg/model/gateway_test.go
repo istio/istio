@@ -47,11 +47,6 @@ func TestMergeGateways(t *testing.T) {
 	gwPassthrough := makeConfig("foo-passthrough", "not-default-2", "foo.example.com", "tls-foo", "TLS", 443, "ingressgateway", "", networking.ServerTLSSettings_PASSTHROUGH, "", "sa")
 
 	gwSimpleCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
-	gwSimpleCredSameNs := makeConfig("bar1", "ns", "bar1.istio.com", "name2", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
-	gwSimpleCredOtherNs := makeConfig("bar2", "other-ns", "bar2.istio.com", "name3", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
-	gwSimpleCredInternal := makeInternalConfig("foo2", "ns", "foo2.k8s.com", "name4", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
-	gwSimpleCredInternalSameNs := makeInternalConfig("bar3", "ns", "bar3.k8s.com", "name5", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
-	gwSimpleCredInternalOtherNs := makeInternalConfig("bar4", "other-ns", "bar4.k8s.com", "name6", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
 	gwMutualCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, "kubernetes-gateway://ns/foo", "sa")
 	gwSimpleCredInAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, fmt.Sprintf("kubernetes-gateway://%s/foo", AllowedNamespace), "sa")
 	// If no SA annotation, then the SA name shouldn't matter
@@ -274,56 +269,6 @@ func TestMergeGateways(t *testing.T) {
 			1,
 			0,
 		},
-		{
-			"gwapi",
-			[]config.Config{gwSimpleCredInternal, gwSimpleCredInternalSameNs, gwSimpleCredInternalOtherNs},
-			proxyIdentity,
-			1,
-			3,
-			map[string]int{"http.7": 3},
-			3,
-			1,
-		},
-		{
-			"istio",
-			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredOtherNs},
-			proxyIdentity,
-			1,
-			3,
-			map[string]int{"http.7": 3},
-			3,
-			1,
-		},
-		{
-			"gwapi-and-istio-same-ns",
-			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredInternal},
-			proxyIdentity,
-			1,
-			3,
-			map[string]int{"http.7": 3},
-			3,
-			1,
-		},
-		{
-			"gwapi-and-istio-different-ns",
-			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredInternalOtherNs},
-			proxyIdentity,
-			1,
-			1,
-			map[string]int{"http.7": 1},
-			1,
-			1,
-		},
-		{
-			"gwapi-and-istio-different-ns-with-different-order",
-			[]config.Config{gwSimpleCredInternalOtherNs, gwSimpleCred, gwSimpleCredSameNs},
-			proxyIdentity,
-			1,
-			1,
-			map[string]int{"http.7": 1},
-			1,
-			1,
-		},
 	}
 
 	test.SetForTest(t, &features.EnableStrictGatewayMerging, true)
@@ -357,6 +302,120 @@ func TestMergeGateways(t *testing.T) {
 			}
 			if mgw.VerifiedCertificateReferences.Len() != tt.verifiedCertNum {
 				t.Errorf("Incorrect number of verified certs. Expected: %v Got: %d", tt.verifiedCertNum, mgw.VerifiedCertificateReferences.Len())
+			}
+		})
+	}
+}
+
+func TestFilterMergedGatewayServers(t *testing.T) {
+	gwSimpleCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredSameNs := makeConfig("bar1", "ns", "bar1.istio.com", "name2", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredOtherNs := makeConfig("bar2", "other-ns", "bar2.istio.com", "name3", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternal := makeInternalConfig("foo2", "ns", "foo2.k8s.com", "name4", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternalSameNs := makeInternalConfig("bar3", "ns", "bar3.k8s.com", "name5", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternalOtherNs := makeInternalConfig("bar4", "other-ns", "bar4.k8s.com", "name6", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+
+	proxyIdentity := makeProxy(func() *spiffe.Identity {
+		identity, _ := spiffe.ParseIdentity("spiffe://td/ns/ns/sa/sa")
+		return &identity
+	})
+
+	tests := []struct {
+		name               string
+		gwConfig           []config.Config
+		internalGateways   sets.Set[string]
+		mergedServersNum   int
+		serverNum          int
+		serversForRouteNum map[string]int
+		gatewaysNum        int
+	}{
+		{
+			"no-filtering-when-no-internal-gateways",
+			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredOtherNs},
+			sets.New[string](),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+		{
+			"filter-istio-gateways-not-in-gwapi-namespace",
+			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredInternalOtherNs},
+			sets.New[string]("other-ns/bar4"),
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+		},
+		{
+			"keep-all-when-gwapi-and-istio-same-namespace",
+			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredInternal},
+			sets.New[string]("ns/foo2"),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+		{
+			"filter-with-different-order",
+			[]config.Config{gwSimpleCredInternalOtherNs, gwSimpleCred, gwSimpleCredSameNs},
+			sets.New[string]("other-ns/bar4"),
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+		},
+		{
+			"multiple-gwapi-namespaces",
+			[]config.Config{gwSimpleCred, gwSimpleCredInternal, gwSimpleCredInternalOtherNs},
+			sets.New[string]("ns/foo2", "other-ns/bar4"),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+		{
+			"only-gwapi-gateways",
+			[]config.Config{gwSimpleCredInternal, gwSimpleCredInternalSameNs, gwSimpleCredInternalOtherNs},
+			sets.New[string]("ns/foo2", "ns/bar3", "other-ns/bar4"),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			instances := []gatewayWithInstances{}
+			for _, c := range tt.gwConfig {
+				instances = append(instances, gatewayWithInstances{c, true, nil})
+			}
+			mgw := mergeGateways(instances, proxyIdentity, makePushContext())
+
+			// Apply filtering
+			filterMergedGatewayServers(mgw, tt.internalGateways)
+
+			if len(mgw.MergedServers) != tt.mergedServersNum {
+				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
+			}
+			if len(mgw.ServersByRouteName) != len(tt.serversForRouteNum) {
+				t.Errorf("Incorrect number of routes. Expected: %v Got: %d", len(tt.serversForRouteNum), len(mgw.ServersByRouteName))
+			}
+			for k, v := range mgw.ServersByRouteName {
+				if tt.serversForRouteNum[k] != len(v) {
+					t.Errorf("for route %v expected %v servers got %v", k, tt.serversForRouteNum[k], len(v))
+				}
+			}
+			ns := 0
+			for _, ms := range mgw.MergedServers {
+				ns += len(ms.Servers)
+			}
+			if ns != tt.serverNum {
+				t.Errorf("Incorrect number of total servers. Expected: %v Got: %d", tt.serverNum, ns)
+			}
+			if len(mgw.GatewayNameForServer) != tt.gatewaysNum {
+				t.Errorf("Incorrect number of gateways. Expected: %v Got: %d", tt.gatewaysNum, len(mgw.GatewayNameForServer))
 			}
 		})
 	}
