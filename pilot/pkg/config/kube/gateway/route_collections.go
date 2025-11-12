@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -58,6 +59,7 @@ func (a AncestorBackend) ResourceName() string {
 func HTTPRouteCollection(
 	httpRoutes krt.Collection[*gateway.HTTPRoute],
 	inputs RouteContextInputs,
+	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, httpRoutes, gvk.HTTPRoute, opts)
@@ -70,6 +72,10 @@ func HTTPRouteCollection(
 		*gateway.HTTPRouteStatus,
 		[]RouteWithKey,
 	) {
+		// if the resource does not belong to our revision do not generate conflicting status
+		if !tagWatcher.Get(krtctx).IsMine(obj.ObjectMeta) {
+			return nil, nil
+		}
 		ctx := inputs.WithCtx(krtctx)
 		inferencePoolCfgPairs := []struct {
 			name string
