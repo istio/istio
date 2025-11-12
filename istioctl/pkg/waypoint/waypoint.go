@@ -49,6 +49,7 @@ var (
 	waitReady     bool
 	allNamespaces bool
 
+	shouldWait      bool
 	waypointTimeout time.Duration
 
 	deleteAll bool
@@ -170,6 +171,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return w.Flush()
 		},
 	}
+	waypointStatusCmd.Flags().BoolVar(&shouldWait,
+		"wait",
+		true,
+		"Set to false to skip the wait.",
+	)
 
 	waypointGenerateCmd := &cobra.Command{
 		Use:   "generate",
@@ -629,7 +635,7 @@ func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.C
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
 			}
 
-			if programmed {
+			if programmed || !shouldWait {
 				break
 			}
 
