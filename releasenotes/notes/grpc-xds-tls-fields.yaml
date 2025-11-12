@@ -3,38 +3,5 @@ kind: bug-fix
 area: networking
 releaseNotes:
   - |
-    **Fixed** gRPC xDS Listener configuration to send both current and deprecated TLS certificate provider fields.
-    Istiod's gRPC generator now sends both the current xDS TLS certificate provider fields (field 14: `tls_certificate_provider_instance`,
-    and field 13: `ca_certificate_provider_instance` in `default_validation_context`) and the deprecated fields
-    (field 11: `tls_certificate_certificate_provider_instance`, and field 4: `validation_context_certificate_provider_instance`)
-    in Listener configurations when serving proxyless gRPC clients. This enables compatibility with both older gRPC clients (grpc-go < 1.66, grpc-cpp < 1.66,
-    older grpc-java) that expect deprecated fields, and newer gRPC clients (grpc-go >= 1.66, grpc-cpp >= 1.66, modern grpc-java)
-    that only recognize current fields. Previously, Istio only sent deprecated fields, causing validation failures in newer gRPC clients
-    with errors like "tls_certificate_provider_instance is required in downstream-tls-context".
-
-upgradeNotes:
-  - title: gRPC xDS now sends both current and deprecated TLS certificate provider fields
-    content: |
-      Istiod's gRPC generator now includes both current and deprecated xDS TLS certificate provider fields
-      in Listener configurations for backward compatibility with all gRPC client versions:
-      
-      **Current fields** (supported by grpc-go >= 1.66, grpc-cpp >= 1.66, modern grpc-java):
-      - `tls_certificate_provider_instance` (field 14) for identity certificates
-      - `ca_certificate_provider_instance` in `default_validation_context` for CA certificates
-      
-      **Deprecated fields** (for older gRPC clients):
-      - `tls_certificate_certificate_provider_instance` (field 11) for identity certificates  
-      - `validation_context_certificate_provider_instance` (field 4) for CA certificates
-      
-      **Impact:** This change is fully backward compatible. Both old and new gRPC client versions
-      will work without any configuration changes or client library upgrades required.
-      
-      **Future:** The deprecated fields will be removed in a future Istio release (minimum 2 releases from now).
-      Users should plan to upgrade their gRPC client libraries to versions that support the current fields
-      before that time:
-      - grpc-go to version 1.66.0 or later
-      - grpc-cpp to version 1.66.0 or later  
-      - grpc-java to the latest version
-      
-      A deprecation warning will be added in the next release before the fields are removed.
-
+    **Fixed** gRPC xDS Listener to send both current and deprecated TLS certificate provider fields,
+    enabling compatibility across old and new gRPC clients (pre-1.66 and >=1.66).
