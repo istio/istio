@@ -626,8 +626,8 @@ func getTargetPortMap(serversByRouteName map[string][]*networking.Server) Gatewa
 
 // filterMergedGatewayServers filters merged gateway servers based on strict gateway merging rules.
 // It keeps GatewayAPI servers and removes Istio Gateway servers that are not in GatewayAPI namespaces.
-// internalGateways is a set of namespaced names of GatewayAPI gateways.
-func filterMergedGatewayServers(mgw *MergedGateway, internalGateways sets.Set[string]) {
+// Gateways specified in gatewayNames are kept and other gateways in the same namespace are kept as well.
+func filterMergedGatewayServers(mgw *MergedGateway, gatewayNames sets.Set[string]) {
 	gatewayNameForServer := mgw.GatewayNameForServer
 	tlsServerInfo := mgw.TLSServerInfo
 	serversByRouteName := mgw.ServersByRouteName
@@ -640,7 +640,7 @@ func filterMergedGatewayServers(mgw *MergedGateway, internalGateways sets.Set[st
 			allowedNamespaces := sets.New[string]()
 			for _, s := range mergedServer.Servers {
 				gatewayName := gatewayNameForServer[s]
-				if exists := internalGateways.Contains(gatewayName.String()); exists {
+				if exists := gatewayNames.Contains(gatewayName.String()); exists {
 					gatewayNamespace := gatewayName.Namespace
 					allowedNamespaces.Insert(gatewayNamespace)
 				}
@@ -654,7 +654,7 @@ func filterMergedGatewayServers(mgw *MergedGateway, internalGateways sets.Set[st
 					gatewayNamespace := gatewayName.Namespace
 
 					// Check if this is a GatewayAPI gateway using the pre-built map
-					isGatewayAPI := internalGateways.Contains(gatewayName.String())
+					isGatewayAPI := gatewayNames.Contains(gatewayName.String())
 
 					// Keep GatewayAPI servers or Istio Gateway servers in allowed namespaces for this port
 					if isGatewayAPI || allowedNamespaces.Contains(gatewayNamespace) {

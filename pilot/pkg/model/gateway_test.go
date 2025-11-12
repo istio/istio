@@ -314,6 +314,7 @@ func TestFilterMergedGatewayServers(t *testing.T) {
 	gwSimpleCredInternal := makeInternalConfig("foo2", "ns", "foo2.k8s.com", "name4", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
 	gwSimpleCredInternalSameNs := makeInternalConfig("bar3", "ns", "bar3.k8s.com", "name5", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
 	gwSimpleCredInternalOtherNs := makeInternalConfig("bar4", "other-ns", "bar4.k8s.com", "name6", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternalUnmanaged := makeInternalConfig("foo3", "ns", "foo3.k8s.com", "name7", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "")
 
 	proxyIdentity := makeProxy(func() *spiffe.Identity {
 		identity, _ := spiffe.ParseIdentity("spiffe://td/ns/ns/sa/sa")
@@ -378,6 +379,15 @@ func TestFilterMergedGatewayServers(t *testing.T) {
 			"only-gwapi-gateways",
 			[]config.Config{gwSimpleCredInternal, gwSimpleCredInternalSameNs, gwSimpleCredInternalOtherNs},
 			sets.New[string]("ns/foo2", "ns/bar3", "other-ns/bar4"),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+		{
+			"with-gwapi-gateways-unmanaged",
+			[]config.Config{gwSimpleCredInternalUnmanaged, gwSimpleCred, gwSimpleCredOtherNs},
+			sets.New[string]("ns/foo3", "ns/foo1", "other-ns/bar2"),
 			1,
 			3,
 			map[string]int{"http.7": 3},
