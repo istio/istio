@@ -307,6 +307,7 @@ func TestMergeGateways(t *testing.T) {
 	}
 }
 
+// nolint lll
 func TestFilterMergedGatewayServers(t *testing.T) {
 	gwSimpleCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
 	gwSimpleCredSameNs := makeConfig("bar1", "ns", "bar1.istio.com", "name2", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
@@ -580,6 +581,7 @@ func TestMergeGatewaysHttpsFirstBug(t *testing.T) {
 	})
 }
 
+// nolint  unparam
 func makeInternalConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw, bind string,
 	mode networking.ServerTLSSettings_TLSmode, credName, sa string,
 ) config.Config {

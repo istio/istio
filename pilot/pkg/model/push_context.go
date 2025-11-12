@@ -26,7 +26,6 @@ import (
 
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
-	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -2429,7 +2428,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			// InternalServiceAccount annotation is set to empty for manual deployments.
 			isManagedGateway := cfg.Annotations[constants.InternalServiceAccount] != ""
 			if isInternalGateway && isManagedGateway {
-				gatewayName := kubetypes.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
+				gatewayName := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
 				gatewayNames.Insert(gatewayName.String())
 			}
 		}
