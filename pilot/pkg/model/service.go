@@ -962,6 +962,9 @@ type AmbientIndexes interface {
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
 	ServicesForWaypoint(WaypointKey) []ServiceInfo
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+	// ServiceScope returns service information for services matching the key.
+	// The key idenitifies a service and is in form of namespace/hostname string.
+	ServiceInfo(key string) *ServiceInfo
 }
 
 // WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
@@ -1051,6 +1054,10 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 }
 
 func (u NoopAmbientIndexes) ServicesWithWaypoint(string) []ServiceWaypointInfo {
+	return nil
+}
+
+func (u NoopAmbientIndexes) ServiceInfo(key string) *ServiceInfo {
 	return nil
 }
 
