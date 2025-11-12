@@ -1130,6 +1130,9 @@ type ServiceInfo struct {
 	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
 	// the hotpath
 	AsAddress AddressInfo
+	// CreationTime is the time when the service was created. Note this is used internally only
+	// for conflict resolution.
+	CreationTime time.Time
 }
 
 func (i ServiceInfo) GetLabelSelector() map[string]string {
@@ -1243,6 +1246,10 @@ func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: i.Service.Name, Namespace: i.Service.Namespace}
+}
+
+func (i ServiceInfo) GetName() string {
+	return i.Service.Name
 }
 
 func (i ServiceInfo) GetNamespace() string {
