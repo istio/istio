@@ -48,12 +48,15 @@ func TestBuildCommonTLSContext_BothFieldsSet(t *testing.T) {
 	}
 
 	// Verify deprecated identity certificate field (field 11) is still set for backward compatibility
+	//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 	if ctx.TlsCertificateCertificateProviderInstance == nil {
 		t.Error("TlsCertificateCertificateProviderInstance (deprecated field 11) should still be set for backward compatibility")
 	} else {
+		//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 		if ctx.TlsCertificateCertificateProviderInstance.InstanceName != "default" {
 			t.Errorf("Expected deprecated instance name 'default', got %s", ctx.TlsCertificateCertificateProviderInstance.InstanceName)
 		}
+		//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 		if ctx.TlsCertificateCertificateProviderInstance.CertificateName != "default" {
 			t.Errorf("Expected deprecated certificate name 'default', got %s", ctx.TlsCertificateCertificateProviderInstance.CertificateName)
 		}
@@ -82,9 +85,11 @@ func TestBuildCommonTLSContext_BothFieldsSet(t *testing.T) {
 	}
 
 	// Verify deprecated CA certificate field (field 4) is still set for backward compatibility
+	//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 	if combined.CombinedValidationContext.ValidationContextCertificateProviderInstance == nil {
 		t.Error("ValidationContextCertificateProviderInstance (deprecated field 4) should still be set for backward compatibility")
 	} else {
+		//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 		ca := combined.CombinedValidationContext.ValidationContextCertificateProviderInstance
 		if ca.InstanceName != "default" {
 			t.Errorf("Expected deprecated CA instance name 'default', got %s", ca.InstanceName)
@@ -95,9 +100,11 @@ func TestBuildCommonTLSContext_BothFieldsSet(t *testing.T) {
 	}
 
 	// Verify SAN matching is set
+	//nolint:staticcheck // SA1019: MatchSubjectAltNames is deprecated but still functional
 	if combined.CombinedValidationContext.DefaultValidationContext.MatchSubjectAltNames == nil {
 		t.Error("MatchSubjectAltNames should be set when SANs are provided")
 	}
+	//nolint:staticcheck // SA1019: MatchSubjectAltNames is deprecated but still functional
 	if len(combined.CombinedValidationContext.DefaultValidationContext.MatchSubjectAltNames) != 1 {
 		t.Errorf("Expected 1 SAN matcher, got %d", len(combined.CombinedValidationContext.DefaultValidationContext.MatchSubjectAltNames))
 	}
@@ -111,6 +118,7 @@ func TestBuildCommonTLSContext_NoSANs(t *testing.T) {
 	if ctx.TlsCertificateProviderInstance == nil {
 		t.Error("TlsCertificateProviderInstance (current) should be set even without SANs")
 	}
+	//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 	if ctx.TlsCertificateCertificateProviderInstance == nil {
 		t.Error("TlsCertificateCertificateProviderInstance (deprecated) should be set even without SANs")
 	}
@@ -131,11 +139,13 @@ func TestBuildCommonTLSContext_NoSANs(t *testing.T) {
 	}
 
 	// Verify deprecated CA field is set
+	//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 	if combined.CombinedValidationContext.ValidationContextCertificateProviderInstance == nil {
 		t.Error("ValidationContextCertificateProviderInstance (deprecated) should be set even without SANs")
 	}
 
 	// Verify SAN matching is nil when no SANs provided
+	//nolint:staticcheck // SA1019: MatchSubjectAltNames is deprecated but still functional
 	if combined.CombinedValidationContext.DefaultValidationContext.MatchSubjectAltNames != nil {
 		t.Error("MatchSubjectAltNames should be nil when no SANs are provided")
 	}
@@ -152,9 +162,11 @@ func TestBuildCommonTLSContext_FieldValuesMatch(t *testing.T) {
 	// So we can only compare their values, not the pointers
 
 	// Verify both identity fields have the same values
+	//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 	if ctx.TlsCertificateProviderInstance.InstanceName != ctx.TlsCertificateCertificateProviderInstance.InstanceName {
 		t.Error("Identity certificate instance names should match")
 	}
+	//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 	if ctx.TlsCertificateProviderInstance.CertificateName != ctx.TlsCertificateCertificateProviderInstance.CertificateName {
 		t.Error("Identity certificate names should match")
 	}
@@ -162,6 +174,7 @@ func TestBuildCommonTLSContext_FieldValuesMatch(t *testing.T) {
 	// Verify CA certificate fields have matching values
 	combined := ctx.ValidationContextType.(*tls.CommonTlsContext_CombinedValidationContext)
 	currentCA := combined.CombinedValidationContext.DefaultValidationContext.CaCertificateProviderInstance
+	//nolint:staticcheck // SA1019: intentionally testing deprecated field for backward compatibility
 	deprecatedCA := combined.CombinedValidationContext.ValidationContextCertificateProviderInstance
 
 	// Similarly, these use different types so we only compare values
