@@ -367,6 +367,91 @@ func TestGetAutoPassthroughSNIHosts(t *testing.T) {
 	}
 }
 
+// TestMergeGatewaysHttpsFirstBug tests the bug where creating HTTPS server first
+// on a port prevents HTTP server from building correct routes on the same port but different bind.
+// This follows the existing test naming conventions: foo-*, not-default namespace, example.com hosts, standard ports.
+func TestMergeGatewaysHttpsFirstBug(t *testing.T) {
+	// Create HTTPS server first (this was causing the bug)
+	gwHTTPS := makeConfig("foo-https", "not-default", "*.example.com", "https-port", "HTTPS", 443, "ingressgateway", "10.0.0.1",
+		networking.ServerTLSSettings_SIMPLE, "", "sa")
+
+	// Create HTTP server second (this was failing to create proper routes)
+	gwHTTP := makeConfig("foo-http", "not-default", "*.example.com", "http-port", "HTTP", 443, "ingressgateway", "10.0.0.2",
+		networking.ServerTLSSettings_SIMPLE, "", "sa")
+
+	// Test case 1: HTTPS first, then HTTP (reproduces the bug)
+	t.Run("https-first-then-http", func(t *testing.T) {
+		gwWithInstances := []gatewayWithInstances{
+			{gateway: gwHTTPS, legacyGatewaySelector: true, instances: nil},
+			{gateway: gwHTTP, legacyGatewaySelector: true, instances: nil},
+		}
+
+		mgw := mergeGateways(gwWithInstances, &Proxy{}, &PushContext{})
+		if mgw == nil {
+			t.Fatal("mergeGateways returned nil")
+		}
+
+		// Should have 2 merged servers (one per bind)
+		if len(mgw.MergedServers) != 2 {
+			t.Errorf("Expected 2 merged servers, got %d", len(mgw.MergedServers))
+		}
+
+		// Should have routes for both HTTPS and HTTP
+		httpsRoute := "https.443.https-port.foo-https.not-default.10.0.0.1"
+		httpRoute := "http.443.10.0.0.2"
+
+		if _, exists := mgw.ServersByRouteName[httpsRoute]; !exists {
+			t.Errorf("HTTPS route %s not found in ServersByRouteName", httpsRoute)
+		}
+
+		if _, exists := mgw.ServersByRouteName[httpRoute]; !exists {
+			t.Errorf("HTTP route %s not found in ServersByRouteName", httpRoute)
+		}
+
+		// Verify that both servers are properly configured
+		httpsServerPort := ServerPort{Number: 443, Protocol: "HTTPS", Bind: "10.0.0.1"}
+		httpServerPort := ServerPort{Number: 443, Protocol: "HTTP", Bind: "10.0.0.2"}
+
+		if _, exists := mgw.MergedServers[httpsServerPort]; !exists {
+			t.Errorf("HTTPS server port not found in MergedServers")
+		}
+
+		if _, exists := mgw.MergedServers[httpServerPort]; !exists {
+			t.Errorf("HTTP server port not found in MergedServers")
+		}
+	})
+
+	// Test case 2: HTTP first, then HTTPS (should work without the fix too)
+	t.Run("http-first-then-https", func(t *testing.T) {
+		gwWithInstances := []gatewayWithInstances{
+			{gateway: gwHTTP, legacyGatewaySelector: true, instances: nil},
+			{gateway: gwHTTPS, legacyGatewaySelector: true, instances: nil},
+		}
+
+		mgw := mergeGateways(gwWithInstances, &Proxy{}, &PushContext{})
+		if mgw == nil {
+			t.Fatal("mergeGateways returned nil")
+		}
+
+		// Should have 2 merged servers
+		if len(mgw.MergedServers) != 2 {
+			t.Errorf("Expected 2 merged servers, got %d", len(mgw.MergedServers))
+		}
+
+		// Should have routes for both HTTP and HTTPS
+		httpRoute := "http.443.10.0.0.2"
+		httpsRoute := "https.443.https-port.foo-https.not-default.10.0.0.1"
+
+		if _, exists := mgw.ServersByRouteName[httpRoute]; !exists {
+			t.Errorf("HTTP route %s not found in ServersByRouteName", httpRoute)
+		}
+
+		if _, exists := mgw.ServersByRouteName[httpsRoute]; !exists {
+			t.Errorf("HTTPS route %s not found in ServersByRouteName", httpsRoute)
+		}
+	})
+}
+
 // sa controls which service account names are allowed to get secrets
 func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw, bind string,
 	mode networking.ServerTLSSettings_TLSmode, credName, sa string,
