@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
@@ -35,7 +37,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
