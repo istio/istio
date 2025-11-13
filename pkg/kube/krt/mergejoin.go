@@ -18,16 +18,23 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
 type collectionLister[T any] interface {
 	getCollections() []Collection[T]
 }
+
+var _ internalCollection[any] = &mergejoin[any]{}
 
 type mergejoin[T any] struct {
 	id             collectionUID
@@ -167,6 +174,42 @@ func (j *mergejoin[T]) GetKey(k string) *T {
 		return &rf
 	}
 	return nil
+}
+
+func (j *mergejoin[T]) Register(f func(e Event[T])) HandlerRegistration {
+	return registerHandlerAsBatched(j, f)
+}
+
+func (j *mergejoin[T]) RegisterBatch(f func(e []Event[T]), runExistingState bool) HandlerRegistration {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if !runExistingState {
+		// If we don't to run the initial state this is simple, we just register the handler.
+		return j.eventHandlers.Insert(f, j, nil, j.stop)
+	}
+
+	// We need to run the initial state, but we don't want to get duplicate events.
+	// We should get "ADD initialObject1, ADD initialObjectN, UPDATE someLaterUpdate" without mixing the initial ADDs
+	// Create ADDs for the current state of the merge cache
+	events := make([]Event[T], 0, len(j.outputs))
+	for _, o := range j.outputs {
+		events = append(events, Event[T]{
+			New:   &o,
+			Event: controllers.EventAdd,
+		})
+	}
+
+	// Send out all the initial objects to the handler. We will then unlock the new events so it gets the future updates.
+	return j.eventHandlers.Insert(f, j, events, j.stop)
+}
+
+// nolint: unused // (not true, its to implement an interface)
+func (j *mergejoin[T]) dump() CollectionDump {
+	return CollectionDump{
+		Outputs: eraseMap(slices.GroupUnique(j.List(), getTypedKey)),
+		Synced:  j.HasSynced(),
+		Inputs:  nil,
+	}
 }
 
 func (j *mergejoin[T]) onSubCollectionEventHandler(o []Event[T]) {
@@ -312,4 +355,87 @@ func (j *mergejoin[T]) updateIndexLocked(e Event[T], key Key[T]) {
 			index.delete(*e.Old, key)
 		}
 	}
+}
+
+func (j *mergejoin[T]) runQueue(initialCollections []Collection[T], subscriptionFunc func([]Event[T])) {
+	// Now that we've subscribed, process the current set of collections.
+	regs := []HandlerRegistration{}
+	for _, c := range initialCollections {
+		// Ensure each sub-collection is synced before we're marked as synced.
+		regs = append(regs, c.RegisterBatch(subscriptionFunc, true))
+	}
+
+	syncers := slices.Map(regs, func(r HandlerRegistration) cache.InformerSynced {
+		return r.HasSynced
+	})
+
+	if !kube.WaitForCacheSync(j.collectionName, j.stop, syncers...) {
+		return
+	}
+	j.queue.Run(j.stop)
+}
+
+type collections[T any] []Collection[T]
+
+// nolint: unused // (not true, its to implement an interface)
+func (jc collections[T]) getCollections() []Collection[T] {
+	return jc
+}
+
+func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, opts ...CollectionOption) Collection[T] {
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("JoinWithMerge[%v]", ptr.TypeName[T]())
+	}
+
+	synced := make(chan struct{})
+
+	j := &mergejoin[T]{
+		collectionName: o.name,
+		collections:    collections[T](cs),
+		id:             nextUID(),
+		log:            log.WithLabels("owner", o.name),
+		outputs:        make(map[Key[T]]T),
+		indexes:        make(map[string]joinCollectionIndex[T]),
+		eventHandlers:  newHandlerSet[T](),
+		metadata:       o.metadata,
+		merge:          merge,
+		synced:         synced,
+		stop:           o.stop,
+		syncer: channelSyncer{
+			name:   o.name,
+			synced: synced,
+		},
+	}
+
+	if o.metadata != nil {
+		j.metadata = o.metadata
+	}
+
+	maybeRegisterCollectionForDebugging(j, o.debugger)
+
+	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
+	j.queue = queue.NewWithSync(func() {
+		close(j.synced)
+		j.log.Infof("%v synced (uid %v)", j.name(), j.uid())
+	}, j.collectionName)
+
+	// Subscribe to when collections are added or removed.
+	// Don't run existing because we want to ensure the first set
+	// of collections passed to us are synced before we mark
+	// ourselves as synced. Do this before returning so collections
+	// aren't added between now and when runQueue is called.
+	subscriptionFunc := func(events []Event[T]) {
+		j.queue.Push(func() error {
+			j.onSubCollectionEventHandler(events)
+			return nil
+		})
+	}
+
+	// Finally, async wait for the primary to be synced. Once it has, we know it has enqueued the initial state.
+	// After this, we can run our queue.
+	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)
+	go j.runQueue(cs, subscriptionFunc)
+
+	return j
 }
