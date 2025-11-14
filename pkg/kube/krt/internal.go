@@ -190,6 +190,19 @@ func Equal[O any](a, b O) bool {
 		panic(fmt.Sprintf("unable to compare object %T; perhaps it is embedding a protobuf? Provide an Equaler implementation", a))
 	}
 
+	// Handle the case where Equals needs values but we have pointers
+	ta := reflect.TypeOf(a)
+	if ta.Kind() == reflect.Pointer {
+		if m, ok := ta.MethodByName("Equals"); ok {
+			if m.Type.NumIn() == 2 && m.Type.In(1) == ta.Elem() && m.Type.NumOut() == 1 && m.Type.Out(0).Kind() == reflect.Bool {
+				va, vb := reflect.ValueOf(a), reflect.ValueOf(b)
+				if va.IsNil() || vb.IsNil() {
+					return va.IsNil() && vb.IsNil()
+				}
+				return m.Func.Call([]reflect.Value{va, vb.Elem()})[0].Bool()
+			}
+		}
+	}
 	return reflect.DeepEqual(a, b)
 }
 
