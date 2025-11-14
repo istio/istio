@@ -2,8 +2,8 @@
 
 This document outlines the design, configuration, and basic troubleshooting steps for the `nftables` backend in Istio.
 As the official successor to `iptables`, `nftables` offers a modern, high-performance alternative for transparently redirecting
-traffic to and from the `Envoy` sidecar proxy or `Ztunnel` node proxy. Many major Linux distributions are actively moving towards
-adopting native `nftables` support. Nftables backend is supported for both Istio sidecar mode and ambient modes.
+traffic to and from the `Envoy` sidecar proxy or `ztunnel` node proxy. Many major Linux distributions are actively moving towards
+adopting native `nftables` support. `nftables` backend is supported for both Istio sidecar mode and ambient modes.
 
 ## Key Benefits
 
