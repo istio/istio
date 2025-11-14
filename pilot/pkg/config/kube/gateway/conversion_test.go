@@ -700,6 +700,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "mix-backend-policy"},
 		{name: "listenerset"},
 		{name: "listenerset-cross-namespace"},
+		{name: "listenerset-same-name-different-ns"},
 		{name: "listenerset-invalid"},
 		{
 			name: "listenerset-empty-listeners",
