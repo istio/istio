@@ -63,7 +63,7 @@ type ListenerSet struct {
 }
 
 func (g ListenerSet) ResourceName() string {
-	return config.NamespacedName(g.Config).Name
+	return config.NamespacedName(g.Config).String()
 }
 
 func (g ListenerSet) Equals(other ListenerSet) bool {
