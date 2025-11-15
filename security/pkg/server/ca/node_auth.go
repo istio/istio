@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate/kubeauth"
 )
 
-// MulticlusterNodeAuthorizor is is responsible for maintaining an index of ClusterNodeAuthenticators,
+// MulticlusterNodeAuthorizor is responsible for maintaining an index of ClusterNodeAuthenticators,
 // one per cluster (https://docs.google.com/document/d/10uf4EvUVif4xGeCYQydaKh9Yaz9wpysao7gyLewJY2Q).
 // Node authorizations from one cluster will be forwarded to the ClusterNodeAuthenticators for the same cluster.
 type MulticlusterNodeAuthorizor struct {
