@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where DestinationRules with no selector would no longer apply if a DestinationRule with a selector is present and
+  `ENABLE_ENHANCED_DESTINATIONRULE_MERGE` is set to true.
