@@ -57,26 +57,6 @@ For Calico, you must also modify the settings to allow source spoofing:
 - if deployed by operator,  `kubectl patch felixconfigurations default --type='json' -p='[{"op": "add", "path": "/spec/workloadSourceSpoofing", "value": "Any"}]'`
 - if deployed by manifest, add env `FELIX_WORKLOADSOURCESPOOFING` with value `Any` in `spec.template.spec.containers.env` for daemonset `calico-node`. (This will allow PODs with specified annotation to skip the rpf check. )
 
-#### Cilium with kubeproxyReplacement
-
-When using Cilium CNI with `kubeproxyReplacement` enabled, readiness and liveness probes may fail in ambient mode. This occurs because eBPF programs in Cilium enforce the kubeproxyReplacement functionality, and the default link-local SNAT IP (169.254.7.127) is not routable in this scenario.
-
-To resolve this, enable the `useHostIPForProbeSnat` option to use the host node's IP address for probe SNAT:
-
-```bash
---set useHostIPForProbeSnat=true
-```
-
-Or in your values file:
-
-```yaml
-useHostIPForProbeSnat: true
-```
-
-This sets the `HOST_PROBE_SNAT_IP` environment variable to the host node's IP address, allowing probes to continue flowing from the kubelet to pods.
-
-For more information, see [issue #57911](https://github.com/istio/istio/issues/57911).
-
 ### GKE notes
 
 On GKE, 'kube-system' is required.
