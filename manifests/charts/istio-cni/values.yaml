@@ -51,6 +51,10 @@ _internal_defaults_do_not_set:
   # Possible values: "default", "multus"
   provider: "default"
 
+  # If enabled, sets HOST_PROBE_SNAT_IP environment variable to the host node's IP address
+  # instead of the default fixed IP (169.254.7.127). This allows probe SNAT to use the actual host IP.
+  useHostIPForProbeSnat: false
+
   # Configure ambient settings
   ambient:
     # If enabled, ambient redirection will be enabled
