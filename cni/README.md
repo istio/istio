@@ -43,7 +43,7 @@ Additionally, it does not require any network rules/routing/config in the host n
 
 | Env Var            | Default         | Purpose                                                                                                                                                                |
 |--------------------|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| HOST_PROBE_SNAT_IP | "169.254.7.127" | Applied to SNAT host probe packets, so they can be identified/skipped podside. To override the default SNAT IP, use any address from the 169.254.0.0/16 block. Alternatively, set `useHostIPForProbeSnat: true` in the Helm values to use the host node's IP address instead. |
+| HOST_PROBE_SNAT_IP | "169.254.7.127" | Applied to SNAT host probe packets, so they can be identified/skipped podside. To override the default SNAT IP, use any address from the 169.254.0.0/16 block. |
 | HOST_PROBE_SNAT_IPV6 | "fd16:9254:7127:1337:ffff:ffff:ffff:ffff" | IPv6 link local ranges are designed to be collision-resistant by default, and so this probably never needs to be overridden.                                           |
 
 ## Sidecar Mode Implementation Details
@@ -128,28 +128,6 @@ run after the main CNI sets up the pod IP and networking.
         - Pods have annotation `sidecar.istio.io/inject` set to `false` or has no key `sidecar.istio.io/status` in annotations
         - Pod has `istio-init` initContainer - this indicates a pod running its own injection setup.
 1. Return prevResult
-
-## CNI-Specific Configurations
-
-### Cilium with kubeproxyReplacement
-
-When using Istio Ambient Mesh with Cilium CNI and `kubeproxyReplacement` enabled, readiness and liveness probes may fail even after disabling the masquerade option in the Cilium ConfigMap. This occurs because eBPF programs in Cilium enforce the kubeproxyReplacement functionality.
-
-To resolve this issue, you need to use a routable IP address for probe SNAT instead of the default link-local IP (169.254.7.127). This can be accomplished by enabling the `useHostIPForProbeSnat` option in the istio-cni Helm chart:
-
-```yaml
-useHostIPForProbeSnat: true
-```
-
-Or via Helm:
-
-```bash
---set useHostIPForProbeSnat=true
-```
-
-This will set the `HOST_PROBE_SNAT_IP` environment variable to the host node's IP address (`status.hostIP`), allowing probes to continue flowing from the kubelet to pods.
-
-For more information, see [issue #57911](https://github.com/istio/istio/issues/57911).
 
 ## Troubleshooting
 
