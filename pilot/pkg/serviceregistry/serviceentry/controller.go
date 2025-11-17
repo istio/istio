@@ -94,8 +94,8 @@ type Controller struct {
 
 // Inputs are KRT input collections used by the controller
 type Inputs struct {
-	ServiceEntries    krt.StaticCollection[config.Config]
-	WorkloadEntries   krt.StaticCollection[config.Config]
+	ServiceEntries    krt.Collection[config.Config]
+	WorkloadEntries   krt.Collection[config.Config]
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
 	MeshConfig        krt.Collection[meshwatcher.MeshConfigResource]
 }
@@ -163,11 +163,7 @@ func NewController(configController model.ConfigStoreController, xdsUpdater mode
 	meshConfig meshwatcher.WatcherCollection,
 	options ...Option,
 ) *Controller {
-	s := newController(configController, xdsUpdater, meshConfig, options...)
-	if configController != nil {
-		configController.RegisterEventHandler(gvk.ServiceEntry, s.serviceEntryHandler)
-		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-	}
+	s := newController(configController, xdsUpdater, meshConfig, false, options...)
 	return s
 }
 
@@ -176,35 +172,38 @@ func NewWorkloadEntryController(configController model.ConfigStoreController, xd
 	meshConfig meshwatcher.WatcherCollection,
 	options ...Option,
 ) *Controller {
-	s := newController(configController, xdsUpdater, meshConfig, options...)
-	// Disable service entry processing for workload entry controller.
-	s.workloadEntryController = true
-
-	if configController != nil {
-		configController.RegisterEventHandler(gvk.WorkloadEntry, s.workloadEntryHandler)
-	}
-	return s
+	return newController(configController, xdsUpdater, meshConfig, true, options...)
 }
 
-func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, meshConfig meshwatcher.WatcherCollection, options ...Option) *Controller {
+func newController(
+	store model.ConfigStoreController,
+	xdsUpdater model.XDSUpdater,
+	meshConfig meshwatcher.WatcherCollection,
+	workloadEntryController bool,
+	options ...Option,
+) *Controller {
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "serviceentry", krt.GlobalDebugHandler)
 	s := &Controller{
-		XdsUpdater:  xdsUpdater,
-		store:       store,
-		meshWatcher: meshConfig,
-		stop:        stop,
-		opts:        opts,
+		workloadEntryController: workloadEntryController,
+		XdsUpdater:              xdsUpdater,
+		store:                   store,
+		meshWatcher:             meshConfig,
+		stop:                    stop,
+		opts:                    opts,
 	}
 	for _, o := range options {
 		o(s)
 	}
-	// Initialize inputs as static collections; these will be fed by the config controller and external workload handlers
+
 	s.inputs = Inputs{
-		ServiceEntries:    krt.NewStaticCollection[config.Config](nil, nil, s.opts.WithName("inputs/ServiceEntries")...),
-		WorkloadEntries:   krt.NewStaticCollection[config.Config](nil, nil, s.opts.WithName("inputs/WorkloadEntries")...),
-		ExternalWorkloads: krt.NewStaticCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...),
-		MeshConfig:        meshConfig.AsCollection(),
+		WorkloadEntries: store.KrtCollection(gvk.WorkloadEntry),
+	}
+
+	if !workloadEntryController {
+		s.inputs.ServiceEntries = store.KrtCollection(gvk.ServiceEntry)
+		s.inputs.ExternalWorkloads = krt.NewStaticCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
+		s.inputs.MeshConfig = meshConfig.AsCollection()
 	}
 
 	// Build derived collections
@@ -225,50 +224,54 @@ func (s *Controller) buildCollections() {
 		return &wi
 	}, s.opts.WithName("outputs/WorkloadsFromWLE")...)
 
-	// All workloads: join external + WLE-derived
-	workloads := krt.JoinCollection(
-		[]krt.Collection[*model.WorkloadInstance]{wleWorkloads, s.inputs.ExternalWorkloads},
-		s.opts.WithName("outputs/AllWorkloads")...,
-	)
-	workloadsByNamespace := krt.NewIndex(workloads, "byNamespace", func(wi *model.WorkloadInstance) []string {
-		return []string{wi.Namespace}
-	})
+	if !s.workloadEntryController {
+		// All workloads: join external + WLE-derived
+		workloads := krt.JoinCollection(
+			[]krt.Collection[*model.WorkloadInstance]{wleWorkloads, s.inputs.ExternalWorkloads},
+			s.opts.WithName("outputs/AllWorkloads")...,
+		)
+		workloadsByNamespace := krt.NewIndex(workloads, "byNamespace", func(wi *model.WorkloadInstance) []string {
+			return []string{wi.Namespace}
+		})
 
-	services, servicesByNsHost, servicesByHost := services(
-		s.inputs.ServiceEntries,
-		s.meshWatcher,
-		workloads,
-		workloadsByNamespace,
-		s.clusterID,
-		s.networkIDCallback,
-		s.opts,
-	)
+		services, servicesByNsHost, servicesByHost := services(
+			s.inputs.ServiceEntries,
+			s.meshWatcher,
+			workloads,
+			workloadsByNamespace,
+			s.clusterID,
+			s.networkIDCallback,
+			s.opts,
+		)
 
-	serviceInstancesByNamespaceHost := serviceInstancesByNamespaceHost(servicesByNsHost.AsCollection(), s.opts)
+		serviceInstancesByNamespaceHost := serviceInstancesByNamespaceHost(servicesByNsHost.AsCollection(), s.opts)
 
-	serviceInstances := krt.NewManyCollection(services, func(ctx krt.HandlerContext, swi ServiceWithInstances) []*model.ServiceInstance {
-		return swi.Instances
-	}, s.opts.WithName("outputs/ServiceInstances")...)
+		serviceInstances := krt.NewManyCollection(services, func(ctx krt.HandlerContext, swi ServiceWithInstances) []*model.ServiceInstance {
+			return swi.Instances
+		}, s.opts.WithName("outputs/ServiceInstances")...)
 
-	serviceInstancesByIP := krt.NewIndex(serviceInstances, "byIP", func(si *model.ServiceInstance) []string {
-		return []string{si.Endpoint.FirstAddressOrNil()}
-	})
+		serviceInstancesByIP := krt.NewIndex(serviceInstances, "byIP", func(si *model.ServiceInstance) []string {
+			return []string{si.Endpoint.FirstAddressOrNil()}
+		})
 
-	s.outputs = Outputs{
-		Services:                        services,
-		ServicesByHost:                  servicesByHost,
-		ServiceInstancesByNamespaceHost: serviceInstancesByNamespaceHost,
-		ServiceInstances:                serviceInstances,
-		ServiceInstancesByIP:            serviceInstancesByIP,
+		s.outputs = Outputs{
+			Services:                        services,
+			ServicesByHost:                  servicesByHost,
+			ServiceInstancesByNamespaceHost: serviceInstancesByNamespaceHost,
+			ServiceInstances:                serviceInstances,
+			ServiceInstancesByIP:            serviceInstancesByIP,
+		}
+
+		// Register EDS/XDS push handlers
+		s.handlers = append(
+			s.handlers,
+			s.outputs.ServiceInstancesByNamespaceHost.RegisterBatch(s.pushServiceEndpointUpdates, false),
+			s.outputs.Services.RegisterBatch(s.pushServiceUpdates, false),
+		)
 	}
 
-	// Register EDS/XDS push handlers
-	s.handlers = append(
-		s.handlers,
-		s.outputs.ServiceInstancesByNamespaceHost.RegisterBatch(s.pushServiceEndpointUpdates, false),
-		s.outputs.Services.RegisterBatch(s.pushServiceUpdates, false),
-		wleWorkloads.RegisterBatch(s.pushWorkloadUpdates, false),
-	)
+	// Register EDS/XDS push handlers for WLEs
+	s.handlers = append(s.handlers, wleWorkloads.RegisterBatch(s.pushWorkloadUpdates, false))
 }
 
 func (s *Controller) pushServiceEndpointUpdates(events []krt.Event[InstancesByNamespaceHost]) {
@@ -367,35 +370,18 @@ func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 	return copied
 }
 
-// workloadEntryHandler defines the handler for workload entries
-func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.Event) {
-	log.Debugf("Handle event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
-	switch event {
-	case model.EventAdd, model.EventUpdate:
-		s.inputs.WorkloadEntries.UpdateObject(curr)
-	case model.EventDelete:
-		s.inputs.WorkloadEntries.DeleteObject(curr.NamespacedName().String())
-	}
-}
-
 func (s *Controller) NotifyWorkloadInstanceHandlers(wi *model.WorkloadInstance, event model.Event) {
 	for _, h := range s.workloadHandlers {
 		h(wi, event)
 	}
 }
 
-// serviceEntryHandler defines the handler for service entries
-func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
-	switch event {
-	case model.EventAdd, model.EventUpdate:
-		s.inputs.ServiceEntries.UpdateObject(curr)
-	case model.EventDelete:
-		s.inputs.ServiceEntries.DeleteObject(curr.NamespacedName().String())
-	}
-}
-
 // WorkloadInstanceHandler defines the handler for service instances generated by other registries
 func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event model.Event) {
+	if s.workloadEntryController {
+		return
+	}
+
 	log.Debugf("Handle event %s for workload instance (%s/%v) in namespace %s", event,
 		wi.Kind, wi.Endpoint.Addresses, wi.Namespace)
 	// Feed external workloads collection directly
@@ -415,6 +401,10 @@ func (s *Controller) Run(stopCh <-chan struct{}) {
 
 // Services list declarations of all services in the system
 func (s *Controller) Services() []*model.Service {
+	if s.workloadEntryController {
+		return nil
+	}
+
 	allServices := s.outputs.Services.List()
 	copySvcs := make([]*model.Service, len(allServices))
 	for i, svc := range allServices {
@@ -432,6 +422,7 @@ func (s *Controller) GetService(hostname host.Name) *model.Service {
 	if s.workloadEntryController {
 		return nil
 	}
+
 	res := s.outputs.ServicesByHost.Lookup(hostname.String())
 	if len(res) == 0 {
 		return nil
@@ -446,6 +437,10 @@ func (s *Controller) GetService(hostname host.Name) *model.Service {
 
 // ResyncEDS triggers EDS for all known services
 func (s *Controller) ResyncEDS() {
+	if s.workloadEntryController {
+		return
+	}
+
 	shard := model.ShardKeyFromRegistry(s)
 	// for each key, push current endpoints
 	for _, io := range s.outputs.ServiceInstancesByNamespaceHost.List() {
@@ -460,6 +455,10 @@ func (s *Controller) ResyncEDS() {
 
 // GetProxyServiceTargets lists service targets co-located with a given proxy
 func (s *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTarget {
+	if s.workloadEntryController {
+		return nil
+	}
+
 	out := make([]model.ServiceTarget, 0)
 	for _, ip := range node.IPAddresses {
 		for _, i := range s.outputs.ServiceInstancesByIP.Lookup(ip) {
@@ -472,6 +471,10 @@ func (s *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTa
 }
 
 func (s *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
+	if s.workloadEntryController {
+		return nil
+	}
+
 	for _, ip := range proxy.IPAddresses {
 		for _, i := range s.outputs.ServiceInstancesByIP.Lookup(ip) {
 			if proxy.Metadata.Namespace == "" || i.Service.Attributes.Namespace == proxy.Metadata.Namespace {
@@ -647,10 +650,16 @@ func (s *Controller) AppendWorkloadHandler(h func(*model.WorkloadInstance, model
 }
 
 func (s *Controller) HasSynced() bool {
-	if !s.outputs.Services.HasSynced() ||
-		!s.outputs.ServiceInstances.HasSynced() ||
-		!s.outputs.ServiceInstancesByNamespaceHost.HasSynced() {
-		return false
+	if s.workloadEntryController {
+		if !s.inputs.WorkloadEntries.HasSynced() {
+			return false
+		}
+	} else {
+		if !s.outputs.Services.HasSynced() ||
+			!s.outputs.ServiceInstances.HasSynced() ||
+			!s.outputs.ServiceInstancesByNamespaceHost.HasSynced() {
+			return false
+		}
 	}
 
 	for _, h := range s.handlers {
