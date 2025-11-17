@@ -671,15 +671,15 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	}
 
 	createConfigs([]*config.Config{se2}, store, t)
+	expectEvents(t, events,
+		Event{Type: "service", ID: "example.com", Namespace: se2.Namespace},
+		Event{Type: "xds full", ID: se2.Spec.(*networking.ServiceEntry).Hosts[0]},
+	)
 
 	// check that instances are the same as before, we ignored this new instance
 	expectServiceInstances(t, sd, se1, 0, expectedPrimary)
 	expectServiceInstances(t, sd, se2, 0, expectedPrimary)
 	expectServiceInstances(t, sd, otherNs, 0, otherNsExpected)
-	expectEvents(t, events,
-		Event{Type: "service", ID: "example.com", Namespace: se2.Namespace},
-		Event{Type: "xds full", ID: se2.Spec.(*networking.ServiceEntry).Hosts[0]},
-	)
 }
 
 func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
@@ -2417,21 +2417,6 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 	}
 }
 
-func BenchmarkServiceEntryHandler(b *testing.B) {
-	_, sd := initServiceDiscoveryWithoutEvents(b)
-	for i := 0; i < b.N; i++ {
-		sd.serviceEntryHandler(config.Config{}, *httpDNS, model.EventAdd)
-		sd.serviceEntryHandler(config.Config{}, *httpDNSRR, model.EventAdd)
-		sd.serviceEntryHandler(config.Config{}, *tcpDNS, model.EventAdd)
-		sd.serviceEntryHandler(config.Config{}, *tcpStatic, model.EventAdd)
-
-		sd.serviceEntryHandler(config.Config{}, *httpDNS, model.EventDelete)
-		sd.serviceEntryHandler(config.Config{}, *httpDNSRR, model.EventDelete)
-		sd.serviceEntryHandler(config.Config{}, *tcpDNS, model.EventDelete)
-		sd.serviceEntryHandler(config.Config{}, *tcpStatic, model.EventDelete)
-	}
-}
-
 func BenchmarkWorkloadInstanceHandler(b *testing.B) {
 	store, sd := initServiceDiscoveryWithoutEvents(b)
 	// Add just the ServiceEntry with selector. We should see no instances
@@ -2478,42 +2463,6 @@ func BenchmarkWorkloadInstanceHandler(b *testing.B) {
 		sd.WorkloadInstanceHandler(fi2, model.EventDelete)
 		sd.WorkloadInstanceHandler(fi1, model.EventDelete)
 		sd.WorkloadInstanceHandler(fi3, model.EventDelete)
-	}
-}
-
-func BenchmarkWorkloadEntryHandler(b *testing.B) {
-	// Setup a couple workload entries for test. These will be selected by the `selector` SE
-	wle := createWorkloadEntry("wl", selector.Name,
-		&networking.WorkloadEntry{
-			Address:        "2.2.2.2",
-			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: "default",
-		})
-	wle2 := createWorkloadEntry("wl2", selector.Name,
-		&networking.WorkloadEntry{
-			Address:        "3.3.3.3",
-			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: "default",
-		})
-	dnsWle := createWorkloadEntry("dnswl", dnsSelector.Namespace,
-		&networking.WorkloadEntry{
-			Address:        "4.4.4.4",
-			Labels:         map[string]string{"app": "dns-wle"},
-			ServiceAccount: "default",
-		})
-
-	store, sd := initServiceDiscoveryWithoutEvents(b)
-	// Add just the ServiceEntry with selector. We should see no instances
-	createConfigs([]*config.Config{selector}, store, b)
-
-	for i := 0; i < b.N; i++ {
-		sd.workloadEntryHandler(config.Config{}, *wle, model.EventAdd)
-		sd.workloadEntryHandler(config.Config{}, *dnsWle, model.EventAdd)
-		sd.workloadEntryHandler(config.Config{}, *wle2, model.EventAdd)
-
-		sd.workloadEntryHandler(config.Config{}, *wle, model.EventDelete)
-		sd.workloadEntryHandler(config.Config{}, *dnsWle, model.EventDelete)
-		sd.workloadEntryHandler(config.Config{}, *wle2, model.EventDelete)
 	}
 }
 
