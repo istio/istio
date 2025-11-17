@@ -178,7 +178,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			traceContextOption := convertTraceContextOption(provider.Zipkin.GetTraceContextOption())
-			return zipkinConfig(hostname, cluster, provider.Zipkin.GetPath(), !provider.Zipkin.GetEnable_64BitTraceId(), 
+			return zipkinConfig(hostname, cluster, provider.Zipkin.GetPath(), !provider.Zipkin.GetEnable_64BitTraceId(),
 				traceContextOption, provider.Zipkin.GetTimeout(), provider.Zipkin.GetHeaders(), proxy)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
@@ -258,7 +258,7 @@ func zipkinConfig(
 	// Determine if we should use HttpService (modern approach) or legacy fields
 	// Use HttpService when timeout or custom headers are configured, as Envoy only supports
 	// these features through the HttpService configuration.
-	useHttpService := timeout != nil || len(headers) > 0
+	useHTTPService := timeout != nil || len(headers) > 0
 
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
@@ -266,7 +266,7 @@ func zipkinConfig(
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
 
-	if useHttpService {
+	if useHTTPService {
 		// Modern configuration using HttpService
 		// This is required for timeout and custom headers support
 		httpService := &core.HttpService{
