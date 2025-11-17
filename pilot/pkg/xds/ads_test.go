@@ -21,6 +21,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -978,4 +979,116 @@ func TestPushQueueLeak(t *testing.T) {
 	}
 	ds.Discovery.AdsPushAll(&model.PushRequest{Push: ds.PushContext(), Forced: true})
 	p.Cleanup()
+}
+
+// TestEnableTrailingDotComputation tests the logic that determines whether to enable
+// trailing dots in virtual host domains based on client metadata and auto-detection.
+func TestEnableTrailingDotComputation(t *testing.T) {
+	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+
+	tests := []struct {
+		name                 string
+		userAgentName        string
+		metadata             model.NodeMetadata
+		wantEnableTrailingDot bool
+	}{
+		{
+			name:                 "gRPC Java client - auto-detected as disabled",
+			userAgentName:        "gRPC Java",
+			metadata:             model.NodeMetadata{},
+			wantEnableTrailingDot: false,
+		},
+		{
+			name:                 "Envoy client - enabled by default",
+			userAgentName:        "envoy",
+			metadata:             model.NodeMetadata{},
+			wantEnableTrailingDot: true,
+		},
+		{
+			name:                 "gRPC Go client - enabled by default",
+			userAgentName:        "gRPC Go",
+			metadata:             model.NodeMetadata{},
+			wantEnableTrailingDot: true,
+		},
+		{
+			name:          "explicit override - disable with 'false'",
+			userAgentName: "envoy",
+			metadata: model.NodeMetadata{
+				Raw: map[string]any{
+					"TRAILING_DOT": "false",
+				},
+			},
+			wantEnableTrailingDot: false,
+		},
+		{
+			name:          "explicit override - enable with 'true' (gRPC Java)",
+			userAgentName: "gRPC Java",
+			metadata: model.NodeMetadata{
+				Raw: map[string]any{
+					"TRAILING_DOT": "true",
+				},
+			},
+			wantEnableTrailingDot: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Connect as a client with specific metadata
+			ads := ds.ConnectADS().
+				WithType(v3.ClusterType).
+				WithMetadata(tt.metadata)
+
+			// Update the test node to include the user agent - use sidecar as node type
+			ads.ID = "sidecar~1.1.1.1~test-node.default~default.svc.cluster.local"
+			
+			// Send a request which will trigger initProxyMetadata
+			// Build the metadata struct properly by including both typed and raw fields
+			metadata := tt.metadata.ToStruct()
+			// Add the Raw fields explicitly since ToStruct doesn't include them (they're marked json:"-")
+			if tt.metadata.Raw != nil {
+				for k, v := range tt.metadata.Raw {
+					if metadata.Fields == nil {
+						metadata.Fields = make(map[string]*structpb.Value)
+					}
+					val, _ := structpb.NewValue(v)
+					metadata.Fields[k] = val
+				}
+			}
+			
+			node := &core.Node{
+				Id:            ads.ID,
+				UserAgentName: tt.userAgentName,
+				Metadata:      metadata,
+			}
+			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+				Node: node,
+			})
+
+			// Find the proxy that was created
+			var foundProxy *model.Proxy
+			for _, conn := range ds.Discovery.Clients() {
+				proxy := conn.Proxy()
+				if proxy != nil && proxy.XdsNode != nil && proxy.XdsNode.UserAgentName == tt.userAgentName {
+					foundProxy = proxy
+					break
+				}
+			}
+
+			if foundProxy == nil {
+				t.Fatal("Could not find proxy for test")
+			}
+
+			if foundProxy.Metadata == nil {
+				t.Fatal("proxy.Metadata is nil")
+			}
+
+			got := bool(foundProxy.Metadata.EnableTrailingDot)
+			if got != tt.wantEnableTrailingDot {
+				t.Errorf("EnableTrailingDot = %v, want %v", got, tt.wantEnableTrailingDot)
+			}
+			
+			ads.Cleanup()
+		})
+	}
 }

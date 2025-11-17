@@ -46,6 +46,68 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+func TestGenerateAltVirtualHosts(t *testing.T) {
+	test.SetForTest(t, &features.EnableAbsoluteFqdnVhostDomain, true)
+
+	makeProxy := func(enableTrailingDot bool) *model.Proxy {
+		return &model.Proxy{
+			DNSDomain: "example.com",
+			XdsNode:   &core.Node{},
+			Metadata:  &model.NodeMetadata{EnableTrailingDot: model.StringBool(enableTrailingDot)},
+		}
+	}
+
+	tests := []struct {
+		name    string
+		host    string
+		proxy   *model.Proxy
+		want    []string
+		notWant []string
+	}{
+		{"disabled", "foo.example.com", makeProxy(false), []string{"foo", "foo:80"}, []string{"foo.example.com.", "foo.example.com.:80"}},
+		{"enabled", "foo.example.com", makeProxy(true), []string{"foo.example.com.", "foo.example.com.:80", "foo", "foo:80"}, nil},
+		{"ip address", "10.0.0.1", makeProxy(false), nil, []string{"10.0.0.1."}},
+		{"nil proxy", "baz.example.com", nil, []string{"baz.example.com.", "baz.example.com.:443"}, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GenerateAltVirtualHosts(tt.host, 80, "example.com", tt.proxy)
+			if tt.name == "nil proxy" {
+				got = GenerateAltVirtualHosts(tt.host, 443, "example.com", tt.proxy)
+			}
+			
+			for _, want := range tt.want {
+				if !contains(got, want) {
+					t.Errorf("missing %q in %v", want, got)
+				}
+			}
+			for _, notWant := range tt.notWant {
+				if contains(got, notWant) {
+					t.Errorf("unexpected %q in %v", notWant, got)
+				}
+			}
+		})
+	}
+	
+	test.SetForTest(t, &features.EnableAbsoluteFqdnVhostDomain, false)
+	t.Run("system default false", func(t *testing.T) {
+		got := GenerateAltVirtualHosts("test.example.com", 80, "example.com", nil)
+		if contains(got, "test.example.com.") {
+			t.Errorf("should not include trailing dots with system default=false")
+		}
+	})
+}
+
+func contains(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
 func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
 		name            string
@@ -2034,3 +2096,4 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 	service.Ports = Ports
 	return service
 }
+
