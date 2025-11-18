@@ -143,7 +143,7 @@ func DestinationRuleCollection(
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus)
 
 	// We need to merge these by hostname into a single DR
-	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})
+	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies}, opts.WithName("AllBackendPolicies")...)
 	byTargetAndHost := krt.NewIndex(allPolicies, "targetAndHost", func(o BackendPolicy) []TypedNamespacedNamePerHost {
 		return []TypedNamespacedNamePerHost{{Target: o.Target, Host: o.Host}}
 	})

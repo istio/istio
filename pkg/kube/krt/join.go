@@ -342,6 +342,9 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		close(synced)
 		log.Infof("%v synced", o.name)
 	}()
+	if o.stop == nil {
+		panic("no stop channel")
+	}
 	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
 	j := &join[T]{
 		collectionName:   o.name,
@@ -364,14 +367,24 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 
 	// Register handlers on sub-collections ONCE during construction
 	// These handlers will process events from sub-collections and distribute to registered handlers
+	var subHandlerRegs []HandlerRegistration
 	for idx, subCol := range c {
 		collectionIdx := idx // capture for closure
 		handler := func(events []Event[T]) {
 			j.handleSubCollectionEvents(events, collectionIdx)
 		}
 		// Don't run existing state - we handle that in RegisterBatch
-		subCol.RegisterBatch(handler, false)
+		reg := subCol.RegisterBatch(handler, false)
+		subHandlerRegs = append(subHandlerRegs, reg)
 	}
+
+	// Clean up sub-collection handlers when this collection's stop is closed
+	go func() {
+		<-o.stop
+		for _, reg := range subHandlerRegs {
+			reg.UnregisterHandler()
+		}
+	}()
 
 	return j
 }
