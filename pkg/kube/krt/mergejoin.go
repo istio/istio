@@ -357,21 +357,33 @@ func (j *mergejoin[T]) updateIndexLocked(e Event[T], key Key[T]) {
 	}
 }
 
-func (j *mergejoin[T]) runQueue(initialCollections []Collection[T], subscriptionFunc func([]Event[T])) {
-	// Now that we've subscribed, process the current set of collections.
-	regs := []HandlerRegistration{}
-	for _, c := range initialCollections {
-		// Ensure each sub-collection is synced before we're marked as synced.
-		regs = append(regs, c.RegisterBatch(subscriptionFunc, true))
-	}
-
-	syncers := slices.Map(regs, func(r HandlerRegistration) cache.InformerSynced {
-		return r.HasSynced
+func (j *mergejoin[T]) runQueue() {
+	// Wait until all underlying collections are synced before registering
+	syncers := slices.Map(j.collections.getCollections(), func(c Collection[T]) cache.InformerSynced {
+		return c.HasSynced
 	})
-
 	if !kube.WaitForCacheSync(j.collectionName, j.stop, syncers...) {
 		return
 	}
+
+	// Register with the list of collections
+	regs := []HandlerRegistration{}
+	for _, c := range j.collections.getCollections() {
+		regs = append(regs, c.RegisterBatch(func(events []Event[T]) {
+			j.queue.Push(func() error {
+				j.onSubCollectionEventHandler(events)
+				return nil
+			})
+		}, true))
+	}
+
+	syncers = slices.Map(regs, func(r HandlerRegistration) cache.InformerSynced {
+		return r.HasSynced
+	})
+	if !kube.WaitForCacheSync(j.collectionName, j.stop, syncers...) {
+		return
+	}
+
 	j.queue.Run(j.stop)
 }
 
@@ -408,10 +420,6 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 		},
 	}
 
-	if o.metadata != nil {
-		j.metadata = o.metadata
-	}
-
 	maybeRegisterCollectionForDebugging(j, o.debugger)
 
 	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
@@ -420,22 +428,8 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 		j.log.Infof("%v synced (uid %v)", j.name(), j.uid())
 	}, j.collectionName)
 
-	// Subscribe to when collections are added or removed.
-	// Don't run existing because we want to ensure the first set
-	// of collections passed to us are synced before we mark
-	// ourselves as synced. Do this before returning so collections
-	// aren't added between now and when runQueue is called.
-	subscriptionFunc := func(events []Event[T]) {
-		j.queue.Push(func() error {
-			j.onSubCollectionEventHandler(events)
-			return nil
-		})
-	}
-
-	// Finally, async wait for the primary to be synced. Once it has, we know it has enqueued the initial state.
-	// After this, we can run our queue.
 	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)
-	go j.runQueue(cs, subscriptionFunc)
+	go j.runQueue()
 
 	return j
 }
