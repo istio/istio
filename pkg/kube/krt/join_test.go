@@ -15,6 +15,7 @@
 package krt_test
 
 import (
+	"sync"
 	"testing"
 
 	"go.uber.org/atomic"
@@ -228,69 +229,88 @@ func TestJoinCollectionConflictResolution(t *testing.T) {
 		opts.WithName("Join")...,
 	)
 
+	var mu sync.Mutex
 	events := []krt.Event[NamedValue]{}
 	j.Register(func(o krt.Event[NamedValue]) {
+		mu.Lock()
+		defer mu.Unlock()
 		events = append(events, o)
 	})
 
+	getEventsLen := func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(events)
+	}
+	getEvent := func(i int) krt.Event[NamedValue] {
+		mu.Lock()
+		defer mu.Unlock()
+		return events[i]
+	}
+	clearEvents := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		events = nil
+	}
+
 	// Test 1: c2 adds key "a" first - should see ADD
 	c2.Set(&NamedValue{Named{"ns", "a"}, "c2-value"})
-	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
-	assert.Equal(t, events[0].Event, controllers.EventAdd)
-	assert.Equal(t, events[0].New.Value, "c2-value")
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventAdd)
+	assert.Equal(t, getEvent(0).New.Value, "c2-value")
 
 	// Test 2: c1 adds same key - should see UPDATE (c1 has higher priority)
-	events = nil
+	clearEvents()
 	c1.Set(&NamedValue{Named{"ns", "a"}, "c1-value"})
-	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
-	assert.Equal(t, events[0].Event, controllers.EventUpdate)
-	assert.Equal(t, events[0].Old.Value, "c2-value")
-	assert.Equal(t, events[0].New.Value, "c1-value")
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventUpdate)
+	assert.Equal(t, getEvent(0).Old.Value, "c2-value")
+	assert.Equal(t, getEvent(0).New.Value, "c1-value")
 
 	// Test 3: c3 adds same key - should see NO event (c1 has priority)
-	events = nil
+	clearEvents()
 	c3.Set(&NamedValue{Named{"ns", "a"}, "c3-value"})
-	assert.Consistently(t, func() int { return len(events) }, 0)
+	assert.Consistently(t, getEventsLen, 0)
 	assert.Equal(t, j.GetKey("ns/a").Value, "c1-value")
 
 	// Test 4: c2 updates - should see NO event (c1 still owns it)
-	events = nil
+	clearEvents()
 	c2.Set(&NamedValue{Named{"ns", "a"}, "c2-updated"})
-	assert.Consistently(t, func() int { return len(events) }, 0)
+	assert.Consistently(t, getEventsLen, 0)
 
 	// Test 5: c1 deletes - should see UPDATE to c2's version (fallback)
-	events = nil
+	clearEvents()
 	c1.Set(nil)
-	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
-	assert.Equal(t, events[0].Event, controllers.EventUpdate)
-	assert.Equal(t, events[0].Old.Value, "c1-value")
-	assert.Equal(t, events[0].New.Value, "c2-updated")
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventUpdate)
+	assert.Equal(t, getEvent(0).Old.Value, "c1-value")
+	assert.Equal(t, getEvent(0).New.Value, "c2-updated")
 
 	// Test 6: c2 deletes - should see UPDATE to c3's version
-	events = nil
+	clearEvents()
 	c2.Set(nil)
-	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
-	assert.Equal(t, events[0].Event, controllers.EventUpdate)
-	assert.Equal(t, events[0].Old.Value, "c2-updated")
-	assert.Equal(t, events[0].New.Value, "c3-value")
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventUpdate)
+	assert.Equal(t, getEvent(0).Old.Value, "c2-updated")
+	assert.Equal(t, getEvent(0).New.Value, "c3-value")
 
 	// Test 7: c3 deletes - should see DELETE (no more fallbacks)
-	events = nil
+	clearEvents()
 	c3.Set(nil)
-	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
-	assert.Equal(t, events[0].Event, controllers.EventDelete)
-	assert.Equal(t, events[0].Old.Value, "c3-value")
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventDelete)
+	assert.Equal(t, getEvent(0).Old.Value, "c3-value")
 
 	// Test 8: Delete from lower priority collection when higher priority owns it - NO event
-	events = nil
+	clearEvents()
 	c1.Set(&NamedValue{Named{"ns", "b"}, "c1-b"})
-	assert.EventuallyEqual(t, func() int { return len(events) }, 1) // Wait for c1's ADD
+	assert.EventuallyEqual(t, getEventsLen, 1) // Wait for c1's ADD
 
-	events = nil
+	clearEvents()
 	c2.Set(&NamedValue{Named{"ns", "b"}, "c2-b"})
-	assert.Consistently(t, func() int { return len(events) }, 0) // c2 adding should be ignored
+	assert.Consistently(t, getEventsLen, 0) // c2 adding should be ignored
 
 	c2.Set(nil) // c2 deletes but c1 still owns it
-	assert.Consistently(t, func() int { return len(events) }, 0) // c2 delete should be ignored
+	assert.Consistently(t, getEventsLen, 0) // c2 delete should be ignored
 	assert.Equal(t, j.GetKey("ns/b").Value, "c1-b")
 }
