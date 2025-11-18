@@ -25,9 +25,9 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -310,7 +310,7 @@ func TestJoinCollectionConflictResolution(t *testing.T) {
 	c2.Set(&NamedValue{Named{"ns", "b"}, "c2-b"})
 	assert.Consistently(t, getEventsLen, 0) // c2 adding should be ignored
 
-	c2.Set(nil) // c2 deletes but c1 still owns it
+	c2.Set(nil)                             // c2 deletes but c1 still owns it
 	assert.Consistently(t, getEventsLen, 0) // c2 delete should be ignored
 	assert.Equal(t, j.GetKey("ns/b").Value, "c1-b")
 }
