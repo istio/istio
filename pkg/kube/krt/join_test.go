@@ -26,17 +26,25 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
+// NamedValue has the same resource name (from Named) but different values
+// for testing conflict resolution with overlapping keys
+type NamedValue struct {
+	Named
+	Value string
+}
+
 func TestJoinCollection(t *testing.T) {
 	opts := testOptions(t)
-	c1 := krt.NewStatic[Named](nil, true)
-	c2 := krt.NewStatic[Named](nil, true)
-	c3 := krt.NewStatic[Named](nil, true)
+	c1 := krt.NewStatic[Named](nil, true, krt.WithName("c1"))
+	c2 := krt.NewStatic[Named](nil, true, krt.WithName("c2"))
+	c3 := krt.NewStatic[Named](nil, true, krt.WithName("c3"))
 	j := krt.JoinCollection(
 		[]krt.Collection[Named]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()},
 		opts.WithName("Join")...,
@@ -205,4 +213,84 @@ func TestCollectionJoinSync(t *testing.T) {
 		{Named{"namespace", "name"}, NewLabeled(map[string]string{"app": "foo"}), "1.2.3.4"},
 		{Named{"namespace", "name-static"}, NewLabeled(map[string]string{"app": "foo"}), "9.9.9.9"},
 	})
+}
+
+// TestJoinCollectionConflictResolution tests conflict resolution with overlapping keys.
+// Priority order: c1 > c2 > c3 (first collection wins)
+func TestJoinCollectionConflictResolution(t *testing.T) {
+	opts := testOptions(t)
+	c1 := krt.NewStatic[NamedValue](nil, true, krt.WithName("c1"))
+	c2 := krt.NewStatic[NamedValue](nil, true, krt.WithName("c2"))
+	c3 := krt.NewStatic[NamedValue](nil, true, krt.WithName("c3"))
+
+	j := krt.JoinCollection(
+		[]krt.Collection[NamedValue]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()},
+		opts.WithName("Join")...,
+	)
+
+	events := []krt.Event[NamedValue]{}
+	j.Register(func(o krt.Event[NamedValue]) {
+		events = append(events, o)
+	})
+
+	// Test 1: c2 adds key "a" first - should see ADD
+	c2.Set(&NamedValue{Named{"ns", "a"}, "c2-value"})
+	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
+	assert.Equal(t, events[0].Event, controllers.EventAdd)
+	assert.Equal(t, events[0].New.Value, "c2-value")
+
+	// Test 2: c1 adds same key - should see UPDATE (c1 has higher priority)
+	events = nil
+	c1.Set(&NamedValue{Named{"ns", "a"}, "c1-value"})
+	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
+	assert.Equal(t, events[0].Event, controllers.EventUpdate)
+	assert.Equal(t, events[0].Old.Value, "c2-value")
+	assert.Equal(t, events[0].New.Value, "c1-value")
+
+	// Test 3: c3 adds same key - should see NO event (c1 has priority)
+	events = nil
+	c3.Set(&NamedValue{Named{"ns", "a"}, "c3-value"})
+	assert.Consistently(t, func() int { return len(events) }, 0)
+	assert.Equal(t, j.GetKey("ns/a").Value, "c1-value")
+
+	// Test 4: c2 updates - should see NO event (c1 still owns it)
+	events = nil
+	c2.Set(&NamedValue{Named{"ns", "a"}, "c2-updated"})
+	assert.Consistently(t, func() int { return len(events) }, 0)
+
+	// Test 5: c1 deletes - should see UPDATE to c2's version (fallback)
+	events = nil
+	c1.Set(nil)
+	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
+	assert.Equal(t, events[0].Event, controllers.EventUpdate)
+	assert.Equal(t, events[0].Old.Value, "c1-value")
+	assert.Equal(t, events[0].New.Value, "c2-updated")
+
+	// Test 6: c2 deletes - should see UPDATE to c3's version
+	events = nil
+	c2.Set(nil)
+	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
+	assert.Equal(t, events[0].Event, controllers.EventUpdate)
+	assert.Equal(t, events[0].Old.Value, "c2-updated")
+	assert.Equal(t, events[0].New.Value, "c3-value")
+
+	// Test 7: c3 deletes - should see DELETE (no more fallbacks)
+	events = nil
+	c3.Set(nil)
+	assert.EventuallyEqual(t, func() int { return len(events) }, 1)
+	assert.Equal(t, events[0].Event, controllers.EventDelete)
+	assert.Equal(t, events[0].Old.Value, "c3-value")
+
+	// Test 8: Delete from lower priority collection when higher priority owns it - NO event
+	events = nil
+	c1.Set(&NamedValue{Named{"ns", "b"}, "c1-b"})
+	assert.EventuallyEqual(t, func() int { return len(events) }, 1) // Wait for c1's ADD
+
+	events = nil
+	c2.Set(&NamedValue{Named{"ns", "b"}, "c2-b"})
+	assert.Consistently(t, func() int { return len(events) }, 0) // c2 adding should be ignored
+
+	c2.Set(nil) // c2 deletes but c1 still owns it
+	assert.Consistently(t, func() int { return len(events) }, 0) // c2 delete should be ignored
+	assert.Equal(t, j.GetKey("ns/b").Value, "c1-b")
 }
