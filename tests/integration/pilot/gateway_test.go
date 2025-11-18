@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
@@ -158,6 +159,9 @@ metadata:
   name: gateway
 spec:
   gatewayClassName: istio
+  allowedListeners:
+    namespaces:
+      from: All
   listeners:
   - name: default
     hostname: "*.example.com"
@@ -390,6 +394,84 @@ spec:
 			},
 			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
 			Check:   check.And(check.OK(), check.SNI("auth.example.com")),
+		})
+	})
+	t.NewSubTest("listenerset").Run(func(t framework.TestContext) {
+		ns := namespace.NewOrFail(t, namespace.Config{Prefix: "listenerset"})
+		ingressutil.CreateIngressKubeSecretInNamespace(t, "tls", ingressutil.TLS, ingressutil.IngressCredentialA,
+			false, ns.Name(), t.Clusters().Configs()...)
+		t.ConfigIstio().Eval("", map[string]string{
+			"GatewayNamespace":  apps.Namespace.Name(),
+			"ListenerNamespace": ns.Name(),
+		}, `apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: listenerset
+  namespace: {{.ListenerNamespace}}
+spec:
+  listeners:
+  - name: tls
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls
+      mode: Terminate
+  parentRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway
+    namespace: {{.GatewayNamespace}}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: route-listenerset
+  namespace: {{.ListenerNamespace}}
+spec:
+  parentRefs:
+  - name: listenerset
+    kind: XListenerSet
+    group: gateway.networking.x-k8s.io
+  hostnames: ["listenerset.example.com"]
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+      namespace: {{.GatewayNamespace}}
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-service
+  namespace: {{.GatewayNamespace}}
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: {{.ListenerNamespace}}
+  to:
+  - group: ""
+    kind: Service
+    name: b
+`).ApplyOrFail(t)
+
+		apps.B[0].CallOrFail(t, echo.CallOptions{
+			Port: echo.Port{
+				Protocol:    protocol.HTTPS,
+				ServicePort: 443,
+			},
+			Scheme: scheme.HTTPS,
+			HTTP: echo.HTTP{
+				Headers: headers.New().WithHost("listenerset.example.com").Build(),
+			},
+			TLS: echo.TLS{
+				ServerName: "listenerset.example.com",
+			},
+			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+			Check:   check.OK(),
 		})
 	})
 }

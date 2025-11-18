@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** a bug causing the experimental `XListenerSet` resources to not be able to access TLS Secrets.
