@@ -248,7 +248,7 @@ func (j *mergejoin[T]) onSubCollectionEventHandler(o []Event[T]) {
 			oldObj := ev.Old
 			if oldObj != nil && newObj != nil {
 				// Update event
-				if Equal(ev.New, ev.Old) {
+				if Equal(*ev.New, *ev.Old) {
 					// NOP change, skip
 					continue
 				}
