@@ -258,7 +258,9 @@ func zipkinConfig(
 	// Determine if we should use HttpService (modern approach) or legacy fields
 	// Use HttpService when timeout or custom headers are configured, as Envoy only supports
 	// these features through the HttpService configuration.
-	useHTTPService := timeout != nil || len(headers) > 0
+	// Only use HttpService for proxies that support it (Istio 1.29+)
+	useHTTPService := (timeout != nil || len(headers) > 0) &&
+		proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
 
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
@@ -288,6 +290,12 @@ func zipkinConfig(
 		zc.CollectorCluster = cluster
 		zc.CollectorEndpoint = endpoint
 		zc.CollectorHostname = hostname // http host header
+
+		// Log when timeout/headers configuration is ignored due to version gating
+		if (timeout != nil || len(headers) > 0) && (proxy.IstioVersion == nil || !proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})) {
+			log.Debugf("Proxy %s (version %v) does not support Zipkin timeout/headers: requires Istio 1.29+",
+				proxy.ID, proxy.IstioVersion)
+		}
 	}
 
 	// Only set TraceContextOption for proxies that support it to avoid NACK from older proxies

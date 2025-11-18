@@ -1798,8 +1798,9 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Use 1.29+ proxy to test timeout/headers support
 			proxy := &model.Proxy{
-				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
 			}
 			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, true, tracingcfg.ZipkinConfig_USE_B3, tc.timeout, tc.headers, proxy)
 			assert.NoError(t, err)
@@ -1810,6 +1811,114 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 
 			if diff := cmp.Diff(tc.expectedConfig, &actualConfig, protocmp.Transform()); diff != "" {
 				t.Fatalf("zipkinConfig returned unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestZipkinConfigTimeoutHeadersVersionGating tests that timeout and headers are only used for proxies that support it
+func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
+	testcases := []struct {
+		name                      string
+		proxyVersion              *model.IstioVersion
+		timeout                   *durationpb.Duration
+		headers                   []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+		expectHTTPService         bool
+	}{
+		{
+			name:         "New proxy (1.29+) with timeout should use HttpService",
+			proxyVersion: &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:      durationpb.New(10000000000),
+			headers:      nil,
+			expectHTTPService: true,
+		},
+		{
+			name:         "New proxy (1.29+) with headers should use HttpService",
+			proxyVersion: &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:      nil,
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "Authorization",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "Bearer token",
+					},
+				},
+			},
+			expectHTTPService: true,
+		},
+		{
+			name:         "Old proxy (1.28) with timeout should NOT use HttpService",
+			proxyVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:      durationpb.New(10000000000),
+			headers:      nil,
+			expectHTTPService: false,
+		},
+		{
+			name:         "Old proxy (1.28) with headers should NOT use HttpService",
+			proxyVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:      nil,
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "Authorization",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "Bearer token",
+					},
+				},
+			},
+			expectHTTPService: false,
+		},
+		{
+			name:         "Proxy with nil version should NOT use HttpService",
+			proxyVersion: nil,
+			timeout:      durationpb.New(10000000000),
+			headers:      nil,
+			expectHTTPService: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			proxy := &model.Proxy{
+				IstioVersion: tc.proxyVersion,
+			}
+
+			result, err := zipkinConfig(
+				"zipkin.istio-system.svc.cluster.local",
+				"outbound|9411||zipkin.istio-system.svc.cluster.local",
+				"/api/v2/spans",
+				true,
+				tracingcfg.ZipkinConfig_USE_B3,
+				tc.timeout,
+				tc.headers,
+				proxy,
+			)
+			assert.NoError(t, err)
+
+			var actualConfig tracingcfg.ZipkinConfig
+			err = result.UnmarshalTo(&actualConfig)
+			assert.NoError(t, err)
+
+			versionStr := "nil"
+			if tc.proxyVersion != nil {
+				versionStr = tc.proxyVersion.String()
+			}
+
+			if tc.expectHTTPService {
+				// For new proxies, HttpService should be set
+				if actualConfig.CollectorService == nil {
+					t.Fatalf("CollectorService should be set for proxy version %s", versionStr)
+				}
+				if actualConfig.CollectorCluster != "" {
+					t.Fatalf("CollectorCluster should be empty when using HttpService for proxy version %s, got: %s", versionStr, actualConfig.CollectorCluster)
+				}
+			} else {
+				// For old proxies, legacy fields should be set
+				if actualConfig.CollectorService != nil {
+					t.Fatalf("CollectorService should NOT be set for proxy version %s", versionStr)
+				}
+				if actualConfig.CollectorCluster == "" {
+					t.Fatalf("CollectorCluster should be set when using legacy config for proxy version %s", versionStr)
+				}
 			}
 		})
 	}
