@@ -396,59 +396,6 @@ spec:
 			Check:   check.And(check.OK(), check.SNI("auth.example.com")),
 		})
 	})
-	t.NewSubTest("backend-tls").Run(func(t framework.TestContext) {
-		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/cert.crt"))
-		t.ConfigIstio().Eval(apps.Namespace.Name(), ca, `
-apiVersion: v1
-kind: ConfigMap
-data:
-  ca.crt: |
-{{. | indent 4}}
-metadata:
-  name: auth-cert
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
-metadata:
-  name: tls
-spec:
-  parentRefs:
-  - name: gateway
-  hostnames: ["tls.example.com"]
-  rules:
-  - backendRefs:
-    - name: b
-      port: 443
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: BackendTLSPolicy
-metadata:
-  name: tls-upstream
-spec:
-  targetRefs:
-  - group: ""
-    kind: Service
-    name: b
-  validation:
-    caCertificateRefs:
-    - group: ""
-      kind: ConfigMap
-      name: auth-cert
-    hostname: auth.example.com
-`).ApplyOrFail(t)
-		apps.A[0].CallOrFail(t, echo.CallOptions{
-			Port: echo.Port{
-				Protocol:    protocol.HTTP,
-				ServicePort: 80,
-			},
-			Scheme: scheme.HTTP,
-			HTTP: echo.HTTP{
-				Headers: headers.New().WithHost("tls.example.com").Build(),
-			},
-			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
-			Check:   check.And(check.OK(), check.SNI("auth.example.com")),
-		})
-	})
 	t.NewSubTest("listenerset").Run(func(t framework.TestContext) {
 		ns := namespace.NewOrFail(t, namespace.Config{Prefix: "listenerset"})
 		ingressutil.CreateIngressKubeSecretInNamespace(t, "tls", ingressutil.TLS, ingressutil.IngressCredentialA,
