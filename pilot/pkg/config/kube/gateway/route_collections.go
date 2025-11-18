@@ -73,7 +73,7 @@ func HTTPRouteCollection(
 		[]RouteWithKey,
 	) {
 		// if the resource does not belong to our revision do not generate conflicting status
-		if !tagWatcher.Get(krtctx).IsMine(obj.ObjectMeta) {
+		if !tagWatcher.Get(krtctx).IsMineRevision(obj.ObjectMeta) {
 			return nil, nil
 		}
 		ctx := inputs.WithCtx(krtctx)
@@ -284,7 +284,7 @@ func GRPCRouteCollection(
 		[]RouteWithKey,
 	) {
 		// if the resource does not belong to our revision do not generate conflicting status
-		if !tagWatcher.Get(krtctx).IsMine(obj.ObjectMeta) {
+		if !tagWatcher.Get(krtctx).IsMineRevision(obj.ObjectMeta) {
 			return nil, nil
 		}
 		ctx := inputs.WithCtx(krtctx)
@@ -433,7 +433,7 @@ func TCPRouteCollection(
 		[]*config.Config,
 	) {
 		// if the resource does not belong to our revision do not generate conflicting status
-		if !tagWatcher.Get(krtctx).IsMine(obj.ObjectMeta) {
+		if !tagWatcher.Get(krtctx).IsMineRevision(obj.ObjectMeta) {
 			return nil, nil
 		}
 		ctx := inputs.WithCtx(krtctx)
@@ -529,7 +529,7 @@ func TLSRouteCollection(
 		[]*config.Config,
 	) {
 		// if the resource does not belong to our revision do not generate conflicting status
-		if !tagWatcher.Get(krtctx).IsMine(obj.ObjectMeta) {
+		if !tagWatcher.Get(krtctx).IsMineRevision(obj.ObjectMeta) {
 			return nil, nil
 		}
 		ctx := inputs.WithCtx(krtctx)
