@@ -44,6 +44,7 @@ type TagWatcher interface {
 	AddHandler(handler TagHandler)
 	GetMyTags() sets.String
 	IsMine(metav1.ObjectMeta) bool
+	IsMineRevision(metav1.ObjectMeta) bool
 }
 
 // TagHandler is a callback for when the tags revision change.
@@ -154,6 +155,21 @@ func (p *tagWatcher) IsMine(obj metav1.ObjectMeta) bool {
 	return myTags.Contains(selectedTag) ||
 		selectedTag == "" && (myTags.Contains("default") ||
 			(weAreDefaultRevision && !otherDefaultTagExists)) // Default tag takes precedence over default revision if they differ
+}
+
+// IsMineRevision checks if the revision of the object or the revision of the namespace is the same as the revision of the tag watcher.
+// This is different from IsMine because it only uses the revision and does not include tags.
+func (p *tagWatcher) IsMineRevision(obj metav1.ObjectMeta) bool {
+	selectedTag, ok := obj.Labels[label.IoIstioRev.Name]
+	if !ok {
+		ns := p.namespaces.Get(obj.Namespace, "")
+		if ns == nil {
+			return true
+		}
+		selectedTag = ns.Labels[label.IoIstioRev.Name]
+	}
+
+	return p.revision == selectedTag
 }
 
 func (p *tagWatcher) GetMyTags() sets.String {
