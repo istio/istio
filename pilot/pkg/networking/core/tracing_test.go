@@ -1819,11 +1819,11 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 // TestZipkinConfigTimeoutHeadersVersionGating tests that timeout and headers are only used for proxies that support it
 func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 	testcases := []struct {
-		name                      string
-		proxyVersion              *model.IstioVersion
-		timeout                   *durationpb.Duration
-		headers                   []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader
-		expectHTTPService         bool
+		name              string
+		proxyVersion      *model.IstioVersion
+		timeout           *durationpb.Duration
+		headers           []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+		expectHTTPService bool
 	}{
 		{
 			name:         "New proxy (1.29+) with timeout should use HttpService",
