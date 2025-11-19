@@ -1826,10 +1826,10 @@ func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 		expectHTTPService bool
 	}{
 		{
-			name:         "New proxy (1.29+) with timeout should use HttpService",
-			proxyVersion: &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
-			timeout:      durationpb.New(10000000000),
-			headers:      nil,
+			name:              "New proxy (1.29+) with timeout should use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:           durationpb.New(10000000000),
+			headers:           nil,
 			expectHTTPService: true,
 		},
 		{
@@ -1847,10 +1847,10 @@ func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 			expectHTTPService: true,
 		},
 		{
-			name:         "Old proxy (1.28) with timeout should NOT use HttpService",
-			proxyVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
-			timeout:      durationpb.New(10000000000),
-			headers:      nil,
+			name:              "Old proxy (1.28) with timeout should NOT use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:           durationpb.New(10000000000),
+			headers:           nil,
 			expectHTTPService: false,
 		},
 		{
@@ -1868,10 +1868,10 @@ func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 			expectHTTPService: false,
 		},
 		{
-			name:         "Proxy with nil version should NOT use HttpService",
-			proxyVersion: nil,
-			timeout:      durationpb.New(10000000000),
-			headers:      nil,
+			name:              "Proxy with nil version should NOT use HttpService",
+			proxyVersion:      nil,
+			timeout:           durationpb.New(10000000000),
+			headers:           nil,
 			expectHTTPService: false,
 		},
 	}
