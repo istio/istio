@@ -121,13 +121,17 @@ func NewController(
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "ingress", options.KrtDebugger)
 
+	tw := revisions.NewTagWatcher(client, options.Revision, options.SystemNamespace)
 	c := &Controller{
 		client:     client,
 		stop:       stop,
 		status:     &status.StatusCollections{},
 		xdsUpdater: xdsUpdater,
-		tagWatcher: krt.NewRecomputeProtected(revisions.NewTagWatcher(client, options.Revision, options.SystemNamespace), false, opts.WithName("tagWatcher")...),
+		tagWatcher: krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
 	}
+	tw.AddHandler(func(s sets.String) {
+		c.tagWatcher.TriggerRecomputation()
+	})
 
 	c.inputs = Inputs{
 		IngressClasses: krt.NewInformer[*knetworking.IngressClass](client, opts.WithName("informer/IngressClasses")...),
@@ -228,6 +232,14 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 
 func (c *Controller) Run(stop <-chan struct{}) {
 	log.Infof("Starting ingress controller")
+
+	tw := c.tagWatcher.AccessUnprotected()
+	go tw.Run(stop)
+	go func() {
+		kube.WaitForCacheSync("ingress tag watcher", stop, tw.HasSynced)
+		c.tagWatcher.MarkSynced()
+	}()
+
 	<-stop
 	close(c.stop)
 }
