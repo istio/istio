@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -93,7 +94,8 @@ type Controller struct {
 	// outputs contains all the output collections for this controller.
 	outputs Outputs
 
-	status *status.StatusCollections
+	status     *status.StatusCollections
+	tagWatcher krt.RecomputeProtected[revisions.TagWatcher]
 }
 
 type Inputs struct {
@@ -124,6 +126,7 @@ func NewController(
 		stop:       stop,
 		status:     &status.StatusCollections{},
 		xdsUpdater: xdsUpdater,
+		tagWatcher: krt.NewRecomputeProtected(revisions.NewTagWatcher(client, options.Revision, options.SystemNamespace), false, opts.WithName("tagWatcher")...),
 	}
 
 	c.inputs = Inputs{
@@ -167,7 +170,7 @@ func NewController(
 	)
 	status.RegisterStatus(c.status, Status, func(ingress *knetworking.Ingress) knetworking.IngressStatus {
 		return ingress.Status
-	})
+	}, c.tagWatcher.AccessUnprotected())
 
 	_, RuleHostIndex := RuleCollection(
 		SupportedIngresses,

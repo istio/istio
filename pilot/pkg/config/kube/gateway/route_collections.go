@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -59,7 +58,6 @@ func (a AncestorBackend) ResourceName() string {
 func HTTPRouteCollection(
 	httpRoutes krt.Collection[*gateway.HTTPRoute],
 	inputs RouteContextInputs,
-	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, httpRoutes, gvk.HTTPRoute, opts)
@@ -72,10 +70,6 @@ func HTTPRouteCollection(
 		*gateway.HTTPRouteStatus,
 		[]RouteWithKey,
 	) {
-		// if the resource does not belong to our revision do not generate conflicting status
-		if !tagWatcher.Get(krtctx).IsMineRevision(obj.ObjectMeta) {
-			return nil, nil
-		}
 		ctx := inputs.WithCtx(krtctx)
 		inferencePoolCfgPairs := []struct {
 			name string
@@ -270,7 +264,6 @@ type conversionResult[O any] struct {
 func GRPCRouteCollection(
 	grpcRoutes krt.Collection[*gatewayv1.GRPCRoute],
 	inputs RouteContextInputs,
-	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, grpcRoutes, gvk.GRPCRoute, opts)
@@ -283,10 +276,6 @@ func GRPCRouteCollection(
 		*gatewayv1.GRPCRouteStatus,
 		[]RouteWithKey,
 	) {
-		// if the resource does not belong to our revision do not generate conflicting status
-		if !tagWatcher.Get(krtctx).IsMineRevision(obj.ObjectMeta) {
-			return nil, nil
-		}
 		ctx := inputs.WithCtx(krtctx)
 		// routeRuleToInferencePoolCfg stores inference pool configs discovered during route rule conversion.
 		// Note: GRPCRoute currently doesn't have inference pool logic, but adding for consistency.
@@ -419,7 +408,6 @@ func GRPCRouteCollection(
 func TCPRouteCollection(
 	tcpRoutes krt.Collection[*gatewayalpha.TCPRoute],
 	inputs RouteContextInputs,
-	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tcpRoutes, gvk.TCPRoute, opts)
@@ -432,10 +420,6 @@ func TCPRouteCollection(
 		*gatewayalpha.TCPRouteStatus,
 		[]*config.Config,
 	) {
-		// if the resource does not belong to our revision do not generate conflicting status
-		if !tagWatcher.Get(krtctx).IsMineRevision(obj.ObjectMeta) {
-			return nil, nil
-		}
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
@@ -515,7 +499,6 @@ func TCPRouteCollection(
 func TLSRouteCollection(
 	tlsRoutes krt.Collection[*gatewayalpha.TLSRoute],
 	inputs RouteContextInputs,
-	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tlsRoutes, gvk.TLSRoute, opts)
@@ -528,10 +511,6 @@ func TLSRouteCollection(
 		*gatewayalpha.TLSRouteStatus,
 		[]*config.Config,
 	) {
-		// if the resource does not belong to our revision do not generate conflicting status
-		if !tagWatcher.Get(krtctx).IsMineRevision(obj.ObjectMeta) {
-			return nil, nil
-		}
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
