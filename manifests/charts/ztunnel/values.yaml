@@ -66,6 +66,11 @@ _internal_defaults_do_not_set:
     enabled: false
     pods: 5000
 
+  # Certificate Revocation List (CRL) support for plugged-in CAs.
+  # When enabled, ztunnel will check certificates against the CRL
+  peerCaCrl:
+    enabled: false
+
   # List of secret names to add to the service account as image pull secrets
   imagePullSecrets: []
 
