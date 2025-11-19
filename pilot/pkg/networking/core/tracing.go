@@ -292,7 +292,7 @@ func zipkinConfig(
 		zc.CollectorHostname = hostname // http host header
 
 		// Log when timeout/headers configuration is ignored due to version gating
-		if (timeout != nil || len(headers) > 0) && (proxy.IstioVersion == nil || !proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})) {
+		if timeout != nil || len(headers) > 0 {
 			log.Debugf("Proxy %s (version %v) does not support Zipkin timeout/headers: requires Istio 1.29+",
 				proxy.ID, proxy.IstioVersion)
 		}
