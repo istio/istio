@@ -21,13 +21,14 @@ import (
 	"strconv"
 	"sync"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type StatusRegistration = func(statusWriter Queue) krt.HandlerRegistration
@@ -74,7 +75,12 @@ func (s *StatusCollections) SetQueue(queue Queue) []krt.Syncer {
 // krt.ObjectWithStatus, in theory, can contain anything in the "object" field. This function requires it to contain
 // the current live *status*, and a passed in getStatus to extract it from the object.
 // It will then compare the live status to the desired status to determine whether to write or not.
-func RegisterStatus[I controllers.Object, IS any](s *StatusCollections, statusCol krt.StatusCollection[I, IS], getStatus func(I) IS, tagWatcher revisions.TagWatcher) {
+func RegisterStatus[I controllers.Object, IS any](
+	s *StatusCollections,
+	statusCol krt.StatusCollection[I, IS],
+	getStatus func(I) IS,
+	tagWatcher revisions.TagWatcher,
+) {
 	reg := func(statusWriter Queue) krt.HandlerRegistration {
 		h := statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
 			l := o.Latest()
