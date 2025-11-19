@@ -42,4 +42,10 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	cfg.Values["pilot.traceSampling"] = "100.0"
 	cfg.Values["global.proxy.tracer"] = "zipkin"
 	cfg.Values["meshConfig.extensionProviders[0].zipkin.traceContextOption"] = "USE_B3_WITH_W3C_PROPAGATION"
+	// Configure timeout and headers for testing
+	cfg.Values["meshConfig.extensionProviders[0].zipkin.timeout"] = "10s"
+	cfg.Values["meshConfig.extensionProviders[0].zipkin.headers[0].name"] = "X-Custom-Header"
+	cfg.Values["meshConfig.extensionProviders[0].zipkin.headers[0].value"] = "test-value"
+	cfg.Values["meshConfig.extensionProviders[0].zipkin.headers[1].name"] = "Authorization"
+	cfg.Values["meshConfig.extensionProviders[0].zipkin.headers[1].value"] = "Bearer test-token"
 }
