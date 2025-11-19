@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/issues/56007
+
+releaseNotes:
+- |
+  **Improved** handling of hostnames with trailing dots by configuring Envoy to
+   strip it. This replaces the `PILOT_ENABLE_ABSOLUTE_FQDN_VHOST_DOMAIN` feature
+   flag and reduces route configuration size.
+
+upgradeNotes:
+  - title: Trailing dot handling change
+    content: |
+      The `PILOT_ENABLE_ABSOLUTE_FQDN_VHOST_DOMAIN` environment variable has been removed
+      and will be ignored if set. This change is backwards compatible: existing requests
+      continue to work. No user action is required.

@@ -352,6 +352,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD
 	}
 
+	// Strip trailing dots from Host header to support absolute FQDNs (e.g., foo.svc.cluster.local.)
+	// See https://github.com/istio/istio/issues/56007
+	connectionManager.StripTrailingHostDot = true
+
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
 	} else {
