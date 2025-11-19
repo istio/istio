@@ -1118,7 +1118,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 
 		// For InferencePool, always use the first service port (54321).
 		// The cluster for that service port will include all endpoints for all
-		// ports, allowing the EPP to load-balance across them.
+		// target ports, allowing the EPP to load-balance across them.
 		var destPort uint32
 		if len(svc.Ports) > 0 {
 			destPort = uint32(svc.Ports[0].Port)

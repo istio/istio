@@ -513,10 +513,7 @@ func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo
 	ports := make([]corev1.ServicePort, 0, len(shadow.targetPorts))
 
 	for i, tp := range shadow.targetPorts {
-		portName := "http"
-		if i > 0 {
-			portName = fmt.Sprintf("http-%d", i)
-		}
+		portName := fmt.Sprintf("http-%d", i)
 		ports = append(ports, corev1.ServicePort{
 			Name:       portName,
 			Protocol:   corev1.ProtocolTCP,
