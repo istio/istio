@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 57075
+releaseNotes:
+- |
+    **Fixed** an issue where istioctl waypoint status always timed out if the waypoint did not reach a programmed state. This adds a new --wait flag, which defaults to true if not specified but allows a user to disable the original wait behavior and view the status for all waypoint states.
