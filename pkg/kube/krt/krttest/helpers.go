@@ -16,7 +16,9 @@ package krttest
 
 import (
 	"fmt"
+	"strings"
 
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -35,7 +37,19 @@ type MockCollection struct {
 //	pods := krttest.GetMockCollection[Pod](mock) // makes a collection of all Pod types from inputs
 func NewMock(t test.Failer, inputs []any) *MockCollection {
 	t.Helper()
-	mc := &MockCollection{t: t, inputs: inputs}
+	finalInputs := make([]any, 0, len(inputs))
+	for _, input := range inputs {
+		if s, ok := input.(string); ok {
+			objs, err := kubernetesObjectsFromString(s)
+			if err != nil {
+				t.Fatalf("invalid yaml: %v", err)
+			}
+			finalInputs = append(finalInputs, objs...)
+		} else {
+			finalInputs = append(finalInputs, input)
+		}
+	}
+	mc := &MockCollection{t: t, inputs: finalInputs}
 	t.Cleanup(func() {
 		t.Helper()
 		types := slices.Map(mc.inputs, func(e any) string {
@@ -82,4 +96,21 @@ func extractType[T any](items *[]any) []T {
 
 func Options(t test.Failer) krt.OptionsBuilder {
 	return krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
+}
+
+func kubernetesObjectsFromString(s string) ([]any, error) {
+	var objects []any
+	decode := kubelib.IstioCodec.UniversalDeserializer().Decode
+	objectStrs := strings.Split(s, "---")
+	for _, s := range objectStrs {
+		if len(strings.TrimSpace(s)) == 0 {
+			continue
+		}
+		o, _, err := decode([]byte(s), nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed deserializing kubernetes object: %v (%v)", err, s)
+		}
+		objects = append(objects, o)
+	}
+	return objects, nil
 }
