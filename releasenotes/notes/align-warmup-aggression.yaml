@@ -5,4 +5,4 @@ issue:
   - https://github.com/istio/api/issues/3395
 releaseNotes:
   - |
-    **Fixed** an issue where warmup aggression is not align with envoy configuration.
+    **Fixed** an issue where warmup aggression is not aligned with envoy configuration.
