@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58356
+releaseNotes:
+  - |
+    **Fixed** an issue when two Gateways had an overlapping hostname scoped to different namespaces.
