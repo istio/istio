@@ -42,13 +42,24 @@ type NamedValue struct {
 }
 
 func TestJoinCollection(t *testing.T) {
-	opts := testOptions(t)
+	t.Run("checked", func(t *testing.T) {
+		testJoinInner(t)
+	})
+	t.Run("unchecked", func(t *testing.T) {
+		testJoinInner(t, krt.WithJoinUnchecked())
+	})
+}
+
+func testJoinInner(t *testing.T, options ...krt.CollectionOption) {
+	options = append(options, krt.WithName("JoinTest"))
+	opts := testOptions(t).With(options...)
+
 	c1 := krt.NewStatic[Named](nil, true, krt.WithName("c1"))
 	c2 := krt.NewStatic[Named](nil, true, krt.WithName("c2"))
 	c3 := krt.NewStatic[Named](nil, true, krt.WithName("c3"))
 	j := krt.JoinCollection(
 		[]krt.Collection[Named]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()},
-		opts.WithName("Join")...,
+		opts...,
 	)
 	last := atomic.NewString("")
 	j.Register(func(o krt.Event[Named]) {

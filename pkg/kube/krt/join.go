@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// TODO: Implement with merging
 type join[T any] struct {
 	collectionName   string
 	id               collectionUID
@@ -35,13 +34,15 @@ type join[T any] struct {
 	metadata         Metadata
 
 	// mu protects both eventHandlers and processedState
-	mu            sync.RWMutex
-	eventHandlers *handlerSet[T]
+	// but mu and processedState are ignored when uncheckedOverlap is true
+	mu sync.RWMutex
 	// processedState tracks objects we've processed via handleSubCollectionEvents
 	// This ensures RegisterBatch only sends events for objects that have been fully processed,
 	// avoiding duplicates from in-flight sub-collection events
 	processedState map[string]*T
-	stop           <-chan struct{}
+	eventHandlers  *handlerSet[T]
+
+	stop <-chan struct{}
 }
 
 func (j *join[T]) GetKey(k string) *T {
@@ -101,6 +102,22 @@ func (j *join[T]) Register(f func(o Event[T])) HandlerRegistration {
 }
 
 func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
+	// Fast path for unchecked overlap: use List() directly without locking or tracking processedState
+	if j.uncheckedOverlap {
+		var initialEvents []Event[T]
+		if runExistingState {
+			for _, obj := range j.List() {
+				objCopy := obj
+				initialEvents = append(initialEvents, Event[T]{
+					New:   &objCopy,
+					Event: controllers.EventAdd,
+				})
+			}
+		}
+		reg := j.eventHandlers.Insert(f, j, initialEvents, j.stop)
+		return reg
+	}
+
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -126,6 +143,12 @@ func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Han
 // handleSubCollectionEvents processes events from a sub-collection, refreshing them
 // based on the current state of all collections, then distributes to registered handlers.
 func (j *join[T]) handleSubCollectionEvents(events []Event[T], sourceCollectionIdx int) {
+	// Fast path for unchecked overlap: no conflict resolution, no state tracking, no locking
+	if j.uncheckedOverlap {
+		j.eventHandlers.Distribute(events, !j.HasSynced())
+		return
+	}
+
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -322,8 +345,8 @@ func (j *join[T]) Metadata() Metadata {
 }
 
 // JoinCollection combines multiple Collection[T] into a single
-// Collection[T] merging equal objects into one record
-// in the resulting Collection
+// Collection[T]. Key conflicts are resolved by picking the item
+// produced by the first collectoin in the list of input collections.
 func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
@@ -345,7 +368,6 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	if o.stop == nil {
 		panic("no stop channel")
 	}
-	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
 	j := &join[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
