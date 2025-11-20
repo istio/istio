@@ -134,7 +134,7 @@ func TestWaypointStatus(t *testing.T) {
 			expectedOutFile: "waypoint-status-ready",
 		},
 		{
-			name: "waypoint not ready and without specifying --no-wait flag",
+			name: "waypoint not ready and without specifying --wait=false flag",
 			args: strings.Split("status --waypoint-timeout 0.5s", " "),
 			gateways: []*gateway.Gateway{
 				makeGateway(constants.DefaultNamespaceWaypoint, "default", false, true),
@@ -142,8 +142,8 @@ func TestWaypointStatus(t *testing.T) {
 			expectedOutFile: "waypoint-notready-wait",
 		},
 		{
-			name: "waypoint not ready and specifying --no-wait flag",
-			args: strings.Split("status --no-wait --waypoint-timeout 0.5s", " "),
+			name: "waypoint not ready and specifying --wait=false flag",
+			args: strings.Split("status --wait=false --waypoint-timeout 0.5s", " "),
 			gateways: []*gateway.Gateway{
 				makeGateway(constants.DefaultNamespaceWaypoint, "default", false, true),
 			},
