@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -93,7 +94,8 @@ type Controller struct {
 	// outputs contains all the output collections for this controller.
 	outputs Outputs
 
-	status *status.StatusCollections
+	status     *status.StatusCollections
+	tagWatcher krt.RecomputeProtected[revisions.TagWatcher]
 }
 
 type Inputs struct {
@@ -119,12 +121,17 @@ func NewController(
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "ingress", options.KrtDebugger)
 
+	tw := revisions.NewTagWatcher(client, options.Revision)
 	c := &Controller{
 		client:     client,
 		stop:       stop,
 		status:     &status.StatusCollections{},
 		xdsUpdater: xdsUpdater,
+		tagWatcher: krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
 	}
+	tw.AddHandler(func(s sets.String) {
+		c.tagWatcher.TriggerRecomputation()
+	})
 
 	c.inputs = Inputs{
 		IngressClasses: krt.NewInformer[*knetworking.IngressClass](client, opts.WithName("informer/IngressClasses")...),
@@ -167,7 +174,7 @@ func NewController(
 	)
 	status.RegisterStatus(c.status, Status, func(ingress *knetworking.Ingress) knetworking.IngressStatus {
 		return ingress.Status
-	})
+	}, c.tagWatcher.AccessUnprotected())
 
 	_, RuleHostIndex := RuleCollection(
 		SupportedIngresses,
@@ -225,6 +232,14 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 
 func (c *Controller) Run(stop <-chan struct{}) {
 	log.Infof("Starting ingress controller")
+
+	tw := c.tagWatcher.AccessUnprotected()
+	go tw.Run(stop)
+	go func() {
+		kube.WaitForCacheSync("ingress tag watcher", stop, tw.HasSynced)
+		c.tagWatcher.MarkSynced()
+	}()
+
 	<-stop
 	close(c.stop)
 }
