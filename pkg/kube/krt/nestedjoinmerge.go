@@ -35,33 +35,6 @@ type nestedjoinmerge[T any] struct {
 
 var _ internalCollection[any] = &nestedjoinmerge[any]{}
 
-func (j *nestedjoinmerge[T]) Register(f func(e Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched(j, f)
-}
-
-func (j *nestedjoinmerge[T]) RegisterBatch(f func(e []Event[T]), runExistingState bool) HandlerRegistration {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	if !runExistingState {
-		// If we don't to run the initial state this is simple, we just register the handler.
-		return j.eventHandlers.Insert(f, j, nil, j.stop)
-	}
-
-	// We need to run the initial state, but we don't want to get duplicate events.
-	// We should get "ADD initialObject1, ADD initialObjectN, UPDATE someLaterUpdate" without mixing the initial ADDs
-	// Create ADDs for the current state of the merge cache
-	events := make([]Event[T], 0, len(j.outputs))
-	for _, o := range j.outputs {
-		events = append(events, Event[T]{
-			New:   &o,
-			Event: controllers.EventAdd,
-		})
-	}
-
-	// Send out all the initial objects to the handler. We will then unlock the new events so it gets the future updates.
-	return j.eventHandlers.Insert(f, j, events, j.stop)
-}
-
 // nolint: unused // (not true, its to implement an interface)
 func (j *nestedjoinmerge[T]) dump() CollectionDump {
 	innerCols := j.collections.List()
