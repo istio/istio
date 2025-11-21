@@ -42,7 +42,7 @@ type clusterCache struct {
 	locality                *core.Locality // identifies the locality the cluster is generated for
 	preserveHTTP1HeaderCase bool           // indicates whether the original case of HTTP/1.x headers should be preserved
 	proxyClusterID          string         // identifies the kubernetes cluster a proxy is in
-	proxySidecar            bool           // identifies if this proxy is a Sidecar
+	proxyType               model.NodeType // identifies this proxy type
 	hbone                   bool
 	proxyView               model.ProxyView
 	metadataCerts           *metadataCerts // metadata certificates of proxy
@@ -77,7 +77,7 @@ func (t *clusterCache) Key() any {
 	h.Write(Separator)
 	h.WriteString(t.proxyClusterID)
 	h.Write(Separator)
-	h.WriteString(strconv.FormatBool(t.proxySidecar))
+	h.WriteString(string(t.proxyType))
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(t.http2))
 	h.Write(Separator)
@@ -197,7 +197,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		locality:                cb.locality,
 		preserveHTTP1HeaderCase: shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push),
 		proxyClusterID:          cb.clusterID,
-		proxySidecar:            cb.sidecarProxy(),
+		proxyType:               cb.proxyType,
 		proxyView:               cb.proxyView,
 		hbone:                   cb.sendHbone,
 		http2:                   port.Protocol.IsHTTP2(),
