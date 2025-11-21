@@ -77,7 +77,7 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 	}{
 		{
 			name:            "grpc exporter",
-			customAttribute: "provider=otel and key1=val1",
+			customAttribute: "key1=val1",
 			cfgFile:         otelTracingCfg,
 		},
 		{
