@@ -122,12 +122,14 @@ func verifyZipkinTracingExists(t framework.TestContext, configDump *admin.Config
 					httpService := zipkinConfig.GetCollectorService()
 					if httpService == nil {
 						t.Fatal("HttpService is nil - timeout and headers not configured")
+						return // Satisfy static analyzer (unreachable but makes linter happy)
 					}
 					t.Log("Using HttpService (supports timeout/headers)")
 
 					// Verify timeout
 					if httpService.HttpUri == nil || httpService.HttpUri.Timeout == nil {
 						t.Fatal("Timeout not configured")
+						return // Satisfy static analyzer
 					}
 
 					timeout := httpService.HttpUri.Timeout.AsDuration()
@@ -139,6 +141,7 @@ func verifyZipkinTracingExists(t framework.TestContext, configDump *admin.Config
 					// Verify headers
 					if len(httpService.RequestHeadersToAdd) == 0 {
 						t.Fatal("No custom headers configured")
+						return // Satisfy static analyzer
 					}
 					t.Logf("Custom headers: %d", len(httpService.RequestHeadersToAdd))
 
