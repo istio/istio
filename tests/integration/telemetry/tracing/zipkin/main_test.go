@@ -38,14 +38,28 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["meshConfig.enableTracing"] = "true"
-	cfg.Values["pilot.traceSampling"] = "100.0"
-	cfg.Values["global.proxy.tracer"] = "zipkin"
-	cfg.Values["meshConfig.extensionProviders[0].zipkin.traceContextOption"] = "USE_B3_WITH_W3C_PROPAGATION"
-	// Configure timeout and headers for testing
-	cfg.Values["meshConfig.extensionProviders[0].zipkin.timeout"] = "10s"
-	cfg.Values["meshConfig.extensionProviders[0].zipkin.headers[0].name"] = "X-Custom-Header"
-	cfg.Values["meshConfig.extensionProviders[0].zipkin.headers[0].value"] = "test-value"
-	cfg.Values["meshConfig.extensionProviders[0].zipkin.headers[1].name"] = "Authorization"
-	cfg.Values["meshConfig.extensionProviders[0].zipkin.headers[1].value"] = "Bearer test-token"
+	cfg.ControlPlaneValues = `
+values:
+  pilot:
+    traceSampling: 100.0
+meshConfig:
+  enableTracing: true
+  defaultConfig:
+    tracing: {} # disable legacy MeshConfig tracing options
+  defaultProviders:
+    tracing:
+    - zipkin
+  extensionProviders:
+  - name: zipkin
+    zipkin:
+      service: zipkin.istio-system.svc.cluster.local
+      port: 9411
+      traceContextOption: USE_B3_WITH_W3C_PROPAGATION
+      timeout: 10s
+      headers:
+      - name: X-Custom-Header
+        value: test-value
+      - name: Authorization
+        value: Bearer test-token
+`
 }
