@@ -600,7 +600,7 @@ func errorWithMessage(errMsg string, gwc *gateway.Gateway, err error) error {
 	return errors.New(errorMsg)
 }
 
-func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.CLIClient, gw []gateway.Gateway) error {
+func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.CLIClient, gws []gateway.Gateway) error {
 	var cond metav1.Condition
 	startTime := time.Now()
 	ticker := time.NewTicker(1 * time.Second)
@@ -610,7 +610,7 @@ func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.C
 	} else {
 		fmt.Fprintln(w, "NAME\tSTATUS\tTYPE\tREASON\tMESSAGE")
 	}
-	for _, gw := range gw {
+	for _, gw := range gws {
 		for range ticker.C {
 			programmed := false
 			gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
