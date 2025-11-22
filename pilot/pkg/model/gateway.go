@@ -246,12 +246,13 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					if tlsHostsByPort[resolvedPort] == nil {
 						tlsHostsByPort[resolvedPort] = map[string]string{}
 					}
-					if duplicateHosts := CheckDuplicates(s.Hosts, s.Bind, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
+					hosts := GetSNIHostsForServer(s)
+					if duplicateHosts := CheckDuplicates(hosts, s.Bind, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
 						log.Warnf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
 						RecordRejectedConfig(gatewayName)
 						continue
 					}
-					tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s), RouteName: routeName}
+					tlsServerInfo[s] = &TLSServerInfo{SNIHosts: hosts, RouteName: routeName}
 					if s.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 						autoPassthrough = true
 					}
