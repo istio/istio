@@ -2429,6 +2429,8 @@ func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8sbeta.Ga
 			return localNamespace == parent.Namespace
 		case k8s.NamespacesFromNone:
 			return false
+		case k8s.NamespacesFromSelector:
+			// Fallthrough
 		default:
 			// Unknown?
 			return false
