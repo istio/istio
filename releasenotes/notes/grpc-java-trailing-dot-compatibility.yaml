@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/issues/56007
+
+releaseNotes:
+- |
+  **Added** automatic gRPC Java compatibility for trailing dot virtual hosts. gRPC Java clients are now 
+  auto-detected and receive hostnames without trailing dots (e.g., `foo.svc.cluster.local` instead of 
+  `foo.svc.cluster.local.`), as gRPC Java's hostname validation rejects trailing dots. Override per-client 
+  by setting `TRAILING_DOT: "true"` or `TRAILING_DOT: "false"` in xDS node metadata.
+
+
