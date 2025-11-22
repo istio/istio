@@ -50,8 +50,6 @@ var (
 
 	podRetrievalMaxRetries = 30
 	podRetrievalInterval   = 1 * time.Second
-
-	
 )
 
 const (
