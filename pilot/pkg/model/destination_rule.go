@@ -54,9 +54,18 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 		// `appendSeparately` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
 		appendSeparately := true
 		for _, mdr := range mdrList {
+			existingRule := mdr.rule.Spec.(*networking.DestinationRule)
+			bothWithoutSelector := rule.GetWorkloadSelector() == nil && existingRule.GetWorkloadSelector() == nil
+			bothWithSelector := existingRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil
+			selectorsMatch := labels.Instance(existingRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())
+
 			if features.EnableEnhancedDestinationRuleMerge {
 				if exportToSet.Equals(mdr.exportTo) {
-					appendSeparately = false
+					if bothWithoutSelector || (bothWithSelector && selectorsMatch) {
+						appendSeparately = false // Merge the destination rules since the selectors match and exportTo is the same
+					} else {
+						appendSeparately = true // Attempt to merge and also append as a standalone one since the selectors do not match but exportTo is the same
+					}
 				} else if len(mdr.exportTo) > 0 && exportToSet.SupersetOf(mdr.exportTo) {
 					// If the new exportTo is superset of existing, merge and also append as a standalone one
 					appendSeparately = true
@@ -67,10 +76,6 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 				}
 			}
 
-			existingRule := mdr.rule.Spec.(*networking.DestinationRule)
-			bothWithoutSelector := rule.GetWorkloadSelector() == nil && existingRule.GetWorkloadSelector() == nil
-			bothWithSelector := existingRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil
-			selectorsMatch := labels.Instance(existingRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())
 			if bothWithSelector && !selectorsMatch {
 				// If the new destination rule and the existing one has workload selectors associated with them, skip merging
 				// if the selectors do not match
