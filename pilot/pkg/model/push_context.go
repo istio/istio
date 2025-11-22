@@ -877,7 +877,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy, patches *MergedEnvoyFilterW
 	// system during initial installation.
 	if proxy.MergedGateway != nil {
 		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
+			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw.String()])
 		}
 	}
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
@@ -914,7 +914,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace strin
 		return true
 	}
 	for _, g := range gw.GatewayNameForServer {
-		if hosts := ps.virtualServiceIndex.destinationsByGateway[g]; hosts != nil {
+		if hosts := ps.virtualServiceIndex.destinationsByGateway[g.String()]; hosts != nil {
 			if hosts.Contains(hostname) {
 				return true
 			}
@@ -2410,6 +2410,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 	gatewayInstances := make([]gatewayWithInstances, 0)
+	gatewayNames := sets.New[string]()
 
 	var configs []config.Config
 	if features.ScopeGatewayToNamespace {
@@ -2419,6 +2420,19 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	}
 
 	for _, cfg := range configs {
+		if features.EnableStrictGatewayMerging {
+			isInternalGateway := cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
+			// Check if the gateway is managed by us.
+			// We can't use `pilot/pkg/config/kube/gateway#IsManaged` here because it would create a circular
+			// dependency. We check the service account instead as in `pilot/pkg/config/kube/gateway#GatewayCollection`
+			// InternalServiceAccount annotation is set to empty for manual deployments.
+			isManagedGateway := cfg.Annotations[constants.InternalServiceAccount] != ""
+			if isInternalGateway && isManagedGateway {
+				gatewayName := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
+				gatewayNames.Insert(gatewayName.String())
+			}
+		}
+
 		gw := cfg.Spec.(*networking.Gateway)
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
@@ -2449,7 +2463,13 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 
-	return mergeGateways(gatewayInstances, proxy, ps)
+	mgw := mergeGateways(gatewayInstances, proxy, ps)
+
+	if gatewayNames.Len() > 0 {
+		filterMergedGatewayServers(mgw, gatewayNames)
+	}
+
+	return mgw
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {
