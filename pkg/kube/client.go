@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -460,6 +461,47 @@ func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient
 	c := NewFakeClient(objects...).(*client)
 	c.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
 	return c
+}
+
+// NewFakeClientWithRetries creates a fake client that fails for pod/namespace get operations
+// for the first failureCount attempts, then succeeds.
+func NewFakeClientWithRetries(failureCount int, objects ...runtime.Object) CLIClient {
+    c := NewFakeClient(objects...).(*client)
+
+    // Track retry attempts per resource
+    attempts := &sync.Map{}
+
+    // Create a reactor that fails initially then succeeds
+    retryReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+        // Only handle Get actions for pods and namespaces
+        if action.GetVerb() != "get" {
+            return false, nil, nil
+        }
+        resource := action.GetResource().Resource
+        if resource != "pods" && resource != "namespaces" {
+            return false, nil, nil
+        }
+
+        getAction := action.(clienttesting.GetAction)
+        key := fmt.Sprintf("%s/%s/%s", resource, action.GetNamespace(), getAction.GetName())
+
+        val, _ := attempts.LoadOrStore(key, atomic.NewInt32(0))
+        attemptCounter := val.(*atomic.Int32)
+
+        currentAttempt := attemptCounter.Inc()
+
+        if int(currentAttempt) <= failureCount {
+            return true, nil, kerrors.NewServiceUnavailable(fmt.Sprintf("transient error: attempt %d/%d", currentAttempt, failureCount))
+        }
+
+        return false, nil, nil
+    }
+
+    // Prepend the reactor so it runs before the default handlers
+    c.kube.(*fake.Clientset).PrependReactor("get", "pods", retryReactor)
+    c.kube.(*fake.Clientset).PrependReactor("get", "namespaces", retryReactor)
+
+    return c
 }
 
 type fakeClient interface {
