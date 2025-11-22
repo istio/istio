@@ -277,18 +277,6 @@ var (
 	EnableClusterTrustBundles = env.Register("ENABLE_CLUSTER_TRUST_BUNDLE_API", false,
 		"If enabled, uses the ClusterTrustBundle API instead of ConfigMaps to store the root certificate in the cluster.").Get()
 
-	// EnableAbsoluteFqdnVhostDomain controls whether the absolute FQDN (hostname followed by a dot,)
-	// e.g. my-service.my-ns.svc.cluster.local. / google.com. is added to the VirtualHost domains list.
-	// Setting this to false disables the addition.
-	// See https://github.com/istio/istio/issues/56007 for more details of this feature with examples.
-	EnableAbsoluteFqdnVhostDomain = env.Register(
-		"PILOT_ENABLE_ABSOLUTE_FQDN_VHOST_DOMAIN", // Environment variable name
-		true, // Default value (true = feature enabled by default)
-		"If set to false, Istio will not add the absolute FQDN variant"+
-			" (e.g., my-service.my-ns.svc.cluster.local.) to the domains"+
-			" list for VirtualHost entries.",
-	).Get()
-
 	EnableProxyFindPodByIP = env.Register("ENABLE_PROXY_FIND_POD_BY_IP", false,
 		"If enabled, the pod controller will allow finding pods matching proxies by IP if it fails to find them by name.").Get()
 
