@@ -443,7 +443,7 @@ func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 	//
 	// Challenge: In nftables, there is no direct equivalent to "--socket-exists", so we explored multiple alternatives
 	// - Option-1 (UID-based matching): Since kubelet runs as a specific process with a known UID, we can use
-	//   meta skuid to identify traffic originating from kubelet.
+	//   meta skuid to identify traffic originating from kubelet (or kubelite in MicroK8s).
 	//
 	// - Option-2: Match on kubelet’s source IP (node IP). This works in theory but is a bit unsafe as
 	//   other host processes can also send traffic from the node IP, and nodes can have multiple IPs making the
