@@ -88,6 +88,8 @@ type EdsGenerator struct {
 
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
+// TODO: specify configs we need instead of skipping unrelated
+// apparently we need ServiceEntry, DestinationRule, Proxy and MeshConfig
 // Map of all configs that do not impact EDS
 var skippedEdsConfigs = sets.New(
 	kind.Gateway,
