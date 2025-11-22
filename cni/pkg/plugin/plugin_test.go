@@ -250,6 +250,25 @@ func testDoAddRun(t *testing.T, stdinData, nsName string, objects ...runtime.Obj
 	return mockRedir
 }
 
+func TestIsAmbientPod(t *testing.T) {
+	cniConf := buildMockConf(true)
+	pod, ns := buildFakePodAndNSForClient()
+	ns.ObjectMeta.Labels = map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient}
+
+	args := buildCmdArgs(cniConf, testPodName, ns.Name)
+
+	conf, err := parseConfig(args.StdinData)
+	if err != nil {
+		t.Fatalf("config parse failed with error: %v", err)
+	}
+
+	client := kube.NewFakeClientWithRetries(3, pod, ns)
+
+	isAmbient, err := isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors)
+	assert.NoError(t, err)
+	assert.Equal(t, true, isAmbient, "expected pod to be ambient")
+}
+
 func TestCmdAddAmbientEnabledOnNS(t *testing.T) {
 	serverClose := setupCNIEventClientWithMockServer(false)
 
