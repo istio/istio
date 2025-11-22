@@ -31,6 +31,7 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -49,6 +50,8 @@ var (
 
 	podRetrievalMaxRetries = 30
 	podRetrievalInterval   = 1 * time.Second
+
+	
 )
 
 const (
@@ -389,13 +392,24 @@ func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, sel
 		return false, fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 	}
 
-	pod, err := client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
+	var pod *v1.Pod
+	var ns *v1.Namespace
+	var podErr, nsErr error
+	for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
+		if pod == nil || podErr != nil {
+			pod, podErr = client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+		}
+		if ns == nil || nsErr != nil {
+			ns, nsErr = client.CoreV1().Namespaces().Get(context.Background(), podNamespace, metav1.GetOptions{})
+		}
+		if podErr != nil || nsErr != nil {
+			log.Debugf("failed to get pod or namespace info, retrying: podErr=%v, nsErr=%v", podErr, nsErr)
+			time.Sleep(podRetrievalInterval)
+			continue
+		}
 	}
-	ns, err := client.CoreV1().Namespaces().Get(context.Background(), podNamespace, metav1.GetOptions{})
-	if err != nil {
-		return false, err
+	if podErr != nil || nsErr != nil || pod == nil || ns == nil {
+		return false, fmt.Errorf("failed to get pod or namespace info: podErr=%v, nsErr=%v", podErr, nsErr)
 	}
 
 	return compiledSelectors.Matches(pod.Labels, pod.Annotations, ns.Labels), nil
