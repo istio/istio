@@ -15,6 +15,7 @@
 package features
 
 import (
+	"strings"
 	"time"
 
 	"go.uber.org/atomic"
@@ -208,4 +209,27 @@ var (
 		"If enabled, ServiceEntries with wildcard hosts and dynamic dns resolution will be allowed for TLS traffic. "+
 			"This is a security risk, susceptible to SNI spoofing, and should be used with caution. "+
 			"Only consider using this feature if the client is trusted and you understand the risks.").Get()
+
+	IgnorePilotResources = env.Register(
+		"IGNORE_PILOT_RESOURCES",
+		false,
+		"If true, pilot will ignore any Istio specific resource."+
+			"This can be used in case it is desired that Pilot watches just Gateway API resources.").Get()
+
+	bypassCRDFilter = env.Register(
+		"BYPASS_CRD_FILTER",
+		"",
+		"If set, and combined with 'IGNORE_PILOT_RESOURCES' the resources set on this list will not be ignored."+
+			"This value should be a comma-separated list of resources names",
+	)
+
+	BypassCRDFilter = func() []string {
+		filters := bypassCRDFilter.Get()
+
+		if filters == "" {
+			return []string{}
+		}
+
+		return strings.Split(filters, ",")
+	}()
 )
