@@ -61,7 +61,7 @@ func DeployGatewayAPI(ctx resource.Context) error {
 	// Wait until our GatewayClass is ready
 	return retry.UntilSuccess(func() error {
 		for _, c := range ctx.Clusters().Configs() {
-			_, err := c.GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+			_, err := c.GatewayAPI().GatewayV1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
 			if err != nil {
 				return err
 			}

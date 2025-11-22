@@ -103,7 +103,7 @@ spec:
 	}
 
 	t.ConfigIstio().YAML(apps.Namespace.Name(), `
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: managed-owner
@@ -117,7 +117,7 @@ spec:
 `).ApplyOrFail(t)
 
 	// Make sure Gateway becomes programmed..
-	client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().Gateways(apps.Namespace.Name())
+	client := t.Clusters().Default().GatewayAPI().GatewayV1().Gateways(apps.Namespace.Name())
 	check := func() error {
 		gw, _ := client.Get(context.Background(), "managed-owner", metav1.GetOptions{})
 		if gw == nil {
@@ -152,7 +152,7 @@ spec:
 }
 
 func ManagedGatewayTest(t framework.TestContext) {
-	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -167,7 +167,7 @@ spec:
     port: 80
     protocol: HTTP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-1
@@ -180,7 +180,7 @@ spec:
     - name: b
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-2
@@ -274,7 +274,7 @@ data:
 metadata:
   name: auth-cert
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: tls
@@ -504,7 +504,7 @@ func TaggedGatewayTest(t framework.TestContext) {
 	for _, tc := range testCases {
 		t.NewSubTest(fmt.Sprintf("gateway-connectivity-tagged-%s", tc.revisionValue)).Run(func(t framework.TestContext) {
 			t.ConfigIstio().Eval(apps.Namespace.Name(),
-				map[string]string{"revision": tc.revisionValue}, `apiVersion: gateway.networking.k8s.io/v1beta1
+				map[string]string{"revision": tc.revisionValue}, `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -518,7 +518,7 @@ spec:
     port: 80
     protocol: HTTP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-1
@@ -548,7 +548,7 @@ spec:
 }
 
 func ManagedGatewayShortNameTest(t framework.TestContext) {
-	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -560,7 +560,7 @@ spec:
     port: 80
     protocol: HTTP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http
@@ -626,7 +626,7 @@ func UnmanagedGatewayTest(t framework.TestContext) {
 	}
 	t.ConfigIstio().
 		YAML("", `
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: custom-istio
@@ -634,7 +634,7 @@ spec:
   controllerName: istio.io/gateway-controller
 `).
 		Eval(ingressGatewayNs, templateArgs, `
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -688,7 +688,7 @@ spec:
         name: test-gateway-cert-same
 `).
 		Eval(apps.Namespace.Name(), templateArgs, `
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http
@@ -719,7 +719,7 @@ spec:
     - name: b
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: b
@@ -771,7 +771,7 @@ spec:
     - name: c
       port: 7070
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: tls-same
@@ -785,7 +785,7 @@ spec:
     - name: b
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: tls-cross
@@ -875,7 +875,7 @@ spec:
 			})
 			t.NewSubTest("status").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
-					gwc, err := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+					gwc, err := t.Clusters().Default().GatewayAPI().GatewayV1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -916,7 +916,7 @@ spec:
 }
 
 func StatusGatewayTest(t framework.TestContext) {
-	client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+	client := t.Clusters().Default().GatewayAPI().GatewayV1().GatewayClasses()
 
 	check := func() error {
 		gwc, _ := client.Get(context.Background(), "istio", metav1.GetOptions{})
