@@ -205,6 +205,7 @@ func New(options Options) Index {
 	Pods := krt.NewInformerFiltered[*corev1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
+		FieldSelector:   "status.phase!=Failed",
 	}, opts.With(
 		krt.WithName("informer/Pods"),
 		krt.WithMetadata(krt.Metadata{

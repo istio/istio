@@ -219,6 +219,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	Pods := krt.NewInformerFiltered[*corev1.Pod](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
+		FieldSelector:   "status.phase!=Failed",
 	}, opts.With(
 		krt.WithName("informer/Pods"),
 		krt.WithMetadata(krt.Metadata{

@@ -147,6 +147,7 @@ func NewController(
 		Pods: krt.NewInformerFiltered[*corev1.Pod](client, kclient.Filter{
 			ObjectFilter:    client.ObjectFilter(),
 			ObjectTransform: kube.StripPodUnusedFields,
+			FieldSelector:   "status.phase!=Failed",
 		}, opts.WithName("informer/Pods")...),
 		MeshConfig: meshConfig.AsCollection(),
 	}
