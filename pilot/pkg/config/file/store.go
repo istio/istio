@@ -26,6 +26,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	yamlv3 "gopkg.in/yaml.v3" // nolint: depguard // needed for line numbers
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -61,7 +63,7 @@ type KubeSource struct {
 
 	name      string
 	schemas   *collection.Schemas
-	inner     model.ConfigStore
+	inner     model.ConfigStoreController
 	defaultNs resource.Namespace
 
 	shas   map[kubeResourceKey]resourceSha
@@ -90,14 +92,47 @@ func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) []confi
 }
 
 func (s *KubeSource) Create(config config.Config) (revision string, err error) {
+	if s.namespacesFilter != nil && !s.namespacesFilter(config) {
+		tnow := time.Now()
+		if config.ResourceVersion == "" {
+			config.ResourceVersion = tnow.String()
+		}
+		if config.CreationTimestamp.IsZero() {
+			config.CreationTimestamp = tnow
+		}
+		return config.ResourceVersion, nil
+	}
+
 	return s.inner.Create(config)
 }
 
 func (s *KubeSource) Update(config config.Config) (newRevision string, err error) {
+	if s.namespacesFilter != nil && !s.namespacesFilter(config) {
+		tnow := time.Now()
+		if config.ResourceVersion == "" {
+			config.ResourceVersion = tnow.String()
+		}
+		if config.CreationTimestamp.IsZero() {
+			config.CreationTimestamp = tnow
+		}
+		return config.ResourceVersion, nil
+	}
+
 	return s.inner.Update(config)
 }
 
 func (s *KubeSource) UpdateStatus(config config.Config) (newRevision string, err error) {
+	if s.namespacesFilter != nil && !s.namespacesFilter(config) {
+		tnow := time.Now()
+		if config.ResourceVersion == "" {
+			config.ResourceVersion = tnow.String()
+		}
+		if config.CreationTimestamp.IsZero() {
+			config.CreationTimestamp = tnow
+		}
+		return config.ResourceVersion, nil
+	}
+
 	return s.inner.UpdateStatus(config)
 }
 
@@ -110,10 +145,15 @@ func (s *KubeSource) RegisterEventHandler(kind config.GroupVersionKind, handler 
 }
 
 func (s *KubeSource) Run(stop <-chan struct{}) {
+	s.inner.Run(stop)
 }
 
 func (s *KubeSource) HasSynced() bool {
-	return true
+	return s.inner.HasSynced()
+}
+
+func (s *KubeSource) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
+	return s.inner.KrtCollection(kind)
 }
 
 type resourceSha [sha256.Size]byte
@@ -152,7 +192,7 @@ func NewKubeSource(schemas collection.Schemas) *KubeSource {
 	return &KubeSource{
 		name:    name,
 		schemas: &schemas,
-		inner:   memory.MakeSkipValidation(schemas),
+		inner:   memory.NewController(memory.MakeSkipValidation(schemas)),
 		shas:    make(map[kubeResourceKey]resourceSha),
 		byFile:  make(map[string]map[kubeResourceKey]config.GroupVersionKind),
 	}
@@ -166,13 +206,6 @@ func (s *KubeSource) SetDefaultNamespace(defaultNs resource.Namespace) {
 // SetNamespacesFilter enables filtering the namespaces this controller watches.
 func (s *KubeSource) SetNamespacesFilter(namespacesFilter func(obj interface{}) bool) {
 	s.namespacesFilter = namespacesFilter
-}
-
-// Clear the contents of this source
-func (s *KubeSource) Clear() {
-	s.shas = make(map[kubeResourceKey]resourceSha)
-	s.byFile = make(map[string]map[kubeResourceKey]config.GroupVersionKind)
-	s.inner = memory.MakeSkipValidation(*s.schemas)
 }
 
 // ContentNames returns the names known to this source.
@@ -209,9 +242,9 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		if !found || oldSha != r.sha {
 			scope.Debugf("KubeSource.ApplyContent: Set: %v/%v", r.schema.GroupVersionKind(), r.fullName())
 			// apply is idempotent, but configstore is not, thus the odd logic here
-			_, err := s.inner.Update(*r.config)
+			_, err := s.Update(*r.config)
 			if err != nil {
-				_, err = s.inner.Create(*r.config)
+				_, err = s.Create(*r.config)
 				if err != nil {
 					return fmt.Errorf("cannot store config %s/%s %s from reader: %s",
 						r.schema.Version(), r.schema.Kind(), r.fullName(), err)
@@ -228,7 +261,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 
 	for k, col := range oldKeys {
 		empty := ""
-		err := s.inner.Delete(col, k.fullName.Name.String(), k.fullName.Namespace.String(), &empty)
+		err := s.Delete(col, k.fullName.Name.String(), k.fullName.Namespace.String(), &empty)
 		if err != nil {
 			scope.Errorf("encountered unexpected error removing resource from filestore: %s", err)
 		}
@@ -250,7 +283,7 @@ func (s *KubeSource) RemoveContent(name string) {
 	if keys != nil {
 		for key, col := range keys {
 			empty := ""
-			err := s.inner.Delete(col, key.fullName.Name.String(), key.fullName.Namespace.String(), &empty)
+			err := s.Delete(col, key.fullName.Name.String(), key.fullName.Namespace.String(), &empty)
 			if err != nil {
 				scope.Errorf("encountered unexpected error removing resource from filestore: %s", err)
 			}
