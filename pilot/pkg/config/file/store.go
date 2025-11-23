@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -69,6 +68,13 @@ type KubeSource struct {
 
 	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
 	namespacesFilter func(obj interface{}) bool
+
+	// Cached decoder components to avoid repeated allocations in hot paths
+	runtimeScheme *runtime.Scheme
+	deserializer  runtime.Decoder
+
+	// Pool reusable readers to reduce allocations for large file parsing
+	readerPool *sync.Pool
 }
 
 func (s *KubeSource) Schemas() collection.Schemas {
@@ -149,12 +155,19 @@ func NewKubeSource(schemas collection.Schemas) *KubeSource {
 	name := fmt.Sprintf("kube-inmemory-%d", inMemoryKubeNameDiscriminator)
 	inMemoryKubeNameDiscriminator++
 
+	runtimeScheme := runtime.NewScheme()
+	codecs := serializer.NewCodecFactory(runtimeScheme)
+	deserializer := codecs.UniversalDeserializer()
+
 	return &KubeSource{
-		name:    name,
-		schemas: &schemas,
-		inner:   memory.MakeSkipValidation(schemas),
-		shas:    make(map[kubeResourceKey]resourceSha),
-		byFile:  make(map[string]map[kubeResourceKey]config.GroupVersionKind),
+		name:          name,
+		schemas:       &schemas,
+		inner:         memory.MakeSkipValidation(schemas),
+		shas:          make(map[kubeResourceKey]resourceSha),
+		byFile:        make(map[string]map[kubeResourceKey]config.GroupVersionKind),
+		runtimeScheme: runtimeScheme,
+		deserializer:  deserializer,
+		readerPool:    &sync.Pool{New: func() any { return bufio.NewReaderSize(nil, 512*1024) }},
 	}
 }
 
@@ -177,15 +190,27 @@ func (s *KubeSource) Clear() {
 
 // ContentNames returns the names known to this source.
 func (s *KubeSource) ContentNames() map[string]struct{} {
+	result := make(map[string]struct{})
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	result := sets.New[string]()
 	for n := range s.byFile {
-		result.Insert(n)
+		result[n] = struct{}{}
 	}
 
 	return result
+}
+
+// ApplyContentReader applies the given YAML content from an io.Reader to this source.
+// Content is tracked with the given name; repeated calls with the same name overwrite/remove prior content.
+// Returns an error if any were encountered, but that still may represent a partial success.
+func (s *KubeSource) ApplyContentReader(name string, r io.Reader) error {
+	// Parse without holding the write lock to minimize contention
+	// Use a pooled larger buffer to reduce read syscalls and allocations for large inputs
+	br := s.readerPool.Get().(*bufio.Reader)
+	br.Reset(r)
+	resources, parseErrs := s.parseContentReader(s.schemas, name, br)
+	s.readerPool.Put(br)
+	return s.applyContent(name, resources, parseErrs)
 }
 
 // ApplyContent applies the given yamltext to this source. The content is tracked with the given name. If ApplyContent
@@ -193,14 +218,17 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 // or removed, depending on the new content.
 // Returns an error if any were encountered, but that still may represent a partial success
 func (s *KubeSource) ApplyContent(name, yamlText string) error {
+	// Parse without holding the write lock to minimize contention
+	resources, parseErrs := s.parseContent(s.schemas, name, yamlText)
+	return s.applyContent(name, resources, parseErrs)
+}
+
+func (s *KubeSource) applyContent(name string, resources []kubeResource, parseErrs error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// We hold off on dealing with parseErr until the end, since partial success is possible
-	resources, parseErrs := s.parseContent(s.schemas, name, yamlText)
-
 	oldKeys := s.byFile[name]
-	newKeys := make(map[kubeResourceKey]config.GroupVersionKind)
+	newKeys := make(map[kubeResourceKey]config.GroupVersionKind, len(resources))
 
 	for _, r := range resources {
 		key := r.newKey()
@@ -241,7 +269,6 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	return nil
 }
 
-// RemoveContent removes the content for the given name
 func (s *KubeSource) RemoveContent(name string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -262,13 +289,55 @@ func (s *KubeSource) RemoveContent(name string) {
 }
 
 func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) ([]kubeResource, error) {
-	var resources []kubeResource
-	var errs error
+	const readerBufSize = 512 * 1024
+	return s.parseContentReader(r, name, bufio.NewReaderSize(strings.NewReader(yamlText), readerBufSize))
+}
 
-	reader := bufio.NewReader(strings.NewReader(yamlText))
+func (s *KubeSource) parseContentReader(r *collection.Schemas, name string, reader *bufio.Reader) ([]kubeResource, error) {
+	var (
+		resourcesMu sync.Mutex
+		resources   []kubeResource
+		errsMu      sync.Mutex
+		errs        error
+	)
+
 	decoder := kubeyaml2.NewYAMLReader(reader)
-	chunkCount := -1
+	type job struct {
+		line  int
+		chunk []byte
+		idx   int
+	}
+	jobs := make(chan job, 64)
+	const workers = 4
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for w := 0; w < workers; w++ {
+		go func() {
+			defer wg.Done()
+			for j := range jobs {
+				chunkResources, err := s.parseChunk(r, name, j.line, j.chunk)
+				if err != nil {
+					var uerr *unknownSchemaError
+					if errors.As(err, &uerr) {
+						scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
+						continue
+					}
+					e := fmt.Errorf("error processing %s[%d]: %v", name, j.idx, err)
+					scope.Warnf("%v - skipping", e)
+					scope.Debugf("Failed to parse yaml chunk")
+					errsMu.Lock()
+					errs = multierror.Append(errs, e)
+					errsMu.Unlock()
+					continue
+				}
+				resourcesMu.Lock()
+				resources = append(resources, chunkResources...)
+				resourcesMu.Unlock()
+			}
+		}()
+	}
 
+	chunkCount := -1
 	for {
 		chunkCount++
 		doc, lineNum, err := decoder.Read()
@@ -278,31 +347,20 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		if err != nil {
 			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
 			scope.Warnf("%v - skipping", e)
-			scope.Debugf("Failed to parse yamlText chunk: %v", yamlText)
+			scope.Debug("Failed to parse yamlText chunk")
+			errsMu.Lock()
 			errs = multierror.Append(errs, e)
+			errsMu.Unlock()
 			break
 		}
-
 		chunk := bytes.TrimSpace(doc)
 		if len(chunk) == 0 {
 			continue
 		}
-		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
-		if err != nil {
-			var uerr *unknownSchemaError
-			if errors.As(err, &uerr) {
-				scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
-			} else {
-				e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
-				scope.Warnf("%v - skipping", e)
-				scope.Debugf("Failed to parse yaml chunk: %v", string(chunk))
-				errs = multierror.Append(errs, e)
-			}
-			continue
-		}
-		resources = append(resources, chunkResources...)
+		jobs <- job{line: lineNum, chunk: chunk, idx: chunkCount}
 	}
-
+	close(jobs)
+	wg.Wait()
 	return resources, errs
 }
 
@@ -319,18 +377,16 @@ func (e unknownSchemaError) Error() string {
 
 func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) ([]kubeResource, error) {
 	resources := make([]kubeResource, 0)
-	// Convert to JSON
+	// Convert to JSON once
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
 		return resources, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
-
 	// ignore null json
 	if len(jsonChunk) == 0 || bytes.Equal(jsonChunk, []byte("null")) {
 		return resources, nil
 	}
-
-	// Peek at the beginning of the JSON to
+	// Interpret GVK from JSON
 	groupVersionKind, err := kubeJson.DefaultMetaFactory.Interpret(jsonChunk)
 	if err != nil {
 		return resources, fmt.Errorf("failed interpreting jsonChunk: %v", err)
@@ -379,14 +435,11 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		}
 	}
 
-	runtimeScheme := runtime.NewScheme()
-	codecs := serializer.NewCodecFactory(runtimeScheme)
-	deserializer := codecs.UniversalDeserializer()
 	obj, err := kube.IstioScheme.New(schema.GroupVersionKind().Kubernetes())
 	if err != nil {
 		return resources, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
 	}
-	_, _, err = deserializer.Decode(jsonChunk, nil, obj)
+	_, _, err = s.deserializer.Decode(jsonChunk, nil, obj)
 	if err != nil {
 		return resources, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
