@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
@@ -66,6 +67,7 @@ const (
 	gatewayTLSTerminateModeKey = "gateway.istio.io/tls-terminate-mode"
 	addressTypeOverride        = "networking.istio.io/address-type"
 	gatewayClassDefaults       = "gateway.istio.io/defaults-for-class"
+	gatewayTLSCipherSuites     = "gateway.istio.io/tls-cipher-suites"
 )
 
 func sortConfigByCreationTime(configs []config.Config) {
@@ -2114,7 +2116,7 @@ func buildTLS(
 		return nil, nil
 	}
 	// Explicitly not supported: file mounted
-	// Not yet implemented: TLS mode, https redirect, max protocol version, SANs, CipherSuites, VerifyCertificate
+	// Not yet implemented: TLS mode, https redirect, max protocol version, SANs, VerifyCertificate
 	out := &istio.ServerTLSSettings{
 		HttpsRedirect: false,
 	}
@@ -2213,6 +2215,12 @@ func buildTLS(
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
 		if isAutoPassthrough {
 			out.Mode = istio.ServerTLSSettings_AUTO_PASSTHROUGH
+		}
+	}
+	if opts := tls.Options[gatewayTLSCipherSuites]; opts != "" {
+		ciphers := security.FilterCipherSuites(slices.Map(strings.Split(string(opts), ","), strings.TrimSpace))
+		if len(ciphers) > 0 {
+			out.CipherSuites = ciphers
 		}
 	}
 	return out, nil
