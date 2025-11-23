@@ -211,7 +211,8 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
-  ./samples/extauthz/cmd/extauthz
+  ./samples/extauthz/cmd/extauthz \
+  ./pkg/test/endpointpicker/cmd/endpoint-picker
 
 CNI_BINARIES:=./cni/cmd/istio-cni \
 	./cni/cmd/install-cni

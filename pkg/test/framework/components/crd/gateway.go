@@ -96,3 +96,52 @@ func DeployGatewayAPI(ctx resource.Context) error {
 		return nil
 	})
 }
+
+func DeployGatewayAPIInferenceExtensionOrSkip(ctx framework.TestContext) {
+	res := DeployGatewayAPIInferenceExtension(ctx)
+	if res == errSkip {
+		ctx.Skip(errSkip.Error())
+	}
+	if res != nil {
+		ctx.Fatal(res)
+	}
+}
+
+func DeployGatewayAPIInferenceExtension(ctx resource.Context) error {
+	cfg, _ := istio.DefaultConfig(ctx)
+	if !cfg.DeployGatewayAPI {
+		return nil
+	}
+	if !SupportsGatewayAPI(ctx) {
+		return errSkip
+	}
+	if err := ctx.ConfigIstio().
+		File("", filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-inference-extension-crd.yaml")).
+		Apply(apply.NoCleanup); err != nil {
+		return err
+	}
+	// Wait until the InferencePool CRD is ready
+	return retry.UntilSuccess(func() error {
+		for _, c := range ctx.Clusters().Configs() {
+			crdl, err := c.Ext().ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), metav1.ListOptions{})
+			if err != nil {
+				return err
+			}
+			for _, crd := range crdl.Items {
+				if !strings.HasSuffix(crd.Name, "inference.networking.k8s.io") {
+					continue
+				}
+				found := false
+				for _, c := range crd.Status.Conditions {
+					if c.Type == apiextensions.Established && c.Status == apiextensions.ConditionTrue {
+						found = true
+					}
+				}
+				if !found {
+					return fmt.Errorf("crd %v not ready: %+v", crd.Name, crd.Status)
+				}
+			}
+		}
+		return nil
+	})
+}
