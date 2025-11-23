@@ -159,12 +159,12 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				// set flag before sending the initial request to prevent race.
 				initialRequestsSent.Store(true)
 				// Fire of a configured initial request, if there is one
-				p.connectedMutex.RLock()
+				p.connectionsMutex.RLock()
 				initialRequest := p.initialDeltaHealthRequest
 				if initialRequest != nil {
 					con.sendDeltaRequest(initialRequest)
 				}
-				p.connectedMutex.RUnlock()
+				p.connectionsMutex.RUnlock()
 			}
 		}
 	}()
@@ -321,12 +321,14 @@ func sendDownstreamDelta(deltaDownstream DeltaDiscoveryStream, res *discovery.De
 }
 
 func (p *XdsProxy) sendDeltaHealthRequest(req *discovery.DeltaDiscoveryRequest) {
-	p.connectedMutex.Lock()
-	// Immediately send if we are currently connected.
-	if p.connected != nil && p.connected.deltaRequestsChan != nil {
-		p.connected.deltaRequestsChan.Put(req)
+	p.connectionsMutex.Lock()
+	// Immediately send if we have any connections
+	for _, conn := range p.connections {
+		if conn.deltaRequestsChan != nil {
+			conn.deltaRequestsChan.Put(req)
+		}
 	}
-	// Otherwise place it as our initial request for new connections
+	// Also place it as our initial request for new connections
 	p.initialDeltaHealthRequest = req
-	p.connectedMutex.Unlock()
+	p.connectionsMutex.Unlock()
 }
