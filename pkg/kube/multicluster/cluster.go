@@ -53,6 +53,13 @@ const (
 	Update
 )
 
+const (
+	SyncStatusSynced  = "synced"
+	SyncStatusSyncing = "syncing"
+	SyncStatusTimeout = "timeout"
+	SyncStatusClosed  = "closed"
+)
+
 func (a ACTION) String() string {
 	switch a {
 	case Add:
@@ -142,4 +149,17 @@ func (c *Cluster) Closed() bool {
 
 func (c *Cluster) SyncDidTimeout() bool {
 	return !c.initialSync.Load() && c.initialSyncTimeout.Load()
+}
+
+func (c *Cluster) SyncStatus() string {
+	if c.Closed() {
+		return SyncStatusClosed
+	}
+	if c.SyncDidTimeout() {
+		return SyncStatusTimeout
+	}
+	if c.HasSynced() {
+		return SyncStatusSynced
+	}
+	return SyncStatusSyncing
 }

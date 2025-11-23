@@ -45,6 +45,7 @@ const (
 
 var (
 	clusterLabel = monitoring.CreateLabel("cluster")
+	statusLabel  = monitoring.CreateLabel("status")
 	timeouts     = monitoring.NewSum(
 		"remote_cluster_sync_timeouts_total",
 		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
@@ -59,6 +60,12 @@ var (
 
 	localClusters  = clustersCount.With(clusterType.Value("local"))
 	remoteClusters = clustersCount.With(clusterType.Value("remote"))
+
+	remoteClusterSyncState = monitoring.NewGauge(
+		"istiod_remote_cluster_sync_status",
+		"Current synchronization state of remote clusters managed by istiod. "+
+			"One sample per cluster and state; a value of 1 indicates the cluster is in that state.",
+	)
 )
 
 type handler interface {
@@ -86,8 +93,9 @@ type Controller struct {
 
 	cs *ClusterStore
 
-	meshWatcher mesh.Watcher
-	handlers    []handler
+	meshWatcher    mesh.Watcher
+	handlers       []handler
+	metricInterval time.Duration
 }
 
 // NewController returns a new secret controller
@@ -134,6 +142,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		secrets:         secrets,
 		configOverrides: configOverrides,
 		meshWatcher:     meshWatcher,
+		metricInterval:  15 * time.Second,
 	}
 
 	// Queue does NOT retry. The only error that can occur is if the kubeconfig is
@@ -190,7 +199,79 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		c.queue.Run(stopCh)
 		c.handleDelete(c.configClusterID)
 	}()
+	go c.runClusterSyncMetricsUpdater(stopCh)
 	return nil
+}
+
+func (c *Controller) runClusterSyncMetricsUpdater(stopCh <-chan struct{}) {
+	ticker := time.NewTicker(c.metricInterval)
+	defer ticker.Stop()
+
+	// Track previously seen clusters so we can clear metrics for removed ones if desired.
+	lastSeen := map[cluster.ID]struct{}{}
+
+	for {
+		select {
+		case <-stopCh:
+			return
+		case <-ticker.C:
+		}
+
+		currentSeen := map[cluster.ID]struct{}{}
+
+		// Remote clusters from secrets
+		for _, clusters := range c.cs.All() {
+			for id, rc := range clusters {
+				status := rc.SyncStatus()
+				currentSeen[id] = struct{}{}
+
+				c.recordClusterSyncState(id, status)
+			}
+		}
+
+		// Clear metrics for clusters that disappeared.
+		for id := range lastSeen {
+			if _, ok := currentSeen[id]; !ok {
+				c.clearClusterSyncState(id)
+			}
+		}
+
+		lastSeen = currentSeen
+	}
+}
+
+func (c *Controller) recordClusterSyncState(clusterID cluster.ID, status string) {
+	for _, s := range []string{
+		SyncStatusSynced,
+		SyncStatusSyncing,
+		SyncStatusTimeout,
+		SyncStatusClosed,
+	} {
+		v := 0.0
+		if s == status {
+			v = 1.0
+		}
+		remoteClusterSyncState.With(
+			clusterLabel.Value(string(clusterID)),
+			clusterType.Value("remote"),
+			statusLabel.Value(s),
+		).Record(v)
+	}
+}
+
+func (c *Controller) clearClusterSyncState(clusterID cluster.ID) {
+	for _, s := range []string{
+		SyncStatusSynced,
+		SyncStatusSyncing,
+		SyncStatusTimeout,
+		SyncStatusClosed,
+	} {
+		remoteClusterSyncState.With(
+			clusterLabel.Value(string(clusterID)),
+			clusterType.Value("remote"),
+			statusLabel.Value(s),
+		).Record(0.0)
+	}
 }
 
 func (c *Controller) HasSynced() bool {
@@ -355,9 +436,9 @@ func (c *Controller) handleDelete(key cluster.ID) {
 // ListRemoteClusters provides debug info about connected remote clusters.
 func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	// Start with just the config cluster
-	configCluster := "syncing"
+	configCluster := SyncStatusSyncing
 	if kube.AllSynced(c.configClusterSyncers) {
-		configCluster = "synced"
+		configCluster = SyncStatusSynced
 	}
 	out := []cluster.DebugInfo{{
 		ID:         c.configClusterID,
@@ -366,18 +447,10 @@ func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	// Append each cluster derived from secrets
 	for secretName, clusters := range c.cs.All() {
 		for clusterID, c := range clusters {
-			syncStatus := "syncing"
-			if c.Closed() {
-				syncStatus = "closed"
-			} else if c.SyncDidTimeout() {
-				syncStatus = "timeout"
-			} else if c.HasSynced() {
-				syncStatus = "synced"
-			}
 			out = append(out, cluster.DebugInfo{
 				ID:         clusterID,
 				SecretName: secretName,
-				SyncStatus: syncStatus,
+				SyncStatus: c.SyncStatus(),
 			})
 		}
 	}
