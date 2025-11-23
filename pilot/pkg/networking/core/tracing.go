@@ -256,11 +256,10 @@ func zipkinConfig(
 	}
 
 	// Determine if we should use HttpService (modern approach) or legacy fields
-	// Use HttpService when timeout or custom headers are configured, as Envoy only supports
-	// these features through the HttpService configuration.
-	// Only use HttpService for proxies that support it (Istio 1.29+)
-	useHTTPService := (timeout != nil || len(headers) > 0) &&
-		proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
+	// For newer proxies (Istio 1.29+), always use HttpService as it's the modern approach
+	// that supports timeout and custom headers. For older proxies, use legacy fields for
+	// backward compatibility.
+	useHTTPService := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
 
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
@@ -286,15 +285,15 @@ func zipkinConfig(
 		}
 		zc.CollectorService = httpService
 	} else {
-		// Legacy configuration - maintains backward compatibility
+		// Legacy configuration - maintains backward compatibility for older proxies
 		zc.CollectorCluster = cluster
 		zc.CollectorEndpoint = endpoint
 		zc.CollectorHostname = hostname // http host header
 
-		// Log when timeout/headers configuration is ignored due to version gating
+		// Log when timeout/headers configuration is ignored due to older proxy version
 		if timeout != nil || len(headers) > 0 {
-			log.Debugf("Proxy %s (version %v) does not support Zipkin timeout/headers: requires Istio 1.29+",
-				proxy.ID, proxy.IstioVersion)
+			log.Warnf("Proxy %s (version %v) does not support Zipkin timeout/headers configuration: requires Istio 1.29+. "+
+				"Configuration will be ignored.", proxy.ID, proxy.IstioVersion)
 		}
 	}
 

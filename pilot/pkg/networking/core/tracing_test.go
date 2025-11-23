@@ -1778,20 +1778,25 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 			},
 		},
 		{
-			name:     "zipkin without timeout and headers uses legacy fields",
+			name:     "zipkin without timeout and headers uses HttpService (for 1.29+)",
 			hostname: "zipkin.istio-system.svc.cluster.local",
 			cluster:  "zipkin-cluster",
 			endpoint: "/api/v2/spans",
 			timeout:  nil,
 			headers:  nil,
 			expectedConfig: &tracingcfg.ZipkinConfig{
-				CollectorCluster:         "zipkin-cluster",
-				CollectorEndpoint:        "/api/v2/spans",
 				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
-				CollectorHostname:        "zipkin.istio-system.svc.cluster.local",
 				TraceId_128Bit:           true,
 				SharedSpanContext:        wrapperspb.Bool(false),
 				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+				CollectorService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: "zipkin-cluster",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -1865,6 +1870,20 @@ func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 					},
 				},
 			},
+			expectHTTPService: false,
+		},
+		{
+			name:              "New proxy (1.29+) without timeout/headers should use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:           nil,
+			headers:           nil,
+			expectHTTPService: true,
+		},
+		{
+			name:              "Old proxy (1.28) without timeout/headers should NOT use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:           nil,
+			headers:           nil,
 			expectHTTPService: false,
 		},
 		{
