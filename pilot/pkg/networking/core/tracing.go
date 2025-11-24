@@ -27,6 +27,7 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -177,7 +178,8 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
 			traceContextOption := convertTraceContextOption(provider.Zipkin.GetTraceContextOption())
-			return zipkinConfig(hostname, cluster, provider.Zipkin.GetPath(), !provider.Zipkin.GetEnable_64BitTraceId(), traceContextOption, proxy)
+			return zipkinConfig(hostname, cluster, provider.Zipkin.GetPath(), !provider.Zipkin.GetEnable_64BitTraceId(),
+				traceContextOption, provider.Zipkin.GetTimeout(), provider.Zipkin.GetHeaders(), proxy)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 		maxTagLength = provider.Datadog.GetMaxTagLength()
@@ -247,18 +249,52 @@ func convertTraceContextOption(
 
 func zipkinConfig(
 	hostname, cluster, endpoint string, enable128BitTraceID bool, traceContextOption tracingcfg.ZipkinConfig_TraceContextOption,
-	proxy *model.Proxy,
+	timeout *durationpb.Duration, headers []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader, proxy *model.Proxy,
 ) (*anypb.Any, error) {
 	if endpoint == "" {
 		endpoint = "/api/v2/spans" // envoy deprecated v1 support
 	}
+
+	// Determine if we should use HttpService (modern approach) or legacy fields
+	// For newer proxies (Istio 1.29+), always use HttpService as it's the modern approach
+	// that supports timeout and custom headers. For older proxies, use legacy fields for
+	// backward compatibility.
+	useHTTPService := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
+
 	zc := &tracingcfg.ZipkinConfig{
-		CollectorCluster:         cluster,
-		CollectorEndpoint:        endpoint,
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
-		CollectorHostname:        hostname,                          // http host header
 		TraceId_128Bit:           enable128BitTraceID,               // istio default enable 128 bit trace id
 		SharedSpanContext:        wrapperspb.Bool(false),
+	}
+
+	if useHTTPService {
+		// Modern configuration using HttpService
+		// This is required for timeout and custom headers support
+		httpService := &core.HttpService{
+			HttpUri: &core.HttpUri{
+				Uri: fmt.Sprintf("http://%s%s", hostname, endpoint),
+				HttpUpstreamType: &core.HttpUri_Cluster{
+					Cluster: cluster,
+				},
+				Timeout: timeout,
+			},
+		}
+		// Add custom headers if provided
+		if len(headers) > 0 {
+			httpService.RequestHeadersToAdd = buildHTTPHeaders(headers)
+		}
+		zc.CollectorService = httpService
+	} else {
+		// Legacy configuration - maintains backward compatibility for older proxies
+		zc.CollectorCluster = cluster
+		zc.CollectorEndpoint = endpoint
+		zc.CollectorHostname = hostname // http host header
+
+		// Log when timeout/headers configuration is ignored due to older proxy version
+		if timeout != nil || len(headers) > 0 {
+			log.Warnf("Proxy %s (version %v) does not support Zipkin timeout/headers configuration: requires Istio 1.29+. "+
+				"Configuration will be ignored.", proxy.ID, proxy.IstioVersion)
+		}
 	}
 
 	// Only set TraceContextOption for proxies that support it to avoid NACK from older proxies

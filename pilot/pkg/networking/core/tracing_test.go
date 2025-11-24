@@ -1550,7 +1550,7 @@ func TestZipkinConfig(t *testing.T) {
 			proxy := &model.Proxy{
 				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 			}
-			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, tc.enable128BitTraceID, tc.traceContextOption, proxy)
+			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, tc.enable128BitTraceID, tc.traceContextOption, nil, nil, proxy)
 			assert.NoError(t, err)
 
 			// Unmarshal the Any proto to compare the actual ZipkinConfig
@@ -1624,6 +1624,8 @@ func TestZipkinConfigVersionGating(t *testing.T) {
 				"/api/v2/spans",
 				true,
 				tc.traceContextOption,
+				nil,
+				nil,
 				proxy,
 			)
 			assert.NoError(t, err)
@@ -1646,6 +1648,296 @@ func TestZipkinConfigVersionGating(t *testing.T) {
 				// For old proxies, TraceContextOption should be the default (USE_B3)
 				assert.Equal(t, tracingcfg.ZipkinConfig_USE_B3, actualConfig.TraceContextOption,
 					"TraceContextOption should default to USE_B3 for proxy version %s", versionStr)
+			}
+		})
+	}
+}
+
+// TestZipkinConfigWithTimeoutAndHeaders tests Zipkin configuration with timeout and custom headers
+func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
+	testcases := []struct {
+		name           string
+		hostname       string
+		cluster        string
+		endpoint       string
+		timeout        *durationpb.Duration
+		headers        []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+		expectedConfig *tracingcfg.ZipkinConfig
+	}{
+		{
+			name:     "zipkin with timeout uses HttpService",
+			hostname: "zipkin.istio-system.svc.cluster.local",
+			cluster:  "zipkin-cluster",
+			endpoint: "/api/v2/spans",
+			timeout:  durationpb.New(10000000000), // 10s
+			headers:  nil,
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+				CollectorService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: "zipkin-cluster",
+						},
+						Timeout: durationpb.New(10000000000),
+					},
+				},
+			},
+		},
+		{
+			name:     "zipkin with custom headers uses HttpService",
+			hostname: "zipkin.istio-system.svc.cluster.local",
+			cluster:  "zipkin-cluster",
+			endpoint: "/api/v2/spans",
+			timeout:  nil,
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "Authorization",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "Bearer token123",
+					},
+				},
+			},
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+				CollectorService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: "zipkin-cluster",
+						},
+					},
+					RequestHeadersToAdd: []*core.HeaderValueOption{
+						{
+							AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+							Header: &core.HeaderValue{
+								Key:   "Authorization",
+								Value: "Bearer token123",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:     "zipkin with both timeout and headers",
+			hostname: "zipkin.istio-system.svc.cluster.local",
+			cluster:  "zipkin-cluster",
+			endpoint: "/api/v2/spans",
+			timeout:  durationpb.New(5000000000), // 5s
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "X-Custom-Header",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "custom-value",
+					},
+				},
+				{
+					Name: "X-Tenant-ID",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "tenant-123",
+					},
+				},
+			},
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+				CollectorService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: "zipkin-cluster",
+						},
+						Timeout: durationpb.New(5000000000),
+					},
+					RequestHeadersToAdd: []*core.HeaderValueOption{
+						{
+							AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+							Header: &core.HeaderValue{
+								Key:   "X-Custom-Header",
+								Value: "custom-value",
+							},
+						},
+						{
+							AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+							Header: &core.HeaderValue{
+								Key:   "X-Tenant-ID",
+								Value: "tenant-123",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:     "zipkin without timeout and headers uses HttpService (for 1.29+)",
+			hostname: "zipkin.istio-system.svc.cluster.local",
+			cluster:  "zipkin-cluster",
+			endpoint: "/api/v2/spans",
+			timeout:  nil,
+			headers:  nil,
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+				CollectorService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: "zipkin-cluster",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Use 1.29+ proxy to test timeout/headers support
+			proxy := &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			}
+			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, true, tracingcfg.ZipkinConfig_USE_B3, tc.timeout, tc.headers, proxy)
+			assert.NoError(t, err)
+
+			var actualConfig tracingcfg.ZipkinConfig
+			err = result.UnmarshalTo(&actualConfig)
+			assert.NoError(t, err)
+
+			if diff := cmp.Diff(tc.expectedConfig, &actualConfig, protocmp.Transform()); diff != "" {
+				t.Fatalf("zipkinConfig returned unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestZipkinConfigTimeoutHeadersVersionGating tests that timeout and headers are only used for proxies that support it
+func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
+	testcases := []struct {
+		name              string
+		proxyVersion      *model.IstioVersion
+		timeout           *durationpb.Duration
+		headers           []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+		expectHTTPService bool
+	}{
+		{
+			name:              "New proxy (1.29+) with timeout should use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:           durationpb.New(10000000000),
+			headers:           nil,
+			expectHTTPService: true,
+		},
+		{
+			name:         "New proxy (1.29+) with headers should use HttpService",
+			proxyVersion: &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:      nil,
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "Authorization",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "Bearer token",
+					},
+				},
+			},
+			expectHTTPService: true,
+		},
+		{
+			name:              "Old proxy (1.28) with timeout should NOT use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:           durationpb.New(10000000000),
+			headers:           nil,
+			expectHTTPService: false,
+		},
+		{
+			name:         "Old proxy (1.28) with headers should NOT use HttpService",
+			proxyVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:      nil,
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "Authorization",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "Bearer token",
+					},
+				},
+			},
+			expectHTTPService: false,
+		},
+		{
+			name:              "New proxy (1.29+) without timeout/headers should use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:           nil,
+			headers:           nil,
+			expectHTTPService: true,
+		},
+		{
+			name:              "Old proxy (1.28) without timeout/headers should NOT use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:           nil,
+			headers:           nil,
+			expectHTTPService: false,
+		},
+		{
+			name:              "Proxy with nil version should NOT use HttpService",
+			proxyVersion:      nil,
+			timeout:           durationpb.New(10000000000),
+			headers:           nil,
+			expectHTTPService: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			proxy := &model.Proxy{
+				IstioVersion: tc.proxyVersion,
+			}
+
+			result, err := zipkinConfig(
+				"zipkin.istio-system.svc.cluster.local",
+				"outbound|9411||zipkin.istio-system.svc.cluster.local",
+				"/api/v2/spans",
+				true,
+				tracingcfg.ZipkinConfig_USE_B3,
+				tc.timeout,
+				tc.headers,
+				proxy,
+			)
+			assert.NoError(t, err)
+
+			var actualConfig tracingcfg.ZipkinConfig
+			err = result.UnmarshalTo(&actualConfig)
+			assert.NoError(t, err)
+
+			versionStr := "nil"
+			if tc.proxyVersion != nil {
+				versionStr = tc.proxyVersion.String()
+			}
+
+			if tc.expectHTTPService {
+				// For new proxies, HttpService should be set
+				if actualConfig.CollectorService == nil {
+					t.Fatalf("CollectorService should be set for proxy version %s", versionStr)
+				}
+				if actualConfig.CollectorCluster != "" {
+					t.Fatalf("CollectorCluster should be empty when using HttpService for proxy version %s, got: %s", versionStr, actualConfig.CollectorCluster)
+				}
+			} else {
+				// For old proxies, legacy fields should be set
+				if actualConfig.CollectorService != nil {
+					t.Fatalf("CollectorService should NOT be set for proxy version %s", versionStr)
+				}
+				if actualConfig.CollectorCluster == "" {
+					t.Fatalf("CollectorCluster should be set when using legacy config for proxy version %s", versionStr)
+				}
 			}
 		})
 	}
