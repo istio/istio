@@ -202,7 +202,7 @@ func New(options Options) Index {
 
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
 	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, opts.WithName("informer/GatewayClasses")...)
-	Pods := krt.NewInformerFiltered[*corev1.Pod](options.Client, kclient.Filter{
+	Pods := krt.NewFilteredInformer[*corev1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
 	}, opts.With(
@@ -227,7 +227,7 @@ func New(options Options) Index {
 			multicluster.ClusterKRTMetadataKey: options.ClusterID,
 		}),
 	)...)
-	Nodes := krt.NewInformerFiltered[*corev1.Node](options.Client, kclient.Filter{
+	Nodes := krt.NewFilteredInformer[*corev1.Node](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
 	}, opts.With(
@@ -237,7 +237,7 @@ func New(options Options) Index {
 		}),
 	)...)
 
-	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
+	EndpointSlices := krt.NewFilteredInformer[*discovery.EndpointSlice](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}, opts.With(
 		krt.WithName("informer/EndpointSlices"),

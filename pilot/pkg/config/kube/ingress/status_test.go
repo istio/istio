@@ -256,11 +256,11 @@ func makeTestInformers(t *testing.T, name string) informers {
 		}),
 		opts.WithName("informer/Services")...,
 	)
-	nodes := krt.NewInformerFiltered[*corev1.Node](client, kclient.Filter{
+	nodes := krt.NewFilteredInformer[*corev1.Node](client, kclient.Filter{
 		ObjectFilter:    client.ObjectFilter(),
 		ObjectTransform: kube.StripNodeUnusedFields,
 	}, opts.WithName("informer/Nodes")...)
-	pods := krt.NewInformerFiltered[*corev1.Pod](client, kclient.Filter{
+	pods := krt.NewFilteredInformer[*corev1.Pod](client, kclient.Filter{
 		ObjectFilter:    client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
 	}, opts.WithName("informer/Pods")...)

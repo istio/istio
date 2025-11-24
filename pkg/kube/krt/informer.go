@@ -239,12 +239,12 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 // kube.Client before this method is called, otherwise
 // NewInformer will panic.
 func NewInformer[I controllers.ComparableObject](c kube.Client, opts ...CollectionOption) Collection[I] {
-	return NewInformerFiltered[I](c, kubetypes.Filter{}, opts...)
+	return NewFilteredInformer[I](c, kubetypes.Filter{}, opts...)
 }
 
-// NewInformerFiltered takes an argument that filters the
+// NewFilteredInformer takes an argument that filters the
 // results from the kube.Client. Otherwise, behaves
 // the same as NewInformer
-func NewInformerFiltered[I controllers.ComparableObject](c kube.Client, filter kubetypes.Filter, opts ...CollectionOption) Collection[I] {
+func NewFilteredInformer[I controllers.ComparableObject](c kube.Client, filter kubetypes.Filter, opts ...CollectionOption) Collection[I] {
 	return WrapClient[I](kclient.NewFiltered[I](c, filter), opts...)
 }
