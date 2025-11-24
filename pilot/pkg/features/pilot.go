@@ -157,6 +157,14 @@ var (
 		false,
 		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.").Get()
 
+	ConnectOriginateIdleTimeout = env.Register(
+		"PILOT_CONNECT_ORIGINATE_IDLE_TIMEOUT",
+		0*time.Second,
+		"Idle timeout for HBONE connections to ztunnel. "+
+			"Default is 0 (disabled), which uses Envoy's default 1-hour timeout. "+
+			"To prevent stale connection reuse on IP churn, set this to half or less of your IP cooldown period. "+
+			"Recommended: 15s for AWS VPC CNI (30s IP_COOLDOWN_PERIOD).").Get()
+
 	EnableIPAutoallocate = env.Register(
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,
