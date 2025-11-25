@@ -57,6 +57,10 @@ type Port struct {
 	// RequireClientCert determines if the port will be mTLS.
 	RequireClientCert bool
 
+	// EndpointPicker indicates this port should serve as an endpoint picker (ext_proc gRPC service).
+	// Only valid when Protocol is GRPC.
+	EndpointPicker bool
+
 	// ServerFirst if a port will be server first
 	ServerFirst bool
 

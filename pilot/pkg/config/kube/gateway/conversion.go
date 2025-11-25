@@ -1117,9 +1117,18 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		if ipCfg.endpointPickerDst == "" || ipCfg.endpointPickerPort == "" || ipCfg.endpointPickerFailureMode == "" {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
 		}
+
+		// For InferencePool, always use the first service port (54321).
+		// The cluster for that service port will include all endpoints for all
+		// target ports, allowing the EPP to load-balance across them.
+		var destPort uint32
+		if len(svc.Ports) > 0 {
+			destPort = uint32(svc.Ports[0].Port)
+		}
+
 		return &istio.Destination{
 			Host: hostname,
-			// Port: &istio.PortSelector{Number: uint32(*to.Port)},
+			Port: &istio.PortSelector{Number: destPort},
 		}, ipCfg, invalidBackendErr
 	default:
 		return &istio.Destination{}, nil, &ConfigError{

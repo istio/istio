@@ -398,6 +398,8 @@ metadata:
 spec:
   targetPorts:
   - number: 8000
+  - number: 8001
+  - number: 8002
   selector:
     matchLabels:
       app: vllm-llama3-8b-instruct

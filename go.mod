@@ -56,7 +56,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.66.1
 	github.com/prometheus/procfs v0.17.0
-	github.com/prometheus/prometheus v0.305.0
+	github.com/prometheus/prometheus v0.306.0
 	github.com/quic-go/quic-go v0.55.0
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cobra v1.9.1
@@ -106,7 +106,7 @@ require (
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	sigs.k8s.io/controller-runtime v0.22.1
 	sigs.k8s.io/gateway-api v1.4.0
-	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250917095812-173ad587b675
+	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751
 	sigs.k8s.io/knftables v0.0.19-0.20250623122614-e4307300abb5
 	sigs.k8s.io/mcs-api v0.2.0
 	sigs.k8s.io/yaml v1.6.0
