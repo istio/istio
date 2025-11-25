@@ -32,7 +32,7 @@ func TestTraffic(t *testing.T) {
 			deployments := deployment.NewOrFail(t, deployment.Config{
 				IncludeExtAuthz: false,
 			})
-			SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint")
+			SetWaypointServiceEntry(t, "external-service", deployments.NS[0].Namespace.Name(), "waypoint")
 			common.RunAllTrafficTests(t, i, deployments.SingleNamespaceView())
 		})
 }
