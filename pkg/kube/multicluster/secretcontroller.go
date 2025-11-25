@@ -93,9 +93,8 @@ type Controller struct {
 
 	cs *ClusterStore
 
-	meshWatcher    mesh.Watcher
-	handlers       []handler
-	metricInterval time.Duration
+	meshWatcher mesh.Watcher
+	handlers    []handler
 }
 
 // NewController returns a new secret controller
@@ -142,7 +141,6 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		secrets:         secrets,
 		configOverrides: configOverrides,
 		meshWatcher:     meshWatcher,
-		metricInterval:  15 * time.Second,
 	}
 
 	// Queue does NOT retry. The only error that can occur is if the kubeconfig is
@@ -199,45 +197,16 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		c.queue.Run(stopCh)
 		c.handleDelete(c.configClusterID)
 	}()
-	go c.runClusterSyncMetricsUpdater(stopCh)
 	return nil
 }
 
-func (c *Controller) runClusterSyncMetricsUpdater(stopCh <-chan struct{}) {
-	ticker := time.NewTicker(c.metricInterval)
-	defer ticker.Stop()
-
-	// Track previously seen clusters so we can clear metrics for removed ones if desired.
-	lastSeen := map[cluster.ID]struct{}{}
-
-	for {
-		select {
-		case <-stopCh:
-			return
-		case <-ticker.C:
-		}
-
-		currentSeen := map[cluster.ID]struct{}{}
-
-		// Remote clusters from secrets
-		for _, clusters := range c.cs.All() {
-			for id, rc := range clusters {
-				status := rc.SyncStatus()
-				currentSeen[id] = struct{}{}
-
-				c.recordClusterSyncState(id, status)
-			}
-		}
-
-		// Clear metrics for clusters that disappeared.
-		for id := range lastSeen {
-			if _, ok := currentSeen[id]; !ok {
-				c.clearClusterSyncState(id)
-			}
-		}
-
-		lastSeen = currentSeen
+func (c *Controller) onClusterSyncStatusChange(clusterID cluster.ID, status string) {
+	// Only record metrics for clusters we still manage.
+	// This avoids resurrecting metrics for clusters that have been deleted.
+	if !c.cs.Contains(clusterID) {
+		return
 	}
+	c.recordClusterSyncState(clusterID, status)
 }
 
 func (c *Controller) recordClusterSyncState(clusterID cluster.ID, status string) {
@@ -339,6 +308,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 		initialSync:        atomic.NewBool(false),
 		initialSyncTimeout: atomic.NewBool(false),
 		kubeConfigSha:      sha256.Sum256(kubeConfig),
+		syncStatusCallback: c.onClusterSyncStatusChange,
 	}, nil
 }
 
@@ -414,6 +384,7 @@ func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 	cluster.Stop()
 	c.handleDelete(cluster.ID)
 	c.cs.Delete(secretKey, cluster.ID)
+	c.clearClusterSyncState(cluster.ID)
 	cluster.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())

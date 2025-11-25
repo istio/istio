@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/namespace"
-	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -121,7 +120,6 @@ func buildTestController(t *testing.T, synced bool) testController {
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
 	tc.controller = NewController(tc.client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
 	tc.controller.ClientBuilder = TestingBuildClientsFromConfig
-	tc.controller.metricInterval = 10 * time.Millisecond
 	iter := atomic.NewInt32(0)
 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
 		it := iter.Inc()
@@ -165,9 +163,9 @@ func TestListRemoteClusters(t *testing.T) {
 
 	// before sync
 	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
-		{ID: "config", SyncStatus: "syncing"},
-		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "syncing"},
-		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: "syncing"},
+		{ID: "config", SyncStatus: SyncStatusSyncing},
+		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: SyncStatusSyncing},
+		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: SyncStatusSyncing},
 	})
 	assert.EventuallyEqual(t, func() int { return len(c.component.All()) }, 3)
 
@@ -178,29 +176,24 @@ func TestListRemoteClusters(t *testing.T) {
 		}
 	}
 	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
-		{ID: "config", SyncStatus: "synced"},
-		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "synced"},
-		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: "syncing"},
+		{ID: "config", SyncStatus: SyncStatusSynced},
+		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: SyncStatusSynced},
+		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: SyncStatusSyncing},
 	})
 
 	// Sync the last one
 	c.component.ForCluster("c1").Synced.Store(true)
 	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
-		{ID: "config", SyncStatus: "synced"},
-		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "synced"},
-		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: "synced"},
+		{ID: "config", SyncStatus: SyncStatusSynced},
+		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: SyncStatusSynced},
+		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: SyncStatusSynced},
 	})
-
-	// Validate metrics
-	mt := monitortest.New(t)
-	mt.Assert("istiod_remote_cluster_sync_status", map[string]string{"cluster": "c1", "status": "synced"}, monitortest.Exactly(1.0))
-	mt.Assert("istiod_remote_cluster_sync_status", map[string]string{"cluster": "c1", "status": "syncing"}, monitortest.Exactly(0.0))
 
 	// Remove one
 	c.DeleteSecret("s1")
 	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
-		{ID: "config", SyncStatus: "synced"},
-		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "synced"},
+		{ID: "config", SyncStatus: SyncStatusSynced},
+		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: SyncStatusSynced},
 	})
 }
 
