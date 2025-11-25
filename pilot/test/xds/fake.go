@@ -529,7 +529,7 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 	var objects []runtime.Object
 	decode := kubelib.IstioCodec.UniversalDeserializer().Decode
-	objectStrs := strings.Split(s, "---")
+	objectStrs := strings.Split(s, "\n---\n")
 	for _, s := range objectStrs {
 		if len(strings.TrimSpace(s)) == 0 {
 			continue
