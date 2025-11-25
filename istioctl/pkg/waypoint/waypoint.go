@@ -167,7 +167,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 				filteredGws = append(filteredGws, gw)
 			}
-			err = printWaypointStatus(ctx, w, kubeClient, filteredGws, ns)
+			err = printWaypointStatus(w, kubeClient, filteredGws, ns)
 			if err != nil {
 				return fmt.Errorf("failed to print waypoint status: %v", err)
 			}
@@ -606,7 +606,7 @@ func errorWithMessage(errMsg string, gwc *gateway.Gateway, err error) error {
 	return errors.New(errorMsg)
 }
 
-func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.CLIClient, gws []gateway.Gateway, ns string) error {
+func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gws []gateway.Gateway, ns string) error {
 	var cond metav1.Condition
 	startTime := time.Now()
 	ticker := time.NewTicker(1 * time.Second)
