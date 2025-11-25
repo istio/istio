@@ -499,3 +499,118 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) {
+	tests := []struct {
+		name                 string
+		InferencePoolService bool
+		expectedEndpoints    int
+	}{
+		{
+			name:                 "inference service includes endpoints from all ports",
+			InferencePoolService: true,
+			expectedEndpoints:    3,
+		},
+		{
+			name:                 "regular service filters endpoints by port name",
+			InferencePoolService: false,
+			expectedEndpoints:    1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svcLabels := make(map[string]string)
+			if tt.InferencePoolService {
+				svcLabels[constants.InternalServiceSemantics] = constants.ServiceSemanticsInferencePool
+			}
+
+			svc := &model.Service{
+				Hostname: "example.ns.svc.cluster.local",
+				Attributes: model.ServiceAttributes{
+					Name:      "example",
+					Namespace: "ns",
+					Labels:    svcLabels,
+				},
+				Ports: model.PortList{
+					{Port: 80, Protocol: protocol.HTTP, Name: "http-80"},
+					{Port: 8000, Protocol: protocol.HTTP, Name: "http-8000"},
+					{Port: 8001, Protocol: protocol.HTTP, Name: "http-8001"},
+				},
+			}
+
+			proxy := &model.Proxy{
+				Type:        model.SidecarProxy,
+				IPAddresses: []string{"127.0.0.1"},
+				Metadata: &model.NodeMetadata{
+					Namespace: "ns",
+					NodeName:  "example",
+				},
+				ConfigNamespace: "ns",
+			}
+
+			endpointIndex := model.NewEndpointIndex(model.NewXdsCache())
+			shards, _ := endpointIndex.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+			shards.Lock()
+			shards.Shards[model.ShardKey{Cluster: "cluster1"}] = []*model.IstioEndpoint{
+				{
+					Addresses:       []string{"10.0.0.1"},
+					ServicePortName: "http-80",
+					EndpointPort:    80,
+					HostName:        "example.ns.svc.cluster.local",
+					Namespace:       "ns",
+				},
+				{
+					Addresses:       []string{"10.0.0.2"},
+					ServicePortName: "http-8000",
+					EndpointPort:    8000,
+					HostName:        "example.ns.svc.cluster.local",
+					Namespace:       "ns",
+				},
+				{
+					Addresses:       []string{"10.0.0.3"},
+					ServicePortName: "http-8001",
+					EndpointPort:    8001,
+					HostName:        "example.ns.svc.cluster.local",
+					Namespace:       "ns",
+				},
+			}
+			shards.Unlock()
+
+			env := model.NewEnvironment()
+			env.ConfigStore = model.NewFakeStore()
+			env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
+			meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
+			env.NetworksWatcher = meshNetworks
+			env.ServiceDiscovery = &localServiceDiscovery{
+				services: []*model.Service{svc},
+			}
+			xdsUpdater := xdsfake.NewFakeXDS()
+			if err := env.InitNetworksManager(xdsUpdater); err != nil {
+				t.Fatal(err)
+			}
+			env.Init()
+
+			push := model.NewPushContext()
+			push.InitContext(env, nil, nil)
+			env.SetPushContext(push)
+
+			builder := NewCDSEndpointBuilder(
+				proxy, push,
+				"outbound|80||example.ns.svc.cluster.local",
+				model.TrafficDirectionOutbound, "", "example.ns.svc.cluster.local", 80,
+				svc, nil)
+
+			cla := builder.BuildClusterLoadAssignment(endpointIndex)
+
+			var totalEndpoints int
+			for _, localityLbEndpoints := range cla.Endpoints {
+				totalEndpoints += len(localityLbEndpoints.LbEndpoints)
+			}
+
+			if totalEndpoints != tt.expectedEndpoints {
+				t.Errorf("expected %d endpoints, got %d", tt.expectedEndpoints, totalEndpoints)
+			}
+		})
+	}
+}
