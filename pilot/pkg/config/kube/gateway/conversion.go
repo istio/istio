@@ -1091,12 +1091,31 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		inferencePoolServiceName, _ := InferencePoolServiceName(string(to.Name))
 		hostname := inferencePoolServiceName + "." + namespace + ".svc." + ctx.DomainSuffix
-		svc := ctx.LookupHostname(hostname, namespace)
-		if svc == nil {
+
+		// Look up shadow service directly from ctx.Services
+		// to ensure we get the latest shadow service even if PushContext hasn't been updated yet
+		key := namespace + "/" + inferencePoolServiceName
+		k8sSvc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
+		if k8sSvc == nil {
+			log.Warnf("InferencePool %s/%s: shadow service not found in Services collection, key=%s", namespace, to.Name, key)
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 			return &istio.Destination{}, nil, invalidBackendErr
 		}
-		if svc.Attributes.Labels == nil {
+		svc := ctx.LookupHostname(hostname, namespace)
+		if svc == nil {
+			log.Infof("InferencePool %s/%s: shadow service found in K8s but not in GatewayContext yet, using K8s labels", namespace, to.Name)
+		}
+
+		// Get labels from either model.Service (if available) or K8s service
+		var labels map[string]string
+		if svc != nil && svc.Attributes.Labels != nil {
+			labels = svc.Attributes.Labels
+		} else if k8sSvc.Labels != nil {
+			labels = k8sSvc.Labels
+		}
+
+		if labels == nil {
+			log.Warnf("InferencePool %s/%s: no labels found on shadow service", namespace, to.Name)
 			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
 			return &istio.Destination{}, nil, invalidBackendErr
 		}

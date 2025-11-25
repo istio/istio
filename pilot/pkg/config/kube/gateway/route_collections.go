@@ -770,12 +770,43 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		sortRoutesByCreationTime(configs)
 		base := configs[0].DeepCopy()
 		baseVS := base.Spec.(*istio.VirtualService)
-		for _, config := range configs[1:] {
+		for i, config := range configs[1:] {
 			thisVS := config.Spec.(*istio.VirtualService)
 			baseVS.Http = append(baseVS.Http, thisVS.Http...)
 			// append parents
 			base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
 				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
+			// Merge Extra field (especially for InferencePool configs)
+			if config.Extra != nil {
+				if base.Extra == nil {
+					base.Extra = make(map[string]any)
+				}
+				for k, v := range config.Extra {
+					// For InferencePool configs, merge the maps
+					if k == constants.ConfigExtraPerRouteRuleInferencePoolConfigs {
+						if baseMap, ok := base.Extra[k].(map[string]kube.InferencePoolRouteRuleConfig); ok {
+							if configMap, ok := v.(map[string]kube.InferencePoolRouteRuleConfig); ok {
+								log.Infof("Merging InferencePool configs: adding %d route configs from VirtualService %d to base (namespace=%s)",
+									len(configMap), i+1, config.Namespace)
+								for routeName, routeConfig := range configMap {
+									baseMap[routeName] = routeConfig
+								}
+							}
+						} else {
+							log.Infof("Creating new InferencePool config map from VirtualService %d (namespace=%s)", i+1, config.Namespace)
+							base.Extra[k] = v
+						}
+					} else {
+						base.Extra[k] = v
+					}
+				}
+			}
+		}
+		// Log final merged InferencePool configs
+		if base.Extra != nil {
+			if ipConfigs, ok := base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]kube.InferencePoolRouteRuleConfig); ok {
+				log.Infof("Final merged VirtualService for key %s has %d InferencePool route configs", object.Key, len(ipConfigs))
+			}
 		}
 		sortHTTPRoutes(baseVS.Http)
 		base.Name = strings.ReplaceAll(object.Key, "/", "~")
