@@ -695,3 +695,109 @@ func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targ
 	}
 	return ret
 }
+
+func TestPodNameTableLocalRemoteAddresses(t *testing.T) {
+	mesh := &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+
+	headlessService := &model.Service{
+		Hostname:       host.Name("headless-svc.testns.svc.cluster.local"),
+		DefaultAddress: constants.UnspecifiedIP,
+		Ports: model.PortList{&model.Port{
+			Name:     "tcp-port",
+			Port:     9000,
+			Protocol: protocol.TCP,
+		}},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Name:            "headless-svc",
+			Namespace:       "testns",
+			ServiceRegistry: provider.Kubernetes,
+		},
+	}
+
+	cases := []struct {
+		name          string
+		proxyCluster  cluster.ID
+		instances     []*model.Proxy
+		expectedEntry string
+		expectedIPs   []string
+	}{
+		{
+			name:         "cumulative IPs for same pod in local cluster",
+			proxyCluster: "cluster1",
+			instances: []*model.Proxy{
+				{IPAddresses: []string{"10.0.0.1"}, Metadata: &model.NodeMetadata{ClusterID: "cluster1"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+				{IPAddresses: []string{"10.0.0.2"}, Metadata: &model.NodeMetadata{ClusterID: "cluster1"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+			},
+			expectedEntry: "mysql-0.headless-svc.testns.svc.cluster.local",
+			expectedIPs:   []string{"10.0.0.1", "10.0.0.2"},
+		},
+		{
+			name:         "cumulative IPs for same pod in remote cluster",
+			proxyCluster: "cluster1",
+			instances: []*model.Proxy{
+				{IPAddresses: []string{"10.0.0.3"}, Metadata: &model.NodeMetadata{ClusterID: "cluster2"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+				{IPAddresses: []string{"10.0.0.4"}, Metadata: &model.NodeMetadata{ClusterID: "cluster2"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+			},
+			expectedEntry: "mysql-0.headless-svc.testns.svc.cluster.local",
+			expectedIPs:   []string{"10.0.0.3", "10.0.0.4"},
+		},
+		{
+			name:         "local cluster preferred over remote",
+			proxyCluster: "cluster1",
+			instances: []*model.Proxy{
+				{IPAddresses: []string{"10.0.0.1"}, Metadata: &model.NodeMetadata{ClusterID: "cluster1"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+				{IPAddresses: []string{"10.0.0.2"}, Metadata: &model.NodeMetadata{ClusterID: "cluster2"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+			},
+			expectedEntry: "mysql-0.headless-svc.testns.svc.cluster.local",
+			expectedIPs:   []string{"10.0.0.1"},
+		},
+		{
+			name:         "multiple local instances preferred over multiple remote",
+			proxyCluster: "cluster1",
+			instances: []*model.Proxy{
+				{IPAddresses: []string{"10.0.0.1"}, Metadata: &model.NodeMetadata{ClusterID: "cluster1"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+				{IPAddresses: []string{"10.0.0.2"}, Metadata: &model.NodeMetadata{ClusterID: "cluster1"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+				{IPAddresses: []string{"10.0.0.3"}, Metadata: &model.NodeMetadata{ClusterID: "cluster2"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+				{IPAddresses: []string{"10.0.0.4"}, Metadata: &model.NodeMetadata{ClusterID: "cluster2"}, Type: model.SidecarProxy, DNSDomain: "testns.svc.cluster.local"},
+			},
+			expectedEntry: "mysql-0.headless-svc.testns.svc.cluster.local",
+			expectedIPs:   []string{"10.0.0.1", "10.0.0.2"},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			push := model.NewPushContext()
+			push.Mesh = mesh
+			push.AddPublicServices([]*model.Service{headlessService})
+			for _, inst := range tt.instances {
+				push.AddServiceInstances(headlessService,
+					makeServiceInstances(inst, headlessService, "mysql-0", "headless-svc", model.Healthy))
+			}
+
+			proxy := &model.Proxy{
+				IPAddresses: []string{"9.9.9.9"},
+				Metadata:    &model.NodeMetadata{ClusterID: tt.proxyCluster},
+				Type:        model.SidecarProxy,
+				DNSDomain:   "testns.svc.cluster.local",
+			}
+			proxy.SetSidecarScope(push)
+			proxy.DiscoverIPMode()
+
+			nameTable := dnsServer.BuildNameTable(dnsServer.Config{
+				Node:                        proxy,
+				Push:                        push,
+				MulticlusterHeadlessEnabled: true,
+			})
+
+			entry, found := nameTable.Table[tt.expectedEntry]
+			if !found {
+				t.Fatalf("Expected entry %s not found", tt.expectedEntry)
+			}
+			if diff := cmp.Diff(entry.Ips, tt.expectedIPs); diff != "" {
+				t.Errorf("IPs mismatch (-got +want):\n%s", diff)
+			}
+		})
+	}
+}
