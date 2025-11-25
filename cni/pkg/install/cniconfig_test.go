@@ -227,8 +227,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 
 			// Handle chained CNI plugin cases
 			// Call with goroutine to test fsnotify watcher
-			parent, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			parent := t.Context()
 			resultChan, errChan := make(chan string, 1), make(chan error, 1)
 			go func(resultChan chan string, errChan chan error, ctx context.Context, cniConfName, mountedCNINetDir string, chained bool) {
 				result, err := getCNIConfigFilepath(ctx, cniConfName, mountedCNINetDir, chained)

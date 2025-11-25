@@ -15,7 +15,6 @@
 package ambient
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -223,8 +222,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 	stop := test.NewStop(t)
 	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler)
 	c := kube.NewFakeClient()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	clientAuthzPol := kclient.New[*securityclient.AuthorizationPolicy](c)
 	authzPolCol := krt.WrapClient(clientAuthzPol, opts.WithName("authzPolCol")...)
