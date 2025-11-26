@@ -55,7 +55,6 @@ meshConfig:
       service: zipkin.istio-system.svc.cluster.local
       port: 9411
       traceContextOption: USE_B3_WITH_W3C_PROPAGATION
-      timeout: 10s
       headers:
       - name: X-Custom-Header
         value: test-value
