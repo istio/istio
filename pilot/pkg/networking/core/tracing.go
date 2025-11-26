@@ -266,24 +266,23 @@ func zipkinConfig(
 	// that supports timeout and custom headers. For older proxies, use legacy fields for
 	// backward compatibility.
 	proxyVersionGreaterOrEqual129 := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
-	useHTTPService := timeout != nil || len(headers) > 0
 
 	if proxyVersionGreaterOrEqual129 {
 		// Modern configuration using HttpService
 		// This is required for timeout and custom headers support
 
 		// Set default timeout if not provided, as Envoy requires a timeout to be set.
-		t := durationpb.New(5 * time.Second)
-		if timeout != nil {
-			t = timeout
+		if timeout == nil {
+			timeout = durationpb.New(5 * time.Second)
 		}
+
 		httpService := &core.HttpService{
 			HttpUri: &core.HttpUri{
 				Uri: fmt.Sprintf("http://%s%s", hostname, endpoint),
 				HttpUpstreamType: &core.HttpUri_Cluster{
 					Cluster: cluster,
 				},
-				Timeout: t,
+				Timeout: timeout,
 			},
 		}
 		// Add custom headers if provided
@@ -297,6 +296,7 @@ func zipkinConfig(
 		zc.CollectorEndpoint = endpoint
 		zc.CollectorHostname = hostname // http host header
 
+		useHTTPService := timeout != nil || len(headers) > 0
 		// Log when timeout/headers configuration is ignored due to older proxy version
 		if useHTTPService {
 			log.Warnf("Proxy %s (version %v) does not support Zipkin timeout/headers configuration: requires Istio 1.29+. "+
