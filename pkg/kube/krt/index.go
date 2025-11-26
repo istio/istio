@@ -208,12 +208,13 @@ func (i *indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 	tk := i.fromKey(k).(K)
 
 	// Use internal state if available for consistency with processed events.
+	// Clone the slice to prevent callers from modifying internal state.
 	i.mu.RLock()
 	if objs, exists := i.internalState[k]; exists {
 		i.mu.RUnlock()
 		return &IndexObject[K, O]{
 			Key:     tk,
-			Objects: objs,
+			Objects: slices.Clone(objs),
 		}
 	}
 	i.mu.RUnlock()

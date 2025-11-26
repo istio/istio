@@ -603,6 +603,140 @@ func TestIndexRingBufferDelay(t *testing.T) {
 	}
 }
 
+// TestIndexInternalStateConsistency directly tests that IndexCollection maintains
+// internal state correctly, independent of timing. This validates the fix for #58014.
+//
+// The race condition occurs because:
+// 1. Parent collection processes events and updates its internal state
+// 2. Events flow through an unbounded ring buffer to IndexCollection
+// 3. By the time IndexCollection processes Batch N, parent may have processed Batch N+1
+// 4. OLD CODE: GetKey() queries parent's CURRENT state (at N+1), not state at event time (N)
+// 5. NEW CODE: Internal state tracks events processed, so Objects reflects state at event time
+//
+// This test verifies that even when multiple batches are processed with parent ahead,
+// the IndexCollection emits events with Objects reflecting the correct state for each batch.
+func TestIndexInternalStateConsistency(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	pc := clienttest.Wrap(t, kpc)
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	c.RunAndWait(stop)
+	SimplePods := SimplePodCollection(pods, opts)
+
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
+		return []string{o.IP}
+	})
+	indexColl := IPIndex.AsCollection(krt.WithName("IPIndexCollection"))
+
+	// Track ALL events emitted by IndexCollection
+	type eventSnapshot struct {
+		key        string
+		objectKeys []string // sorted pod names
+		eventType  string
+	}
+	var allEvents []eventSnapshot
+	var eventsMu sync.Mutex
+
+	indexColl.Register(func(ev krt.Event[krt.IndexObject[string, SimplePod]]) {
+		eventsMu.Lock()
+		defer eventsMu.Unlock()
+
+		snapshot := eventSnapshot{}
+		if ev.New != nil {
+			snapshot.key = ev.New.Key
+			snapshot.objectKeys = slices.Sort(slices.Map(ev.New.Objects, func(p SimplePod) string {
+				return p.ResourceName()
+			}))
+			snapshot.eventType = "add"
+		} else if ev.Old != nil {
+			snapshot.key = ev.Old.Key
+			snapshot.eventType = "delete"
+		}
+		allEvents = append(allEvents, snapshot)
+	})
+
+	indexColl.WaitUntilSynced(stop)
+
+	// Create initial state: 3 pods sharing IP
+	sharedIP := "10.0.0.1"
+	for _, name := range []string{"pod-a", "pod-b", "pod-c"} {
+		pc.CreateOrUpdateStatus(&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
+			Status:     corev1.PodStatus{PodIP: sharedIP},
+		})
+	}
+
+	// Wait for all 3 pods to be indexed
+	assert.EventuallyEqual(t, func() int { return len(IPIndex.Lookup(sharedIP)) }, 3)
+
+	// Clear events from initial sync
+	eventsMu.Lock()
+	allEvents = nil
+	eventsMu.Unlock()
+
+	// Now trigger updates that could expose the race:
+	// 1. Update pod-a (stays in sharedIP)
+	// 2. Move pod-b to different IP
+	// 3. Delete pod-c
+	//
+	// With the fix, each event should show the correct intermediate state.
+	// Without the fix, events might show "future" state where pod-b and pod-c are already gone.
+
+	pc.UpdateStatus(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "pod-a", Namespace: "ns", Labels: map[string]string{"updated": "true"}},
+		Status:     corev1.PodStatus{PodIP: sharedIP},
+	})
+
+	pc.UpdateStatus(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "pod-b", Namespace: "ns"},
+		Status:     corev1.PodStatus{PodIP: "10.0.0.2"}, // Move to different IP
+	})
+
+	pc.Delete("pod-c", "ns")
+
+	// Wait for final state
+	assert.EventuallyEqual(t, func() int { return len(IPIndex.Lookup(sharedIP)) }, 1)
+	assert.EventuallyEqual(t, func() int { return len(IPIndex.Lookup("10.0.0.2")) }, 1)
+
+	// Verify events were emitted correctly
+	eventsMu.Lock()
+	defer eventsMu.Unlock()
+
+	// Find all events for sharedIP
+	var sharedIPEvents []eventSnapshot
+	for _, e := range allEvents {
+		if e.key == sharedIP {
+			sharedIPEvents = append(sharedIPEvents, e)
+		}
+	}
+
+	// The key invariant: we should see object counts decrease smoothly (3 -> 2 -> 1)
+	// If the race occurred, we might see a jump (3 -> 1) because GetKey returned future state
+	if len(sharedIPEvents) > 1 {
+		for i := 1; i < len(sharedIPEvents); i++ {
+			prev := len(sharedIPEvents[i-1].objectKeys)
+			curr := len(sharedIPEvents[i].objectKeys)
+			// Allow +1/-1 changes, but not larger jumps that indicate race condition
+			if curr > 0 && prev > 0 { // Ignore delete events
+				diff := prev - curr
+				if diff > 1 {
+					t.Errorf("Object count jumped from %d to %d (possible race: GetKey returned future state)", prev, curr)
+					t.Logf("Previous event: %+v", sharedIPEvents[i-1])
+					t.Logf("Current event: %+v", sharedIPEvents[i])
+				}
+			}
+		}
+	}
+
+	// Verify final state
+	result := indexColl.GetKey(sharedIP)
+	if result == nil || len(result.Objects) != 1 {
+		t.Errorf("Expected 1 object for sharedIP, got %v", result)
+	}
+}
+
 // TestIndexMergeConsistency validates internal state consistency during event processing.
 func TestIndexMergeConsistency(t *testing.T) {
 	stop := test.NewStop(t)
