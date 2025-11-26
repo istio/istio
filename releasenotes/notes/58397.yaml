@@ -5,4 +5,4 @@ issue:
 - 58397
 releaseNotes:
 - |
-  **Fixed** DNS name table creation for headless services where pods entries did not account for pods to have multiple IPs (Dual Stack).
+  **Fixed** DNS name table creation for headless services where pods entries did not account for pods to have multiple IPs.
