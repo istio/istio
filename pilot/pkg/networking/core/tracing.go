@@ -658,7 +658,7 @@ func configureCustomTags(spec *model.TracingSpec, hcmTracing *hcm.HttpConnection
 	if len(providerTags) == 0 {
 		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.GetTracing().GetCustomTags())...)
 	} else {
-		tags = append(tags, buildCustomTagsFromProvider(providerTags)...)
+		tags = append(tags, buildCustomTagsFromProvider(node, providerTags)...)
 	}
 
 	// looping over customTags, a map, results in the returned value
@@ -671,48 +671,57 @@ func configureCustomTags(spec *model.TracingSpec, hcmTracing *hcm.HttpConnection
 	hcmTracing.CustomTags = tags
 }
 
-func buildCustomTagsFromProvider(providerTags map[string]*telemetrypb.Tracing_CustomTag) []*tracing.CustomTag {
+func buildCustomTagsFromProvider(node *model.Proxy, providerTags map[string]*telemetrypb.Tracing_CustomTag) []*tracing.CustomTag {
 	var tags []*tracing.CustomTag
+
+	supportFormatterTag := node.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29, Patch: 0})
+	hasFormatterTag := false
+
 	for tagName, tagInfo := range providerTags {
 		if tagInfo == nil {
 			log.Warnf("while building custom tags from provider, encountered nil custom tag: %s, skipping", tagName)
 			continue
 		}
+		t := &tracing.CustomTag{
+			Tag: tagName,
+		}
 		switch tag := tagInfo.Type.(type) {
 		case *telemetrypb.Tracing_CustomTag_Environment:
-			env := &tracing.CustomTag{
-				Tag: tagName,
-				Type: &tracing.CustomTag_Environment_{
-					Environment: &tracing.CustomTag_Environment{
-						Name:         tag.Environment.Name,
-						DefaultValue: tag.Environment.DefaultValue,
-					},
+			t.Type = &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         tag.Environment.Name,
+					DefaultValue: tag.Environment.DefaultValue,
 				},
 			}
-			tags = append(tags, env)
 		case *telemetrypb.Tracing_CustomTag_Header:
-			header := &tracing.CustomTag{
-				Tag: tagName,
-				Type: &tracing.CustomTag_RequestHeader{
-					RequestHeader: &tracing.CustomTag_Header{
-						Name:         tag.Header.Name,
-						DefaultValue: tag.Header.DefaultValue,
-					},
+			t.Type = &tracing.CustomTag_RequestHeader{
+				RequestHeader: &tracing.CustomTag_Header{
+					Name:         tag.Header.Name,
+					DefaultValue: tag.Header.DefaultValue,
 				},
 			}
-			tags = append(tags, header)
 		case *telemetrypb.Tracing_CustomTag_Literal:
-			env := &tracing.CustomTag{
-				Tag: tagName,
-				Type: &tracing.CustomTag_Literal_{
-					Literal: &tracing.CustomTag_Literal{
-						Value: tag.Literal.Value,
-					},
+			t.Type = &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: tag.Literal.Value,
 				},
 			}
-			tags = append(tags, env)
+		case *telemetrypb.Tracing_CustomTag_Formatter:
+			hasFormatterTag = true
+			if !supportFormatterTag {
+				continue
+			}
+			t.Type = &tracing.CustomTag_Value{
+				Value: tag.Formatter.Value,
+			}
 		}
+		tags = append(tags, t)
 	}
+
+	if !supportFormatterTag && hasFormatterTag {
+		log.Debug("Formatter custom tag only support for Istio 1.29+")
+	}
+
 	return tags
 }
 
