@@ -227,7 +227,7 @@ func TestConfigureTracing(t *testing.T) {
 		{
 			name:   "basic config (with opentelemetry provider via grpc with initial metadata)",
 			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true, true),
-			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(),
+			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(28),
 			want: fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
@@ -235,7 +235,7 @@ func TestConfigureTracing(t *testing.T) {
 		{
 			name:   "only telemetry api (with provider)",
 			inSpec: fakeTracingSpec(fakeZipkinWithEndpoint(), 99.999, false, true, true),
-			opts:   fakeOptsZipkinTelemetryWithEndpoint(&model.IstioVersion{Major: 1, Minor: 28, Patch: 0}),
+			opts:   fakeOptsZipkinTelemetryWithEndpoint(),
 			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, "/custom/path/api/v2/spans", true),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
@@ -259,9 +259,9 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:   "with formatter tag",
-			inSpec: fakeTracingSpec(fakeZipkinWithEndpoint(), 99.999, false, true, true),
-			opts:   fakeOptsZipkinTelemetryWithEndpoint(&model.IstioVersion{Major: 1, Minor: 29, Patch: 0}),
-			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, "/custom/path/api/v2/spans", true),
+			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true, true),
+			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(29),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -714,7 +714,7 @@ func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
 	return opts
 }
 
-func fakeOptsZipkinTelemetryWithEndpoint(v *model.IstioVersion) gatewayListenerOpts {
+func fakeOptsZipkinTelemetryWithEndpoint() gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -734,7 +734,7 @@ func fakeOptsZipkinTelemetryWithEndpoint(v *model.IstioVersion) gatewayListenerO
 		},
 	}
 	opts.proxy = &model.Proxy{
-		IstioVersion: v,
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1073,7 +1073,7 @@ func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 	return opts
 }
 
-func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI() gatewayListenerOpts {
+func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(minor int) gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -1103,7 +1103,7 @@ func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI() gatewayListe
 		},
 	}
 	opts.proxy = &model.Proxy{
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: minor, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
