@@ -47,22 +47,16 @@ func runInHost[T any](f func() (T, error)) (T, error) {
 }
 
 func checkInterfacesForMatchingAddr(targetAddr net.IP) (match bool, err error) {
-	var interfaces []net.Interface
-	if interfaces, err = net.Interfaces(); err != nil {
-		return false, fmt.Errorf("failed to get interfaces")
+	var addrs []net.Addr
+	if addrs, err = net.InterfaceAddrs(); err != nil {
+		return match, err
 	}
 
-	for _, ief := range interfaces {
-		var addrs []net.Addr
-		if addrs, err = ief.Addrs(); err != nil {
-			return
-		}
-		for _, addr := range addrs {
-			switch v := addr.(type) {
-			case *net.IPNet:
-				if v.IP.Equal(targetAddr) {
-					return true, nil
-				}
+	for _, addr := range addrs {
+		switch v := addr.(type) {
+		case *net.IPNet:
+			if v.IP.Equal(targetAddr) {
+				return true, nil
 			}
 		}
 	}
