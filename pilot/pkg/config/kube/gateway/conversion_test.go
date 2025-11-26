@@ -1781,7 +1781,7 @@ func TestHumanReadableJoin(t *testing.T) {
 func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 	var objects []runtime.Object
 	decode := kube.IstioCodec.UniversalDeserializer().Decode
-	objectStrs := strings.Split(s, "---")
+	objectStrs := strings.Split(s, "\n---\n")
 	for _, s := range objectStrs {
 		if len(strings.TrimSpace(s)) == 0 {
 			continue
