@@ -22,8 +22,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gtwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gtwapiv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1" // TODO: should likely update to v1 but this is the type currently recognized byt kclient
 
+	// TODO: should likely update to v1 but this is the type currently recognized byt kclient
 	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
@@ -233,7 +233,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 	clientSe := kclient.New[*networkingclient.ServiceEntry](c)
 	seCol := krt.WrapClient(clientSe, opts.WithName("seCol")...)
 
-	clientGwClass := kclient.New[*gtwapiv1beta1.GatewayClass](c)
+	clientGwClass := kclient.New[*gtwapiv1.GatewayClass](c)
 	gwClassCol := krt.WrapClient(clientGwClass, opts.WithName("gwClassCol")...)
 
 	meshConfigMock := krttest.NewMock(t, []any{
@@ -246,9 +246,9 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 	clientNs := kclient.New[*v1.Namespace](c)
 	nsCol := krt.WrapClient(clientNs, opts.WithName("nsCol")...)
 
-	clientGtw := kclient.New[*gtwapiv1beta1.Gateway](c)
+	clientGtw := kclient.New[*gtwapiv1.Gateway](c)
 	gtwCol := krt.WrapClient(clientGtw, opts.WithName("gtwCol")...)
-	waypointCol := krt.NewCollection(gtwCol, func(ctx krt.HandlerContext, i *gtwapiv1beta1.Gateway) *Waypoint {
+	waypointCol := krt.NewCollection(gtwCol, func(ctx krt.HandlerContext, i *gtwapiv1.Gateway) *Waypoint {
 		if i == nil {
 			return nil
 		}
@@ -285,7 +285,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 	assert.NoError(t, err)
 
 	addrType := gtwapiv1.HostnameAddressType
-	_, err = clientGtw.Create(&gtwapiv1beta1.Gateway{
+	_, err = clientGtw.Create(&gtwapiv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "waypoint",
 			Namespace: testNS,
@@ -995,12 +995,12 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		},
 		{
 			testName: "single-bind-gateway-class",
-			gatewayClasses: []gtwapiv1beta1.GatewayClass{
+			gatewayClasses: []gtwapiv1.GatewayClass{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "istio-waypoint",
 					},
-					Spec: gtwapiv1beta1.GatewayClassSpec{
+					Spec: gtwapiv1.GatewayClassSpec{
 						ControllerName: constants.ManagedGatewayMeshController,
 					},
 				},
@@ -1037,7 +1037,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		},
 		{
 			testName:       "nonexistent-gateway-class",
-			gatewayClasses: []gtwapiv1beta1.GatewayClass{},
+			gatewayClasses: []gtwapiv1.GatewayClass{},
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "single-no-gateway-class-pol",
@@ -1070,12 +1070,12 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		},
 		{
 			testName: "non-waypoint-gateway-class",
-			gatewayClasses: []gtwapiv1beta1.GatewayClass{
+			gatewayClasses: []gtwapiv1.GatewayClass{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "not-for-waypoint",
 					},
-					Spec: gtwapiv1beta1.GatewayClassSpec{
+					Spec: gtwapiv1.GatewayClassSpec{
 						ControllerName: "random-controller",
 					},
 				},
@@ -1112,12 +1112,12 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		},
 		{
 			testName: "gateway-class-ap-not-in-root-ns",
-			gatewayClasses: []gtwapiv1beta1.GatewayClass{
+			gatewayClasses: []gtwapiv1.GatewayClass{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "waypoint",
 					},
-					Spec: gtwapiv1beta1.GatewayClassSpec{
+					Spec: gtwapiv1.GatewayClassSpec{
 						ControllerName: constants.ManagedGatewayMeshController,
 					},
 				},
@@ -1193,7 +1193,7 @@ type TestWaypointPolicyStatusCollectionTestCase struct {
 	testName       string
 	serviceEntries []networkingclient.ServiceEntry
 	services       []v1.Service
-	gatewayClasses []gtwapiv1beta1.GatewayClass
+	gatewayClasses []gtwapiv1.GatewayClass
 	policy         securityclient.AuthorizationPolicy
 	expect         []model.PolicyBindingStatus
 }

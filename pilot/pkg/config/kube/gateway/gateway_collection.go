@@ -22,7 +22,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
@@ -74,7 +73,7 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 
 func ListenerSetCollection(
 	listenerSets krt.Collection[*gatewayx.XListenerSet],
-	gateways krt.Collection[*gateway.Gateway],
+	gateways krt.Collection[*gatewayv1.Gateway],
 	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
@@ -220,7 +219,7 @@ func ListenerSetCollection(
 }
 
 func GatewayCollection(
-	gateways krt.Collection[*gateway.Gateway],
+	gateways krt.Collection[*gatewayv1.Gateway],
 	listenerSets krt.Collection[ListenerSet],
 	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
@@ -232,13 +231,13 @@ func GatewayCollection(
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) (
-	krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus],
+	krt.StatusCollection[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
 	krt.Collection[Gateway],
 ) {
 	listenerIndex := krt.NewIndex(listenerSets, "gatewayParent", func(o ListenerSet) []types.NamespacedName {
 		return []types.NamespacedName{o.GatewayParent}
 	})
-	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
+	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gatewayv1.Gateway) (*gatewayv1.GatewayStatus, []Gateway) {
 		// We currently depend on service discovery information not known to krt; mark we depend on it.
 		context := gatewayContext.Get(ctx).Load()
 		if context == nil {
@@ -362,14 +361,16 @@ func GatewayCollection(
 // the attachedRoute count, so we first build a partial Gateway status, then once routes are computed we finalize it with
 // the attachedRoute count.
 func FinalGatewayStatusCollection(
-	gatewayStatuses krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus],
+	gatewayStatuses krt.StatusCollection[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
 	routeAttachments krt.Collection[RouteAttachment],
 	routeAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment],
 	opts krt.OptionsBuilder,
-) krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus] {
+) krt.StatusCollection[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
 	return krt.NewCollection(
 		gatewayStatuses,
-		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
+		func(
+			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
+		) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
 			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
 			counts := map[string]int32{}
 			for _, r := range tcpRoutes {
@@ -380,7 +381,7 @@ func FinalGatewayStatusCollection(
 				s.AttachedRoutes = counts[string(s.Name)]
 				status.Listeners[i] = s
 			}
-			return &krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]{
+			return &krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus]{
 				Obj:    i.Obj,
 				Status: *status,
 			}
@@ -400,11 +401,11 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo 
 			{
 				InternalName: "mesh",
 				// Mesh has no configurable AllowedKinds, so allow all supported
-				AllowedKinds: []gateway.RouteGroupKind{
-					{Group: (*gateway.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: gateway.Kind(gvk.HTTPRoute.Kind)},
-					{Group: (*gateway.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: gateway.Kind(gvk.GRPCRoute.Kind)},
-					{Group: (*gateway.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: gateway.Kind(gvk.TCPRoute.Kind)},
-					{Group: (*gateway.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: gateway.Kind(gvk.TLSRoute.Kind)},
+				AllowedKinds: []gatewayv1.RouteGroupKind{
+					{Group: (*gatewayv1.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: gatewayv1.Kind(gvk.HTTPRoute.Kind)},
+					{Group: (*gatewayv1.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: gatewayv1.Kind(gvk.GRPCRoute.Kind)},
+					{Group: (*gatewayv1.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: gatewayv1.Kind(gvk.TCPRoute.Kind)},
+					{Group: (*gatewayv1.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: gatewayv1.Kind(gvk.TLSRoute.Kind)},
 				},
 			},
 		}
@@ -439,8 +440,8 @@ func detectListenerPortNumber(l gatewayx.ListenerEntry) (gatewayx.PortNumber, er
 	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
 }
 
-func convertStandardStatusToListenerSetStatus(l gatewayx.ListenerEntry) func(e gateway.ListenerStatus) gatewayx.ListenerEntryStatus {
-	return func(e gateway.ListenerStatus) gatewayx.ListenerEntryStatus {
+func convertStandardStatusToListenerSetStatus(l gatewayx.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
+	return func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
 		return gatewayx.ListenerEntryStatus{
 			Name:           e.Name,
 			Port:           l.Port,
@@ -451,8 +452,8 @@ func convertStandardStatusToListenerSetStatus(l gatewayx.ListenerEntry) func(e g
 	}
 }
 
-func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) gateway.ListenerStatus {
-	return gateway.ListenerStatus{
+func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) gatewayv1.ListenerStatus {
+	return gatewayv1.ListenerStatus{
 		Name:           e.Name,
 		SupportedKinds: e.SupportedKinds,
 		AttachedRoutes: e.AttachedRoutes,
@@ -460,7 +461,7 @@ func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) ga
 	}
 }
 
-func convertListenerSetToListener(l gatewayx.ListenerEntry) gateway.Listener {
+func convertListenerSetToListener(l gatewayx.ListenerEntry) gatewayv1.Listener {
 	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
-	return gateway.Listener(l)
+	return gatewayv1.Listener(l)
 }

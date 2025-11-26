@@ -16,14 +16,13 @@ package gateway
 
 import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/kube/krt"
 )
 
 type GatewayClass struct {
 	Name       string
-	Controller gateway.GatewayController
+	Controller gatewayv1.GatewayController
 }
 
 func (g GatewayClass) ResourceName() string {
@@ -31,13 +30,13 @@ func (g GatewayClass) ResourceName() string {
 }
 
 func GatewayClassesCollection(
-	gatewayClasses krt.Collection[*gateway.GatewayClass],
+	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	opts krt.OptionsBuilder,
 ) (
-	krt.StatusCollection[*gateway.GatewayClass, gateway.GatewayClassStatus],
+	krt.StatusCollection[*gatewayv1.GatewayClass, gatewayv1.GatewayClassStatus],
 	krt.Collection[GatewayClass],
 ) {
-	return krt.NewStatusCollection(gatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) (*gateway.GatewayClassStatus, *GatewayClass) {
+	return krt.NewStatusCollection(gatewayClasses, func(ctx krt.HandlerContext, obj *gatewayv1.GatewayClass) (*gatewayv1.GatewayClassStatus, *GatewayClass) {
 		_, known := classInfos[obj.Spec.ControllerName]
 		if !known {
 			return nil, nil

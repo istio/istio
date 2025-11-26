@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -97,9 +96,9 @@ func (i InferencePool) ResourceName() string {
 func InferencePoolCollection(
 	pools krt.Collection[*inferencev1.InferencePool],
 	services krt.Collection[*corev1.Service],
-	httpRoutes krt.Collection[*gateway.HTTPRoute],
-	gateways krt.Collection[*gateway.Gateway],
-	routesByInferencePool krt.Index[string, *gateway.HTTPRoute],
+	httpRoutes krt.Collection[*gatewayv1.HTTPRoute],
+	gateways krt.Collection[*gatewayv1.Gateway],
+	routesByInferencePool krt.Index[string, *gatewayv1.HTTPRoute],
 	c *Controller,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*inferencev1.InferencePool, inferencev1.InferencePoolStatus], krt.Collection[InferencePool]) {
@@ -186,8 +185,8 @@ func calculateInferencePoolStatus(
 	pool *inferencev1.InferencePool,
 	gatewayParents sets.Set[types.NamespacedName],
 	services krt.Collection[*corev1.Service],
-	gateways krt.Collection[*gateway.Gateway],
-	routeList []*gateway.HTTPRoute,
+	gateways krt.Collection[*gatewayv1.Gateway],
+	routeList []*gatewayv1.HTTPRoute,
 ) *inferencev1.InferencePoolStatus {
 	// Calculate status for each gateway parent
 	existingParents := pool.Status.DeepCopy().Parents
@@ -229,7 +228,7 @@ func calculateInferencePoolStatus(
 // findGatewayParents finds all Gateway parents that reference this InferencePool through HTTPRoutes
 func findGatewayParents(
 	pool *inferencev1.InferencePool,
-	routeList []*gateway.HTTPRoute,
+	routeList []*gatewayv1.HTTPRoute,
 ) sets.Set[types.NamespacedName] {
 	gatewayParents := sets.New[types.NamespacedName]()
 
@@ -264,7 +263,7 @@ func findGatewayParents(
 }
 
 // routeReferencesInferencePool checks if an HTTPRoute references the given InferencePool
-func routeReferencesInferencePool(route *gateway.HTTPRoute, pool *inferencev1.InferencePool) bool {
+func routeReferencesInferencePool(route *gatewayv1.HTTPRoute, pool *inferencev1.InferencePool) bool {
 	for _, rule := range route.Spec.Rules {
 		for _, backendRef := range rule.BackendRefs {
 			if !isInferencePoolBackendRef(backendRef.BackendRef) {
@@ -302,7 +301,7 @@ func calculateSingleParentStatus(
 	gatewayParent types.NamespacedName,
 	services krt.Collection[*corev1.Service],
 	existingParents []inferencev1.ParentStatus,
-	routeList []*gateway.HTTPRoute,
+	routeList []*gatewayv1.HTTPRoute,
 ) inferencev1.ParentStatus {
 	// Find existing status for this parent to preserve some conditions
 	var existingConditions []metav1.Condition
@@ -344,7 +343,7 @@ func calculateSingleParentStatus(
 func calculateAcceptedStatus(
 	pool *inferencev1.InferencePool,
 	gatewayParent types.NamespacedName,
-	routeList []*gateway.HTTPRoute,
+	routeList []*gatewayv1.HTTPRoute,
 ) *condition {
 	// Check if any HTTPRoute references this InferencePool and has this gateway as an accepted parent
 	for _, route := range routeList {
@@ -460,7 +459,7 @@ func isDefaultStatusParent(parent inferencev1.ParentStatus) bool {
 
 // isOurManagedGateway checks if a Gateway is managed by one of our supported controllers
 // This is used to identify stale parent entries that we previously added but are no longer referenced by HTTPRoutes
-func isOurManagedGateway(gateways krt.Collection[*gateway.Gateway], namespace, name string) bool {
+func isOurManagedGateway(gateways krt.Collection[*gatewayv1.Gateway], namespace, name string) bool {
 	gtw := ptr.Flatten(gateways.GetKey(fmt.Sprintf("%s/%s", namespace, name)))
 	if gtw == nil {
 		return false
@@ -618,7 +617,7 @@ func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bo
 	return inferencePoolManaged, obj.GetResourceVersion()
 }
 
-func indexHTTPRouteByInferencePool(o *gateway.HTTPRoute) []string {
+func indexHTTPRouteByInferencePool(o *gatewayv1.HTTPRoute) []string {
 	var keys []string
 	for _, rule := range o.Spec.Rules {
 		for _, backendRef := range rule.BackendRefs {

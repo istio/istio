@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -218,11 +217,11 @@ func (w Waypoint) ResourceName() string {
 
 func gatewayToWaypointTransform(
 	pods krt.Collection[*v1.Pod],
-	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	networkGetter func(ctx krt.HandlerContext) network.ID,
-) func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
+) func(ctx krt.HandlerContext, gateway *gatewayv1.Gateway) *Waypoint {
 	podsByNamespace := krt.NewNamespaceIndex(pods)
-	return func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
+	return func(ctx krt.HandlerContext, gateway *gatewayv1.Gateway) *Waypoint {
 		if len(gateway.Status.Addresses) == 0 {
 			// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 			// ignore Kubernetes Gateways which aren't waypoints
@@ -261,7 +260,7 @@ func GlobalWaypointsCollection(
 	localCluster *multicluster.Cluster,
 	localWaypoints krt.Collection[Waypoint],
 	clusters krt.Collection[*multicluster.Cluster],
-	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	globalNetworks networkCollections,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
@@ -276,7 +275,7 @@ func GlobalWaypointsCollection(
 		podsByNamespace := krt.NewNamespaceIndex(pods)
 		gateways := c.Gateways()
 
-		clusterWaypoints := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
+		clusterWaypoints := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *gatewayv1.Gateway) *Waypoint {
 			if len(gateway.Status.Addresses) == 0 {
 				// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 				// ignore Kubernetes Gateways which aren't waypoints
@@ -323,8 +322,8 @@ func GlobalWaypointsCollection(
 
 func (a *index) WaypointsCollection(
 	clusterID cluster.ID,
-	gateways krt.Collection[*v1beta1.Gateway],
-	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	gateways krt.Collection[*gatewayv1.Gateway],
+	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	pods krt.Collection[*v1.Pod],
 	opts krt.OptionsBuilder,
 ) krt.Collection[Waypoint] {
@@ -343,7 +342,7 @@ func (a *index) WaypointsCollection(
 	)
 }
 
-func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass) *InboundBinding {
+func makeInboundBinding(gateway *gatewayv1.Gateway, gatewayClass *gatewayv1.GatewayClass) *InboundBinding {
 	ann, ok := getGatewayOrGatewayClassAnnotation(gateway, gatewayClass)
 	if !ok {
 		return nil
@@ -385,7 +384,7 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 	}
 }
 
-func getGatewayOrGatewayClassAnnotation(gateway *v1beta1.Gateway, class *v1beta1.GatewayClass) (string, bool) {
+func getGatewayOrGatewayClassAnnotation(gateway *gatewayv1.Gateway, class *gatewayv1.GatewayClass) (string, bool) {
 	// Gateway > GatewayClass
 	an, ok := gateway.Annotations[annotation.AmbientWaypointInboundBinding.Name]
 	if ok {
@@ -401,8 +400,8 @@ func getGatewayOrGatewayClassAnnotation(gateway *v1beta1.Gateway, class *v1beta1
 }
 
 func makeWaypoint(
-	gateway *v1beta1.Gateway,
-	gatewayClass *v1beta1.GatewayClass,
+	gateway *gatewayv1.Gateway,
+	gatewayClass *gatewayv1.GatewayClass,
 	serviceAccounts []string,
 	trafficType string,
 	netw network.ID,
@@ -419,7 +418,7 @@ func makeWaypoint(
 }
 
 type WaypointSelector struct {
-	FromNamespaces v1beta1.FromNamespaces
+	FromNamespaces gatewayv1.FromNamespaces
 	Selector       labels.Selector
 }
 
@@ -476,7 +475,7 @@ func (w *Waypoint) GetAddress() *workloadapi.GatewayAddress {
 // makeAllowedRoutes returns a WaypointSelector that matches the listener with the given binding
 // if we don't have a binding we use the default HBONE listener
 // if we have a binding we use the protocol and port defined in the binding
-func makeAllowedRoutes(gateway *v1beta1.Gateway, binding *InboundBinding) WaypointSelector {
+func makeAllowedRoutes(gateway *gatewayv1.Gateway, binding *InboundBinding) WaypointSelector {
 	// First see if we can find a bound listener
 	if listener, found := findBoundListener(gateway, binding); found {
 		return makeWaypointSelector(listener)
@@ -496,17 +495,17 @@ func makeAllowedRoutes(gateway *v1beta1.Gateway, binding *InboundBinding) Waypoi
 	}
 }
 
-func findBoundListener(gateway *v1beta1.Gateway, binding *InboundBinding) (v1beta1.Listener, bool) {
+func findBoundListener(gateway *gatewayv1.Gateway, binding *InboundBinding) (gatewayv1.Listener, bool) {
 	if binding == nil {
-		return v1beta1.Listener{}, false
+		return gatewayv1.Listener{}, false
 	}
-	var match func(l v1beta1.Listener) bool
+	var match func(l gatewayv1.Listener) bool
 	if binding.Port != 0 {
-		match = func(l v1beta1.Listener) bool {
+		match = func(l gatewayv1.Listener) bool {
 			return l.Port == gatewayv1.PortNumber(binding.Port)
 		}
 	} else if binding.Protocol == workloadapi.ApplicationTunnel_PROXY {
-		match = func(l v1beta1.Listener) bool {
+		match = func(l gatewayv1.Listener) bool {
 			return l.Protocol == constants.WaypointSandwichListenerProxyProtocol
 		}
 	}
@@ -515,10 +514,10 @@ func findBoundListener(gateway *v1beta1.Gateway, binding *InboundBinding) (v1bet
 			return l, true
 		}
 	}
-	return v1beta1.Listener{}, false
+	return gatewayv1.Listener{}, false
 }
 
-func makeWaypointSelector(l v1beta1.Listener) WaypointSelector {
+func makeWaypointSelector(l gatewayv1.Listener) WaypointSelector {
 	if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
 		return WaypointSelector{
 			FromNamespaces: gatewayv1.NamespacesFromSame,
@@ -533,9 +532,9 @@ func makeWaypointSelector(l v1beta1.Listener) WaypointSelector {
 	}
 }
 
-func getGatewayAddress(gw *v1beta1.Gateway, netw network.ID) *workloadapi.GatewayAddress {
+func getGatewayAddress(gw *gatewayv1.Gateway, netw network.ID) *workloadapi.GatewayAddress {
 	for _, addr := range gw.Status.Addresses {
-		if addr.Type != nil && *addr.Type == v1beta1.HostnameAddressType {
+		if addr.Type != nil && *addr.Type == gatewayv1.HostnameAddressType {
 			// Prefer hostname from status, if we can find it.
 			// Hostnames are a more reliable lookup key than IP; hostname is already the unique key for services, and IPs can be re-allocated.
 			// Additionally, a destination can have multiple IPs, which makes handling more challenging. For example, was the IPv4 address
@@ -554,7 +553,7 @@ func getGatewayAddress(gw *v1beta1.Gateway, netw network.ID) *workloadapi.Gatewa
 	}
 	// Fallback to IP address
 	for _, addr := range gw.Status.Addresses {
-		if addr.Type != nil && *addr.Type == v1beta1.IPAddressType {
+		if addr.Type != nil && *addr.Type == gatewayv1.IPAddressType {
 			ip, err := netip.ParseAddr(addr.Value)
 			if err != nil {
 				log.Warnf("parsed invalid IP address %q: %v", addr.Value, err)
