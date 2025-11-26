@@ -16,6 +16,7 @@ package core
 
 import (
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
@@ -1669,7 +1670,7 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 			hostname: "zipkin.istio-system.svc.cluster.local",
 			cluster:  "zipkin-cluster",
 			endpoint: "/api/v2/spans",
-			timeout:  durationpb.New(10000000000), // 10s
+			timeout:  durationpb.New(10 * time.Second), // 10s
 			headers:  nil,
 			expectedConfig: &tracingcfg.ZipkinConfig{
 				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
@@ -1682,7 +1683,7 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 						HttpUpstreamType: &core.HttpUri_Cluster{
 							Cluster: "zipkin-cluster",
 						},
-						Timeout: durationpb.New(10000000000),
+						Timeout: durationpb.New(10 * time.Second),
 					},
 				},
 			},
@@ -1708,7 +1709,8 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
 				CollectorService: &core.HttpService{
 					HttpUri: &core.HttpUri{
-						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Uri:     "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Timeout: durationpb.New(5 * time.Second),
 						HttpUpstreamType: &core.HttpUri_Cluster{
 							Cluster: "zipkin-cluster",
 						},
@@ -1791,7 +1793,8 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
 				CollectorService: &core.HttpService{
 					HttpUri: &core.HttpUri{
-						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Uri:     "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Timeout: durationpb.New(5 * time.Second),
 						HttpUpstreamType: &core.HttpUri_Cluster{
 							Cluster: "zipkin-cluster",
 						},
@@ -1833,7 +1836,7 @@ func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 		{
 			name:              "New proxy (1.29+) with timeout should use HttpService",
 			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
-			timeout:           durationpb.New(10000000000),
+			timeout:           durationpb.New(10 * time.Second),
 			headers:           nil,
 			expectHTTPService: true,
 		},
@@ -1854,7 +1857,7 @@ func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 		{
 			name:              "Old proxy (1.28) with timeout should NOT use HttpService",
 			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
-			timeout:           durationpb.New(10000000000),
+			timeout:           durationpb.New(10 * time.Second),
 			headers:           nil,
 			expectHTTPService: false,
 		},

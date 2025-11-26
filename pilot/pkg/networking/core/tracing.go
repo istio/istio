@@ -268,7 +268,7 @@ func zipkinConfig(
 	proxyVersionGreaterOrEqual129 := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
 	useHTTPService := timeout != nil || len(headers) > 0
 
-	if useHTTPService && proxyVersionGreaterOrEqual129 {
+	if proxyVersionGreaterOrEqual129 {
 		// Modern configuration using HttpService
 		// This is required for timeout and custom headers support
 
