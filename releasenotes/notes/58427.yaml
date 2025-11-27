@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [58427]
+releaseNotes:
+  - |
+    **Fixed** an issue causing ambient multi-network connections to fail when using a custom trust domain.

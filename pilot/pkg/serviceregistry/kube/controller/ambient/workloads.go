@@ -115,7 +115,8 @@ func (a *index) WorkloadsCollection(
 		opts.WithName("EndpointSliceWorkloads")...)
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
-		return slices.Map(a.LookupAllNetworkGateway(ctx), convertGateway)
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+		return slices.Map(a.LookupAllNetworkGateway(ctx), convertGateway(meshCfg))
 	}, opts.WithName("NetworkGatewayWorkloads")...)
 
 	Workloads := krt.JoinCollection(
@@ -263,10 +264,11 @@ func MergedGlobalWorkloadsCollection(
 	)
 
 	GlobalNetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		return slices.Map(LookupAllNetworkGateway(
 			ctx,
 			globalNetworks.NetworkGateways,
-		), convertGateway)
+		), convertGateway(meshCfg))
 	}, opts.WithName("LocalNetworkGatewayWorkloads")...)
 	LocalNetworkGatewayWorkloadsWithCluster := krt.MapCollection(
 		GlobalNetworkGatewayWorkloads,
@@ -1544,22 +1546,25 @@ func gatewayUID(gw model.NetworkGateway) string {
 // convertGateway always converts a NetworkGateway into a Workload.
 // Workloads have a NetworkGateway field, which is effectively a pointer to another object (Service or Workload); in order
 // to facilitate this we need to translate our Gateway model down into a WorkloadInfo ztunnel can understand.
-func convertGateway(gw NetworkGateway) model.WorkloadInfo {
-	wl := &workloadapi.Workload{
-		Uid:            gatewayUID(gw.NetworkGateway),
-		Name:           gatewayUID(gw.NetworkGateway),
-		ServiceAccount: gw.ServiceAccount.Name,
-		Namespace:      gw.ServiceAccount.Namespace,
-		Network:        gw.Network.String(),
-	}
+func convertGateway(mesh *MeshConfig) func(gw NetworkGateway) model.WorkloadInfo {
+	return func(gw NetworkGateway) model.WorkloadInfo {
+		wl := &workloadapi.Workload{
+			Uid:            gatewayUID(gw.NetworkGateway),
+			Name:           gatewayUID(gw.NetworkGateway),
+			ServiceAccount: gw.ServiceAccount.Name,
+			Namespace:      gw.ServiceAccount.Namespace,
+			Network:        gw.Network.String(),
+			TrustDomain:    pickTrustDomain(mesh),
+		}
 
-	if ip, err := netip.ParseAddr(gw.Addr); err == nil {
-		wl.Addresses = append(wl.Addresses, ip.AsSlice())
-	} else {
-		wl.Hostname = gw.Addr
-	}
+		if ip, err := netip.ParseAddr(gw.Addr); err == nil {
+			wl.Addresses = append(wl.Addresses, ip.AsSlice())
+		} else {
+			wl.Hostname = gw.Addr
+		}
 
-	return precomputeWorkload(model.WorkloadInfo{Workload: wl})
+		return precomputeWorkload(model.WorkloadInfo{Workload: wl})
+	}
 }
 
 func getNetworkGatewayAddress(
