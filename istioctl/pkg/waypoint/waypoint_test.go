@@ -134,6 +134,16 @@ func TestWaypointStatus(t *testing.T) {
 			expectedOutFile: "waypoint-status-ready",
 		},
 		{
+			name: "show waypoints status in all namespaces",
+			args: strings.Split("status --all-namespaces", " "),
+			gateways: []*gateway.Gateway{
+				makeGateway(constants.DefaultNamespaceWaypoint, "fake1", true, true),
+				makeGateway(constants.DefaultNamespaceWaypoint, "fake2", true, true),
+				makeGateway(constants.DefaultNamespaceWaypoint, "fake3", true, true),
+			},
+			expectedOutFile: "waypoint-status-all",
+		},
+		{
 			name: "waypoint not ready and without specifying --wait=false flag",
 			args: strings.Split("status --waypoint-timeout 0.5s", " "),
 			gateways: []*gateway.Gateway{

@@ -619,7 +619,7 @@ func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gws []g
 	for _, gw := range gws {
 		for range ticker.C {
 			programmed := false
-			gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+			gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(gw.Namespace).Get(context.TODO(), gw.Name, metav1.GetOptions{})
 			if err == nil {
 				// Check if gateway has Programmed condition set to true
 				for _, cond = range gwc.Status.Conditions {
