@@ -264,7 +264,6 @@ func MergedGlobalWorkloadsCollection(
 	)
 
 	GlobalNetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
-
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		return slices.Map(LookupAllNetworkGateway(
 			ctx,
