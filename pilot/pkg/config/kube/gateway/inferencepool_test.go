@@ -40,6 +40,9 @@ func TestReconcileInferencePool(t *testing.T) {
 				{
 					Number: inferencev1.PortNumber(8080),
 				},
+				{
+					Number: inferencev1.PortNumber(8081),
+				},
 			},
 			Selector: inferencev1.LabelSelector{
 				MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
@@ -83,5 +86,7 @@ func TestReconcileInferencePool(t *testing.T) {
 	assert.Equal(t, service.ObjectMeta.Labels[InferencePoolRefLabel], pool.Name)
 	assert.Equal(t, service.OwnerReferences[0].Name, pool.Name)
 	assert.Equal(t, service.Spec.Ports[0].TargetPort.IntVal, int32(8080))
-	assert.Equal(t, service.Spec.Ports[0].Port, int32(54321)) // dummyPort + i
+	assert.Equal(t, service.Spec.Ports[0].Port, int32(54321))
+	assert.Equal(t, service.Spec.Ports[1].TargetPort.IntVal, int32(8081))
+	assert.Equal(t, service.Spec.Ports[1].Port, int32(54322))
 }
