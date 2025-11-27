@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
@@ -254,22 +255,27 @@ func zipkinConfig(
 	if endpoint == "" {
 		endpoint = "/api/v2/spans" // envoy deprecated v1 support
 	}
-
-	// Determine if we should use HttpService (modern approach) or legacy fields
-	// For newer proxies (Istio 1.29+), always use HttpService as it's the modern approach
-	// that supports timeout and custom headers. For older proxies, use legacy fields for
-	// backward compatibility.
-	useHTTPService := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
-
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
 		TraceId_128Bit:           enable128BitTraceID,               // istio default enable 128 bit trace id
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
 
-	if useHTTPService {
+	// Determine if we should use HttpService (modern approach) or legacy fields
+	// For newer proxies (Istio 1.29+), always use HttpService as it's the modern approach
+	// that supports timeout and custom headers. For older proxies, use legacy fields for
+	// backward compatibility.
+	proxyVersionGreaterOrEqual129 := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
+
+	if proxyVersionGreaterOrEqual129 {
 		// Modern configuration using HttpService
 		// This is required for timeout and custom headers support
+
+		// Set default timeout if not provided, as Envoy requires a timeout to be set.
+		if timeout == nil {
+			timeout = durationpb.New(5 * time.Second)
+		}
+
 		httpService := &core.HttpService{
 			HttpUri: &core.HttpUri{
 				Uri: fmt.Sprintf("http://%s%s", hostname, endpoint),
@@ -290,8 +296,9 @@ func zipkinConfig(
 		zc.CollectorEndpoint = endpoint
 		zc.CollectorHostname = hostname // http host header
 
+		useHTTPService := timeout != nil || len(headers) > 0
 		// Log when timeout/headers configuration is ignored due to older proxy version
-		if timeout != nil || len(headers) > 0 {
+		if useHTTPService {
 			log.Warnf("Proxy %s (version %v) does not support Zipkin timeout/headers configuration: requires Istio 1.29+. "+
 				"Configuration will be ignored.", proxy.ID, proxy.IstioVersion)
 		}
