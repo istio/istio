@@ -551,6 +551,8 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
+	// Test that we're propagating the trust domain correctly
+	s.meshConfig.Mesh().TrustDomain = s.DomainSuffix
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
 	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 		cl := c.Client
@@ -634,6 +636,12 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		}
 		if len(gwwl.Workload.Addresses) != 1 {
 			return fmt.Errorf("expected network gateway workload to have addresses, got %v", gwwl.Workload.Addresses)
+		}
+		if gwwl.Workload.TrustDomain != s.DomainSuffix {
+			return fmt.Errorf("expected network gateway workload to have trust domain %s, got %s",
+				s.DomainSuffix,
+				gwwl.Workload.TrustDomain,
+			)
 		}
 		expectedAddress := []uint8{172, 0, 1, 2}
 		if !reflect.DeepEqual(gwwl.Workload.Addresses[0], expectedAddress) {
