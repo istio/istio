@@ -27,19 +27,19 @@ var (
 	Gateway                        = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "gateways"}
 	Gateway_v1alpha3               = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "gateways"}
 	Gateway_v1beta1                = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "gateways"}
-	GatewayClass                   = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "gatewayclasses"}
+	GatewayClass                   = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "gatewayclasses"}
 	GatewayClass_v1alpha2          = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "gatewayclasses"}
-	GatewayClass_v1                = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "gatewayclasses"}
-	HTTPRoute                      = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "httproutes"}
+	GatewayClass_v1beta1           = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "gatewayclasses"}
+	HTTPRoute                      = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "httproutes"}
 	HTTPRoute_v1alpha2             = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "httproutes"}
-	HTTPRoute_v1                   = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "httproutes"}
+	HTTPRoute_v1beta1              = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "httproutes"}
 	HorizontalPodAutoscaler        = schema.GroupVersionResource{Group: "autoscaling", Version: "v2", Resource: "horizontalpodautoscalers"}
 	InferencePool                  = schema.GroupVersionResource{Group: "inference.networking.k8s.io", Version: "v1", Resource: "inferencepools"}
 	Ingress                        = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
 	IngressClass                   = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}
-	KubernetesGateway              = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "gateways"}
+	KubernetesGateway              = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "gateways"}
 	KubernetesGateway_v1alpha2     = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "gateways"}
-	KubernetesGateway_v1           = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "gateways"}
+	KubernetesGateway_v1beta1      = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "gateways"}
 	Lease                          = schema.GroupVersionResource{Group: "coordination.k8s.io", Version: "v1", Resource: "leases"}
 	MeshConfig                     = schema.GroupVersionResource{Group: "", Version: "v1alpha1", Resource: "meshconfigs"}
 	MeshNetworks                   = schema.GroupVersionResource{Group: "", Version: "v1alpha1", Resource: "meshnetworks"}
@@ -135,13 +135,13 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return true
 	case GatewayClass_v1alpha2:
 		return true
-	case GatewayClass_v1:
+	case GatewayClass_v1beta1:
 		return true
 	case HTTPRoute:
 		return false
 	case HTTPRoute_v1alpha2:
 		return false
-	case HTTPRoute_v1:
+	case HTTPRoute_v1beta1:
 		return false
 	case HorizontalPodAutoscaler:
 		return false
@@ -155,7 +155,7 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case KubernetesGateway_v1alpha2:
 		return false
-	case KubernetesGateway_v1:
+	case KubernetesGateway_v1beta1:
 		return false
 	case Lease:
 		return false

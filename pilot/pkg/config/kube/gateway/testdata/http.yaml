@@ -1,11 +1,11 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -24,7 +24,7 @@ spec:
       namespaces:
         from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http
@@ -60,7 +60,7 @@ spec:
     - name: httpbin
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http2
@@ -86,7 +86,7 @@ spec:
     - name: httpbin-wildcard
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: redirect
@@ -106,7 +106,7 @@ spec:
           type: ReplaceFullPath
           replaceFullPath: /replace-full
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: redirect-prefix-replace
@@ -131,7 +131,7 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /replacement
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: rewrite
@@ -184,7 +184,7 @@ spec:
     - name: httpbin
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: mirror
@@ -213,7 +213,7 @@ spec:
     - name: httpbin
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-not-selected
@@ -232,7 +232,7 @@ spec:
     - name: httpbin-bad
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-timeout-request
@@ -253,7 +253,7 @@ spec:
     timeouts:
       request: 1ms
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-timeout-backend-request
@@ -275,7 +275,7 @@ spec:
       request: 2ms
       backendRequest: 1ms
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-retry-request
@@ -317,7 +317,7 @@ spec:
       retry:
         attempts: 0
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-route-cors
@@ -352,7 +352,7 @@ spec:
               - Range
           type: CORS
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: multiple-inferencepool-backend-refs
@@ -398,6 +398,8 @@ metadata:
 spec:
   targetPorts:
   - number: 8000
+  - number: 8001
+  - number: 8002
   selector:
     matchLabels:
       app: vllm-llama3-8b-instruct

@@ -30,20 +30,21 @@ type OnReadyFunc func()
 
 // Config for a single endpoint Instance.
 type Config struct {
-	IsServerReady IsServerReadyFunc
-	Version       string
-	Cluster       string
-	TLSCert       string
-	TLSKey        string
-	TLSCACert     string
-	UDSServer     string
-	Dialer        common.Dialer
-	Port          *common.Port
-	ListenerIP    string
-	IstioVersion  string
-	Namespace     string
-	DisableALPN   bool
-	ReportRequest func()
+	IsServerReady  IsServerReadyFunc
+	Version        string
+	Cluster        string
+	TLSCert        string
+	TLSKey         string
+	TLSCACert      string
+	UDSServer      string
+	Dialer         common.Dialer
+	Port           *common.Port
+	ListenerIP     string
+	IstioVersion   string
+	Namespace      string
+	DisableALPN    bool
+	ReportRequest  func()
+	EndpointPicker bool
 }
 
 // Instance of an endpoint that serves the Echo application on a single port/protocol.
@@ -64,6 +65,9 @@ func New(cfg Config) (Instance, error) {
 		case protocol.HTTP, protocol.HTTPS:
 			return newHTTP(cfg), nil
 		case protocol.HTTP2, protocol.GRPC:
+			if cfg.EndpointPicker {
+				return newEndpointPicker(cfg), nil
+			}
 			return newGRPC(cfg), nil
 		case protocol.TCP:
 			return newTCP(cfg), nil

@@ -60,7 +60,7 @@ func TestWaypointStatus(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("gateway class").Run(func(t framework.TestContext) {
-				client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+				client := t.Clusters().Default().GatewayAPI().GatewayV1().GatewayClasses()
 
 				check := func() error {
 					gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
@@ -241,7 +241,7 @@ spec:
   environmentVariables:
     ISTIO_META_DISABLE_HBONE_SEND: "true"
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: simple-http-waypoint
@@ -287,7 +287,7 @@ spec:
     port: 15008
     protocol: TCP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: {{.Service}}-httproute

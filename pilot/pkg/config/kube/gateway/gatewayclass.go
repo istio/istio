@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/kube"
@@ -37,7 +36,7 @@ import (
 // and not update there is no need; the first controller to create the GatewayClass wins.
 type ClassController struct {
 	queue   controllers.Queue
-	classes kclient.Client[*gateway.GatewayClass]
+	classes kclient.Client[*k8sv1.GatewayClass]
 }
 
 func NewClassController(kc kube.Client) *ClassController {
@@ -46,9 +45,9 @@ func NewClassController(kc kube.Client) *ClassController {
 		controllers.WithReconciler(gc.Reconcile),
 		controllers.WithMaxAttempts(25))
 
-	gc.classes = kclient.New[*gateway.GatewayClass](kc)
+	gc.classes = kclient.New[*k8sv1.GatewayClass](kc)
 	gc.classes.AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
-		_, f := builtinClasses[gateway.ObjectName(o.GetName())]
+		_, f := builtinClasses[k8sv1.ObjectName(o.GetName())]
 		return f
 	}))
 	return gc
@@ -68,7 +67,7 @@ func (c *ClassController) Reconcile(types.NamespacedName) error {
 	return err.ErrorOrNil()
 }
 
-func (c *ClassController) reconcileClass(class gateway.ObjectName) error {
+func (c *ClassController) reconcileClass(class k8sv1.ObjectName) error {
 	if c.classes.Get(string(class), "") != nil {
 		log.Debugf("GatewayClass/%v already exists, no action", class)
 		return nil
@@ -79,12 +78,12 @@ func (c *ClassController) reconcileClass(class gateway.ObjectName) error {
 		// Should only happen when ambient is disabled; otherwise builtinClasses and classInfos should be consistent
 		return nil
 	}
-	gc := &gateway.GatewayClass{
+	gc := &k8sv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: string(class),
 		},
-		Spec: gateway.GatewayClassSpec{
-			ControllerName: gateway.GatewayController(classInfo.controller),
+		Spec: k8sv1.GatewayClassSpec{
+			ControllerName: k8sv1.GatewayController(classInfo.controller),
 			Description:    &classInfo.description,
 		},
 	}

@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -17,7 +17,7 @@ metadata:
   name: default-istio
   namespace: default
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: default
     uid: ""
@@ -35,7 +35,7 @@ metadata:
   name: default
   namespace: default
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: default
     uid: ""
@@ -243,7 +243,7 @@ metadata:
   name: default
   namespace: default
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: default
     uid: null

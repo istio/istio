@@ -24,7 +24,7 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
@@ -77,7 +77,7 @@ type RemoteClusterCollections struct {
 	services       krt.Collection[*corev1.Service]
 	endpointSlices krt.Collection[*discovery.EndpointSlice]
 	nodes          krt.Collection[*corev1.Node]
-	gateways       krt.Collection[*v1beta1.Gateway]
+	gateways       krt.Collection[*gatewayv1.Gateway]
 }
 
 // Namespaces returns the namespaces collection.
@@ -106,7 +106,7 @@ func (r *RemoteClusterCollections) Nodes() krt.Collection[*corev1.Node] {
 }
 
 // Gateways returns the gateways collection.
-func (r *RemoteClusterCollections) Gateways() krt.Collection[*v1beta1.Gateway] {
+func (r *RemoteClusterCollections) Gateways() krt.Collection[*gatewayv1.Gateway] {
 	return r.gateways
 }
 
@@ -116,7 +116,7 @@ func NewRemoteClusterCollections(
 	services krt.Collection[*corev1.Service],
 	endpointSlices krt.Collection[*discovery.EndpointSlice],
 	nodes krt.Collection[*corev1.Node],
-	gateways krt.Collection[*v1beta1.Gateway],
+	gateways krt.Collection[*gatewayv1.Gateway],
 ) *RemoteClusterCollections {
 	return &RemoteClusterCollections{
 		namespaces:     namespaces,
@@ -219,6 +219,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	Pods := krt.NewFilteredInformer[*corev1.Pod](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
+		FieldSelector:   "status.phase!=Failed",
 	}, opts.With(
 		krt.WithName("informer/Pods"),
 		krt.WithMetadata(krt.Metadata{
@@ -226,8 +227,8 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		}),
 	)...)
 
-	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](c.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, defaultFilter)
-	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.With(
+	gatewayClient := kclient.NewDelayedInformer[*gatewayv1.Gateway](c.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, defaultFilter)
+	Gateways := krt.WrapClient[*gatewayv1.Gateway](gatewayClient, opts.With(
 		krt.WithName("informer/Gateways"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,

@@ -139,9 +139,9 @@ type Inputs struct {
 	Secrets    krt.Collection[*corev1.Secret]
 	ConfigMaps krt.Collection[*corev1.ConfigMap]
 
-	GatewayClasses       krt.Collection[*gateway.GatewayClass]
-	Gateways             krt.Collection[*gateway.Gateway]
-	HTTPRoutes           krt.Collection[*gateway.HTTPRoute]
+	GatewayClasses       krt.Collection[*gatewayv1.GatewayClass]
+	Gateways             krt.Collection[*gatewayv1.Gateway]
+	HTTPRoutes           krt.Collection[*gatewayv1.HTTPRoute]
 	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
 	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
 	TLSRoutes            krt.Collection[*gatewayalpha.TLSRoute]
@@ -197,9 +197,9 @@ func NewController(
 			opts.WithName("informer/ConfigMaps")...,
 		),
 		Services:           krt.WrapClient(svcClient, opts.WithName("informer/Services")...),
-		GatewayClasses:     buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
-		Gateways:           buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
-		HTTPRoutes:         buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
+		GatewayClasses:     buildClient[*gatewayv1.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
+		Gateways:           buildClient[*gatewayv1.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
+		HTTPRoutes:         buildClient[*gatewayv1.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
 		GRPCRoutes:         buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
 		BackendTLSPolicies: buildClient[*gatewayv1.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies"),
 

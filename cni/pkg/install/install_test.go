@@ -220,8 +220,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			tempDir := t.TempDir()
 
 			// Initialize parameters
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			if c.istioOwnedCNIConfig && len(c.istioOwnedCNIConfigFilename) == 0 {
 				c.istioOwnedCNIConfigFilename = "02-istio-conf.conflist"
