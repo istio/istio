@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** `--all-namespaces` flag for `istioctl waypoint status` to display the status of waypoints in all namespaces.
