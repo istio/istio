@@ -147,11 +147,11 @@ func NewController(
 			}),
 			opts.WithName("informer/Services")...,
 		),
-		Nodes: krt.NewInformerFiltered[*corev1.Node](client, kclient.Filter{
+		Nodes: krt.NewFilteredInformer[*corev1.Node](client, kclient.Filter{
 			ObjectFilter:    client.ObjectFilter(),
 			ObjectTransform: kube.StripNodeUnusedFields,
 		}, opts.WithName("informer/Nodes")...),
-		Pods: krt.NewInformerFiltered[*corev1.Pod](client, kclient.Filter{
+		Pods: krt.NewFilteredInformer[*corev1.Pod](client, kclient.Filter{
 			ObjectFilter:    client.ObjectFilter(),
 			ObjectTransform: kube.StripPodUnusedFields,
 			FieldSelector:   "status.phase!=Failed",

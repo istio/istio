@@ -216,7 +216,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 			ClusterKRTMetadataKey: c.ID,
 		}),
 	)...)
-	Pods := krt.NewInformerFiltered[*corev1.Pod](c.Client, kclient.Filter{
+	Pods := krt.NewFilteredInformer[*corev1.Pod](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
 		FieldSelector:   "status.phase!=Failed",
@@ -242,7 +242,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		}),
 	)...)
 
-	Nodes := krt.NewInformerFiltered[*corev1.Node](c.Client, kclient.Filter{
+	Nodes := krt.NewFilteredInformer[*corev1.Node](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripNodeUnusedFields,
 	}, opts.With(
@@ -252,7 +252,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		}),
 	)...)
 
-	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](c.Client, kclient.Filter{
+	EndpointSlices := krt.NewFilteredInformer[*discovery.EndpointSlice](c.Client, kclient.Filter{
 		ObjectFilter: c.Client.ObjectFilter(),
 	}, opts.With(
 		krt.WithName("informer/EndpointSlices"),
