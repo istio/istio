@@ -199,10 +199,14 @@ func (e *envoy) Run(abort <-chan error) error {
 	/* #nosec */
 	cmd := exec.Command(e.BinaryPath, args...)
 	cmd.Env = os.Environ()
-	if common_features.CompliancePolicy == common_features.FIPS_140_2 {
-		// Limit the TLSv1.2 ciphers in google_grpc client in Envoy to the compliant ciphers.
+	switch common_features.CompliancePolicy {
+	// Limit the cipher suites in google_grpc client in Envoy to the compliant ciphers.
+	case common_features.FIPS_140_2:
 		cmd.Env = append(cmd.Env,
 			"GRPC_SSL_CIPHER_SUITES=ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384")
+	case common_features.FIPS_140_3:
+		cmd.Env = append(cmd.Env,
+			"GRPC_SSL_CIPHER_SUITES=TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256")
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

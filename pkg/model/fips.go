@@ -37,6 +37,16 @@ var fipsGoCiphers = []uint16{
 	gotls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 }
 
+var fips1403Ciphers = []string{
+	"TLS_AES_256_GCM_SHA384",
+	"TLS_AES_128_GCM_SHA256",
+}
+
+var fips1403GoCiphers = []uint16{
+	gotls.TLS_AES_256_GCM_SHA384,
+	gotls.TLS_AES_128_GCM_SHA256,
+}
+
 func index(ciphers []string) map[string]struct{} {
 	out := make(map[string]struct{})
 	for _, cipher := range ciphers {
@@ -45,7 +55,10 @@ func index(ciphers []string) map[string]struct{} {
 	return out
 }
 
-var fipsCipherIndex = index(fipsCiphers)
+var (
+	fipsCipherIndex     = index(fipsCiphers)
+	fips1403CipherIndex = index(fips1403Ciphers)
+)
 
 // EnforceGoCompliance limits the TLS settings to the compliant values.
 // This should be called as the last policy.
@@ -58,6 +71,11 @@ func EnforceGoCompliance(ctx *gotls.Config) {
 		ctx.MaxVersion = gotls.VersionTLS12
 		ctx.CipherSuites = fipsGoCiphers
 		ctx.CurvePreferences = []gotls.CurveID{gotls.CurveP256}
+		return
+	case common_features.FIPS_140_3:
+		ctx.MinVersion = gotls.VersionTLS13
+		ctx.MaxVersion = gotls.VersionTLS13
+		ctx.CipherSuites = fips1403GoCiphers
 		return
 	case common_features.PQC:
 		ctx.MinVersion = gotls.VersionTLS13
@@ -87,6 +105,26 @@ func EnforceCompliance(ctx *tls.CommonTlsContext) {
 			ciphers := []string{}
 			for _, cipher := range ctx.TlsParams.CipherSuites {
 				if _, ok := fipsCipherIndex[cipher]; ok {
+					ciphers = append(ciphers, cipher)
+				}
+			}
+			ctx.TlsParams.CipherSuites = ciphers
+		}
+		// Default (unset) is P-256
+		ctx.TlsParams.EcdhCurves = nil
+		return
+	case common_features.FIPS_140_3:
+		if ctx.TlsParams == nil {
+			ctx.TlsParams = &tls.TlsParameters{}
+		}
+		ctx.TlsParams.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_3
+		ctx.TlsParams.TlsMaximumProtocolVersion = tls.TlsParameters_TLSv1_3
+		// Default (unset) cipher suites field in the FIPS build of Envoy uses only the FIPS ciphers.
+		// Therefore, we only filter this field when it is set.
+		if len(ctx.TlsParams.CipherSuites) > 0 {
+			ciphers := []string{}
+			for _, cipher := range ctx.TlsParams.CipherSuites {
+				if _, ok := fips1403CipherIndex[cipher]; ok {
 					ciphers = append(ciphers, cipher)
 				}
 			}
