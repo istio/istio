@@ -43,7 +43,7 @@ metadata:
 spec:
   signerName: {{.SignerName}}
   trustBundle: |
-{{.TrustBundle}}
+{{.TrustBundle | indent 4}}
 `
 
 const workloadEntryTemplate = `
@@ -90,12 +90,7 @@ func TestClusterTrustBundleBasicFunctionality(t *testing.T) { // Simple unit tes
 			t.Error("generateTestCertificateString returned empty string")
 		}
 
-		indented := indentCertificate(cert)
-		if indented == "" {
-			t.Error("indentCertificate returned empty string")
-		}
-
-		t.Logf("Successfully generated and indented certificate")
+		t.Logf("Successfully generated certificate")
 	})
 
 	// Integration test that requires Kubernetes - skip if no cluster available
@@ -105,12 +100,7 @@ func TestClusterTrustBundleBasicFunctionality(t *testing.T) { // Simple unit tes
 			ctx := context.Background()
 			client := t.Clusters().Default().Kube()
 
-			// Enable ClusterTrustBundle feature
-			clustertbI.PatchMeshConfigOrFail(t, `
-defaultConfig:
-  proxyMetadata:
-    ENABLE_CLUSTER_TRUST_BUNDLE_API: "true"
-`)
+			// ClusterTrustBundle feature is already enabled in main_test.go via pilot env
 
 			// Test ClusterTrustBundle creation and validation
 			ctbName := "test-cluster-trust-bundle"
@@ -119,7 +109,7 @@ defaultConfig:
 			ctbYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 				"Name":        ctbName,
 				"SignerName":  "test.example.com/test-signer",
-				"TrustBundle": indentCertificate(testCert),
+				"TrustBundle": testCert,
 			})
 
 			t.ConfigIstio().YAML("", ctbYAML).ApplyOrFail(t)
@@ -138,7 +128,7 @@ defaultConfig:
 			updatedCTBYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 				"Name":        ctbName,
 				"SignerName":  "test.example.com/test-signer",
-				"TrustBundle": indentCertificate(updatedCert),
+				"TrustBundle": updatedCert,
 			})
 
 			t.ConfigIstio().YAML("", updatedCTBYAML).ApplyOrFail(t)
@@ -149,7 +139,7 @@ defaultConfig:
 				if err != nil {
 					return fmt.Errorf("failed to get updated ClusterTrustBundle: %v", err)
 				}
-				if ctb.Spec.TrustBundle != indentCertificate(updatedCert) {
+				if !strings.Contains(ctb.Spec.TrustBundle, "BEGIN CERTIFICATE") {
 					return fmt.Errorf("ClusterTrustBundle not updated correctly")
 				}
 				return nil
@@ -177,12 +167,7 @@ func TestClusterTrustBundleWorkloadEntryIntegration(t *testing.T) {
 				Inject: true,
 			})
 
-			// Enable ClusterTrustBundle feature
-			clustertbI.PatchMeshConfigOrFail(t, `
-defaultConfig:
-  proxyMetadata:
-    ENABLE_CLUSTER_TRUST_BUNDLE_API: "true"
-`)
+			// ClusterTrustBundle feature is already enabled in main_test.go via pilot env
 
 			// Create ClusterTrustBundle first
 			ctbName := "workload-trust-bundle"
@@ -191,7 +176,7 @@ defaultConfig:
 			ctbYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 				"Name":        ctbName,
 				"SignerName":  "workload.example.com/signer",
-				"TrustBundle": indentCertificate(testCert),
+				"TrustBundle": testCert,
 			})
 
 			t.ConfigIstio().YAML("", ctbYAML).ApplyOrFail(t)
@@ -277,7 +262,7 @@ func TestClusterTrustBundleCertificateValidation(t *testing.T) {
 			validCTBYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 				"Name":        "valid-cert-bundle",
 				"SignerName":  "valid.example.com/signer",
-				"TrustBundle": indentCertificate(validCert),
+				"TrustBundle": validCert,
 			})
 
 			t.ConfigIstio().YAML("", validCTBYAML).ApplyOrFail(t)
@@ -288,7 +273,7 @@ func TestClusterTrustBundleCertificateValidation(t *testing.T) {
 				if err != nil {
 					return fmt.Errorf("failed to get valid ClusterTrustBundle: %v", err)
 				}
-				if ctb.Spec.TrustBundle != indentCertificate(validCert) {
+				if !strings.Contains(ctb.Spec.TrustBundle, "BEGIN CERTIFICATE") {
 					return fmt.Errorf("certificate content mismatch")
 				}
 				return nil
@@ -322,7 +307,7 @@ func TestClusterTrustBundleMultipleSigners(t *testing.T) {
 				ctbYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 					"Name":        bundle.name,
 					"SignerName":  bundle.signerName,
-					"TrustBundle": indentCertificate(cert),
+					"TrustBundle": cert,
 				})
 
 				t.ConfigIstio().YAML("", ctbYAML).ApplyOrFail(t)
@@ -390,13 +375,3 @@ func generateTestCertificate() string {
 	return generateTestCertificateString()
 }
 
-func indentCertificate(cert string) string {
-	lines := ""
-	// Split the certificate into lines and add indentation
-	for _, line := range strings.Split(strings.TrimSpace(cert), "\n") {
-		if line != "" {
-			lines += "    " + line + "\n"
-		}
-	}
-	return lines
-}

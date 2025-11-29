@@ -1,4 +1,4 @@
-apiVersion: cert-manager.io/v1
+apiVersion: certificates.k8s.io/v1beta1
 kind: ClusterTrustBundle
 metadata:
   name: test-bundle
@@ -24,7 +24,6 @@ spec:
     9eDCdvRpBzR21DtyXeEuhAB5VOB3IVqpgNzt8d4q9eoWtTz5vvNcUHOmozMZvUAH
     7UTWTG2dbrSQzDm7kQ==
     -----END CERTIFICATE-----
-  description: "Test bundle for injection"
 ---
 apiVersion: v1
 kind: Service

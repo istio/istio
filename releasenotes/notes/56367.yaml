@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: security
-issue: [56367]
-releaseNotes:
-  - |
-    **Added** ClusterTrustBundle in feature table.

@@ -43,16 +43,7 @@ func TestMain(m *testing.M) {
 values:
   pilot:
     env:
-      PILOT_ENABLE_CLUSTERTB_WORKLOAD_ENTRIES: true
-      EXTERNAL_ISTIOD: true
-components:
-  pilot:
-    k8s:
-      env:
-        - name: PILOT_ENABLE_CLUSTERTB_WORKLOAD_ENTRIES
-          value: "true"
-        - name: EXTERNAL_ISTIOD
-          value: "true"
+      ENABLE_CLUSTER_TRUST_BUNDLE_API: "true"
 `
 		})).
 		Setup(deployment.SetupSingleNamespace(&clustertbApps, deployment.Config{})).
