@@ -17,6 +17,7 @@
 package ctb
 
 import (
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -34,6 +35,12 @@ var (
 // TestMain defines the entrypoint for ClusterTrustBundle tests using a custom Istio installation
 // with ClusterTrustBundle support enabled for issues #56676 and #56675.
 func TestMain(m *testing.M) {
+	// Set KIND_CONFIG to use ClusterTrustBundle configuration
+	// This ensures the KinD cluster is created with ClusterTrustBundle feature gates enabled
+	if os.Getenv("KIND_CONFIG") == "" {
+		os.Setenv("KIND_CONFIG", "prow/config/clustertrustbundles.yaml")
+	}
+
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
