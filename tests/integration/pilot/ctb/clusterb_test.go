@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -374,4 +373,3 @@ LfY9vGzKn2oRt8wN3yF7jKpY9v2qV8rG3tLfY7+pK9vN8qF2wO7zV3jY1qNtL+bF
 func generateTestCertificate() string {
 	return generateTestCertificateString()
 }
-
