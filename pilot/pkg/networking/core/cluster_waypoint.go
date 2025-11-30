@@ -527,42 +527,38 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 }
 
 func h2connectUpgrade() map[string]*anypb.Any {
-	opts := &http.HttpProtocolOptions{
-		CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-			IdleTimeout: durationpb.New(features.EnvoyHBONEIdleTimeout),
-		},
-		UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-			ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
-				Http2ProtocolOptions: &core.Http2ProtocolOptions{
-					AllowConnect: true,
-				},
-			},
-		}},
-	}
-
 	return map[string]*anypb.Any{
-		v3.HttpProtocolOptionsType: protoconv.MessageToAny(opts),
+		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				IdleTimeout: durationpb.New(features.EnvoyHBONEIdleTimeout),
+			},
+			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+					Http2ProtocolOptions: &core.Http2ProtocolOptions{
+						AllowConnect: true,
+					},
+				},
+			}},
+		}),
 	}
 }
 
 func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
-	opts := &core.HttpProtocolOptions{
-		// This has very little effect as there is connection pooling at the level of the service
-		// cluster that already multiplexes multiple HTTP requests over the same connection before
-		// this option takes effect. However doing this is better than nothing.
-		//
-		// In the future though a better solution is needed to achieve sensible connection pooling
-		// without lasering a particular backend in the remote network.
-		//
-		// TODO(https://github.com/istio/istio/issues/58039): remove it after deploying a sensible
-		// connection pooling fix for ambient multi-network.
-		MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 1},
-		IdleTimeout:              durationpb.New(features.EnvoyHBONEIdleTimeout),
-	}
-
 	return map[string]*anypb.Any{
 		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
-			CommonHttpProtocolOptions: opts,
+			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				// This has very little effect as there is connection pooling at the level of the service
+				// cluster that already multiplexes multiple HTTP requests over the same connection before
+				// this option takes effect. However doing this is better than nothing.
+				//
+				// In the future though a better solution is needed to achieve sensible connection pooling
+				// without lasering a particular backend in the remote network.
+				//
+				// TODO(https://github.com/istio/istio/issues/58039): remove it after deploying a sensible
+				// connection pooling fix for ambient multi-network.
+				MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 1},
+				IdleTimeout:              durationpb.New(features.EnvoyHBONEIdleTimeout),
+			},
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
