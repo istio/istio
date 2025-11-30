@@ -912,7 +912,7 @@ func (node *Proxy) FuzzValidate() bool {
 		}
 	}
 	if !found {
-		return false
+		node.Type = NodeTypes[0]
 	}
 	return len(node.IPAddresses) != 0
 }
