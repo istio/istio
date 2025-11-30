@@ -96,3 +96,12 @@ func canonicalServiceName(labels map[string]string, workloadName string) string 
 	}
 	return value
 }
+
+// GetAppName returns the app name from labels, checking the following labels in order:
+// 1. service.istio.io/canonical-name
+// 2. app.kubernetes.io/name
+// 3. app
+// Returns the value and true if found, or empty string and false if none of the labels are present.
+func GetAppName(labels map[string]string) (string, bool) {
+	return lookupLabelValue(labels, nameLabels...)
+}
