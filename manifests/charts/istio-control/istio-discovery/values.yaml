@@ -26,6 +26,10 @@ _internal_defaults_do_not_set:
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seccompProfile: {}
 
+  # Specifies whether a service account token should be automatically mounted into pods
+  # Defaults to true when unspecified. Set to 'false' if you are using projected tokens.
+  automountServiceAccountToken:
+
   # Whether to use an existing CNI installation
   cni:
     enabled: false
