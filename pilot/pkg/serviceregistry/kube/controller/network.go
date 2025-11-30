@@ -23,7 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -46,7 +46,7 @@ type networkManager struct {
 	ranger    cidranger.Ranger
 	clusterID cluster.ID
 
-	gatewayResourceClient kclient.Informer[*v1beta1.Gateway]
+	gatewayResourceClient kclient.Informer[*gatewayv1.Gateway]
 	meshNetworksWatcher   mesh.NetworksWatcher
 
 	// Network name for to be used when the meshNetworks fromRegistry nor network label on pod is specified
@@ -83,7 +83,7 @@ func initNetworkManager(c *Controller, options Options) *networkManager {
 	}
 	// initialize the gateway resource client when any feature that uses it is enabled
 	if features.MultiNetworkGatewayAPI {
-		n.gatewayResourceClient = kclient.NewDelayedInformer[*v1beta1.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
+		n.gatewayResourceClient = kclient.NewDelayedInformer[*gatewayv1.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
 		// conditionally register this handler
 		registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
 	}
@@ -363,7 +363,7 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 // handleGateway resource adds a NetworkGateway for each combination of address and auto-passthrough listener
 // discovering duplicates from the generated Service is not a huge concern as we de-duplicate in NetworkGateways
 // which returns a set, although it's not totally efficient.
-func (n *networkManager) handleGatewayResource(_ *v1beta1.Gateway, gw *v1beta1.Gateway, event model.Event) error {
+func (n *networkManager) handleGatewayResource(_ *gatewayv1.Gateway, gw *gatewayv1.Gateway, event model.Event) error {
 	if nw := gw.GetLabels()[label.TopologyNetwork.Name]; nw == "" {
 		return nil
 	}
@@ -392,7 +392,7 @@ func (n *networkManager) handleGatewayResource(_ *v1beta1.Gateway, gw *v1beta1.G
 		return nil
 	}
 
-	autoPassthrough := func(l v1beta1.Listener) bool {
+	autoPassthrough := func(l gatewayv1.Listener) bool {
 		return kube.IsAutoPassthrough(gw.GetLabels(), l)
 	}
 
@@ -409,7 +409,7 @@ func (n *networkManager) handleGatewayResource(_ *v1beta1.Gateway, gw *v1beta1.G
 		if addr.Type == nil {
 			continue
 		}
-		if addrType := *addr.Type; addrType != v1beta1.IPAddressType && addrType != v1beta1.HostnameAddressType {
+		if addrType := *addr.Type; addrType != gatewayv1.IPAddressType && addrType != gatewayv1.HostnameAddressType {
 			continue
 		}
 		for _, l := range slices.Filter(gw.Spec.Listeners, autoPassthrough) {

@@ -16,6 +16,7 @@ package core
 
 import (
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
@@ -227,7 +228,7 @@ func TestConfigureTracing(t *testing.T) {
 		{
 			name:   "basic config (with opentelemetry provider via grpc with initial metadata)",
 			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true, true),
-			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(),
+			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(28),
 			want: fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
@@ -255,6 +256,14 @@ func TestConfigureTracing(t *testing.T) {
 			want: fakeTracingConfig(fakeZipkinProviderWithTraceContext(clusterName, authority, DefaultZipkinEndpoint, true,
 				tracingcfg.ZipkinConfig_USE_B3_WITH_W3C_PROPAGATION),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "with formatter tag",
+			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true, true),
+			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(29),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 	}
@@ -615,7 +624,8 @@ func fakeOptsWithDefaultProviders() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
-		Metadata: &model.NodeMetadata{},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+		Metadata:     &model.NodeMetadata{},
 	}
 
 	return opts
@@ -646,6 +656,7 @@ func fakeOptsNoTelemetryAPI() gatewayListenerOpts {
 				},
 			},
 		},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
 	return opts
@@ -659,6 +670,7 @@ func fakeOptsNoTelemetryAPIWithNilCustomTag() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{
 				Tracing: &meshconfig.Tracing{
@@ -697,6 +709,7 @@ func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
 	return opts
@@ -722,6 +735,7 @@ func fakeOptsZipkinTelemetryWithEndpoint() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -871,6 +885,7 @@ func fakeOptsOnlyDatadogTelemetryAPI() gatewayListenerOpts {
 		XdsNode: &core.Node{
 			Cluster: "fake-cluster",
 		},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
 	return opts
@@ -913,6 +928,7 @@ func fakeOptsMeshAndTelemetryAPI(enableTracing bool) gatewayListenerOpts {
 				},
 			},
 		},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
 	return opts
@@ -948,6 +964,7 @@ func fakeOptsOnlySkywalkingTelemetryAPI() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1048,6 +1065,7 @@ func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1056,7 +1074,7 @@ func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 	return opts
 }
 
-func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI() gatewayListenerOpts {
+func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(minor int) gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -1086,6 +1104,7 @@ func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI() gatewayListe
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: minor, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1125,6 +1144,7 @@ func fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1210,6 +1230,13 @@ func tracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling flo
 					},
 				},
 			},
+			"test-formatter": {
+				Type: &tpb.Tracing_CustomTag_Formatter{
+					Formatter: &tpb.Tracing_Formatter{
+						Value: "%REQ(fake-header)%",
+					},
+				},
+			},
 		},
 		UseRequestIDForTraceSampling: useRequestIDForTraceSampling,
 		EnableIstioTags:              enableIstioTags,
@@ -1277,14 +1304,22 @@ func fakeTracingConfigForSkywalking(provider *tracingcfg.Tracing_Http, randomSam
 	return cfg
 }
 
-var fakeEnvTag = &tracing.CustomTag{
-	Tag: "test",
-	Type: &tracing.CustomTag_Environment_{
-		Environment: &tracing.CustomTag_Environment{
-			Name: "FOO",
+var (
+	fakeEnvTag = &tracing.CustomTag{
+		Tag: "test",
+		Type: &tracing.CustomTag_Environment_{
+			Environment: &tracing.CustomTag_Environment{
+				Name: "FOO",
+			},
 		},
-	},
-}
+	}
+	fakeFormatterTag = &tracing.CustomTag{
+		Tag: "test-formatter",
+		Type: &tracing.CustomTag_Value{
+			Value: "%REQ(fake-header)%",
+		},
+	}
+)
 
 func fakeZipkinProvider(expectClusterName, expectAuthority, expectEndpoint string, enableTraceID bool) *tracingcfg.Tracing_Http {
 	return fakeZipkinProviderWithTraceContext(expectClusterName, expectAuthority, expectEndpoint, enableTraceID, tracingcfg.ZipkinConfig_USE_B3)
@@ -1669,7 +1704,7 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 			hostname: "zipkin.istio-system.svc.cluster.local",
 			cluster:  "zipkin-cluster",
 			endpoint: "/api/v2/spans",
-			timeout:  durationpb.New(10000000000), // 10s
+			timeout:  durationpb.New(10 * time.Second), // 10s
 			headers:  nil,
 			expectedConfig: &tracingcfg.ZipkinConfig{
 				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
@@ -1682,7 +1717,7 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 						HttpUpstreamType: &core.HttpUri_Cluster{
 							Cluster: "zipkin-cluster",
 						},
-						Timeout: durationpb.New(10000000000),
+						Timeout: durationpb.New(10 * time.Second),
 					},
 				},
 			},
@@ -1708,7 +1743,8 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
 				CollectorService: &core.HttpService{
 					HttpUri: &core.HttpUri{
-						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Uri:     "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Timeout: durationpb.New(5 * time.Second),
 						HttpUpstreamType: &core.HttpUri_Cluster{
 							Cluster: "zipkin-cluster",
 						},
@@ -1791,7 +1827,8 @@ func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
 				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
 				CollectorService: &core.HttpService{
 					HttpUri: &core.HttpUri{
-						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Uri:     "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Timeout: durationpb.New(5 * time.Second),
 						HttpUpstreamType: &core.HttpUri_Cluster{
 							Cluster: "zipkin-cluster",
 						},
@@ -1833,7 +1870,7 @@ func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 		{
 			name:              "New proxy (1.29+) with timeout should use HttpService",
 			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
-			timeout:           durationpb.New(10000000000),
+			timeout:           durationpb.New(10 * time.Second),
 			headers:           nil,
 			expectHTTPService: true,
 		},
@@ -1854,7 +1891,7 @@ func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 		{
 			name:              "Old proxy (1.28) with timeout should NOT use HttpService",
 			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
-			timeout:           durationpb.New(10000000000),
+			timeout:           durationpb.New(10 * time.Second),
 			headers:           nil,
 			expectHTTPService: false,
 		},

@@ -101,7 +101,7 @@ func Options(t test.Failer) krt.OptionsBuilder {
 func kubernetesObjectsFromString(s string) ([]any, error) {
 	var objects []any
 	decode := kubelib.IstioCodec.UniversalDeserializer().Decode
-	objectStrs := strings.Split(s, "---")
+	objectStrs := strings.Split(s, "\n---\n")
 	for _, s := range objectStrs {
 		if len(strings.TrimSpace(s)) == 0 {
 			continue

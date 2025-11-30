@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
@@ -254,22 +255,27 @@ func zipkinConfig(
 	if endpoint == "" {
 		endpoint = "/api/v2/spans" // envoy deprecated v1 support
 	}
-
-	// Determine if we should use HttpService (modern approach) or legacy fields
-	// For newer proxies (Istio 1.29+), always use HttpService as it's the modern approach
-	// that supports timeout and custom headers. For older proxies, use legacy fields for
-	// backward compatibility.
-	useHTTPService := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
-
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
 		TraceId_128Bit:           enable128BitTraceID,               // istio default enable 128 bit trace id
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
 
-	if useHTTPService {
+	// Determine if we should use HttpService (modern approach) or legacy fields
+	// For newer proxies (Istio 1.29+), always use HttpService as it's the modern approach
+	// that supports timeout and custom headers. For older proxies, use legacy fields for
+	// backward compatibility.
+	proxyVersionGreaterOrEqual129 := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29})
+
+	if proxyVersionGreaterOrEqual129 {
 		// Modern configuration using HttpService
 		// This is required for timeout and custom headers support
+
+		// Set default timeout if not provided, as Envoy requires a timeout to be set.
+		if timeout == nil {
+			timeout = durationpb.New(5 * time.Second)
+		}
+
 		httpService := &core.HttpService{
 			HttpUri: &core.HttpUri{
 				Uri: fmt.Sprintf("http://%s%s", hostname, endpoint),
@@ -290,8 +296,9 @@ func zipkinConfig(
 		zc.CollectorEndpoint = endpoint
 		zc.CollectorHostname = hostname // http host header
 
+		useHTTPService := timeout != nil || len(headers) > 0
 		// Log when timeout/headers configuration is ignored due to older proxy version
-		if timeout != nil || len(headers) > 0 {
+		if useHTTPService {
 			log.Warnf("Proxy %s (version %v) does not support Zipkin timeout/headers configuration: requires Istio 1.29+. "+
 				"Configuration will be ignored.", proxy.ID, proxy.IstioVersion)
 		}
@@ -658,7 +665,7 @@ func configureCustomTags(spec *model.TracingSpec, hcmTracing *hcm.HttpConnection
 	if len(providerTags) == 0 {
 		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.GetTracing().GetCustomTags())...)
 	} else {
-		tags = append(tags, buildCustomTagsFromProvider(providerTags)...)
+		tags = append(tags, buildCustomTagsFromProvider(node, providerTags)...)
 	}
 
 	// looping over customTags, a map, results in the returned value
@@ -671,48 +678,57 @@ func configureCustomTags(spec *model.TracingSpec, hcmTracing *hcm.HttpConnection
 	hcmTracing.CustomTags = tags
 }
 
-func buildCustomTagsFromProvider(providerTags map[string]*telemetrypb.Tracing_CustomTag) []*tracing.CustomTag {
+func buildCustomTagsFromProvider(node *model.Proxy, providerTags map[string]*telemetrypb.Tracing_CustomTag) []*tracing.CustomTag {
 	var tags []*tracing.CustomTag
+
+	supportFormatterTag := node.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29, Patch: 0})
+	hasFormatterTag := false
+
 	for tagName, tagInfo := range providerTags {
 		if tagInfo == nil {
 			log.Warnf("while building custom tags from provider, encountered nil custom tag: %s, skipping", tagName)
 			continue
 		}
+		t := &tracing.CustomTag{
+			Tag: tagName,
+		}
 		switch tag := tagInfo.Type.(type) {
 		case *telemetrypb.Tracing_CustomTag_Environment:
-			env := &tracing.CustomTag{
-				Tag: tagName,
-				Type: &tracing.CustomTag_Environment_{
-					Environment: &tracing.CustomTag_Environment{
-						Name:         tag.Environment.Name,
-						DefaultValue: tag.Environment.DefaultValue,
-					},
+			t.Type = &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name:         tag.Environment.Name,
+					DefaultValue: tag.Environment.DefaultValue,
 				},
 			}
-			tags = append(tags, env)
 		case *telemetrypb.Tracing_CustomTag_Header:
-			header := &tracing.CustomTag{
-				Tag: tagName,
-				Type: &tracing.CustomTag_RequestHeader{
-					RequestHeader: &tracing.CustomTag_Header{
-						Name:         tag.Header.Name,
-						DefaultValue: tag.Header.DefaultValue,
-					},
+			t.Type = &tracing.CustomTag_RequestHeader{
+				RequestHeader: &tracing.CustomTag_Header{
+					Name:         tag.Header.Name,
+					DefaultValue: tag.Header.DefaultValue,
 				},
 			}
-			tags = append(tags, header)
 		case *telemetrypb.Tracing_CustomTag_Literal:
-			env := &tracing.CustomTag{
-				Tag: tagName,
-				Type: &tracing.CustomTag_Literal_{
-					Literal: &tracing.CustomTag_Literal{
-						Value: tag.Literal.Value,
-					},
+			t.Type = &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: tag.Literal.Value,
 				},
 			}
-			tags = append(tags, env)
+		case *telemetrypb.Tracing_CustomTag_Formatter:
+			hasFormatterTag = true
+			if !supportFormatterTag {
+				continue
+			}
+			t.Type = &tracing.CustomTag_Value{
+				Value: tag.Formatter.Value,
+			}
 		}
+		tags = append(tags, t)
 	}
+
+	if !supportFormatterTag && hasFormatterTag {
+		log.Debug("Formatter custom tag only support for Istio 1.29+")
+	}
+
 	return tags
 }
 

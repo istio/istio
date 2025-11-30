@@ -56,7 +56,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.66.1
 	github.com/prometheus/procfs v0.17.0
-	github.com/prometheus/prometheus v0.305.0
+	github.com/prometheus/prometheus v0.306.0
 	github.com/quic-go/quic-go v0.55.0
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cobra v1.9.1
@@ -93,8 +93,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.18.6
-	istio.io/api v1.28.0-alpha.0.0.20251120193503-cb15a6cf0002
-	istio.io/client-go v1.28.0-alpha.0.0.20251120193902-c79fe2483377
+	istio.io/api v1.28.0-alpha.0.0.20251126150010-62ed4ff08e1b
+	istio.io/client-go v1.28.0-alpha.0.0.20251126150310-56900da3b60f
 	k8s.io/api v0.34.1
 	k8s.io/apiextensions-apiserver v0.34.1
 	k8s.io/apimachinery v0.34.1
@@ -106,7 +106,7 @@ require (
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	sigs.k8s.io/controller-runtime v0.22.1
 	sigs.k8s.io/gateway-api v1.4.0
-	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250917095812-173ad587b675
+	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751
 	sigs.k8s.io/knftables v0.0.19-0.20250623122614-e4307300abb5
 	sigs.k8s.io/mcs-api v0.2.0
 	sigs.k8s.io/yaml v1.6.0

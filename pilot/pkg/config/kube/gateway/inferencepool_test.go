@@ -40,7 +40,7 @@ func TestReconcileInferencePool(t *testing.T) {
 		expectedAnnotations map[string]string
 		expectedLabels      map[string]string
 		expectedServiceName string
-		expectedTargetPort  int32
+		expectedTargetPorts []int32
 	}{
 		{
 			name: "basic shadow service creation",
@@ -72,7 +72,7 @@ func TestReconcileInferencePool(t *testing.T) {
 				constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
 				InferencePoolRefLabel:              "test-pool",
 			},
-			expectedTargetPort: 8080,
+			expectedTargetPorts: []int32{8080},
 		},
 		{
 			name: "user label and annotation preservation",
@@ -136,7 +136,7 @@ func TestReconcileInferencePool(t *testing.T) {
 				"user.example.com/my-label":        "user-value",
 				"another.domain.com/label":         "another-value",
 			},
-			expectedTargetPort: 8080,
+			expectedTargetPorts: []int32{8080},
 		},
 		{
 			name: "very long inferencepool name",
@@ -169,7 +169,45 @@ func TestReconcileInferencePool(t *testing.T) {
 				InferencePoolRefLabel:              "very-long-inference-pool-name-that-should-be-truncated-properly",
 			},
 			expectedServiceName: "very-long-inference-pool-name-that-should-be-trunca-ip-6d24df6a",
-			expectedTargetPort:  9090,
+			expectedTargetPorts: []int32{9090},
+		},
+		{
+			name: "multiple target ports creates single service port",
+			inferencePool: &inferencev1.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multi-port-pool",
+					Namespace: "default",
+				},
+				Spec: inferencev1.InferencePoolSpec{
+					TargetPorts: []inferencev1.Port{
+						{
+							Number: inferencev1.PortNumber(8000),
+						},
+						{
+							Number: inferencev1.PortNumber(8001),
+						},
+						{
+							Number: inferencev1.PortNumber(8002),
+						},
+					},
+					Selector: inferencev1.LabelSelector{
+						MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
+							"app": "multiport",
+						},
+					},
+					EndpointPickerRef: inferencev1.EndpointPickerRef{
+						Name: "dummy",
+						Port: &inferencev1.Port{
+							Number: inferencev1.PortNumber(5421),
+						},
+					},
+				},
+			},
+			expectedLabels: map[string]string{
+				constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
+				InferencePoolRefLabel:              "multi-port-pool",
+			},
+			expectedTargetPorts: []int32{8000, 8001, 8002},
 		},
 	}
 
@@ -217,8 +255,15 @@ func TestReconcileInferencePool(t *testing.T) {
 			for key, expectedValue := range tc.expectedAnnotations {
 				assert.Equal(t, service.Annotations[key], expectedValue, fmt.Sprintf("Annotation '%s' should have value '%s'", key, expectedValue))
 			}
-			assert.Equal(t, service.Spec.Ports[0].Port, int32(54321)) // dummyPort + i
-			assert.Equal(t, service.Spec.Ports[0].TargetPort.IntVal, tc.expectedTargetPort)
+			expectedPortCount := len(tc.inferencePool.Spec.TargetPorts)
+			assert.Equal(t, len(service.Spec.Ports), expectedPortCount, fmt.Sprintf("Shadow service should have %d ports", expectedPortCount))
+
+			for i := 1; i < len(service.Spec.Ports); i++ {
+				assert.Equal(t, service.Spec.Ports[i].Port, int32(54321+i))
+				assert.Equal(t, service.Spec.Ports[i].TargetPort.IntVal, tc.expectedTargetPorts[i])
+				assert.Equal(t, service.Spec.Ports[i].Name, fmt.Sprintf("http-%d", i))
+			}
+
 			assert.Equal(t, service.OwnerReferences[0].Name, tc.inferencePool.Name)
 		})
 	}

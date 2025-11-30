@@ -134,8 +134,9 @@ func verifyZipkinTracingExists(t framework.TestContext, configDump *admin.Config
 
 					timeout := httpService.HttpUri.Timeout.AsDuration()
 					t.Logf("Timeout: %s", timeout)
-					if timeout.String() != "10s" {
-						t.Fatalf("Timeout mismatch: got %s, want 10s", timeout)
+					wanted := "5s"
+					if timeout.String() != wanted {
+						t.Fatalf("Timeout mismatch: got %s, want %s", timeout, wanted)
 					}
 
 					// Verify headers

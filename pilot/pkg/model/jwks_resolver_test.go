@@ -15,7 +15,6 @@
 package model
 
 import (
-	"context"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -656,8 +655,7 @@ func TestJwtPubKeyRefreshedWhenErrorsGettingOtherURLs(t *testing.T) {
 	}
 
 	// Start a goroutine that requests an invalid URL repeatedly
-	goroutineCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	goroutineCtx := t.Context()
 	go func() {
 		for {
 			select {

@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/annotation"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -42,7 +42,7 @@ func WaypointPolicyStatusCollection(
 	waypoints krt.Collection[Waypoint],
 	services krt.Collection[*corev1.Service],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
-	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	meshConfig krt.Singleton[MeshConfig],
 	namespaces krt.Collection[*corev1.Namespace],
 	opts krt.OptionsBuilder,
@@ -73,7 +73,7 @@ func WaypointPolicyStatusCollection(
 				reason := "unknown"
 				bound := false
 				switch target.GetKind() {
-				case gvk.GatewayClass_v1.Kind:
+				case gvk.GatewayClass.Kind:
 					// first verify the AP is in the root namespace, if not it's ignored
 					if namespace != rootNs {
 						reason = model.WaypointPolicyReasonInvalid

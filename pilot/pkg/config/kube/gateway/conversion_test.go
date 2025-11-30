@@ -77,6 +77,14 @@ var ports = []*model.Port{
 	},
 }
 
+var inferencePoolPorts = []*model.Port{
+	{
+		Name:     "http",
+		Port:     54321,
+		Protocol: "HTTP",
+	},
+}
+
 var services = []*model.Service{
 	{
 		Attributes: model.ServiceAttributes{
@@ -135,7 +143,7 @@ var services = []*model.Service{
 				InferencePoolExtensionRefFailureMode: "FailClose",
 			},
 		},
-		Ports:    ports,
+		Ports:    inferencePoolPorts,
 		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen")))),
 	},
 	{
@@ -147,7 +155,7 @@ var services = []*model.Service{
 				InferencePoolExtensionRefFailureMode: "FailClose",
 			},
 		},
-		Ports:    ports,
+		Ports:    inferencePoolPorts,
 		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen2")))),
 	},
 
@@ -1773,7 +1781,7 @@ func TestHumanReadableJoin(t *testing.T) {
 func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 	var objects []runtime.Object
 	decode := kube.IstioCodec.UniversalDeserializer().Decode
-	objectStrs := strings.Split(s, "---")
+	objectStrs := strings.Split(s, "\n---\n")
 	for _, s := range objectStrs {
 		if len(strings.TrimSpace(s)) == 0 {
 			continue

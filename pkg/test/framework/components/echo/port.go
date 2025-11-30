@@ -60,6 +60,10 @@ type Port struct {
 
 	// ProxyProtocol determines if echo should accept PROXY protocol.
 	ProxyProtocol bool
+
+	// EndpointPicker indicates this port should serve as an endpoint picker (ext_proc gRPC service).
+	// Only valid when Protocol is GRPC.
+	EndpointPicker bool
 }
 
 // IsWorkloadOnly returns true if there is no service port specified for this Port.
