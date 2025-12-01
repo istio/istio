@@ -45,6 +45,7 @@ const (
 
 var (
 	clusterLabel = monitoring.CreateLabel("cluster")
+	statusLabel  = monitoring.CreateLabel("status")
 	timeouts     = monitoring.NewSum(
 		"remote_cluster_sync_timeouts_total",
 		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
@@ -59,6 +60,12 @@ var (
 
 	localClusters  = clustersCount.With(clusterType.Value("local"))
 	remoteClusters = clustersCount.With(clusterType.Value("remote"))
+
+	remoteClusterSyncState = monitoring.NewGauge(
+		"istiod_remote_cluster_sync_status",
+		"Current synchronization state of remote clusters managed by istiod. "+
+			"One sample per cluster and state; a value of 1 indicates the cluster is in that state.",
+	)
 )
 
 type handler interface {
@@ -193,6 +200,49 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
+func (c *Controller) onClusterSyncStatusChange(clusterID cluster.ID, status string) {
+	// Only record metrics for clusters we still manage.
+	// This avoids resurrecting metrics for clusters that have been deleted.
+	if !c.cs.Contains(clusterID) {
+		return
+	}
+	c.recordClusterSyncState(clusterID, status)
+}
+
+func (c *Controller) recordClusterSyncState(clusterID cluster.ID, status string) {
+	for _, s := range []string{
+		SyncStatusSynced,
+		SyncStatusSyncing,
+		SyncStatusTimeout,
+		SyncStatusClosed,
+	} {
+		v := 0.0
+		if s == status {
+			v = 1.0
+		}
+		remoteClusterSyncState.With(
+			clusterLabel.Value(string(clusterID)),
+			clusterType.Value("remote"),
+			statusLabel.Value(s),
+		).Record(v)
+	}
+}
+
+func (c *Controller) clearClusterSyncState(clusterID cluster.ID) {
+	for _, s := range []string{
+		SyncStatusSynced,
+		SyncStatusSyncing,
+		SyncStatusTimeout,
+		SyncStatusClosed,
+	} {
+		remoteClusterSyncState.With(
+			clusterLabel.Value(string(clusterID)),
+			clusterType.Value("remote"),
+			statusLabel.Value(s),
+		).Record(0.0)
+	}
+}
+
 func (c *Controller) HasSynced() bool {
 	if !c.queue.HasSynced() {
 		log.Debug("secret controller did not sync secrets presented at startup")
@@ -258,6 +308,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 		initialSync:        atomic.NewBool(false),
 		initialSyncTimeout: atomic.NewBool(false),
 		kubeConfigSha:      sha256.Sum256(kubeConfig),
+		syncStatusCallback: c.onClusterSyncStatusChange,
 	}, nil
 }
 
@@ -333,6 +384,7 @@ func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 	cluster.Stop()
 	c.handleDelete(cluster.ID)
 	c.cs.Delete(secretKey, cluster.ID)
+	c.clearClusterSyncState(cluster.ID)
 	cluster.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
@@ -355,9 +407,9 @@ func (c *Controller) handleDelete(key cluster.ID) {
 // ListRemoteClusters provides debug info about connected remote clusters.
 func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	// Start with just the config cluster
-	configCluster := "syncing"
+	configCluster := SyncStatusSyncing
 	if kube.AllSynced(c.configClusterSyncers) {
-		configCluster = "synced"
+		configCluster = SyncStatusSynced
 	}
 	out := []cluster.DebugInfo{{
 		ID:         c.configClusterID,
@@ -366,18 +418,10 @@ func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	// Append each cluster derived from secrets
 	for secretName, clusters := range c.cs.All() {
 		for clusterID, c := range clusters {
-			syncStatus := "syncing"
-			if c.Closed() {
-				syncStatus = "closed"
-			} else if c.SyncDidTimeout() {
-				syncStatus = "timeout"
-			} else if c.HasSynced() {
-				syncStatus = "synced"
-			}
 			out = append(out, cluster.DebugInfo{
 				ID:         clusterID,
 				SecretName: secretName,
-				SyncStatus: syncStatus,
+				SyncStatus: c.SyncStatus(),
 			})
 		}
 	}
