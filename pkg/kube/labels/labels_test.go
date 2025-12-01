@@ -167,6 +167,85 @@ func TestGetAppName(t *testing.T) {
 	}
 }
 
+func TestGetAppNameBackwardCompatible(t *testing.T) {
+	tests := []struct {
+		name          string
+		labels        map[string]string
+		expectedValue string
+		expectedOk    bool
+	}{
+		{
+			name:          "empty labels",
+			labels:        map[string]string{},
+			expectedValue: "",
+			expectedOk:    false,
+		},
+		{
+			name: "app label takes priority for backward compatibility",
+			labels: map[string]string{
+				model.IstioCanonicalServiceLabelName: "canonical-name",
+				"app.kubernetes.io/name":             "k8s-name",
+				"app":                                "legacy-app",
+			},
+			expectedValue: "legacy-app",
+			expectedOk:    true,
+		},
+		{
+			name: "app.kubernetes.io/name used when app not present",
+			labels: map[string]string{
+				model.IstioCanonicalServiceLabelName: "canonical-name",
+				"app.kubernetes.io/name":             "k8s-name",
+			},
+			expectedValue: "k8s-name",
+			expectedOk:    true,
+		},
+		{
+			name: "canonical service label used as last fallback",
+			labels: map[string]string{
+				model.IstioCanonicalServiceLabelName: "canonical-name",
+			},
+			expectedValue: "canonical-name",
+			expectedOk:    true,
+		},
+		{
+			name: "only app.kubernetes.io/name set",
+			labels: map[string]string{
+				"app.kubernetes.io/name": "k8s-name",
+			},
+			expectedValue: "k8s-name",
+			expectedOk:    true,
+		},
+		{
+			name: "only app label set",
+			labels: map[string]string{
+				"app": "legacy-app",
+			},
+			expectedValue: "legacy-app",
+			expectedOk:    true,
+		},
+		{
+			name: "unrelated labels only",
+			labels: map[string]string{
+				"foo": "bar",
+			},
+			expectedValue: "",
+			expectedOk:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value, ok := GetAppNameBackwardCompatible(tt.labels)
+			if value != tt.expectedValue {
+				t.Errorf("GetAppNameBackwardCompatible() value = %v, want %v", value, tt.expectedValue)
+			}
+			if ok != tt.expectedOk {
+				t.Errorf("GetAppNameBackwardCompatible() ok = %v, want %v", ok, tt.expectedOk)
+			}
+		})
+	}
+}
+
 func TestHasCanonicalServiceName(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -220,7 +220,22 @@ func TestServiceClusterOrDefault(t *testing.T) {
 			expected: "my-service",
 		},
 		{
-			name:  "empty name with app.kubernetes.io/name label",
+			name:  "app label takes priority over workload name for backward compatibility",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace:    "default",
+					WorkloadName: "my-workload",
+					Labels: map[string]string{
+						"app.kubernetes.io/name": "k8s-app",
+						"app":                    "legacy-app",
+					},
+				},
+			},
+			expected: "legacy-app.default",
+		},
+		{
+			name:  "app label takes priority for backward compatibility",
 			input: "",
 			metadata: &model.BootstrapNodeMetadata{
 				NodeMetadata: model.NodeMetadata{
@@ -228,6 +243,19 @@ func TestServiceClusterOrDefault(t *testing.T) {
 					Labels: map[string]string{
 						"app.kubernetes.io/name": "k8s-app",
 						"app":                    "legacy-app",
+					},
+				},
+			},
+			expected: "legacy-app.default",
+		},
+		{
+			name:  "app.kubernetes.io/name used when app not present",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/name": "k8s-app",
 					},
 				},
 			},
@@ -245,33 +273,32 @@ func TestServiceClusterOrDefault(t *testing.T) {
 			expected: "legacy-app.default",
 		},
 		{
-			name:  "empty name with canonical service label",
+			name:  "canonical service label used as last fallback when no app labels",
 			input: "",
 			metadata: &model.BootstrapNodeMetadata{
 				NodeMetadata: model.NodeMetadata{
 					Namespace: "default",
 					Labels: map[string]string{
 						model.IstioCanonicalServiceLabelName: "canonical-name",
-						"app.kubernetes.io/name":             "k8s-app",
-						"app":                                "legacy-app",
 					},
 				},
 			},
 			expected: "canonical-name.default",
 		},
 		{
-			name:  "istio-proxy name falls back to labels",
+			name:  "istio-proxy name falls back to labels first then workload name",
 			input: "istio-proxy",
 			metadata: &model.BootstrapNodeMetadata{
 				NodeMetadata: model.NodeMetadata{
-					Namespace: "default",
-					Labels:    map[string]string{"app.kubernetes.io/name": "k8s-app"},
+					Namespace:    "default",
+					WorkloadName: "my-workload",
+					Labels:       map[string]string{"app.kubernetes.io/name": "k8s-app"},
 				},
 			},
 			expected: "k8s-app.default",
 		},
 		{
-			name:  "no labels falls back to workload name",
+			name:  "workload name used when no labels present",
 			input: "",
 			metadata: &model.BootstrapNodeMetadata{
 				NodeMetadata: model.NodeMetadata{
@@ -280,6 +307,17 @@ func TestServiceClusterOrDefault(t *testing.T) {
 				},
 			},
 			expected: "my-workload.default",
+		},
+		{
+			name:  "istio-proxy name falls back to labels when no workload name",
+			input: "istio-proxy",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: "default",
+					Labels:    map[string]string{"app.kubernetes.io/name": "k8s-app"},
+				},
+			},
+			expected: "k8s-app.default",
 		},
 		{
 			name:  "no labels and no workload name falls back to istio-proxy",

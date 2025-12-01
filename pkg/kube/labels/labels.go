@@ -35,6 +35,14 @@ var (
 		"app.kubernetes.io/version",
 		"version",
 	}
+	// nameLabelsBackwardCompatible is the reverse order of nameLabels for backward compatibility.
+	// It checks app first, then app.kubernetes.io/name, and finally service.istio.io/canonical-name.
+	// This is used in serviceClusterOrDefault to maintain backward compatibility.
+	nameLabelsBackwardCompatible = []string{
+		"app",
+		"app.kubernetes.io/name",
+		model.IstioCanonicalServiceLabelName,
+	}
 )
 
 // WorkloadNameFromWorkloadEntry derives the workload name from a WorkloadEntry
@@ -104,4 +112,16 @@ func canonicalServiceName(labels map[string]string, workloadName string) string 
 // Returns the value and true if found, or empty string and false if none of the labels are present.
 func GetAppName(labels map[string]string) (string, bool) {
 	return lookupLabelValue(labels, nameLabels...)
+}
+
+// GetAppNameBackwardCompatible returns the app name from labels using a backward-compatible
+// priority order that checks "app" first for backward compatibility:
+// 1. app
+// 2. app.kubernetes.io/name
+// 3. service.istio.io/canonical-name
+// This is used in serviceClusterOrDefault to maintain backward compatibility for existing users
+// who have both "app" and "app.kubernetes.io/name" labels with different values.
+// Returns the value and true if found, or empty string and false if none of the labels are present.
+func GetAppNameBackwardCompatible(labels map[string]string) (string, bool) {
+	return lookupLabelValue(labels, nameLabelsBackwardCompatible...)
 }
