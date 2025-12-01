@@ -115,7 +115,7 @@ where the network configuration doesn't support gRPC to the source pod.'
 				fmt.Println(line)
 			}
 
-			log.Infof("All requests succeeded")
+			log.Infof("All %d requests succeeded", len(response.Output))
 		},
 	}
 )
