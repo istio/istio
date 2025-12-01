@@ -128,7 +128,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					}
 					// Write remote cluster entries only if local doesn't exist
 					for host, ips := range remoteAddresses {
-						if _, exists := out.Table[host]; !exists {
+						if _, exists := localAddresses[host]; !exists {
 							meta := hostMetadata[host]
 							out.Table[host] = &dnsProto.NameTable_NameInfo{
 								Ips:       ips,
