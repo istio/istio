@@ -770,6 +770,18 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		sortRoutesByCreationTime(configs)
 		base := configs[0].DeepCopy()
 		baseVS := base.Spec.(*istio.VirtualService)
+		// Deep copy the InferencePool configs map to avoid race conditions
+		// The default DeepCopy() only does shallow copy of Extra field
+		if base.Extra != nil {
+			if ipConfigs, ok := base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]kube.InferencePoolRouteRuleConfig); ok {
+				// Create a new map to avoid modifying the shared underlying map
+				newIPConfigs := make(map[string]kube.InferencePoolRouteRuleConfig, len(ipConfigs))
+				for k, v := range ipConfigs {
+					newIPConfigs[k] = v
+				}
+				base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = newIPConfigs
+			}
+		}
 		for i, config := range configs[1:] {
 			thisVS := config.Spec.(*istio.VirtualService)
 			baseVS.Http = append(baseVS.Http, thisVS.Http...)
