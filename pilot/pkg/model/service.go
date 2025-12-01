@@ -93,6 +93,10 @@ type Service struct {
 	// in each of the clusters where the service resides
 	ClusterVIPs AddressMap `json:"clusterVIPs,omitempty"`
 
+	// ClusterTrustDomains specifies the trust domain for each cluster
+	// where the service resides
+	ClusterTrustDomains map[cluster.ID]string `json:"clusterTrustDomains,omitempty"`
+
 	// DefaultAddress specifies the default service IP of the load balancer.
 	// Do not access directly. Use GetAddressForProxy
 	DefaultAddress string `json:"defaultAddress,omitempty"`
@@ -1888,6 +1892,12 @@ func (s *Service) DeepCopy() *Service {
 
 	out.ServiceAccounts = slices.Clone(s.ServiceAccounts)
 	out.ClusterVIPs = *s.ClusterVIPs.DeepCopy()
+	if s.ClusterTrustDomains != nil {
+		out.ClusterTrustDomains = make(map[cluster.ID]string, len(s.ClusterTrustDomains))
+		for k, v := range s.ClusterTrustDomains {
+			out.ClusterTrustDomains[k] = v
+		}
+	}
 	return &out
 }
 
@@ -1916,6 +1926,15 @@ func (s *Service) Equals(other *Service) bool {
 	}
 	for k, v1 := range s.ClusterVIPs.Addresses {
 		if v2, ok := other.ClusterVIPs.Addresses[k]; !ok || !slices.Equal(v1, v2) {
+			return false
+		}
+	}
+
+	if len(s.ClusterTrustDomains) != len(other.ClusterTrustDomains) {
+		return false
+	}
+	for k, v1 := range s.ClusterTrustDomains {
+		if v2, ok := other.ClusterTrustDomains[k]; !ok || v1 != v2 {
 			return false
 		}
 	}

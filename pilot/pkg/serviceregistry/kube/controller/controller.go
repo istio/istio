@@ -420,7 +420,12 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.Mesh())
+	mesh := c.meshWatcher.Mesh()
+	trustDomain := mesh.TrustDomain
+	if trustDomain == "" {
+		trustDomain = "cluster.local"
+	}
+	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster(), mesh, trustDomain)
 
 	switch event {
 	case model.EventDelete:

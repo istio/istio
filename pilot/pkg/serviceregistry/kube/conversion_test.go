@@ -169,7 +169,7 @@ func TestServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(localSvc, domainSuffix, clusterID, &meshconfig.MeshConfig{TrustDomain: domainSuffix})
+	service := ConvertService(localSvc, domainSuffix, clusterID, &meshconfig.MeshConfig{TrustDomain: domainSuffix}, domainSuffix)
 	if service == nil {
 		t.Fatal("could not convert service")
 	}
@@ -255,7 +255,7 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(localSvc, domainSuffix, clusterID, nil)
+	service := ConvertService(localSvc, domainSuffix, clusterID, nil, "cluster.local")
 	if service == nil {
 		t.Fatal("could not convert service")
 	}
@@ -310,7 +310,7 @@ func TestServiceConversionWithExportToAnnotation(t *testing.T) {
 	}
 	for _, test := range tests {
 		localSvc.Annotations[annotation.NetworkingExportTo.Name] = test.Annotation
-		service := ConvertService(localSvc, domainSuffix, clusterID, nil)
+		service := ConvertService(localSvc, domainSuffix, clusterID, nil, "cluster.local")
 		if service == nil {
 			t.Fatal("could not convert service")
 		}
@@ -343,7 +343,7 @@ func TestExternalServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
+	service := ConvertService(extSvc, domainSuffix, clusterID, nil, "cluster.local")
 	if service == nil {
 		t.Fatal("could not convert external service")
 	}
@@ -393,7 +393,7 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	domainSuffix := "cluster.local"
 
-	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
+	service := ConvertService(extSvc, domainSuffix, clusterID, nil, "cluster.local")
 	if service == nil {
 		t.Fatal("could not convert external service")
 	}
@@ -454,7 +454,7 @@ func TestLBServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
+	service := ConvertService(extSvc, domainSuffix, clusterID, nil, "cluster.local")
 	if service == nil {
 		t.Fatal("could not convert external service")
 	}
@@ -500,7 +500,7 @@ func TestInternalTrafficPolicyServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(svc, domainSuffix, clusterID, nil)
+	service := ConvertService(svc, domainSuffix, clusterID, nil, "cluster.local")
 	if service == nil {
 		t.Fatal("could not convert service")
 	}

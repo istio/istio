@@ -45,7 +45,7 @@ func convertPort(port corev1.ServicePort) *model.Port {
 	}
 }
 
-func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.ID, mesh *meshconfig.MeshConfig) *model.Service {
+func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.ID, mesh *meshconfig.MeshConfig, trustDomain string) *model.Service {
 	addrs := []string{constants.UnspecifiedIP}
 	resolution := model.ClientSideLB
 	externalName := ""
@@ -98,6 +98,9 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 			Addresses: map[cluster.ID][]string{
 				clusterID: addrs,
 			},
+		},
+		ClusterTrustDomains: map[cluster.ID]string{
+			clusterID: trustDomain,
 		},
 		Ports:           ports,
 		DefaultAddress:  addrs[0],

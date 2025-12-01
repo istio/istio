@@ -378,6 +378,13 @@ func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance)
 		newAddresses := src.ClusterVIPs.GetAddressesFor(clusterID)
 		dst.ClusterVIPs.SetAddressesFor(clusterID, newAddresses)
 	}
+	// Merge trust domains from each cluster
+	if dst.ClusterTrustDomains == nil {
+		dst.ClusterTrustDomains = make(map[cluster.ID]string)
+	}
+	if srcTrustDomain, ok := src.ClusterTrustDomains[clusterID]; ok {
+		dst.ClusterTrustDomains[clusterID] = srcTrustDomain
+	}
 }
 
 // NetworkGateways merges the service-based cross-network gateways from each registry.
