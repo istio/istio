@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 58397
+releaseNotes:
+- |
+  **Fixed** DNS name table creation for headless services where pods entries did not account for pods to have multiple IPs.
