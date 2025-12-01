@@ -17,6 +17,8 @@ package server
 import (
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
@@ -64,10 +66,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 				if svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 					localAddresses := make(map[string][]string)
 					remoteAddresses := make(map[string][]string)
-					hostMetadata := make(map[string]struct {
-						shortName string
-						namespace string
-					})
+					hostMetadata := make(map[string]types.NamespacedName)
 					for _, instance := range cfg.Push.ServiceEndpointsByPort(svc, svc.Ports[0].Port, nil) {
 						// addresses may be empty or invalid here
 						isValidInstance := true
@@ -95,10 +94,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 							}
 							shortName := instance.HostName + "." + instance.SubDomain
 							host := shortName + "." + parts[1] // Add cluster domain.
-							hostMetadata[host] = struct {
-								shortName string
-								namespace string
-							}{shortName, svc.Attributes.Namespace}
+							hostMetadata[host] = types.NamespacedName{Name: shortName, Namespace: svc.Attributes.Namespace}
 							if sameCluster {
 								localAddresses[host] = append(localAddresses[host], instance.Addresses...)
 							} else {
@@ -122,23 +118,23 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					}
 					// Write local cluster entries first
 					for host, ips := range localAddresses {
-						metadata := hostMetadata[host]
+						meta := hostMetadata[host]
 						out.Table[host] = &dnsProto.NameTable_NameInfo{
 							Ips:       ips,
 							Registry:  string(svc.Attributes.ServiceRegistry),
-							Namespace: metadata.namespace,
-							Shortname: metadata.shortName,
+							Namespace: meta.Namespace,
+							Shortname: meta.Name,
 						}
 					}
 					// Write remote cluster entries only if local doesn't exist
 					for host, ips := range remoteAddresses {
 						if _, exists := out.Table[host]; !exists {
-							metadata := hostMetadata[host]
+							meta := hostMetadata[host]
 							out.Table[host] = &dnsProto.NameTable_NameInfo{
 								Ips:       ips,
 								Registry:  string(svc.Attributes.ServiceRegistry),
-								Namespace: metadata.namespace,
-								Shortname: metadata.shortName,
+								Namespace: meta.Namespace,
+								Shortname: meta.Name,
 							}
 						}
 					}
