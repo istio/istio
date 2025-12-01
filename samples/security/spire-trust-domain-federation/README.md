@@ -168,33 +168,6 @@ export CTX_CLUSTER_WEST=$(kubectl config get-contexts -o name | grep kind-cluste
        -p '{"spec": {"template": {"metadata": {"annotations": {"inject.istio.io/templates": "sidecar,spire"}}}}}'
    ```
 
-1. Create a destination rule:
-
-   ```shell
-   kubectl --context="${CTX_CLUSTER_EAST}" apply -f - <<EOF
-   apiVersion: networking.istio.io/v1
-   kind: DestinationRule
-   metadata:
-     name: allow-federated-trust-domain
-   spec:
-     host: helloworld.default.svc.cluster.local
-     trafficPolicy:
-       tls:
-         mode: ISTIO_MUTUAL
-         subjectAltNames:
-         - spiffe://east.local/ns/default/sa/default
-         - spiffe://west.local/ns/default/sa/default
-   EOF
-   ```
-
-> [!NOTE]
-> The destination rule above is required in a multi-cluster setup,
-> because requests can be routed to pods in different clusters.
-> Each pod's certificate contains a SPIFFE ID specific to its cluster's trust
-> domain. By explicitly configuring the list of allowed SANs,
-> you ensure that mutual TLS connections are validated across federated trust
-> domains, rather than only accepting the local trust domain by default.
-
 1. Send a few requests and verify that you receive responses from `v1` and `v2`:
 
    ```shell
