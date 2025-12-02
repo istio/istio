@@ -346,7 +346,7 @@ func (j *join[T]) Metadata() Metadata {
 
 // JoinCollection combines multiple Collection[T] into a single
 // Collection[T]. Key conflicts are resolved by picking the item
-// produced by the first collectoin in the list of input collections.
+// produced by the first collections in the list of input collections.
 func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
