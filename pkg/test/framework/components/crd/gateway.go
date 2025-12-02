@@ -109,7 +109,9 @@ func DeployGatewayAPIInferenceExtensionOrSkip(ctx framework.TestContext) {
 
 func DeployGatewayAPIInferenceExtension(ctx resource.Context) error {
 	cfg, _ := istio.DefaultConfig(ctx)
-	if !cfg.DeployGatewayAPI {
+	// Starting from Openshift 4.19 (1.32), GW API comes pre-installed and should not be deployed.
+	// But GatewayAPIInferenceExtension should be deployed on Openshift in any condition.
+	if !cfg.DeployGatewayAPI && !ctx.Settings().OpenShift {
 		return nil
 	}
 	if !SupportsGatewayAPI(ctx) {

@@ -17,6 +17,8 @@ package server
 import (
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
@@ -62,6 +64,9 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 				// The IP will be unspecified here if its headless service or if the auto
 				// IP allocation logic for service entry was unable to allocate an IP.
 				if svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
+					localAddresses := make(map[string][]string)
+					remoteAddresses := make(map[string][]string)
+					hostMetadata := make(map[string]types.NamespacedName)
 					for _, instance := range cfg.Push.ServiceEndpointsByPort(svc, svc.Ports[0].Port, nil) {
 						// addresses may be empty or invalid here
 						isValidInstance := true
@@ -87,21 +92,13 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 							if len(parts) != 2 {
 								continue
 							}
-							address := instance.Addresses
 							shortName := instance.HostName + "." + instance.SubDomain
 							host := shortName + "." + parts[1] // Add cluster domain.
-							nameInfo := &dnsProto.NameTable_NameInfo{
-								Ips:       address,
-								Registry:  string(svc.Attributes.ServiceRegistry),
-								Namespace: svc.Attributes.Namespace,
-								Shortname: shortName,
-							}
-
-							if _, f := out.Table[host]; !f || sameCluster {
-								// We may have the same pod in two clusters (ie mysql-0 deployed in both places).
-								// We can only return a single IP for these queries. We should prefer the local cluster,
-								// so if the entry already exists only overwrite it if the instance is in our own cluster.
-								out.Table[host] = nameInfo
+							hostMetadata[host] = types.NamespacedName{Name: shortName, Namespace: svc.Attributes.Namespace}
+							if sameCluster {
+								localAddresses[host] = append(localAddresses[host], instance.Addresses...)
+							} else {
+								remoteAddresses[host] = append(remoteAddresses[host], instance.Addresses...)
 							}
 						}
 						skipForMulticluster := !cfg.MulticlusterHeadlessEnabled && !sameCluster
@@ -118,6 +115,28 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 						}
 						// TODO: should we skip the node's own IP like we do in listener?
 						addressList = append(addressList, instance.Addresses...)
+					}
+					// Write local cluster entries first
+					for host, ips := range localAddresses {
+						meta := hostMetadata[host]
+						out.Table[host] = &dnsProto.NameTable_NameInfo{
+							Ips:       ips,
+							Registry:  string(svc.Attributes.ServiceRegistry),
+							Namespace: meta.Namespace,
+							Shortname: meta.Name,
+						}
+					}
+					// Write remote cluster entries only if local doesn't exist
+					for host, ips := range remoteAddresses {
+						if _, exists := localAddresses[host]; !exists {
+							meta := hostMetadata[host]
+							out.Table[host] = &dnsProto.NameTable_NameInfo{
+								Ips:       ips,
+								Registry:  string(svc.Attributes.ServiceRegistry),
+								Namespace: meta.Namespace,
+								Shortname: meta.Name,
+							}
+						}
 					}
 				}
 			}
