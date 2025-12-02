@@ -55,6 +55,7 @@ type Validator struct {
 	byGvk      map[schema.GroupVersionKind]validation.SchemaCreateValidator
 	structural map[schema.GroupVersionKind]*structuralschema.Structural
 	cel        map[schema.GroupVersionKind]*cel.Validator
+	schemas    map[schema.GroupVersionKind]*apiextensions.JSONSchemaProps
 	// If enabled, resources without a validator will be ignored. Otherwise, they will fail.
 	SkipMissing bool
 }
@@ -165,6 +166,21 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 	return nil
 }
 
+func (v *Validator) ValidateCosts(gvk schema.GroupVersionKind) (CostReports, error) {
+	s, f := v.schemas[gvk]
+	if !f {
+		return CostReports{}, fmt.Errorf("unknown schema: %v", gvk)
+	}
+	cb, err := validateCosts(s)
+	if err != nil {
+		return CostReports{}, err
+	}
+	cb.Expressions = slices.SortBy(cb.Expressions, func(a ExpressionReport) uint64 {
+		return -a.Cost
+	})
+	return cb, nil
+}
+
 func NewValidatorFromFiles(files ...string) (*Validator, error) {
 	crds := []apiextensions.CustomResourceDefinition{}
 	closers := make([]io.Closer, 0, len(files))
@@ -233,6 +249,7 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Validator, error) {
 	v := &Validator{
 		byGvk:      map[schema.GroupVersionKind]validation.SchemaCreateValidator{},
+		schemas:    map[schema.GroupVersionKind]*apiextensions.JSONSchemaProps{},
 		structural: map[schema.GroupVersionKind]*structuralschema.Structural{},
 		cel:        map[schema.GroupVersionKind]*cel.Validator{},
 	}
@@ -270,7 +287,7 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 			if err != nil {
 				return nil, err
 			}
-
+			v.schemas[gvk] = crdSchema.OpenAPIV3Schema
 			v.byGvk[gvk] = schemaValidator
 			v.structural[gvk] = structural
 			// CEL programs are compiled and cached here

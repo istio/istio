@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/fuzz"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
@@ -75,6 +76,27 @@ func TestCRDs(t *testing.T) {
 				compareCRDandWebhookValidation(t, false, item, v)
 			}
 		})
+	}
+}
+
+func TestCRDCosts(t *testing.T) {
+	v := crdvalidation.NewIstioValidator(t)
+
+	d, f := os.LookupEnv("CRD_REPORT_DIRECTORY")
+	if f {
+		assert.NoError(t, os.MkdirAll(d, 0o777))
+	}
+	for _, s := range collections.All.All() {
+		if s.IsBuiltin() || s.IsSynthetic() {
+			continue
+		}
+		cr, err := v.ValidateCosts(s.GroupVersionKind().Kubernetes())
+		assert.NoError(t, err)
+		if !f {
+			continue
+		}
+		report := cr.MarkdownReport(s.GroupVersionKind().String())
+		assert.NoError(t, os.WriteFile(filepath.Join(d, s.Identifier()+".md"), []byte(report), 0o777))
 	}
 }
 
