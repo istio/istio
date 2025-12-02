@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** rare race condition where deleting a ServiceEntry that shares a
+  hostname with another ServiceEntry in the same namespace occasionally causing
+  ambient clients to lose the ability to send traffic to that hostname until
+  istiod restarts.
