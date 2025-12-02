@@ -2410,7 +2410,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 	gatewayInstances := make([]gatewayWithInstances, 0)
-	gatewayNames := sets.New[string]()
+	managedGWAPIGatewayNames := sets.New[string]()
 
 	var configs []config.Config
 	if features.ScopeGatewayToNamespace {
@@ -2421,15 +2421,15 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 
 	for _, cfg := range configs {
 		if features.EnableStrictGatewayMerging {
-			isInternalGateway := cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
+			isGWAPIGateway := cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
 			// Check if the gateway is managed by us.
 			// We can't use `pilot/pkg/config/kube/gateway#IsManaged` here because it would create a circular
 			// dependency. We check the service account instead as in `pilot/pkg/config/kube/gateway#GatewayCollection`
 			// InternalServiceAccount annotation is set to empty for manual deployments.
 			isManagedGateway := cfg.Annotations[constants.InternalServiceAccount] != ""
-			if isInternalGateway && isManagedGateway {
+			if isGWAPIGateway && isManagedGateway {
 				gatewayName := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
-				gatewayNames.Insert(gatewayName.String())
+				managedGWAPIGatewayNames.Insert(gatewayName.String())
 			}
 		}
 
@@ -2464,9 +2464,12 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	}
 
 	mgw := mergeGateways(gatewayInstances, proxy, ps)
-
-	if gatewayNames.Len() > 0 {
-		filterMergedGatewayServers(mgw, gatewayNames)
+	// If features.EnableStrictGatewayMerging is false, then gatewayNames will be an empty set.
+	if managedGWAPIGatewayNames.Len() > 0 {
+		if managedGWAPIGatewayNames.Len() > 1 {
+			log.Warnf("multiple GatewayAPI gateways found for the proxy in namespace %s: %v", proxy.ConfigNamespace, managedGWAPIGatewayNames)
+		}
+		filterMergedGatewayServers(mgw, managedGWAPIGatewayNames)
 	}
 
 	return mgw
