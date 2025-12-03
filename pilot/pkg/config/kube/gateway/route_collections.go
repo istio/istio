@@ -794,9 +794,11 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 			}
 			if config.Extra != nil {
 				for k, v := range config.Extra {
-					// Early return for non-InferencePool configs
+					// For non-InferencePool configs, keep the first value for stability
 					if k != constants.ConfigExtraPerRouteRuleInferencePoolConfigs {
-						base.Extra[k] = v
+						if _, exists := base.Extra[k]; !exists {
+							base.Extra[k] = v
+						}
 						continue
 					}
 					// For InferencePool configs, merge the maps
@@ -809,10 +811,14 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 						for routeName, routeConfig := range configMap {
 							baseMap[routeName] = routeConfig
 						}
-					} else {
-						log.Debugf("Creating new InferencePool config map from VirtualService %d (namespace=%s)", i+1, config.Namespace)
-						base.Extra[k] = v
+					} else if configOk {
+						// Only set if config has the correct type and base doesn't have it yet
+						if _, exists := base.Extra[k]; !exists {
+							log.Debugf("Creating new InferencePool config map from VirtualService %d (namespace=%s)", i+1, config.Namespace)
+							base.Extra[k] = v
+						}
 					}
+					// If configOk is false (wrong type), skip it to preserve base's value
 				}
 			}
 		}
