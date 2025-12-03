@@ -812,13 +812,11 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 							baseMap[routeName] = routeConfig
 						}
 					} else if configOk {
-						// Only set if config has the correct type and base doesn't have it yet
 						if _, exists := base.Extra[k]; !exists {
 							log.Debugf("Creating new InferencePool config map from VirtualService %d (namespace=%s)", i+1, config.Namespace)
 							base.Extra[k] = v
 						}
 					}
-					// If configOk is false (wrong type), skip it to preserve base's value
 				}
 			}
 		}
