@@ -138,11 +138,11 @@ func NewMulticluster(
 				kubemesh.MeshConfigKey,
 				krt.NewOptionsBuilder(stop, "", nil),
 			)
-			remoteMeshWatcher := meshwatcher.NewCollection(
+			remoteMeshCollection := meshwatcher.NewCollection(
 				krt.NewOptionsBuilder(stop, "", nil),
 				meshSource,
 			)
-			options.MeshWatcher = meshwatcher.ConfigAdapter(remoteMeshWatcher)
+			options.MeshWatcher = meshwatcher.ConfigAdapter(remoteMeshCollection)
 			log.Infof("Created mesh watcher for remote cluster %q", cluster.ID)
 		}
 
