@@ -326,6 +326,14 @@ var (
 
 	DisableTrackRemainingMetrics = env.Register("DISABLE_TRACK_REMAINING_CB_METRICS", true,
 		"If disabled, the remaining metrics for circuit breakers will not be tracked.").Get()
+
+	BlockedIpsInJWKURIs = func() sets.String {
+		v := env.Register(
+			"BLOCKED_IPS_IN_JWKS_URIS",
+			"",
+			"Comma separated list of IPs that are blocked in JWKS URIs.").Get()
+		return sets.New(strings.Split(v, ",")...)
+	}()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
