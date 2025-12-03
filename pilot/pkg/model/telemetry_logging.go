@@ -23,8 +23,6 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	otelaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
-	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
-	metadataformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/metadata/v3"
 	reqwithoutquery "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -118,20 +116,6 @@ var (
 	reqWithoutQueryFormatter = &core.TypedExtensionConfig{
 		Name:        "envoy.formatter.req_without_query",
 		TypedConfig: protoconv.MessageToAny(&reqwithoutquery.ReqWithoutQuery{}),
-	}
-
-	// metadataFormatter configures additional formatters needed for some of the format strings like "METADATA"
-	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/metadata/v3/metadata.proto
-	metadataFormatter = &core.TypedExtensionConfig{
-		Name:        "envoy.formatter.metadata",
-		TypedConfig: protoconv.MessageToAny(&metadataformatter.Metadata{}),
-	}
-
-	// celFormatter configures additional formatters needed for some of the format strings like "CEL"
-	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/cel/v3/cel.proto
-	celFormatter = &core.TypedExtensionConfig{
-		Name:        "envoy.formatter.cel",
-		TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
 	}
 )
 
