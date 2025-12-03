@@ -166,7 +166,7 @@ func (c *Cluster) GetStop() <-chan struct{} {
 	return c.stop
 }
 
-func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
+func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *krt.DebugHandler, parentStop <-chan struct{}) {
 	// Check and see if this is a local cluster or not
 	if c.RemoteClusterCollections != nil {
 		log.Infof("Configuring cluster %s with existing informers", c.ID)
@@ -198,6 +198,12 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 			}
 			c.initialSyncTimeout.Store(true)
 		})
+	}
+
+	// Use parentStop if provided, otherwise use c.stop
+	stop := parentStop
+	if stop == nil {
+		stop = c.stop
 	}
 
 	opts := krt.NewOptionsBuilder(c.stop, fmt.Sprintf("ambient/cluster[%s]", c.ID), debugger)
@@ -271,7 +277,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	}
 
 	go func() {
-		if !c.Client.RunAndWait(c.stop) {
+		if !c.Client.RunAndWait(stop) {
 			log.Warnf("remote cluster %s failed to sync", c.ID)
 			return
 		}
@@ -286,7 +292,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		}
 
 		for _, syncer := range syncers {
-			if !syncer.WaitUntilSynced(c.stop) {
+			if !syncer.WaitUntilSynced(stop) {
 				log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
 				return
 			}
