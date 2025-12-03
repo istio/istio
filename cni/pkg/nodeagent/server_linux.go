@@ -46,8 +46,32 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		Reconcile:              args.ReconcilePodRulesOnStartup,
 	}
 
+	useNftables := args.NativeNftables
+
+	// To support safe migration from iptables to nftables backend, detect if the host already has any iptable artifacts.
+	if useNftables {
+		log.Info("Native nftables is configured, checking for iptables artifacts...")
+		iptablesDetected, err := detectIptablesArtifacts(args.EnableIPv6)
+
+		if iptablesDetected {
+			// Override nftables configuration and continue with iptables backend
+			log.Warnf("iptables artifacts detected (IPsets exist). " +
+				"Overriding nftables configuration and continuing with iptables backend. " +
+				"To complete migration to nftables, reboot the node.")
+			useNftables = false
+		} else {
+			if err != nil {
+				// Error while detecting the artifacts. Default to nftables (as requested) for a fail-safe behavior.
+				log.Warnf("iptables artifacts could not be detected (%v). "+
+					"Proceeding with nftables backend as configured.", err)
+			} else {
+				log.Info("iptables artifacts not found, proceeding with nftables backend")
+			}
+		}
+	}
+
 	log.Infof("creating host addressSet manager in the node netns")
-	setManager, err := createHostNetworkAddrSetManager(args.NativeNftables, hostCfg.EnableIPv6)
+	setManager, err := createHostNetworkAddrSetManager(useNftables, hostCfg.EnableIPv6)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing host addressSet manager: %w", err)
 	}
@@ -59,7 +83,7 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 	}
 
 	hostTrafficManager, podTrafficManager, err := trafficmanager.NewTrafficRuleManager(&trafficmanager.TrafficRuleManagerConfig{
-		NativeNftables: args.NativeNftables,
+		NativeNftables: useNftables,
 		HostConfig:     hostCfg,
 		PodConfig:      podCfg,
 		HostDeps:       realDependenciesHost(args.ForceIptablesBinary),
@@ -70,7 +94,7 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		return nil, fmt.Errorf("error creating traffic managers: %w", err)
 	}
 
-	if !args.NativeNftables {
+	if !useNftables {
 		// The nftables implementation will automatically flush any pre-existing chains when programming
 		// the rules, so we skip the DeleteHostRules for nftables backend.
 		hostTrafficManager.DeleteHostRules()
