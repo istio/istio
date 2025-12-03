@@ -978,14 +978,13 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 	fakeCluster := "outbound|55680||otel-collector.monitoring.svc.cluster.local"
 	fakeAuthority := "otel-collector.monitoring.svc.cluster.local"
 	for _, tc := range []struct {
-		name         string
-		logName      string
-		clusterName  string
-		hostname     string
-		body         string
-		labels       *structpb.Struct
-		expected     *otelaccesslog.OpenTelemetryAccessLogConfig
-		proxyVersion *IstioVersion
+		name        string
+		logName     string
+		clusterName string
+		hostname    string
+		body        string
+		labels      *structpb.Struct
+		expected    *otelaccesslog.OpenTelemetryAccessLogConfig
 	}{
 		{
 			name:        "default",
@@ -1809,8 +1808,8 @@ func TestAccessLogTextFormatters(t *testing.T) {
 			},
 		},
 		{
-			name: "with-metadata",
-			text: EnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
+			name:     "with-metadata",
+			text:     EnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
 			expected: []*core.TypedExtensionConfig{},
 		},
 		{
@@ -1821,8 +1820,8 @@ func TestAccessLogTextFormatters(t *testing.T) {
 			},
 		},
 		{
-			name: "with-multi-metadata",
-			text: EnvoyTextLogFormat + " %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			name:     "with-multi-metadata",
+			text:     EnvoyTextLogFormat + " %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
 			expected: []*core.TypedExtensionConfig{},
 		},
 		{
