@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/cenkalti/backoff/v4"
 
 	set "istio.io/istio/cni/pkg/addressset"
 	"istio.io/istio/cni/pkg/config"
@@ -94,14 +97,23 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		return nil, fmt.Errorf("error creating traffic managers: %w", err)
 	}
 
-	if !useNftables {
-		// The nftables implementation will automatically flush any pre-existing chains when programming
-		// the rules, so we skip the DeleteHostRules for nftables backend.
-		hostTrafficManager.DeleteHostRules()
-	}
+	err = backoff.Retry(func() error {
+		if !useNftables {
+			// The nftables implementation will automatically flush any pre-existing chains when programming
+			// the rules, so we skip the DeleteHostRules for nftables backend.
 
-	// Create hostprobe rules now, in the host netns
-	if err := hostTrafficManager.CreateHostRulesForHealthChecks(); err != nil {
+			// Not infallible, this can silently fail so we should retry it as well
+			hostTrafficManager.DeleteHostRules()
+		}
+
+		// Create hostprobe rules now, in the host netns
+		if innerErr := hostTrafficManager.CreateHostRulesForHealthChecks(); innerErr != nil {
+			log.Debugf("CreateHostRulesForHealthCheck inner loop received error: %w", innerErr)
+			return innerErr
+		}
+		return nil
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(2)*time.Second), uint64(10)))
+	if err != nil {
 		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
 	}
 
