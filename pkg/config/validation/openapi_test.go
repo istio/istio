@@ -90,6 +90,9 @@ func TestCRDCosts(t *testing.T) {
 		if s.IsBuiltin() || s.IsSynthetic() {
 			continue
 		}
+		//if s.GroupVersionKind().Kind != "GatewayClass" {
+		//	continue
+		//}
 		cr, err := v.ValidateCosts(s.GroupVersionKind().Kubernetes())
 		assert.NoError(t, err)
 		if !f {

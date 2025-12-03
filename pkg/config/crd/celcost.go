@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
+	"istio.io/istio/pkg/ptr"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextval "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
@@ -51,13 +52,14 @@ func (c CostReports) MarkdownReport(title string) string {
 	sb := strings.Builder{}
 	sb.WriteString(" ## " + title + "\n\n")
 	sb.WriteString(p.Sprintf("**Total cost:** %d (%.2f%%)\n\n", c.Total, c.UsedBudget()*100))
-	sb.WriteString("|Path|Cost|Budget|Cardinality|Cumulative|Expression|\n")
-	sb.WriteString("|-|-|-|-|-|-|\n")
+	sb.WriteString("|Path|Expression Cost|Path Cost|Budget|Cardinality|Cumulative|Expression|\n")
+	sb.WriteString("|-|-|-|-|-|-|-|\n")
 	cum := uint64(0)
 	for _, e := range c.Expressions {
 		cum += e.Cost
-		sb.WriteString(p.Sprintf("|`%s`|%d|%.2f%%|%d|%.2f%%|`%s`|\n",
+		sb.WriteString(p.Sprintf("|`%s`|%d|%d|%.2f%%|%d|%.2f%%|`%s`|\n",
 			strings.ReplaceAll(e.Path.String(), "^.spec.", ""),
+			e.RawCost,
 			e.Cost,
 			e.UsedBudget()*100,
 			e.Cardinality,
@@ -70,6 +72,7 @@ func (c CostReports) MarkdownReport(title string) string {
 
 type ExpressionReport struct {
 	Rule        apiextensions.ValidationRule
+	RawCost     uint64
 	Cost        uint64
 	Allowed     uint64
 	Cardinality uint64
@@ -151,8 +154,9 @@ func validateCosts(schema *apiextensions.JSONSchemaProps) (CostReports, error) {
 				expressionCost := getExpressionCost(cr, celContext)
 				res.Expressions = append(res.Expressions, ExpressionReport{
 					Rule:        schema.XValidations[i],
+					RawCost:     cr.MaxCost,
 					Cost:        expressionCost,
-					Cardinality: cr.MaxCardinality,
+					Cardinality: ptr.OrDefault(celContext.MaxCardinality, 0),
 					Allowed:     apiextval.StaticEstimatedCostLimit,
 					Path:        simpleLocation,
 				})
