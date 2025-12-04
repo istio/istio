@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -413,16 +414,16 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceO
 }
 
 func configsUpdated(req *model.PushRequest) string {
-	configs := ""
+	var configs strings.Builder
 	for key := range req.ConfigsUpdated {
-		configs += key.String()
+		configs.WriteString(key.String())
 		break
 	}
 	if len(req.ConfigsUpdated) > 1 {
 		more := " and " + strconv.Itoa(len(req.ConfigsUpdated)-1) + " more configs"
-		configs += more
+		configs.WriteString(more)
 	}
-	return configs
+	return configs.String()
 }
 
 func reasonsUpdated(req *model.PushRequest) string {

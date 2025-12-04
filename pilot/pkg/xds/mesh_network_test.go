@@ -514,7 +514,8 @@ spec:
 					for subset, eps := range tc.expectations {
 						client.ExpectWithWeight(&workload{kind: sc.expectKind, name: name, namespace: "test", port: port}, subset, eps...)
 					}
-					configObjects := `
+					var configObjects strings.Builder
+					configObjects.WriteString(`
 ---
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
@@ -533,10 +534,10 @@ spec:
   - name: v3
     labels:
       version: v3
-`
-					configObjects += sc.cfg
+`)
+					configObjects.WriteString(sc.cfg)
 					for i, entry := range tc.entries {
-						configObjects += fmt.Sprintf(`
+						configObjects.WriteString(fmt.Sprintf(`
 ---
 apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
@@ -550,12 +551,12 @@ spec:
   labels:
     app: remote-we-svc
     version: %q
-`, i, entry.address, entry.sa, entry.network, entry.version)
+`, i, entry.address, entry.sa, entry.network, entry.version))
 					}
 
 					runMeshNetworkingTest(t, meshNetworkingTest{
 						workloads:       []*workload{client},
-						configYAML:      configObjects,
+						configYAML:      configObjects.String(),
 						kubeObjectsYAML: map[cluster.ID]string{constants.DefaultClusterName: sc.k8s},
 						kubeObjects: map[cluster.ID][]runtime.Object{constants.DefaultClusterName: {
 							gatewaySvc("gateway-1", "1.1.1.1", "network-1"),

@@ -1496,14 +1496,14 @@ func printConfigs(writer io.Writer, configs []*config.Config) {
 		return
 	}
 	fmt.Fprintf(writer, "Applied %s:\n", configs[0].Meta.GroupVersionKind.Kind)
-	var cfgNames string
+	var cfgNames strings.Builder
 	for i, cfg := range configs {
-		cfgNames += cfg.Meta.Name + "." + cfg.Meta.Namespace
+		cfgNames.WriteString(cfg.Meta.Name + "." + cfg.Meta.Namespace)
 		if i < len(configs)-1 {
-			cfgNames += ", "
+			cfgNames.WriteString(", ")
 		}
 	}
-	fmt.Fprintf(writer, "   %s\n", cfgNames)
+	fmt.Fprintf(writer, "   %s\n", cfgNames.String())
 }
 
 func printPeerAuthentication(writer io.Writer, pa authn.MergedPeerAuthentication) {

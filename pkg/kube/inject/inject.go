@@ -292,13 +292,13 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 
 	if log.DebugEnabled() {
 		// Build a log message for the annotations.
-		annotationStr := ""
+		var annotationStr strings.Builder
 		for name := range AnnotationValidation {
 			value, ok := annos[name]
 			if !ok {
 				value = "(unset)"
 			}
-			annotationStr += fmt.Sprintf("%s:%s ", name, value)
+			annotationStr.WriteString(fmt.Sprintf("%s:%s ", name, value))
 		}
 
 		log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v required:%v %s",
@@ -308,7 +308,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 			useDefault,
 			inject,
 			required,
-			annotationStr)
+			annotationStr.String())
 	}
 
 	return required
