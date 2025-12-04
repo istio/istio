@@ -38,6 +38,9 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	s := settingsFromCommandLine.Clone()
 	s.TestID = testID
 
+	// Register this Settings instance for dynamic revision updates
+	RegisterForRevisionUpdates(s)
+
 	f, err := label.ParseSelector(s.SelectorString)
 	if err != nil {
 		return nil, err
