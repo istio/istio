@@ -877,7 +877,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy, patches *MergedEnvoyFilterW
 	// system during initial installation.
 	if proxy.MergedGateway != nil {
 		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw.String()])
+			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
 		}
 	}
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
@@ -914,7 +914,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace strin
 		return true
 	}
 	for _, g := range gw.GatewayNameForServer {
-		if hosts := ps.virtualServiceIndex.destinationsByGateway[g.String()]; hosts != nil {
+		if hosts := ps.virtualServiceIndex.destinationsByGateway[g]; hosts != nil {
 			if hosts.Contains(hostname) {
 				return true
 			}
@@ -2428,8 +2428,8 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			// InternalServiceAccount annotation is set to empty for manual deployments.
 			isManagedGateway := cfg.Annotations[constants.InternalServiceAccount] != ""
 			if isGWAPIGateway && isManagedGateway {
-				gatewayName := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
-				managedGWAPIGatewayNames.Insert(gatewayName.String())
+				gatewayName := cfg.Namespace + "/" + cfg.Name
+				managedGWAPIGatewayNames.Insert(gatewayName)
 			}
 		}
 

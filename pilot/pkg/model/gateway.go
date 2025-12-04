@@ -18,8 +18,6 @@ import (
 	"strconv"
 	"strings"
 
-	kubetypes "k8s.io/apimachinery/pkg/types"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -76,7 +74,7 @@ type MergedGateway struct {
 
 	// GatewayNameForServer maps from server to the owning gateway name.
 	// Used for select the set of virtual services that apply to a port.
-	GatewayNameForServer map[*networking.Server]kubetypes.NamespacedName
+	GatewayNameForServer map[*networking.Server]string
 
 	// ServersByRouteName maps from port names to virtual hosts
 	// Used for RDS. No two port names share same port except for HTTPS
@@ -171,7 +169,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	plainTextServers := make(map[uint32]ServerPort)
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
-	gatewayNameForServer := make(map[*networking.Server]kubetypes.NamespacedName)
+	gatewayNameForServer := make(map[*networking.Server]string)
 	verifiedCertificateReferences := sets.New[string]()
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
@@ -180,27 +178,27 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	log.Debugf("mergeGateways: merging %d gateways", len(gateways))
 	for _, gwAndInstance := range gateways {
 		gatewayConfig := gwAndInstance.gateway
-		gatewayName := kubetypes.NamespacedName{Namespace: gatewayConfig.Namespace, Name: gatewayConfig.Name}
+		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
-		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName.String(), gatewayCfg)
+		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
 		snames := sets.String{}
 
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
 				if snames.InsertContains(s.Name) {
 					log.Warnf("Server name %s is not unique in gateway %s and may create possible issues like stat prefix collision ",
-						s.Name, gatewayName.String())
+						s.Name, gatewayName)
 				}
 			}
 			if s.Port == nil {
 				// Should be rejected in validation, this is an extra check
-				log.Debugf("invalid server without port: %q", gatewayName.String())
-				RecordRejectedConfig(gatewayName.String())
+				log.Debugf("invalid server without port: %q", gatewayName)
+				RecordRejectedConfig(gatewayName)
 				continue
 			}
 			s := sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
-			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName.String(), s.Name, s.Hosts)
+			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
 			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
 			expectedNS := ptr.NonEmptyOrDefault(gatewayConfig.Annotations[constants.InternalParentNamespace], gatewayConfig.Namespace)
@@ -250,8 +248,8 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						tlsHostsByPort[resolvedPort] = map[string]string{}
 					}
 					if duplicateHosts := CheckDuplicates(s.Hosts, s.Bind, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
-						log.Warnf("skipping server on gateway %s, duplicate host names: %v", gatewayName.String(), duplicateHosts)
-						RecordRejectedConfig(gatewayName.String())
+						log.Warnf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
+						RecordRejectedConfig(gatewayName)
 						continue
 					}
 					tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s), RouteName: routeName}
@@ -272,7 +270,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						if !canMergeProtocols(serverProtocol, protocol.Parse(current.Protocol)) && current.Bind == serverPort.Bind {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: conflict with existing server %d.%s",
 								gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol, serverPort.Number, serverPort.Protocol)
-							RecordRejectedConfig(gatewayName.String())
+							RecordRejectedConfig(gatewayName)
 							continue
 						}
 						// For TCP gateway/route the route name is empty but if they are different binds, should continue to generate the listener
@@ -280,7 +278,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						if routeName == "" && current.Bind == serverPort.Bind {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 								gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
-							RecordRejectedConfig(gatewayName.String())
+							RecordRejectedConfig(gatewayName)
 							continue
 						}
 						if current.Bind != serverPort.Bind {
@@ -329,7 +327,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							if routeName == "" {
 								log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 									gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
-								RecordRejectedConfig(gatewayName.String())
+								RecordRejectedConfig(gatewayName)
 								continue
 							}
 
@@ -342,7 +340,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							if _, exists := serversByRouteName[routeName]; exists {
 								log.Infof("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
 									gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
-								RecordRejectedConfig(gatewayName.String())
+								RecordRejectedConfig(gatewayName)
 								continue
 							}
 							serversByRouteName[routeName] = []*networking.Server{s}
@@ -360,8 +358,8 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						// i.e 0.0.0.0:443:GRPC/1.0.0.1:443:GRPC/1.0.0.2:443:HTTPS they are not conflicted, otherwise
 						// We have another TLS server on the same port. Can differentiate servers using SNI
 						if s.Tls == nil && !newBind {
-							log.Warnf("TLS server without TLS options %s %s", gatewayName.String(), s.String())
-							RecordRejectedConfig(gatewayName.String())
+							log.Warnf("TLS server without TLS options %s %s", gatewayName, s.String())
+							RecordRejectedConfig(gatewayName)
 							continue
 						}
 						if mergedServers[serverPort] == nil {
@@ -403,7 +401,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						}
 					}
 				}
-				log.Debugf("mergeGateways: gateway %q merged server %v", gatewayName.String(), s.Hosts)
+				log.Debugf("mergeGateways: gateway %q merged server %v", gatewayName, s.Hosts)
 			}
 		}
 	}
@@ -685,8 +683,9 @@ func filterMergedGatewayServers(mgw *MergedGateway, gwAPIGatewayNames sets.Set[s
 			allowedNamespaces := sets.New[string]()
 			for _, s := range mergedServer.Servers {
 				gatewayName := gatewayNameForServer[s]
-				if exists := gwAPIGatewayNames.Contains(gatewayName.String()); exists {
-					gatewayNamespace := gatewayName.Namespace
+				if exists := gwAPIGatewayNames.Contains(gatewayName); exists {
+					parts := strings.Split(gatewayName, "/")
+					gatewayNamespace := parts[0]
 					allowedNamespaces.Insert(gatewayNamespace)
 				}
 			}
@@ -696,10 +695,11 @@ func filterMergedGatewayServers(mgw *MergedGateway, gwAPIGatewayNames sets.Set[s
 				filteredServers := []*networking.Server{}
 				for _, s := range mergedServer.Servers {
 					gatewayName := gatewayNameForServer[s]
-					gatewayNamespace := gatewayName.Namespace
+					parts := strings.Split(gatewayName, "/")
+					gatewayNamespace := parts[0]
 
 					// Check if this is a GatewayAPI gateway using the pre-built map
-					isGatewayAPI := gwAPIGatewayNames.Contains(gatewayName.String())
+					isGatewayAPI := gwAPIGatewayNames.Contains(gatewayName)
 
 					// Keep GatewayAPI servers or Istio Gateway servers in allowed namespaces for this port
 					if isGatewayAPI || allowedNamespaces.Contains(gatewayNamespace) {
@@ -709,8 +709,8 @@ func filterMergedGatewayServers(mgw *MergedGateway, gwAPIGatewayNames sets.Set[s
 						delete(gatewayNameForServer, s)
 						delete(tlsServerInfo, s)
 						log.Infof("skipping server on gateway %s port %s.%d.%s: does not satisfy merging criteria",
-							gatewayName.String(), s.Port.Name, port.Number, port.Protocol)
-						RecordRejectedConfig(gatewayName.String())
+							gatewayName, s.Port.Name, port.Number, port.Protocol)
+						RecordRejectedConfig(gatewayName)
 					}
 				}
 

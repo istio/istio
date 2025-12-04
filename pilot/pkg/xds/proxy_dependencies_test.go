@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"testing"
 
-	kubetypes "k8s.io/apimachinery/pkg/types"
-
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
@@ -432,8 +430,8 @@ func TestProxyNeedsPush(t *testing.T) {
 	})
 
 	gateway.MergedGateway = &model.MergedGateway{
-		GatewayNameForServer: map[*networking.Server]kubetypes.NamespacedName{
-			{}: {Namespace: nsName, Name: generalName},
+		GatewayNameForServer: map[*networking.Server]string{
+			{}: nsName + "/" + generalName,
 		},
 	}
 	gateway.SetSidecarScope(cg.PushContext())
