@@ -1,0 +1,41 @@
+{
+    "versionInfo": "1.1",
+    "resources": [
+        {
+            "@type": "type.googleapis.com/envoy.service.status.v3.ClientConfig",
+            "node": {
+                "id": "proxy1",
+                "metadata": {
+                    "CLUSTER_ID": "cluster1",
+                    "ISTIO_VERSION": "1.20"
+                }
+            },
+            "genericXdsConfigs": [
+                {
+                    "typeUrl": "type.googleapis.com/envoy.config.cluster.v3.Cluster",
+                    "configStatus": "STALE"
+                },
+                {
+                    "typeUrl": "type.googleapis.com/envoy.config.listener.v3.Listener",
+                    "configStatus": "SYNCED"
+                },
+                {
+                    "typeUrl": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+                    "configStatus": "NOT_SENT"
+                },
+                {
+                    "typeUrl": "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
+                    "configStatus": "SYNCED"
+                },
+                {
+                    "typeUrl": "type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig",
+                    "configStatus": "SYNCED"
+                }
+            ]
+        }
+    ],
+    "typeUrl": "type.googleapis.com/envoy.service.status.v3.ClientConfig",
+    "controlPlane": {
+        "identifier": "{\"Component\":\"istiod\",\"ID\":\"istiod1\",\"Info\":{\"version\":\"1.1\",\"revision\":\"\",\"golang_version\":\"\",\"status\":\"\",\"tag\":\"\"}}"
+    }
+}

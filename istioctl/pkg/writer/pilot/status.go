@@ -25,10 +25,12 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"k8s.io/apimachinery/pkg/util/duration"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/model"
 	xdsresource "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // XdsStatusWriter enables printing of sync status using multiple xdsapi.DiscoveryResponse Istiod responses
@@ -51,8 +53,17 @@ type xdsWriterStatus struct {
 
 const ignoredStatus = "IGNORED"
 
-// PrintAll takes a slice of Istiod syncz responses and outputs them using a tabwriter
+// PrintAll takes a slice of Istiod syncz responses and outputs them using the configured `OutputFormat`
 func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryResponse) error {
+	switch s.OutputFormat {
+	case "json", "yaml":
+		return s.printMachineReadable(statuses)
+	case "table":
+		break
+	default:
+		return fmt.Errorf("output format %q not supported", s.OutputFormat)
+	}
+
 	if s.Verbosity > 0 {
 		return s.printAllVerbose(statuses)
 	}
@@ -78,6 +89,22 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 		if err := w.Flush(); err != nil {
 			return fmt.Errorf("failed to flush tabwriter: %w", err)
 		}
+	}
+	return nil
+}
+
+func (s *XdsStatusWriter) printMachineReadable(statuses map[string]*discovery.DiscoveryResponse) error {
+	for _, status := range statuses {
+		out, err := protomarshal.MarshalIndentWithGlobalTypesResolver(status, "    ")
+		if err != nil {
+			return err
+		}
+		if s.OutputFormat == "yaml" {
+			if out, err = yaml.JSONToYAML(out); err != nil {
+				return err
+			}
+		}
+		_, _ = fmt.Fprintln(s.Writer, string(out))
 	}
 	return nil
 }
