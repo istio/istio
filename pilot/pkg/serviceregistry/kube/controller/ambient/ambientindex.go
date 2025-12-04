@@ -279,8 +279,7 @@ func New(options Options) Index {
 		)
 
 		// We can run this in a goroutine because all of the dependent collections will wait for the initial sync
-		// Pass a.stop so the LocalCluster respects the index's stop channel
-		go LocalCluster.Run(a.meshConfig, a.Debugger, a.stop)
+		go LocalCluster.Run(a.meshConfig, a.Debugger)
 		a.buildGlobalCollections(
 			LocalCluster,
 			AuthzPolicies,

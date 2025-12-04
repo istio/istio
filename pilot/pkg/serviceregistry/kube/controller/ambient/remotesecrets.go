@@ -131,8 +131,7 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 
 		// Run returns after initializing the cluster's fields; it runs all of the expensive operations
 		// in a goroutine, so we can safely call it synchronously here.
-		// Pass nil to use the cluster's own stop channel (remote clusters are stopped explicitly via Stop())
-		remoteCluster.Run(a.meshConfig, debugger, nil)
+		remoteCluster.Run(a.meshConfig, debugger)
 		a.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		addedClusters = append(addedClusters, remoteCluster)
 	}
