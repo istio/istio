@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+releaseNotes:
+- |
+  **Improved** remote cluster trust domain handling by implementing watching of remote `meshConfig`.
+  Istiod now automatically watches and updates trust domain information from remote clusters,
+  ensuring accurate SAN matching for services, which belong to more than one trust domain.
