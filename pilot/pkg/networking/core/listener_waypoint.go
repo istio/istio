@@ -867,7 +867,7 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 	pre, post := lb.buildWaypointHTTPFilters(svc)
 	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	var filters []*listener.Filter
-	routeCfg := buildWaypointInboundHTTPRouteConfig(lb, svc, cc, efw)
+	routeCfg := buildWaypointInboundHTTPRouteConfig(lb, svc, cc)
 	routeCfg = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_WAYPOINT, lb.node, efw, routeCfg)
 	httpOpts := &httpListenerOpts{
 		routeConfig:      routeCfg,
@@ -1066,8 +1066,7 @@ func buildRouteVHostDomains(svc *model.Service) []string {
 }
 
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service,
-	cc inboundChainConfig, efw *model.MergedEnvoyFilterWrapper,
-) (out *route.RouteConfiguration) {
+	cc inboundChainConfig) (out *route.RouteConfiguration) {
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
 		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
