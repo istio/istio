@@ -656,11 +656,6 @@ func filterChainMatch(patchContext networking.EnvoyFilter_PatchContext,
 	listener *listener.Listener, fc *listener.FilterChain, lp *model.EnvoyFilterConfigPatchWrapper,
 ) bool {
 	if patchContext == networking.EnvoyFilter_WAYPOINT {
-		waypointMatch := lp.Match.GetWaypoint()
-		if waypointMatch == nil {
-			return true
-		}
-
 		return true
 	}
 
