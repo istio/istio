@@ -229,6 +229,14 @@ var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
 func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.Duration) (string, error) {
 	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
+
+	for blockedIP := range features.BlockedIpsInJWKURIs {
+		if blockedIP != "" && strings.Contains(jwksURI, blockedIP) {
+			log.Errorf("jwksURI %q contains blocked IP", jwksURI)
+			return "", fmt.Errorf("jwksURI %q contains blocked IP", jwksURI)
+		}
+	}
+
 	if val, found := r.keyEntries.Load(key); found {
 		e := val.(jwtPubKeyEntry)
 
