@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+ - https://github.com/istio/istio/issues/57706
+
+releaseNotes:
+- |
+  **Fixed** an issue where HTTPS servers processed first prevented HTTP servers from creating routes on the same port with different bind addresses.
