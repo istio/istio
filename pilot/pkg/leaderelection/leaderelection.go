@@ -164,13 +164,18 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 		},
 	}
 	if l.perRevision || l.useLeaseLock {
+		leaseKey := key
+		if l.perRevision {
+			// Per revision does not need takeover
+			// See below, where we disable KeyComparison as well
+			leaseKey = ""
+		}
 		lock = &k8sresourcelock.LeaseLock{
 			LeaseMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 			Client:    l.client.CoordinationV1(),
-			// Note: Key is NOT used. This is not implemented in the library for Lease nor needed, since this is already per-revision.
-			// See below, where we disable KeyComparison
 			LockConfig: k8sresourcelock.ResourceLockConfig{
 				Identity: l.name,
+				Key:      leaseKey,
 			},
 		}
 	}
@@ -188,10 +193,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 	}
 	if !l.perRevision {
 		// Function to use to decide whether this leader should steal the existing lock.
-		// This is disable when perRevision is used, as this enables the Lease. Lease doesn't have a holderKey field to place our key
-		// as holderKey is an Istio specific fork.
-		// While its possible to make it work with Lease as well (via an annotation to store it), we don't ever need prioritized
-		// for these per-revision ones anyways, since the prioritization is about preferring one revision over others.
+		// For perRevision, we don't ever need prioritized, since the prioritization is about preferring one revision over others.
 		config.KeyComparison = func(leaderKey string) bool {
 			return LocationPrioritizedComparison(leaderKey, l)
 		}
