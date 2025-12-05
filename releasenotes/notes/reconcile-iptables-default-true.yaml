@@ -6,10 +6,11 @@ releaseNotes:
   **Promoted** `cni.ambient.reconcileIptablesOnStartup` to default to `true`.
   This enables automatic reconciliation of iptables rules for existing ambient pods when the `istio-cni` DaemonSet is upgraded,
   eliminating the need to manually restart pods to get updated networking configuration.
+  This can be disabled explicitly or by using `compatibilityVersion=1.28`.
 
 upgradeNotes:
   - title: Ambient iptables reconciliation enabled by default
     content: |
-        Iptables reconciliation is now enabled by default for ambient workloads in this release. When a new `istio-cni` DaemonSet pod starts up,
+        Iptables reconciliation is now enabled by default for ambient workloads in release 1.29.0. When a new `istio-cni` DaemonSet pod starts up,
         it will automatically inspect pods that were previously enrolled in the ambient mesh and upgrade their in-pod iptables rules to the current state
         if there are any differences. This feature can be disabled explicitly with `--set cni.ambient.reconcileIptablesOnStartup=false`.
