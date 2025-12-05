@@ -25,7 +25,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -45,7 +44,7 @@ func convertPort(port corev1.ServicePort) *model.Port {
 	}
 }
 
-func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.ID, mesh *meshconfig.MeshConfig) *model.Service {
+func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.ID, trustDomain string) *model.Service {
 	addrs := []string{constants.UnspecifiedIP}
 	resolution := model.ClientSideLB
 	externalName := ""
@@ -80,7 +79,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	}
 	if svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name] != "" {
 		for _, ksa := range strings.Split(svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name], ",") {
-			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, mesh))
+			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, trustDomain))
 		}
 	}
 	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
@@ -179,13 +178,13 @@ func ServiceHostnameForKR(obj metav1.Object, domainSuffix string) host.Name {
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
-func kubeToIstioServiceAccount(saname string, ns string, mesh *meshconfig.MeshConfig) string {
-	return spiffe.MustGenSpiffeURI(mesh, ns, saname)
+func kubeToIstioServiceAccount(saname string, ns string, trustDomain string) string {
+	return spiffe.MustGenSpiffeURIForTrustDomain(trustDomain, ns, saname)
 }
 
 // SecureNamingSAN creates the secure naming used for SAN verification from pod metadata
-func SecureNamingSAN(pod *corev1.Pod, mesh *meshconfig.MeshConfig) string {
-	return spiffe.MustGenSpiffeURI(mesh, pod.Namespace, pod.Spec.ServiceAccountName)
+func SecureNamingSAN(pod *corev1.Pod, trustDomain string) string {
+	return spiffe.MustGenSpiffeURIForTrustDomain(trustDomain, pod.Namespace, pod.Spec.ServiceAccountName)
 }
 
 // PodTLSMode returns the tls mode associated with the pod if pod has been injected with sidecar

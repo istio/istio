@@ -234,7 +234,7 @@ type Controller struct {
 
 	// initialSyncTimedout is set to true after performing an initial processing timed out.
 	initialSyncTimedout *atomic.Bool
-	meshWatcher         mesh.Watcher
+	meshWatcher         mesh.RestrictedConfigWatcher
 
 	podsClient kclient.Client[*v1.Pod]
 
@@ -331,7 +331,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
-	c.meshWatcher = options.MeshWatcher
+	c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
 	if c.opts.MeshNetworksWatcher != nil {
 		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()
@@ -420,7 +420,7 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.Mesh())
+	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.TrustDomain())
 
 	switch event {
 	case model.EventDelete:
