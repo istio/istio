@@ -57,10 +57,10 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 
 	filters := []filterFunction{minimumVersionFilter}
 
-	pilotIgnoreResources := features.FetchResourceFilter(features.PilotIgnoreResourcesEnv)
+	pilotIgnoreResources := fetchResourceFilter(features.PilotIgnoreResourcesEnv)
 	if len(pilotIgnoreResources) > 0 {
 		filters = append(filters,
-			filterPilotResources(pilotIgnoreResources, features.FetchResourceFilter(features.PilotIncludeResourcesEnv)),
+			filterPilotResources(pilotIgnoreResources, fetchResourceFilter(features.PilotIncludeResourcesEnv)),
 		)
 	}
 
@@ -76,6 +76,35 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 var minimumCRDVersions = map[string]*semver.Version{
 	"grpcroutes.gateway.networking.k8s.io":         semver.New(1, 1, 0, "", ""),
 	"backendtlspolicies.gateway.networking.k8s.io": semver.New(1, 4, 0, "", ""),
+}
+
+// resourceFilterConfig contains a filter definition parsed from the flags. In case
+// the filter is passed with "*." the filter will be marked as Prefix type and
+// the check will match the value as a suffix, and not as an exact match
+type resourceFilterConfig struct {
+	prefix bool
+	value  string
+}
+
+// fetchResourceFilter is used to fetch the filters (ignore or include) from the
+// flags.
+func fetchResourceFilter(filters string) []resourceFilterConfig {
+	resourceFilter := make([]resourceFilterConfig, 0)
+
+	for filter := range strings.SplitSeq(filters, ",") {
+		val := strings.TrimSpace(filter)
+		prefix := false
+		if strings.HasPrefix(val, "*.") {
+			prefix = true
+			val = strings.TrimPrefix(val, "*.")
+		}
+		filterConf := resourceFilterConfig{
+			value:  val,
+			prefix: prefix,
+		}
+		resourceFilter = append(resourceFilter, filterConf)
+	}
+	return resourceFilter
 }
 
 type filterFunction = func(obj any) bool
@@ -107,7 +136,7 @@ func unionFilter(fns []filterFunction) filterFunction {
 // As an example, some cluster admin that wants to ignore all Istio resources
 // but still allow the usage of wasmplugins can pass the ignoreList as ["*.istio.io"]
 // and the inclusion list as ["wasmplugins.extensions.istio.io"]
-func filterPilotResources(pilotIgnoreResources, pilotIncludeResources []features.ResourceFilterConfig) filterFunction {
+func filterPilotResources(pilotIgnoreResources, pilotIncludeResources []resourceFilterConfig) filterFunction {
 	return func(t any) bool {
 		crd := t.(*metav1.PartialObjectMetadata)
 
@@ -127,10 +156,10 @@ func filterPilotResources(pilotIgnoreResources, pilotIncludeResources []features
 	}
 }
 
-func resourceMatchFilters(name string, filters []features.ResourceFilterConfig) bool {
+func resourceMatchFilters(name string, filters []resourceFilterConfig) bool {
 	for _, filter := range filters {
-		if (filter.Prefix && strings.HasSuffix(name, filter.Value)) ||
-			(!filter.Prefix && name == filter.Value) {
+		if (filter.prefix && strings.HasSuffix(name, filter.value)) ||
+			(!filter.prefix && name == filter.value) {
 			return true
 		}
 	}

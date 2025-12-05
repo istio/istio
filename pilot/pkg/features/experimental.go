@@ -15,7 +15,6 @@
 package features
 
 import (
-	"strings"
 	"time"
 
 	"go.uber.org/atomic"
@@ -23,14 +22,6 @@ import (
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
-
-// ResourceFilter contains a filter definition parsed from the flags. In case
-// the filter is passed with "*." the filter will be marked as Prefix type and
-// the check will match the value as a suffix, and not as an exact match
-type ResourceFilterConfig struct {
-	Prefix bool
-	Value  string
-}
 
 // Define experimental features here.
 var (
@@ -233,25 +224,4 @@ var (
 			"This value should be a comma-separated list of resources names."+
 			"Items on this list can be prefixed with a '*.' meaning a whole group should be included regardless of the ignore list.",
 	).Get()
-
-	// FetchResourceFilter is used to fetch the filters (ignore or include) from the
-	// flags.
-	FetchResourceFilter = func(filters string) []ResourceFilterConfig {
-		resourceFilter := make([]ResourceFilterConfig, 0)
-
-		for filter := range strings.SplitSeq(filters, ",") {
-			val := strings.TrimSpace(filter)
-			prefix := false
-			if strings.HasPrefix(val, "*.") {
-				prefix = true
-				val = strings.TrimPrefix(val, "*.")
-			}
-			filterConf := ResourceFilterConfig{
-				Value:  val,
-				Prefix: prefix,
-			}
-			resourceFilter = append(resourceFilter, filterConf)
-		}
-		return resourceFilter
-	}
 )
