@@ -1066,7 +1066,8 @@ func buildRouteVHostDomains(svc *model.Service) []string {
 }
 
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service,
-	cc inboundChainConfig) (out *route.RouteConfiguration) {
+	cc inboundChainConfig,
+) (out *route.RouteConfiguration) {
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
 		out = buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
