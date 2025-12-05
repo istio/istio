@@ -53,6 +53,14 @@ spec:
         prometheus.io/scrape: 'true'
         prometheus.io/port: "15014"
         prometheus.io/path: '/metrics'
+        # Add AppArmor annotation
+        # This is required to avoid conflicts with AppArmor profiles which block certain
+        # privileged pod capabilities.
+        # Required for Kubernetes 1.29 which does not support setting appArmorProfile in the
+        # securityContext which is otherwise preferred.
+        {{- if .Values.useAppArmorAnnotation }}
+        container.apparmor.security.beta.kubernetes.io/install-cni: unconfined
+        {{- end }}
         # Custom annotations
         {{- if .Values.podAnnotations }}
 {{ toYaml .Values.podAnnotations | indent 8 }}
@@ -101,8 +109,12 @@ spec:
           securityContext:
             # This is required to avoid conflicts with AppArmor profiles which block certain
             # privileged pod capabilities.
+            # For Kubernetes >= 1.30 appArmorProfile should be used, for earlier versions this is set
+            # with container.apparmor.security.beta.kubernetes.io annotation
+            {{- if not .Values.useAppArmorAnnotation }}
             appArmorProfile:
               type: Unconfined
+            {{- end }}
             privileged: false
             runAsGroup: 0
             runAsUser: 0
