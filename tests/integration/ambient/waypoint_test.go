@@ -1319,7 +1319,7 @@ func GetCondition(conditions []metav1.Condition, condition string) *metav1.Condi
 
 func TestWaypointLocalRatelimit(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need at least one waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
 				return
