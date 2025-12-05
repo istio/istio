@@ -261,7 +261,50 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 		deploy = getTemplate(vmDeploymentTemplateFile)
 	}
 
-	return tmpl.Execute(deploy, params)
+	deploymentYAML, err := tmpl.Execute(deploy, params)
+	if err != nil {
+		return "", err
+	}
+
+	// Check if any ports are configured as endpoint pickers
+	var eppPorts []int
+	for _, port := range cfg.Ports {
+		if port.EndpointPicker {
+			eppPorts = append(eppPorts, port.ServicePort)
+		}
+	}
+
+	// If there are endpoint picker ports, add a DestinationRule to disable mTLS for those ports
+	if len(eppPorts) > 0 {
+		drYAML := generateDestinationRuleForEPP(cfg.Service, cfg.Namespace.Name(), eppPorts)
+		deploymentYAML += "\n---\n" + drYAML
+	}
+
+	return deploymentYAML, nil
+}
+
+func generateDestinationRuleForEPP(service, namespace string, eppPorts []int) string {
+	var portSettings strings.Builder
+	for i, port := range eppPorts {
+		if i > 0 {
+			portSettings.WriteString("\n")
+		}
+		portSettings.WriteString(fmt.Sprintf(`    - port:
+        number: %d
+      tls:
+        mode: DISABLE`, port))
+	}
+
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: %s-epp-notls
+  namespace: %s
+spec:
+  host: %s.%s.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+%s`, service, namespace, service, namespace, portSettings.String())
 }
 
 func GenerateService(cfg echo.Config, isOpenShift bool) (string, error) {
@@ -675,6 +718,7 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 			InstanceIP:        p.InstanceIP,
 			LocalhostIP:       p.LocalhostIP,
 			ProxyProtocol:     p.ProxyProtocol,
+			EndpointPicker:    p.EndpointPicker,
 		}
 		containerPorts = append(containerPorts, cport)
 

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
@@ -215,10 +216,16 @@ func (i *instance) RevisionOrDefault(rev string) string {
 
 	// Try to get the default revision from the default watcher
 	// We create a simple approach that doesn't cause circular dependencies
+
+	stop := make(chan struct{})
+	defer close(stop)
 	if i.defaultWatcher == nil {
 		// Try to initialize the default watcher using a basic client
 		if basicClient := i.getBasicClientForDefaultWatcher(); basicClient != nil {
 			i.defaultWatcher = revisions.NewDefaultWatcher(basicClient, "")
+			basicClient.RunAndWait(stop)
+			go i.defaultWatcher.Run(stop)
+			kube.WaitForCacheSync("default revision watcher", stop, i.defaultWatcher.HasSynced)
 		}
 	}
 
@@ -226,10 +233,10 @@ func (i *instance) RevisionOrDefault(rev string) string {
 		if defaultRev := i.defaultWatcher.GetDefault(); defaultRev != "" {
 			return defaultRev
 		}
+		log.Debug("default revision watcher not synced, falling back to \"default\"")
 	}
 
-	// If no default revision found, return empty string (which means default behavior)
-	return ""
+	return "default"
 }
 
 // getBasicClientForDefaultWatcher creates a basic kube client just for watching default revisions
@@ -318,7 +325,10 @@ func (f *fakeInstance) IstioNamespace() string {
 }
 
 func (f *fakeInstance) RevisionOrDefault(rev string) string {
-	// For fake instance, just return the revision as-is (no default resolution)
+	// For fake instance, return "default" if empty (consistent with real implementation fallback)
+	if rev == "" {
+		return "default"
+	}
 	return rev
 }
 

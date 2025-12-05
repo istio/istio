@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -62,6 +61,14 @@ func GetIngressInstance() ingress.Instance {
 
 func GetZipkinInstance() zipkin.Instance {
 	return zipkinInst
+}
+
+func GetServerInstances() echo.Instances {
+	return server
+}
+
+func GetClientInstances() echo.Instances {
+	return client
 }
 
 func TestSetup(ctx resource.Context) (err error) {

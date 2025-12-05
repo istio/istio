@@ -329,6 +329,18 @@ func TestBuildClustersForInferencePoolServices(t *testing.T) {
 			proxyType:            model.SidecarProxy,
 			InferencePoolService: true,
 		},
+		{
+			testName:             "InferencePool service creates single cluster for multiple ports",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.Router,
+			InferencePoolService: true,
+		},
+		{
+			testName:             "Regular service creates one cluster per port",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.Router,
+			InferencePoolService: false,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.testName, func(t *testing.T) {
@@ -362,6 +374,16 @@ func TestBuildClustersForInferencePoolServices(t *testing.T) {
 				g.Expect(overrideHostPolicy.GetOverrideHostSources()).NotTo(BeEmpty())
 				g.Expect(overrideHostPolicy.GetOverrideHostSources()[0].GetMetadata().GetKey()).To(Equal("envoy.lb"))
 				g.Expect(overrideHostPolicy.GetOverrideHostSources()[0].GetMetadata().GetPath()[0].GetKey()).To(Equal("x-gateway-destination-endpoint"))
+				var serviceClusters []string
+				for _, c := range clusters {
+					if strings.Contains(c.Name, "*.example.org") && strings.HasPrefix(c.Name, "outbound|") {
+						serviceClusters = append(serviceClusters, c.Name)
+					}
+				}
+				g.Expect(len(serviceClusters)).To(Equal(1),
+					"expected single cluster but got %d: %v", len(serviceClusters), serviceClusters)
+				g.Expect(serviceClusters[0]).To(ContainSubstring("|8080|"),
+					"expected cluster to use first port 8080 but got %s", serviceClusters[0])
 			}
 		})
 	}
@@ -1970,7 +1992,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 100},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-				TrackRemaining:     true,
+				TrackRemaining:     false,
 			},
 		},
 		{
@@ -2003,7 +2025,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-				TrackRemaining:     true,
+				TrackRemaining:     false,
 			},
 		},
 	}

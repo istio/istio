@@ -167,6 +167,14 @@ spec:
           value: "{{ $val }}"
         {{- end }}
         {{- end }}
+        {{- if .Values.peerCaCrl.enabled }}
+        - name: ENABLE_CRL
+          value: "true"
+        - name: CRL_PATH
+          value: "/var/run/secrets/istio/crl/ca-crl.pem"
+        - name: ALLOW_EXPIRED_CRL
+          value: "false"
+        {{- end }}
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
@@ -176,6 +184,11 @@ spec:
           name: cni-ztunnel-sock-dir
         - mountPath: /tmp
           name: tmp
+        {{- if .Values.peerCaCrl.enabled }}
+        - mountPath: /var/run/secrets/istio/crl
+          name: crl-volume
+          readOnly: true
+        {{- end }}
         {{- with .Values.volumeMounts }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -207,6 +220,13 @@ spec:
       # pprof needs a writable /tmp, and we don't have that thanks to `readOnlyRootFilesystem: true`, so mount one
       - name: tmp
         emptyDir: {}
+      {{- if .Values.peerCaCrl.enabled }}
+      # Optional CRL volume - mounts istio-ca-crl ConfigMap if it exists
+      - name: crl-volume
+        configMap:
+          name: istio-ca-crl
+          optional: true
+      {{- end }}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 6}}
       {{- end }}

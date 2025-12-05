@@ -45,7 +45,7 @@ type IptablesRuleBuilder struct {
 	cfg   *config.Config
 }
 
-// NewIptablesBuilders creates a new IptablesRuleBuilder
+// NewIptablesRuleBuilder creates a new IptablesRuleBuilder
 func NewIptablesRuleBuilder(cfg *config.Config) *IptablesRuleBuilder {
 	if cfg == nil {
 		cfg = &config.Config{}
@@ -310,7 +310,7 @@ func (rb *IptablesRuleBuilder) BuildV6Restore() string {
 	return rb.buildRestore(rb.rules.rulesv6)
 }
 
-// getStateFromSave function takes a string in iptables-restore format and returns a map of the tables, chains, and rules.
+// GetStateFromSave function takes a string in iptables-restore format and returns a map of the tables, chains, and rules.
 // Note that if this function is used to parse iptables-save output, the rules may have changed since they were first applied
 // as rules do not necessarily undergo a round-trip through the kernel in the same form.
 // Therefore, these rules should not be used for any critical checks.

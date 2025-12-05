@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/queue"
 )
@@ -690,7 +691,7 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		// the label has been converted to "istio-locality: region/zone/subzone"
 		// in pilot/pkg/xds/ads.go, and `/` is not allowed in k8s label value.
 		// Instead of converting again, we delete it since has set WorkloadEntry.Locality
-		delete(entry.Labels, model.LocalityLabel)
+		delete(entry.Labels, pm.LocalityLabel)
 	}
 
 	annotations := map[string]string{annotation.IoIstioAutoRegistrationGroup.Name: groupCfg.Name}

@@ -26,7 +26,6 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -56,18 +55,18 @@ func (a AncestorBackend) ResourceName() string {
 }
 
 func HTTPRouteCollection(
-	httpRoutes krt.Collection[*gateway.HTTPRoute],
+	httpRoutes krt.Collection[*gatewayv1.HTTPRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
-) RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus] {
+) RouteResult[*gatewayv1.HTTPRoute, gatewayv1.HTTPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, httpRoutes, gvk.HTTPRoute, opts)
-	ancestorBackends := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) []AncestorBackend {
-		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gateway.HTTPRouteRule) []gateway.HTTPBackendRef {
+	ancestorBackends := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.HTTPRoute) []AncestorBackend {
+		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayv1.HTTPRouteRule) []gatewayv1.HTTPBackendRef {
 			return r.BackendRefs
 		})
 	}, opts.WithName("HTTPAncestors")...)
-	status, baseVirtualServices := krt.NewStatusManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (
-		*gateway.HTTPRouteStatus,
+	status, baseVirtualServices := krt.NewStatusManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.HTTPRoute) (
+		*gatewayv1.HTTPRouteStatus,
 		[]RouteWithKey,
 	) {
 		ctx := inputs.WithCtx(krtctx)
@@ -77,7 +76,7 @@ func HTTPRouteCollection(
 		}{}
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
-		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gateway.HTTPRoute) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
+		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gatewayv1.HTTPRoute) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
 			return func(yield func(*istio.HTTPRoute, *ConfigError) bool) {
 				for n, r := range route.Rules {
 					// split the rule to make sure each rule has up to one match
@@ -87,7 +86,7 @@ func HTTPRouteCollection(
 					}
 					for _, m := range matches {
 						if m != nil {
-							r.Matches = []gateway.HTTPRouteMatch{*m}
+							r.Matches = []gatewayv1.HTTPRouteMatch{*m}
 						}
 						istioRoute, ipCfg, configErr := convertHTTPRoute(ctx, r, obj, n, !mesh)
 						if istioRoute != nil && ipCfg != nil && ipCfg.enableExtProc {
@@ -128,7 +127,7 @@ func HTTPRouteCollection(
 					routeKey += "/" + strconv.Itoa(int(*parent.OriginalReference.Port))
 				}
 				ref := types.NamespacedName{
-					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),
+					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))),
 					Name:      string(parent.OriginalReference.Name),
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
@@ -143,7 +142,7 @@ func HTTPRouteCollection(
 					vsHosts = []string{
 						string(parent.OriginalReference.Name) +
 							"." +
-							string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))) +
+							string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))) +
 							".svc." + ctx.DomainSuffix,
 					}
 				}
@@ -204,7 +203,7 @@ func HTTPRouteCollection(
 	}, opts.WithName("HTTPRoute")...)
 
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("HTTPRouteMerged")...)
-	return RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus]{
+	return RouteResult[*gatewayv1.HTTPRoute, gatewayv1.HTTPRouteStatus]{
 		VirtualServices:  finalVirtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
@@ -212,7 +211,7 @@ func HTTPRouteCollection(
 	}
 }
 
-func extractAncestorBackends[RT, BT any](ns string, prefs []gateway.ParentReference, rules []RT, extract func(RT) []BT) []AncestorBackend {
+func extractAncestorBackends[RT, BT any](ns string, prefs []gatewayv1.ParentReference, rules []RT, extract func(RT) []BT) []AncestorBackend {
 	gateways := sets.Set[types.NamespacedName]{}
 	for _, r := range prefs {
 		ref := normalizeReference(r.Group, r.Kind, gvk.KubernetesGateway)
@@ -325,7 +324,7 @@ func GRPCRouteCollection(
 					routeKey += "/" + strconv.Itoa(int(*parent.OriginalReference.Port))
 				}
 				ref := types.NamespacedName{
-					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),
+					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))),
 					Name:      string(parent.OriginalReference.Name),
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
@@ -338,7 +337,7 @@ func GRPCRouteCollection(
 					}
 				} else {
 					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-						parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace)), ctx.DomainSuffix)}
+						parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace)), ctx.DomainSuffix)}
 				}
 			}
 			if len(routes) == 0 {
@@ -412,7 +411,7 @@ func TCPRouteCollection(
 ) RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tcpRoutes, gvk.TCPRoute, opts)
 	ancestorBackends := krt.NewManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []AncestorBackend {
-		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayalpha.TCPRouteRule) []gateway.BackendRef {
+		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayalpha.TCPRouteRule) []gatewayv1.BackendRef {
 			return r.BackendRefs
 		})
 	}, opts.WithName("TCPAncestors")...)
@@ -446,7 +445,7 @@ func TCPRouteCollection(
 					routes = augmentTCPPortMatch(routes, *parent.OriginalReference.Port)
 				}
 				ref := types.NamespacedName{
-					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),
+					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))),
 					Name:      string(parent.OriginalReference.Name),
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
@@ -503,7 +502,7 @@ func TLSRouteCollection(
 ) RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tlsRoutes, gvk.TLSRoute, opts)
 	ancestorBackends := krt.NewManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) []AncestorBackend {
-		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayalpha.TLSRouteRule) []gateway.BackendRef {
+		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayalpha.TLSRouteRule) []gatewayv1.BackendRef {
 			return r.BackendRefs
 		})
 	}, opts.WithName("TLSAncestors")...)
@@ -534,7 +533,7 @@ func TLSRouteCollection(
 			if parent.IsMesh() {
 				routes = meshResult.routes
 				ref := types.NamespacedName{
-					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),
+					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gatewayv1.Namespace(obj.Namespace))),
 					Name:      string(parent.OriginalReference.Name),
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
@@ -591,7 +590,7 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 	mesh bool,
 	obj T,
 ) iter.Seq2[O, *ConfigError],
-) ([]gateway.RouteParentStatus, []routeParentReference, conversionResult[O], conversionResult[O]) {
+) ([]gatewayv1.RouteParentStatus, []routeParentReference, conversionResult[O], conversionResult[O]) {
 	parentRefs := extractParentReferenceInfo(ctx, ctx.RouteParents, obj)
 
 	convertRules := func(mesh bool) conversionResult[O] {

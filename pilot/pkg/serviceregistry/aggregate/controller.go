@@ -174,6 +174,19 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressI
 	return i, removed
 }
 
+func (c *Controller) ServiceInfo(key string) *model.ServiceInfo {
+	if !features.EnableAmbientMultiNetwork {
+		return nil
+	}
+	for _, p := range c.GetRegistries() {
+		// When it comes to service info in ambient multicluster setup, only the local cluster matter.
+		if p.Cluster() == c.configClusterID && p.Provider() == provider.Kubernetes {
+			return p.ServiceInfo(key)
+		}
+	}
+	return nil
+}
+
 type registryEntry struct {
 	serviceregistry.Instance
 	// stop if not nil is the per-registry stop chan. If null, the server stop chan should be used to Run the registry.
@@ -364,6 +377,12 @@ func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance)
 	if len(dst.ClusterVIPs.GetAddressesFor(clusterID)) == 0 {
 		newAddresses := src.ClusterVIPs.GetAddressesFor(clusterID)
 		dst.ClusterVIPs.SetAddressesFor(clusterID, newAddresses)
+	}
+	// Merge service accounts from different clusters
+	// Each cluster may have a different trust domain, so we need to collect all unique service accounts
+	if len(src.ServiceAccounts) > 0 {
+		dst.ServiceAccounts = append(dst.ServiceAccounts, src.ServiceAccounts...)
+		dst.ServiceAccounts = slices.FilterDuplicates(dst.ServiceAccounts)
 	}
 }
 

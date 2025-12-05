@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -16,7 +16,7 @@ metadata:
   name: eastwestgateway
   namespace: istio-system
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: eastwestgateway
     uid: ""
@@ -33,7 +33,7 @@ metadata:
   name: eastwestgateway
   namespace: istio-system
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: eastwestgateway
     uid: ""
@@ -126,6 +126,8 @@ spec:
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_NETWORK
+          value: network-1
+        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
           value: network-1
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
@@ -239,7 +241,7 @@ metadata:
   name: eastwestgateway
   namespace: istio-system
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: eastwestgateway
     uid: ""

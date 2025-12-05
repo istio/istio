@@ -20,12 +20,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -45,7 +44,7 @@ func convertPort(port corev1.ServicePort) *model.Port {
 	}
 }
 
-func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.ID, mesh *meshconfig.MeshConfig) *model.Service {
+func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.ID, trustDomain string) *model.Service {
 	addrs := []string{constants.UnspecifiedIP}
 	resolution := model.ClientSideLB
 	externalName := ""
@@ -80,7 +79,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	}
 	if svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name] != "" {
 		for _, ksa := range strings.Split(svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name], ",") {
-			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, mesh))
+			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, trustDomain))
 		}
 	}
 	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
@@ -179,13 +178,13 @@ func ServiceHostnameForKR(obj metav1.Object, domainSuffix string) host.Name {
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
-func kubeToIstioServiceAccount(saname string, ns string, mesh *meshconfig.MeshConfig) string {
-	return spiffe.MustGenSpiffeURI(mesh, ns, saname)
+func kubeToIstioServiceAccount(saname string, ns string, trustDomain string) string {
+	return spiffe.MustGenSpiffeURIForTrustDomain(trustDomain, ns, saname)
 }
 
 // SecureNamingSAN creates the secure naming used for SAN verification from pod metadata
-func SecureNamingSAN(pod *corev1.Pod, mesh *meshconfig.MeshConfig) string {
-	return spiffe.MustGenSpiffeURI(mesh, pod.Namespace, pod.Spec.ServiceAccountName)
+func SecureNamingSAN(pod *corev1.Pod, trustDomain string) string {
+	return spiffe.MustGenSpiffeURIForTrustDomain(trustDomain, pod.Namespace, pod.Spec.ServiceAccountName)
 }
 
 // PodTLSMode returns the tls mode associated with the pod if pod has been injected with sidecar
@@ -204,7 +203,7 @@ func PodTLSMode(pod *corev1.Pod) string {
 // with TLS.Mode Passthrough.
 // For some backwards compatibility, we assume any listener with TLS specified and a port matching
 // 15443 (or the label-override for gateway port) is auto-passthrough as well.
-func IsAutoPassthrough(gwLabels map[string]string, l v1beta1.Listener) bool {
+func IsAutoPassthrough(gwLabels map[string]string, l v1.Listener) bool {
 	if l.TLS == nil {
 		return false
 	}
@@ -222,7 +221,7 @@ func IsAutoPassthrough(gwLabels map[string]string, l v1beta1.Listener) bool {
 	return fmt.Sprint(l.Port) == expectedPort
 }
 
-func hasListenerMode(l v1beta1.Listener, mode string) bool {
+func hasListenerMode(l v1.Listener, mode string) bool {
 	// TODO if we add a hybrid mode for detecting HBONE/passthrough, also check that here
 	return l.TLS != nil && l.TLS.Options != nil && string(l.TLS.Options[constants.ListenerModeOption]) == mode
 }
@@ -250,7 +249,7 @@ func hasListenerModeSet(l gatewayx.ListenerEntry, mode string) bool {
 	return l.TLS != nil && l.TLS.Options != nil && string(l.TLS.Options[constants.ListenerModeOption]) == mode
 }
 
-func GatewaySA(gw *v1beta1.Gateway) string {
+func GatewaySA(gw *v1.Gateway) string {
 	name := model.GetOrDefault(gw.GetAnnotations()[annotation.GatewayServiceAccount.Name], "")
 	if name != "" {
 		return name

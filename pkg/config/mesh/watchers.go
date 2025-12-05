@@ -57,3 +57,29 @@ func NewWatcherHandlerRegistration(f func()) *WatcherHandlerRegistration {
 func (r *WatcherHandlerRegistration) Remove() {
 	r.remove()
 }
+
+// RestrictedConfigWatcher provides limited access to mesh configuration.
+// It exposes only trust domain and service scope, suitable for use in remote clusters
+// or components that should not have full mesh config access.
+type RestrictedConfigWatcher interface {
+	TrustDomain() string
+	ServiceScopeConfigs() []*v1alpha1.MeshConfig_ServiceScopeConfigs
+}
+
+// NewRestrictedConfigWatcher wraps a Holder to expose only trust domain and service scope.
+func NewRestrictedConfigWatcher(holder Holder) RestrictedConfigWatcher {
+	return restrictedConfigAdapter{holder}
+}
+
+// restrictedConfigAdapter wraps a Holder to provide RestrictedConfigWatcher interface.
+type restrictedConfigAdapter struct {
+	Holder
+}
+
+func (r restrictedConfigAdapter) TrustDomain() string {
+	return r.Mesh().GetTrustDomain()
+}
+
+func (r restrictedConfigAdapter) ServiceScopeConfigs() []*v1alpha1.MeshConfig_ServiceScopeConfigs {
+	return r.Mesh().GetServiceScopeConfigs()
+}

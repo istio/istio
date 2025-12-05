@@ -2,8 +2,8 @@
 
 This document outlines the design, configuration, and basic troubleshooting steps for the `nftables` backend in Istio.
 As the official successor to `iptables`, `nftables` offers a modern, high-performance alternative for transparently redirecting
-traffic to and from the `Envoy` sidecar proxy. Many major Linux distributions are actively moving towards adopting native
-`nftables` support. At present, this backend supports Istio sidecar mode only, with ambient mode support currently under development.
+traffic to and from the `Envoy` sidecar proxy or `ztunnel` node proxy. Many major Linux distributions are actively moving towards
+adopting native `nftables` support. `nftables` backend is supported for both Istio sidecar mode and ambient modes.
 
 ## Key Benefits
 
@@ -23,6 +23,8 @@ with iptables. This makes the setup easier to troubleshoot and maintain, especia
 
 This implementation uses the [knftables](https://github.com/kubernetes-sigs/knftables) library, which is commonly used in the K8s ecosystem
 for working with nftables.
+
+### Sidecar Mode Example
 
 ```sh
 table inet istio-proxy-nat {
@@ -44,6 +46,26 @@ table inet istio-proxy-nat {
 }
 ```
 
+### Ambient Mode Example
+
+```sh
+table inet istio-ambient-nat {
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+        # Jump to istio-prerouting chain
+    }
+
+    chain output {
+        type nat hook output priority dstnat; policy accept;
+        # Jump to istio-output chain
+    }
+
+    # Custom Istio chains for ambient traffic processing
+    chain istio-prerouting { }
+    chain istio-output { }
+}
+```
+
 ## Configuration
 
 The `nftables` backend is **disabled by default**. To enable it, you must set the following value during installation process:
@@ -58,11 +80,17 @@ This flag configures Istio to use the `nftables` backend instead of `iptables` f
 
 ### Table Structure
 
-The `nftables` backend creates three main tables in the `inet` family:
+The `nftables` backend creates three main tables in the `inet` family. The table names differ between sidecar and ambient modes:
 
+**Sidecar Mode Tables:**
 - **`istio-proxy-nat`**: Handles traffic redirection using DNAT/REDIRECT targets
 - **`istio-proxy-mangle`**: Manages packet marking and TPROXY operations
 - **`istio-proxy-raw`**: Handles connection tracking zones for DNS traffic
+
+**Ambient Mode Tables:**
+- **`istio-ambient-nat`**: Handles traffic redirection for pods in the mesh
+- **`istio-ambient-mangle`**: Manages packet marking for ztunnel traffic
+- **`istio-ambient-raw`**: Handles connection tracking zones for DNS traffic
 
 ### Chain Organization
 
@@ -75,9 +103,23 @@ Each table contains both netfilter hook chains and custom chains:
 **Custom Chains** (called via jump rules):
 - `istio-inbound`: Inbound traffic processing logic
 - `istio-output`: Outbound traffic processing logic
-- `istio-redirect`: Common redirection target for Envoy
-- `istio-tproxy`: TPROXY-specific handling
-- `istio-divert`: Traffic diversion based on packet marking
+- `istio-redirect`: Common redirection target for Envoy (sidecar mode)
+- `istio-tproxy`: TPROXY-specific handling (sidecar mode)
+- `istio-divert`: Traffic diversion based on packet marking (sidecar mode)
+- `istio-prerouting`: Prerouting traffic processing (ambient mode)
+
+### Ambient Mode Specific Details
+
+In ambient mode, similar to the iptables backend, the nftables rules operate at two levels:
+
+1. **Host-level rules**: Created by the CNI node agent in the host network namespace to handle health check traffic from kubelet.
+   These rules use `skuid` matching to identify kubelet-originated traffic and SNAT it to a special IP address (`169.254.7.127` for IPv4,
+   `fd16:9254:7127:1337:ffff:ffff:ffff:ffff` for IPv6) so it can be distinguished from other traffic once it enters the pod namespace.
+
+1. **Pod-level rules**: Created inside each pod's network namespace to redirect traffic to and from the ztunnel proxy running on the node.
+   These rules handle redirection of inbound traffic to ztunnel's inbound port (15006), redirection of outbound traffic to ztunnel's
+   outbound port (15001), DNS traffic redirection, virtual interface handling for special cases like KubeVirt, and exempting the
+   kubelet Health check probe traffic.
 
 ### Rule Application Process
 
@@ -104,19 +146,35 @@ The following `nft` commands are useful for troubleshooting. The implementation 
 nft list ruleset
 ```
 
-**What to check**: Look at the `counter` values on rules in the `istio-inbound`, `istio-output` and related chains.
+**What to check**: Look at the `counter` values on rules in the `istio-inbound`, `istio-output`, `istio-prerouting` and related chains.
 If the packet counts are non-zero, it means traffic is processed by that rule.
 
 ### View specific table
+
+For sidecar mode:
 
 ```bash
 nft list table inet istio-proxy-nat
 ```
 
+For ambient mode:
+
+```bash
+nft list table inet istio-ambient-nat
+```
+
 ### View specific chain
+
+For sidecar mode:
 
 ```bash
 nft list chain inet istio-proxy-nat istio-output
+```
+
+For ambient mode:
+
+```bash
+nft list chain inet istio-ambient-nat istio-output
 ```
 
 ### Reset counters for fresh debugging

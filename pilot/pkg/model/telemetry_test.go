@@ -116,7 +116,6 @@ var (
 			LogFormat: &core.SubstitutionFormatString{
 				Formatters: []*core.TypedExtensionConfig{
 					reqWithoutQueryFormatter,
-					metadataFormatter,
 				},
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: &structpb.Struct{
@@ -139,7 +138,6 @@ var (
 			LogFormat: &core.SubstitutionFormatString{
 				Formatters: []*core.TypedExtensionConfig{
 					reqWithoutQueryFormatter,
-					metadataFormatter,
 				},
 				Format: &core.SubstitutionFormatString_TextFormatSource{
 					TextFormatSource: &core.DataSource{

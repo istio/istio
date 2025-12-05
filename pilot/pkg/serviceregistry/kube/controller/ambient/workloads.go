@@ -101,7 +101,7 @@ func (a *index) WorkloadsCollection(
 	// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
 	ServiceEntryWorkloads := krt.NewManyCollection(
 		serviceEntries,
-		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces),
+		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces, workloadServices),
 		opts.WithName("ServiceEntryWorkloads")...,
 	)
 	// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
@@ -115,7 +115,8 @@ func (a *index) WorkloadsCollection(
 		opts.WithName("EndpointSliceWorkloads")...)
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
-		return slices.Map(a.LookupAllNetworkGateway(ctx), convertGateway)
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+		return slices.Map(a.LookupAllNetworkGateway(ctx), convertGateway(meshCfg))
 	}, opts.WithName("NetworkGatewayWorkloads")...)
 
 	Workloads := krt.JoinCollection(
@@ -227,6 +228,7 @@ func MergedGlobalWorkloadsCollection(
 			localPeerAuths,
 			localWaypoints,
 			localCluster.Namespaces(),
+			localWorkloadServices,
 			localClusterGetter,
 			localNetworkGetter,
 			globalNetworks.NetworkGateways,
@@ -262,10 +264,11 @@ func MergedGlobalWorkloadsCollection(
 	)
 
 	GlobalNetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		return slices.Map(LookupAllNetworkGateway(
 			ctx,
 			globalNetworks.NetworkGateways,
-		), convertGateway)
+		), convertGateway(meshCfg))
 	}, opts.WithName("LocalNetworkGatewayWorkloads")...)
 	LocalNetworkGatewayWorkloadsWithCluster := krt.MapCollection(
 		GlobalNetworkGatewayWorkloads,
@@ -507,6 +510,7 @@ func MergedGlobalWorkloadsCollection(
 					localPeerAuths,
 					waypoints,
 					namespaces,
+					globalWorkloadServices,
 					func(ctx krt.HandlerContext) cluster.ID {
 						return c.ID
 					},
@@ -1033,12 +1037,19 @@ func serviceEntryWorkloadBuilder(
 	peerAuths krt.Collection[*securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	workloadServices krt.Collection[model.ServiceInfo],
 	clusterGetter func(krt.HandlerContext) cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
 	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
+	serviceEntryInfosByNamespaceAndName := krt.NewIndex(workloadServices, "serviceEntryInfosByNamespaceAndName", func(si model.ServiceInfo) []string {
+		if si.Source.Kind != kind.ServiceEntry {
+			return nil
+		}
+		return []string{si.Source.NamespacedName.Namespace + "/" + si.Source.NamespacedName.Name}
+	})
 	return func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
 		eps := se.Spec.Endpoints
 		// If we have a DNS service, endpoints are not required
@@ -1053,7 +1064,13 @@ func serviceEntryWorkloadBuilder(
 		cluster := clusterGetter(ctx)
 		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
 		// `allServices` (since we are building workloads here, not services).
-		allServices := serviceEntriesInfo(ctx, se, nil, nil, networkGetter)
+		allServices := krt.Fetch(ctx, workloadServices, krt.FilterIndex(serviceEntryInfosByNamespaceAndName, se.Namespace+"/"+se.Name))
+		if len(allServices) == 0 {
+			// This ServiceEntry was pruned entirely by deduplication in the WorkloadServices collection, it's endpoints should not be sent to the data plane.
+			// TODO: Once we write deduplication results to ServiceEntry status, we should consider lowering this to Debug to reduce noise in the logs. For now, we warn.
+			log.Warnf("ServiceEntry %s/%s was pruned by deduplication. Endpoints from this ServiceEntry will not be sent to the data plane.", se.Namespace, se.Name)
+			return nil
+		}
 		if implicitEndpoints {
 			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
 				return &networkingv1alpha3.WorkloadEntry{Address: si.Service.Hostname}
@@ -1142,6 +1159,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 	peerAuths krt.Collection[*securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	workloadServices krt.Collection[model.ServiceInfo],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
 	return serviceEntryWorkloadBuilder(
 		meshConfig,
@@ -1149,6 +1167,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 		peerAuths,
 		waypoints,
 		namespaces,
+		workloadServices,
 		func(ctx krt.HandlerContext) cluster.ID {
 			return a.ClusterID
 		},
@@ -1527,22 +1546,25 @@ func gatewayUID(gw model.NetworkGateway) string {
 // convertGateway always converts a NetworkGateway into a Workload.
 // Workloads have a NetworkGateway field, which is effectively a pointer to another object (Service or Workload); in order
 // to facilitate this we need to translate our Gateway model down into a WorkloadInfo ztunnel can understand.
-func convertGateway(gw NetworkGateway) model.WorkloadInfo {
-	wl := &workloadapi.Workload{
-		Uid:            gatewayUID(gw.NetworkGateway),
-		Name:           gatewayUID(gw.NetworkGateway),
-		ServiceAccount: gw.ServiceAccount.Name,
-		Namespace:      gw.ServiceAccount.Namespace,
-		Network:        gw.Network.String(),
-	}
+func convertGateway(mesh *MeshConfig) func(gw NetworkGateway) model.WorkloadInfo {
+	return func(gw NetworkGateway) model.WorkloadInfo {
+		wl := &workloadapi.Workload{
+			Uid:            gatewayUID(gw.NetworkGateway),
+			Name:           gatewayUID(gw.NetworkGateway),
+			ServiceAccount: gw.ServiceAccount.Name,
+			Namespace:      gw.ServiceAccount.Namespace,
+			Network:        gw.Network.String(),
+			TrustDomain:    pickTrustDomain(mesh),
+		}
 
-	if ip, err := netip.ParseAddr(gw.Addr); err == nil {
-		wl.Addresses = append(wl.Addresses, ip.AsSlice())
-	} else {
-		wl.Hostname = gw.Addr
-	}
+		if ip, err := netip.ParseAddr(gw.Addr); err == nil {
+			wl.Addresses = append(wl.Addresses, ip.AsSlice())
+		} else {
+			wl.Hostname = gw.Addr
+		}
 
-	return precomputeWorkload(model.WorkloadInfo{Workload: wl})
+		return precomputeWorkload(model.WorkloadInfo{Workload: wl})
+	}
 }
 
 func getNetworkGatewayAddress(

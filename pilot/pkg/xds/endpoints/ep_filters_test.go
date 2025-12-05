@@ -678,6 +678,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 }
 
 func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
 	env := environment(t)

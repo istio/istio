@@ -2526,6 +2526,25 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 // ServiceEndpointsByPort returns the cached instances by port if it exists.
 func (ps *PushContext) ServiceEndpointsByPort(svc *Service, port int, labels labels.Instance) []*IstioEndpoint {
 	var out []*IstioEndpoint
+
+	// For InferencePool services, return ALL endpoints regardless of port
+	// because they may have different target ports but belong to the same cluster
+	if svc.UseInferenceSemantics() {
+		allPorts := ps.ServiceIndex.instancesByPort[svc.Key()]
+		for _, instances := range allPorts {
+			if len(labels) == 0 {
+				out = append(out, instances...)
+				continue
+			}
+			for _, instance := range instances {
+				if labels.SubsetOf(instance.Labels) {
+					out = append(out, instance)
+				}
+			}
+		}
+		return out
+	}
+
 	if instances, exists := ps.ServiceIndex.instancesByPort[svc.Key()][port]; exists {
 		// Use cached version of instances by port when labels are empty.
 		if len(labels) == 0 {
@@ -2606,4 +2625,10 @@ func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
 // Key can optionally be provided in the form 'namespace/hostname'. If unset, all are returned
 func (ps *PushContext) ServicesWithWaypoint(key string) []ServiceWaypointInfo {
 	return ps.ambientIndex.ServicesWithWaypoint(key)
+}
+
+// ServiceInfo returns the ambient info about the given service, if present.
+// Key identifiies the service and expected to be in the form of 'namespace/hostname'.
+func (ps *PushContext) ServiceInfo(key string) *ServiceInfo {
+	return ps.ambientIndex.ServiceInfo(key)
 }

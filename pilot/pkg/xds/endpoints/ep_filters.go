@@ -21,6 +21,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -223,6 +224,13 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				gwEp.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(gwAddr, gwPort, "")
 				// and we need the original service domain name and port that to put in the :authority of the HTTP2 CONNECT.
 				util.AppendDoubleHBONEMetadata(string(b.service.Hostname), svcPort.Port, gwEp.Metadata)
+				if b.dir != model.TrafficDirectionInboundVIP {
+					gwEp.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
+						},
+					}
+				}
 			} else {
 				epAddr := util.BuildAddress(gw.Addr, gw.Port)
 				gwEp = &endpoint.LbEndpoint{
@@ -286,6 +294,20 @@ func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []m
 			ambientGws = append(ambientGws, gw)
 		}
 		return ambientGws
+	}
+
+	// Sidecar proxies cannot talk to ambient E/W gateway for now, so when we see an ambient
+	// E/W gateway (e.g., a gateway that listens on hbone port, but does not have an mTLS port
+	// we filter it out.
+	if isSidecarProxy(b.proxy) {
+		var sidecarGws []model.NetworkGateway
+		for _, gw := range gws {
+			if gw.Port == 0 {
+				continue
+			}
+			sidecarGws = append(sidecarGws, gw)
+		}
+		return sidecarGws
 	}
 
 	return gws

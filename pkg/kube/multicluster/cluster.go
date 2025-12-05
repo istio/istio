@@ -44,13 +44,24 @@ type Cluster struct {
 	initialSync *atomic.Bool
 	// initialSyncTimeout is set when RunAndWait timed out
 	initialSyncTimeout *atomic.Bool
+
+	syncStatusCallback SyncStatusCallback
 }
+
+type SyncStatusCallback func(cluster.ID, string)
 
 type ACTION int
 
 const (
 	Add ACTION = iota
 	Update
+)
+
+const (
+	SyncStatusSynced  = "synced"
+	SyncStatusSyncing = "syncing"
+	SyncStatusTimeout = "timeout"
+	SyncStatusClosed  = "closed"
 )
 
 func (a ACTION) String() string {
@@ -66,6 +77,7 @@ func (a ACTION) String() string {
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
 func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
+	c.reportStatus(SyncStatusSyncing)
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			if !c.initialSync.Load() {
@@ -73,12 +85,18 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 				timeouts.With(clusterLabel.Value(string(c.ID))).Increment()
 			}
 			c.initialSyncTimeout.Store(true)
+			c.reportStatus(SyncStatusTimeout)
 		})
 	}
 
 	// Build a namespace watcher. This must have no filter, since this is our input to the filter itself.
 	// This must be done before we build components, so they can access the filter.
 	namespaces := kclient.New[*corev1.Namespace](c.Client)
+	// When this cluster stops, clean up the namespace watcher
+	go func() {
+		<-c.stop
+		namespaces.ShutdownHandlers()
+	}()
 	// This will start a namespace informer and wait for it to be ready. So we must start it in a go routine to avoid blocking.
 	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, c.stop)
 	kube.SetObjectFilter(c.Client, filter)
@@ -104,6 +122,7 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 	}
 
 	c.initialSync.Store(true)
+	c.reportStatus(SyncStatusSynced)
 }
 
 // Stop closes the stop channel, if is safe to be called multi times.
@@ -137,4 +156,23 @@ func (c *Cluster) Closed() bool {
 
 func (c *Cluster) SyncDidTimeout() bool {
 	return !c.initialSync.Load() && c.initialSyncTimeout.Load()
+}
+
+func (c *Cluster) SyncStatus() string {
+	if c.Closed() {
+		return SyncStatusClosed
+	}
+	if c.SyncDidTimeout() {
+		return SyncStatusTimeout
+	}
+	if c.HasSynced() {
+		return SyncStatusSynced
+	}
+	return SyncStatusSyncing
+}
+
+func (c *Cluster) reportStatus(status string) {
+	if c.syncStatusCallback != nil {
+		c.syncStatusCallback(c.ID, status)
+	}
 }

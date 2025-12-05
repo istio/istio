@@ -15,6 +15,7 @@
 package gateway
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"strconv"
@@ -23,15 +24,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/json"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -44,6 +44,7 @@ const (
 	InferencePoolExtensionRefSvc         = "istio.io/inferencepool-extension-service"
 	InferencePoolExtensionRefPort        = "istio.io/inferencepool-extension-port"
 	InferencePoolExtensionRefFailureMode = "istio.io/inferencepool-extension-failure-mode"
+	InferencePoolFieldManager            = "istio.io/inference-pool-controller"
 )
 
 // // ManagedLabel is the label used to identify resources managed by this controller
@@ -95,9 +96,9 @@ func (i InferencePool) ResourceName() string {
 func InferencePoolCollection(
 	pools krt.Collection[*inferencev1.InferencePool],
 	services krt.Collection[*corev1.Service],
-	httpRoutes krt.Collection[*gateway.HTTPRoute],
-	gateways krt.Collection[*gateway.Gateway],
-	routesByInferencePool krt.Index[string, *gateway.HTTPRoute],
+	httpRoutes krt.Collection[*gatewayv1.HTTPRoute],
+	gateways krt.Collection[*gatewayv1.Gateway],
+	routesByInferencePool krt.Index[string, *gatewayv1.HTTPRoute],
 	c *Controller,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*inferencev1.InferencePool, inferencev1.InferencePoolStatus], krt.Collection[InferencePool]) {
@@ -184,8 +185,8 @@ func calculateInferencePoolStatus(
 	pool *inferencev1.InferencePool,
 	gatewayParents sets.Set[types.NamespacedName],
 	services krt.Collection[*corev1.Service],
-	gateways krt.Collection[*gateway.Gateway],
-	routeList []*gateway.HTTPRoute,
+	gateways krt.Collection[*gatewayv1.Gateway],
+	routeList []*gatewayv1.HTTPRoute,
 ) *inferencev1.InferencePoolStatus {
 	// Calculate status for each gateway parent
 	existingParents := pool.Status.DeepCopy().Parents
@@ -227,7 +228,7 @@ func calculateInferencePoolStatus(
 // findGatewayParents finds all Gateway parents that reference this InferencePool through HTTPRoutes
 func findGatewayParents(
 	pool *inferencev1.InferencePool,
-	routeList []*gateway.HTTPRoute,
+	routeList []*gatewayv1.HTTPRoute,
 ) sets.Set[types.NamespacedName] {
 	gatewayParents := sets.New[types.NamespacedName]()
 
@@ -262,7 +263,7 @@ func findGatewayParents(
 }
 
 // routeReferencesInferencePool checks if an HTTPRoute references the given InferencePool
-func routeReferencesInferencePool(route *gateway.HTTPRoute, pool *inferencev1.InferencePool) bool {
+func routeReferencesInferencePool(route *gatewayv1.HTTPRoute, pool *inferencev1.InferencePool) bool {
 	for _, rule := range route.Spec.Rules {
 		for _, backendRef := range rule.BackendRefs {
 			if !isInferencePoolBackendRef(backendRef.BackendRef) {
@@ -300,7 +301,7 @@ func calculateSingleParentStatus(
 	gatewayParent types.NamespacedName,
 	services krt.Collection[*corev1.Service],
 	existingParents []inferencev1.ParentStatus,
-	routeList []*gateway.HTTPRoute,
+	routeList []*gatewayv1.HTTPRoute,
 ) inferencev1.ParentStatus {
 	// Find existing status for this parent to preserve some conditions
 	var existingConditions []metav1.Condition
@@ -342,7 +343,7 @@ func calculateSingleParentStatus(
 func calculateAcceptedStatus(
 	pool *inferencev1.InferencePool,
 	gatewayParent types.NamespacedName,
-	routeList []*gateway.HTTPRoute,
+	routeList []*gatewayv1.HTTPRoute,
 ) *condition {
 	// Check if any HTTPRoute references this InferencePool and has this gateway as an accepted parent
 	for _, route := range routeList {
@@ -458,7 +459,7 @@ func isDefaultStatusParent(parent inferencev1.ParentStatus) bool {
 
 // isOurManagedGateway checks if a Gateway is managed by one of our supported controllers
 // This is used to identify stale parent entries that we previously added but are no longer referenced by HTTPRoutes
-func isOurManagedGateway(gateways krt.Collection[*gateway.Gateway], namespace, name string) bool {
+func isOurManagedGateway(gateways krt.Collection[*gatewayv1.Gateway], namespace, name string) bool {
 	gtw := ptr.Flatten(gateways.GetKey(fmt.Sprintf("%s/%s", namespace, name)))
 	if gtw == nil {
 		return false
@@ -503,31 +504,39 @@ func InferencePoolServiceName(poolName string) (string, error) {
 	return svcName, nil
 }
 
-func translateShadowServiceToService(existingLabels map[string]string, shadow shadowServiceInfo, extRef extRefInfo) *corev1.Service {
-	// Create the ports used by the shadow service
+func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo) *corev1.Service {
+	// Create multiple ports for the shadow service - one for each InferencePool targetPort.
+	// This allows Istio to discover endpoints for all targetPorts.
+	// We use dummy service ports (54321, 54322, etc.) that map to the actual targetPorts.
+	baseDummyPort := int32(54321)
 	ports := make([]corev1.ServicePort, 0, len(shadow.targetPorts))
-	dummyPort := int32(54321) // Dummy port, not used for anything
-	for i, port := range shadow.targetPorts {
+
+	for i, tp := range shadow.targetPorts {
+		portName := fmt.Sprintf("http-%d", i)
 		ports = append(ports, corev1.ServicePort{
-			Name:       "port" + strconv.Itoa(i),
+			Name:       portName,
 			Protocol:   corev1.ProtocolTCP,
-			Port:       dummyPort + int32(i),
-			TargetPort: intstr.FromInt(int(port.port)),
+			Port:       baseDummyPort + int32(i),
+			TargetPort: intstr.FromInt(int(tp.port)),
 		})
 	}
 
 	// Create a new service object based on the shadow service info
 	svc := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shadow.key.Name,
 			Namespace: shadow.key.Namespace,
-			Labels: maps.MergeCopy(map[string]string{
+			Labels: map[string]string{
 				InferencePoolRefLabel:                shadow.poolName,
 				InferencePoolExtensionRefSvc:         extRef.name,
 				InferencePoolExtensionRefPort:        strconv.Itoa(int(extRef.port)),
 				InferencePoolExtensionRefFailureMode: extRef.failureMode,
 				constants.InternalServiceSemantics:   constants.ServiceSemanticsInferencePool,
-			}, existingLabels),
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector:  shadow.selector,
@@ -550,7 +559,7 @@ func translateShadowServiceToService(existingLabels map[string]string, shadow sh
 }
 
 func (c *Controller) reconcileShadowService(
-	svcClient kclient.Client[*corev1.Service],
+	kubeClient kube.Client,
 	inferencePools krt.Collection[InferencePool],
 	servicesCollection krt.Collection[*corev1.Service],
 ) func(key types.NamespacedName) error {
@@ -568,33 +577,35 @@ func (c *Controller) reconcileShadowService(
 		existingService := ptr.Flatten(servicesCollection.GetKey(pool.shadowService.key.String()))
 
 		// Check if we can manage this service
-		var existingLabels map[string]string
 		if existingService != nil {
-			existingLabels = existingService.GetLabels()
-			canManage, _ := c.canManageShadowServiceForInference(existingService)
+			canManage, reason := c.canManageShadowServiceForInference(existingService)
 			if !canManage {
-				log.Debugf("skipping service %s/%s, already managed by another controller", key.Namespace, key.Name)
+				log.Debugf("skipping service %s/%s, already managed by another controller: %s", key.Namespace, key.Name, reason)
 				return nil
 			}
 		}
 
-		service := translateShadowServiceToService(existingLabels, pool.shadowService, pool.extRef)
-
-		var err error
-		if existingService == nil {
-			// Create the service if it doesn't exist
-			_, err = svcClient.Create(service)
-		} else {
-			// TODO: Don't overwrite resources: https://github.com/istio/istio/issues/56667
-			service.ResourceVersion = existingService.ResourceVersion
-			_, err = svcClient.Update(service)
-		}
-
-		return err
+		service := translateShadowServiceToService(pool.shadowService, pool.extRef)
+		return c.applyShadowService(kubeClient, service)
 	}
 }
 
-// canManage checks if a service should be managed by this controller
+// applyShadowService uses Server-Side Apply to create or update shadow services
+func (c *Controller) applyShadowService(kubeClient kube.Client, service *corev1.Service) error {
+	data, err := json.Marshal(service)
+	if err != nil {
+		return fmt.Errorf("failed to marshal service for SSA: %v", err)
+	}
+
+	ctx := context.Background()
+	_, err = kubeClient.Kube().CoreV1().Services(service.Namespace).Patch(
+		ctx, service.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: InferencePoolFieldManager,
+			Force:        ptr.Of(true),
+		})
+	return err
+}
+
 func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bool, string) {
 	if obj == nil {
 		// No object exists, we can manage it
@@ -606,7 +617,7 @@ func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bo
 	return inferencePoolManaged, obj.GetResourceVersion()
 }
 
-func indexHTTPRouteByInferencePool(o *gateway.HTTPRoute) []string {
+func indexHTTPRouteByInferencePool(o *gatewayv1.HTTPRoute) []string {
 	var keys []string
 	for _, rule := range o.Spec.Rules {
 		for _, backendRef := range rule.BackendRefs {

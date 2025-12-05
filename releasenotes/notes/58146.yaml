@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58146
+releaseNotes:
+  - |
+    **Fixed** an issue where Envoy Secret resources could get stuck in `WARMING` state when the same Kubernetes Secret is referenced from Istio Gateway objects using both `secret-name` and `namespace/secret-name` formats.
+

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 58141
+releaseNotes:
+- |
+  **Fixed** an issue where due to incorrect EDS caching in pilot, ambient E/W gateway or waypoints would be configured with unusable EDS endpoints.

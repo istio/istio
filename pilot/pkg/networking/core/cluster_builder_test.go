@@ -3118,7 +3118,7 @@ func TestApplyConnectionPool(t *testing.T) {
 						MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 						MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
 						MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-						TrackRemaining:     true,
+						TrackRemaining:     false,
 						RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
 							BudgetPercent:       &xdstype.Percent{Value: 0.2},
 							MinRetryConcurrency: &wrappers.UInt32Value{Value: 3},
@@ -3162,7 +3162,7 @@ func TestApplyConnectionPool(t *testing.T) {
 						MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 						MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
 						MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-						TrackRemaining:     true,
+						TrackRemaining:     false,
 						RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
 							BudgetPercent:       &xdstype.Percent{Value: 0.3},
 							MinRetryConcurrency: &wrappers.UInt32Value{Value: 4},

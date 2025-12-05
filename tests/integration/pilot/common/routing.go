@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -192,8 +191,13 @@ func httpGateway(host string, port int, portName, protocol string, gatewayIstioL
 func virtualServiceCases(t TrafficContext) {
 	// reduce the total # of subtests that don't give valuable coverage or just don't work
 	// TODO include proxyless as different features become supported
-	t.SetDefaultSourceMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
-	t.SetDefaultTargetMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
+	matchers := []match.Matcher{match.NotNaked, match.NotHeadless, match.NotProxylessGRPC}
+	if t.Settings().AmbientMultiNetwork {
+		matchers = append(matchers, match.AmbientCaptured())
+	}
+	t.SetDefaultSourceMatchers(matchers...)
+	t.SetDefaultTargetMatchers(matchers...)
+
 	includeProxyless := []match.Matcher{match.NotNaked, match.NotHeadless}
 
 	skipVM := t.Settings().Skip(echo.VM)
@@ -3300,11 +3304,16 @@ func protocolSniffingCases(t TrafficContext) {
 
 	// so we can check all clusters are hit
 	for _, call := range protocols {
+		skip := skip{}
+		if call.scheme == scheme.TCP {
+			skip.skip = true
+			skip.reason = "https://github.com/istio/istio/issues/26798: enable sniffing tcp"
+		} else if call.scheme == scheme.HTTP && t.Settings().AmbientMultiNetwork {
+			skip.skip = true
+			skip.reason = "https://github.com/istio/istio/issues/58010"
+		}
 		t.RunTraffic(TrafficTestCase{
-			skip: skip{
-				skip:   call.scheme == scheme.TCP,
-				reason: "https://github.com/istio/istio/issues/26798: enable sniffing tcp",
-			},
+			skip: skip,
 			name: call.port,
 			opts: echo.CallOptions{
 				Count: 1,

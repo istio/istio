@@ -139,9 +139,9 @@ type Inputs struct {
 	Secrets    krt.Collection[*corev1.Secret]
 	ConfigMaps krt.Collection[*corev1.ConfigMap]
 
-	GatewayClasses       krt.Collection[*gateway.GatewayClass]
-	Gateways             krt.Collection[*gateway.Gateway]
-	HTTPRoutes           krt.Collection[*gateway.HTTPRoute]
+	GatewayClasses       krt.Collection[*gatewayv1.GatewayClass]
+	Gateways             krt.Collection[*gatewayv1.Gateway]
+	HTTPRoutes           krt.Collection[*gatewayv1.HTTPRoute]
 	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
 	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
 	TLSRoutes            krt.Collection[*gatewayalpha.TLSRoute]
@@ -197,9 +197,9 @@ func NewController(
 			opts.WithName("informer/ConfigMaps")...,
 		),
 		Services:           krt.WrapClient(svcClient, opts.WithName("informer/Services")...),
-		GatewayClasses:     buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
-		Gateways:           buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
-		HTTPRoutes:         buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
+		GatewayClasses:     buildClient[*gatewayv1.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
+		Gateways:           buildClient[*gatewayv1.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
+		HTTPRoutes:         buildClient[*gatewayv1.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
 		GRPCRoutes:         buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
 		BackendTLSPolicies: buildClient[*gatewayv1.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies"),
 
@@ -238,7 +238,7 @@ func NewController(
 	httpRoutesByInferencePool := krt.NewIndex(inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
-	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus)
+	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
 	ListenerSetStatus, ListenerSets := ListenerSetCollection(
@@ -254,7 +254,7 @@ func NewController(
 		c.tagWatcher,
 		opts,
 	)
-	status.RegisterStatus(c.status, ListenerSetStatus, GetStatus)
+	status.RegisterStatus(c.status, ListenerSetStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
@@ -285,11 +285,11 @@ func NewController(
 	// Create a queue for handling service updates.
 	// We create the queue even if the env var is off just to prevent nil pointer issues.
 	c.shadowServiceReconciler = controllers.NewQueue("inference pool shadow service reconciler",
-		controllers.WithReconciler(c.reconcileShadowService(svcClient, InferencePools, inputs.Services)),
+		controllers.WithReconciler(c.reconcileShadowService(kc, InferencePools, inputs.Services)),
 		controllers.WithMaxAttempts(5))
 
 	if features.EnableGatewayAPIInferenceExtension {
-		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
+		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 	}
 
 	RouteParents := BuildRouteParents(Gateways)
@@ -309,25 +309,25 @@ func NewController(
 		routeInputs,
 		opts,
 	)
-	status.RegisterStatus(c.status, tcpRoutes.Status, GetStatus)
+	status.RegisterStatus(c.status, tcpRoutes.Status, GetStatus, c.tagWatcher.AccessUnprotected())
 	tlsRoutes := TLSRouteCollection(
 		inputs.TLSRoutes,
 		routeInputs,
 		opts,
 	)
-	status.RegisterStatus(c.status, tlsRoutes.Status, GetStatus)
+	status.RegisterStatus(c.status, tlsRoutes.Status, GetStatus, c.tagWatcher.AccessUnprotected())
 	httpRoutes := HTTPRouteCollection(
 		inputs.HTTPRoutes,
 		routeInputs,
 		opts,
 	)
-	status.RegisterStatus(c.status, httpRoutes.Status, GetStatus)
+	status.RegisterStatus(c.status, httpRoutes.Status, GetStatus, c.tagWatcher.AccessUnprotected())
 	grpcRoutes := GRPCRouteCollection(
 		inputs.GRPCRoutes,
 		routeInputs,
 		opts,
 	)
-	status.RegisterStatus(c.status, grpcRoutes.Status, GetStatus)
+	status.RegisterStatus(c.status, grpcRoutes.Status, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
 		tcpRoutes.RouteAttachments,
@@ -360,7 +360,7 @@ func NewController(
 	)
 
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
-	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus)
+	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
 		tcpRoutes.VirtualServices,

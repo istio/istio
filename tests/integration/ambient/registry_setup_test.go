@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -44,26 +43,28 @@ func testRegistrySetup(ctx resource.Context) (err error) {
 	// this is not supported as CoreDNS will attempt to "talk" to the upstream DNS over docker/IPv4 for resolution.
 	// For context: https://github.com/kubernetes-sigs/kind/issues/3114
 	// and https://github.com/istio/istio/pull/51778
-	if isKind {
-		config = registryredirector.Config{
-			Cluster:        ctx.AllClusters().Default(),
-			TargetRegistry: "kind-registry:5000",
-			Scheme:         "http",
+	for _, c := range ctx.Clusters() {
+		if isKind {
+			config = registryredirector.Config{
+				Cluster:        c,
+				TargetRegistry: "kind-registry:5000",
+				Scheme:         "http",
+			}
 		}
-	}
 
-	registry, err = registryredirector.New(ctx, config)
-	if err != nil {
-		return err
-	}
+		registry, err = registryredirector.New(ctx, config)
+		if err != nil {
+			return err
+		}
 
-	args := map[string]any{
-		"DockerConfigJson": base64.StdEncoding.EncodeToString(
-			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
-	}
-	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/registry-secret.yaml").
-		Apply(apply.CleanupConditionally); err != nil {
-		return err
+		args := map[string]any{
+			"DockerConfigJson": base64.StdEncoding.EncodeToString(
+				[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
+		}
+		if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/registry-secret.yaml").
+			Apply(apply.CleanupConditionally); err != nil {
+			return err
+		}
 	}
 	return nil
 }

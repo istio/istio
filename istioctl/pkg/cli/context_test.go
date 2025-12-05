@@ -63,9 +63,9 @@ func TestRevisionOrDefault(t *testing.T) {
 			expectedResult: "test-revision",
 		},
 		{
-			description:    "return empty string when no revision provided and no default available",
+			description:    "return default when no revision provided and no default watcher available",
 			inputRevision:  "",
-			expectedResult: "",
+			expectedResult: "default",
 		},
 	}
 

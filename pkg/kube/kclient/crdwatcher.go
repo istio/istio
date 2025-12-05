@@ -123,6 +123,7 @@ func (c *crdWatcher) Run(stop <-chan struct{}) {
 	c.mutex.Unlock()
 	kube.WaitForCacheSync("crd watcher", stop, c.crds.HasSynced)
 	c.queue.Run(stop)
+	log.Info("Stopping CRD watcher")
 	c.crds.ShutdownHandlers()
 }
 

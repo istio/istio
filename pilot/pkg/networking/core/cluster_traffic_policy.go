@@ -390,6 +390,7 @@ func applyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.
 }
 
 // setSlowStartConfig will set the warmupDurationSecs for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
+//
 // Deprecated: use setWarmup instead
 func setSlowStartConfig(dur *durationpb.Duration) *cluster.Cluster_SlowStartConfig {
 	return &cluster.Cluster_SlowStartConfig{
@@ -435,7 +436,7 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 		MaxRequests:        &wrapperspb.UInt32Value{Value: math.MaxUint32},
 		MaxConnections:     &wrapperspb.UInt32Value{Value: math.MaxUint32},
 		MaxPendingRequests: &wrapperspb.UInt32Value{Value: math.MaxUint32},
-		TrackRemaining:     true,
+		TrackRemaining:     !features.DisableTrackRemainingMetrics,
 	}
 }
 

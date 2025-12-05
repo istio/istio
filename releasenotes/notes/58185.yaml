@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58185
+releaseNotes:
+- |
+  **Fixed** Istio CNI node agent startup failure in MicroK8s environments when using ambient mode with nftables backend.
