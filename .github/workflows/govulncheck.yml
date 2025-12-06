@@ -1,0 +1,62 @@
+name: Go Vulnerability Check
+
+on:
+  # Run on pull requests
+  pull_request:
+    branches:
+      - master
+      - 'release-*'
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+  
+  # Run on schedule (daily at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  govulncheck:
+    name: Run govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      
+      - name: Run govulncheck
+        id: govulncheck
+        run: |
+          # Run govulncheck and capture output
+          # For now, we run in informational mode (don't fail the build)
+          govulncheck ./... || echo "::warning::Vulnerabilities detected. Please review the output above."
+        continue-on-error: true
+      
+      - name: Run govulncheck with JSON output
+        if: always()
+        run: |
+          mkdir -p ./artifacts
+          govulncheck -json ./... > ./artifacts/govulncheck-results.json || true
+      
+      - name: Upload vulnerability report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: govulncheck-results
+          path: ./artifacts/govulncheck-results.json
+          retention-days: 30
