@@ -15,6 +15,7 @@
 // nolint: lll
 //
 //go:generate sh -c "echo '//go:build !agent' > filter_types.gen.go"
+//go:generate sh -c "echo '' >> filter_types.gen.go"
 //go:generate sh -c "echo '// Copyright Istio Authors' >> filter_types.gen.go"
 //go:generate sh -c "echo '//' >> filter_types.gen.go"
 //go:generate sh -c "echo '// Licensed under the Apache License, Version 2.0 (the \"License\");' >> filter_types.gen.go"
