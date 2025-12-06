@@ -253,13 +253,31 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	// Populate the revisions for the control plane.
 	var revisions resource.RevVerMap
 	if !cfg.DeployIstio {
-		// Using a pre-installed control plane. Get the revisions from the
-		// command-line.
+		// Using a pre-installed control plane.
+		// Will detect version after external installer runs (if any)
+		// or get the revisions from the command-line
 		revisions = ctx.Settings().Revisions
 	} else if len(iopFiles.primaryIOP.spec.Revision) > 0 {
 		// Use revisions from the default control plane operator.
-		revisions = resource.RevVerMap{
-			iopFiles.primaryIOP.spec.Revision: "",
+		// Try to detect actual version instead of using empty string
+		revisionName := iopFiles.primaryIOP.spec.Revision
+		if detectedRevisions, err := detectIstioVersionFromPods(ctx); err == nil && len(detectedRevisions) > 0 {
+			// Use detected version but keep the revision name from IOP
+			for _, version := range detectedRevisions {
+				revisions = resource.RevVerMap{
+					revisionName: version,
+				}
+				break
+			}
+			scopes.Framework.Infof("Framework-deployed Istio: detected version %v for revision %s", revisions[revisionName], revisionName)
+
+			// Notify test framework of detected revisions
+			resource.NotifyDetectedRevisions(revisions)
+		} else {
+			// Fallback to original behavior with empty version
+			revisions = resource.RevVerMap{
+				revisionName: "",
+			}
 		}
 	}
 
@@ -295,6 +313,21 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	if !cfg.DeployIstio {
+		// Now that external control plane is deployed (if any), detect version from running pods
+		if detectedRevisions, err := detectIstioVersionFromPods(ctx); err == nil {
+			revisions = detectedRevisions
+			scopes.Framework.Infof("Auto-detected Istio revisions: %v", revisions)
+
+			// Notify test framework of detected revisions
+			resource.NotifyDetectedRevisions(revisions)
+		} else {
+			scopes.Framework.Debugf("Auto-detection failed: %v, falling back to command-line revisions", err)
+		}
+
+		// Update the meshConfig with detected revisions
+		i.meshConfig = &meshConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)}
+		i.injectConfig = &injectConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)}
+
 		scopes.Framework.Info("skipping deployment as specified in the config")
 		return i, nil
 	}
