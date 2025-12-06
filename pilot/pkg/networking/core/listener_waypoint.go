@@ -576,6 +576,42 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		return nil
 	}()
 
+	// by default match IPs first
+	primaryMatcher := &matcher.Matcher{
+		MatcherType: &matcher.Matcher_MatcherTree_{
+			MatcherTree: &matcher.Matcher_MatcherTree{
+				Input: match.DestinationIP,
+				TreeType: &matcher.Matcher_MatcherTree_CustomMatch{
+					CustomMatch: &xds.TypedExtensionConfig{
+						Name:        "ip",
+						TypedConfig: protoconv.MessageToAny(ipMatcher),
+					},
+				},
+			},
+		},
+	}
+
+	// when multi-network is enabled, prefer the hostnames for matching
+	// VIPs may overlap across networks, especially auto-generated ServiceEntry VIPs
+	// and if we hit an incorrect VIP match we may attempt to route to the wrong service
+	if len(svcHostnameMap.Map) > 0 && features.EnableAmbientMultiNetwork {
+		primaryMatcher = &matcher.Matcher{
+			OnNoMatch: &matcher.Matcher_OnMatch{
+				OnMatch: &matcher.Matcher_OnMatch_Matcher{
+					Matcher: primaryMatcher,
+				},
+			},
+			MatcherType: &matcher.Matcher_MatcherTree_{
+				MatcherTree: &matcher.Matcher_MatcherTree{
+					Input: match.AuthorityFilterStateInput,
+					TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
+						ExactMatchMap: svcHostnameMap,
+					},
+				},
+			},
+		}
+	}
+
 	l := &listener.Listener{
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
@@ -583,39 +619,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			xdsfilters.OriginalDestination,
 			httpInspector,
 		},
-		TrafficDirection: core.TrafficDirection_INBOUND,
-		FilterChains:     chains,
-		FilterChainMatcher: &matcher.Matcher{
-			MatcherType: &matcher.Matcher_MatcherTree_{
-				MatcherTree: &matcher.Matcher_MatcherTree{
-					Input: match.DestinationIP,
-					TreeType: &matcher.Matcher_MatcherTree_CustomMatch{
-						CustomMatch: &xds.TypedExtensionConfig{
-							Name:        "ip",
-							TypedConfig: protoconv.MessageToAny(ipMatcher),
-						},
-					},
-				},
-			},
-		},
+		TrafficDirection:   core.TrafficDirection_INBOUND,
+		FilterChains:       chains,
+		FilterChainMatcher: primaryMatcher,
 	}
 
-	if len(svcHostnameMap.Map) > 0 && features.EnableAmbientMultiNetwork {
-		l.FilterChainMatcher.OnNoMatch = &matcher.Matcher_OnMatch{
-			OnMatch: &matcher.Matcher_OnMatch_Matcher{
-				Matcher: &matcher.Matcher{
-					MatcherType: &matcher.Matcher_MatcherTree_{
-						MatcherTree: &matcher.Matcher_MatcherTree{
-							Input: match.AuthorityFilterStateInput,
-							TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
-								ExactMatchMap: svcHostnameMap,
-							},
-						},
-					},
-				},
-			},
-		}
-	}
 	if tlsInspector != nil {
 		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
 	}
