@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/strcase"
 	"istio.io/istio/pkg/test/util/assert"
 	xdsutil "istio.io/istio/pkg/wellknown"
 )
@@ -1863,4 +1864,101 @@ func TestMeshNetworksToEnvoyInternalAddressConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkAddConfigInfoMetadata(b *testing.B) {
+	configs := []config.Meta{
+		{
+			Name:             "my-virtual-service",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		{
+			Name:             "my-destination-rule",
+			Namespace:        "istio-system",
+			GroupVersionKind: gvk.DestinationRule,
+		},
+		{
+			Name:             "my-gateway",
+			Namespace:        "production",
+			GroupVersionKind: gvk.Gateway,
+		},
+	}
+
+	b.Run("NilMetadata", func(b *testing.B) {
+		cfg := configs[0]
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = AddConfigInfoMetadata(nil, cfg)
+		}
+	})
+
+	b.Run("ExistingMetadata", func(b *testing.B) {
+		cfg := configs[0]
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			meta := &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			}
+			_ = AddConfigInfoMetadata(meta, cfg)
+		}
+	})
+
+	b.Run("MultipleConfigs", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for _, cfg := range configs {
+				_ = AddConfigInfoMetadata(nil, cfg)
+			}
+		}
+	})
+}
+
+// addConfigInfoMetadataOld is the original implementation for benchmarking comparison
+func addConfigInfoMetadataOld(metadata *core.Metadata, cfg config.Meta) *core.Metadata {
+	if metadata == nil {
+		metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+	s := "/apis/" + cfg.GroupVersionKind.Group + "/" + cfg.GroupVersionKind.Version + "/namespaces/" + cfg.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(cfg.GroupVersionKind.Kind) + "/" + cfg.Name
+	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
+		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+	metadata.FilterMetadata[IstioMetadataKey].Fields["config"] = &structpb.Value{
+		Kind: &structpb.Value_StringValue{
+			StringValue: s,
+		},
+	}
+	return metadata
+}
+
+func BenchmarkAddConfigInfoMetadataComparison(b *testing.B) {
+	cfg := config.Meta{
+		Name:             "my-virtual-service",
+		Namespace:        "default",
+		GroupVersionKind: gvk.VirtualService,
+	}
+
+	b.Run("Old", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = addConfigInfoMetadataOld(nil, cfg)
+		}
+	})
+
+	b.Run("New", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = AddConfigInfoMetadata(nil, cfg)
+		}
+	})
 }
