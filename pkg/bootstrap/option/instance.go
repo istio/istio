@@ -123,8 +123,15 @@ func newOptionOrSkipIfZero(name Name, value any) *instance {
 	return newOption(name, value)
 }
 
+// Create an option with a time.Duration-compatible stringified format (hours, minutes, seconds, etc)
 func newDurationOption(name Name, value *durationpb.Duration) *instance {
 	return newOptionOrSkipIfZero(name, value).withConvert(durationConverter(value))
+}
+
+// Create an option with a protobuf Duration-compatible stringified format
+// (seconds and nanoseconds) as accepted by Envoy's protobuf json parser
+func newEnvoyDurationOption(name Name, value *durationpb.Duration) *instance {
+	return newOptionOrSkipIfZero(name, value).withConvert(envoyDurationConverter(value))
 }
 
 func newTCPKeepaliveOption(name Name, value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) *instance {
