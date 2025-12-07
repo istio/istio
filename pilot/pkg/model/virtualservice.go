@@ -16,6 +16,7 @@ package model
 
 import (
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -31,11 +32,28 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// vsSetPool is a pool for reusing sets of NamespacedName in SelectVirtualServices.
+// This reduces allocations in the hot path of virtual service selection.
+var vsSetPool = sync.Pool{
+	New: func() any {
+		return sets.NewWithLength[types.NamespacedName](16)
+	},
+}
+
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
-	importedVirtualServices := make([]config.Config, 0)
-	vsset := sets.New[types.NamespacedName]()
+	// Estimate capacity based on input sizes to reduce slice growth allocations
+	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
+	estimatedCap := len(vsidx.privateByNamespaceAndGateway[n]) +
+		len(vsidx.exportedToNamespaceByGateway[n]) +
+		len(vsidx.publicByGateway[constants.IstioMeshGateway])
+	importedVirtualServices := make([]config.Config, 0, estimatedCap)
+
+	// Get set from pool and clear it for reuse
+	vsset := vsSetPool.Get().(sets.Set[types.NamespacedName])
+	clear(vsset)
+	defer vsSetPool.Put(vsset)
 
 	addVirtualService := func(vs config.Config, hc hostClassification) {
 		key := vs.NamespacedName()
@@ -105,7 +123,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		}
 	}
 
-	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
 	loopAndAdd(vsidx.privateByNamespaceAndGateway[n])
 	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
 	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
