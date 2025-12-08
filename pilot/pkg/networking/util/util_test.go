@@ -1864,3 +1864,54 @@ func TestMeshNetworksToEnvoyInternalAddressConfig(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkAddConfigInfoMetadata(b *testing.B) {
+	configs := []config.Meta{
+		{
+			Name:             "my-virtual-service",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		{
+			Name:             "my-destination-rule",
+			Namespace:        "istio-system",
+			GroupVersionKind: gvk.DestinationRule,
+		},
+		{
+			Name:             "my-gateway",
+			Namespace:        "production",
+			GroupVersionKind: gvk.Gateway,
+		},
+	}
+
+	b.Run("NilMetadata", func(b *testing.B) {
+		cfg := configs[0]
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = AddConfigInfoMetadata(nil, cfg)
+		}
+	})
+
+	b.Run("ExistingMetadata", func(b *testing.B) {
+		cfg := configs[0]
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			meta := &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			}
+			_ = AddConfigInfoMetadata(meta, cfg)
+		}
+	})
+
+	b.Run("MultipleConfigs", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for _, cfg := range configs {
+				_ = AddConfigInfoMetadata(nil, cfg)
+			}
+		}
+	})
+}

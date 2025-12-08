@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -91,6 +92,20 @@ const (
 	// to indicate whether Istio rewrite the ALPN headers
 	AlpnOverrideMetadataKey = "alpn_override"
 )
+
+// kindToKebabCache caches the conversion from CamelCase Kind to kebab-case.
+// This avoids repeated string allocations for the same Kind values.
+var kindToKebabCache sync.Map
+
+// getKebabKind returns the kebab-case version of a Kind, using a cache to avoid repeated allocations.
+func getKebabKind(kind string) string {
+	if cached, ok := kindToKebabCache.Load(kind); ok {
+		return cached.(string)
+	}
+	kebab := strcase.CamelCaseToKebabCase(kind)
+	kindToKebabCache.Store(kind, kebab)
+	return kebab
+}
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
 var ALPNH2Only = pm.ALPNH2Only
@@ -356,17 +371,21 @@ func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
 func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Metadata {
 	if metadata == nil {
 		metadata = &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{},
+			FilterMetadata: make(map[string]*structpb.Struct, 1),
 		}
 	}
+
 	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
-	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
-		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{},
+		getKebabKind(config.GroupVersionKind.Kind) + "/" + config.Name
+
+	istioMeta, ok := metadata.FilterMetadata[IstioMetadataKey]
+	if !ok {
+		istioMeta = &structpb.Struct{
+			Fields: make(map[string]*structpb.Value, 1),
 		}
+		metadata.FilterMetadata[IstioMetadataKey] = istioMeta
 	}
-	metadata.FilterMetadata[IstioMetadataKey].Fields["config"] = &structpb.Value{
+	istioMeta.Fields["config"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{
 			StringValue: s,
 		},
