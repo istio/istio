@@ -368,26 +368,15 @@ func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
 
 // AddConfigInfoMetadata adds name.namespace of the config, the type, etc
 // to the given core.Metadata struct, if metadata is not initialized, build a new metadata.
-func AddConfigInfoMetadata(metadata *core.Metadata, cfg config.Meta) *core.Metadata {
+func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Metadata {
 	if metadata == nil {
 		metadata = &core.Metadata{
 			FilterMetadata: make(map[string]*structpb.Struct, 1),
 		}
 	}
 
-	// Use strings.Builder to avoid intermediate string allocations
-	var sb strings.Builder
-	sb.Grow(128) // Pre-allocate reasonable capacity for the path
-	sb.WriteString("/apis/")
-	sb.WriteString(cfg.GroupVersionKind.Group)
-	sb.WriteByte('/')
-	sb.WriteString(cfg.GroupVersionKind.Version)
-	sb.WriteString("/namespaces/")
-	sb.WriteString(cfg.Namespace)
-	sb.WriteByte('/')
-	sb.WriteString(getKebabKind(cfg.GroupVersionKind.Kind)) // Use cached conversion
-	sb.WriteByte('/')
-	sb.WriteString(cfg.Name)
+	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
+		getKebabKind(config.GroupVersionKind.Kind) + "/" + config.Name
 
 	istioMeta, ok := metadata.FilterMetadata[IstioMetadataKey]
 	if !ok {
@@ -398,7 +387,7 @@ func AddConfigInfoMetadata(metadata *core.Metadata, cfg config.Meta) *core.Metad
 	}
 	istioMeta.Fields["config"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{
-			StringValue: sb.String(),
+			StringValue: s,
 		},
 	}
 	return metadata

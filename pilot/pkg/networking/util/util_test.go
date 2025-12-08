@@ -1904,4 +1904,14 @@ func BenchmarkAddConfigInfoMetadata(b *testing.B) {
 			_ = AddConfigInfoMetadata(meta, cfg)
 		}
 	})
+
+	b.Run("MultipleConfigs", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for _, cfg := range configs {
+				_ = AddConfigInfoMetadata(nil, cfg)
+			}
+		}
+	})
 }
