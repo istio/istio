@@ -49,7 +49,7 @@ values:
   pilot:
     env:
       PILOT_INCLUDE_RESOURCES: "%s"
-      PILOT_IGNORE_RESOURCES: "*.istio.io, backendtlspolicies.gateway.networking.k8s.io"
+      PILOT_IGNORE_RESOURCES: "*.istio.io"
 `, strings.Join(includeResources, ","))
 		})).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
