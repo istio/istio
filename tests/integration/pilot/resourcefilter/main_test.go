@@ -34,12 +34,12 @@ var (
 
 // WARNING: Do not remove virtualservices and gateways from include list, as they are required
 // for multicluster test to pass
-
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			includeResources := []string{"destinationrules.networking.istio.io"}
+			includeResources := []string{"wasmplugins.extensions.istio.io"}
+
 			// On multicluster tests virtualservices and gateways are required to pass
 			if ctx.Environment().IsMultiCluster() {
 				includeResources = append(includeResources, "virtualservices.networking.istio.io", "gateways.networking.istio.io")
