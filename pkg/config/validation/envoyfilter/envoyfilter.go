@@ -69,9 +69,67 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 			errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: stylecheck
 			continue
 		}
-
 		if cp.Match != nil && cp.Match.Context == networking.EnvoyFilter_WAYPOINT {
-			// TODO(zirain): Add validation for waypoint proxy
+			waypointMatch := cp.Match.GetWaypoint()
+			// TODO: add more validation.
+			switch cp.ApplyTo {
+			case networking.EnvoyFilter_LISTENER,
+				networking.EnvoyFilter_LISTENER_FILTER,
+				networking.EnvoyFilter_EXTENSION_CONFIG,
+				networking.EnvoyFilter_BOOTSTRAP:
+				errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo %v is not supported for waypoint", cp.ApplyTo)) // nolint: stylecheck
+			case networking.EnvoyFilter_HTTP_ROUTE,
+				networking.EnvoyFilter_VIRTUAL_HOST,
+				networking.EnvoyFilter_ROUTE_CONFIGURATION:
+				if waypointMatch == nil {
+					continue
+				}
+				if waypointMatch.GetFilter() != nil {
+					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo %v for waypoint cannot have filter match", cp.ApplyTo)) // nolint: stylecheck
+					continue
+				}
+			case networking.EnvoyFilter_CLUSTER:
+				if waypointMatch == nil {
+					continue
+				}
+
+				if waypointMatch.GetFilter() != nil {
+					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo %v for waypoint cannot have filter match", cp.ApplyTo)) // nolint: stylecheck
+					continue
+				}
+
+				if waypointMatch.GetRoute() != nil {
+					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo %v for waypoint cannot have route match", cp.ApplyTo)) // nolint: stylecheck
+					continue
+				}
+			case networking.EnvoyFilter_FILTER_CHAIN,
+				networking.EnvoyFilter_NETWORK_FILTER:
+				if waypointMatch == nil {
+					continue
+				}
+				if waypointMatch.GetRoute() != nil {
+					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo %v for waypoint cannot have route match", cp.ApplyTo)) // nolint: stylecheck
+				}
+			case networking.EnvoyFilter_HTTP_FILTER:
+				if waypointMatch == nil || waypointMatch.GetFilter() == nil {
+					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo %v for waypoint must have filter match", cp.ApplyTo)) // nolint: stylecheck
+					continue
+				}
+
+				filterMatch := waypointMatch.GetFilter()
+				// sub filter match requires the network filter to match to envoy http connection manager
+				if filterMatch.Name != wellknown.HTTPConnectionManager {
+					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo %v for waypoint requires name with %s", // nolint: stylecheck
+						cp.ApplyTo, wellknown.HTTPConnectionManager))
+					continue
+				}
+
+				if filterMatch.GetSubFilter() == nil || filterMatch.GetSubFilter().GetName() == "" {
+					errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: applyTo %v for waypoint must have subfilter name to match on", cp.ApplyTo)) // nolint: stylecheck,lll
+					continue
+				}
+			}
+
 			continue
 		}
 

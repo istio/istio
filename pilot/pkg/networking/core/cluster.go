@@ -246,16 +246,21 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	case model.Waypoint:
 		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
-		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(
-			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services))
-		cacheStats = cacheStats.merge(cs)
-		resources = append(resources, ob...)
+		waypointOutboundServices := filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
+		for _, outboundSvc := range waypointOutboundServices {
+			efw := req.Push.EnvoyFilters(proxy, outboundSvc)
+			outboundPatcher := clusterPatcher{efw: efw, pctx: networking.EnvoyFilter_WAYPOINT}
+			ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, []*model.Service{outboundSvc})
+			cacheStats = cacheStats.merge(cs)
+			resources = append(resources, ob...)
+		}
 		// Setup inbound clusters
-		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)...)
-		clusters = append(clusters, inboundPatcher.insertedClusters()...)
+
+		waypointEfw := req.Push.EnvoyFilters(proxy, wps.orderedServices...)
+		waypointPatcher := clusterPatcher{efw: waypointEfw, pctx: networking.EnvoyFilter_WAYPOINT}
+		clusters = append(clusters, waypointPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)

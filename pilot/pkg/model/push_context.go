@@ -2281,7 +2281,7 @@ type MergedEnvoyFilterWrapper struct {
 }
 
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
-func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
+func (ps *PushContext) EnvoyFilters(proxy *Proxy, services ...*Service) *MergedEnvoyFilterWrapper {
 	// this should never happen
 	if proxy == nil {
 		return nil
@@ -2291,12 +2291,12 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 	// First get all the filter configs from the config root namespace
 	// and then add the ones from proxy's own namespace
 	if ps.Mesh.RootNamespace != "" {
-		matchedEnvoyFilters = ps.getMatchedEnvoyFilters(proxy, ps.Mesh.RootNamespace)
+		matchedEnvoyFilters = ps.getMatchedEnvoyFilters(proxy, ps.Mesh.RootNamespace, services...)
 	}
 
 	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
-		matched := ps.getMatchedEnvoyFilters(proxy, proxy.ConfigNamespace)
+		matched := ps.getMatchedEnvoyFilters(proxy, proxy.ConfigNamespace, services...)
 		matchedEnvoyFilters = append(matchedEnvoyFilters, matched...)
 	}
 
@@ -2345,9 +2345,9 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 
 // if there is no workload selector, the config applies to all workloads
 // if there is a workload selector, check for matching workload labels
-func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
+func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string, services ...*Service) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
-	matcher := PolicyMatcherForProxy(proxy).WithRootNamespace(ps.Mesh.GetRootNamespace())
+	matcher := PolicyMatcherForProxy(proxy).WithRootNamespace(ps.Mesh.GetRootNamespace()).WithServices(services)
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
 		if matcher.ShouldAttachPolicy(gvk.EnvoyFilter, efw.NamespacedName(), efw) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)

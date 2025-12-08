@@ -445,6 +445,217 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "", warning: ""},
+		{
+			name: "waypoint unsupported LISTENER context",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_LISTENER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo LISTENER is not supported for waypoint",
+			warning: "",
+		},
+		{
+			name: "waypoint unsupported LISTENER_FILTER context",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo LISTENER_FILTER is not supported for waypoint",
+			warning: "",
+		},
+		{
+			name: "waypoint unsupported BOOTSTRAP context",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_BOOTSTRAP,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo BOOTSTRAP is not supported for waypoint",
+			warning: "",
+		},
+		{
+			name: "waypoint unsupported EXTENSION_CONFIG context",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_EXTENSION_CONFIG,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo EXTENSION_CONFIG is not supported for waypoint",
+			warning: "",
+		},
+		{
+			name: "waypoint patch ROUTE_CONFIGURATION with filter match",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_ROUTE_CONFIGURATION,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+							ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+								Waypoint: &networking.EnvoyFilter_WaypointMatch{
+									Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{
+										Name: wellknown.HTTPConnectionManager,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo ROUTE_CONFIGURATION for waypoint cannot have filter match",
+			warning: "",
+		},
+		{
+			name: "waypoint patch CLUSTER with filter match",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_CLUSTER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+							ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+								Waypoint: &networking.EnvoyFilter_WaypointMatch{
+									Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{
+										Name: wellknown.HTTPConnectionManager,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo CLUSTER for waypoint cannot have filter match",
+			warning: "",
+		},
+		{
+			name: "waypoint patch CLUSTER with route match",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_CLUSTER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+							ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+								Waypoint: &networking.EnvoyFilter_WaypointMatch{
+									Route: &networking.EnvoyFilter_WaypointMatch_RouteMatch{
+										Name: "fake-route",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo CLUSTER for waypoint cannot have route match",
+			warning: "",
+		},
+		{
+			name: "waypoint patch FILTER_CHAIN with route match",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_FILTER_CHAIN,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+							ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+								Waypoint: &networking.EnvoyFilter_WaypointMatch{
+									Route: &networking.EnvoyFilter_WaypointMatch_RouteMatch{
+										Name: "fake-route",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo FILTER_CHAIN for waypoint cannot have route match",
+			warning: "",
+		},
+
+		{
+			name: "waypoint patch HTTP_FILTER without route match",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+							ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+								Waypoint: &networking.EnvoyFilter_WaypointMatch{},
+							},
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo HTTP_FILTER for waypoint must have filter match",
+			warning: "",
+		},
+		{
+			name: "waypoint patch HTTP_FILTER route name not HCM",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+							ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+								Waypoint: &networking.EnvoyFilter_WaypointMatch{
+									Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{
+										Name: "fake-route",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo HTTP_FILTER for waypoint requires name with envoy.filters.network.http_connection_manager",
+			warning: "",
+		},
+		{
+			name: "waypoint patch HTTP_FILTER with empty subFilter name",
+			in: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Context: networking.EnvoyFilter_WAYPOINT,
+							ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Waypoint{
+								Waypoint: &networking.EnvoyFilter_WaypointMatch{
+									Filter: &networking.EnvoyFilter_WaypointMatch_FilterMatch{
+										Name: wellknown.HTTPConnectionManager,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			error:   "Envoy filter: applyTo HTTP_FILTER for waypoint must have subfilter name",
+			warning: "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

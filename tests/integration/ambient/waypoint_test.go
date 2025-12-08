@@ -1316,3 +1316,101 @@ func GetCondition(conditions []metav1.Condition, condition string) *metav1.Condi
 	}
 	return nil
 }
+
+func TestWaypointLocalRatelimit(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
+			// Need at least one waypoint proxy and HTTP
+			if opt.Scheme != scheme.HTTP {
+				return
+			}
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.ServiceName(),
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: waypoint-local-rate-limit
+spec:
+  targetRefs:
+    - kind: Service
+      name: "{{.Destination}}"
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: WAYPOINT
+        waypoint:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.local_ratelimit
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+            value:
+              stat_prefix: http_local_rate_limiter
+    - applyTo: HTTP_ROUTE
+      match:
+        context: WAYPOINT
+        waypoint: {}
+      patch:
+        operation: MERGE
+        value:
+          route:
+            rate_limits:
+              - actions:
+                  - header_value_match:
+                      descriptor_key: path
+                      descriptor_value: headers
+                      headers:
+                        - name: :path
+                          string_match:
+                            prefix: /headers
+                            ignore_case: true
+          typed_per_filter_config:
+            envoy.filters.http.local_ratelimit:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              descriptors:
+                - entries:
+                    - key: path
+                      value: /headers
+                  token_bucket:
+                    fill_interval: 30s
+                    max_tokens: 2
+                    tokens_per_fill: 2
+              enable_x_ratelimit_headers: DRAFT_VERSION_03
+              filter_enabled:
+                default_value:
+                  denominator: HUNDRED
+                  numerator: 100
+                runtime_key: local_rate_limit_enabled
+              filter_enforced:
+                default_value:
+                  denominator: HUNDRED
+                  numerator: 100
+                runtime_key: local_rate_limit_enforced
+              response_headers_to_add:
+                - append: false
+                  header:
+                    key: x-local-rate-limit
+                    value: "true"
+              stat_prefix: http_local_rate_limiter
+              token_bucket:
+                fill_interval: 30s
+                max_tokens: 10
+                tokens_per_fill: 10
+`).ApplyOrFail(t)
+			opt.Count = 5
+			opt.HTTP = echo.HTTP{
+				Path: "/headers",
+			}
+			opt.Timeout = time.Second * 10
+			opt.Check = check.And(
+				check.TooManyRequests())
+			src.CallOrFail(t, opt)
+		})
+	})
+}
