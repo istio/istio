@@ -32,20 +32,20 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 )
 
-// TestGatewayAPIResourcesOnly verifies that Pilot was started correctly on a
-// Gateway API only mode, being able to reconcile Gateway API resources and
-// EnvoyFilters as it is explicitly included as a valid resource, but ignoring
+// TestPilotResourceFilter verifies that Pilot was started correctly filtering resources
+// to be reconciled, and being able to reconcile Gateway API resources and
+// WasmPlugins as it is explicitly included as a valid resource, but ignoring
 // any other Istio resource.
-func TestGatewayAPIResourcesOnly(t *testing.T) {
+func TestPilotResourceFilter(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
-			t.NewSubTest("gatewayonly").Run(ManagedGatewayTest)
+			t.NewSubTest("gatewayonly").Run(GatewayTest)
 		})
 }
 
-func ManagedGatewayTest(t framework.TestContext) {
+func GatewayTest(t framework.TestContext) {
 	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -173,7 +173,6 @@ spec:
           status:
             code: 429
 `).ApplyOrFail(t)
-
 		// Calling the APP should work. The envoy filter is not applied because it is
 		// ignored.
 		// Adding it to the inclusion list on filter would rather cause the below test to
@@ -191,6 +190,56 @@ spec:
 			Check: check.And(
 				check.OK(),
 				check.RequestHeader("My-Added-Header", "added-value")),
+		})
+	})
+
+	// This test will create an HTTPRoute, and also attach an invalid WasmPlugin
+	// to the route.
+	// When WASMPlugin reconciliation is enabled and it is invalid,
+	// it should return an error instead  of HTTP/OK.
+	t.NewSubTest("allow-using-wasm-filter").Run(func(t framework.TestContext) {
+		t.ConfigIstio().Eval(apps.Namespace.Name(), nil, `
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tls
+spec:
+  parentRefs:
+  - name: gateway
+  hostnames: ["wasmplugin.example.com"]
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+---
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: gateway-wasm-test
+spec:
+  phase: STATS
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway
+  url: oci://127.0.0.1/istio-testing/wasm/invalid-wasm:latest
+  failStrategy: FAIL_CLOSE
+`).ApplyOrFail(t)
+
+		// Calling the APP should work and get a 403 error.
+		// The WASMPlugin is invalid, and there's a failclose, so it will return
+		// an error 403
+		apps.A[0].CallOrFail(t, echo.CallOptions{
+			Port: echo.Port{
+				Protocol:    protocol.HTTP,
+				ServicePort: 80,
+			},
+			HTTP: echo.HTTP{
+				Headers: headers.New().WithHost("wasmplugin.example.com").Build(),
+				Path:    "/",
+			},
+			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+			Check:   check.Status(403), // WASMPlugin with error means a 403 here
 		})
 	})
 }
