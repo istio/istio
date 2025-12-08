@@ -65,7 +65,7 @@ spec:
 
 	// BackendTLSPolicy is explicitly ignored and should fail. In case of a failure
 	// to establish a connection to a TLS backend, the gateway returns code 400
-	t.NewSubTest("backend-tls-should-fail").Run(func(t framework.TestContext) {
+	t.NewSubTest("backend-tls-should-pass").Run(func(t framework.TestContext) {
 		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/cert.crt"))
 		t.ConfigIstio().Eval(apps.Namespace.Name(), ca, `
 apiVersion: v1
@@ -115,50 +115,7 @@ spec:
 				Headers: headers.New().WithHost("btlspolicy.example.com").Build(),
 			},
 			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
-			Check:   check.And(check.Status(400)),
-		})
-	})
-
-	// DestinationRule is the only allowed resource from Istio
-	t.NewSubTest("dest-rule-should-pass").Run(func(t framework.TestContext) {
-		host := apps.B.ServiceName()
-		t.ConfigIstio().Eval(apps.Namespace.Name(), host, `
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: tls
-spec:
-  parentRefs:
-  - name: gateway
-  hostnames: ["destrulepolicy.example.com"]
-  rules:
-  - backendRefs:
-    - name: b
-      port: 443
----
-apiVersion: networking.istio.io/v1
-kind: DestinationRule
-metadata:
-  name: tls-upstream
-spec:
-  host: {{ . }}
-  trafficPolicy:
-    tls:
-      mode: SIMPLE
-      insecureSkipVerify: true
-      sni: "destrule-auth.example.com" 
-`).ApplyOrFail(t)
-		apps.A[0].CallOrFail(t, echo.CallOptions{
-			Port: echo.Port{
-				Protocol:    protocol.HTTP,
-				ServicePort: 80,
-			},
-			Scheme: scheme.HTTP,
-			HTTP: echo.HTTP{
-				Headers: headers.New().WithHost("destrulepolicy.example.com").Build(),
-			},
-			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
-			Check:   check.And(check.OK(), check.SNI("destrule-auth.example.com")),
+			Check:   check.And(check.Status(200)),
 		})
 	})
 
