@@ -22,7 +22,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -47,11 +46,11 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/proto/merge"
-	"istio.io/istio/pkg/util/strcase"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -92,20 +91,6 @@ const (
 	// to indicate whether Istio rewrite the ALPN headers
 	AlpnOverrideMetadataKey = "alpn_override"
 )
-
-// kindToKebabCache caches the conversion from CamelCase Kind to kebab-case.
-// This avoids repeated string allocations for the same Kind values.
-var kindToKebabCache sync.Map
-
-// getKebabKind returns the kebab-case version of a Kind, using a cache to avoid repeated allocations.
-func getKebabKind(kind string) string {
-	if cached, ok := kindToKebabCache.Load(kind); ok {
-		return cached.(string)
-	}
-	kebab := strcase.CamelCaseToKebabCase(kind)
-	kindToKebabCache.Store(kind, kebab)
-	return kebab
-}
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
 var ALPNH2Only = pm.ALPNH2Only
@@ -376,7 +361,7 @@ func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Me
 	}
 
 	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
-		getKebabKind(config.GroupVersionKind.Kind) + "/" + config.Name
+		gvk.KebabKind(config.GroupVersionKind.Kind) + "/" + config.Name
 
 	istioMeta, ok := metadata.FilterMetadata[IstioMetadataKey]
 	if !ok {

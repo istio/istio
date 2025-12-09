@@ -86,3 +86,15 @@ func MustFromGVR(g schema.GroupVersionResource) config.GroupVersionKind {
 	}
 	return r
 }
+
+// KebabKind returns the kebab-case version of a Kind string.
+// This is a generated mapping to avoid runtime allocations from string conversion.
+func KebabKind(k string) string {
+	switch k {
+{{- range .UniqueKinds }}
+	case "{{.}}":
+		return "{{ kebabcase . }}"
+{{- end }}
+	}
+	return ""
+}
