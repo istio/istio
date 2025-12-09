@@ -108,13 +108,13 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 
 		// Create hostprobe rules now, in the host netns
 		if innerErr := hostTrafficManager.CreateHostRulesForHealthChecks(); innerErr != nil {
-			log.Debugf("CreateHostRulesForHealthCheck inner loop received error: %w", innerErr)
+			log.Debugf("CreateHostRulesForHealthCheck inner loop received error: %v", innerErr)
 			return innerErr
 		}
 		return nil
-	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(2)*time.Second), uint64(10)))
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 10))
 	if err != nil {
-		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
+		return nil, fmt.Errorf("error initializing the host rules for health checks, final retry error was: %w", err)
 	}
 
 	podNetns, err := NewPodNetnsProcFinder(os.DirFS(filepath.Join(pconstants.HostMountsPath, "proc")))
