@@ -45,6 +45,9 @@ var (
 	//go:embed testdata/otel-tracing.yaml
 	otelTracingCfg string
 
+	//go:embed testdata/otel-tracing-formatter.yaml
+	otelTracingFormatterCfg string
+
 	//go:embed testdata/otel-tracing-http.yaml
 	otelTracingHTTPCfg string
 
@@ -74,31 +77,43 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 		name            string
 		customAttribute string
 		cfgFile         string
+		minIstioVersion string // Minimum Istio version required
 	}{
 		{
 			name:            "grpc exporter",
-			customAttribute: "provider=otel and key1=val1",
+			customAttribute: "provider=otel",
 			cfgFile:         otelTracingCfg,
+			minIstioVersion: "", // Works with all versions
+		},
+		{
+			name:            "grpc exporter with formatter",
+			customAttribute: "provider=otel and key1=val1",
+			cfgFile:         otelTracingFormatterCfg,
+			minIstioVersion: "1.29.0", // Requires 1.29+ for formatter custom tags
 		},
 		{
 			name:            "http exporter",
 			customAttribute: "provider=otel-http",
 			cfgFile:         otelTracingHTTPCfg,
+			minIstioVersion: "", // Works with all versions
 		},
 		{
 			name:            "resource detectors",
 			customAttribute: "provider=otel-grpc-with-res-detectors",
 			cfgFile:         otelTracingResDetectorsCfg,
+			minIstioVersion: "", // Works with all versions
 		},
 		{
 			name:            "grpc exporter with initial metadata",
 			customAttribute: "provider=test-otel-grpc-with-initial-metadata",
 			cfgFile:         otelTracingGRPCWithInitialMetadataCfg,
+			minIstioVersion: "", // Works with all versions
 		},
 		{
 			name:            "grpc exporter with auth",
 			customAttribute: "provider=otel-with-auth",
 			cfgFile:         otelTracingWithAuth,
+			minIstioVersion: "", // Works with all versions
 		},
 	}
 
@@ -109,6 +124,19 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 			for _, tc := range testcases {
 				ctx.NewSubTest(tc.name).
 					Run(func(ctx framework.TestContext) {
+						// Skip test if minimum Istio version requirement is not met
+						if tc.minIstioVersion != "" {
+							t.Logf("Test case '%s' requires minIstioVersion: %s", tc.name, tc.minIstioVersion)
+
+							reqVersion := resource.IstioVersion(tc.minIstioVersion)
+							isAtLeast := ctx.Settings().Revisions.AtLeast(reqVersion)
+							if !isAtLeast {
+								t.Logf("SKIPPING test case '%s': version requirement not met", tc.name)
+								ctx.SkipNow()
+								return
+							}
+						}
+
 						// apply Telemetry resource with OTel provider
 						ctx.ConfigIstio().YAML(appNsInst.Name(), tc.cfgFile).ApplyOrFail(ctx)
 
