@@ -53,7 +53,7 @@ func (s serviceEDS) Equals(other serviceEDS) bool {
 	}
 	// assumes builder sorted the slices
 	for i := range s.WaypointInstance {
-		if s.WaypointInstance[i].Workload.Uid != other.WaypointInstance[i].Workload.Uid {
+		if !s.WaypointInstance[i].Equals(other.WaypointInstance[i]) {
 			return false
 		}
 	}
