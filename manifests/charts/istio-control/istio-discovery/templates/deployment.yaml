@@ -192,6 +192,10 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
 {{- end }}
+{{- if .Values.taint.enabled }}
+          - name: PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS
+            value: "true"
+{{- end }}
 # If externalIstiod is set via Values.Global, then enable the pilot env variable. However, if it's set via Values.pilot.env, then
 # don't set it here to avoid duplication.
 # TODO (nshankar13): Move from Helm chart to code: https://github.com/istio/istio/issues/52449
