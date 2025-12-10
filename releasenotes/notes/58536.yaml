@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
 - |
-  **Added** support specifying proxy admin port for `istioctl ztunnel-config`.
+  **Added** support for specifying the proxy admin port in `istioctl ztunnel-config`.
