@@ -36,7 +36,7 @@ import (
 // This reduces allocations in the hot path of virtual service selection.
 var vsSetPool = sync.Pool{
 	New: func() any {
-		return sets.NewWithLength[types.NamespacedName](16)
+		return sets.New[types.NamespacedName]()
 	},
 }
 
