@@ -1390,6 +1390,9 @@ message BaseConfig {
 
   // validation webhook CA bundle
   string validationCABundle = 5;
+
+  // Aggregate ClusterRoles to Kubernetes default user-facing roles.
+  google.protobuf.BoolValue aggregateClusterRoles = 7;
 }
 
 message IstiodRemoteConfig {
