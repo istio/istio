@@ -232,8 +232,8 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 
 	for blockedIP := range features.BlockedIpsInJWKURIs {
 		if blockedIP != "" && strings.Contains(jwksURI, blockedIP) {
-			log.Errorf("jwksURI %q contains blocked IP", jwksURI)
-			return "", fmt.Errorf("jwksURI %q contains blocked IP", jwksURI)
+			log.Errorf("jwksURI %q contains blocked IP %q", jwksURI, blockedIP)
+			return "", fmt.Errorf("jwksURI %q contains blocked IP %q", jwksURI, blockedIP)
 		}
 	}
 
