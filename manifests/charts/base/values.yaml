@@ -18,6 +18,10 @@ _internal_defaults_do_not_set:
     # - cluster: only cluster-scoped resources are processed
     # - namespace: only namespace-scoped resources are processed
     resourceScope: all
+
+    rbac:
+      # Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles)
+      aggregateClusterRoles: false
   base:
     # A list of CRDs to exclude. Requires `enableCRDTemplates` to be true.
     # Example: `excludedCRDs: ["envoyfilters.networking.istio.io"]`.

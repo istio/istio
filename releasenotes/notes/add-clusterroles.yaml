@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** two new user-facing cluster roles, `istio-edit` and `istio-view`, allowing respectively creation, modification, destruction and listing, reading of Istio custom resources. These cluster roles can optionaly aggregate to Kubernetes default [user-facing cluster roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) when `global.rbac.aggregateClusterRoles` Helm value is set to `true`.
+upgradeNotes:
+  - title: New user-facing cluster roles
+    content: |
+      If you’ve previously created user-facing cluster roles for Istio custom resources management, you must ensure these do not conflict with the new user-facing cluster roles and you could consider moving to using the latter.
