@@ -44,6 +44,9 @@ _internal_defaults_do_not_set:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
 
+    # Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles)
+    aggregateClusterRoles: false
+
   defaultRevision: "default"
   experimental:
     stableValidationPolicy: false
