@@ -54,8 +54,8 @@ var gatewayInferenceConformanceInputs GatewayInferenceConformanceInputs
 
 // defined in sigs.k8s.io/gateway-api-inference-extension/conformance/resources/base.yaml
 var inferenceConformanceNamespaces = []string{
-	"gateway-conformance-infra",
-	"gateway-conformance-app-backend",
+	"inference-conformance-infra",
+	"inference-conformance-app-backend",
 }
 
 var skippedInferenceTests = map[string]string{
@@ -143,7 +143,7 @@ func TestGatewayInferenceConformance(t *testing.T) {
 			// remove the dataplane mode label from the gateway-conformance-infra namespace
 			// so that the ingress gateway doesn't get captured
 			infraNS, err := namespace.Claim(ctx, namespace.Config{
-				Prefix: "gateway-conformance-infra",
+				Prefix: "inference-conformance-infra",
 				Inject: false,
 			})
 			if err != nil {
@@ -152,7 +152,7 @@ func TestGatewayInferenceConformance(t *testing.T) {
 			infraNS.RemoveLabel(label.IoIstioDataplaneMode.Name)
 
 			// create a waypoint for the app backend namespace if it has ambient labels
-			appBackendNS := namespace.Static("gateway-conformance-app-backend")
+			appBackendNS := namespace.Static("inference-conformance-app-backend")
 			cls := gatewayConformanceInputs.Cluster
 			ambientComponent.NewWaypointProxyOrFailForCluster(ctx, appBackendNS, "namespace", cls)
 

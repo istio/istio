@@ -50,8 +50,8 @@ var gatewayInferenceConformanceInputs GatewayInferenceConformanceInputs
 
 // defined in sigs.k8s.io/gateway-api-inference-extension/conformance/resources/base.yaml
 var inferenceConformanceNamespaces = []string{
-	"gateway-conformance-infra",
-	"gateway-conformance-app-backend",
+	"inference-conformance-infra",
+	"inference-conformance-app-backend",
 }
 
 var skippedInferenceTests = map[string]string{

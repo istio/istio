@@ -78,20 +78,7 @@ func DeployGatewayAPI(ctx resource.Context) error {
 
 	// Deploy and wait for Gateway API CRDs
 	crdFile := filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-crd.yaml")
-	if err := deployAndWaitForCRDs(ctx, crdFile, "gateway.networking.k8s.io"); err != nil {
-		return err
-	}
-
-	// Wait until our GatewayClass is ready
-	return retry.UntilSuccess(func() error {
-		for _, c := range ctx.Clusters().Configs() {
-			_, err := c.GatewayAPI().GatewayV1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	return deployAndWaitForCRDs(ctx, crdFile, "gateway.networking.k8s.io")
 }
 
 func DeployGatewayAPIInferenceExtension(ctx resource.Context) error {
@@ -127,6 +114,13 @@ func deployAndWaitForCRDs(ctx resource.Context, crdFile string, crdSuffix string
 	// Wait until CRDs are ready
 	return retry.UntilSuccess(func() error {
 		for _, c := range ctx.Clusters().Configs() {
+			if crdSuffix == "gateway.networking.k8s.io" {
+				_, err := c.GatewayAPI().GatewayV1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+			}
+
 			crdl, err := c.Ext().ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), metav1.ListOptions{})
 			if err != nil {
 				return err
@@ -138,57 +132,6 @@ func deployAndWaitForCRDs(ctx resource.Context, crdFile string, crdSuffix string
 				found := false
 				for _, condition := range crd.Status.Conditions {
 					if condition.Type == apiextensions.Established && condition.Status == apiextensions.ConditionTrue {
-						found = true
-					}
-				}
-				if !found {
-					return fmt.Errorf("crd %v not ready: %+v", crd.Name, crd.Status)
-				}
-			}
-		}
-		return nil
-	})
-}
-
-func DeployGatewayAPIInferenceExtensionOrSkip(ctx framework.TestContext) {
-	res := DeployGatewayAPIInferenceExtension(ctx)
-	if res == errSkip {
-		ctx.Skip(errSkip.Error())
-	}
-	if res != nil {
-		ctx.Fatal(res)
-	}
-}
-
-func DeployGatewayAPIInferenceExtension(ctx resource.Context) error {
-	cfg, _ := istio.DefaultConfig(ctx)
-	// Starting from Openshift 4.19 (1.32), GW API comes pre-installed and should not be deployed.
-	// But GatewayAPIInferenceExtension should be deployed on Openshift in any condition.
-	if !cfg.DeployGatewayAPI && !ctx.Settings().OpenShift {
-		return nil
-	}
-	if !SupportsGatewayAPI(ctx) {
-		return errSkip
-	}
-	if err := ctx.ConfigIstio().
-		File("", filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-inference-extension-crd.yaml")).
-		Apply(apply.NoCleanup); err != nil {
-		return err
-	}
-	// Wait until the InferencePool CRD is ready
-	return retry.UntilSuccess(func() error {
-		for _, c := range ctx.Clusters().Configs() {
-			crdl, err := c.Ext().ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), metav1.ListOptions{})
-			if err != nil {
-				return err
-			}
-			for _, crd := range crdl.Items {
-				if !strings.HasSuffix(crd.Name, "inference.networking.k8s.io") {
-					continue
-				}
-				found := false
-				for _, c := range crd.Status.Conditions {
-					if c.Type == apiextensions.Established && c.Status == apiextensions.ConditionTrue {
 						found = true
 					}
 				}
