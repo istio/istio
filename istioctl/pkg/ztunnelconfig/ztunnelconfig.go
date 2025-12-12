@@ -543,8 +543,8 @@ func getPodNameWithNamespace(ctx cli.Context, podflag string, enforceSinglePod b
 	return podName, podNamespace, nil
 }
 
-func setupZtunnelConfigDumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
-	debug, err := extractZtunnelConfigDump(kubeClient, podName, podNamespace)
+func setupZtunnelConfigDumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, out io.Writer, port int) (*ztunnelDump.ConfigWriter, error) {
+	debug, err := extractZtunnelConfigDump(kubeClient, podName, podNamespace, port)
 	if err != nil {
 		return nil, err
 	}
@@ -568,9 +568,9 @@ func readFile(filename string) ([]byte, error) {
 	return io.ReadAll(file)
 }
 
-func extractZtunnelConfigDump(kubeClient kube.CLIClient, podName, podNamespace string) ([]byte, error) {
+func extractZtunnelConfigDump(kubeClient kube.CLIClient, podName, podNamespace string, port int) ([]byte, error) {
 	path := "config_dump"
-	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, 15000)
+	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, port)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s Ztunnel: %v", podName, podNamespace, err)
 	}
@@ -634,7 +634,7 @@ func runConfigDump(
 			if !ztunnelPod {
 				return fmt.Errorf("workloads command is only supported by Ztunnel proxies: %v", podName)
 			}
-			configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
+			configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout(), common.proxyAdminPort)
 		}
 		if err != nil {
 			return err
