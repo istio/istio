@@ -37,13 +37,15 @@ import (
 func TestXdsStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
 		name      string
+		format    string
 		input     map[string]*discovery.DiscoveryResponse
 		wantFile  string
 		wantErr   bool
 		verbosity int
 	}{
 		{
-			name: "prints multiple istiod inputs to buffer in alphabetical order by pod name",
+			name:   "prints multiple istiod inputs to buffer in alphabetical order by pod name",
+			format: "table",
 			input: map[string]*discovery.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
@@ -98,7 +100,8 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			verbosity: 0,
 		},
 		{
-			name: "prints single istiod input to buffer in alphabetical order by pod name",
+			name:   "prints single istiod input to buffer in alphabetical order by pod name",
+			format: "table",
 			input: map[string]*discovery.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
@@ -127,7 +130,8 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			verbosity: 0,
 		},
 		{
-			name: "prints all known xds types at max verbosity",
+			name:   "prints all known xds types at max verbosity",
+			format: "table",
 			input: map[string]*discovery.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
@@ -149,7 +153,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
-			sw := XdsStatusWriter{Writer: got, Verbosity: tt.verbosity}
+			sw := XdsStatusWriter{Writer: got, Verbosity: tt.verbosity, OutputFormat: tt.format}
 			input := map[string]*discovery.DiscoveryResponse{}
 			for key, ss := range tt.input {
 				input[key] = ss
