@@ -284,6 +284,10 @@ type NodeMetadata struct {
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
 
+	// EnableTrailingDot indicates whether to add trailing dots to virtual host domains.
+	// Computed by Istiod based on: client metadata > user agent > system default.
+	EnableTrailingDot StringBool `json:"ENABLE_TRAILING_DOT,omitempty"`
+
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture StringBool `json:"DNS_CAPTURE,omitempty"`
 

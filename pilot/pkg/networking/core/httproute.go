@@ -561,7 +561,7 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		all = append(all, a.Hostname.String())
 	}
 	for _, s := range all {
-		altHosts := GenerateAltVirtualHosts(s, port, node.DNSDomain)
+		altHosts := GenerateAltVirtualHosts(s, port, node.DNSDomain, node)
 		domains = appendDomainPort(domains, s, port)
 		domains = append(domains, altHosts...)
 		allAltHosts = append(allAltHosts, altHosts...)
@@ -592,7 +592,7 @@ func appendDomainPort(domains []string, domain string, port int) []string {
 	return append(domains, util.IPv6Compliant(domain), util.DomainName(domain, port))
 }
 
-// GenerateAltVirtualHosts given a service and a port, generates all possible HTTP Host headers.
+// GenerateAltVirtualHosts generates all possible HTTP Host headers for a service.
 // For example, a service of the form foo.local.campus.net on port 80, with local domain "local.campus.net"
 // could be accessed as http://foo:80 within the .local network, as http://foo.local:80 (by other clients
 // in the campus.net domain), as http://foo.local.campus:80, etc.
@@ -608,10 +608,16 @@ func appendDomainPort(domains []string, domain string, port int) []string {
 //
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
-func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
+func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string, node *model.Proxy) []string {
 	var vhosts []string // Initialize the slice for alternate hosts
 
-	if features.EnableAbsoluteFqdnVhostDomain {
+	enableTrailingDot := features.EnableAbsoluteFqdnVhostDomain
+	if node != nil && node.Metadata != nil && node.XdsNode != nil {
+		// XdsNode != nil means proxy was initialized via initProxyMetadata
+		enableTrailingDot = bool(node.Metadata.EnableTrailingDot)
+	}
+
+	if enableTrailingDot {
 		// Add the absolute FQDN variant (with trailing dot) if the hostname is not an IP address.
 		// This is considered another form of alternate host representation.
 		// See https://github.com/istio/istio/issues/56007 for context.
