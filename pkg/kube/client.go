@@ -207,6 +207,10 @@ type CLIClient interface {
 	// dynamically selected. If localAddress is empty, "localhost" is used.
 	NewPortForwarder(podName string, ns string, localAddress string, localPort int, podPort int) (PortForwarder, error)
 
+	// SetDefaultApplyNamespace sets a default namespace to deploy files to when using ApplyYAML on objects with no namespace
+	// set.
+	SetDefaultApplyNamespace(namespace string)
+
 	// ApplyYAMLFiles applies the resources in the given YAML files.
 	ApplyYAMLFiles(namespace string, yamlFiles ...string) error
 
@@ -412,10 +416,11 @@ type client struct {
 	informerWatchesPending *atomic.Int32
 
 	// These may be set only when creating an extended client.
-	revision        string
-	restClient      *rest.RESTClient
-	discoveryClient discovery.CachedDiscoveryInterface
-	mapper          meta.ResettableRESTMapper
+	revision              string
+	restClient            *rest.RESTClient
+	discoveryClient       discovery.CachedDiscoveryInterface
+	mapper                meta.ResettableRESTMapper
+	defaultApplyNamespace string
 
 	version lazy.Lazy[*kubeVersion.Info]
 
@@ -1096,6 +1101,10 @@ func (c *client) ServicesForSelector(ctx context.Context, namespace string, labe
 	})
 }
 
+func (c *client) SetDefaultApplyNamespace(namespace string) {
+	c.defaultApplyNamespace = namespace
+}
+
 func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
 	g, _ := errgroup.WithContext(context.TODO())
 	for _, f := range removeEmptyFiles(yamlFiles) {
@@ -1317,6 +1326,9 @@ func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.U
 			ns = namespace
 		} else if namespace != "" && ns != namespace {
 			return nil, fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", g, obj.GetName(), ns, namespace)
+		}
+		if ns == "" {
+			ns = c.defaultApplyNamespace
 		}
 		// namespaced resources should specify the namespace
 		dr = c.dynamic.Resource(gvr).Namespace(ns)
