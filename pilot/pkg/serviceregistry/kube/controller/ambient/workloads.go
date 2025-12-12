@@ -1337,7 +1337,8 @@ func (a *index) endpointSlicesBuilder(
 }
 
 func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Workload) {
-	if annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled {
+	if annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled &&
+		annotations[annotation.AmbientBypassInboundCapture.Name] != "true" {
 		// Configured for override
 		w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
 	}
