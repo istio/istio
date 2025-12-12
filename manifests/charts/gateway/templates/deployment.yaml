@@ -107,7 +107,7 @@ spec:
             protocol: TCP
             name: http-envoy-prom
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- include "gateway.cleanNullValues" .Values.resources | nindent 12 }}
           {{- with .Values.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
