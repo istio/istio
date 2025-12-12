@@ -1152,6 +1152,11 @@ message ProxyConfig {
   // Sets the number of successive failed probes before indicating readiness failure.
   uint32 readinessFailureThreshold = 22;
 
+  // Configures the seccomp profile for the istio-validation and istio-proxy containers.
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  k8s.io.api.core.v1.SeccompProfile seccompProfile = 43;
+
   // Configures the startup probe for the istio-proxy container.
   StartupProbe startupProbe = 41;
 
