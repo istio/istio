@@ -1330,9 +1330,6 @@ func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.U
 		if ns == "" {
 			ns = c.defaultApplyNamespace
 		}
-		if ns == "" {
-			return nil, fmt.Errorf("apply: no namespace was found")
-		}
 		// namespaced resources should specify the namespace
 		dr = c.dynamic.Resource(gvr).Namespace(ns)
 	} else {
