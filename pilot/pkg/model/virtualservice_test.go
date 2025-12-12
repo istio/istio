@@ -22,6 +22,7 @@ import (
 	fuzz "github.com/google/gofuzz"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -2378,4 +2379,95 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 
 	service.Ports = Ports
 	return service
+}
+
+func BenchmarkSelectVirtualServices(b *testing.B) {
+	// Create test data with varying sizes
+	sizes := []struct {
+		name        string
+		numServices int
+		numVS       int
+	}{
+		{"small", 10, 10},
+		{"medium", 50, 100},
+		{"large", 100, 500},
+	}
+
+	for _, size := range sizes {
+		b.Run(size.name, func(b *testing.B) {
+			// Build services
+			services := make([]*Service, 0, size.numServices)
+			for i := 0; i < size.numServices; i++ {
+				hostname := fmt.Sprintf("service-%d.default.svc.cluster.local", i)
+				services = append(services, buildHTTPService(hostname, visibility.Public, wildcardIP, "default", 8080))
+			}
+
+			// Build hostsByNamespace
+			hostsByNamespace := make(map[string]hostClassification)
+			for _, svc := range services {
+				ns := svc.Attributes.Namespace
+				if _, exists := hostsByNamespace[ns]; !exists {
+					hostsByNamespace[ns] = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
+				}
+				hc := hostsByNamespace[ns]
+				hc.allHosts = append(hc.allHosts, svc.Hostname)
+				hostsByNamespace[ns] = hc
+				if !svc.Hostname.IsWildCarded() {
+					hostsByNamespace[ns].exactHosts.Insert(svc.Hostname)
+				}
+			}
+
+			// Build virtual services
+			virtualServices := make([]config.Config, 0, size.numVS)
+			for i := 0; i < size.numVS; i++ {
+				// Mix of matching and non-matching hosts
+				var vsHost string
+				if i%2 == 0 && size.numServices > 0 {
+					vsHost = fmt.Sprintf("service-%d.default.svc.cluster.local", i%size.numServices)
+				} else {
+					vsHost = fmt.Sprintf("external-%d.example.com", i)
+				}
+				vs := config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.VirtualService,
+						Name:             fmt.Sprintf("vs-%d", i),
+						Namespace:        "default",
+					},
+					Spec: &networking.VirtualService{
+						Hosts:    []string{vsHost},
+						Gateways: []string{"mesh"},
+						Http: []*networking.HTTPRoute{
+							{
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "destination.default.svc.cluster.local",
+											Port: &networking.PortSelector{Number: 80},
+										},
+										Weight: 100,
+									},
+								},
+							},
+						},
+					},
+				}
+				virtualServices = append(virtualServices, vs)
+			}
+
+			index := virtualServiceIndex{
+				publicByGateway: map[string][]config.Config{
+					constants.IstioMeshGateway: virtualServices,
+				},
+				privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
+				exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
+			}
+
+			b.Run("optimized", func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					_ = SelectVirtualServices(index, "default", hostsByNamespace)
+				}
+			})
+		})
+	}
 }
