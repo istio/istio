@@ -11,3 +11,6 @@ spec:
       "provider":
         literal:
           value: "otel"
+      "key1":
+        formatter:
+          value: "%REQ(key1)%"
