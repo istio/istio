@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -230,13 +231,6 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
 
-	for blockedIP := range features.BlockedIpsInJWKURIs {
-		if blockedIP != "" && strings.Contains(jwksURI, blockedIP) {
-			log.Errorf("jwksURI %q contains blocked IP %q", jwksURI, blockedIP)
-			return "", fmt.Errorf("jwksURI %q contains blocked IP %q", jwksURI, blockedIP)
-		}
-	}
-
 	if val, found := r.keyEntries.Load(key); found {
 		e := val.(jwtPubKeyEntry)
 
@@ -385,6 +379,43 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 		}
 
 		client = r.secureHTTPClient
+	}
+
+	// If blocked IPs are configured, use a custom dialer to check resolved IPs after DNS lookup
+	if len(features.BlockedIpsInJWKURIs) > 0 {
+		transport := client.Transport.(*http.Transport).Clone()
+		defaultDialer := &net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}
+		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+
+			// Resolve the hostname to get IP addresses
+			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			if err != nil {
+				return nil, err
+			}
+
+			// Check if any resolved IP is in the blocked list
+			for _, ip := range ips {
+				ipStr := ip.String()
+				if features.BlockedIpsInJWKURIs.Contains(ipStr) {
+					return nil, fmt.Errorf("jwksURI %q resolved to blocked IP %q", uri, ipStr)
+				}
+			}
+
+			// Proceed with the actual connection
+			return defaultDialer.DialContext(ctx, network, addr)
+		}
+
+		client = &http.Client{
+			Transport: transport,
+			Timeout:   timeout,
+		}
 	}
 
 	getPublicKey := func() (b []byte, e error) {
