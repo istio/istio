@@ -132,7 +132,7 @@ iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
             --set global.istioNamespace=istio-system
 
 # Second istio-discovery, using master version of istio
-TAG=latest HUB=gcr.io/istio-testing iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
+TAG=latest HUB=registry-redirect-istio.cncf-istio.workers.dev/testing iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
             --set policy.enable=false \
             --set global.istioNamespace=istio-master
 ```

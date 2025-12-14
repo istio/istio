@@ -3,7 +3,7 @@ kind: IstioOperator
 metadata:
   namespace: istio-system
 spec:
-  hub: gcr.io/istio-testing
+  hub: registry-redirect-istio.cncf-istio.workers.dev/testing
   tag: latest
 
   # Turn on default components: base, pilot, and ingress gateway
