@@ -30,6 +30,31 @@ type ComponentConstraint interface {
 	HasSynced() bool
 }
 
+// pendingSwap wraps a new component during an update operation.
+// It tracks both the old and new components, completing the swap only after the new one syncs.
+type pendingSwap[T ComponentConstraint] struct {
+	parent *Component[T]
+	old    T
+	new    T
+	hasOld bool
+}
+
+func (p *pendingSwap[T]) Close() {
+	p.new.Close()
+}
+
+func (p *pendingSwap[T]) HasSynced() bool {
+	if !p.new.HasSynced() {
+		return false
+	}
+	// New component is synced, finalize the swap by closing the old one
+	if p.hasOld {
+		p.old.Close()
+		p.hasOld = false
+	}
+	return true
+}
+
 type Component[T ComponentConstraint] struct {
 	mu          sync.RWMutex
 	constructor func(cluster *Cluster) T
@@ -63,15 +88,18 @@ func (m *Component[T]) clusterAdded(cluster *Cluster) ComponentConstraint {
 func (m *Component[T]) clusterUpdated(cluster *Cluster) ComponentConstraint {
 	// Build outside of the lock, in case its slow
 	comp := m.constructor(cluster)
-	old, f := m.clusters[cluster.ID]
+	old, hasOld := m.clusters[cluster.ID]
 	m.mu.Lock()
 	m.clusters[cluster.ID] = comp
 	m.mu.Unlock()
-	// Close outside of the lock, in case its slow
-	if f {
-		old.Close()
+	// Don't close old immediately - return a pendingSwap that will close old after new syncs.
+	// This ensures zero service disruption during credential rotation.
+	return &pendingSwap[T]{
+		parent: m,
+		old:    old,
+		new:    comp,
+		hasOld: hasOld,
 	}
-	return comp
 }
 
 func (m *Component[T]) clusterDeleted(cluster cluster.ID) {

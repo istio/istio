@@ -201,13 +201,33 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			// ServiceEntry selects WorkloadEntry from remote cluster
 			kubeController.workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
 			kubeRegistry.AppendNamespaceDiscoveryHandlers(kubeController.workloadEntryController.NamespaceDiscoveryHandler)
-			m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
+			if cluster.Action == multicluster.Update {
+				// For updates, wait for sync then replace
+				go func() {
+					<-cluster.SyncedCh
+					m.opts.MeshServiceController.ReplaceRegistry(kubeController.workloadEntryController, clusterStopCh)
+				}()
+			} else {
+				m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
+			}
 			go configStore.Run(clusterStopCh)
 		}
 	}
 
 	// run after WorkloadHandler is added
-	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
+	if cluster.Action == multicluster.Update {
+		// For updates, wait for sync then atomically replace the registry.
+		// This ensures zero service disruption during credential rotation.
+		go func() {
+			// Wait for the new cluster to sync
+			<-cluster.SyncedCh
+			log.Infof("cluster %s synced, replacing registry", cluster.ID)
+			m.opts.MeshServiceController.ReplaceRegistry(kubeRegistry, clusterStopCh)
+		}()
+	} else {
+		// For adds, register immediately
+		m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
+	}
 
 	go func() {
 		var shouldLead bool

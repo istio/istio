@@ -309,6 +309,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 		initialSyncTimeout: atomic.NewBool(false),
 		kubeConfigSha:      sha256.Sum256(kubeConfig),
 		syncStatusCallback: c.onClusterSyncStatusChange,
+		SyncedCh:           make(chan struct{}),
 	}, nil
 }
 
@@ -331,7 +332,8 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 		}
 
 		action := Add
-		if prev := c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
+		var prev *Cluster
+		if prev = c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
 			action = Update
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
@@ -339,9 +341,8 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 				logger.Infof("skipping update (kubeconfig are identical)")
 				continue
 			}
-			// stop previous remote cluster
-			prev.Stop()
-			prev.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
+			// Don't stop the previous cluster here - it will be stopped after the new cluster syncs.
+			// This ensures zero service disruption during credential rotation.
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
 			logger.Warnf("cluster has already been registered")
@@ -355,6 +356,15 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			errs = multierror.Append(errs, err)
 			continue
 		}
+
+		// Set the action before running so constructors can check it
+		remoteCluster.Action = action
+
+		// For updates, pass the previous cluster so it can be stopped after the new one syncs
+		if action == Update && prev != nil {
+			remoteCluster.prevCluster = prev
+		}
+
 		// We run cluster async so we do not block, as this requires actually connecting to the cluster and loading configuration.
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		go func() {

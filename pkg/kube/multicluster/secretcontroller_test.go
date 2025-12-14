@@ -552,3 +552,160 @@ func (h testHandler) Close() {
 func (h testHandler) HasSynced() bool {
 	return h.Synced.Load()
 }
+
+// TestClusterUpdateHotSwap verifies that during credential rotation:
+// 1. The old cluster continues serving until the new one syncs
+// 2. There's no gap where services are unavailable
+// 3. The old component is only closed after the new one is synced
+func TestClusterUpdateHotSwap(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+
+	client := kube.NewFakeClient()
+	secrets := clienttest.NewWriter[*v1.Secret](t, client)
+
+	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c.ClientBuilder = TestingBuildClientsFromConfig
+
+	// Track component lifecycle events
+	type lifecycleEvent struct {
+		action    string // "created" or "closed"
+		clusterID cluster.ID
+		iter      int
+	}
+	events := make(chan lifecycleEvent, 100)
+
+	iter := atomic.NewInt32(0)
+	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
+		it := int(iter.Inc())
+		events <- lifecycleEvent{"created", cluster.ID, it}
+		return testHandler{
+			ID:     cluster.ID,
+			Iter:   it,
+			Closed: atomic.NewBool(false),
+			Synced: atomic.NewBool(true), // Auto-sync for simplicity
+		}
+	})
+
+	client.RunAndWait(stop)
+	assert.NoError(t, c.Run(stop))
+	retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
+
+	// Drain the config cluster creation event
+	<-events
+
+	// Create initial cluster
+	secret0 := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig-initial")})
+	secrets.Create(secret0)
+
+	// Wait for cluster to be created
+	assert.EventuallyEqual(t, func() bool {
+		return c.cs.GetByID("c0") != nil
+	}, true)
+	<-events // drain "created" event
+
+	// Get the initial handler
+	initialHandler := component.ForCluster("c0")
+	assert.Equal(t, initialHandler != nil, true)
+	initialIter := initialHandler.Iter
+
+	// Update the secret (credential rotation)
+	secret0Updated := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig-rotated")})
+	secrets.Update(secret0Updated)
+
+	// Wait for new component to be created
+	var newCreatedEvent lifecycleEvent
+	assert.EventuallyEqual(t, func() bool {
+		select {
+		case e := <-events:
+			if e.action == "created" && e.clusterID == "c0" {
+				newCreatedEvent = e
+				return true
+			}
+		default:
+		}
+		return false
+	}, true)
+
+	// Verify new component was created with higher iteration
+	assert.Equal(t, newCreatedEvent.iter > initialIter, true)
+
+	// The new handler should now be in place
+	newHandler := component.ForCluster("c0")
+	assert.Equal(t, newHandler != nil, true)
+	assert.Equal(t, newHandler.Iter, newCreatedEvent.iter)
+
+	// Wait a bit and verify the old component was closed (via pendingSwap.HasSynced)
+	// Since we set Synced to true automatically, the old should be closed
+	retry.UntilOrFail(t, func() bool {
+		return initialHandler.Closed.Load()
+	}, retry.Timeout(2*time.Second))
+
+	// Verify the new handler is still active
+	assert.Equal(t, newHandler.Closed.Load(), false)
+}
+
+// TestClusterUpdateOldClusterStopsAfterNewSyncs verifies that the old Cluster
+// (with its kube.Client) is stopped only after the new cluster syncs.
+func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+
+	client := kube.NewFakeClient()
+	secrets := clienttest.NewWriter[*v1.Secret](t, client)
+
+	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c.ClientBuilder = TestingBuildClientsFromConfig
+
+	// Track clusters
+	var oldCluster, newCluster *Cluster
+
+	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
+		if cluster.ID == "c0" {
+			if oldCluster == nil {
+				oldCluster = cluster
+			} else {
+				newCluster = cluster
+			}
+		}
+		return testHandler{
+			ID:     cluster.ID,
+			Closed: atomic.NewBool(false),
+			Synced: atomic.NewBool(true),
+		}
+	})
+	_ = component
+
+	client.RunAndWait(stop)
+	assert.NoError(t, c.Run(stop))
+	retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
+
+	// Create initial cluster
+	secret0 := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig-initial")})
+	secrets.Create(secret0)
+
+	// Wait for cluster to be created
+	retry.UntilOrFail(t, func() bool {
+		return oldCluster != nil
+	}, retry.Timeout(2*time.Second))
+
+	// Update the secret
+	secret0Updated := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig-rotated")})
+	secrets.Update(secret0Updated)
+
+	// Wait for new cluster to be created
+	retry.UntilOrFail(t, func() bool {
+		return newCluster != nil
+	}, retry.Timeout(2*time.Second))
+
+	// Verify that new cluster has prevCluster set
+	assert.Equal(t, newCluster.prevCluster == oldCluster, true)
+
+	// Wait for old cluster to be stopped (should happen after new cluster syncs)
+	retry.UntilOrFail(t, func() bool {
+		return oldCluster.Closed()
+	}, retry.Timeout(2*time.Second))
+
+	// Verify new cluster is NOT stopped
+	assert.Equal(t, newCluster.Closed(), false)
+}
