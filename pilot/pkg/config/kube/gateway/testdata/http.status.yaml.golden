@@ -14,6 +14,22 @@ metadata:
 spec: null
 status: {}
 ---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: infpool-model1
+  namespace: default
+spec: null
+status: {}
+---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: infpool-model2
+  namespace: default
+spec: null
+status: {}
+---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: GatewayClass
 metadata:
