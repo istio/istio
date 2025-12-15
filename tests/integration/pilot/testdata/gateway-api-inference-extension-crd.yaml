@@ -1,9 +1,9 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=0a3bb20107519af18c2fecb6706c3ff59148a645"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=v1.0.2"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: main-dev
+    inference.networking.k8s.io/bundle-version: v1.0.2
   name: inferenceobjectives.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -195,7 +195,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
-    inference.networking.k8s.io/bundle-version: main-dev
+    inference.networking.k8s.io/bundle-version: v1.0.2
   name: inferencepools.inference.networking.k8s.io
 spec:
   group: inference.networking.k8s.io
@@ -339,6 +339,8 @@ spec:
                       MatchLabels contains a set of required {key,value} pairs.
                       An object must match every label in this map to be selected.
                       The matching logic is an AND operation on all entries.
+                    maxProperties: 64
+                    minProperties: 1
                     type: object
                 required:
                 - matchLabels
@@ -346,8 +348,7 @@ spec:
               targetPorts:
                 description: |-
                   TargetPorts defines a list of ports that are exposed by this InferencePool.
-                  Every port will be treated as a distinctive endpoint by EPP,
-                  addressable as a 'podIP:portNumber' combination.
+                  Currently, the list may only include a single port definition.
                 items:
                   description: Port defines the network port that will be exposed
                     by this InferencePool.
@@ -363,13 +364,10 @@ spec:
                   required:
                   - number
                   type: object
-                maxItems: 8
+                maxItems: 1
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
-                x-kubernetes-validations:
-                - message: port number must be unique
-                  rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
             required:
             - endpointPickerRef
             - selector
@@ -534,7 +532,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: unapproved, experimental-only
-    inference.networking.k8s.io/bundle-version: main-dev
+    inference.networking.k8s.io/bundle-version: v1.0.2
   name: inferencepools.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io

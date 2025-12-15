@@ -117,13 +117,25 @@ test.integration.kube: test.integration.kube.presubmit
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
 	$(call run-test,./tests/integration/...)
+	@make test.integration.kube.gateway.inference.conformance
 
+SKIP_AMBIENT_GATEWAY_INFERENCE_CONFORMANCE = false
 # Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc)
 # In presubmit, this target runs a minimal set. In postsubmit, all tests are run
 .PHONY: test.integration.kube.environment
 test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
 ifeq (${JOB_TYPE},postsubmit)
 	$(call run-test,./tests/integration/...)
+	@make SKIP_AMBIENT_GATEWAY_INFERENCE_CONFORMANCE = true test.integration.kube.gateway.inference.conformance
 else
-	$(call run-test,./tests/integration/security/ ./tests/integration/pilot,-run="TestReachability|TestTraffic|TestGatewayConformance|TestGatewayInferenceConformance")
+	$(call run-test,./tests/integration/security/ ./tests/integration/pilot,-run="TestReachability|TestTraffic|TestGatewayConformance")
+	@make test.integration.kube.gateway.inference.conformance
+endif
+
+.PHONY: test.integration.kube.gateway.inference.conformance
+test.integration.kube.gateway.inference.conformance: | $(JUNIT_REPORT) check-go-tag
+	@cd ./tests/integration/pilot/gatewayinference && $(call run-test,.)
+	@cd ${REPO_ROOT}
+ifeq (${SKIP_AMBIENT_GATEWAY_INFERENCE_CONFORMANCE},false)
+	@cd ./tests/integration/ambient/gatewayinference && $(call run-test,.)
 endif

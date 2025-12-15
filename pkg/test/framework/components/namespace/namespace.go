@@ -174,7 +174,6 @@ func WaitForNamespacesDeletion(ctx resource.Context, namespaces []string, opts .
 
 		// For each namespace, wait for deletion on all clusters
 		for _, cluster := range ctx.AllClusters() {
-			cluster := cluster
 			g.Go(func() error {
 				if err := kube.WaitForNamespaceDeletion(cluster.Kube(), nsName, opts...); err != nil {
 					return err
