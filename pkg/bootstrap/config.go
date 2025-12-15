@@ -26,6 +26,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
@@ -343,7 +344,8 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		} else if statsEvictionInterval%statsFlushInterval != 0 {
 			log.Warnf("StatsEvictionInterval must be a multiple of the StatsFlushInterval")
 		} else {
-			options = append(options, option.EnvoyStatsEvictionInterval(statsEvictionInterval))
+			duration := &durationpb.Duration{Seconds: int64(statsEvictionInterval.Seconds())}
+			options = append(options, option.EnvoyStatsEvictionInterval(duration))
 		}
 	}
 
