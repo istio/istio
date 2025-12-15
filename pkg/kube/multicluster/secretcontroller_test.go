@@ -16,10 +16,11 @@ package multicluster
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
+	uberatomic "go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -120,14 +121,14 @@ func buildTestController(t *testing.T, synced bool) testController {
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
 	tc.controller = NewController(tc.client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
 	tc.controller.ClientBuilder = TestingBuildClientsFromConfig
-	iter := atomic.NewInt32(0)
+	iter := uberatomic.NewInt32(0)
 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
 		it := iter.Inc()
 		return testHandler{
 			ID:     cluster.ID,
 			Iter:   int(it),
-			Closed: atomic.NewBool(false),
-			Synced: atomic.NewBool(synced),
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(synced),
 		}
 	})
 	return tc
@@ -280,8 +281,8 @@ func TestObjectFilter(t *testing.T) {
 		assert.Equal(t, cluster.Client.ObjectFilter().Filter("not-allowed"), false)
 		return testHandler{
 			ID:     cluster.ID,
-			Closed: atomic.NewBool(false),
-			Synced: atomic.NewBool(true),
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(true),
 		}
 	})
 
@@ -503,8 +504,8 @@ func TestSecretController(t *testing.T) {
 		return testHandler{
 			ID:     cluster.ID,
 			Iter:   iter,
-			Closed: atomic.NewBool(false),
-			Synced: atomic.NewBool(false),
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(false),
 		}
 	})
 	client.RunAndWait(stopCh)
@@ -541,8 +542,8 @@ func TestSecretController(t *testing.T) {
 type testHandler struct {
 	ID     cluster.ID
 	Iter   int
-	Closed *atomic.Bool
-	Synced *atomic.Bool
+	Closed *uberatomic.Bool
+	Synced *uberatomic.Bool
 }
 
 func (h testHandler) Close() {
@@ -575,15 +576,15 @@ func TestClusterUpdateHotSwap(t *testing.T) {
 	}
 	events := make(chan lifecycleEvent, 100)
 
-	iter := atomic.NewInt32(0)
+	iter := uberatomic.NewInt32(0)
 	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
 		it := int(iter.Inc())
 		events <- lifecycleEvent{"created", cluster.ID, it}
 		return testHandler{
 			ID:     cluster.ID,
 			Iter:   it,
-			Closed: atomic.NewBool(false),
-			Synced: atomic.NewBool(true), // Auto-sync for simplicity
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(true), // Auto-sync for simplicity
 		}
 	})
 
@@ -657,21 +658,25 @@ func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
 	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
 	c.ClientBuilder = TestingBuildClientsFromConfig
 
-	// Track clusters
-	var oldCluster, newCluster *Cluster
+	// Track clusters using atomic pointers to avoid data races
+	var oldCluster, newCluster atomic.Pointer[Cluster]
+	// Store prevCluster atomically since it gets set to nil after sync
+	var capturedPrevCluster atomic.Pointer[Cluster]
 
 	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
 		if cluster.ID == "c0" {
-			if oldCluster == nil {
-				oldCluster = cluster
+			if oldCluster.Load() == nil {
+				oldCluster.Store(cluster)
 			} else {
-				newCluster = cluster
+				newCluster.Store(cluster)
+				// Capture prevCluster before it can be set to nil
+				capturedPrevCluster.Store(cluster.prevCluster)
 			}
 		}
 		return testHandler{
 			ID:     cluster.ID,
-			Closed: atomic.NewBool(false),
-			Synced: atomic.NewBool(true),
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(true),
 		}
 	})
 	_ = component
@@ -686,7 +691,7 @@ func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
 
 	// Wait for cluster to be created
 	retry.UntilOrFail(t, func() bool {
-		return oldCluster != nil
+		return oldCluster.Load() != nil
 	}, retry.Timeout(2*time.Second))
 
 	// Update the secret
@@ -695,17 +700,20 @@ func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
 
 	// Wait for new cluster to be created
 	retry.UntilOrFail(t, func() bool {
-		return newCluster != nil
+		return newCluster.Load() != nil
 	}, retry.Timeout(2*time.Second))
 
-	// Verify that new cluster has prevCluster set
-	assert.Equal(t, newCluster.prevCluster == oldCluster, true)
+	oldC := oldCluster.Load()
+	newC := newCluster.Load()
+
+	// Verify that new cluster had prevCluster set (captured before it was cleared)
+	assert.Equal(t, capturedPrevCluster.Load() == oldC, true)
 
 	// Wait for old cluster to be stopped (should happen after new cluster syncs)
 	retry.UntilOrFail(t, func() bool {
-		return oldCluster.Closed()
+		return oldC.Closed()
 	}, retry.Timeout(2*time.Second))
 
 	// Verify new cluster is NOT stopped
-	assert.Equal(t, newCluster.Closed(), false)
+	assert.Equal(t, newC.Closed(), false)
 }
