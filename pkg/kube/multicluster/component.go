@@ -88,8 +88,8 @@ func (m *Component[T]) clusterAdded(cluster *Cluster) ComponentConstraint {
 func (m *Component[T]) clusterUpdated(cluster *Cluster) ComponentConstraint {
 	// Build outside of the lock, in case its slow
 	comp := m.constructor(cluster)
-	old, hasOld := m.clusters[cluster.ID]
 	m.mu.Lock()
+	old, hasOld := m.clusters[cluster.ID]
 	m.clusters[cluster.ID] = comp
 	m.mu.Unlock()
 	// Don't close old immediately - return a pendingSwap that will close old after new syncs.

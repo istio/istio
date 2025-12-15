@@ -85,7 +85,9 @@ func (c *ClusterStore) GetByID(clusterID cluster.ID) *Cluster {
 	return nil
 }
 
-// All returns a copy of the current remote clusters.
+// All returns a snapshot of the current remote clusters.
+// The returned map is a copy, but the Cluster pointers are shared with the store.
+// Callers should only call thread-safe methods on the Cluster objects.
 func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
 	if c == nil {
 		return nil
@@ -95,9 +97,8 @@ func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
 	out := make(map[string]map[cluster.ID]*Cluster, len(c.remoteClusters))
 	for secret, clusters := range c.remoteClusters {
 		out[secret] = make(map[cluster.ID]*Cluster, len(clusters))
-		for cid, c := range clusters {
-			outCluster := *c
-			out[secret][cid] = &outCluster
+		for cid, cluster := range clusters {
+			out[secret][cid] = cluster
 		}
 	}
 	return out
