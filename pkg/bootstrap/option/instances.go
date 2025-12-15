@@ -308,6 +308,6 @@ func EnvoyStatsFlushInterval(interval time.Duration) Instance {
 	return newOption("stats_flush_interval", interval)
 }
 
-func EnvoyStatsEvictionInterval(interval time.Duration) Instance {
-	return newOption("stats_eviction_interval", interval)
+func EnvoyStatsEvictionInterval(interval *durationpb.Duration) Instance {
+	return newEnvoyDurationOption("stats_eviction_interval", interval)
 }
