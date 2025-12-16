@@ -284,7 +284,6 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		"--set-xmark", inpodTproxyMark)
 
 	if !podOverrides.IngressMode {
-
 		// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
 		// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
 		//
