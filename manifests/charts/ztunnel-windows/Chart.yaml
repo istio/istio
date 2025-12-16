@@ -1,0 +1,14 @@
+apiVersion: v2
+name: ztunnel-windows
+# This version is never actually shipped. istio/release-builder will replace it at build-time
+# with the appropriate version
+version: 1.0.0
+appVersion: 1.0.0
+description: Helm chart for istio ztunnel Windows components
+keywords:
+  - istio-ztunnel
+  - istio
+  - istio-windows
+sources:
+  - https://github.com/istio/istio
+icon: https://istio.io/latest/favicons/android-192x192.png

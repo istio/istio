@@ -1,0 +1,37 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ template "name" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "name" . }}
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
+data:
+  CURRENT_AGENT_VERSION: {{ .Values.tag | default .Values.global.tag | quote }}
+  AMBIENT_ENABLED: {{ .Values.ambient.enabled | quote }}
+  AMBIENT_ENABLEMENT_SELECTOR: {{ .Values.ambient.enablementSelectors | toYaml | quote }}
+  AMBIENT_DNS_CAPTURE: {{ .Values.ambient.dnsCapture | quote  }}
+  AMBIENT_IPV6: {{ .Values.ambient.ipv6 | quote }}
+  AMBIENT_RECONCILE_POD_RULES_ON_STARTUP: {{ .Values.ambient.reconcileIptablesOnStartup | quote }}
+  {{- if .Values.cniConfFileName }} # K8S < 1.24 doesn't like empty values
+  CNI_CONF_NAME: {{ .Values.cniConfFileName }} # Name of the CNI config file to create. Only override if you know the exact path your CNI requires..
+  {{- end }}
+  CHAINED_CNI_PLUGIN: {{ .Values.chained | quote }}
+  EXCLUDE_NAMESPACES: "{{ range $idx, $ns := .Values.excludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"
+  REPAIR_ENABLED: {{ .Values.repair.enabled | quote }}
+  REPAIR_LABEL_PODS: {{ .Values.repair.labelPods | quote }}
+  REPAIR_DELETE_PODS: {{ .Values.repair.deletePods | quote }}
+  REPAIR_REPAIR_PODS: {{ .Values.repair.repairPods | quote }}
+  REPAIR_INIT_CONTAINER_NAME: {{ .Values.repair.initContainerName | quote }}
+  REPAIR_BROKEN_POD_LABEL_KEY: {{ .Values.repair.brokenPodLabelKey | quote }}
+  REPAIR_BROKEN_POD_LABEL_VALUE: {{ .Values.repair.brokenPodLabelValue | quote }}
+  {{- with .Values.env }}
+  {{- range $key, $val := . }}
+  {{ $key }}: "{{ $val }}"
+  {{- end }}
+  {{- end }}
