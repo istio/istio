@@ -136,8 +136,8 @@ func TestConformance(t *testing.T) {
 		runConformance[Named](t, rig)
 	})
 	t.Run("join", func(t *testing.T) {
-		col1 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
-		col2 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		col1 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithName("a"))
+		col2 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithName("b"))
 		j := krt.JoinCollection(
 			[]krt.Collection[Named]{col1, col2},
 			krt.WithStop(test.NewStop(t)),
