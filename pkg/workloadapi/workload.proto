@@ -89,6 +89,10 @@ message Service {
 
   // Extension provides a mechanism to attach arbitrary additional configuration to an object.
   repeated Extension extensions = 10;
+
+  // canonical marks this service as being the definition for a hostname, if there is no override of that hostname
+  // from within the namespace the client resides in
+  bool canonical = 11;
 }
 
 enum IPFamilies {
