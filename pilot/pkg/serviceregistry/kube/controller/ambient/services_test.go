@@ -735,6 +735,7 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -791,6 +792,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 8080,
 					TargetPort:  0,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -815,6 +817,7 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -853,6 +856,7 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				Canonical: true,
 			},
 		},
 
@@ -892,6 +896,7 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				Canonical: true,
 			},
 		},
 
@@ -933,6 +938,7 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -966,6 +972,7 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -1021,6 +1028,7 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -1076,6 +1084,7 @@ func TestServiceServices(t *testing.T) {
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 				}},
+				Canonical: true,
 			},
 		},
 	}
