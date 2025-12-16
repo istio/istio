@@ -105,6 +105,11 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	// so try to add a no-op rule to that table, and make sure it doesn't fail - if it does, we can't use this version
 	// as the host is missing kernel support for it.
 	// (255 is a nonexistent protocol number, IANA reserved, see `cat /etc/protocols`, so this rule will never match anything)
+	// should use the wait flag if supported to avoid lock contention whenever possible
+	needLock := !isNft && !parsedVer.LessThan(IptablesRestoreLocking)
+	if needLock {
+		testRuleAdd = append(testRuleAdd, "--wait=30")
+	}
 	testCmd := exec.Command(iptablesBin, testRuleAdd...)
 
 	var testStdErr bytes.Buffer
