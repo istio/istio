@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package ambientconformance
 
 import (
 	"io/fs"
@@ -28,10 +28,13 @@ import (
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	ambientComponent "istio.io/istio/pkg/test/framework/components/ambient"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
@@ -43,6 +46,7 @@ import (
 type GatewayInferenceConformanceInputs struct {
 	Client  kube.CLIClient
 	Cleanup bool
+	Cluster cluster.Cluster
 }
 
 var gatewayInferenceConformanceInputs GatewayInferenceConformanceInputs
@@ -70,10 +74,13 @@ func TestGatewayInferenceConformance(t *testing.T) {
 				namespace.Claim(ctx, namespace.Config{
 					Prefix: ns,
 					Inject: false,
+					Labels: map[string]string{
+						label.IoIstioDataplaneMode.Name: "ambient",
+					},
 				})
 			}
 
-			// Deploy istio specific resources required to run test suite, destionation rules for tls
+			// Deploy istio specific resources required to run test suite, destination rules for tls
 			err := ctx.Clusters().Default().ApplyYAMLFiles("", filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-inference-extension-dr.yaml"))
 			if err != nil {
 				t.Fatalf("Failed to deploy inference extension conformance test istio specific resources: %v", err)
@@ -113,15 +120,36 @@ func TestGatewayInferenceConformance(t *testing.T) {
 					Contact:      []string{"@istio/maintainers"},
 				},
 				TimeoutConfig: inferenceconfig.DefaultInferenceExtensionTimeoutConfig().TimeoutConfig,
+				NamespaceLabels: map[string]string{
+					label.IoIstioDataplaneMode.Name: "ambient",
+				},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
-				opts.NamespaceLabels = map[string]string{
-					"istio.io/rev": rev,
+				if opts.NamespaceLabels == nil {
+					opts.NamespaceLabels = make(map[string]string)
 				}
+				opts.NamespaceLabels["istio.io/rev"] = rev
 			}
 			if ctx.Settings().GatewayConformanceAllowCRDsMismatch {
 				opts.AllowCRDsMismatch = true
 			}
+
+			// remove the dataplane mode label from the gateway-conformance-infra namespace
+			// so that the ingress gateway doesn't get captured
+			infraNS, err := namespace.Claim(ctx, namespace.Config{
+				Prefix: "inference-conformance-infra",
+				Inject: false,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			infraNS.RemoveLabel(label.IoIstioDataplaneMode.Name)
+
+			// create a waypoint for the app backend namespace if it has ambient labels
+			appBackendNS := namespace.Static("inference-conformance-app-backend")
+			cls := gatewayInferenceConformanceInputs.Cluster
+			ambientComponent.NewWaypointProxyOrFailForCluster(ctx, appBackendNS, "namespace", cls)
+
 			ctx.Cleanup(func() {
 				if !ctx.Failed() {
 					return

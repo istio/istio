@@ -14,17 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ambient
+package ambientconformance
 
 import (
-	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/tests/integration/ambient"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
@@ -34,7 +33,7 @@ var (
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
-	apps = &EchoDeployments{}
+	apps = &ambient.EchoDeployments{}
 
 	// used to validate telemetry in-cluster
 	prom prometheus.Instance
@@ -60,36 +59,8 @@ values:
     podLabels:
       networking.istio.io/tunnel: "http"
 `
-
-	nativeNftablesValues = `
-  global:
-    nativeNftables: true
-`
-	ambientMultiNetworkControlPlaneValues = `
-values:
-  pilot:
-    env:
-      AMBIENT_ENABLE_MULTI_NETWORK: "true"
-      # Note: support is alpha and env var is tightly scoped
-      ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-    podLabels:
-      networking.istio.io/tunnel: "http"
-  cni:
-    # The CNI repair feature is disabled for these tests because this is a controlled environment,
-    # and it is important to catch issues that might otherwise be automatically fixed.
-    # Refer to issue #49207 for more context.
-    repair:
-      enabled: false
-`
 )
 
-// TestMain defines the entrypoint for pilot tests using a standard Istio installation.
-// If a test requires a custom install it should go into its own package, otherwise it should go
-// here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
@@ -106,34 +77,23 @@ func TestMain(m *testing.M) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ambientControlPlaneValues
 
-			if ctx.Settings().NativeNftables {
-				scopes.Framework.Infof("Running the integration tests with nativeNftables enabled")
-				cfg.ControlPlaneValues = strings.TrimRight(ambientControlPlaneValues, "\n") + nativeNftablesValues
-			}
-
-			if ctx.Settings().AmbientMultiNetwork {
-				cfg.DeployEastWestGW = true
-				cfg.DeployGatewayAPI = true
-				cfg.ControlPlaneValues = ambientMultiNetworkControlPlaneValues
-				cfg.SkipDeployCrossClusterSecrets = false
-			}
 			cfg.Values = map[string]string{
 				"pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION": "true",
 			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
-			gatewayConformanceInputs.Cluster = t.Clusters().Default()
-			gatewayConformanceInputs.Client = t.Clusters().Default()
-			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
+			gatewayInferenceConformanceInputs.Cluster = t.Clusters().Default()
+			gatewayInferenceConformanceInputs.Client = t.Clusters().Default()
+			gatewayInferenceConformanceInputs.Cleanup = !t.Settings().NoCleanup
 
 			return nil
 		}).
 		SetupParallel(
 			func(t resource.Context) error {
-				return TestRegistrySetup(apps, t)
+				return ambient.TestRegistrySetup(apps, t)
 			},
 			func(t resource.Context) error {
-				return SetupApps(t, i, apps)
+				return ambient.SetupApps(t, i, apps)
 			},
 			func(t resource.Context) (err error) {
 				prom, err = prometheus.New(t, prometheus.Config{})

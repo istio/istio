@@ -134,8 +134,8 @@ endif
 
 .PHONY: test.integration.kube.gateway.inference.conformance
 test.integration.kube.gateway.inference.conformance: | $(JUNIT_REPORT) check-go-tag
-	@cd ./tests/integration/pilot/gatewayinference && $(call run-test,.)
+	@cd ./tests/integration/gaieconformance/pilotconformance && $(call run-test,.)
 	@cd ${REPO_ROOT}
 ifeq (${SKIP_AMBIENT_GATEWAY_INFERENCE_CONFORMANCE},false)
-	@cd ./tests/integration/ambient/gatewayinference && $(call run-test,.)
+	@cd ./tests/integration/gaieconformance/ambientconformance && $(call run-test,.)
 endif

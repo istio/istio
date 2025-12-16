@@ -1,14 +1,15 @@
-module istio.io/istio/pilot/gatewayinference/conformance
+module istio.io/istio/gatewayinference/conformance
 
 go 1.24.0
 
-replace istio.io/istio => ../../../../
+replace istio.io/istio => ../../../
 
 replace sigs.k8s.io/gateway-api-inference-extension => sigs.k8s.io/gateway-api-inference-extension v1.2.1
 
 replace sigs.k8s.io/gateway-api => sigs.k8s.io/gateway-api v1.3.1-0.20251106052652-079e4774d76b
 
 require (
+	istio.io/api v1.28.0-alpha.0.0.20251210001900-ce7b5802387c
 	istio.io/istio v0.0.0-00010101000000-000000000000
 	k8s.io/apimachinery v0.34.3
 	sigs.k8s.io/controller-runtime v0.22.4
@@ -188,7 +189,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.18.6 // indirect
-	istio.io/api v1.28.0-alpha.0.0.20251210001900-ce7b5802387c // indirect
 	istio.io/client-go v1.28.0-alpha.0.0.20251210002059-b67694478a4b // indirect
 	k8s.io/api v0.34.2 // indirect
 	k8s.io/apiextensions-apiserver v0.34.2 // indirect

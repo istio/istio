@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package gaieconformance
 
 import (
 	"testing"
@@ -47,8 +47,8 @@ func TestMain(m *testing.M) {
 		})).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
-			gatewayConformanceInputs.Client = t.Clusters().Default()
-			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
+			gatewayInferenceConformanceInputs.Client = t.Clusters().Default()
+			gatewayInferenceConformanceInputs.Cleanup = !t.Settings().NoCleanup
 
 			return nil
 		}).
