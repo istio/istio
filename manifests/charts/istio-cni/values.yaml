@@ -134,6 +134,12 @@ _internal_defaults_do_not_set:
     rollingUpdate:
       maxUnavailable: 1
 
+  # Sets the per-pod terminationGracePeriodSeconds setting.
+  # A higher value gives more time for CNI cleanup during rolling updates,
+  # preventing "failed to find plugin istio-cni" errors.
+  # Default K8s value is 30 seconds.
+  terminationGracePeriodSeconds: 30
+
   # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
   revision: ""
 
