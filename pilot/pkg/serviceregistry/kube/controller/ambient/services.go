@@ -47,25 +47,16 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/workloadapi"
 )
 
-// setCanonical sets the canonical filed in a WDS service without mangling the ServiceInfo being passed in
+// setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo
 func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
+	wdsSvc := protomarshal.ShallowClone(se.Service)
+	wdsSvc.Canonical = true
 	return model.ServiceInfo{
-		Service: &workloadapi.Service{
-			Name:            se.Service.Name,
-			Namespace:       se.Service.Namespace,
-			Hostname:        se.Service.Hostname,
-			Addresses:       se.Service.Addresses,
-			Ports:           se.Service.Ports,
-			SubjectAltNames: se.Service.SubjectAltNames,
-			Waypoint:        se.Service.Waypoint,
-			LoadBalancing:   se.Service.LoadBalancing,
-			IpFamilies:      se.Service.IpFamilies,
-			Extensions:      se.Service.Extensions,
-			Canonical:       true, // the only reason this function exists
-		},
+		Service:          wdsSvc,
 		LabelSelector:    se.LabelSelector,
 		PortNames:        se.PortNames,
 		Source:           se.Source,
