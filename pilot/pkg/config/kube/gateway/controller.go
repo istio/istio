@@ -127,7 +127,7 @@ type Outputs struct {
 	Gateways                krt.Collection[Gateway]
 	VirtualServices         krt.Collection[*config.Config]
 	ReferenceGrants         ReferenceGrants
-	DestinationRules        krt.Collection[*config.Config]
+	DestinationRules        krt.Collection[config.Config]
 	InferencePools          krt.Collection[InferencePool]
 	InferencePoolsByGateway krt.Index[types.NamespacedName, InferencePool]
 }
@@ -393,7 +393,7 @@ func NewController(
 				}
 			}), false),
 		outputs.DestinationRules.RegisterBatch(pushXds(xdsUpdater,
-			func(t *config.Config) model.ConfigKey {
+			func(t config.Config) model.ConfigKey {
 				return model.ConfigKey{
 					Kind:      kind.DestinationRule,
 					Name:      t.Name,
@@ -502,9 +502,7 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 			return *e
 		})
 	case gvk.DestinationRule:
-		return slices.Map(c.outputs.DestinationRules.List(), func(e *config.Config) config.Config {
-			return *e
-		})
+		return c.outputs.DestinationRules.List()
 	default:
 		return nil
 	}
