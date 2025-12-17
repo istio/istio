@@ -107,10 +107,11 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	// (255 is a nonexistent protocol number, IANA reserved, see `cat /etc/protocols`, so this rule will never match anything)
 	// should use the wait flag if supported to avoid lock contention whenever possible
 	needLock := !isNft && !parsedVer.LessThan(IptablesRestoreLocking)
+	testArgs := append(make([]string, 0, len(testRuleAdd)+1), testRuleAdd...)
 	if needLock {
-		testRuleAdd = append(testRuleAdd, "--wait=30")
+		testArgs = append(testArgs, "--wait=30")
 	}
-	testCmd := exec.Command(iptablesBin, testRuleAdd...)
+	testCmd := exec.Command(iptablesBin, testArgs...)
 
 	var testStdErr bytes.Buffer
 	testCmd.Stderr = &testStdErr
@@ -122,7 +123,7 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 			iptablesBin, testRes, testStdErr.String())
 	}
 
-	testRuleDel := append(make([]string, 0, len(testRuleAdd)), testRuleAdd...)
+	testRuleDel := append(make([]string, 0, len(testArgs)), testArgs...)
 	testRuleDel[2] = "-D"
 
 	testCmd = exec.Command(iptablesBin, testRuleDel...)
