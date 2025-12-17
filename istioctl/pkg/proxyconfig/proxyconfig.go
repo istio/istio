@@ -373,6 +373,9 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("cluster requires pod name or --file parameter")
 			}
+			if err := istioctlutil.ValidatePort(proxyAdminPort); err != nil {
+				return err
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
