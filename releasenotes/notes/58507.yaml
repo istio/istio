@@ -30,6 +30,6 @@ issue:
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
 releaseNotes: |
-  **Fixed** an issue where `iptables` command where not waiting to acquire a lock on
-  `/run/xtables.lock`, causing some misleading errors on logs.
+  **Fixed** an issue where `iptables` command was not waiting to acquire a lock on
+  `/run/xtables.lock`, causing some misleading errors in the logs.
 
