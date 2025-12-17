@@ -204,7 +204,7 @@ func HTTPRouteCollection(
 
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("HTTPRouteMerged")...)
 	return RouteResult[*gatewayv1.HTTPRoute, gatewayv1.HTTPRouteStatus]{
-		VirtualServices:  finalVirtualServices,
+		VirtualServices:  krt.MapCollection(finalVirtualServices, func(e *config.Config) config.Config { return *e }),
 		RouteAttachments: routeCount,
 		Status:           status,
 		Ancestors:        ancestorBackends,
@@ -397,7 +397,7 @@ func GRPCRouteCollection(
 
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("GRPCRouteMerged")...)
 	return RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus]{
-		VirtualServices:  finalVirtualServices,
+		VirtualServices:  krt.MapCollection(finalVirtualServices, func(e *config.Config) config.Config { return *e }),
 		RouteAttachments: routeCount,
 		Status:           status,
 		Ancestors:        ancestorBackends,
@@ -488,7 +488,7 @@ func TCPRouteCollection(
 	}, opts.WithName("TCPRoute")...)
 
 	return RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus]{
-		VirtualServices:  virtualServices,
+		VirtualServices:  krt.MapCollection(virtualServices, func(e *config.Config) config.Config { return *e }),
 		RouteAttachments: routeCount,
 		Status:           status,
 		Ancestors:        ancestorBackends,
@@ -578,7 +578,7 @@ func TLSRouteCollection(
 		return status, vs
 	}, opts.WithName("TLSRoute")...)
 	return RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus]{
-		VirtualServices:  virtualServices,
+		VirtualServices:  krt.MapCollection(virtualServices, func(e *config.Config) config.Config { return *e }),
 		RouteAttachments: routeCount,
 		Status:           status,
 		Ancestors:        ancestorBackends,
@@ -689,7 +689,7 @@ func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convert
 // RouteResult holds the result of a route collection
 type RouteResult[I controllers.Object, IStatus any] struct {
 	// VirtualServices are the primary output that configures the internal routing logic
-	VirtualServices krt.Collection[*config.Config]
+	VirtualServices krt.Collection[config.Config]
 	// RouteAttachments holds information about parent attachment to routes, used for computed the `attachedRoutes` count.
 	RouteAttachments krt.Collection[RouteAttachment]
 	// Status stores the status reports for the incoming object
