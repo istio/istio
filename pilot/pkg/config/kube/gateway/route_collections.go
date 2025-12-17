@@ -417,7 +417,7 @@ func TCPRouteCollection(
 	}, opts.WithName("TCPAncestors")...)
 	status, virtualServices := krt.NewStatusManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (
 		*gatewayalpha.TCPRouteStatus,
-		[]*config.Config,
+		[]config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
@@ -434,7 +434,7 @@ func TCPRouteCollection(
 			})
 		status.Parents = parentStatus
 
-		vs := []*config.Config{}
+		vs := []config.Config{}
 		count := 0
 		for _, parent := range filteredReferences(parentRefs) {
 			routes := gwResult.routes
@@ -464,7 +464,7 @@ func TCPRouteCollection(
 				name := fmt.Sprintf("%s~tcp~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				// Create one VS per hostname with a single hostname.
 				// This ensures we can treat each hostname independently, as the spec requires
-				vs = append(vs, &config.Config{
+				vs = append(vs, config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
@@ -488,7 +488,7 @@ func TCPRouteCollection(
 	}, opts.WithName("TCPRoute")...)
 
 	return RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus]{
-		VirtualServices:  krt.MapCollection(virtualServices, func(e *config.Config) config.Config { return *e }),
+		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
 		Ancestors:        ancestorBackends,
@@ -508,7 +508,7 @@ func TLSRouteCollection(
 	}, opts.WithName("TLSAncestors")...)
 	status, virtualServices := krt.NewStatusManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (
 		*gatewayalpha.TLSRouteStatus,
-		[]*config.Config,
+		[]config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
@@ -526,7 +526,7 @@ func TLSRouteCollection(
 		status.Parents = parentStatus
 
 		count := 0
-		vs := []*config.Config{}
+		vs := []config.Config{}
 		for _, parent := range filteredReferences(parentRefs) {
 			routes := gwResult.routes
 			vsHosts := hostnameToStringList(route.Hostnames)
@@ -557,7 +557,7 @@ func TLSRouteCollection(
 				}
 				// Create one VS per hostname with a single hostname.
 				// This ensures we can treat each hostname independently, as the spec requires
-				vs = append(vs, &config.Config{
+				vs = append(vs, config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
@@ -578,7 +578,7 @@ func TLSRouteCollection(
 		return status, vs
 	}, opts.WithName("TLSRoute")...)
 	return RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus]{
-		VirtualServices:  krt.MapCollection(virtualServices, func(e *config.Config) config.Config { return *e }),
+		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
 		Ancestors:        ancestorBackends,
