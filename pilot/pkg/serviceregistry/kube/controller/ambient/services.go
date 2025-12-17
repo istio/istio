@@ -497,6 +497,7 @@ func constructServiceEntries(
 		ports = append(ports, &workloadapi.Port{
 			ServicePort: p.Number,
 			TargetPort:  target,
+			AppProtocol: toAppProtocolFromProtocol(protocol.Parse(p.Protocol)),
 		})
 	}
 
@@ -569,6 +570,7 @@ func constructService(
 		ports = append(ports, &workloadapi.Port{
 			ServicePort: uint32(p.Port),
 			TargetPort:  uint32(p.TargetPort.IntVal),
+			AppProtocol: toAppProtocolFromKube(p),
 		})
 	}
 
