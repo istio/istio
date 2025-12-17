@@ -176,7 +176,7 @@ func HTTPRouteCollection(
 					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
 				}
 
-				cfg := &config.Config{
+				cfg := config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
@@ -369,7 +369,7 @@ func GRPCRouteCollection(
 					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
 				}
 
-				cfg := &config.Config{
+				cfg := config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
@@ -661,7 +661,7 @@ func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
 }
 
 type RouteWithKey struct {
-	*config.Config
+	config.Config
 	Key string
 }
 
@@ -670,7 +670,7 @@ func (r RouteWithKey) ResourceName() string {
 }
 
 func (r RouteWithKey) Equals(o RouteWithKey) bool {
-	return r.Config.Equals(o.Config)
+	return r.Config.Equals(&o.Config)
 }
 
 // buildMeshAndGatewayRoutes contains common logic to build a set of routes with mesh and/or gateway semantics
@@ -764,6 +764,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 				Meta:   nm,
 				Spec:   base.Spec,
 				Status: base.Status,
+				Extra:  base.Extra,
 			}
 		}
 		sortRoutesByCreationTime(configs)
