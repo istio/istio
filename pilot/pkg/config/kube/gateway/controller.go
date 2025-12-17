@@ -472,7 +472,7 @@ func buildClient[I controllers.ComparableObject](
 	}
 
 	cc := kclient.NewDelayedInformer[I](kc, res, kubetypes.StandardInformer, filter)
-	return krt.WrapClient[I](cc, opts.WithName(name)...)
+	return krt.WrapClient(cc, opts.WithName(name)...)
 }
 
 func (c *Controller) Schemas() collection.Schemas {
