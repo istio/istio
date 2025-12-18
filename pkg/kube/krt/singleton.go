@@ -78,14 +78,7 @@ type static[T any] struct {
 }
 
 func (d *static[T]) GetKey(k string) *T {
-	v := d.val.Load()
-	if v == nil {
-		return nil
-	}
-	if GetKey(*v) != k {
-		return nil
-	}
-	return v
+	return d.val.Load()
 }
 
 func (d *static[T]) List() []T {
