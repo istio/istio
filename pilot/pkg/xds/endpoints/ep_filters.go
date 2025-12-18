@@ -141,7 +141,13 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
 			// the endpoint is either on the local network or on a remote network that can be reached
 			// directly from the local network.
-			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
+			// However, when the proxy's network is not set (empty) but the endpoint has a specific
+			// network and gateways are configured for that network, we should route through
+			// the gateway rather than treating the endpoint as directly reachable. This handles
+			// the case where ISTIO_META_NETWORK is not configured on the sidecar but multi-network
+			// routing is still desired.
+			forceGateway := b.network == "" && epNetwork != "" && len(gateways) > 0
+			if !forceGateway && (b.proxy.InNetwork(epNetwork) || len(gateways) == 0) {
 				// The endpoint is directly reachable - just add it.
 				// If there is no gateway, the address must not be empty
 				if util.GetEndpointHost(lbEp) != "" {
