@@ -615,6 +615,36 @@ func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []
 				},
 			},
 		},
+		{
+			Tag: "istio.downstream.workload",
+			Type: &tracing.CustomTag_Value{
+				Value: "%CEL(filter_state.downstream_peer.workload)%",
+			},
+		},
+		{
+			Tag: "istio.downstream.workload",
+			Type: &tracing.CustomTag_Value{
+				Value: "%CEL(filter_state.downstream_peer.workload)%",
+			},
+		},
+		{
+			Tag: "istio.downstream",
+			Type: &tracing.CustomTag_Value{
+				Value: "%FILTER_STATE(downstream_peer:TYPED)%",
+			},
+		},
+		{
+			Tag: "istio.upstream.workload",
+			Type: &tracing.CustomTag_Value{
+				Value: "%CEL(filter_state.upstream_peer.workload)%",
+			},
+		},
+		{
+			Tag: "istio.upstream",
+			Type: &tracing.CustomTag_Value{
+				Value: "%FILTER_STATE(upstream_peer:TYPED)%",
+			},
+		},
 	}
 }
 
