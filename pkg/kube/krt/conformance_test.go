@@ -135,9 +135,16 @@ func (r *manyRig) CreateObject(key string) {
 
 func (r *manyRig) ReplaceKey(oldKey, newKey string) {
 	oldNs, oldName, _ := strings.Cut(oldKey, "/")
-	r.namespaces.DeleteObject(oldNs)
-	r.names.DeleteObject(oldName)
-	r.CreateObject(newKey)
+	newNs, newName, _ := strings.Cut(newKey, "/")
+	// Only delete/add what actually changes to avoid spurious events
+	if oldNs != newNs {
+		r.namespaces.DeleteObject(oldNs)
+		r.namespaces.UpdateObject(newNs)
+	}
+	if oldName != newName {
+		r.names.DeleteObject(oldName)
+		r.names.UpdateObject(newName)
+	}
 }
 
 type fileRig struct {
