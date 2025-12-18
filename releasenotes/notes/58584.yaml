@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
 - |
-  **Added** port validation to the istioctl command.
+  **Added** port validation to `istioctl` commands to prevent invalid values outside the 1-65535 range.

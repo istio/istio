@@ -116,6 +116,12 @@ the configuration objects that affect that pod.`,
   istioctl experimental describe pod istio-eastwestgateway-7f4b4f44b-6zd95.istio-system
   or
   istioctl experimental describe pod istio-eastwestgateway-7f4b4f44b-6zd95 -n istio-system`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := istioctlutil.ValidatePort(proxyAdminPort); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
 			if len(args) != 1 {

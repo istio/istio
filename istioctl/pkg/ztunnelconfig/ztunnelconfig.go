@@ -409,9 +409,6 @@ func logCmd(ctx cli.Context) *cobra.Command {
 			if common.outputFormat != "" && common.outputFormat != summaryOutput {
 				return fmt.Errorf("--output is not applicable for this command")
 			}
-			if err := util.ValidatePort(common.proxyAdminPort); err != nil {
-				return err
-			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
@@ -712,6 +709,9 @@ func (c *commonFlags) validateArgs(cmd *cobra.Command, args []string) error {
 	if set > 1 {
 		cmd.Println(cmd.UsageString())
 		return fmt.Errorf("at most one of --file, --node, or pod name must be passed")
+	}
+	if err := util.ValidatePort(c.proxyAdminPort); err != nil {
+		return err
 	}
 	return nil
 }
