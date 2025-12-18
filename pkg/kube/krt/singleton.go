@@ -76,7 +76,14 @@ type static[T any] struct {
 }
 
 func (d *static[T]) GetKey(k string) *T {
-	return d.val.Load()
+	v := d.val.Load()
+	if v == nil {
+		return nil
+	}
+	if GetKey(*v) != k {
+		return nil
+	}
+	return v
 }
 
 func (d *static[T]) List() []T {
@@ -143,8 +150,9 @@ func (d *static[T]) Set(now *T) {
 	if old == now {
 		return
 	}
+	events := toEvents(old, now)
 	for _, h := range d.eventHandlers.Get() {
-		h([]Event[T]{toEvent[T](old, now)})
+		h(events)
 	}
 }
 
@@ -179,23 +187,39 @@ func (d *static[T]) index(name string, extract func(o T) []string) indexer[T] {
 	panic("TODO")
 }
 
-func toEvent[T any](old, now *T) Event[T] {
+func toEvents[T any](old, now *T) []Event[T] {
 	if old == nil {
-		return Event[T]{
+		return []Event[T]{{
 			New:   now,
 			Event: controllers.EventAdd,
-		}
+		}}
 	} else if now == nil {
-		return Event[T]{
+		return []Event[T]{{
 			Old:   old,
 			Event: controllers.EventDelete,
+		}}
+	}
+	// Both old and new exist - check if the key changed
+	oldKey := GetKey(*old)
+	newKey := GetKey(*now)
+	if oldKey != newKey {
+		// Key changed: emit Delete for old key, Add for new key
+		return []Event[T]{
+			{
+				Old:   old,
+				Event: controllers.EventDelete,
+			},
+			{
+				New:   now,
+				Event: controllers.EventAdd,
+			},
 		}
 	}
-	return Event[T]{
+	return []Event[T]{{
 		New:   now,
 		Old:   old,
 		Event: controllers.EventUpdate,
-	}
+	}}
 }
 
 var _ Collection[dummyValue] = &static[dummyValue]{}
