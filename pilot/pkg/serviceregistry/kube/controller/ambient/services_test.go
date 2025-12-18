@@ -681,7 +681,7 @@ func TestServiceEntryServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			builder := a.serviceEntryServiceBuilder(
+			builder := a.builder.serviceEntryServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
@@ -1096,7 +1096,7 @@ func TestServiceServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			builder := a.serviceServiceBuilder(
+			builder := a.builder.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockSingleton[MeshConfig](mock),
@@ -1232,7 +1232,7 @@ func TestServiceConditions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			builder := a.serviceServiceBuilder(
+			builder := a.builder.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockSingleton[MeshConfig](mock),

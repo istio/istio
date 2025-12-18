@@ -45,7 +45,7 @@ func (n NetworkGateway) ResourceName() string {
 	return n.Source.String() + "/" + n.Addr
 }
 
-type networkCollections struct {
+type NetworkCollections struct {
 	LocalSystemNamespace          krt.Singleton[ClusterNetwork]
 	RemoteSystemNamespaceNetworks krt.Collection[ClusterNetwork]
 	// SystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
@@ -64,7 +64,7 @@ func (c ClusterNetwork) ResourceName() string {
 	return fmt.Sprintf("%s/%s", c.ClusterID, c.Network)
 }
 
-func (c networkCollections) HasSynced() bool {
+func (c NetworkCollections) HasSynced() bool {
 	return c.LocalSystemNamespace.AsCollection().HasSynced() &&
 		c.NetworkGateways.HasSynced()
 }
@@ -77,7 +77,7 @@ func buildGlobalNetworkCollections(
 	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[krt.ObjectWithCluster[*gatewayv1.Gateway]]],
 	options Options,
 	opts krt.OptionsBuilder,
-) networkCollections {
+) NetworkCollections {
 	LocalSystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
 		ns := ptr.Flatten(krt.FetchOne(ctx, localNamespaces, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
@@ -190,7 +190,7 @@ func buildGlobalNetworkCollections(
 		return []network.ID{o.Network}
 	})
 
-	return networkCollections{
+	return NetworkCollections{
 		SystemNamespaceNetworkByCluster: RemoteSystemNamespaceNetworksByCluster,
 		NetworkGateways:                 MergedNetworkGateways,
 		GatewaysByNetwork:               GatewaysByNetwork,
@@ -199,12 +199,12 @@ func buildGlobalNetworkCollections(
 	}
 }
 
-func buildNetworkCollections(
+func BuildNetworkCollections(
 	namespaces krt.Collection[*v1.Namespace],
 	gateways krt.Collection[*gatewayv1.Gateway],
 	options Options,
 	opts krt.OptionsBuilder,
-) networkCollections {
+) NetworkCollections {
 	SystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
 		ns := ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
@@ -228,7 +228,7 @@ func buildNetworkCollections(
 		return []network.ID{o.Network}
 	})
 
-	return networkCollections{
+	return NetworkCollections{
 		LocalSystemNamespace: SystemNamespaceNetwork,
 		NetworkGateways:      NetworkGateways,
 		GatewaysByNetwork:    GatewaysByNetwork,

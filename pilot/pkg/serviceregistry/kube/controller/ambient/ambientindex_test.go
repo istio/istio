@@ -2219,6 +2219,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 		t.Cleanup(cl.Shutdown)
 		cl.RunAndWait(test.NewStop(t))
 	}
+
 	return a
 }
 
