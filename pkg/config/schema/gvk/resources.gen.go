@@ -491,3 +491,109 @@ func MustFromGVR(g schema.GroupVersionResource) config.GroupVersionKind {
 	}
 	return r
 }
+
+// KebabKind returns the kebab-case version of a Kind string.
+// This is a generated mapping to avoid runtime allocations from string conversion.
+func KebabKind(k string) string {
+	switch k {
+	case "AuthorizationPolicy":
+		return "authorization-policy"
+	case "BackendTLSPolicy":
+		return "backend-tls-policy"
+	case "CertificateSigningRequest":
+		return "certificate-signing-request"
+	case "ClusterTrustBundle":
+		return "cluster-trust-bundle"
+	case "ConfigMap":
+		return "config-map"
+	case "CustomResourceDefinition":
+		return "custom-resource-definition"
+	case "DaemonSet":
+		return "daemon-set"
+	case "Deployment":
+		return "deployment"
+	case "DestinationRule":
+		return "destination-rule"
+	case "EndpointSlice":
+		return "endpoint-slice"
+	case "Endpoints":
+		return "endpoints"
+	case "EnvoyFilter":
+		return "envoy-filter"
+	case "GRPCRoute":
+		return "grpc-route"
+	case "Gateway":
+		return "gateway"
+	case "GatewayClass":
+		return "gateway-class"
+	case "HTTPRoute":
+		return "http-route"
+	case "HorizontalPodAutoscaler":
+		return "horizontal-pod-autoscaler"
+	case "InferencePool":
+		return "inference-pool"
+	case "Ingress":
+		return "ingress"
+	case "IngressClass":
+		return "ingress-class"
+	case "Lease":
+		return "lease"
+	case "MeshConfig":
+		return "mesh-config"
+	case "MeshNetworks":
+		return "mesh-networks"
+	case "MutatingWebhookConfiguration":
+		return "mutating-webhook-configuration"
+	case "Namespace":
+		return "namespace"
+	case "Node":
+		return "node"
+	case "PeerAuthentication":
+		return "peer-authentication"
+	case "Pod":
+		return "pod"
+	case "PodDisruptionBudget":
+		return "pod-disruption-budget"
+	case "ProxyConfig":
+		return "proxy-config"
+	case "ReferenceGrant":
+		return "reference-grant"
+	case "RequestAuthentication":
+		return "request-authentication"
+	case "Secret":
+		return "secret"
+	case "Service":
+		return "service"
+	case "ServiceAccount":
+		return "service-account"
+	case "ServiceEntry":
+		return "service-entry"
+	case "Sidecar":
+		return "sidecar"
+	case "StatefulSet":
+		return "stateful-set"
+	case "TCPRoute":
+		return "tcp-route"
+	case "TLSRoute":
+		return "tls-route"
+	case "Telemetry":
+		return "telemetry"
+	case "UDPRoute":
+		return "udp-route"
+	case "ValidatingWebhookConfiguration":
+		return "validating-webhook-configuration"
+	case "VirtualService":
+		return "virtual-service"
+	case "WasmPlugin":
+		return "wasm-plugin"
+	case "WorkloadEntry":
+		return "workload-entry"
+	case "WorkloadGroup":
+		return "workload-group"
+	case "XBackendTrafficPolicy":
+		return "x-backend-traffic-policy"
+	case "XListenerSet":
+		return "x-listener-set"
+	}
+	return ""
+}

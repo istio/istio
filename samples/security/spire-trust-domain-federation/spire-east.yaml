@@ -1,0 +1,14 @@
+global:
+  spire:
+    clusterName: east
+    trustDomain: east.local
+    caSubject:
+      commonName: east.local
+
+spire-server:
+  controllerManager:
+    identities:
+      clusterSPIFFEIDs:
+        sidecars:
+          federatesWith:
+          - west.local

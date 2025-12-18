@@ -430,6 +430,9 @@ func (this *Port) EqualVT(that *Port) bool {
 	if this.TargetPort != that.TargetPort {
 		return false
 	}
+	if this.AppProtocol != that.AppProtocol {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -1292,6 +1295,11 @@ func (m *Port) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.AppProtocol != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.AppProtocol))
+		i--
+		dAtA[i] = 0x18
+	}
 	if m.TargetPort != 0 {
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.TargetPort))
 		i--
@@ -1884,6 +1892,9 @@ func (m *Port) SizeVT() (n int) {
 	}
 	if m.TargetPort != 0 {
 		n += 1 + protohelpers.SizeOfVarint(uint64(m.TargetPort))
+	}
+	if m.AppProtocol != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.AppProtocol))
 	}
 	n += len(m.unknownFields)
 	return n

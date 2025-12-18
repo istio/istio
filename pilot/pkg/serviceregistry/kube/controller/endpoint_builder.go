@@ -52,7 +52,7 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
-		sa = kube.SecureNamingSAN(pod, c.meshWatcher.Mesh())
+		sa = kube.SecureNamingSAN(pod, c.meshWatcher.TrustDomain())
 		podLabels = pod.Labels
 		namespace = pod.Namespace
 		subdomain = pod.Spec.Subdomain

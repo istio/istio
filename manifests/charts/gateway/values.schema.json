@@ -11,6 +11,10 @@
         "global": {
           "type": "object"
         },
+        "enabled": {
+          "description": "Field used as a condition when this chart is included as a dependency. It's allowed in the schema, but the chart itself does not read it. For more information see: https://helm.sh/docs/chart_best_practices/dependencies/#conditions-and-tags.",
+          "type": "boolean"
+        },
         "affinity": {
           "type": "object"
         },

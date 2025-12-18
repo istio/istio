@@ -261,7 +261,7 @@ func GlobalWaypointsCollection(
 	localWaypoints krt.Collection[Waypoint],
 	clusters krt.Collection[*multicluster.Cluster],
 	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
-	globalNetworks networkCollections,
+	globalNetworks NetworkCollections,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
 	return nestedCollectionFromLocalAndRemote(localWaypoints, clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
@@ -320,7 +320,7 @@ func GlobalWaypointsCollection(
 	}, "Waypoints", opts)
 }
 
-func (a *index) WaypointsCollection(
+func (a Builder) WaypointsCollection(
 	clusterID cluster.ID,
 	gateways krt.Collection[*gatewayv1.Gateway],
 	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],

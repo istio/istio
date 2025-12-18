@@ -91,8 +91,9 @@ func TestServiceEntryServices(t *testing.T) {
 					Addresses: []string{"1.2.3.4"},
 					Hosts:     []string{"a.example.com", "b.example.com"},
 					Ports: []*networking.ServicePort{{
-						Number: 80,
-						Name:   "http",
+						Number:   80,
+						Name:     "http",
+						Protocol: "HTTP",
 					}},
 					SubjectAltNames: []string{"san1"},
 					Resolution:      networking.ServiceEntry_DNS,
@@ -110,6 +111,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Ports: []*workloadapi.Port{{
 						ServicePort: 80,
 						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
 					}},
 					SubjectAltNames: []string{"san1"},
 				},
@@ -124,6 +126,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Ports: []*workloadapi.Port{{
 						ServicePort: 80,
 						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
 					}},
 					SubjectAltNames: []string{"san1"},
 				},
@@ -678,7 +681,7 @@ func TestServiceEntryServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			builder := a.serviceEntryServiceBuilder(
+			builder := a.builder.serviceEntryServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
@@ -734,6 +737,7 @@ func TestServiceServices(t *testing.T) {
 				}},
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
 			},
 		},
@@ -786,9 +790,11 @@ func TestServiceServices(t *testing.T) {
 				}},
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 					TargetPort:  81,
 				}, {
 					ServicePort: 8080,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 					TargetPort:  0,
 				}},
 			},
@@ -814,6 +820,7 @@ func TestServiceServices(t *testing.T) {
 				Hostname:  "name.ns.svc.domain.suffix",
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
 			},
 		},
@@ -852,6 +859,7 @@ func TestServiceServices(t *testing.T) {
 				},
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
 			},
 		},
@@ -891,6 +899,7 @@ func TestServiceServices(t *testing.T) {
 				},
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
 			},
 		},
@@ -932,6 +941,7 @@ func TestServiceServices(t *testing.T) {
 				},
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
 			},
 		},
@@ -965,6 +975,7 @@ func TestServiceServices(t *testing.T) {
 				},
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
 			},
 		},
@@ -1020,6 +1031,7 @@ func TestServiceServices(t *testing.T) {
 				Waypoint: waypointAddr,
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
 			},
 		},
@@ -1075,6 +1087,7 @@ func TestServiceServices(t *testing.T) {
 				Waypoint: nil,
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
 			},
 		},
@@ -1083,7 +1096,7 @@ func TestServiceServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			builder := a.serviceServiceBuilder(
+			builder := a.builder.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockSingleton[MeshConfig](mock),
@@ -1219,7 +1232,7 @@ func TestServiceConditions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			builder := a.serviceServiceBuilder(
+			builder := a.builder.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockSingleton[MeshConfig](mock),

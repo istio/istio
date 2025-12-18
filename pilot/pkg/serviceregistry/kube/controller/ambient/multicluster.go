@@ -77,7 +77,7 @@ func (a *index) buildGlobalCollections(
 	LocalNamespaces := localCluster.Namespaces()
 	LocalNodes := localCluster.Nodes()
 	LocalGateways := localCluster.Gateways()
-	LocalWaypoints := a.WaypointsCollection(options.ClusterID, LocalGateways, localGatewayClasses, LocalPods, opts)
+	LocalWaypoints := a.builder.WaypointsCollection(options.ClusterID, LocalGateways, localGatewayClasses, LocalPods, opts)
 
 	LocalMeshConfig := options.MeshConfig
 	// These first collections can't be merged since the Kubernetes APIs don't have enough room
@@ -195,7 +195,7 @@ func (a *index) buildGlobalCollections(
 		opts,
 	)
 
-	LocalWorkloadServices := a.ServicesCollection(
+	LocalWorkloadServices := a.builder.ServicesCollection(
 		localCluster.ID,
 		localCluster.Services(),
 		localServiceEntries,

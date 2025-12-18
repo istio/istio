@@ -121,13 +121,16 @@ func Cmd(ctx cli.Context) *cobra.Command {
 
 	waypointStatusCmd := &cobra.Command{
 		Use:   "status",
-		Short: "Show the status of waypoints in a namespace",
-		Long:  "Show the status of waypoints for the namespace provided or default namespace if none is provided",
+		Short: "Show the status of waypoints",
+		Long:  "Show the status of waypoints in the cluster",
 		Example: `  # Show the status of the waypoint in the default namespace
   istioctl waypoint status
 
   # Show the status of the waypoint in a specific namespace
-  istioctl waypoint status --namespace default`,
+  istioctl waypoint status --namespace default
+
+  # Show the status of the waypoint in all namespaces
+  istioctl waypoint status --all-namespaces`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])
