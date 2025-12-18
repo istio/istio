@@ -21,8 +21,6 @@ import (
 	"strconv"
 
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-	cfgkube "istio.io/istio/pkg/config/kube"
-	"istio.io/istio/pkg/config/protocol"
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +39,9 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
+	cfgkube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeutil "istio.io/istio/pkg/kube"

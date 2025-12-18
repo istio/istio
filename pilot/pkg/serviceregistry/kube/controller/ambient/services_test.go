@@ -91,8 +91,8 @@ func TestServiceEntryServices(t *testing.T) {
 					Addresses: []string{"1.2.3.4"},
 					Hosts:     []string{"a.example.com", "b.example.com"},
 					Ports: []*networking.ServicePort{{
-						Number: 80,
-						Name:   "http",
+						Number:   80,
+						Name:     "http",
 						Protocol: "HTTP",
 					}},
 					SubjectAltNames: []string{"san1"},
