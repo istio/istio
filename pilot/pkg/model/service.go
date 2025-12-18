@@ -327,15 +327,15 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
-func (si *ServiceInstance) ResourceName() string {
-	return si.Service.ResourceName() + "/" + si.Endpoint.Key() + "/" + strconv.Itoa(si.ServicePort.Port)
+func (instance *ServiceInstance) ResourceName() string {
+	return instance.Service.ResourceName() + "/" + instance.Endpoint.Key() + "/" + strconv.Itoa(instance.ServicePort.Port)
 }
 
-func (si *ServiceInstance) Equals(other *ServiceInstance) bool {
-	return si.Service.Equals(other.Service) && si.ServicePort.Equals(other.ServicePort) && si.Endpoint.Equals(other.Endpoint)
+func (instance *ServiceInstance) Equals(other *ServiceInstance) bool {
+	return instance.Service.Equals(other.Service) && instance.ServicePort.Equals(other.ServicePort) && instance.Endpoint.Equals(other.Endpoint)
 }
 
-func (si *ServiceInstance) CmpOpts() []cmp.Option {
+func (instance *ServiceInstance) CmpOpts() []cmp.Option {
 	res := []cmp.Option{}
 	res = append(res, istioEndpointCmpOpts...)
 	return res
@@ -377,14 +377,14 @@ func (instance *ServiceInstance) ShallowCopy() *ServiceInstance {
 }
 
 // DeepCopy creates a copy of ServiceInstance.
-func (si *ServiceInstance) DeepCopy() *ServiceInstance {
+func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	return &ServiceInstance{
-		Service:  si.Service.DeepCopy(),
-		Endpoint: si.Endpoint.DeepCopy(),
+		Service:  instance.Service.DeepCopy(),
+		Endpoint: instance.Endpoint.DeepCopy(),
 		ServicePort: &Port{
-			Name:     si.ServicePort.Name,
-			Port:     si.ServicePort.Port,
-			Protocol: si.ServicePort.Protocol,
+			Name:     instance.ServicePort.Name,
+			Port:     instance.ServicePort.Port,
+			Protocol: instance.ServicePort.Protocol,
 		},
 	}
 }

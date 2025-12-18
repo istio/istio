@@ -69,30 +69,27 @@ type Controller struct {
 	store     model.ConfigStore
 	clusterID cluster.ID
 
-	// KRT wiring
-	stop     chan struct{}
-	opts     krt.OptionsBuilder
-	inputs   Inputs
-	outputs  Outputs
-	handlers []krt.HandlerRegistration
+	stop        chan struct{}
+	krtDebugger *krt.DebugHandler
+	opts        krt.OptionsBuilder
+	inputs      Inputs
+	outputs     Outputs
+	handlers    []krt.HandlerRegistration
 
 	// external workload handlers (unchanged API)
 	workloadHandlers []func(*model.WorkloadInstance, model.Event)
 
 	// callback function used to get the networkID according to workload ip and labels.
+	// TODO: migrate this callback to a dependency on a KRT collection
 	networkIDCallback networkIDCallback
 
 	// Indicates whether this controller is for workload entries.
 	workloadEntryController bool
 
-	// mesh config (collection flavor)
-	meshWatcher meshwatcher.WatcherCollection
-
 	model.NoopAmbientIndexes
 	model.NetworkGatewaysHandler
 }
 
-// Inputs are KRT input collections used by the controller
 type Inputs struct {
 	ServiceEntries    krt.Collection[config.Config]
 	WorkloadEntries   krt.Collection[config.Config]
@@ -100,18 +97,20 @@ type Inputs struct {
 	MeshConfig        krt.Collection[meshwatcher.MeshConfigResource]
 }
 
-// Outputs are KRT derived collections produced by the controller
 type Outputs struct {
 	Services                        krt.Collection[ServiceWithInstances]
 	ServicesByHost                  krt.Index[string, ServiceWithInstances]
 	ServiceInstancesByNamespaceHost krt.Collection[InstancesByNamespaceHost]
 	ServiceInstances                krt.Collection[*model.ServiceInstance]
 	ServiceInstancesByIP            krt.Index[string, *model.ServiceInstance]
+	Workloads                       krt.Collection[*model.WorkloadInstance]
 }
 
 type ServiceWithInstances struct {
 	Service *model.Service
-	// TODO: this is a hack to trigger full pushes when target ports change, is this really needed?
+	// TODO: this is a hack to trigger full pushes when ServiceEntry target ports change, this
+	// should probably be handled elsewhere.
+	// ref: https://github.com/istio/istio/pull/50068
 	TargetPorts []uint32
 	Instances   []*model.ServiceInstance
 }
@@ -129,9 +128,10 @@ func (swi ServiceWithInstances) Equals(other ServiceWithInstances) bool {
 }
 
 type InstancesByNamespaceHost struct {
-	Namespace string
-	Hostname  string
-	Instances []*model.ServiceInstance
+	Namespace             string
+	Hostname              string
+	Instances             []*model.ServiceInstance
+	HasDNSServiceEndpoint bool
 }
 
 func (s InstancesByNamespaceHost) ResourceName() string {
@@ -139,7 +139,7 @@ func (s InstancesByNamespaceHost) ResourceName() string {
 }
 
 func (s InstancesByNamespaceHost) Equals(other InstancesByNamespaceHost) bool {
-	return slices.EqualFunc(s.Instances, other.Instances, func(a, b *model.ServiceInstance) bool {
+	return s.HasDNSServiceEndpoint == other.HasDNSServiceEndpoint && slices.EqualFunc(s.Instances, other.Instances, func(a, b *model.ServiceInstance) bool {
 		return a.Equals(b)
 	})
 }
@@ -158,13 +158,18 @@ func WithNetworkIDCb(cb func(endpointIP string, labels labels.Instance) network.
 	}
 }
 
+func WithKRTDebugger(debugger *krt.DebugHandler) Option {
+	return func(o *Controller) {
+		o.krtDebugger = debugger
+	}
+}
+
 // NewController creates a new ServiceEntry discovery service.
 func NewController(configController model.ConfigStoreController, xdsUpdater model.XDSUpdater,
 	meshConfig meshwatcher.WatcherCollection,
 	options ...Option,
 ) *Controller {
-	s := newController(configController, xdsUpdater, meshConfig, false, options...)
-	return s
+	return newController(configController, xdsUpdater, meshConfig, false, options...)
 }
 
 // NewWorkloadEntryController creates a new WorkloadEntry discovery service.
@@ -183,49 +188,56 @@ func newController(
 	options ...Option,
 ) *Controller {
 	stop := make(chan struct{})
-	opts := krt.NewOptionsBuilder(stop, "serviceentry", krt.GlobalDebugHandler)
 	s := &Controller{
 		workloadEntryController: workloadEntryController,
 		XdsUpdater:              xdsUpdater,
 		store:                   store,
-		meshWatcher:             meshConfig,
 		stop:                    stop,
-		opts:                    opts,
 	}
 	for _, o := range options {
 		o(s)
 	}
 
+	s.opts = krt.NewOptionsBuilder(stop, "serviceentry", s.krtDebugger)
 	s.inputs = Inputs{
 		WorkloadEntries: store.KrtCollection(gvk.WorkloadEntry),
+		MeshConfig:      meshConfig.AsCollection(),
 	}
 
 	if !workloadEntryController {
 		s.inputs.ServiceEntries = store.KrtCollection(gvk.ServiceEntry)
 		s.inputs.ExternalWorkloads = krt.NewStaticCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
-		s.inputs.MeshConfig = meshConfig.AsCollection()
 	}
 
 	// Build derived collections
 	s.buildCollections()
+
+	if !s.workloadEntryController {
+		// Register EDS/XDS push handlers
+		s.handlers = append(
+			s.handlers,
+			s.outputs.ServiceInstancesByNamespaceHost.RegisterBatch(s.pushServiceEndpointUpdates, false),
+			s.outputs.Services.RegisterBatch(s.pushServiceUpdates, false),
+		)
+	}
+	// Register EDS/XDS push handlers for WLEs
+	s.handlers = append(s.handlers, s.outputs.Workloads.RegisterBatch(s.pushWorkloadUpdates, false))
+
 	return s
 }
 
 func (s *Controller) buildCollections() {
-	// Workloads from WLEs
 	wleWorkloads := krt.NewCollection(s.inputs.WorkloadEntries, func(ctx krt.HandlerContext, cfg config.Config) **model.WorkloadInstance {
-		// Health gating consistent with legacy handler
 		if features.WorkloadEntryHealthChecks && !isHealthy(cfg) {
 			return nil
 		}
 
 		we := ConvertWorkloadEntry(cfg)
-		wi := convertWorkloadEntryToWorkloadInstance(ctx, we, cfg.Meta, s.meshWatcher, cfg.Namespace, s.clusterID, s.networkIDCallback)
+		wi := convertWorkloadEntryToWorkloadInstance(ctx, we, cfg.Meta, s.inputs.MeshConfig, cfg.Namespace, s.clusterID, s.networkIDCallback)
 		return &wi
 	}, s.opts.WithName("outputs/WorkloadsFromWLE")...)
 
 	if !s.workloadEntryController {
-		// All workloads: join external + WLE-derived
 		workloads := krt.JoinCollection(
 			[]krt.Collection[*model.WorkloadInstance]{wleWorkloads, s.inputs.ExternalWorkloads},
 			s.opts.WithName("outputs/AllWorkloads")...,
@@ -236,7 +248,7 @@ func (s *Controller) buildCollections() {
 
 		services, servicesByNsHost, servicesByHost := services(
 			s.inputs.ServiceEntries,
-			s.meshWatcher,
+			s.inputs.MeshConfig,
 			workloads,
 			workloadsByNamespace,
 			s.clusterID,
@@ -244,9 +256,10 @@ func (s *Controller) buildCollections() {
 			s.opts,
 		)
 
-		serviceInstancesByNamespaceHost := serviceInstancesByNamespaceHost(servicesByNsHost.AsCollection(), s.opts)
+		mergedServices := mergeServicesByNamespaceHost(servicesByNsHost.AsCollection(), s.opts)
 
-		serviceInstances := krt.NewManyCollection(services, func(ctx krt.HandlerContext, swi ServiceWithInstances) []*model.ServiceInstance {
+		// derive service instances from merged services
+		serviceInstances := krt.NewManyCollection(mergedServices, func(ctx krt.HandlerContext, swi InstancesByNamespaceHost) []*model.ServiceInstance {
 			return swi.Instances
 		}, s.opts.WithName("outputs/ServiceInstances")...)
 
@@ -257,21 +270,13 @@ func (s *Controller) buildCollections() {
 		s.outputs = Outputs{
 			Services:                        services,
 			ServicesByHost:                  servicesByHost,
-			ServiceInstancesByNamespaceHost: serviceInstancesByNamespaceHost,
+			ServiceInstancesByNamespaceHost: mergedServices,
 			ServiceInstances:                serviceInstances,
 			ServiceInstancesByIP:            serviceInstancesByIP,
 		}
-
-		// Register EDS/XDS push handlers
-		s.handlers = append(
-			s.handlers,
-			s.outputs.ServiceInstancesByNamespaceHost.RegisterBatch(s.pushServiceEndpointUpdates, false),
-			s.outputs.Services.RegisterBatch(s.pushServiceUpdates, false),
-		)
 	}
 
-	// Register EDS/XDS push handlers for WLEs
-	s.handlers = append(s.handlers, wleWorkloads.RegisterBatch(s.pushWorkloadUpdates, false))
+	s.outputs.Workloads = wleWorkloads
 }
 
 func (s *Controller) pushServiceEndpointUpdates(events []krt.Event[InstancesByNamespaceHost]) {
@@ -279,24 +284,18 @@ func (s *Controller) pushServiceEndpointUpdates(events []krt.Event[InstancesByNa
 
 	for _, e := range events {
 		obj := e.Latest()
-		namespace := obj.Namespace
-		hostname := obj.Hostname
 		if e.Event == controllers.EventDelete {
-			s.XdsUpdater.SvcUpdate(shard, hostname, namespace, model.EventDelete)
-			s.XdsUpdater.EDSUpdate(shard, hostname, namespace, nil)
+			s.XdsUpdater.SvcUpdate(shard, obj.Hostname, obj.Namespace, model.EventDelete)
+			s.XdsUpdater.EDSUpdate(shard, obj.Hostname, obj.Namespace, nil)
 		} else {
-			dnsServiceEndpointsUpdated := e.Event == controllers.EventUpdate && slices.FindFunc(obj.Instances, func(si *model.ServiceInstance) bool {
-				return isDNSTypeService(si.Service)
-			}) != nil
-			instances := slices.Map(obj.Instances, func(si *model.ServiceInstance) *model.IstioEndpoint {
-				return si.Endpoint
+			instances := slices.Map(obj.Instances, func(i *model.ServiceInstance) *model.IstioEndpoint {
+				return i.Endpoint
 			})
-
-			s.XdsUpdater.EDSUpdate(shard, hostname, namespace, instances)
-			if dnsServiceEndpointsUpdated {
+			s.XdsUpdater.EDSUpdate(shard, obj.Hostname, obj.Namespace, instances)
+			if obj.HasDNSServiceEndpoint && e.Event == controllers.EventUpdate {
 				s.XdsUpdater.ConfigUpdate(&model.PushRequest{
 					Full:           true,
-					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: namespace}),
+					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: obj.Hostname, Namespace: obj.Namespace}),
 					Reason:         model.NewReasonStats(model.EndpointUpdate),
 				})
 			}
@@ -321,14 +320,14 @@ func (s *Controller) pushServiceUpdates(events []krt.Event[ServiceWithInstances]
 	cu := sets.New[model.ConfigKey]()
 	shard := model.ShardKeyFromRegistry(s)
 	for _, e := range events {
-		if e.Event == controllers.EventUpdate {
-			if e.New.Service.Equals(e.Old.Service) && slices.Equal(e.New.TargetPorts, e.Old.TargetPorts) {
-				continue
-			}
+		if e.Event == controllers.EventUpdate &&
+			e.New.Service.Equals(e.Old.Service) && slices.Equal(e.New.TargetPorts, e.Old.TargetPorts) {
+			// only instances have changed
+			continue
 		}
 		cu.Insert(makeConfigKey(e.Latest().Service))
-		// deletions are not handled here
 		if e.Event != controllers.EventDelete {
+			// full service deletions are not handled here
 			s.XdsUpdater.SvcUpdate(shard, string(e.Latest().Service.Hostname), e.Latest().Service.Attributes.Namespace, model.Event(e.Event))
 		}
 	}
@@ -412,7 +411,6 @@ func (s *Controller) Services() []*model.Service {
 		// if return the pointer directly, there will be a race with `BuildNameTable`
 		copySvcs[i] = svc.Service.ShallowCopy()
 	}
-
 	return autoAllocateIPs(copySvcs)
 }
 
@@ -435,25 +433,25 @@ func (s *Controller) GetService(hostname host.Name) *model.Service {
 	return res[0].Service
 }
 
-// ResyncEDS triggers EDS for all known services
+// ResyncEDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
+// the config handlers.
+// This should probably not be used in production code.
 func (s *Controller) ResyncEDS() {
 	if s.workloadEntryController {
 		return
 	}
 
 	shard := model.ShardKeyFromRegistry(s)
-	// for each key, push current endpoints
 	for _, io := range s.outputs.ServiceInstancesByNamespaceHost.List() {
-		instances := slices.Map(io.Instances, func(si *model.ServiceInstance) *model.IstioEndpoint {
-			return si.Endpoint
+		instances := slices.Map(io.Instances, func(i *model.ServiceInstance) *model.IstioEndpoint {
+			return i.Endpoint
 		})
 		s.XdsUpdater.EDSUpdate(shard, io.Hostname, io.Namespace, instances)
 	}
 }
 
-// (legacy edsUpdate/queueEdsEvent/doEdsUpdate/buildEndpoints removed in KRT mode)
-
 // GetProxyServiceTargets lists service targets co-located with a given proxy
+// NOTE: The service objects in these instances do not have the auto allocated IP set.
 func (s *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTarget {
 	if s.workloadEntryController {
 		return nil
@@ -676,12 +674,20 @@ func sortServicesByCreationTime(services []ServiceWithInstances) {
 		if r := i.Service.CreationTime.Compare(j.Service.CreationTime); r != 0 {
 			return r
 		}
+
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if r := cmp.Compare(i.Service.Attributes.Name, j.Service.Attributes.Name); r != 0 {
+		if r := cmp.Compare(i.Service.Attributes.K8sAttributes.ObjectName, j.Service.Attributes.K8sAttributes.ObjectName); r != 0 {
 			return r
 		}
-		return cmp.Compare(i.Service.Attributes.Namespace, j.Service.Attributes.Namespace)
+
+		if r := cmp.Compare(i.Service.Attributes.Namespace, j.Service.Attributes.Namespace); r != 0 {
+			return r
+		}
+
+		// Fallback on Attributes.K8sAttributes.ObjectName because Attributes.Name is actually the hostname
+		// and we can have multiple services with the same hostname in the same namespace.
+		return cmp.Compare(i.Service.Attributes.K8sAttributes.ObjectName, j.Service.Attributes.K8sAttributes.ObjectName)
 	})
 }
