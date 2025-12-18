@@ -15,6 +15,7 @@
 package serviceentry
 
 import (
+	"cmp"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -299,7 +300,7 @@ func convertServiceEntryToInstances(
 	ctx krt.HandlerContext,
 	cfg config.Config,
 	service *model.Service,
-	meshWatcher meshwatcher.WatcherCollection,
+	meshConfig krt.Collection[meshwatcher.MeshConfigResource],
 	clusterID cluster.ID,
 	networkIDFn networkIDCallback,
 ) []*model.ServiceInstance {
@@ -351,7 +352,7 @@ func convertServiceEntryToInstances(
 				Namespace: cfg.Namespace,
 				Name:      cfg.Name + "-" + strconv.Itoa(i),
 			}
-			wli := convertWorkloadEntryToWorkloadInstance(ctx, endpoint, meta, meshWatcher, cfg.Namespace, clusterID, networkIDFn)
+			wli := convertWorkloadEntryToWorkloadInstance(ctx, endpoint, meta, meshConfig, cfg.Namespace, clusterID, networkIDFn)
 			out = append(out, convertWorkloadInstanceToServiceInstance(wli, service, serviceEntry.Ports)...)
 		}
 	}
@@ -419,7 +420,7 @@ func convertWorkloadEntryToWorkloadInstance(
 	ctx krt.HandlerContext,
 	we *networking.WorkloadEntry,
 	meta config.Meta,
-	meshWatcher meshwatcher.WatcherCollection,
+	meshConfig krt.Collection[meshwatcher.MeshConfigResource],
 	spiffeNamespace string,
 	clusterID cluster.ID,
 	networkIDFn networkIDCallback,
@@ -436,7 +437,7 @@ func convertWorkloadEntryToWorkloadInstance(
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
-		mesh := krt.FetchOne(ctx, meshWatcher.AsCollection())
+		mesh := krt.FetchOne(ctx, meshConfig)
 		sa = spiffe.MustGenSpiffeURI(mesh.MeshConfig, spiffeNamespace, we.ServiceAccount)
 	}
 	networkID := workloadEntryNetwork(we, networkIDFn)
@@ -475,7 +476,7 @@ func convertWorkloadEntryToWorkloadInstance(
 // Services derived from ServiceEntry configs
 func services(
 	serviceEntries krt.Collection[config.Config],
-	meshWatcher meshwatcher.WatcherCollection,
+	meshConfig krt.Collection[meshwatcher.MeshConfigResource],
 	workloads krt.Collection[*model.WorkloadInstance],
 	workloadsByNamespace krt.Index[string, *model.WorkloadInstance],
 	clusterID cluster.ID,
@@ -493,13 +494,12 @@ func services(
 					TargetPorts: slices.Map(se.Ports, func(p *networking.ServicePort) uint32 {
 						return p.TargetPort
 					}),
-					Instances: convertServiceEntryToInstances(ctx, cfg, ss, meshWatcher, clusterID, networkIDFn),
+					Instances: convertServiceEntryToInstances(ctx, cfg, ss, meshConfig, clusterID, networkIDFn),
 				}
 			})
 		}
+
 		dnsService := isDNSTypeService(services[0])
-		// With selector: pull matching workloads and convert
-		// Filter by namespace and label match; use FilterGeneric
 		selectedWorkloads := krt.Fetch(
 			ctx,
 			workloads,
@@ -513,6 +513,16 @@ func services(
 				return true
 			}),
 		)
+		// krt fetching does not guarantee order, so we need to sort the selected workloads to ensure determinism
+		slices.SortStableFunc(selectedWorkloads, func(a, b *model.WorkloadInstance) int {
+			if r := cmp.Compare(a.Kind, b.Kind); r != 0 {
+				return r
+			}
+			if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
+				return r
+			}
+			return cmp.Compare(a.Name, b.Name)
+		})
 
 		res := make([]ServiceWithInstances, 0, len(services))
 		for _, service := range services {
@@ -543,35 +553,42 @@ func services(
 	return collection, nsHostIndex, hostIndex
 }
 
-func serviceInstancesByNamespaceHost(
-	serviceInstances krt.Collection[krt.IndexObject[string, ServiceWithInstances]],
+// Merge services with the same namespace and hostname into a single service instance with all the instances.
+// Also filters multiple DNS round robin service instances with the same host and port.
+func mergeServicesByNamespaceHost(
+	servicesByNsHost krt.Collection[krt.IndexObject[string, ServiceWithInstances]],
 	opts krt.OptionsBuilder,
 ) krt.Collection[InstancesByNamespaceHost] {
-	return krt.NewCollection(serviceInstances, func(ctx krt.HandlerContext, s krt.IndexObject[string, ServiceWithInstances]) *InstancesByNamespaceHost {
+	return krt.NewCollection(servicesByNsHost, func(ctx krt.HandlerContext, s krt.IndexObject[string, ServiceWithInstances]) *InstancesByNamespaceHost {
 		namespace, hostname, _ := strings.Cut(s.Key, "/")
 		sortServicesByCreationTime(s.Objects)
 
 		ports := sets.New[int]()
 		instances := make([]*model.ServiceInstance, 0)
+		anyDNSServiceEndpoint := false
 		for _, swi := range s.Objects {
 			for _, si := range swi.Instances {
-				if swi.Service.Resolution == model.DNSRoundRobinLB {
+				if si.Service.Resolution == model.DNSRoundRobinLB {
 					if ports.Contains(si.ServicePort.Port) {
 						log.Debugf("skipping service %s from service entry %s with DnsRoundRobinLB. A service entry with the same host "+
 							"already exists. Only one locality lb end point is allowed for DnsRoundRobinLB services.",
-							swi.Service.Hostname, swi.Service.Attributes.Name+"/"+swi.Service.Attributes.Namespace)
+							si.Service.Hostname, si.Service.Attributes.Name+"/"+si.Service.Attributes.Namespace)
 						continue
 					}
 				}
 				instances = append(instances, si)
 				ports.Insert(si.ServicePort.Port)
+				if isDNSTypeService(si.Service) {
+					anyDNSServiceEndpoint = true
+				}
 			}
 		}
 
 		return &InstancesByNamespaceHost{
-			Namespace: namespace,
-			Hostname:  hostname,
-			Instances: instances,
+			Namespace:             namespace,
+			Hostname:              hostname,
+			Instances:             instances,
+			HasDNSServiceEndpoint: anyDNSServiceEndpoint,
 		}
 	}, opts.WithName("outputs/ServiceInstancesByNamespaceHost")...)
 }

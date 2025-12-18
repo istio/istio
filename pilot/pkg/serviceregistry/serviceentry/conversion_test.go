@@ -1015,7 +1015,7 @@ func TestConvertInstances(t *testing.T) {
 			for _, service := range ss {
 				instances = append(
 					instances,
-					convertServiceEntryToInstances(krt.TestingDummyContext{}, *tt.externalSvc, service, s.meshWatcher, s.clusterID, s.networkIDCallback)...,
+					convertServiceEntryToInstances(krt.TestingDummyContext{}, *tt.externalSvc, service, s.inputs.MeshConfig, s.clusterID, s.networkIDCallback)...,
 				)
 			}
 			sortServiceInstances(instances)
@@ -1107,7 +1107,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			services := convertServices(*tt.se)
-			s := &Controller{meshWatcher: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())}
+			s := &Controller{inputs: Inputs{MeshConfig: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig()).AsCollection()}}
 			meta := config.Meta{
 				Name:      tt.se.Name,
 				Namespace: tt.se.Namespace,
@@ -1116,7 +1116,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 				krt.TestingDummyContext{},
 				tt.wle,
 				meta,
-				s.meshWatcher,
+				s.inputs.MeshConfig,
 				tt.se.Namespace,
 				tt.clusterID,
 				s.networkIDCallback,
@@ -1463,7 +1463,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				krt.TestingDummyContext{},
 				wle,
 				tt.wle.Meta,
-				meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig()),
+				meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig()).AsCollection(),
 				tt.wle.Namespace,
 				cluster.ID(clusterID),
 				tt.getNetworkIDCb,
