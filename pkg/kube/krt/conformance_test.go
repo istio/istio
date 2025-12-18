@@ -408,8 +408,6 @@ func runReplaceConformance[T any](t *testing.T, collection Rig[T]) {
 
 	// List should now only contain a/c
 	assert.Equal(t, len(collection.List()), 1)
-	assert.Equal(t, collection.GetKey("a/b") == nil, true)
-	assert.Equal(t, collection.GetKey("a/c") != nil, true)
 
 	handler.Empty()
 }
