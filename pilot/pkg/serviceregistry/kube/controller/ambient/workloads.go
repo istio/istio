@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
@@ -60,7 +61,7 @@ import (
 // WorkloadsCollection builds out the core Workload object type used in ambient mode.
 // A Workload represents a single addressable unit of compute -- typically a Pod or a VM.
 // Workloads can come from a variety of sources; these are joined together to build one complete `Collection[WorkloadInfo]`.
-func (a *index) WorkloadsCollection(
+func (a Builder) WorkloadsCollection(
 	pods krt.Collection[*v1.Pod],
 	nodes krt.Collection[Node],
 	meshConfig krt.Singleton[MeshConfig],
@@ -118,7 +119,8 @@ func (a *index) WorkloadsCollection(
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-		return slices.Map(a.LookupAllNetworkGateway(ctx), convertGateway(meshCfg))
+		all := LookupAllNetworkGateway(ctx, a.NetworkGateways)
+		return slices.Map(all, convertGateway(meshCfg))
 	}, opts.WithName("NetworkGatewayWorkloads")...)
 
 	Workloads := krt.JoinCollection(
@@ -152,7 +154,7 @@ func MergedGlobalWorkloadsCollection(
 	localWorkloadServices krt.Collection[model.ServiceInfo],
 	globalWorkloadServices krt.Collection[krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]]],
 	globalWorkloadServicesByCluster krt.Index[cluster.ID, krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]]],
-	globalNetworks networkCollections,
+	globalNetworks NetworkCollections,
 	localClusterID cluster.ID,
 	flags FeatureFlags,
 	domainSuffix string,
@@ -706,7 +708,7 @@ func workloadEntryWorkloadBuilder(
 		w.WorkloadType = workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(wle.Labels, w.WorkloadName)
 
-		setTunnelProtocol(wle.Labels, wle.Annotations, w)
+		setTunnelProtocol(wle.Labels, wle.Annotations, w, flags)
 		localNetwork := localNetworkGetter(ctx)
 		if network != localNetwork.String() {
 			// This is a remote workload that we'll never send directly; don't precompute
@@ -727,7 +729,7 @@ func workloadEntryWorkloadBuilder(
 	}
 }
 
-func (a *index) workloadEntryWorkloadBuilder(
+func (a Builder) workloadEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
 	peerAuths krt.Collection[*securityclient.PeerAuthentication],
@@ -752,8 +754,8 @@ func (a *index) workloadEntryWorkloadBuilder(
 			return a.ClusterID
 		},
 		localNetworkGetter,
-		a.networks.NetworkGateways,
-		a.networks.GatewaysByNetwork,
+		a.NetworkGateways,
+		a.GatewaysByNetwork,
 		a.Flags,
 	)
 }
@@ -876,7 +878,7 @@ func podWorkloadBuilder(
 		w.WorkloadType = workloadapi.WorkloadType_POD // backwards compatibility
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
-		setTunnelProtocol(p.Labels, p.Annotations, w)
+		setTunnelProtocol(p.Labels, p.Annotations, w, flags)
 		localNetwork := localNetworkGetter(ctx)
 		if network != localNetwork.String() {
 			// This is a remote workload that we'll never send directly; don't precompute
@@ -896,7 +898,7 @@ func podWorkloadBuilder(
 	}
 }
 
-func (a *index) podWorkloadBuilder(
+func (a Builder) podWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
 	peerAuths krt.Collection[*securityclient.PeerAuthentication],
@@ -928,8 +930,8 @@ func (a *index) podWorkloadBuilder(
 			return a.ClusterID
 		},
 		localNetworkGetter,
-		a.networks.NetworkGateways,
-		a.networks.GatewaysByNetwork,
+		a.NetworkGateways,
+		a.GatewaysByNetwork,
 		a.Flags,
 	)
 }
@@ -1143,7 +1145,7 @@ func serviceEntryWorkloadBuilder(
 			w.WorkloadName, w.WorkloadType = se.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 			w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(se.Labels, w.WorkloadName)
 
-			setTunnelProtocol(se.Labels, se.Annotations, w)
+			setTunnelProtocol(se.Labels, se.Annotations, w, flags)
 			res = append(res, precomputeWorkload(model.WorkloadInfo{
 				Workload:     w,
 				Labels:       se.Labels,
@@ -1155,7 +1157,7 @@ func serviceEntryWorkloadBuilder(
 	}
 }
 
-func (a *index) serviceEntryWorkloadBuilder(
+func (a Builder) serviceEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
 	peerAuths krt.Collection[*securityclient.PeerAuthentication],
@@ -1176,8 +1178,8 @@ func (a *index) serviceEntryWorkloadBuilder(
 		func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		},
-		a.networks.NetworkGateways,
-		a.networks.GatewaysByNetwork,
+		a.NetworkGateways,
+		a.GatewaysByNetwork,
 		a.Flags,
 	)
 }
@@ -1321,7 +1323,7 @@ func endpointSlicesBuilder(
 	}
 }
 
-func (a *index) endpointSlicesBuilder(
+func (a Builder) endpointSlicesBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	workloadServices krt.Collection[model.ServiceInfo],
 ) krt.TransformationMulti[*discovery.EndpointSlice, model.WorkloadInfo] {
@@ -1338,7 +1340,10 @@ func (a *index) endpointSlicesBuilder(
 	)
 }
 
-func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Workload) {
+func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Workload, flags FeatureFlags) {
+	if flags.EnableMtlsTransportProtocol && labels[label.SecurityTlsMode.Name] == model.IstioMutualTLSModeLabel {
+		w.TunnelProtocol = workloadapi.TunnelProtocol_LEGACY_ISTIO_MTLS
+	}
 	if annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled {
 		// Configured for override
 		w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE

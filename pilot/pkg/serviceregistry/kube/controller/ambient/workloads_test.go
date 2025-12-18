@@ -834,7 +834,7 @@ func TestPodWorkloads(t *testing.T) {
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			EndpointSlices := krttest.GetMockCollection[*discovery.EndpointSlice](mock)
 			EndpointSlicesAddressIndex := endpointSliceAddressIndex(EndpointSlices)
-			builder := a.podWorkloadBuilder(
+			builder := a.builder.podWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
@@ -1389,7 +1389,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			a := newAmbientUnitTest(t)
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
-			builder := a.workloadEntryWorkloadBuilder(
+			builder := a.builder.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
@@ -1638,7 +1638,7 @@ func TestServiceEntryWorkloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			builder := a.serviceEntryWorkloadBuilder(
+			builder := a.builder.serviceEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
@@ -1764,7 +1764,7 @@ func TestEndpointSliceWorkloads(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
-			builder := a.endpointSlicesBuilder(
+			builder := a.builder.endpointSlicesBuilder(
 				GetMeshConfig(mock),
 				WorkloadServices,
 			)
@@ -1901,7 +1901,7 @@ func newAmbientUnitTest(t test.Failer) *index {
 			},
 		},
 	})
-	networks := buildNetworkCollections(
+	networks := BuildNetworkCollections(
 		krttest.GetMockCollection[*v1.Namespace](mock),
 		krttest.GetMockCollection[*gatewayv1.Gateway](mock),
 		Options{
@@ -1917,6 +1917,14 @@ func newAmbientUnitTest(t test.Failer) *index {
 			DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 			EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 		},
+	}
+	idx.builder = Builder{
+		DomainSuffix:      idx.DomainSuffix,
+		ClusterID:         idx.ClusterID,
+		NetworkGateways:   idx.networks.NetworkGateways,
+		GatewaysByNetwork: idx.networks.GatewaysByNetwork,
+		Flags:             idx.Flags,
+		Network:           idx.Network,
 	}
 	kube.WaitForCacheSync("test", test.NewStop(t), idx.networks.HasSynced)
 	return idx
