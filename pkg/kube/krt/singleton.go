@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"k8s.io/client-go/tools/cache"
+
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -200,9 +202,9 @@ func toEvents[T any](old, now *T) []Event[T] {
 		}}
 	}
 	// Both old and new exist - check if the key changed
-	oldKey := GetKey(*old)
-	newKey := GetKey(*now)
-	if oldKey != newKey {
+	oldKey, oldOk := tryGetKey(*old)
+	newKey, newOk := tryGetKey(*now)
+	if oldOk && newOk && oldKey != newKey {
 		// Key changed: emit Delete for old key, Add for new key
 		return []Event[T]{
 			{
@@ -220,6 +222,25 @@ func toEvents[T any](old, now *T) []Event[T] {
 		Old:   old,
 		Event: controllers.EventUpdate,
 	}}
+}
+
+// tryGetKey attempts to get a key for the given object.
+// Returns the key and true if successful, or empty string and false if the type doesn't support keys.
+func tryGetKey[T any](a T) (string, bool) {
+	as, ok := any(a).(string)
+	if ok {
+		return as, true
+	}
+	ao, ok := any(a).(controllers.Object)
+	if ok {
+		k, _ := cache.MetaNamespaceKeyFunc(ao)
+		return k, true
+	}
+	arn, ok := any(a).(ResourceNamer)
+	if ok {
+		return arn.ResourceName(), true
+	}
+	return "", false
 }
 
 var _ Collection[dummyValue] = &static[dummyValue]{}

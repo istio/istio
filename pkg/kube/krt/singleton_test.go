@@ -91,7 +91,7 @@ func TestNewStatic(t *testing.T) {
 
 	s.Set(ptr.Of("bar2"))
 	assert.Equal(t, s.Get(), ptr.Of("bar2"))
-	tt.WaitOrdered("update/bar2")
+	tt.WaitUnordered("delete/bar", "add/bar2")
 }
 
 func TestStaticMetadata(t *testing.T) {
