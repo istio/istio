@@ -39,7 +39,9 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
+	cfgkube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeutil "istio.io/istio/pkg/kube"
@@ -1346,6 +1348,8 @@ func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Wor
 		w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
 		w.NativeTunnel = true
 	}
+	// TODO: add TunnelProtocol_LEGACY_ISTIO_MTLS. This requires Ztunnel to support it for 1 version, though, since a new
+	// enum field would be rejected.
 }
 
 func pickTrustDomain(mesh *MeshConfig) string {
@@ -1663,4 +1667,20 @@ func precomputeWorkload(w model.WorkloadInfo) model.WorkloadInfo {
 		Marshaled: w.MarshaledAddress,
 	}
 	return w
+}
+
+func toAppProtocolFromKube(p v1.ServicePort) workloadapi.AppProtocol {
+	return toAppProtocolFromProtocol(cfgkube.ConvertProtocol(p.Port, p.Name, p.Protocol, p.AppProtocol))
+}
+
+func toAppProtocolFromProtocol(p protocol.Instance) workloadapi.AppProtocol {
+	switch p {
+	case protocol.HTTP:
+		return workloadapi.AppProtocol_HTTP11
+	case protocol.HTTP2:
+		return workloadapi.AppProtocol_HTTP2
+	case protocol.GRPC:
+		return workloadapi.AppProtocol_GRPC
+	}
+	return workloadapi.AppProtocol_UNKNOWN
 }
