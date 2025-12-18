@@ -111,6 +111,28 @@ func EventuallyEqual[T any](t test.Failer, fetch func() T, expected T, retryOpts
 	}
 }
 
+// Consistently polls the fetch function for a duration and fails if the value ever changes from the expected value.Add a comment on  lines L114 to L119Add diff commentMarkdown input:  edit mode selected.WritePreviewHeadingBoldItalicQuoteCodeLinkUnordered listNumbered listTask listMentionReferenceSaved repliesAdd FilesPaste, drop, or click to add filesCancelCommentStart a reviewReturn to code
+// Use sparingly to avoid flakiness, as this is inherently timing-dependent.
+// This is useful for asserting that no events occur (e.g., that a value stays at 0).
+// Default duration is 20ms with 2ms polling interval.
+func Consistently[T any](t test.Failer, fetch func() T, expected T, duration ...time.Duration) {
+	t.Helper()
+	d := time.Millisecond * 20
+	if len(duration) > 0 {
+		d = duration[0]
+	}
+	interval := time.Millisecond * 2
+	deadline := time.Now().Add(d)
+
+	for time.Now().Before(deadline) {
+		a := fetch()
+		if !cmp.Equal(a, expected, opts(expected)...) {
+			t.Fatalf("value changed unexpectedly: %v\nGot: %v\nWant: %v", cmp.Diff(a, expected, opts(expected)...), a, expected)
+		}
+		time.Sleep(interval)
+	}
+}
+
 // Error asserts the provided err is non-nil
 func Error(t test.Failer, err error) {
 	t.Helper()
