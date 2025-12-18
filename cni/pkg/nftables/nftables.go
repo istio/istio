@@ -199,13 +199,14 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		}
 	}
 
+	// CLI: nft add rule inet istio-ambient-mangle istio-prerouting meta mark & 0xfff == 0x539 counter ct mark set ct mark & 0xfffff000 | 0x111
+	// DESC: If we have a packet mark, set a connmark.
+	cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientMangleTable,
+		"meta mark & 0xfff ==",
+		fmt.Sprintf("0x%x", config.InpodMark), Counter, "ct mark set ct mark & 0xfffff000 | ",
+		fmt.Sprintf("0x%x", config.InpodTProxyMark))
+
 	if !podOverrides.IngressMode {
-		// CLI: nft add rule inet istio-ambient-mangle istio-prerouting meta mark & 0xfff == 0x539 counter ct mark set ct mark & 0xfffff000 | 0x111
-		// DESC: If we have a packet mark, set a connmark.
-		cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientMangleTable,
-			"meta mark & 0xfff ==",
-			fmt.Sprintf("0x%x", config.InpodMark), Counter, "ct mark set ct mark & 0xfffff000 | ",
-			fmt.Sprintf("0x%x", config.InpodTProxyMark))
 
 		// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
 		// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
