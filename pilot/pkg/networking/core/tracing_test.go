@@ -15,6 +15,7 @@
 package core
 
 import (
+	"sort"
 	"testing"
 	"time"
 
@@ -72,6 +73,12 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "no telemetry api",
 			opts:            fakeOptsNoTelemetryAPI(),
 			want:            fakeTracingConfigNoProvider(55.55, 13, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: nil,
+		},
+		{
+			name:            "no telemetry api (waypoint)",
+			opts:            fakeOptsNoTelemetryAPIWaypoint(),
+			want:            fakeTracingConfigNoProvider(55.55, 13, waypointTracingTags(fakeEnvTag)),
 			wantReqIDExtCtx: nil,
 		},
 		{
@@ -594,6 +601,19 @@ func defaultTracingTags() []*tracing.CustomTag {
 		})
 }
 
+func waypointTracingTags(extra ...*tracing.CustomTag) []*tracing.CustomTag {
+	tags := append([]*tracing.CustomTag{}, defaultTracingTags()...)
+	tags = append(tags,
+		&tracing.CustomTag{Tag: "istio.downstream.namespace", Type: &tracing.CustomTag_Value{Value: "%CEL(filter_state.downstream_peer.namespace)%"}},
+		&tracing.CustomTag{Tag: "istio.downstream.workload", Type: &tracing.CustomTag_Value{Value: "%CEL(filter_state.downstream_peer.workload)%"}},
+		&tracing.CustomTag{Tag: "istio.upstream.namespace", Type: &tracing.CustomTag_Value{Value: "%CEL(filter_state.upstream_peer.namespace)%"}},
+		&tracing.CustomTag{Tag: "istio.upstream.workload", Type: &tracing.CustomTag_Value{Value: "%CEL(filter_state.upstream_peer.workload)%"}},
+	)
+	tags = append(tags, extra...)
+	sort.Slice(tags, func(i, j int) bool { return tags[i].Tag < tags[j].Tag })
+	return tags
+}
+
 func fakeOptsWithDefaultProviders() gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
@@ -659,6 +679,12 @@ func fakeOptsNoTelemetryAPI() gatewayListenerOpts {
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
+	return opts
+}
+
+func fakeOptsNoTelemetryAPIWaypoint() gatewayListenerOpts {
+	opts := fakeOptsNoTelemetryAPI()
+	opts.proxy.Type = model.Waypoint
 	return opts
 }
 
