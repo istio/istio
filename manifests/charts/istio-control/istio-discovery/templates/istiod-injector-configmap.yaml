@@ -76,6 +76,10 @@ data:
       kube-gateway: |
 {{ .Files.Get "files/kube-gateway.yaml" | trim | indent 8 }}
 {{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "agentgateway") }}
+      agentgateway: |
+{{ .Files.Get "files/agentgateway.yaml" | trim | indent 8 }}
+{{- end }}
 {{- with .Values.sidecarInjectorWebhook.templates }}
 {{ toYaml . | trim | indent 6 }}
 {{- end }}

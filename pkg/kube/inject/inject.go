@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -339,6 +340,13 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	}
 
 	return imageURL(global.GetHub(), imageName, tag, imageType)
+}
+
+// AgentgatewayImage constructs image url
+func AgentgatewayImage(values *opconfig.Values) string {
+	defaultImage := "cr.agentgateway.dev/agentgateway:0.11.0"
+	img := values.GetGlobal().GetAgentgateway().GetImage()
+	return ptr.NonEmptyOrDefault(img, defaultImage)
 }
 
 func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
