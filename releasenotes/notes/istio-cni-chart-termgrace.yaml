@@ -6,5 +6,5 @@ issue:
 
 releaseNotes:
   - |
-    **Added** Allow setting terminationGracePeriodSeconds for istio-cni pod via Helm chart.
+    **Added** support for configuring terminationGracePeriodSeconds on the istio-cni pod, and updated the default value from 5 secs to 30 secs.
 
