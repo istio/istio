@@ -81,9 +81,9 @@ spec:
       {{- end }}
       priorityClassName: system-node-critical
       serviceAccountName: {{ template "name" . }}
-      # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
-      # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
-      terminationGracePeriodSeconds: 5
+      # Time to allow for graceful CNI cleanup during pod termination.
+      # Configurable via values.yaml to prevent race conditions during rolling updates.
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       containers:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
