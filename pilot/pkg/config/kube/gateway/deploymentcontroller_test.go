@@ -281,6 +281,24 @@ func TestConfigureIstioGateway(t *testing.T) {
   network: network-2`,
 		},
 		{
+			name: "agentgateway",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: "HTP",
+					}},
+				},
+			},
+			objects: defaultObjects,
+		},
+		{
 			name: "waypoint-no-network-label",
 			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
