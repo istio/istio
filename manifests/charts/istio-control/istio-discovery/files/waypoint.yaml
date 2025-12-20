@@ -87,6 +87,9 @@ spec:
       tolerations:
       {{- toYaml .Values.global.waypoint.tolerations | nindent 8 }}
       {{- end }}
+      {{- if .Values.global.waypoint.priorityClassName }}
+      priorityClassName: "{{ .Values.global.waypoint.priorityClassName }}"
+      {{- end }}
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
       - name: istio-proxy

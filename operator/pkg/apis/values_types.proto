@@ -1508,6 +1508,11 @@ message WaypointConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
   repeated k8s.io.api.core.v1.Toleration toleration = 5;
+
+  // PriorityClassName indicates the priority class to use for the waypoint proxy.
+  //
+  // See https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+  string priorityClassName = 6;
 }
 
 // Configuration for NetworkPolicy

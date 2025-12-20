@@ -5388,9 +5388,13 @@ type WaypointConfig struct {
 	// K8s tolerations settings.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-	Toleration    []*v1.Toleration `protobuf:"bytes,5,rep,name=toleration,proto3" json:"toleration,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Toleration []*v1.Toleration `protobuf:"bytes,5,rep,name=toleration,proto3" json:"toleration,omitempty"`
+	// PriorityClassName indicates the priority class to use for the waypoint proxy.
+	//
+	// See https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+	PriorityClassName string `protobuf:"bytes,6,opt,name=priorityClassName,proto3" json:"priorityClassName,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *WaypointConfig) Reset() {
@@ -5456,6 +5460,13 @@ func (x *WaypointConfig) GetToleration() []*v1.Toleration {
 		return x.Toleration
 	}
 	return nil
+}
+
+func (x *WaypointConfig) GetPriorityClassName() string {
+	if x != nil {
+		return x.PriorityClassName
+	}
+	return ""
 }
 
 // Configuration for NetworkPolicy
@@ -5947,7 +5958,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\vIntOrString\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\x03R\x04type\x123\n" +
 	"\x06intVal\x18\x02 \x01(\v2\x1b.google.protobuf.Int32ValueR\x06intVal\x124\n" +
-	"\x06strVal\x18\x03 \x01(\v2\x1c.google.protobuf.StringValueR\x06strVal\"\xfe\x02\n" +
+	"\x06strVal\x18\x03 \x01(\v2\x1c.google.protobuf.StringValueR\x06strVal\"\xac\x03\n" +
 	"\x0eWaypointConfig\x12@\n" +
 	"\tresources\x18\x01 \x01(\v2\".istio.operator.v1alpha1.ResourcesR\tresources\x128\n" +
 	"\baffinity\x18\x02 \x01(\v2\x1c.k8s.io.api.core.v1.AffinityR\baffinity\x12j\n" +
@@ -5955,7 +5966,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\fnodeSelector\x18\x04 \x01(\v2 .k8s.io.api.core.v1.NodeSelectorR\fnodeSelector\x12>\n" +
 	"\n" +
 	"toleration\x18\x05 \x03(\v2\x1e.k8s.io.api.core.v1.TolerationR\n" +
-	"toleration\"K\n" +
+	"toleration\x12,\n" +
+	"\x11priorityClassName\x18\x06 \x01(\tR\x11priorityClassName\"K\n" +
 	"\x13NetworkPolicyConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled*C\n" +
 	"\rResourceScope\x12\r\n" +

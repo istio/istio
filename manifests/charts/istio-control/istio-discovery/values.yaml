@@ -548,6 +548,9 @@ _internal_defaults_do_not_set:
       # Tolerations for the waypoint proxy.
       tolerations: []
 
+      # If specified, the priorityClassName of the waypoint proxy.
+      priorityClassName: ""
+
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true

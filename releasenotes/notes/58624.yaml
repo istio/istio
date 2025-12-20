@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+issue:
+  - 58624
+
+releaseNotes:
+  - |
+    **Improved** Waypoint pod priorityClassName is now configurable using `.Values.global.waypoint.priorityClassName`.
