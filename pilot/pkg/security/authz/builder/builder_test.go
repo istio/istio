@@ -181,7 +181,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:       "custom-bad-multiple-providers",
 			meshConfig: meshConfigHTTP,
 			input:      "custom-bad-multiple-providers-in.yaml",
-			want:       []string{"custom-bad-out.yaml"},
+			want:       []string{"custom-bad-multiple-providers-out1.yaml", "custom-bad-multiple-providers-out2.yaml", "custom-bad-multiple-providers-out3.yaml"},
 		},
 		{
 			name:       "custom-bad-invalid-config",
