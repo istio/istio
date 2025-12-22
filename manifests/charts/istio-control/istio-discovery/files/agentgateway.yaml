@@ -72,7 +72,7 @@ spec:
         {{- toYaml .Values.gateways.securityContext | nindent 8 }}
       {{- else }}
         sysctls:
-        - name: net.ipv4.ip_unprivileged_port_start
+        - name: net.ipv4.ip_unprivileged_port_start # allows binding to 80 and 443 without root
           value: "0"
       {{- if .Values.gateways.seccompProfile }}
         seccompProfile:

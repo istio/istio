@@ -292,7 +292,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Listeners: []k8s.Listener{{
 						Name:     "http",
 						Port:     k8s.PortNumber(80),
-						Protocol: "HTP",
+						Protocol: k8s.HTTPProtocolType,
 					}},
 				},
 			},
@@ -1152,6 +1152,7 @@ global:
 	tmpl, err := inject.ParseTemplates(map[string]string{
 		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),
 		"waypoint":     file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml")),
+		"agentgateway":     file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/agentgateway.yaml")),
 	})
 	if err != nil {
 		t.Fatal(err)

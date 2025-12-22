@@ -747,10 +747,14 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 			proxyConfig.GetImage(),
 			mi.Annotations,
 		),
-		AgentgatewayImage: inject.AgentgatewayImage(cfg.Values.Struct()),
-		ProxyConfig:       proxyConfig,
-		MeshConfig:        cfg.MeshConfig,
-		Values:            cfg.Values.Map(),
+		AgentgatewayImage: inject.AgentgatewayImage(
+			cfg.Values.Struct(),
+			proxyConfig.GetImage(),
+			mi.Annotations,
+		),
+		ProxyConfig: proxyConfig,
+		MeshConfig:  cfg.MeshConfig,
+		Values:      cfg.Values.Map(),
 	}
 	results, err := tmpl.Execute(template, input)
 	if err != nil {
