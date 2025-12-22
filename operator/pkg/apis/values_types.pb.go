@@ -27,8 +27,6 @@ import (
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
-	v1 "k8s.io/api/core/v1"
-	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -363,7 +361,7 @@ type CNIConfig struct {
 	// List of namespaces that should be ignored by the CNI plugin.
 	ExcludeNamespaces []string `protobuf:"bytes,9,rep,name=excludeNamespaces,proto3" json:"excludeNamespaces,omitempty"`
 	// K8s affinity to set on the istio-cni Pods. Can be used to exclude istio-cni from being scheduled on specified nodes.
-	Affinity *v1.Affinity `protobuf:"bytes,20,opt,name=affinity,proto3" json:"affinity,omitempty"`
+	Affinity *structpb.Struct `protobuf:"bytes,20,opt,name=affinity,proto3" json:"affinity,omitempty"`
 	// Environment variables passed to the CNI container.
 	//
 	// Examples:
@@ -405,7 +403,7 @@ type CNIConfig struct {
 	// The Container seccompProfile
 	//
 	// See: https://kubernetes.io/docs/tutorials/security/seccomp/
-	SeccompProfile *v1.SeccompProfile `protobuf:"bytes,19,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
+	SeccompProfile *structpb.Struct `protobuf:"bytes,19,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
 	// Configuration for Istio Ambient.
 	Ambient *CNIAmbientConfig `protobuf:"bytes,21,opt,name=ambient,proto3" json:"ambient,omitempty"`
 	// Specifies the CNI provider. Can be either "default" or "multus". When set to "multus", an additional
@@ -532,7 +530,7 @@ func (x *CNIConfig) GetExcludeNamespaces() []string {
 	return nil
 }
 
-func (x *CNIConfig) GetAffinity() *v1.Affinity {
+func (x *CNIConfig) GetAffinity() *structpb.Struct {
 	if x != nil {
 		return x.Affinity
 	}
@@ -626,7 +624,7 @@ func (x *CNIConfig) GetPrivileged() *wrapperspb.BoolValue {
 	return nil
 }
 
-func (x *CNIConfig) GetSeccompProfile() *v1.SeccompProfile {
+func (x *CNIConfig) GetSeccompProfile() *structpb.Struct {
 	if x != nil {
 		return x.SeccompProfile
 	}
@@ -1332,11 +1330,11 @@ type EgressGatewayConfig struct {
 	//     “security” and value “S1”.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-	PodAntiAffinityLabelSelector []*v11.LabelSelector `protobuf:"bytes,12,rep,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []*structpb.Struct `protobuf:"bytes,12,rep,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See PodAntiAffinityLabelSelector.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-	PodAntiAffinityTermLabelSelector []*v11.LabelSelector `protobuf:"bytes,13,rep,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []*structpb.Struct `protobuf:"bytes,13,rep,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	// Ports Configuration for the egress gateway service.
 	Ports []*PortsConfig `protobuf:"bytes,14,rep,name=ports,proto3" json:"ports,omitempty"`
 	// K8s resources settings.
@@ -1354,7 +1352,7 @@ type EgressGatewayConfig struct {
 	// See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
 	Type string `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-	Tolerations []*v1.Toleration `protobuf:"bytes,20,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	Tolerations []*structpb.Struct `protobuf:"bytes,20,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
 	// K8s rolling update strategy
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
@@ -1504,7 +1502,7 @@ func (x *EgressGatewayConfig) GetPodAnnotations() *structpb.Struct {
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-func (x *EgressGatewayConfig) GetPodAntiAffinityLabelSelector() []*v11.LabelSelector {
+func (x *EgressGatewayConfig) GetPodAntiAffinityLabelSelector() []*structpb.Struct {
 	if x != nil {
 		return x.PodAntiAffinityLabelSelector
 	}
@@ -1512,7 +1510,7 @@ func (x *EgressGatewayConfig) GetPodAntiAffinityLabelSelector() []*v11.LabelSele
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-func (x *EgressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []*v11.LabelSelector {
+func (x *EgressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []*structpb.Struct {
 	if x != nil {
 		return x.PodAntiAffinityTermLabelSelector
 	}
@@ -1556,7 +1554,7 @@ func (x *EgressGatewayConfig) GetType() string {
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-func (x *EgressGatewayConfig) GetTolerations() []*v1.Toleration {
+func (x *EgressGatewayConfig) GetTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.Tolerations
 	}
@@ -1748,7 +1746,7 @@ type GlobalConfig struct {
 	// be scheduled to particular nodes with specified taints.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-	DefaultTolerations []*v1.Toleration `protobuf:"bytes,55,rep,name=defaultTolerations,proto3" json:"defaultTolerations,omitempty"`
+	DefaultTolerations []*structpb.Struct `protobuf:"bytes,55,rep,name=defaultTolerations,proto3" json:"defaultTolerations,omitempty"`
 	// Specifies the docker hub for Istio images.
 	Hub string `protobuf:"bytes,12,opt,name=hub,proto3" json:"hub,omitempty"`
 	// Specifies the image pull policy for the Istio images. one of Always, Never, IfNotPresent.
@@ -1987,7 +1985,7 @@ func (x *GlobalConfig) GetDefaultResources() *DefaultResourcesConfig {
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-func (x *GlobalConfig) GetDefaultTolerations() []*v1.Toleration {
+func (x *GlobalConfig) GetDefaultTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.DefaultTolerations
 	}
@@ -2454,11 +2452,11 @@ type IngressGatewayConfig struct {
 	// See EgressGatewayConfig.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-	PodAntiAffinityLabelSelector []*v11.LabelSelector `protobuf:"bytes,21,rep,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
+	PodAntiAffinityLabelSelector []*structpb.Struct `protobuf:"bytes,21,rep,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
 	// See EgressGatewayConfig.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-	PodAntiAffinityTermLabelSelector []*v11.LabelSelector `protobuf:"bytes,22,rep,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
+	PodAntiAffinityTermLabelSelector []*structpb.Struct `protobuf:"bytes,22,rep,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"`
 	// Port Configuration for the ingress gateway.
 	Ports []*PortsConfig `protobuf:"bytes,23,rep,name=ports,proto3" json:"ports,omitempty"`
 	// Number of replicas for the ingress gateway Deployment.
@@ -2493,7 +2491,7 @@ type IngressGatewayConfig struct {
 	RollingMaxUnavailable *IntOrString `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`
 	ExternalTrafficPolicy string       `protobuf:"bytes,34,opt,name=externalTrafficPolicy,proto3" json:"externalTrafficPolicy,omitempty"`
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-	Tolerations          []*v1.Toleration      `protobuf:"bytes,35,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	Tolerations          []*structpb.Struct    `protobuf:"bytes,35,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
 	IngressPorts         []*structpb.Struct    `protobuf:"bytes,36,rep,name=ingressPorts,proto3" json:"ingressPorts,omitempty"`
 	AdditionalContainers []*structpb.Struct    `protobuf:"bytes,37,rep,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
 	ConfigVolumes        []*structpb.Struct    `protobuf:"bytes,38,rep,name=configVolumes,proto3" json:"configVolumes,omitempty"`
@@ -2646,7 +2644,7 @@ func (x *IngressGatewayConfig) GetPodAnnotations() *structpb.Struct {
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-func (x *IngressGatewayConfig) GetPodAntiAffinityLabelSelector() []*v11.LabelSelector {
+func (x *IngressGatewayConfig) GetPodAntiAffinityLabelSelector() []*structpb.Struct {
 	if x != nil {
 		return x.PodAntiAffinityLabelSelector
 	}
@@ -2654,7 +2652,7 @@ func (x *IngressGatewayConfig) GetPodAntiAffinityLabelSelector() []*v11.LabelSel
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-func (x *IngressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []*v11.LabelSelector {
+func (x *IngressGatewayConfig) GetPodAntiAffinityTermLabelSelector() []*structpb.Struct {
 	if x != nil {
 		return x.PodAntiAffinityTermLabelSelector
 	}
@@ -2729,7 +2727,7 @@ func (x *IngressGatewayConfig) GetExternalTrafficPolicy() string {
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-func (x *IngressGatewayConfig) GetTolerations() []*v1.Toleration {
+func (x *IngressGatewayConfig) GetTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.Tolerations
 	}
@@ -2987,7 +2985,7 @@ type PilotConfig struct {
 	//	ENV_VAR_2: value2
 	Env *structpb.Struct `protobuf:"bytes,21,opt,name=env,proto3" json:"env,omitempty"`
 	// K8s affinity to set on the Pilot Pods.
-	Affinity *v1.Affinity `protobuf:"bytes,22,opt,name=affinity,proto3" json:"affinity,omitempty"`
+	Affinity *structpb.Struct `protobuf:"bytes,22,opt,name=affinity,proto3" json:"affinity,omitempty"`
 	// K8s rolling update strategy
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
@@ -3005,7 +3003,7 @@ type PilotConfig struct {
 	// More info: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-	Tolerations []*v1.Toleration `protobuf:"bytes,26,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
+	Tolerations []*structpb.Struct `protobuf:"bytes,26,rep,name=tolerations,proto3" json:"tolerations,omitempty"`
 	// K8s annotations for pods.
 	//
 	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -3030,15 +3028,15 @@ type PilotConfig struct {
 	// The seccompProfile for the Pilot container.
 	//
 	// See: https://kubernetes.io/docs/tutorials/security/seccomp/
-	SeccompProfile *v1.SeccompProfile `protobuf:"bytes,38,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
+	SeccompProfile *structpb.Struct `protobuf:"bytes,38,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
 	// The k8s topologySpreadConstraints for the Pilot pods.
-	TopologySpreadConstraints []*v1.TopologySpreadConstraint `protobuf:"bytes,41,rep,name=topologySpreadConstraints,proto3" json:"topologySpreadConstraints,omitempty"`
+	TopologySpreadConstraints []*structpb.Struct `protobuf:"bytes,41,rep,name=topologySpreadConstraints,proto3" json:"topologySpreadConstraints,omitempty"`
 	// Additional container arguments for the Pilot container.
 	ExtraContainerArgs []*structpb.Struct `protobuf:"bytes,42,rep,name=extraContainerArgs,proto3" json:"extraContainerArgs,omitempty"`
 	// Additional volumeMounts to add to the Pilot container.
-	VolumeMounts []*v1.VolumeMount `protobuf:"bytes,49,rep,name=volumeMounts,proto3" json:"volumeMounts,omitempty"`
+	VolumeMounts []*structpb.Struct `protobuf:"bytes,49,rep,name=volumeMounts,proto3" json:"volumeMounts,omitempty"`
 	// Additional volumes to add to the Pilot Pod.
-	Volumes []*v1.Volume `protobuf:"bytes,51,rep,name=volumes,proto3" json:"volumes,omitempty"`
+	Volumes []*structpb.Struct `protobuf:"bytes,51,rep,name=volumes,proto3" json:"volumes,omitempty"`
 	// Defines which IP family to use for single stack or the order of IP families for dual-stack.
 	// Valid list items are "IPv4", "IPv6".
 	// More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
@@ -3215,7 +3213,7 @@ func (x *PilotConfig) GetEnv() *structpb.Struct {
 	return nil
 }
 
-func (x *PilotConfig) GetAffinity() *v1.Affinity {
+func (x *PilotConfig) GetAffinity() *structpb.Struct {
 	if x != nil {
 		return x.Affinity
 	}
@@ -3239,7 +3237,7 @@ func (x *PilotConfig) GetRollingMaxUnavailable() *IntOrString {
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
-func (x *PilotConfig) GetTolerations() []*v1.Toleration {
+func (x *PilotConfig) GetTolerations() []*structpb.Struct {
 	if x != nil {
 		return x.Tolerations
 	}
@@ -3296,14 +3294,14 @@ func (x *PilotConfig) GetVariant() string {
 	return ""
 }
 
-func (x *PilotConfig) GetSeccompProfile() *v1.SeccompProfile {
+func (x *PilotConfig) GetSeccompProfile() *structpb.Struct {
 	if x != nil {
 		return x.SeccompProfile
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetTopologySpreadConstraints() []*v1.TopologySpreadConstraint {
+func (x *PilotConfig) GetTopologySpreadConstraints() []*structpb.Struct {
 	if x != nil {
 		return x.TopologySpreadConstraints
 	}
@@ -3317,14 +3315,14 @@ func (x *PilotConfig) GetExtraContainerArgs() []*structpb.Struct {
 	return nil
 }
 
-func (x *PilotConfig) GetVolumeMounts() []*v1.VolumeMount {
+func (x *PilotConfig) GetVolumeMounts() []*structpb.Struct {
 	if x != nil {
 		return x.VolumeMounts
 	}
 	return nil
 }
 
-func (x *PilotConfig) GetVolumes() []*v1.Volume {
+func (x *PilotConfig) GetVolumes() []*structpb.Struct {
 	if x != nil {
 		return x.Volumes
 	}
@@ -3910,7 +3908,7 @@ type ProxyConfig struct {
 	// Configures the seccomp profile for the istio-validation and istio-proxy containers.
 	//
 	// See: https://kubernetes.io/docs/tutorials/security/seccomp/
-	SeccompProfile *v1.SeccompProfile `protobuf:"bytes,43,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
+	SeccompProfile *structpb.Struct `protobuf:"bytes,43,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
 	// Configures the startup probe for the istio-proxy container.
 	StartupProbe *StartupProbe `protobuf:"bytes,41,opt,name=startupProbe,proto3" json:"startupProbe,omitempty"`
 	// Default port used for the Pilot agent's health checks.
@@ -3928,7 +3926,7 @@ type ProxyConfig struct {
 	ExcludeOutboundPorts string `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
 	// The k8s lifecycle hooks definition (pod.spec.containers.lifecycle) for the proxy container.
 	// More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks
-	Lifecycle *v1.Lifecycle `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
+	Lifecycle *structpb.Struct `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
 	// Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
 	//
 	// Deprecated: replaced by ProxyConfig setting which allows per-pod configuration of this behavior.
@@ -4073,7 +4071,7 @@ func (x *ProxyConfig) GetReadinessFailureThreshold() uint32 {
 	return 0
 }
 
-func (x *ProxyConfig) GetSeccompProfile() *v1.SeccompProfile {
+func (x *ProxyConfig) GetSeccompProfile() *structpb.Struct {
 	if x != nil {
 		return x.SeccompProfile
 	}
@@ -4116,7 +4114,7 @@ func (x *ProxyConfig) GetExcludeOutboundPorts() string {
 	return ""
 }
 
-func (x *ProxyConfig) GetLifecycle() *v1.Lifecycle {
+func (x *ProxyConfig) GetLifecycle() *structpb.Struct {
 	if x != nil {
 		return x.Lifecycle
 	}
@@ -4444,9 +4442,9 @@ type SidecarInjectorConfig struct {
 	// Annotations in the pods have higher precedence than the label selectors.
 	// Order of evaluation: Pod Annotations → NeverInjectSelector → AlwaysInjectSelector → Default Policy.
 	// See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
-	NeverInjectSelector []*v11.LabelSelector `protobuf:"bytes,11,rep,name=neverInjectSelector,proto3" json:"neverInjectSelector,omitempty"`
+	NeverInjectSelector []*structpb.Struct `protobuf:"bytes,11,rep,name=neverInjectSelector,proto3" json:"neverInjectSelector,omitempty"`
 	// See NeverInjectSelector.
-	AlwaysInjectSelector []*v11.LabelSelector `protobuf:"bytes,12,rep,name=alwaysInjectSelector,proto3" json:"alwaysInjectSelector,omitempty"`
+	AlwaysInjectSelector []*structpb.Struct `protobuf:"bytes,12,rep,name=alwaysInjectSelector,proto3" json:"alwaysInjectSelector,omitempty"`
 	// If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
 	RewriteAppHTTPProbe *wrapperspb.BoolValue `protobuf:"bytes,16,opt,name=rewriteAppHTTPProbe,proto3" json:"rewriteAppHTTPProbe,omitempty"`
 	// injectedAnnotations are additional annotations that will be added to the pod spec after injection
@@ -4517,14 +4515,14 @@ func (x *SidecarInjectorConfig) GetReinvocationPolicy() string {
 	return ""
 }
 
-func (x *SidecarInjectorConfig) GetNeverInjectSelector() []*v11.LabelSelector {
+func (x *SidecarInjectorConfig) GetNeverInjectSelector() []*structpb.Struct {
 	if x != nil {
 		return x.NeverInjectSelector
 	}
 	return nil
 }
 
-func (x *SidecarInjectorConfig) GetAlwaysInjectSelector() []*v11.LabelSelector {
+func (x *SidecarInjectorConfig) GetAlwaysInjectSelector() []*structpb.Struct {
 	if x != nil {
 		return x.AlwaysInjectSelector
 	}
@@ -5376,19 +5374,19 @@ type WaypointConfig struct {
 	// K8s affinity settings for waypoint pods.
 	//
 	// See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
-	Affinity *v1.Affinity `protobuf:"bytes,2,opt,name=affinity,proto3" json:"affinity,omitempty"`
+	Affinity *structpb.Struct `protobuf:"bytes,2,opt,name=affinity,proto3" json:"affinity,omitempty"`
 	// K8s topology spread constraints settings.
 	//
 	// See https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
-	TopologySpreadConstraints []*v1.TopologySpreadConstraint `protobuf:"bytes,3,rep,name=topologySpreadConstraints,proto3" json:"topologySpreadConstraints,omitempty"`
+	TopologySpreadConstraints []*structpb.Struct `protobuf:"bytes,3,rep,name=topologySpreadConstraints,proto3" json:"topologySpreadConstraints,omitempty"`
 	// K8s node labels settings.
 	//
 	// See https://kubernetes.io/docs/user-guide/node-selection/
-	NodeSelector *v1.NodeSelector `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
+	NodeSelector *structpb.Struct `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"`
 	// K8s tolerations settings.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-	Toleration    []*v1.Toleration `protobuf:"bytes,5,rep,name=toleration,proto3" json:"toleration,omitempty"`
+	Toleration    []*structpb.Struct `protobuf:"bytes,5,rep,name=toleration,proto3" json:"toleration,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5430,28 +5428,28 @@ func (x *WaypointConfig) GetResources() *Resources {
 	return nil
 }
 
-func (x *WaypointConfig) GetAffinity() *v1.Affinity {
+func (x *WaypointConfig) GetAffinity() *structpb.Struct {
 	if x != nil {
 		return x.Affinity
 	}
 	return nil
 }
 
-func (x *WaypointConfig) GetTopologySpreadConstraints() []*v1.TopologySpreadConstraint {
+func (x *WaypointConfig) GetTopologySpreadConstraints() []*structpb.Struct {
 	if x != nil {
 		return x.TopologySpreadConstraints
 	}
 	return nil
 }
 
-func (x *WaypointConfig) GetNodeSelector() *v1.NodeSelector {
+func (x *WaypointConfig) GetNodeSelector() *structpb.Struct {
 	if x != nil {
 		return x.NodeSelector
 	}
 	return nil
 }
 
-func (x *WaypointConfig) GetToleration() []*v1.Toleration {
+func (x *WaypointConfig) GetToleration() []*structpb.Struct {
 	if x != nil {
 		return x.Toleration
 	}
@@ -5508,13 +5506,13 @@ var File_pkg_apis_values_types_proto protoreflect.FileDescriptor
 
 const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\n" +
-	"\x1bpkg/apis/values_types.proto\x12\x17istio.operator.v1alpha1\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\"k8s.io/api/core/v1/generated.proto\x1a4k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto\"h\n" +
+	"\x1bpkg/apis/values_types.proto\x12\x17istio.operator.v1alpha1\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1egoogle/protobuf/wrappers.proto\"h\n" +
 	"\n" +
 	"ArchConfig\x12\x14\n" +
 	"\x05amd64\x18\x01 \x01(\rR\x05amd64\x12\x18\n" +
 	"\appc64le\x18\x02 \x01(\rR\appc64le\x12\x14\n" +
 	"\x05s390x\x18\x03 \x01(\rR\x05s390x\x12\x14\n" +
-	"\x05arm64\x18\x04 \x01(\rR\x05arm64\"\xa0\f\n" +
+	"\x05arm64\x18\x04 \x01(\rR\x05arm64\"\x90\f\n" +
 	"\tCNIConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12\x10\n" +
 	"\x03hub\x18\x02 \x01(\tR\x03hub\x12(\n" +
@@ -5530,8 +5528,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"cniConfDir\x12(\n" +
 	"\x0fcniConfFileName\x18\b \x01(\tR\x0fcniConfFileName\x12 \n" +
 	"\vcniNetnsDir\x18\x1f \x01(\tR\vcniNetnsDir\x12,\n" +
-	"\x11excludeNamespaces\x18\t \x03(\tR\x11excludeNamespaces\x128\n" +
-	"\baffinity\x18\x14 \x01(\v2\x1c.k8s.io.api.core.v1.AffinityR\baffinity\x12)\n" +
+	"\x11excludeNamespaces\x18\t \x03(\tR\x11excludeNamespaces\x123\n" +
+	"\baffinity\x18\x14 \x01(\v2\x17.google.protobuf.StructR\baffinity\x12)\n" +
 	"\x03env\x18  \x01(\v2\x17.google.protobuf.StructR\x03env\x12A\n" +
 	"\x0fdaemonSetLabels\x18! \x01(\v2\x17.google.protobuf.StructR\x0fdaemonSetLabels\x12C\n" +
 	"\x0epodAnnotations\x18\n" +
@@ -5546,8 +5544,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\tresources\x18\x11 \x01(\v2\".istio.operator.v1alpha1.ResourcesR\tresources\x12>\n" +
 	"\n" +
 	"privileged\x18\x12 \x01(\v2\x1a.google.protobuf.BoolValueB\x02\x18\x01R\n" +
-	"privileged\x12J\n" +
-	"\x0eseccompProfile\x18\x13 \x01(\v2\".k8s.io.api.core.v1.SeccompProfileR\x0eseccompProfile\x12C\n" +
+	"privileged\x12?\n" +
+	"\x0eseccompProfile\x18\x13 \x01(\v2\x17.google.protobuf.StructR\x0eseccompProfile\x12C\n" +
 	"\aambient\x18\x15 \x01(\v2).istio.operator.v1alpha1.CNIAmbientConfigR\aambient\x12\x1a\n" +
 	"\bprovider\x18\x16 \x01(\tR\bprovider\x12Z\n" +
 	"\x15rollingMaxUnavailable\x18\x17 \x01(\v2$.istio.operator.v1alpha1.IntOrStringR\x15rollingMaxUnavailable\x12L\n" +
@@ -5601,7 +5599,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	" DefaultPodDisruptionBudgetConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\"f\n" +
 	"\x16DefaultResourcesConfig\x12L\n" +
-	"\brequests\x18\x01 \x01(\v20.istio.operator.v1alpha1.ResourcesRequestsConfigR\brequests\"\xbb\x0f\n" +
+	"\brequests\x18\x01 \x01(\v20.istio.operator.v1alpha1.ResourcesRequestsConfigR\brequests\"\xfb\x0e\n" +
 	"\x13EgressGatewayConfig\x12F\n" +
 	"\x10autoscaleEnabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
 	"\fautoscaleMax\x18\x02 \x01(\rR\fautoscaleMax\x12\"\n" +
@@ -5615,15 +5613,15 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04name\x18\x19 \x01(\tR\x04name\x12?\n" +
 	"\fnodeSelector\x18\n" +
 	" \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\fnodeSelector\x12C\n" +
-	"\x0epodAnnotations\x18\v \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\x0epodAnnotations\x12{\n" +
-	"\x1cpodAntiAffinityLabelSelector\x18\f \x03(\v23.k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelectorB\x02\x18\x01R\x1cpodAntiAffinityLabelSelector\x12\x83\x01\n" +
-	" podAntiAffinityTermLabelSelector\x18\r \x03(\v23.k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelectorB\x02\x18\x01R podAntiAffinityTermLabelSelector\x12:\n" +
+	"\x0epodAnnotations\x18\v \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\x0epodAnnotations\x12_\n" +
+	"\x1cpodAntiAffinityLabelSelector\x18\f \x03(\v2\x17.google.protobuf.StructB\x02\x18\x01R\x1cpodAntiAffinityLabelSelector\x12g\n" +
+	" podAntiAffinityTermLabelSelector\x18\r \x03(\v2\x17.google.protobuf.StructB\x02\x18\x01R podAntiAffinityTermLabelSelector\x12:\n" +
 	"\x05ports\x18\x0e \x03(\v2$.istio.operator.v1alpha1.PortsConfigR\x05ports\x12D\n" +
 	"\tresources\x18\x0f \x01(\v2\".istio.operator.v1alpha1.ResourcesB\x02\x18\x01R\tresources\x12K\n" +
 	"\rsecretVolumes\x18\x10 \x03(\v2%.istio.operator.v1alpha1.SecretVolumeR\rsecretVolumes\x12G\n" +
 	"\x12serviceAnnotations\x18\x11 \x01(\v2\x17.google.protobuf.StructR\x12serviceAnnotations\x12\x12\n" +
-	"\x04type\x18\x12 \x01(\tR\x04type\x12D\n" +
-	"\vtolerations\x18\x14 \x03(\v2\x1e.k8s.io.api.core.v1.TolerationB\x02\x18\x01R\vtolerations\x12R\n" +
+	"\x04type\x18\x12 \x01(\tR\x04type\x12=\n" +
+	"\vtolerations\x18\x14 \x03(\v2\x17.google.protobuf.StructB\x02\x18\x01R\vtolerations\x12R\n" +
 	"\x0frollingMaxSurge\x18\x15 \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x0frollingMaxSurge\x12^\n" +
 	"\x15rollingMaxUnavailable\x18\x16 \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x15rollingMaxUnavailable\x12=\n" +
 	"\rconfigVolumes\x18\x17 \x03(\v2\x17.google.protobuf.StructR\rconfigVolumes\x12K\n" +
@@ -5644,15 +5642,15 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x14istio_ingressgateway\x18\x04 \x01(\v2-.istio.operator.v1alpha1.IngressGatewayConfigR\x14istio-ingressgateway\x12@\n" +
 	"\x0fsecurityContext\x18\n" +
 	" \x01(\v2\x16.google.protobuf.ValueR\x0fsecurityContext\x12>\n" +
-	"\x0eseccompProfile\x18\f \x01(\v2\x16.google.protobuf.ValueR\x0eseccompProfile\"\xad\x14\n" +
+	"\x0eseccompProfile\x18\f \x01(\v2\x16.google.protobuf.ValueR\x0eseccompProfile\"\xa6\x14\n" +
 	"\fGlobalConfig\x12;\n" +
 	"\x04arch\x18\x01 \x01(\v2#.istio.operator.v1alpha1.ArchConfigB\x02\x18\x01R\x04arch\x12 \n" +
 	"\vcertSigners\x18D \x03(\tR\vcertSigners\x12F\n" +
 	"\x10configValidation\x18\x03 \x01(\v2\x1a.google.protobuf.BoolValueR\x10configValidation\x12M\n" +
 	"\x13defaultNodeSelector\x18\x06 \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\x13defaultNodeSelector\x12y\n" +
 	"\x1adefaultPodDisruptionBudget\x18\a \x01(\v29.istio.operator.v1alpha1.DefaultPodDisruptionBudgetConfigR\x1adefaultPodDisruptionBudget\x12_\n" +
-	"\x10defaultResources\x18\t \x01(\v2/.istio.operator.v1alpha1.DefaultResourcesConfigB\x02\x18\x01R\x10defaultResources\x12R\n" +
-	"\x12defaultTolerations\x187 \x03(\v2\x1e.k8s.io.api.core.v1.TolerationB\x02\x18\x01R\x12defaultTolerations\x12\x10\n" +
+	"\x10defaultResources\x18\t \x01(\v2/.istio.operator.v1alpha1.DefaultResourcesConfigB\x02\x18\x01R\x10defaultResources\x12K\n" +
+	"\x12defaultTolerations\x187 \x03(\v2\x17.google.protobuf.StructB\x02\x18\x01R\x12defaultTolerations\x12\x10\n" +
 	"\x03hub\x18\f \x01(\tR\x03hub\x12(\n" +
 	"\x0fimagePullPolicy\x18\r \x01(\tR\x0fimagePullPolicy\x12*\n" +
 	"\x10imagePullSecrets\x18% \x03(\tR\x10imagePullSecrets\x12&\n" +
@@ -5701,7 +5699,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\fIstiodConfig\x12B\n" +
 	"\x0eenableAnalysis\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x0eenableAnalysis\"+\n" +
 	"\x13GlobalLoggingConfig\x12\x14\n" +
-	"\x05level\x18\x01 \x01(\tR\x05level\"\xb1\x11\n" +
+	"\x05level\x18\x01 \x01(\tR\x05level\"\xf1\x10\n" +
 	"\x14IngressGatewayConfig\x12F\n" +
 	"\x10autoscaleEnabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
 	"\fautoscaleMax\x18\x02 \x01(\rR\fautoscaleMax\x12\"\n" +
@@ -5717,9 +5715,9 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x18loadBalancerSourceRanges\x18\x11 \x03(\tR\x18loadBalancerSourceRanges\x12\x12\n" +
 	"\x04name\x18, \x01(\tR\x04name\x12?\n" +
 	"\fnodeSelector\x18\x13 \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\fnodeSelector\x12C\n" +
-	"\x0epodAnnotations\x18\x14 \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\x0epodAnnotations\x12{\n" +
-	"\x1cpodAntiAffinityLabelSelector\x18\x15 \x03(\v23.k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelectorB\x02\x18\x01R\x1cpodAntiAffinityLabelSelector\x12\x83\x01\n" +
-	" podAntiAffinityTermLabelSelector\x18\x16 \x03(\v23.k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelectorB\x02\x18\x01R podAntiAffinityTermLabelSelector\x12:\n" +
+	"\x0epodAnnotations\x18\x14 \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\x0epodAnnotations\x12_\n" +
+	"\x1cpodAntiAffinityLabelSelector\x18\x15 \x03(\v2\x17.google.protobuf.StructB\x02\x18\x01R\x1cpodAntiAffinityLabelSelector\x12g\n" +
+	" podAntiAffinityTermLabelSelector\x18\x16 \x03(\v2\x17.google.protobuf.StructB\x02\x18\x01R podAntiAffinityTermLabelSelector\x12:\n" +
 	"\x05ports\x18\x17 \x03(\v2$.istio.operator.v1alpha1.PortsConfigR\x05ports\x12&\n" +
 	"\freplicaCount\x18\x18 \x01(\rB\x02\x18\x01R\freplicaCount\x129\n" +
 	"\tresources\x18\x19 \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\tresources\x12K\n" +
@@ -5728,8 +5726,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04type\x18\x1d \x01(\tR\x04type\x12R\n" +
 	"\x0frollingMaxSurge\x18\x1f \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x0frollingMaxSurge\x12^\n" +
 	"\x15rollingMaxUnavailable\x18  \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x15rollingMaxUnavailable\x124\n" +
-	"\x15externalTrafficPolicy\x18\" \x01(\tR\x15externalTrafficPolicy\x12D\n" +
-	"\vtolerations\x18# \x03(\v2\x1e.k8s.io.api.core.v1.TolerationB\x02\x18\x01R\vtolerations\x12;\n" +
+	"\x15externalTrafficPolicy\x18\" \x01(\tR\x15externalTrafficPolicy\x12=\n" +
+	"\vtolerations\x18# \x03(\v2\x17.google.protobuf.StructB\x02\x18\x01R\vtolerations\x12;\n" +
 	"\fingressPorts\x18$ \x03(\v2\x17.google.protobuf.StructR\fingressPorts\x12K\n" +
 	"\x14additionalContainers\x18% \x03(\v2\x17.google.protobuf.StructR\x14additionalContainers\x12=\n" +
 	"\rconfigVolumes\x18& \x03(\v2\x17.google.protobuf.StructR\rconfigVolumes\x128\n" +
@@ -5752,7 +5750,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\xc4\x13\n" +
+	"\rREGISTRY_ONLY\x10\x01\"\x8d\x13\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -5769,23 +5767,23 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x10deploymentLabels\x18\x0e \x01(\v2\x17.google.protobuf.StructR\x10deploymentLabels\x125\n" +
 	"\tpodLabels\x18$ \x01(\v2\x17.google.protobuf.StructR\tpodLabels\x128\n" +
 	"\tconfigMap\x18\x12 \x01(\v2\x1a.google.protobuf.BoolValueR\tconfigMap\x12)\n" +
-	"\x03env\x18\x15 \x01(\v2\x17.google.protobuf.StructR\x03env\x128\n" +
-	"\baffinity\x18\x16 \x01(\v2\x1c.k8s.io.api.core.v1.AffinityR\baffinity\x12R\n" +
+	"\x03env\x18\x15 \x01(\v2\x17.google.protobuf.StructR\x03env\x123\n" +
+	"\baffinity\x18\x16 \x01(\v2\x17.google.protobuf.StructR\baffinity\x12R\n" +
 	"\x0frollingMaxSurge\x18\x18 \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x0frollingMaxSurge\x12^\n" +
-	"\x15rollingMaxUnavailable\x18\x19 \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x15rollingMaxUnavailable\x12D\n" +
-	"\vtolerations\x18\x1a \x03(\v2\x1e.k8s.io.api.core.v1.TolerationB\x02\x18\x01R\vtolerations\x12C\n" +
+	"\x15rollingMaxUnavailable\x18\x19 \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x15rollingMaxUnavailable\x12=\n" +
+	"\vtolerations\x18\x1a \x03(\v2\x17.google.protobuf.StructB\x02\x18\x01R\vtolerations\x12C\n" +
 	"\x0epodAnnotations\x18\x1e \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\x0epodAnnotations\x12G\n" +
 	"\x12serviceAnnotations\x18% \x01(\v2\x17.google.protobuf.StructR\x12serviceAnnotations\x12U\n" +
 	"\x19serviceAccountAnnotations\x188 \x01(\v2\x17.google.protobuf.StructR\x19serviceAccountAnnotations\x128\n" +
 	"\x17jwksResolverExtraRootCA\x18  \x01(\tR\x17jwksResolverExtraRootCA\x12\x10\n" +
 	"\x03hub\x18\" \x01(\tR\x03hub\x12(\n" +
 	"\x03tag\x18# \x01(\v2\x16.google.protobuf.ValueR\x03tag\x12\x18\n" +
-	"\avariant\x18' \x01(\tR\avariant\x12J\n" +
-	"\x0eseccompProfile\x18& \x01(\v2\".k8s.io.api.core.v1.SeccompProfileR\x0eseccompProfile\x12j\n" +
-	"\x19topologySpreadConstraints\x18) \x03(\v2,.k8s.io.api.core.v1.TopologySpreadConstraintR\x19topologySpreadConstraints\x12G\n" +
-	"\x12extraContainerArgs\x18* \x03(\v2\x17.google.protobuf.StructR\x12extraContainerArgs\x12C\n" +
-	"\fvolumeMounts\x181 \x03(\v2\x1f.k8s.io.api.core.v1.VolumeMountR\fvolumeMounts\x124\n" +
-	"\avolumes\x183 \x03(\v2\x1a.k8s.io.api.core.v1.VolumeR\avolumes\x12\x1e\n" +
+	"\avariant\x18' \x01(\tR\avariant\x12?\n" +
+	"\x0eseccompProfile\x18& \x01(\v2\x17.google.protobuf.StructR\x0eseccompProfile\x12U\n" +
+	"\x19topologySpreadConstraints\x18) \x03(\v2\x17.google.protobuf.StructR\x19topologySpreadConstraints\x12G\n" +
+	"\x12extraContainerArgs\x18* \x03(\v2\x17.google.protobuf.StructR\x12extraContainerArgs\x12;\n" +
+	"\fvolumeMounts\x181 \x03(\v2\x17.google.protobuf.StructR\fvolumeMounts\x121\n" +
+	"\avolumes\x183 \x03(\v2\x17.google.protobuf.StructR\avolumes\x12\x1e\n" +
 	"\n" +
 	"ipFamilies\x184 \x03(\tR\n" +
 	"ipFamilies\x12&\n" +
@@ -5828,7 +5826,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\n" +
 	"targetPort\x18\x04 \x01(\x05R\n" +
 	"targetPort\x12\x1a\n" +
-	"\bprotocol\x18\x05 \x01(\tR\bprotocol\"\x96\n" +
+	"\bprotocol\x18\x05 \x01(\tR\bprotocol\"\x85\n" +
 	"\n" +
 	"\vProxyConfig\x12\x1e\n" +
 	"\n" +
@@ -5848,16 +5846,16 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"privileged\x12B\n" +
 	"\x1creadinessInitialDelaySeconds\x18\x14 \x01(\rR\x1creadinessInitialDelaySeconds\x126\n" +
 	"\x16readinessPeriodSeconds\x18\x15 \x01(\rR\x16readinessPeriodSeconds\x12<\n" +
-	"\x19readinessFailureThreshold\x18\x16 \x01(\rR\x19readinessFailureThreshold\x12J\n" +
-	"\x0eseccompProfile\x18+ \x01(\v2\".k8s.io.api.core.v1.SeccompProfileR\x0eseccompProfile\x12I\n" +
+	"\x19readinessFailureThreshold\x18\x16 \x01(\rR\x19readinessFailureThreshold\x12?\n" +
+	"\x0eseccompProfile\x18+ \x01(\v2\x17.google.protobuf.StructR\x0eseccompProfile\x12I\n" +
 	"\fstartupProbe\x18) \x01(\v2%.istio.operator.v1alpha1.StartupProbeR\fstartupProbe\x12\x1e\n" +
 	"\n" +
 	"statusPort\x18\x17 \x01(\rR\n" +
 	"statusPort\x12D\n" +
 	"\tresources\x18\x18 \x01(\v2\".istio.operator.v1alpha1.ResourcesB\x02\x18\x01R\tresources\x127\n" +
 	"\x06tracer\x18\x19 \x01(\x0e2\x1f.istio.operator.v1alpha1.tracerR\x06tracer\x122\n" +
-	"\x14excludeOutboundPorts\x18\x1c \x01(\tR\x14excludeOutboundPorts\x12;\n" +
-	"\tlifecycle\x18$ \x01(\v2\x1d.k8s.io.api.core.v1.LifecycleR\tlifecycle\x12h\n" +
+	"\x14excludeOutboundPorts\x18\x1c \x01(\tR\x14excludeOutboundPorts\x125\n" +
+	"\tlifecycle\x18$ \x01(\v2\x17.google.protobuf.StructR\tlifecycle\x12h\n" +
 	"\x1fholdApplicationUntilProxyStarts\x18% \x01(\v2\x1a.google.protobuf.BoolValueB\x02\x18\x01R\x1fholdApplicationUntilProxyStarts\x120\n" +
 	"\x13includeInboundPorts\x18& \x01(\tR\x13includeInboundPorts\x122\n" +
 	"\x14includeOutboundPorts\x18' \x01(\tR\x14includeOutboundPorts\"p\n" +
@@ -5877,12 +5875,12 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1e\n" +
 	"\n" +
 	"secretName\x18\x03 \x01(\tR\n" +
-	"secretName\"\x91\x05\n" +
+	"secretName\"\xd9\x04\n" +
 	"\x15SidecarInjectorConfig\x12X\n" +
 	"\x19enableNamespacesByDefault\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x19enableNamespacesByDefault\x12.\n" +
-	"\x12reinvocationPolicy\x18\x03 \x01(\tR\x12reinvocationPolicy\x12e\n" +
-	"\x13neverInjectSelector\x18\v \x03(\v23.k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelectorR\x13neverInjectSelector\x12g\n" +
-	"\x14alwaysInjectSelector\x18\f \x03(\v23.k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelectorR\x14alwaysInjectSelector\x12L\n" +
+	"\x12reinvocationPolicy\x18\x03 \x01(\tR\x12reinvocationPolicy\x12I\n" +
+	"\x13neverInjectSelector\x18\v \x03(\v2\x17.google.protobuf.StructR\x13neverInjectSelector\x12K\n" +
+	"\x14alwaysInjectSelector\x18\f \x03(\v2\x17.google.protobuf.StructR\x14alwaysInjectSelector\x12L\n" +
 	"\x13rewriteAppHTTPProbe\x18\x10 \x01(\v2\x1a.google.protobuf.BoolValueR\x13rewriteAppHTTPProbe\x12I\n" +
 	"\x13injectedAnnotations\x18\x13 \x01(\v2\x17.google.protobuf.StructR\x13injectedAnnotations\x12\"\n" +
 	"\finjectionURL\x18\x16 \x01(\tR\finjectionURL\x125\n" +
@@ -5947,14 +5945,14 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\vIntOrString\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\x03R\x04type\x123\n" +
 	"\x06intVal\x18\x02 \x01(\v2\x1b.google.protobuf.Int32ValueR\x06intVal\x124\n" +
-	"\x06strVal\x18\x03 \x01(\v2\x1c.google.protobuf.StringValueR\x06strVal\"\xfe\x02\n" +
+	"\x06strVal\x18\x03 \x01(\v2\x1c.google.protobuf.StringValueR\x06strVal\"\xd4\x02\n" +
 	"\x0eWaypointConfig\x12@\n" +
-	"\tresources\x18\x01 \x01(\v2\".istio.operator.v1alpha1.ResourcesR\tresources\x128\n" +
-	"\baffinity\x18\x02 \x01(\v2\x1c.k8s.io.api.core.v1.AffinityR\baffinity\x12j\n" +
-	"\x19topologySpreadConstraints\x18\x03 \x03(\v2,.k8s.io.api.core.v1.TopologySpreadConstraintR\x19topologySpreadConstraints\x12D\n" +
-	"\fnodeSelector\x18\x04 \x01(\v2 .k8s.io.api.core.v1.NodeSelectorR\fnodeSelector\x12>\n" +
+	"\tresources\x18\x01 \x01(\v2\".istio.operator.v1alpha1.ResourcesR\tresources\x123\n" +
+	"\baffinity\x18\x02 \x01(\v2\x17.google.protobuf.StructR\baffinity\x12U\n" +
+	"\x19topologySpreadConstraints\x18\x03 \x03(\v2\x17.google.protobuf.StructR\x19topologySpreadConstraints\x12;\n" +
+	"\fnodeSelector\x18\x04 \x01(\v2\x17.google.protobuf.StructR\fnodeSelector\x127\n" +
 	"\n" +
-	"toleration\x18\x05 \x03(\v2\x1e.k8s.io.api.core.v1.TolerationR\n" +
+	"toleration\x18\x05 \x03(\v2\x17.google.protobuf.StructR\n" +
 	"toleration\"K\n" +
 	"\x13NetworkPolicyConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled*C\n" +
@@ -6051,35 +6049,26 @@ var file_pkg_apis_values_types_proto_goTypes = []any{
 	nil,                                      // 55: istio.operator.v1alpha1.IngressGatewayConfig.LabelsEntry
 	(*wrapperspb.BoolValue)(nil),             // 56: google.protobuf.BoolValue
 	(*structpb.Value)(nil),                   // 57: google.protobuf.Value
-	(*v1.Affinity)(nil),                      // 58: k8s.io.api.core.v1.Affinity
-	(*structpb.Struct)(nil),                  // 59: google.protobuf.Struct
-	(*v1.SeccompProfile)(nil),                // 60: k8s.io.api.core.v1.SeccompProfile
-	(*v11.LabelSelector)(nil),                // 61: k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
-	(*v1.Toleration)(nil),                    // 62: k8s.io.api.core.v1.Toleration
-	(*durationpb.Duration)(nil),              // 63: google.protobuf.Duration
-	(*v1.TopologySpreadConstraint)(nil),      // 64: k8s.io.api.core.v1.TopologySpreadConstraint
-	(*v1.VolumeMount)(nil),                   // 65: k8s.io.api.core.v1.VolumeMount
-	(*v1.Volume)(nil),                        // 66: k8s.io.api.core.v1.Volume
-	(*v1.Lifecycle)(nil),                     // 67: k8s.io.api.core.v1.Lifecycle
-	(*wrapperspb.Int32Value)(nil),            // 68: google.protobuf.Int32Value
-	(*wrapperspb.StringValue)(nil),           // 69: google.protobuf.StringValue
-	(*v1.NodeSelector)(nil),                  // 70: k8s.io.api.core.v1.NodeSelector
+	(*structpb.Struct)(nil),                  // 58: google.protobuf.Struct
+	(*durationpb.Duration)(nil),              // 59: google.protobuf.Duration
+	(*wrapperspb.Int32Value)(nil),            // 60: google.protobuf.Int32Value
+	(*wrapperspb.StringValue)(nil),           // 61: google.protobuf.StringValue
 }
 var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	56,  // 0: istio.operator.v1alpha1.CNIConfig.enabled:type_name -> google.protobuf.BoolValue
 	57,  // 1: istio.operator.v1alpha1.CNIConfig.tag:type_name -> google.protobuf.Value
-	58,  // 2: istio.operator.v1alpha1.CNIConfig.affinity:type_name -> k8s.io.api.core.v1.Affinity
-	59,  // 3: istio.operator.v1alpha1.CNIConfig.env:type_name -> google.protobuf.Struct
-	59,  // 4: istio.operator.v1alpha1.CNIConfig.daemonSetLabels:type_name -> google.protobuf.Struct
-	59,  // 5: istio.operator.v1alpha1.CNIConfig.podAnnotations:type_name -> google.protobuf.Struct
-	59,  // 6: istio.operator.v1alpha1.CNIConfig.podLabels:type_name -> google.protobuf.Struct
+	58,  // 2: istio.operator.v1alpha1.CNIConfig.affinity:type_name -> google.protobuf.Struct
+	58,  // 3: istio.operator.v1alpha1.CNIConfig.env:type_name -> google.protobuf.Struct
+	58,  // 4: istio.operator.v1alpha1.CNIConfig.daemonSetLabels:type_name -> google.protobuf.Struct
+	58,  // 5: istio.operator.v1alpha1.CNIConfig.podAnnotations:type_name -> google.protobuf.Struct
+	58,  // 6: istio.operator.v1alpha1.CNIConfig.podLabels:type_name -> google.protobuf.Struct
 	20,  // 7: istio.operator.v1alpha1.CNIConfig.logging:type_name -> istio.operator.v1alpha1.GlobalLoggingConfig
 	8,   // 8: istio.operator.v1alpha1.CNIConfig.repair:type_name -> istio.operator.v1alpha1.CNIRepairConfig
 	56,  // 9: istio.operator.v1alpha1.CNIConfig.chained:type_name -> google.protobuf.BoolValue
 	9,   // 10: istio.operator.v1alpha1.CNIConfig.resource_quotas:type_name -> istio.operator.v1alpha1.ResourceQuotas
 	11,  // 11: istio.operator.v1alpha1.CNIConfig.resources:type_name -> istio.operator.v1alpha1.Resources
 	56,  // 12: istio.operator.v1alpha1.CNIConfig.privileged:type_name -> google.protobuf.BoolValue
-	60,  // 13: istio.operator.v1alpha1.CNIConfig.seccompProfile:type_name -> k8s.io.api.core.v1.SeccompProfile
+	58,  // 13: istio.operator.v1alpha1.CNIConfig.seccompProfile:type_name -> google.protobuf.Struct
 	7,   // 14: istio.operator.v1alpha1.CNIConfig.ambient:type_name -> istio.operator.v1alpha1.CNIAmbientConfig
 	49,  // 15: istio.operator.v1alpha1.CNIConfig.rollingMaxUnavailable:type_name -> istio.operator.v1alpha1.IntOrString
 	56,  // 16: istio.operator.v1alpha1.CNIConfig.istioOwnedCNIConfig:type_name -> google.protobuf.BoolValue
@@ -6094,7 +6083,7 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	56,  // 25: istio.operator.v1alpha1.ResourceQuotas.enabled:type_name -> google.protobuf.BoolValue
 	52,  // 26: istio.operator.v1alpha1.Resources.limits:type_name -> istio.operator.v1alpha1.Resources.LimitsEntry
 	53,  // 27: istio.operator.v1alpha1.Resources.requests:type_name -> istio.operator.v1alpha1.Resources.RequestsEntry
-	59,  // 28: istio.operator.v1alpha1.ServiceAccount.annotations:type_name -> google.protobuf.Struct
+	58,  // 28: istio.operator.v1alpha1.ServiceAccount.annotations:type_name -> google.protobuf.Struct
 	56,  // 29: istio.operator.v1alpha1.DefaultPodDisruptionBudgetConfig.enabled:type_name -> google.protobuf.BoolValue
 	36,  // 30: istio.operator.v1alpha1.DefaultResourcesConfig.requests:type_name -> istio.operator.v1alpha1.ResourcesRequestsConfig
 	56,  // 31: istio.operator.v1alpha1.EgressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
@@ -6102,21 +6091,21 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	10,  // 33: istio.operator.v1alpha1.EgressGatewayConfig.cpu:type_name -> istio.operator.v1alpha1.TargetUtilizationConfig
 	56,  // 34: istio.operator.v1alpha1.EgressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
 	56,  // 35: istio.operator.v1alpha1.EgressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
-	59,  // 36: istio.operator.v1alpha1.EgressGatewayConfig.env:type_name -> google.protobuf.Struct
+	58,  // 36: istio.operator.v1alpha1.EgressGatewayConfig.env:type_name -> google.protobuf.Struct
 	54,  // 37: istio.operator.v1alpha1.EgressGatewayConfig.labels:type_name -> istio.operator.v1alpha1.EgressGatewayConfig.LabelsEntry
-	59,  // 38: istio.operator.v1alpha1.EgressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
-	59,  // 39: istio.operator.v1alpha1.EgressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
-	61,  // 40: istio.operator.v1alpha1.EgressGatewayConfig.podAntiAffinityLabelSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
-	61,  // 41: istio.operator.v1alpha1.EgressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
+	58,  // 38: istio.operator.v1alpha1.EgressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
+	58,  // 39: istio.operator.v1alpha1.EgressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
+	58,  // 40: istio.operator.v1alpha1.EgressGatewayConfig.podAntiAffinityLabelSelector:type_name -> google.protobuf.Struct
+	58,  // 41: istio.operator.v1alpha1.EgressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> google.protobuf.Struct
 	32,  // 42: istio.operator.v1alpha1.EgressGatewayConfig.ports:type_name -> istio.operator.v1alpha1.PortsConfig
 	11,  // 43: istio.operator.v1alpha1.EgressGatewayConfig.resources:type_name -> istio.operator.v1alpha1.Resources
 	38,  // 44: istio.operator.v1alpha1.EgressGatewayConfig.secretVolumes:type_name -> istio.operator.v1alpha1.SecretVolume
-	59,  // 45: istio.operator.v1alpha1.EgressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
-	62,  // 46: istio.operator.v1alpha1.EgressGatewayConfig.tolerations:type_name -> k8s.io.api.core.v1.Toleration
+	58,  // 45: istio.operator.v1alpha1.EgressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
+	58,  // 46: istio.operator.v1alpha1.EgressGatewayConfig.tolerations:type_name -> google.protobuf.Struct
 	49,  // 47: istio.operator.v1alpha1.EgressGatewayConfig.rollingMaxSurge:type_name -> istio.operator.v1alpha1.IntOrString
 	49,  // 48: istio.operator.v1alpha1.EgressGatewayConfig.rollingMaxUnavailable:type_name -> istio.operator.v1alpha1.IntOrString
-	59,  // 49: istio.operator.v1alpha1.EgressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
-	59,  // 50: istio.operator.v1alpha1.EgressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
+	58,  // 49: istio.operator.v1alpha1.EgressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
+	58,  // 50: istio.operator.v1alpha1.EgressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
 	56,  // 51: istio.operator.v1alpha1.EgressGatewayConfig.runAsRoot:type_name -> google.protobuf.BoolValue
 	12,  // 52: istio.operator.v1alpha1.EgressGatewayConfig.serviceAccount:type_name -> istio.operator.v1alpha1.ServiceAccount
 	15,  // 53: istio.operator.v1alpha1.GatewaysConfig.istio_egressgateway:type_name -> istio.operator.v1alpha1.EgressGatewayConfig
@@ -6126,13 +6115,13 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	57,  // 57: istio.operator.v1alpha1.GatewaysConfig.seccompProfile:type_name -> google.protobuf.Value
 	4,   // 58: istio.operator.v1alpha1.GlobalConfig.arch:type_name -> istio.operator.v1alpha1.ArchConfig
 	56,  // 59: istio.operator.v1alpha1.GlobalConfig.configValidation:type_name -> google.protobuf.BoolValue
-	59,  // 60: istio.operator.v1alpha1.GlobalConfig.defaultNodeSelector:type_name -> google.protobuf.Struct
+	58,  // 60: istio.operator.v1alpha1.GlobalConfig.defaultNodeSelector:type_name -> google.protobuf.Struct
 	13,  // 61: istio.operator.v1alpha1.GlobalConfig.defaultPodDisruptionBudget:type_name -> istio.operator.v1alpha1.DefaultPodDisruptionBudgetConfig
 	14,  // 62: istio.operator.v1alpha1.GlobalConfig.defaultResources:type_name -> istio.operator.v1alpha1.DefaultResourcesConfig
-	62,  // 63: istio.operator.v1alpha1.GlobalConfig.defaultTolerations:type_name -> k8s.io.api.core.v1.Toleration
+	58,  // 63: istio.operator.v1alpha1.GlobalConfig.defaultTolerations:type_name -> google.protobuf.Struct
 	56,  // 64: istio.operator.v1alpha1.GlobalConfig.logAsJson:type_name -> google.protobuf.BoolValue
 	20,  // 65: istio.operator.v1alpha1.GlobalConfig.logging:type_name -> istio.operator.v1alpha1.GlobalLoggingConfig
-	59,  // 66: istio.operator.v1alpha1.GlobalConfig.meshNetworks:type_name -> google.protobuf.Struct
+	58,  // 66: istio.operator.v1alpha1.GlobalConfig.meshNetworks:type_name -> google.protobuf.Struct
 	22,  // 67: istio.operator.v1alpha1.GlobalConfig.multiCluster:type_name -> istio.operator.v1alpha1.MultiClusterConfig
 	56,  // 68: istio.operator.v1alpha1.GlobalConfig.omitSidecarInjectorConfigMap:type_name -> google.protobuf.BoolValue
 	56,  // 69: istio.operator.v1alpha1.GlobalConfig.operatorManageWebhooks:type_name -> google.protobuf.BoolValue
@@ -6156,22 +6145,22 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	10,  // 87: istio.operator.v1alpha1.IngressGatewayConfig.cpu:type_name -> istio.operator.v1alpha1.TargetUtilizationConfig
 	56,  // 88: istio.operator.v1alpha1.IngressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
 	56,  // 89: istio.operator.v1alpha1.IngressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
-	59,  // 90: istio.operator.v1alpha1.IngressGatewayConfig.env:type_name -> google.protobuf.Struct
+	58,  // 90: istio.operator.v1alpha1.IngressGatewayConfig.env:type_name -> google.protobuf.Struct
 	55,  // 91: istio.operator.v1alpha1.IngressGatewayConfig.labels:type_name -> istio.operator.v1alpha1.IngressGatewayConfig.LabelsEntry
-	59,  // 92: istio.operator.v1alpha1.IngressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
-	59,  // 93: istio.operator.v1alpha1.IngressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
-	61,  // 94: istio.operator.v1alpha1.IngressGatewayConfig.podAntiAffinityLabelSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
-	61,  // 95: istio.operator.v1alpha1.IngressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
+	58,  // 92: istio.operator.v1alpha1.IngressGatewayConfig.nodeSelector:type_name -> google.protobuf.Struct
+	58,  // 93: istio.operator.v1alpha1.IngressGatewayConfig.podAnnotations:type_name -> google.protobuf.Struct
+	58,  // 94: istio.operator.v1alpha1.IngressGatewayConfig.podAntiAffinityLabelSelector:type_name -> google.protobuf.Struct
+	58,  // 95: istio.operator.v1alpha1.IngressGatewayConfig.podAntiAffinityTermLabelSelector:type_name -> google.protobuf.Struct
 	32,  // 96: istio.operator.v1alpha1.IngressGatewayConfig.ports:type_name -> istio.operator.v1alpha1.PortsConfig
-	59,  // 97: istio.operator.v1alpha1.IngressGatewayConfig.resources:type_name -> google.protobuf.Struct
+	58,  // 97: istio.operator.v1alpha1.IngressGatewayConfig.resources:type_name -> google.protobuf.Struct
 	38,  // 98: istio.operator.v1alpha1.IngressGatewayConfig.secretVolumes:type_name -> istio.operator.v1alpha1.SecretVolume
-	59,  // 99: istio.operator.v1alpha1.IngressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
+	58,  // 99: istio.operator.v1alpha1.IngressGatewayConfig.serviceAnnotations:type_name -> google.protobuf.Struct
 	49,  // 100: istio.operator.v1alpha1.IngressGatewayConfig.rollingMaxSurge:type_name -> istio.operator.v1alpha1.IntOrString
 	49,  // 101: istio.operator.v1alpha1.IngressGatewayConfig.rollingMaxUnavailable:type_name -> istio.operator.v1alpha1.IntOrString
-	62,  // 102: istio.operator.v1alpha1.IngressGatewayConfig.tolerations:type_name -> k8s.io.api.core.v1.Toleration
-	59,  // 103: istio.operator.v1alpha1.IngressGatewayConfig.ingressPorts:type_name -> google.protobuf.Struct
-	59,  // 104: istio.operator.v1alpha1.IngressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
-	59,  // 105: istio.operator.v1alpha1.IngressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
+	58,  // 102: istio.operator.v1alpha1.IngressGatewayConfig.tolerations:type_name -> google.protobuf.Struct
+	58,  // 103: istio.operator.v1alpha1.IngressGatewayConfig.ingressPorts:type_name -> google.protobuf.Struct
+	58,  // 104: istio.operator.v1alpha1.IngressGatewayConfig.additionalContainers:type_name -> google.protobuf.Struct
+	58,  // 105: istio.operator.v1alpha1.IngressGatewayConfig.configVolumes:type_name -> google.protobuf.Struct
 	56,  // 106: istio.operator.v1alpha1.IngressGatewayConfig.runAsRoot:type_name -> google.protobuf.BoolValue
 	12,  // 107: istio.operator.v1alpha1.IngressGatewayConfig.serviceAccount:type_name -> istio.operator.v1alpha1.ServiceAccount
 	56,  // 108: istio.operator.v1alpha1.MultiClusterConfig.enabled:type_name -> google.protobuf.BoolValue
@@ -6179,33 +6168,33 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	3,   // 110: istio.operator.v1alpha1.OutboundTrafficPolicyConfig.mode:type_name -> istio.operator.v1alpha1.OutboundTrafficPolicyConfig.Mode
 	56,  // 111: istio.operator.v1alpha1.PilotConfig.enabled:type_name -> google.protobuf.BoolValue
 	56,  // 112: istio.operator.v1alpha1.PilotConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
-	59,  // 113: istio.operator.v1alpha1.PilotConfig.autoscaleBehavior:type_name -> google.protobuf.Struct
+	58,  // 113: istio.operator.v1alpha1.PilotConfig.autoscaleBehavior:type_name -> google.protobuf.Struct
 	11,  // 114: istio.operator.v1alpha1.PilotConfig.resources:type_name -> istio.operator.v1alpha1.Resources
 	10,  // 115: istio.operator.v1alpha1.PilotConfig.cpu:type_name -> istio.operator.v1alpha1.TargetUtilizationConfig
-	59,  // 116: istio.operator.v1alpha1.PilotConfig.nodeSelector:type_name -> google.protobuf.Struct
-	63,  // 117: istio.operator.v1alpha1.PilotConfig.keepaliveMaxServerConnectionAge:type_name -> google.protobuf.Duration
-	59,  // 118: istio.operator.v1alpha1.PilotConfig.deploymentLabels:type_name -> google.protobuf.Struct
-	59,  // 119: istio.operator.v1alpha1.PilotConfig.podLabels:type_name -> google.protobuf.Struct
+	58,  // 116: istio.operator.v1alpha1.PilotConfig.nodeSelector:type_name -> google.protobuf.Struct
+	59,  // 117: istio.operator.v1alpha1.PilotConfig.keepaliveMaxServerConnectionAge:type_name -> google.protobuf.Duration
+	58,  // 118: istio.operator.v1alpha1.PilotConfig.deploymentLabels:type_name -> google.protobuf.Struct
+	58,  // 119: istio.operator.v1alpha1.PilotConfig.podLabels:type_name -> google.protobuf.Struct
 	56,  // 120: istio.operator.v1alpha1.PilotConfig.configMap:type_name -> google.protobuf.BoolValue
-	59,  // 121: istio.operator.v1alpha1.PilotConfig.env:type_name -> google.protobuf.Struct
-	58,  // 122: istio.operator.v1alpha1.PilotConfig.affinity:type_name -> k8s.io.api.core.v1.Affinity
+	58,  // 121: istio.operator.v1alpha1.PilotConfig.env:type_name -> google.protobuf.Struct
+	58,  // 122: istio.operator.v1alpha1.PilotConfig.affinity:type_name -> google.protobuf.Struct
 	49,  // 123: istio.operator.v1alpha1.PilotConfig.rollingMaxSurge:type_name -> istio.operator.v1alpha1.IntOrString
 	49,  // 124: istio.operator.v1alpha1.PilotConfig.rollingMaxUnavailable:type_name -> istio.operator.v1alpha1.IntOrString
-	62,  // 125: istio.operator.v1alpha1.PilotConfig.tolerations:type_name -> k8s.io.api.core.v1.Toleration
-	59,  // 126: istio.operator.v1alpha1.PilotConfig.podAnnotations:type_name -> google.protobuf.Struct
-	59,  // 127: istio.operator.v1alpha1.PilotConfig.serviceAnnotations:type_name -> google.protobuf.Struct
-	59,  // 128: istio.operator.v1alpha1.PilotConfig.serviceAccountAnnotations:type_name -> google.protobuf.Struct
+	58,  // 125: istio.operator.v1alpha1.PilotConfig.tolerations:type_name -> google.protobuf.Struct
+	58,  // 126: istio.operator.v1alpha1.PilotConfig.podAnnotations:type_name -> google.protobuf.Struct
+	58,  // 127: istio.operator.v1alpha1.PilotConfig.serviceAnnotations:type_name -> google.protobuf.Struct
+	58,  // 128: istio.operator.v1alpha1.PilotConfig.serviceAccountAnnotations:type_name -> google.protobuf.Struct
 	57,  // 129: istio.operator.v1alpha1.PilotConfig.tag:type_name -> google.protobuf.Value
-	60,  // 130: istio.operator.v1alpha1.PilotConfig.seccompProfile:type_name -> k8s.io.api.core.v1.SeccompProfile
-	64,  // 131: istio.operator.v1alpha1.PilotConfig.topologySpreadConstraints:type_name -> k8s.io.api.core.v1.TopologySpreadConstraint
-	59,  // 132: istio.operator.v1alpha1.PilotConfig.extraContainerArgs:type_name -> google.protobuf.Struct
-	65,  // 133: istio.operator.v1alpha1.PilotConfig.volumeMounts:type_name -> k8s.io.api.core.v1.VolumeMount
-	66,  // 134: istio.operator.v1alpha1.PilotConfig.volumes:type_name -> k8s.io.api.core.v1.Volume
+	58,  // 130: istio.operator.v1alpha1.PilotConfig.seccompProfile:type_name -> google.protobuf.Struct
+	58,  // 131: istio.operator.v1alpha1.PilotConfig.topologySpreadConstraints:type_name -> google.protobuf.Struct
+	58,  // 132: istio.operator.v1alpha1.PilotConfig.extraContainerArgs:type_name -> google.protobuf.Struct
+	58,  // 133: istio.operator.v1alpha1.PilotConfig.volumeMounts:type_name -> google.protobuf.Struct
+	58,  // 134: istio.operator.v1alpha1.PilotConfig.volumes:type_name -> google.protobuf.Struct
 	10,  // 135: istio.operator.v1alpha1.PilotConfig.memory:type_name -> istio.operator.v1alpha1.TargetUtilizationConfig
 	6,   // 136: istio.operator.v1alpha1.PilotConfig.cni:type_name -> istio.operator.v1alpha1.CNIUsageConfig
 	25,  // 137: istio.operator.v1alpha1.PilotConfig.taint:type_name -> istio.operator.v1alpha1.PilotTaintControllerConfig
 	46,  // 138: istio.operator.v1alpha1.PilotConfig.istiodRemote:type_name -> istio.operator.v1alpha1.IstiodRemoteConfig
-	59,  // 139: istio.operator.v1alpha1.PilotConfig.envVarFrom:type_name -> google.protobuf.Struct
+	58,  // 139: istio.operator.v1alpha1.PilotConfig.envVarFrom:type_name -> google.protobuf.Struct
 	1,   // 140: istio.operator.v1alpha1.PilotIngressConfig.ingressControllerMode:type_name -> istio.operator.v1alpha1.ingressControllerMode
 	56,  // 141: istio.operator.v1alpha1.PilotPolicyConfig.enabled:type_name -> google.protobuf.BoolValue
 	56,  // 142: istio.operator.v1alpha1.TelemetryConfig.enabled:type_name -> google.protobuf.BoolValue
@@ -6217,21 +6206,21 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	56,  // 148: istio.operator.v1alpha1.TelemetryV2StackDriverConfig.enabled:type_name -> google.protobuf.BoolValue
 	56,  // 149: istio.operator.v1alpha1.ProxyConfig.enableCoreDump:type_name -> google.protobuf.BoolValue
 	56,  // 150: istio.operator.v1alpha1.ProxyConfig.privileged:type_name -> google.protobuf.BoolValue
-	60,  // 151: istio.operator.v1alpha1.ProxyConfig.seccompProfile:type_name -> k8s.io.api.core.v1.SeccompProfile
+	58,  // 151: istio.operator.v1alpha1.ProxyConfig.seccompProfile:type_name -> google.protobuf.Struct
 	34,  // 152: istio.operator.v1alpha1.ProxyConfig.startupProbe:type_name -> istio.operator.v1alpha1.StartupProbe
 	11,  // 153: istio.operator.v1alpha1.ProxyConfig.resources:type_name -> istio.operator.v1alpha1.Resources
 	2,   // 154: istio.operator.v1alpha1.ProxyConfig.tracer:type_name -> istio.operator.v1alpha1.tracer
-	67,  // 155: istio.operator.v1alpha1.ProxyConfig.lifecycle:type_name -> k8s.io.api.core.v1.Lifecycle
+	58,  // 155: istio.operator.v1alpha1.ProxyConfig.lifecycle:type_name -> google.protobuf.Struct
 	56,  // 156: istio.operator.v1alpha1.ProxyConfig.holdApplicationUntilProxyStarts:type_name -> google.protobuf.BoolValue
 	56,  // 157: istio.operator.v1alpha1.StartupProbe.enabled:type_name -> google.protobuf.BoolValue
 	11,  // 158: istio.operator.v1alpha1.ProxyInitConfig.resources:type_name -> istio.operator.v1alpha1.Resources
-	59,  // 159: istio.operator.v1alpha1.SDSConfig.token:type_name -> google.protobuf.Struct
+	58,  // 159: istio.operator.v1alpha1.SDSConfig.token:type_name -> google.protobuf.Struct
 	56,  // 160: istio.operator.v1alpha1.SidecarInjectorConfig.enableNamespacesByDefault:type_name -> google.protobuf.BoolValue
-	61,  // 161: istio.operator.v1alpha1.SidecarInjectorConfig.neverInjectSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
-	61,  // 162: istio.operator.v1alpha1.SidecarInjectorConfig.alwaysInjectSelector:type_name -> k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector
+	58,  // 161: istio.operator.v1alpha1.SidecarInjectorConfig.neverInjectSelector:type_name -> google.protobuf.Struct
+	58,  // 162: istio.operator.v1alpha1.SidecarInjectorConfig.alwaysInjectSelector:type_name -> google.protobuf.Struct
 	56,  // 163: istio.operator.v1alpha1.SidecarInjectorConfig.rewriteAppHTTPProbe:type_name -> google.protobuf.BoolValue
-	59,  // 164: istio.operator.v1alpha1.SidecarInjectorConfig.injectedAnnotations:type_name -> google.protobuf.Struct
-	59,  // 165: istio.operator.v1alpha1.SidecarInjectorConfig.templates:type_name -> google.protobuf.Struct
+	58,  // 164: istio.operator.v1alpha1.SidecarInjectorConfig.injectedAnnotations:type_name -> google.protobuf.Struct
+	58,  // 165: istio.operator.v1alpha1.SidecarInjectorConfig.templates:type_name -> google.protobuf.Struct
 	41,  // 166: istio.operator.v1alpha1.TracerConfig.datadog:type_name -> istio.operator.v1alpha1.TracerDatadogConfig
 	42,  // 167: istio.operator.v1alpha1.TracerConfig.lightstep:type_name -> istio.operator.v1alpha1.TracerLightStepConfig
 	43,  // 168: istio.operator.v1alpha1.TracerConfig.zipkin:type_name -> istio.operator.v1alpha1.TracerZipkinConfig
@@ -6256,13 +6245,13 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	48,  // 187: istio.operator.v1alpha1.Values.experimental:type_name -> istio.operator.v1alpha1.ExperimentalConfig
 	57,  // 188: istio.operator.v1alpha1.Values.gatewayClasses:type_name -> google.protobuf.Value
 	56,  // 189: istio.operator.v1alpha1.ExperimentalConfig.stableValidationPolicy:type_name -> google.protobuf.BoolValue
-	68,  // 190: istio.operator.v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
-	69,  // 191: istio.operator.v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
+	60,  // 190: istio.operator.v1alpha1.IntOrString.intVal:type_name -> google.protobuf.Int32Value
+	61,  // 191: istio.operator.v1alpha1.IntOrString.strVal:type_name -> google.protobuf.StringValue
 	11,  // 192: istio.operator.v1alpha1.WaypointConfig.resources:type_name -> istio.operator.v1alpha1.Resources
-	58,  // 193: istio.operator.v1alpha1.WaypointConfig.affinity:type_name -> k8s.io.api.core.v1.Affinity
-	64,  // 194: istio.operator.v1alpha1.WaypointConfig.topologySpreadConstraints:type_name -> k8s.io.api.core.v1.TopologySpreadConstraint
-	70,  // 195: istio.operator.v1alpha1.WaypointConfig.nodeSelector:type_name -> k8s.io.api.core.v1.NodeSelector
-	62,  // 196: istio.operator.v1alpha1.WaypointConfig.toleration:type_name -> k8s.io.api.core.v1.Toleration
+	58,  // 193: istio.operator.v1alpha1.WaypointConfig.affinity:type_name -> google.protobuf.Struct
+	58,  // 194: istio.operator.v1alpha1.WaypointConfig.topologySpreadConstraints:type_name -> google.protobuf.Struct
+	58,  // 195: istio.operator.v1alpha1.WaypointConfig.nodeSelector:type_name -> google.protobuf.Struct
+	58,  // 196: istio.operator.v1alpha1.WaypointConfig.toleration:type_name -> google.protobuf.Struct
 	56,  // 197: istio.operator.v1alpha1.NetworkPolicyConfig.enabled:type_name -> google.protobuf.BoolValue
 	198, // [198:198] is the sub-list for method output_type
 	198, // [198:198] is the sub-list for method input_type
