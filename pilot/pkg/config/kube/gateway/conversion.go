@@ -68,16 +68,24 @@ const (
 	gatewayClassDefaults       = "gateway.istio.io/defaults-for-class"
 	gatewayTLSCipherSuites     = "gateway.istio.io/tls-cipher-suites"
 )
-
+// NOTE: This ordering ensures deterministic behavior when multiple configs
+// share identical creation timestamps. This addresses one known source of
+// nondeterminism, but may not eliminate all flakiness.
 func sortConfigByCreationTime(configs []config.Config) {
-	sort.Slice(configs, func(i, j int) bool {
+	sort.SliceStable(configs, func(i, j int) bool {
 		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
-			return r == -1 // -1 means i is less than j, so return true
+			return r < 0
 		}
 		if r := cmp.Compare(configs[i].Namespace, configs[j].Namespace); r != 0 {
-			return r == -1
+			return r < 0
 		}
-		return cmp.Compare(configs[i].Name, configs[j].Name) == -1
+		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
+			return r < 0
+		}
+		return cmp.Compare(
+			configs[i].GroupVersionKind.Kind,
+			configs[j].GroupVersionKind.Kind,
+		) < 0
 	})
 }
 
