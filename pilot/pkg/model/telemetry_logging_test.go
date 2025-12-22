@@ -1442,13 +1442,6 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
-	sidecar := &Proxy{
-		ConfigNamespace: "default",
-		Labels:          map[string]string{"app": "test"},
-		Metadata:        &NodeMetadata{},
-		IstioVersion:    &IstioVersion{Major: 1, Minor: 23},
-	}
-
 	for _, tc := range []struct {
 		name       string
 		ctx        *PushContext
@@ -1687,7 +1680,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 			}
 			push.Mesh = tc.meshConfig
 
-			got := telemetryAccessLog(push, sidecar, tc.fp)
+			got := telemetryAccessLog(push, tc.fp)
 			if got == nil {
 				t.Fatal("get nil accesslog")
 			}
