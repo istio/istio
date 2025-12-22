@@ -205,7 +205,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 				// For updates, wait for sync then replace
 				go func() {
 					<-cluster.SyncedCh
-					m.opts.MeshServiceController.ReplaceRegistry(kubeController.workloadEntryController, clusterStopCh)
+					m.opts.MeshServiceController.UpdateRegistry(kubeController.workloadEntryController, clusterStopCh)
 				}()
 			} else {
 				m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
@@ -222,7 +222,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			// Wait for the new cluster to sync
 			<-cluster.SyncedCh
 			log.Infof("cluster %s synced, replacing registry", cluster.ID)
-			m.opts.MeshServiceController.ReplaceRegistry(kubeRegistry, clusterStopCh)
+			m.opts.MeshServiceController.UpdateRegistry(kubeRegistry, clusterStopCh)
 		}()
 	} else {
 		// For adds, register immediately

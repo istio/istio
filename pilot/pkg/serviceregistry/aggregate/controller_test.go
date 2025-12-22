@@ -502,7 +502,7 @@ func TestReplaceRegistry(t *testing.T) {
 
 	// Replace with new registry
 	newRegistry := runnableRegistry("cluster1")
-	ctrl.ReplaceRegistry(newRegistry, stop)
+	ctrl.UpdateRegistry(newRegistry, stop)
 
 	// Verify replacement - should still have 1 registry with same cluster ID
 	registries = ctrl.GetRegistries()
@@ -540,7 +540,7 @@ func TestReplaceRegistryAddsIfNotExists(t *testing.T) {
 
 	// ReplaceRegistry should add if no existing registry
 	newRegistry := runnableRegistry("newCluster")
-	ctrl.ReplaceRegistry(newRegistry, stop)
+	ctrl.UpdateRegistry(newRegistry, stop)
 
 	// Verify it was added
 	registries := ctrl.GetRegistries()
