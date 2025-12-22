@@ -51,7 +51,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -343,10 +342,26 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 }
 
 // AgentgatewayImage constructs image url
-func AgentgatewayImage(values *opconfig.Values) string {
-	defaultImage := "cr.agentgateway.dev/agentgateway:0.11.0"
-	img := values.GetGlobal().GetAgentgateway().GetImage()
-	return ptr.NonEmptyOrDefault(img, defaultImage)
+func AgentgatewayImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
+	imageName := "agentgateway"
+	global := values.GetGlobal()
+
+	tag := ""
+	if global.GetTag() != nil { // Tag is an interface but we need the string form.
+		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
+	}
+
+	// Agentgateway does not use variants, but we still publish them for consistency so use it
+	imageType := global.GetVariant()
+	if image != nil {
+		imageType = image.ImageType
+	}
+
+	if it, ok := annotations["gateway.istio.io/agentgatewayImage"]; ok {
+		imageType = it
+	}
+
+	return imageURL(global.GetHub(), imageName, tag, imageType)
 }
 
 func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
