@@ -770,12 +770,63 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		sortRoutesByCreationTime(configs)
 		base := configs[0].DeepCopy()
 		baseVS := base.Spec.(*istio.VirtualService)
-		for _, config := range configs[1:] {
+		// Deep copy the InferencePool configs map to avoid race conditions
+		// The default DeepCopy() only does shallow copy of Extra field
+		if base.Extra != nil {
+			if ipConfigs, ok := base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]kube.InferencePoolRouteRuleConfig); ok {
+				// Create a new map to avoid modifying the shared underlying map
+				newIPConfigs := make(map[string]kube.InferencePoolRouteRuleConfig, len(ipConfigs))
+				for k, v := range ipConfigs {
+					newIPConfigs[k] = v
+				}
+				base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = newIPConfigs
+			}
+		}
+		for i, config := range configs[1:] {
 			thisVS := config.Spec.(*istio.VirtualService)
 			baseVS.Http = append(baseVS.Http, thisVS.Http...)
 			// append parents
 			base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
 				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
+			// Merge Extra field (especially for InferencePool configs)
+			if base.Extra == nil && config.Extra != nil {
+				base.Extra = make(map[string]any)
+			}
+			if config.Extra != nil {
+				for k, v := range config.Extra {
+					// For non-InferencePool configs, keep the first value for stability
+					if k != constants.ConfigExtraPerRouteRuleInferencePoolConfigs {
+						if _, exists := base.Extra[k]; !exists {
+							base.Extra[k] = v
+						}
+						continue
+					}
+					// For InferencePool configs, merge the maps
+					baseMap, baseOk := base.Extra[k].(map[string]kube.InferencePoolRouteRuleConfig)
+					configMap, configOk := v.(map[string]kube.InferencePoolRouteRuleConfig)
+					if baseOk && configOk {
+						log.Debugf("Merging InferencePool configs: adding %d route configs from VirtualService %d to base (namespace=%s)",
+							len(configMap), i+1, config.Namespace)
+						// Route names are composed of the HTTPRoute/VirtualService namespaced name so they can't possibly conflict
+						for routeName, routeConfig := range configMap {
+							baseMap[routeName] = routeConfig
+						}
+					} else if configOk {
+						if _, exists := base.Extra[k]; !exists {
+							log.Debugf("Creating new InferencePool config map from VirtualService %d (namespace=%s)", i+1, config.Namespace)
+							base.Extra[k] = v
+						}
+					} else if !configOk {
+						log.Debugf("Skipping InferencePool config from VirtualService %d due to unexpected type (namespace=%s)", i+1, config.Namespace)
+					}
+				}
+			}
+		}
+		// Log final merged InferencePool configs
+		if base.Extra != nil {
+			if ipConfigs, ok := base.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]kube.InferencePoolRouteRuleConfig); ok {
+				log.Debugf("Final merged VirtualService for key %s has %d InferencePool route configs", object.Key, len(ipConfigs))
+			}
 		}
 		sortHTTPRoutes(baseVS.Http)
 		base.Name = strings.ReplaceAll(object.Key, "/", "~")

@@ -206,9 +206,26 @@ func jsonConverter(d any) convertFunc {
 	}
 }
 
+// Format duration as a time.Duration string representation like
+// 605s -> 10m5s
 func durationConverter(value *durationpb.Duration) convertFunc {
 	return func(*instance) (any, error) {
 		return value.AsDuration().String(), nil
+	}
+}
+
+// Envoy's json-to-protobuf converter wants durations in fractional seconds
+// with "s" suffix like 300s or 10.50000000000s, it doesn't understand formats
+// like 10m0s as produced by durationConverter.
+func envoyDurationConverter(value *durationpb.Duration) convertFunc {
+	return func(*instance) (any, error) {
+		if value == nil {
+			return "", fmt.Errorf("nil duration passed as option")
+		}
+		if value.GetNanos() == 0 {
+			return fmt.Sprintf("%ds", value.GetSeconds()), nil
+		}
+		return fmt.Sprintf("%d.%09ds", value.GetSeconds(), value.GetNanos()), nil
 	}
 }
 

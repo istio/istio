@@ -33,12 +33,31 @@ import (
 // This is to map to the eventual EDS structure.
 type serviceEDS struct {
 	ServiceKey       string
-	WaypointInstance []*workloadapi.Workload
+	WaypointInstance []model.WorkloadInfo
 	UseWaypoint      bool
 }
 
-func (w serviceEDS) ResourceName() string {
-	return w.ServiceKey
+func (s serviceEDS) ResourceName() string {
+	return s.ServiceKey
+}
+
+func (s serviceEDS) Equals(other serviceEDS) bool {
+	if s.ServiceKey != other.ServiceKey {
+		return false
+	}
+	if s.UseWaypoint != other.UseWaypoint {
+		return false
+	}
+	if len(s.WaypointInstance) != len(other.WaypointInstance) {
+		return false
+	}
+	// assumes builder sorted the slices
+	for i := range s.WaypointInstance {
+		if !s.WaypointInstance[i].Equals(other.WaypointInstance[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // RegisterEdsShim handles triggering xDS events when Envoy EDS needs to change.
@@ -93,12 +112,14 @@ func RegisterEdsShim(
 				waypointServiceKey = waypointSvc.ResourceName()
 			}
 			workloads := krt.Fetch(ctx, Workloads, krt.FilterIndex(WorkloadsByServiceKey, waypointServiceKey))
+			// for comparison in Equals
+			workloads = slices.SortBy(workloads, func(i model.WorkloadInfo) string {
+				return i.Workload.Uid
+			})
 			return &serviceEDS{
-				ServiceKey:  svc.ResourceName(),
-				UseWaypoint: useWaypoint,
-				WaypointInstance: slices.Map(workloads, func(e model.WorkloadInfo) *workloadapi.Workload {
-					return e.Workload
-				}),
+				ServiceKey:       svc.ResourceName(),
+				UseWaypoint:      useWaypoint,
+				WaypointInstance: workloads,
 			}
 		},
 		opts.WithName("ServiceEds")...)

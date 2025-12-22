@@ -49,7 +49,7 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
-func (a *index) ServicesCollection(
+func (a Builder) ServicesCollection(
 	clusterID cluster.ID,
 	services krt.Collection[*v1.Service],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
@@ -135,7 +135,7 @@ func GlobalMergedWorkloadServicesCollection(
 	globalNamespaces krt.Collection[krt.Collection[*v1.Namespace]],
 	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
 	meshConfig krt.Singleton[MeshConfig],
-	globalNetworks networkCollections,
+	globalNetworks NetworkCollections,
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]]] {
@@ -365,7 +365,7 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 	return model.Local
 }
 
-func (a *index) serviceServiceBuilder(
+func (a Builder) serviceServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
@@ -407,7 +407,7 @@ func (s ServiceEntryInfo) Equals(other ServiceEntryInfo) bool {
 	return s.ServiceInfo.Equals(other.ServiceInfo)
 }
 
-func (a *index) serviceEntryServiceBuilder(
+func (a Builder) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, ServiceEntryInfo] {
@@ -497,6 +497,7 @@ func constructServiceEntries(
 		ports = append(ports, &workloadapi.Port{
 			ServicePort: p.Number,
 			TargetPort:  target,
+			AppProtocol: toAppProtocolFromProtocol(protocol.Parse(p.Protocol)),
 		})
 	}
 
@@ -569,6 +570,7 @@ func constructService(
 		ports = append(ports, &workloadapi.Port{
 			ServicePort: uint32(p.Port),
 			TargetPort:  uint32(p.TargetPort.IntVal),
+			AppProtocol: toAppProtocolFromKube(p),
 		})
 	}
 
