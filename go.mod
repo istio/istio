@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	cloud.google.com/go/compute/metadata v0.7.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
+	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecholmes/xfccparser v0.4.0
@@ -117,7 +118,6 @@ require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
-	github.com/KimMachineGun/automemlimit v0.7.5 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
