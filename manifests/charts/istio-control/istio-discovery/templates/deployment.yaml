@@ -211,11 +211,6 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
-          - name: GOMEMLIMIT
-            valueFrom:
-              resourceFieldRef:
-                resource: limits.memory
-                divisor: "1"
           - name: GOMAXPROCS
             valueFrom:
               resourceFieldRef:
