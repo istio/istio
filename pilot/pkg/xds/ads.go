@@ -309,7 +309,43 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 	proxy.XdsNode = node
+
+	proxy.Metadata.EnableTrailingDot = model.StringBool(computeEnableTrailingDot(node, proxy.Metadata))
+
 	return proxy, nil
+}
+
+// computeEnableTrailingDot determines whether trailing dots should be enabled for this client.
+// Computed once at connection time and cached in proxy.Metadata.EnableTrailingDot.
+//
+// Precedence: client metadata (TRAILING_DOT) > user agent detection > system default
+func computeEnableTrailingDot(node *core.Node, metadata *model.NodeMetadata) bool {
+	if node == nil || metadata == nil {
+		// Default to system-wide setting
+		return features.EnableAbsoluteFqdnVhostDomain
+	}
+
+	// Check for explicit client metadata override
+	if trailingDotRaw, exists := metadata.Raw["TRAILING_DOT"]; exists {
+		switch v := trailingDotRaw.(type) {
+		case string:
+			if parsed, err := strconv.ParseBool(v); err == nil {
+				return parsed
+			}
+			log.Warnf("Invalid TRAILING_DOT value %q for node %s, falling back to auto-detection", v, node.GetId())
+		case bool:
+			return v
+		default:
+			log.Warnf("TRAILING_DOT must be string or bool, got %T for node %s", trailingDotRaw, node.GetId())
+		}
+	}
+
+	// Auto-detect gRPC Java clients
+	if node.GetUserAgentName() == "gRPC Java" {
+		return false
+	}
+
+	return features.EnableAbsoluteFqdnVhostDomain
 }
 
 // setTopologyLabels sets locality, cluster, network label
