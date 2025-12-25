@@ -31,6 +31,15 @@ spec:
   hosts:
   - another.domain.example
   http:
+  - match:
+    - uri:
+        regex: /[^/]+/bar
+    name: default.grpc.1
+    route:
+    - destination:
+        host: httpbin.default.svc.domain.suffix
+        port:
+          number: 80
   - headers:
       request:
         add:
@@ -44,15 +53,6 @@ spec:
       uri:
         prefix: /foo/
     name: default.grpc.0
-    route:
-    - destination:
-        host: httpbin.default.svc.domain.suffix
-        port:
-          number: 80
-  - match:
-    - uri:
-        regex: /[^/]+/bar
-    name: default.grpc.1
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -73,6 +73,15 @@ spec:
   hosts:
   - first.domain.example
   http:
+  - match:
+    - uri:
+        regex: /[^/]+/bar
+    name: default.grpc.1
+    route:
+    - destination:
+        host: httpbin.default.svc.domain.suffix
+        port:
+          number: 80
   - headers:
       request:
         add:
@@ -86,15 +95,6 @@ spec:
       uri:
         prefix: /foo/
     name: default.grpc.0
-    route:
-    - destination:
-        host: httpbin.default.svc.domain.suffix
-        port:
-          number: 80
-  - match:
-    - uri:
-        regex: /[^/]+/bar
-    name: default.grpc.1
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
