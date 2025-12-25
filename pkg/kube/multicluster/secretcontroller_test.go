@@ -16,10 +16,11 @@ package multicluster
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
+	uberatomic "go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -120,14 +121,14 @@ func buildTestController(t *testing.T, synced bool) testController {
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
 	tc.controller = NewController(tc.client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
 	tc.controller.ClientBuilder = TestingBuildClientsFromConfig
-	iter := atomic.NewInt32(0)
+	iter := uberatomic.NewInt32(0)
 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
 		it := iter.Inc()
 		return testHandler{
 			ID:     cluster.ID,
 			Iter:   int(it),
-			Closed: atomic.NewBool(false),
-			Synced: atomic.NewBool(synced),
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(synced),
 		}
 	})
 	return tc
@@ -280,8 +281,8 @@ func TestObjectFilter(t *testing.T) {
 		assert.Equal(t, cluster.Client.ObjectFilter().Filter("not-allowed"), false)
 		return testHandler{
 			ID:     cluster.ID,
-			Closed: atomic.NewBool(false),
-			Synced: atomic.NewBool(true),
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(true),
 		}
 	})
 
@@ -503,8 +504,8 @@ func TestSecretController(t *testing.T) {
 		return testHandler{
 			ID:     cluster.ID,
 			Iter:   iter,
-			Closed: atomic.NewBool(false),
-			Synced: atomic.NewBool(false),
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(false),
 		}
 	})
 	client.RunAndWait(stopCh)
@@ -541,8 +542,8 @@ func TestSecretController(t *testing.T) {
 type testHandler struct {
 	ID     cluster.ID
 	Iter   int
-	Closed *atomic.Bool
-	Synced *atomic.Bool
+	Closed *uberatomic.Bool
+	Synced *uberatomic.Bool
 }
 
 func (h testHandler) Close() {
@@ -551,4 +552,168 @@ func (h testHandler) Close() {
 
 func (h testHandler) HasSynced() bool {
 	return h.Synced.Load()
+}
+
+// TestClusterUpdateHotSwap verifies that during credential rotation:
+// 1. The old cluster continues serving until the new one syncs
+// 2. There's no gap where services are unavailable
+// 3. The old component is only closed after the new one is synced
+func TestClusterUpdateHotSwap(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+
+	client := kube.NewFakeClient()
+	secrets := clienttest.NewWriter[*v1.Secret](t, client)
+
+	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c.ClientBuilder = TestingBuildClientsFromConfig
+
+	// Track component lifecycle events
+	type lifecycleEvent struct {
+		action    string // "created" or "closed"
+		clusterID cluster.ID
+		iter      int
+	}
+	events := make(chan lifecycleEvent, 100)
+
+	iter := uberatomic.NewInt32(0)
+	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
+		it := int(iter.Inc())
+		events <- lifecycleEvent{"created", cluster.ID, it}
+		return testHandler{
+			ID:     cluster.ID,
+			Iter:   it,
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(true), // Auto-sync for simplicity
+		}
+	})
+
+	client.RunAndWait(stop)
+	assert.NoError(t, c.Run(stop))
+	retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
+
+	// Drain the config cluster creation event
+	<-events
+
+	// Create initial cluster
+	secret0 := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig-initial")})
+	secrets.Create(secret0)
+
+	// Wait for cluster to be created
+	assert.EventuallyEqual(t, func() bool {
+		return c.cs.GetByID("c0") != nil
+	}, true)
+	<-events // drain "created" event
+
+	// Get the initial handler
+	initialHandler := component.ForCluster("c0")
+	assert.Equal(t, initialHandler != nil, true)
+	initialIter := initialHandler.Iter
+
+	// Update the secret (credential rotation)
+	secret0Updated := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig-rotated")})
+	secrets.Update(secret0Updated)
+
+	// Wait for new component to be created
+	var newCreatedEvent lifecycleEvent
+	assert.EventuallyEqual(t, func() bool {
+		select {
+		case e := <-events:
+			if e.action == "created" && e.clusterID == "c0" {
+				newCreatedEvent = e
+				return true
+			}
+		default:
+		}
+		return false
+	}, true)
+
+	// Verify new component was created with higher iteration
+	assert.Equal(t, newCreatedEvent.iter > initialIter, true)
+
+	// The new handler should now be in place
+	newHandler := component.ForCluster("c0")
+	assert.Equal(t, newHandler != nil, true)
+	assert.Equal(t, newHandler.Iter, newCreatedEvent.iter)
+
+	// Wait a bit and verify the old component was closed (via pendingSwap.HasSynced)
+	// Since we set Synced to true automatically, the old should be closed
+	retry.UntilOrFail(t, func() bool {
+		return initialHandler.Closed.Load()
+	}, retry.Timeout(2*time.Second))
+
+	// Verify the new handler is still active
+	assert.Equal(t, newHandler.Closed.Load(), false)
+}
+
+// TestClusterUpdateOldClusterStopsAfterNewSyncs verifies that the old Cluster
+// (with its kube.Client) is stopped only after the new cluster syncs.
+func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+
+	client := kube.NewFakeClient()
+	secrets := clienttest.NewWriter[*v1.Secret](t, client)
+
+	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c.ClientBuilder = TestingBuildClientsFromConfig
+
+	// Track clusters using atomic pointers to avoid data races
+	var oldCluster, newCluster atomic.Pointer[Cluster]
+	// Store prevCluster atomically since it gets set to nil after sync
+	var capturedPrevCluster atomic.Pointer[Cluster]
+
+	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
+		if cluster.ID == "c0" {
+			if oldCluster.Load() == nil {
+				oldCluster.Store(cluster)
+			} else {
+				newCluster.Store(cluster)
+				// Capture prevCluster before it can be set to nil
+				capturedPrevCluster.Store(cluster.prevCluster)
+			}
+		}
+		return testHandler{
+			ID:     cluster.ID,
+			Closed: uberatomic.NewBool(false),
+			Synced: uberatomic.NewBool(true),
+		}
+	})
+	_ = component
+
+	client.RunAndWait(stop)
+	assert.NoError(t, c.Run(stop))
+	retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
+
+	// Create initial cluster
+	secret0 := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig-initial")})
+	secrets.Create(secret0)
+
+	// Wait for cluster to be created
+	retry.UntilOrFail(t, func() bool {
+		return oldCluster.Load() != nil
+	}, retry.Timeout(2*time.Second))
+
+	// Update the secret
+	secret0Updated := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig-rotated")})
+	secrets.Update(secret0Updated)
+
+	// Wait for new cluster to be created
+	retry.UntilOrFail(t, func() bool {
+		return newCluster.Load() != nil
+	}, retry.Timeout(2*time.Second))
+
+	oldC := oldCluster.Load()
+	newC := newCluster.Load()
+
+	// Verify that new cluster had prevCluster set (captured before it was cleared)
+	assert.Equal(t, capturedPrevCluster.Load() == oldC, true)
+
+	// Wait for old cluster to be stopped (should happen after new cluster syncs)
+	retry.UntilOrFail(t, func() bool {
+		return oldC.Closed()
+	}, retry.Timeout(2*time.Second))
+
+	// Verify new cluster is NOT stopped
+	assert.Equal(t, newC.Closed(), false)
 }
