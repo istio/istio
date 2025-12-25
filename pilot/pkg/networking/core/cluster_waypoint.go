@@ -529,6 +529,9 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 func h2connectUpgrade() map[string]*anypb.Any {
 	return map[string]*anypb.Any{
 		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				IdleTimeout: durationpb.New(features.EnvoyHBONEIdleTimeout),
+			},
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
@@ -554,6 +557,7 @@ func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
 				// TODO(https://github.com/istio/istio/issues/58039): remove it after deploying a sensible
 				// connection pooling fix for ambient multi-network.
 				MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 1},
+				IdleTimeout:              durationpb.New(features.EnvoyHBONEIdleTimeout),
 			},
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
