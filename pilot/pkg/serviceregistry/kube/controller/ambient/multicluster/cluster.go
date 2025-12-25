@@ -202,16 +202,21 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 
 	opts := krt.NewOptionsBuilder(c.stop, fmt.Sprintf("ambient/cluster[%s]", c.ID), debugger)
 	namespaces := kclient.New[*corev1.Namespace](c.Client)
-	// This will start a namespace informer and wait for it to be ready. So we must start it in a go routine to avoid blocking.
-	filter := filter.NewDiscoveryNamespacesFilter(namespaces, localMeshConfig, c.stop)
+	// When this cluster stops, clean up the namespace watcher
+	go func() {
+		<-c.stop
+		namespaces.ShutdownHandlers()
+	}()
+	// This will start a namespace informer but DON'T wait for it to be ready because that will block
+	filter, syncWaiter := filter.NewDiscoveryNamespacesFilterNoWait(namespaces, localMeshConfig, c.stop)
 	kube.SetObjectFilter(c.Client, filter)
 	// Register all of the informers before starting the client
 	defaultFilter := kclient.Filter{
 		ObjectFilter: c.Client.ObjectFilter(),
 	}
 
-	Namespaces := krt.WrapClient(namespaces, opts.With(
-		krt.WithName("informer/Namespaces"),
+	Namespaces := krt.WrapClient(namespaces, append(
+		opts.WithName("informer/Namespaces"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
@@ -220,23 +225,23 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
 		FieldSelector:   "status.phase!=Failed",
-	}, opts.With(
-		krt.WithName("informer/Pods"),
+	}, append(
+		opts.WithName("informer/Pods"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
 	)...)
 
 	gatewayClient := kclient.NewDelayedInformer[*gatewayv1.Gateway](c.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, defaultFilter)
-	Gateways := krt.WrapClient[*gatewayv1.Gateway](gatewayClient, opts.With(
-		krt.WithName("informer/Gateways"),
+	Gateways := krt.WrapClient[*gatewayv1.Gateway](gatewayClient, append(
+		opts.WithName("informer/Gateways"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
 	)...)
 	servicesClient := kclient.NewFiltered[*corev1.Service](c.Client, defaultFilter)
-	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
-		krt.WithName("informer/Services"),
+	Services := krt.WrapClient[*corev1.Service](servicesClient, append(
+		opts.WithName("informer/Services"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
@@ -245,8 +250,8 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	Nodes := krt.NewFilteredInformer[*corev1.Node](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripNodeUnusedFields,
-	}, opts.With(
-		krt.WithName("informer/Nodes"),
+	}, append(
+		opts.WithName("informer/Nodes"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
@@ -254,8 +259,8 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 
 	EndpointSlices := krt.NewFilteredInformer[*discovery.EndpointSlice](c.Client, kclient.Filter{
 		ObjectFilter: c.Client.ObjectFilter(),
-	}, opts.With(
-		krt.WithName("informer/EndpointSlices"),
+	}, append(
+		opts.WithName("informer/EndpointSlices"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
@@ -271,6 +276,8 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	}
 
 	go func() {
+		log.Debugf("Waiting for discovery filter sync for cluster %s before starting all the other informers", c.ID)
+		syncWaiter(c.stop)
 		if !c.Client.RunAndWait(c.stop) {
 			log.Warnf("remote cluster %s failed to sync", c.ID)
 			return

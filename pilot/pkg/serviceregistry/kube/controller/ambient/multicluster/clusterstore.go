@@ -27,8 +27,9 @@ import (
 type ClusterStore struct {
 	sync.RWMutex
 	// keyed by secret key(ns/name)->clusterID
-	remoteClusters map[string]map[cluster.ID]*Cluster
-	clusters       sets.String
+	remoteClusters       map[string]map[cluster.ID]*Cluster
+	clusters             sets.String
+	clustersAwaitingSync sets.Set[cluster.ID]
 	*krt.RecomputeTrigger
 }
 
@@ -142,4 +143,26 @@ func (c *ClusterStore) HasSynced() bool {
 	}
 
 	return true
+}
+
+func (c *ClusterStore) TriggerRecomputeOnSync(id cluster.ID) {
+	cluster := c.GetByID(id)
+	if cluster == nil {
+		log.Debugf("cluster %s not found in store to trigger recompute", id)
+		return
+	}
+	c.Lock()
+	c.clustersAwaitingSync.Insert(id)
+	c.Unlock()
+
+	go func() {
+		// Wait until the cluster is synced. If it's deleted from the store before
+		// it's fully synced, this will return because of the stop.
+		// Double check to make sure this cluster is still in the store
+		// and that it wasn't closed/timed out (we don't want to send an event for bad clusters)
+		if cluster.WaitUntilSynced(cluster.stop) && !cluster.Closed() && !cluster.SyncDidTimeout() && c.GetByID(id) != nil {
+			// Let dependent krt collections know that this cluster is ready to use
+			c.TriggerRecomputation()
+		}
+	}()
 }

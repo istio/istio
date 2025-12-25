@@ -115,6 +115,8 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 			}
 			// stop previous remote cluster
 			prev.Stop()
+			prev.Client.Shutdown()
+			log.Debugf("Shutdown previous remote cluster %s for secret %s due to update", clusterID, secretKey)
 		} else if a.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
 			logger.Warnf("cluster has already been registered")
@@ -129,10 +131,13 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 			continue
 		}
 
-		// Run returns after initializing the cluster's fields; it runs all of the expensive operations
-		// in a goroutine, so we can safely call it synchronously here.
-		remoteCluster.Run(a.meshConfig, debugger)
+		// Store before we run so that a bad secret doesn't block adding the cluster to the store.
+		// This is necessary so that changes to the bad secret are processed as an update and the bad
+		// cluster is stopped and shutdown.
 		a.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
+		// Run returns after initializing the cluster's fields; it runs all of the expensive operations
+		// in a goroutine (including discovery filter sync), so we can safely call it synchronously here.
+		remoteCluster.Run(a.meshConfig, debugger)
 		addedClusters = append(addedClusters, remoteCluster)
 	}
 
@@ -248,6 +253,18 @@ func (a *index) buildRemoteClustersCollection(
 		var remoteClusters []*multicluster.Cluster
 		for _, clusters := range remoteClustersBySecretThenID {
 			for _, cluster := range clusters {
+				// Don't return closed or timed out clusters
+				if cluster.Closed() || cluster.SyncDidTimeout() {
+					log.Warnf("remote cluster %s is closed or timed out, omitting it from the clusters collection", cluster.ID)
+					continue
+				}
+				// Don't return clusters that aren't fully synced
+				// We'll trigger recompute when they do sync (if they're healthy and still part of the store)
+				if !cluster.HasSynced() {
+					log.Debugf("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cluster.ID)
+					a.cs.TriggerRecomputeOnSync(cluster.ID)
+					continue
+				}
 				remoteClusters = append(remoteClusters, cluster)
 			}
 		}
