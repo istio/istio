@@ -791,47 +791,8 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 	server *networking.Server, listenerPort uint32,
 	gatewayName string, tlsHostsByPort map[uint32]map[string]string,
 ) []*filterChainOpts {
-	// We have a TCP/TLS server. This could be TLS termination (user specifies server.TLS with simple/mutual)
-	// or opaque TCP (server.TLS is nil). or it could be a TLS passthrough with SNI based routing.
 
-	// This is opaque TCP server. Find matching virtual services with TCP blocks and forward
-	if server.Tls == nil {
-		if filters := lb.buildGatewayNetworkFiltersFromTCPRoutes(server, gatewayName); len(filters) > 0 {
-			return []*filterChainOpts{
-				{
-					sniHosts:       nil,
-					tlsContext:     nil,
-					networkFilters: filters,
-				},
-			}
-		}
-		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
-	} else if !gateway.IsPassThroughServer(server) {
-		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
-		// and forward to backend
-		// Validation ensures that non-passthrough servers will have certs
-		if filters := lb.buildGatewayNetworkFiltersFromTCPRoutes(server, gatewayName); len(filters) > 0 {
-			return []*filterChainOpts{
-				{
-					sniHosts:       lb.node.MergedGateway.TLSServerInfo[server].SNIHosts,
-					tlsContext:     buildGatewayListenerTLSContext(lb.push, server, lb.node, istionetworking.TransportProtocolTCP),
-					networkFilters: filters,
-				},
-			}
-		}
-		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
-	} else {
-		// Passthrough server.
-		return lb.buildGatewayNetworkFiltersFromTLSRoutes(server, listenerPort, gatewayName, tlsHostsByPort)
-	}
-
-	return []*filterChainOpts{}
-}
-
-// buildGatewayNetworkFiltersFromTCPRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
-// It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
-// server's port and hostnames, and produces network filters for each destination from the filtered services.
-func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *networking.Server, gateway string) []*listener.Filter {
+	filterChains := make([]*filterChainOpts, 0)
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
@@ -843,10 +804,55 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		gatewayServerHosts.Insert(host.Name(hostname))
 	}
 
-	virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gateway)
+	virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gatewayName)
 	if len(virtualServices) == 0 {
-		log.Warnf("no virtual service bound to gateway: %v", gateway)
+		log.Warnf("no virtual service bound to gateway: %v", gatewayName)
+		return filterChains
 	}
+
+	// We have a TCP/TLS server. This could be TLS termination (user specifies server.TLS with simple/mutual)
+	// or opaque TCP (server.TLS is nil). or it could be a TLS passthrough with SNI based routing.
+	// This is opaque TCP server. Find matching virtual services with TCP blocks and forward
+	if server.Tls == nil {
+		if filters := lb.buildGatewayNetworkFiltersFromTCPRoutes(server,
+			gatewayName,
+			virtualServices,
+			port,
+			gatewayServerHosts); len(filters) > 0 {
+			return []*filterChainOpts{
+				{
+					sniHosts:       nil,
+					tlsContext:     nil,
+					networkFilters: filters,
+				},
+			}
+		}
+		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
+	} else {
+		return lb.buildGatewayNetworkFiltersFromTLS(server,
+			listenerPort,
+			gatewayName,
+			tlsHostsByPort,
+			virtualServices,
+			port,
+			gatewayServerHosts,
+		)
+	}
+
+	return []*filterChainOpts{}
+}
+
+// buildGatewayNetworkFiltersFromTCPRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
+// It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
+// server's port and hostnames, and produces network filters for each destination from the filtered services.
+func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(
+	server *networking.Server,
+	gatewayName string,
+	virtualServices []config.Config,
+	port *model.Port,
+	gatewayServerHosts sets.Set[host.Name],
+) []*listener.Filter {
+
 	for _, v := range virtualServices {
 		vsvc := v.Spec.(*networking.VirtualService)
 		// We have two cases here:
@@ -863,7 +869,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		// For the moment, there can be only one match that succeeds
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
-			if l4MultiMatch(tcp.Match, server, gateway) {
+			if l4MultiMatch(tcp.Match, server, gatewayName) {
 				includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
 				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
 			}
@@ -873,42 +879,76 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 	return nil
 }
 
-// buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TLS blocks.
+// buildGatewayNetworkFiltersFromTLS builds tcp proxy routes for all VirtualServices with TLS or TCP blocks.
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
-// server's port and hostnames, and produces network filters for each destination from the filtered services
-func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *networking.Server,
-	listenerPort uint32, gatewayName string, tlsHostsByPort map[uint32]map[string]string,
+// server's port and hostnames, checks if this is a TCP or a TLS route and produces
+// network filters for each destination from the filtered services. Depending on the
+// Passthrough configuration it will also add a tlsContext to the network filter.
+func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLS(
+	server *networking.Server,
+	listenerPort uint32,
+	gatewayName string,
+	tlsHostsByPort map[uint32]map[string]string,
+	virtualServices []config.Config,
+	port *model.Port,
+	gatewayServerHosts sets.Set[host.Name],
 ) []*filterChainOpts {
-	port := &model.Port{
-		Name:     server.Port.Name,
-		Port:     int(server.Port.Number),
-		Protocol: protocol.Parse(server.Port.Protocol),
+
+	if server.Tls != nil && server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+		return builtAutoPassthroughFilterChains(lb.push, lb.node, lb.node.MergedGateway.TLSServerInfo[server].SNIHosts)
 	}
 
-	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
-	for _, hostname := range server.Hosts {
-		gatewayServerHosts.Insert(host.Name(hostname))
+	// tlsContext should be intentionally null in case this is a Passthrough server
+	var tlsContext *tls.DownstreamTlsContext
+	if !gateway.IsPassThroughServer(server) {
+		tlsContext = buildGatewayListenerTLSContext(lb.push, server, lb.node, istionetworking.TransportProtocolTCP)
 	}
 
 	filterChains := make([]*filterChainOpts, 0)
 
-	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
-		filterChains = append(filterChains, builtAutoPassthroughFilterChains(lb.push, lb.node, lb.node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
-	} else {
-		virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gatewayName)
-		for _, v := range virtualServices {
-			vsvc := v.Spec.(*networking.VirtualService)
-			// We have two cases here:
-			// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
-			// 2. virtualService hosts are *.foo.com, and gateway's hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
-			// The code below only handles 1.
-			// TODO: handle case 2
-			matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, v)
-			if len(matchingHosts) == 0 {
-				// the VirtualService's hosts don't include hosts advertised by server
-				continue
-			}
+	var foundTLS bool
+	for _, v := range virtualServices {
+		vsvc := v.Spec.(*networking.VirtualService)
+		// We have two cases here:
+		// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
+		// 2. virtualService hosts are *.foo.com, and gateway's hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
+		// Since this is TCP, neither matters. We are simply looking for matching virtual service for this gateway
+		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, v)
+		if len(matchingHosts) == 0 {
+			// the VirtualService's hosts don't include hosts advertised by server
+			continue
+		}
 
+		if len(vsvc.Tcp) > 0 {
+			// in case we've found tls on another service, or on this one we should
+			// ignore this service
+			if len(vsvc.Tls) > 0 || foundTLS {
+				// If another vsvc was found with TLS, avoid mixing it for now
+				// TODO: clarify if we want this behavior
+				log.Warnf("mixed TLS/TCP support not supported, gateway %s", gatewayName)
+				return []*filterChainOpts{}
+			}
+			// ensure we satisfy the rule's l4 match conditions, if any exist
+			// For the moment, there can be only one match that succeeds
+			// based on the match port/server port and the gateway name
+			for _, tcp := range vsvc.Tcp {
+				if l4MultiMatch(tcp.Match, server, gatewayName) {
+					includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
+					filters := lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
+					if len(filters) == 0 {
+						log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
+						return []*filterChainOpts{}
+					}
+					return []*filterChainOpts{
+						{
+							sniHosts:       lb.node.MergedGateway.TLSServerInfo[server].SNIHosts,
+							tlsContext:     tlsContext,
+							networkFilters: filters,
+						},
+					}
+				}
+			}
+		} else {
 			// For every matching TLS block, generate a filter chain with sni match
 			// TODO: Bug..if there is a single virtual service with *.foo.com, and multiple TLS block
 			// matches, one for 1.foo.com, another for 2.foo.com, this code will produce duplicate filter
@@ -933,15 +973,17 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 						// the sni hosts in the match will become part of a filter chain match
 						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
-							tlsContext:     nil, // NO TLS context because this is passthrough
+							tlsContext:     tlsContext,
 							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false),
 						})
+						foundTLS = true
 					}
 				}
 			}
-		}
-	}
 
+		}
+
+	}
 	return filterChains
 }
 
