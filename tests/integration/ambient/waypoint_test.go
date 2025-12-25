@@ -765,13 +765,19 @@ spec:
 				Count:   1,
 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			})
-
+			// BackendTLSPolicy requires TLS secret propagation to the waypoint proxy.
+			// Envoy may return 503 while secrets are warming, so retry until ready.
 			runTest(t, "http origination route with BackendTLSPolicy", backendTLSPolicy("https")+httpRoute, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
 				Count:   1,
-				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+				Retry: echo.Retry{
+					Options: []retry.Option{
+						retry.Timeout(2 * time.Minute),
+					},
+				},
+				Check: check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			})
 
 			authz := `apiVersion: security.istio.io/v1
