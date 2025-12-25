@@ -16,7 +16,7 @@ typedConfig:
     - key: istio_ext_authz_shadow_effective_policy_id
     value:
       stringMatch:
-        prefix: istio-ext-authz
+        prefix: istio-ext-authz-default
   httpService:
     authorizationRequest:
       headersToAdd:
