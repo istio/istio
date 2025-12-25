@@ -115,25 +115,25 @@ func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
 	return pluginType == WasmPluginTypeAny || pluginType == fromPluginType(p.WasmPlugin.Type)
 }
 
-func (p *WasmPluginWrapper) BuildHTTPWasmFilter(proxy *Proxy) *httpwasm.Wasm {
+func (p *WasmPluginWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
 	if !(p.Type == extensions.PluginType_HTTP || p.Type == extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE) {
 		return nil
 	}
 	return &httpwasm.Wasm{
-		Config: p.buildPluginConfig(proxy),
+		Config: p.buildPluginConfig(),
 	}
 }
 
-func (p *WasmPluginWrapper) BuildNetworkWasmFilter(proxy *Proxy) *networkwasm.Wasm {
+func (p *WasmPluginWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
 	if p.Type != extensions.PluginType_NETWORK {
 		return nil
 	}
 	return &networkwasm.Wasm{
-		Config: p.buildPluginConfig(proxy),
+		Config: p.buildPluginConfig(),
 	}
 }
 
-func (p *WasmPluginWrapper) buildPluginConfig(proxy *Proxy) *wasmextensions.PluginConfig {
+func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
 	cfg := &anypb.Any{}
 	plugin := p.WasmPlugin
 	if plugin.PluginConfig != nil && len(plugin.PluginConfig.Fields) > 0 {
@@ -167,22 +167,14 @@ func (p *WasmPluginWrapper) buildPluginConfig(proxy *Proxy) *wasmextensions.Plug
 		Vm:            buildVMConfig(datasource, p.ResourceVersion, plugin),
 	}
 
-	// FailOpen is deprecated in 1.25, remove this once v1.25 is EOL.
-	if proxy.VersionGreaterOrEqual(&IstioVersion{Major: 1, Minor: 25, Patch: 0}) {
-		switch plugin.FailStrategy {
-		case extensions.FailStrategy_FAIL_OPEN:
-			wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
-		case extensions.FailStrategy_FAIL_CLOSE:
-			wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
-		case extensions.FailStrategy_FAIL_RELOAD:
-			wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_RELOAD
-		}
-		// TODO: support more failure policies
-	} else {
-		// nolint: staticcheck // FailOpen deprecated in 1.25
-		wasmConfig.FailOpen = plugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN
+	switch plugin.FailStrategy {
+	case extensions.FailStrategy_FAIL_OPEN:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
+	case extensions.FailStrategy_FAIL_CLOSE:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
+	case extensions.FailStrategy_FAIL_RELOAD:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_RELOAD
 	}
-
 	return wasmConfig
 }
 
