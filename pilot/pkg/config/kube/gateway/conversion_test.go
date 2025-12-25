@@ -886,7 +886,7 @@ func TestSortHTTPRoutes(t *testing.T) {
 			},
 		},
 		{
-			"path matching exact > prefix  > regex",
+			"path matching exact > regex > prefix",
 			[]*istio.HTTPRoute{
 				{
 					Match: []*istio.HTTPMatchRequest{
@@ -938,8 +938,8 @@ func TestSortHTTPRoutes(t *testing.T) {
 					Match: []*istio.HTTPMatchRequest{
 						{
 							Uri: &istio.StringMatch{
-								MatchType: &istio.StringMatch_Prefix{
-									Prefix: "/",
+								MatchType: &istio.StringMatch_Regex{
+									Regex: ".*foo",
 								},
 							},
 						},
@@ -949,8 +949,8 @@ func TestSortHTTPRoutes(t *testing.T) {
 					Match: []*istio.HTTPMatchRequest{
 						{
 							Uri: &istio.StringMatch{
-								MatchType: &istio.StringMatch_Regex{
-									Regex: ".*foo",
+								MatchType: &istio.StringMatch_Prefix{
+									Prefix: "/",
 								},
 							},
 						},
@@ -1312,6 +1312,57 @@ func TestSortHTTPRoutes(t *testing.T) {
 									MatchType: &istio.StringMatch_Exact{
 										Exact: "value1",
 									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"RegularExpression route matched before PathPrefix when both match same path",
+			[]*istio.HTTPRoute{
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Prefix{
+									Prefix: "/api",
+								},
+							},
+						},
+					},
+				},
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Regex{
+									Regex: "/api/test/[0-9a-z-]+",
+								},
+							},
+						},
+					},
+				},
+			},
+			[]*istio.HTTPRoute{
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Regex{
+									Regex: "/api/test/[0-9a-z-]+",
+								},
+							},
+						},
+					},
+				},
+				{
+					Match: []*istio.HTTPMatchRequest{
+						{
+							Uri: &istio.StringMatch{
+								MatchType: &istio.StringMatch_Prefix{
+									Prefix: "/api",
 								},
 							},
 						},
