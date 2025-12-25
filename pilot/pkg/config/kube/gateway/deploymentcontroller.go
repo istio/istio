@@ -156,6 +156,10 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 		res[constants.RemoteGatewayClassName] = constants.UnmanagedGatewayController
 	}
 
+	if features.EnableAgentgateway {
+		res[constants.AgentgatewayClassName] = constants.ManagedAgentgatewayController
+	}
+
 	if features.EnableAmbientWaypoints {
 		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
 	}
@@ -204,6 +208,17 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			// In particular, Istio across different versions consumes different address types, so this retains compat
 			addressType:     "",
 			controllerLabel: constants.ManagedGatewayMeshControllerLabel,
+		}
+	}
+	if features.EnableAgentgateway {
+		m[constants.ManagedAgentgatewayController] = classInfo{
+			controller:          constants.ManagedAgentgatewayController,
+			description:         "Istio with Agentgateway.",
+			templates:           "agentgateway",
+			defaultServiceType:  corev1.ServiceTypeLoadBalancer,
+			addressType:         gateway.HostnameAddressType,
+			controllerLabel:     constants.ManagedGatewayControllerLabel,
+			supportsListenerSet: true,
 		}
 	}
 
@@ -687,10 +702,11 @@ type derivedInput struct {
 	TemplateInput
 
 	// Inserted from injection config
-	ProxyImage  string
-	ProxyConfig *meshapi.ProxyConfig
-	MeshConfig  *meshapi.MeshConfig
-	Values      map[string]any
+	ProxyImage        string
+	AgentgatewayImage string
+	ProxyConfig       *meshapi.ProxyConfig
+	MeshConfig        *meshapi.MeshConfig
+	Values            map[string]any
 }
 
 func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]string, error) {
@@ -727,6 +743,11 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 	input := derivedInput{
 		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
+			cfg.Values.Struct(),
+			proxyConfig.GetImage(),
+			mi.Annotations,
+		),
+		AgentgatewayImage: inject.AgentgatewayImage(
 			cfg.Values.Struct(),
 			proxyConfig.GetImage(),
 			mi.Annotations,
