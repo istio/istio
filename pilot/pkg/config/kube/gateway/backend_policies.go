@@ -131,7 +131,7 @@ func DestinationRuleCollection(
 	c *Controller,
 	services krt.Collection[*v1.Service],
 	opts krt.OptionsBuilder,
-) krt.Collection[*config.Config] {
+) krt.Collection[config.Config] {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
@@ -150,7 +150,7 @@ func DestinationRuleCollection(
 	indexOpts := append(opts.WithName("BackendPolicyByTarget"), TypedNamespacedNamePerHostIndexCollectionFunc)
 	merged := krt.NewCollection(
 		byTargetAndHost.AsCollection(indexOpts...),
-		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamespacedNamePerHost, BackendPolicy]) **config.Config {
+		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamespacedNamePerHost, BackendPolicy]) *config.Config {
 			// Sort so we can pick the oldest, which will win.
 			// Not yet standardized but likely will be (https://github.com/kubernetes-sigs/gateway-api/issues/3516#issuecomment-2684039692)
 			pols := slices.SortFunc(i.Objects, func(a, b BackendPolicy) int {
@@ -264,7 +264,7 @@ func DestinationRuleCollection(
 				spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 			}
 
-			cfg := &config.Config{
+			return &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
 					Name:             generateDRName(target, host),
@@ -275,7 +275,6 @@ func DestinationRuleCollection(
 				},
 				Spec: spec,
 			}
-			return &cfg
 		}, opts.WithName("BackendPolicyMerged")...)
 	return merged
 }

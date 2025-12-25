@@ -49,7 +49,6 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -125,9 +124,10 @@ type TypedResource struct {
 
 type Outputs struct {
 	Gateways                krt.Collection[Gateway]
-	VirtualServices         krt.Collection[*config.Config]
+	GatewayConfigs          krt.Collection[config.Config]
+	VirtualServices         krt.Collection[config.Config]
 	ReferenceGrants         ReferenceGrants
-	DestinationRules        krt.Collection[*config.Config]
+	DestinationRules        krt.Collection[config.Config]
 	InferencePools          krt.Collection[InferencePool]
 	InferencePoolsByGateway krt.Index[types.NamespacedName, InferencePool]
 }
@@ -272,6 +272,13 @@ func NewController(
 		opts,
 	)
 
+	GatewayConfigs := krt.NewCollection(Gateways, func(ctx krt.HandlerContext, i Gateway) *config.Config {
+		if i.Valid {
+			return i.Config
+		}
+		return nil
+	}, opts.WithName("GatewayConfigs")...)
+
 	InferencePoolStatus, InferencePools := InferencePoolCollection(
 		inputs.InferencePools,
 		inputs.Services,
@@ -362,7 +369,7 @@ func NewController(
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
 	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
+	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
 		tcpRoutes.VirtualServices,
 		tlsRoutes.VirtualServices,
 		httpRoutes.VirtualServices,
@@ -376,6 +383,7 @@ func NewController(
 	outputs := Outputs{
 		ReferenceGrants:         ReferenceGrants,
 		Gateways:                Gateways,
+		GatewayConfigs:          GatewayConfigs,
 		VirtualServices:         VirtualServices,
 		DestinationRules:        DestinationRules,
 		InferencePools:          InferencePools,
@@ -385,7 +393,7 @@ func NewController(
 
 	handlers = append(handlers,
 		outputs.VirtualServices.RegisterBatch(pushXds(xdsUpdater,
-			func(t *config.Config) model.ConfigKey {
+			func(t config.Config) model.ConfigKey {
 				return model.ConfigKey{
 					Kind:      kind.VirtualService,
 					Name:      t.Name,
@@ -393,7 +401,7 @@ func NewController(
 				}
 			}), false),
 		outputs.DestinationRules.RegisterBatch(pushXds(xdsUpdater,
-			func(t *config.Config) model.ConfigKey {
+			func(t config.Config) model.ConfigKey {
 				return model.ConfigKey{
 					Kind:      kind.DestinationRule,
 					Name:      t.Name,
@@ -490,21 +498,11 @@ func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	switch typ {
 	case gvk.Gateway:
-		res := slices.MapFilter(c.outputs.Gateways.List(), func(g Gateway) *config.Config {
-			if g.Valid {
-				return g.Config
-			}
-			return nil
-		})
-		return res
+		return c.outputs.GatewayConfigs.List()
 	case gvk.VirtualService:
-		return slices.Map(c.outputs.VirtualServices.List(), func(e *config.Config) config.Config {
-			return *e
-		})
+		return c.outputs.VirtualServices.List()
 	case gvk.DestinationRule:
-		return slices.Map(c.outputs.DestinationRules.List(), func(e *config.Config) config.Config {
-			return *e
-		})
+		return c.outputs.DestinationRules.List()
 	default:
 		return nil
 	}
@@ -546,6 +544,19 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 	return errUnsupportedOp
 }
 
+func (c *Controller) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
+	switch typ {
+	case gvk.VirtualService:
+		return c.outputs.VirtualServices
+	case gvk.DestinationRule:
+		return c.outputs.DestinationRules
+	case gvk.Gateway:
+		return c.outputs.GatewayConfigs
+	default:
+		return nil
+	}
+}
+
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {
 	// We do not do event handler registration this way, and instead directly call the XDS Updated.
 }
@@ -577,6 +588,7 @@ func (c *Controller) HasSynced() bool {
 	if !(c.outputs.VirtualServices.HasSynced() &&
 		c.outputs.DestinationRules.HasSynced() &&
 		c.outputs.Gateways.HasSynced() &&
+		c.outputs.GatewayConfigs.HasSynced() &&
 		c.outputs.ReferenceGrants.collection.HasSynced()) {
 		return false
 	}
