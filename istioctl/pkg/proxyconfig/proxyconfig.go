@@ -538,7 +538,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 	}
 
 	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	allConfigCmd.PersistentFlags().BoolVar(&withHeaders, "with-headers", false, "Print summary with heading")
+	allConfigCmd.PersistentFlags().BoolVar(&withHeaders, "with-headers", false, "Print summary with headers")
 	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump file")
 	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
