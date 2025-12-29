@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 	"istio.io/istio/pkg/xds"
 )
 
@@ -276,7 +277,7 @@ type PushContext struct {
 
 	InitDone        atomic.Bool
 	initializeMutex sync.Mutex
-	AmbientIndexes
+	ambientIndex    AmbientIndexes
 }
 
 type consolidatedDestRules struct {
@@ -2159,9 +2160,6 @@ func (ps *PushContext) initWasmPlugins(env *Environment) {
 func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
 	listenerInfo := WasmPluginListenerInfo{}
 	if proxy.IsWaypointProxy() {
-		if ps.AmbientIndexes == nil {
-			return ps.WasmPluginsByListenerInfo(proxy, listenerInfo, WasmPluginTypeAny)
-		}
 		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
 		for _, si := range servicesInfo {
 			s := si.Service
@@ -2392,7 +2390,7 @@ func (ps *PushContext) initGateways(env *Environment) {
 }
 
 func (ps *PushContext) initAmbient(env *Environment) {
-	ps.AmbientIndexes = env
+	ps.ambientIndex = env
 }
 
 // InternalGatewayServiceAnnotation represents the hostname of the service a gateway will use. This is
@@ -2488,21 +2486,6 @@ func (ps *PushContext) AllInstancesSupportHBONE(service *Service, port *Port) bo
 		}
 	}
 	return true
-}
-
-// SupportsTunnel checks if a network/address supports tunneling (HBONE).
-// This checks if there are gateways for the network that support HBONE.
-func (ps *PushContext) SupportsTunnel(networkID network.ID, address string) bool {
-	if ps.networkMgr == nil {
-		return false
-	}
-	gateways := ps.networkMgr.GatewaysForNetwork(networkID)
-	for _, gw := range gateways {
-		if gw.HBONEPort != 0 {
-			return true
-		}
-	}
-	return false
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
@@ -2625,4 +2608,42 @@ func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string) []s
 		hostname:  hostname,
 		namespace: namespace,
 	}]
+}
+
+// SupportsTunnel checks if a given IP address supports tunneling.
+// This currently only accepts workload IPs as arguments; services will always return "false".
+func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
+	// There should be a 1:1 relationship between IP and Workload but the interface doesn't allow this lookup.
+	// We should get 0 or 1 workloads, so just return the first.
+	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
+	for _, wl := range ExtractWorkloadsFromAddresses(infos) {
+		if wl.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
+			return true
+		}
+	}
+	return false
+}
+
+// WorkloadsForWaypoint returns all workloads associated with a given waypoint identified by it's WaypointKey
+// Used when calculating the workloads which should be configured for a specific waypoint proxy
+func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
+	return ps.ambientIndex.WorkloadsForWaypoint(key)
+}
+
+// ServicesForWaypoint returns all services associated with a given waypoint identified by it's WaypointKey
+// Used when calculating the services which should be configured for a specific waypoint proxy
+func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
+	return ps.ambientIndex.ServicesForWaypoint(key)
+}
+
+// ServicesWithWaypoint returns all services associated with any waypoint.
+// Key can optionally be provided in the form 'namespace/hostname'. If unset, all are returned
+func (ps *PushContext) ServicesWithWaypoint(key string) []ServiceWaypointInfo {
+	return ps.ambientIndex.ServicesWithWaypoint(key)
+}
+
+// ServiceInfo returns the ambient info about the given service, if present.
+// Key identifiies the service and expected to be in the form of 'namespace/hostname'.
+func (ps *PushContext) ServiceInfo(key string) *ServiceInfo {
+	return ps.ambientIndex.ServiceInfo(key)
 }
