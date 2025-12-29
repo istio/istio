@@ -2604,8 +2604,10 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 // secret access.
 func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceName string, namespace string) bool {
 	// Currently, only Secret has reference policy, and only implemented by Gateway API controller.
+	// The kind parameter can be KubernetesGateway or XListenerSet (the gateway type making the request),
+	// but the actual resource being referenced is always a Secret.
 	switch kind {
-	case gvk.Secret:
+	case gvk.Secret, gvk.KubernetesGateway, gvk.XListenerSet:
 		return ps.secretAllowed(resourceName, namespace)
 	default:
 	}
