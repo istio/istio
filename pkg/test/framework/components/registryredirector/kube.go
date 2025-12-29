@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -53,8 +54,9 @@ type kubeComponent struct {
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	cluster := ctx.Clusters().GetOrDefault(cfg.Cluster)
 	c := &kubeComponent{
-		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
+		cluster: cluster,
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
@@ -82,28 +84,42 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		args["TargetRegistry"] = cfg.TargetRegistry
 	}
 
+	if len(cfg.Scheme) != 0 {
+		args["Scheme"] = cfg.Scheme
+	}
+
 	if len(cfg.Image) != 0 {
 		args["Image"] = cfg.Image
 	}
 
 	// apply YAML
-	if err := ctx.ConfigKube(c.cluster).EvalFile(c.ns.Name(), args, env.RegistryRedirectorServerInstallFilePath).Apply(); err != nil {
+	if err := ctx.ConfigKube(c.cluster).EvalFile(c.ns.Name(), args, env.RegistryRedirectorServerInstallFilePath).Apply(apply.CleanupConditionally); err != nil {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.RegistryRedirectorServerInstallFilePath, err)
 	}
 
-	fetchFn := testKube.NewPodFetch(ctx.Clusters().Default(), c.ns.Name(), podSelector)
+	fetchFn := testKube.NewPodFetch(cluster, c.ns.Name(), podSelector)
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), service); err != nil {
+	svc, _, err := testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), service)
+	if err != nil {
 		scopes.Framework.Infof("Error waiting for container registry service to be available: %v", err)
 		return nil, err
 	}
 
-	c.address = net.JoinHostPort(fmt.Sprintf("%s.%s", service, c.ns.Name()), "1338")
-	scopes.Framework.Infof("registry redirector server in-cluster address: %s", c.address)
+	if ctx.Environment().IsMultiCluster() {
+		lb, err := testKube.WaitUntilServiceLoadBalancerReady(c.cluster.Kube(), c.ns.Name(), service)
+		if err != nil {
+			scopes.Framework.Infof("Error waiting for container registry service LB to be available: %v", err)
+			return nil, err
+		}
+		c.address = net.JoinHostPort(lb, fmt.Sprint(svc.Spec.Ports[0].Port))
+	} else {
+		c.address = net.JoinHostPort(svc.Spec.ClusterIP, fmt.Sprint(svc.Spec.Ports[0].Port))
+	}
+	scopes.Framework.Infof("registry redirector server address: %s", c.address)
 
 	if len(pods) == 0 {
 		return nil, fmt.Errorf("no pod was selected for selector %q", podSelector)

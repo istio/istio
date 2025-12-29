@@ -1,0 +1,21 @@
+{{- if .Values.podDisruptionBudget }}
+# a workaround for https://github.com/kubernetes/kubernetes/issues/93476
+{{- if or (and .Values.autoscaling.enabled  (gt (int .Values.autoscaling.minReplicas) 1)) (and (not .Values.autoscaling.enabled) (gt (int .Values.replicaCount) 1)) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "gateway.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "gateway.name" . }}
+    {{- include "istio.labels" . | nindent 4}}
+    {{- include "gateway.labels" . | nindent 4}}
+spec:
+  selector:
+    matchLabels:
+  {{- include "gateway.selectorLabels" . | nindent 6 }}
+  {{- with .Values.podDisruptionBudget }}
+    {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}
+{{- end }}

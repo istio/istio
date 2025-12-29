@@ -1,7 +1,6 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -11,20 +10,15 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Resources available
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
-    reason: ListenersValid
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
     status: "True"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
+    type: Programmed
   listeners:
   - attachedRoutes: 2
     conditions:
@@ -40,19 +34,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -62,11 +46,12 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: backend-not-allowed
   namespace: istio-system
 spec: null
@@ -79,8 +64,8 @@ status:
       status: "True"
       type: Accepted
     - lastTransitionTime: fake
-      message: backendRef httpbin/default not accessible to a route in namespace "istio-system"
-        (missing a ReferenceGrant?)
+      message: backendRef httpbin/default not accessible to a HTTPRoute in namespace
+        "istio-system" (missing a ReferenceGrant?)
       reason: RefNotPermitted
       status: "False"
       type: ResolvedRefs
@@ -89,10 +74,9 @@ status:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http
   namespace: istio-system
 spec: null

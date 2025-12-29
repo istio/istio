@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** Waypoints missing the `ISTIO_META_NETWORK` field. It can be configured at install time using
+    `values.global.network` or overridden with `topology.istio.io/network` on the Kubernetes `Gateway` resource.

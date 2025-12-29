@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 44844
+releaseNotes:
+- |
+  **Fixed** `istioctl analyze` didn't work correctly when analyzing files containing resources that already exist in the cluster.

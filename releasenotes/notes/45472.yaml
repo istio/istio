@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 45472
+
+releaseNotes:
+- |
+  **Added** initial ambient support for WorkloadEntry. Fixes (#45472)[https://github.com/istio/istio/issues/45472).

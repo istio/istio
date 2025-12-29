@@ -1,9 +1,7 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -13,10 +11,9 @@ status:
     status: "True"
     type: Accepted
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -26,20 +23,15 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Resources available
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
-    reason: ListenersValid
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
     status: "True"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
+    type: Programmed
   listeners:
   - attachedRoutes: 1
     conditions:
@@ -55,19 +47,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -77,6 +59,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
   - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
@@ -91,19 +75,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -113,11 +87,12 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http
   namespace: apple
 spec: null
@@ -139,10 +114,9 @@ status:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http
   namespace: banana
 spec: null

@@ -23,25 +23,25 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
+	xdsutil "istio.io/istio/pkg/wellknown"
 )
 
 var testCla = &endpoint.ClusterLoadAssignment{
@@ -389,7 +389,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -397,7 +397,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -430,7 +430,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			nil,
 			&core.Metadata{
@@ -439,7 +439,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -453,7 +453,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{},
@@ -464,7 +464,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -478,7 +478,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -504,7 +504,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 							},
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -518,7 +518,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -548,7 +548,7 @@ func TestAddConfigInfoMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -583,7 +583,7 @@ func TestAddSubsetToMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},
@@ -597,7 +597,7 @@ func TestAddSubsetToMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"config": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
+									StringValue: "/apis/networking.istio.io/v1/namespaces/default/destination-rule/svcA",
 								},
 							},
 							"subset": {
@@ -624,6 +624,145 @@ func TestAddSubsetToMetadata(t *testing.T) {
 			got := v.in
 			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
 				tt.Errorf("AddSubsetToMetadata(%v, %s) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.subset, got, v.want, diff)
+			}
+		})
+	}
+}
+
+func TestAddALPNOverrideToMetadata(t *testing.T) {
+	alpnOverrideFalse := &core.Metadata{
+		FilterMetadata: map[string]*structpb.Struct{
+			IstioMetadataKey: {
+				Fields: map[string]*structpb.Value{
+					AlpnOverrideMetadataKey: {
+						Kind: &structpb.Value_StringValue{
+							StringValue: "false",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cases := []struct {
+		name    string
+		tlsMode networking.ClientTLSSettings_TLSmode
+		meta    *core.Metadata
+		want    *core.Metadata
+	}{
+		{
+			name:    "ISTIO_MUTUAL TLS",
+			tlsMode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+			meta:    nil,
+			want:    nil,
+		},
+		{
+			name:    "DISABLED TLS",
+			tlsMode: networking.ClientTLSSettings_DISABLE,
+			meta:    nil,
+			want:    nil,
+		},
+		{
+			name:    "SIMPLE TLS and nil metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta:    nil,
+			want:    alpnOverrideFalse,
+		},
+		{
+			name:    "MUTUAL TLS and nil metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta:    nil,
+			want:    alpnOverrideFalse,
+		},
+		{
+			name:    "SIMPLE TLS and empty metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			},
+			want: alpnOverrideFalse,
+		},
+		{
+			name:    "SIMPLE TLS and existing istio metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+							AlpnOverrideMetadataKey: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "false",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "SIMPLE TLS and existing non-istio metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"other-metadata": {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"other-metadata": {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							AlpnOverrideMetadataKey: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "false",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			got := AddALPNOverrideToMetadata(v.meta, v.tlsMode)
+			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
+				tt.Errorf("AddALPNOverrideToMetadata produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", got, v.want, diff)
 			}
 		})
 	}
@@ -779,6 +918,80 @@ func TestBuildAddress(t *testing.T) {
 	}
 }
 
+func TestGetEndpointHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint *endpoint.LbEndpoint
+		want     string
+	}{
+		{
+			name: "socket address",
+			endpoint: &endpoint.LbEndpoint{
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &core.Address{
+							Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{
+									Address: "10.0.0.1",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: "10.0.0.1",
+		},
+		{
+			name: "internal address",
+			endpoint: &endpoint.LbEndpoint{
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &core.Address{
+							Address: &core.Address_EnvoyInternalAddress{
+								EnvoyInternalAddress: &core.EnvoyInternalAddress{
+									AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
+										ServerListenerName: "connect_originate",
+									},
+									EndpointId: "10.0.0.1:80",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: "10.0.0.1",
+		},
+		{
+			name: "internal address(ipv6)",
+			endpoint: &endpoint.LbEndpoint{
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &core.Address{
+							Address: &core.Address_EnvoyInternalAddress{
+								EnvoyInternalAddress: &core.EnvoyInternalAddress{
+									AddressNameSpecifier: &core.EnvoyInternalAddress_ServerListenerName{
+										ServerListenerName: "connect_originate",
+									},
+									EndpointId: "[fd00:10:96::7fc7]:80",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: "fd00:10:96::7fc7",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetEndpointHost(tt.endpoint); got != tt.want {
+				t.Errorf("GetEndpointHost got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCidrRangeSliceEqual(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -909,23 +1122,23 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 }
 
 func TestEndpointMetadata(t *testing.T) {
-	test.SetForTest(t, &features.EndpointTelemetryLabel, true)
 	cases := []struct {
-		name         string
-		network      network.ID
-		tlsMode      string
-		workloadName string
-		clusterID    cluster.ID
-		namespace    string
-		labels       labels.Instance
-		want         *core.Metadata
+		name                   string
+		enableTelemetryLabel   bool
+		endpointTelemetryLabel bool
+		metadata               *model.EndpointMetadata
+		want                   *core.Metadata
 	}{
 		{
-			name:         "all empty",
-			tlsMode:      model.DisabledTLSModeLabel,
-			network:      "",
-			workloadName: "",
-			clusterID:    "",
+			name:                   "all empty",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.DisabledTLSModeLabel,
+				Network:      "",
+				WorkloadName: "",
+				ClusterID:    "",
+			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					IstioMetadataKey: {
@@ -941,40 +1154,15 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:         "tls mode",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "",
-			workloadName: "",
-			clusterID:    "",
-			want: &core.Metadata{
-				FilterMetadata: map[string]*structpb.Struct{
-					EnvoyTransportSocketMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							model.TLSModeLabelShortname: {
-								Kind: &structpb.Value_StringValue{
-									StringValue: model.IstioMutualTLSModeLabel,
-								},
-							},
-						},
-					},
-					IstioMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							"workload": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: ";;;;",
-								},
-							},
-						},
-					},
-				},
+			name:                   "tls mode",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "",
+				WorkloadName: "",
+				ClusterID:    "",
 			},
-		},
-		{
-			name:         "network and tls mode",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "network",
-			workloadName: "",
-			clusterID:    "",
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
@@ -999,15 +1187,52 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:         "all label",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "network",
-			workloadName: "workload",
-			clusterID:    "cluster",
-			namespace:    "default",
-			labels: labels.Instance{
-				model.IstioCanonicalServiceLabelName:         "service",
-				model.IstioCanonicalServiceRevisionLabelName: "v1",
+			name:                   "network and tls mode",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "network",
+				WorkloadName: "",
+				ClusterID:    "",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: model.IstioMutualTLSModeLabel,
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"workload": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: ";;;;",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:                   "all label",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "network",
+				WorkloadName: "workload",
+				ClusterID:    "cluster",
+				Namespace:    "default",
+				Labels: labels.Instance{
+					model.IstioCanonicalServiceLabelName:         "service",
+					model.IstioCanonicalServiceRevisionLabelName: "v1",
+				},
 			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -1033,12 +1258,16 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:         "miss pod label",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "network",
-			workloadName: "workload",
-			clusterID:    "cluster",
-			namespace:    "default",
+			name:                   "miss pod label",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "network",
+				WorkloadName: "workload",
+				ClusterID:    "cluster",
+				Namespace:    "default",
+			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
@@ -1054,7 +1283,7 @@ func TestEndpointMetadata(t *testing.T) {
 						Fields: map[string]*structpb.Value{
 							"workload": {
 								Kind: &structpb.Value_StringValue{
-									StringValue: "workload;default;;;cluster",
+									StringValue: "workload;default;workload;;cluster",
 								},
 							},
 						},
@@ -1063,12 +1292,16 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:         "miss workload name",
-			tlsMode:      model.IstioMutualTLSModeLabel,
-			network:      "network",
-			workloadName: "",
-			clusterID:    "cluster",
-			namespace:    "",
+			name:                   "miss workload name",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "network",
+				WorkloadName: "",
+				ClusterID:    "cluster",
+				Namespace:    "",
+			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
 					EnvoyTransportSocketMetadataKey: {
@@ -1092,11 +1325,53 @@ func TestEndpointMetadata(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:                   "all empty, telemetry label disabled",
+			enableTelemetryLabel:   false,
+			endpointTelemetryLabel: false,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.DisabledTLSModeLabel,
+				Network:      "",
+				WorkloadName: "",
+				ClusterID:    "",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			},
+		},
+		{
+			name:                   "tls mode, telemetry label disabled",
+			enableTelemetryLabel:   false,
+			endpointTelemetryLabel: false,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "",
+				WorkloadName: "",
+				ClusterID:    "",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: model.IstioMutualTLSModeLabel,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildLbEndpointMetadata(tt.network, tt.tlsMode, tt.workloadName, tt.namespace, tt.clusterID, tt.labels); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Unexpected Endpoint metadata got %v, want %v", got, tt.want)
+			test.SetForTest(t, &features.EnableTelemetryLabel, tt.enableTelemetryLabel)
+			test.SetForTest(t, &features.EndpointTelemetryLabel, tt.endpointTelemetryLabel)
+			input := &core.Metadata{}
+			AppendLbEndpointMetadata(tt.metadata, input)
+			if !reflect.DeepEqual(input, tt.want) {
+				t.Errorf("Unexpected Endpoint metadata got %v, want %v", input, tt.want)
 			}
 		})
 	}
@@ -1161,6 +1436,7 @@ func TestDomainName(t *testing.T) {
 }
 
 func TestStatefulSessionFilterConfig(t *testing.T) {
+	test.SetAtomicBoolForTest(t, features.EnablePersistentSessionFilter, true)
 	cases := []struct {
 		name           string
 		service        *model.Service
@@ -1183,7 +1459,6 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 						Cookie: &httpv3.Cookie{
 							Path: "/",
-							Ttl:  &durationpb.Duration{Seconds: 120},
 							Name: "test-cookie",
 						},
 					}),
@@ -1203,7 +1478,6 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 					TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 						Cookie: &httpv3.Cookie{
 							Path: "/path",
-							Ttl:  &durationpb.Duration{Seconds: 120},
 							Name: "test-cookie",
 						},
 					}),
@@ -1219,4 +1493,425 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMergeSubsetTrafficPolicy(t *testing.T) {
+	cases := []struct {
+		name     string
+		original *networking.TrafficPolicy
+		subset   *networking.TrafficPolicy
+		port     *model.Port
+		expected *networking.TrafficPolicy
+	}{
+		{
+			name:     "all nil policies",
+			original: nil,
+			subset:   nil,
+			port:     nil,
+			expected: nil,
+		},
+		{
+			name: "no subset policy",
+			original: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+			subset: nil,
+			port:   nil,
+			expected: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+		},
+		{
+			name:     "no parent policy",
+			original: nil,
+			subset: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+			port: nil,
+			expected: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+		},
+		{
+			name: "merge non-conflicting fields",
+			original: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					TargetHost: "example.com",
+					TargetPort: 8443,
+				},
+			},
+			port: nil,
+			expected: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				},
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					TargetHost: "example.com",
+					TargetPort: 8443,
+				},
+			},
+		},
+		{
+			name: "subset overwrite top-level fields",
+			original: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+			port: nil,
+			expected: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+		},
+		{
+			name:     "merge port level policy, and do not inherit top-level fields",
+			original: nil,
+			subset: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						LoadBalancer: &networking.LoadBalancerSettings{
+							LbPolicy: &networking.LoadBalancerSettings_Simple{
+								Simple: networking.LoadBalancerSettings_LEAST_REQUEST,
+							},
+						},
+					},
+				},
+			},
+			port: &model.Port{Port: 8080},
+			expected: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_LEAST_REQUEST,
+					},
+				},
+			},
+		},
+		{
+			name: "merge port level policy, and do not inherit top-level fields",
+			original: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 20,
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 15,
+						},
+					},
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 13,
+						},
+					},
+				},
+			},
+			port: &model.Port{Port: 8080},
+			expected: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 13,
+				},
+			},
+		},
+		{
+			name: "default cluster, non-matching port selector",
+			original: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 20,
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 15,
+						},
+					},
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 13,
+						},
+					},
+				},
+			},
+			port: &model.Port{Port: 9090},
+			expected: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 20,
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := MergeSubsetTrafficPolicy(tt.original, tt.subset, tt.port)
+			assert.Equal(t, policy, tt.expected)
+		})
+	}
+}
+
+func TestMeshNetworksToEnvoyInternalAddressConfig(t *testing.T) {
+	cases := []struct {
+		name           string
+		networks       *meshconfig.MeshNetworks
+		expectedconfig *hcm.HttpConnectionManager_InternalAddressConfig
+	}{
+		{
+			name:           "nil networks",
+			expectedconfig: nil,
+		},
+		{
+			name:           "empty networks",
+			networks:       &meshconfig.MeshNetworks{},
+			expectedconfig: nil,
+		},
+		{
+			name: "networks populated",
+			networks: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"default": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "192.168.0.0/16",
+								},
+							},
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "172.16.0.0/12",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedconfig: &hcm.HttpConnectionManager_InternalAddressConfig{
+				CidrRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "172.16.0.0",
+						PrefixLen:     &wrappers.UInt32Value{Value: 12},
+					},
+					{
+						AddressPrefix: "192.168.0.0",
+						PrefixLen:     &wrappers.UInt32Value{Value: 16},
+					},
+				},
+			},
+		},
+		{
+			name: "multi v6",
+			networks: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"default": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "2001:db8:abcd::/48",
+								},
+							},
+						},
+					},
+					"other": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "2001:db8:def0:1234::/56",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedconfig: &hcm.HttpConnectionManager_InternalAddressConfig{
+				CidrRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "2001:db8:abcd::",
+						PrefixLen:     &wrappers.UInt32Value{Value: 48},
+					},
+					{
+						AddressPrefix: "2001:db8:def0:1234::",
+						PrefixLen:     &wrappers.UInt32Value{Value: 56},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MeshNetworksToEnvoyInternalAddressConfig(tt.networks)
+			if !reflect.DeepEqual(tt.expectedconfig, got) {
+				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, got)
+			}
+		})
+	}
+}
+
+func BenchmarkAddConfigInfoMetadata(b *testing.B) {
+	configs := []config.Meta{
+		{
+			Name:             "my-virtual-service",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		{
+			Name:             "my-destination-rule",
+			Namespace:        "istio-system",
+			GroupVersionKind: gvk.DestinationRule,
+		},
+		{
+			Name:             "my-gateway",
+			Namespace:        "production",
+			GroupVersionKind: gvk.Gateway,
+		},
+	}
+
+	b.Run("NilMetadata", func(b *testing.B) {
+		cfg := configs[0]
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = AddConfigInfoMetadata(nil, cfg)
+		}
+	})
+
+	b.Run("ExistingMetadata", func(b *testing.B) {
+		cfg := configs[0]
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			meta := &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			}
+			_ = AddConfigInfoMetadata(meta, cfg)
+		}
+	})
+
+	b.Run("MultipleConfigs", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for _, cfg := range configs {
+				_ = AddConfigInfoMetadata(nil, cfg)
+			}
+		}
+	})
 }

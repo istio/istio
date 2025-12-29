@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -26,6 +25,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	kubetest "istio.io/istio/pkg/test/kube"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -50,8 +49,8 @@ func TestRevisionedUpgrade(t *testing.T) {
 		// Requires installation of CPs from manifests, won't succeed
 		// if existing CPs have different root cert
 		Label(label.CustomSetup).
-		Features("installation.upgrade").
 		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/pull/46213")
 			// Kubernetes 1.22 drops support for a number of legacy resources, so we cannot install the old versions
 			if !t.Clusters().Default().MaxKubeVersion(21) {
 				t.Skipf("k8s version not supported for %s (>%s)", t.Name(), "1.21")
@@ -79,7 +78,7 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	// install control plane on the specified version and create namespace pointed to that control plane
 	installRevisionOrFail(t, fromVersion, configs)
 	revision := strings.ReplaceAll(fromVersion, ".", "-")
-	revisionedNamespace := namespace.NewOrFail(t, t, namespace.Config{
+	revisionedNamespace := namespace.NewOrFail(t, namespace.Config{
 		Prefix:   revision,
 		Inject:   true,
 		Revision: revision,

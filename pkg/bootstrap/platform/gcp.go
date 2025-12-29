@@ -27,12 +27,15 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"go.uber.org/atomic"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/lazy"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -46,15 +49,71 @@ const (
 	GCEInstanceTemplate  = "gcp_gce_instance_template"
 	GCEInstanceCreatedBy = "gcp_gce_instance_created_by"
 	GCPQuotaProject      = "gcp_quota_project"
+	GCPZone              = "gcp_zone"
 )
 
-var (
-	GCPMetadata = env.Register("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
+// GCPStaticMetadata holds the statically defined GCP metadata
+var GCPStaticMetadata = func() map[string]string {
+	gcpm := env.Register("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
+	quota := env.Register("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
+	zone := env.Register("GCP_ZONE", "", "GCP Zone where the workload is running on.").Get()
+	if len(gcpm) == 0 {
+		return map[string]string{}
+	}
+	md := map[string]string{}
+	parts := strings.Split(gcpm, "|")
+	if len(parts) == 4 {
+		md[GCPProject] = parts[0]
+		md[GCPProjectNumber] = parts[1]
+		md[GCPCluster] = parts[2]
+		md[GCPLocation] = parts[3]
+	}
 
-	// GCPQuotaProjectVar holds the value of the `GCP_QUOTA_PROJECT` environment variable.
-	GCPQuotaProjectVar = env.Register("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
-)
+	if quota != "" {
+		md[GCPQuotaProject] = quota
+	}
 
+	if clusterURL, err := constructGKEClusterURL(md); err == nil {
+		md[GCPClusterURL] = clusterURL
+	}
+
+	if zone != "" {
+		md[GCPZone] = zone
+	}
+	return md
+}()
+
+// zoneFromResolvConf extracts the zone from resolv.conf.
+// The doc which describes the format can be found in:
+// https://cloud.google.com/kubernetes-engine/docs/how-to/kube-dns
+// GKE provides resolv.conf based on the Node(GCE)'s resolv.conf.
+// GCE's resolv.conf format can be found in:
+// https://cloud.google.com/compute/docs/internal-dns
+var zoneFromResolvConf = func() string {
+	b, err := os.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		log.Warnf("Failed to read resolv.conf")
+		return ""
+	}
+	return zoneFromResolvConfData(string(b))
+}
+
+// Example resolv.conf:
+// search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal c.test-proj.internal google.internal
+var zoneInResolvRE = regexp.MustCompile(`^search.* ([^-]+-[^-]+-[^-]+)\.c\.[^.]+\.internal`)
+
+func zoneFromResolvConfData(s string) string {
+	ll := strings.Split(s, "\n")
+	for _, l := range ll {
+		if m := zoneInResolvRE.FindStringSubmatch(l); len(m) == 2 {
+			return m[1]
+		}
+	}
+	log.Warnf("Failed to load the zone name of the pod from resolv.conf")
+	return ""
+}
+
+// nolint: staticcheck // we are not currently using Context() function variants
 var (
 	// shouldFillMetadata returns whether the workload is running on GCP and the metadata endpoint is accessible
 	// In contrast, DiscoverWithTimeout only checks if the workload is running on GCP
@@ -65,6 +124,7 @@ var (
 	numericProjectIDFn = metadata.NumericProjectID
 	instanceNameFn     = metadata.InstanceName
 	instanceIDFn       = metadata.InstanceID
+	zoneFn             = metadata.ZoneWithContext
 
 	clusterNameFn = func() (string, error) {
 		cn, err := metadata.InstanceAttributeValue("cluster-name")
@@ -126,11 +186,13 @@ type gcpEnv struct {
 	sync.Mutex
 	metadata     map[string]string
 	fillMetadata lazy.Lazy[bool]
+
+	cachedZone *atomic.String
 }
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
 func IsGCP() bool {
-	if GCPMetadata != "" {
+	if len(GCPStaticMetadata) > 0 {
 		// Assume this is running on GCP if GCP project env variable is set.
 		return true
 	}
@@ -145,6 +207,7 @@ func NewGCP() Environment {
 		fillMetadata: lazy.New(func() (bool, error) {
 			return shouldFillMetadata(), nil
 		}),
+		cachedZone: atomic.NewString(GCPStaticMetadata[GCPZone]),
 	}
 }
 
@@ -156,64 +219,35 @@ func (e *gcpEnv) shouldFillMetadata() bool {
 // Metadata returns GCP environmental data, including project, cluster name, and
 // location information.
 func (e *gcpEnv) Metadata() map[string]string {
-	md := map[string]string{}
-	if e == nil {
-		return md
+	// If they statically configure metadata, use it immediately and exit. This does limit the ability to configure some static
+	// metadata, but extract the rest from the metadata server.
+	// However, the motivation to provide static metadata is to remove the dependency on the metadata server, which is unreliable.
+	// As a result, it doesn't make much sense to do lookups when this is set.
+	// If needed, the remaining pieces of metadata can be added to the static env var (missing is the gce_* ones).
+	if len(GCPStaticMetadata) != 0 {
+		return GCPStaticMetadata
 	}
-	if GCPMetadata == "" && !e.shouldFillMetadata() {
-		return md
+	// If we cannot reach the metadata server, bail out with only statically defined metadata
+	fillMetadata := e.shouldFillMetadata()
+	if !fillMetadata {
+		return nil
 	}
 
 	e.Lock()
 	defer e.Unlock()
+	// Use previously computed result...
 	if e.metadata != nil {
 		return e.metadata
 	}
-	envPid, envNPid, envCN, envLoc := parseGCPMetadata()
 
-	if envPid != "" {
-		md[GCPProject] = envPid
-	}
-	if envNPid != "" {
-		md[GCPProjectNumber] = envNPid
-	}
-	if envLoc != "" {
-		md[GCPLocation] = envLoc
-	}
-	if envCN != "" {
-		md[GCPCluster] = envCN
-	}
+	md := map[string]string{}
 
-	if e.shouldFillMetadata() {
-		// suppliers is an array of functions that supply the metadata for missing properties
-		var suppliers []metadataSupplier
-		if _, found := md[GCPProject]; !found {
-			suppliers = append(suppliers, createMetadataSupplier(GCPProject, projectIDFn))
-		}
-		if _, found := md[GCPProjectNumber]; !found {
-			suppliers = append(suppliers, createMetadataSupplier(GCPProjectNumber, numericProjectIDFn))
-		}
-		if _, found := md[GCPLocation]; !found {
-			suppliers = append(suppliers, createMetadataSupplier(GCPLocation, clusterLocationFn))
-		}
-		if _, found := md[GCPCluster]; !found {
-			suppliers = append(suppliers, createMetadataSupplier(GCPCluster, clusterNameFn))
-		}
-
-		wg := waitForMetadataSuppliers(suppliers, md)
-		wg.Wait()
-	}
-
-	if GCPQuotaProjectVar != "" {
-		md[GCPQuotaProject] = GCPQuotaProjectVar
-	}
-	// Exit early now if not on GCE. This allows setting env var when not on GCE.
-	if !e.shouldFillMetadata() {
-		e.metadata = md
-		return md
-	}
-
+	// suppliers is an array of functions that supply the metadata for missing properties
 	suppliers := []metadataSupplier{
+		createMetadataSupplier(GCPProject, projectIDFn),
+		createMetadataSupplier(GCPProjectNumber, numericProjectIDFn),
+		createMetadataSupplier(GCPLocation, clusterLocationFn),
+		createMetadataSupplier(GCPCluster, clusterNameFn),
 		createMetadataSupplier(GCEInstance, instanceNameFn),
 		createMetadataSupplier(GCEInstanceID, instanceIDFn),
 		createMetadataSupplier(GCEInstanceTemplate, instanceTemplateFn),
@@ -233,9 +267,14 @@ func (e *gcpEnv) Metadata() map[string]string {
 func waitForMetadataSuppliers(suppliers []metadataSupplier, md map[string]string) *sync.WaitGroup {
 	wg := sync.WaitGroup{}
 	mx := sync.Mutex{}
+	have := sets.New(maps.Keys(md)...)
 	for _, mdSupplier := range suppliers {
-		wg.Add(1)
 		property, supplierFunction := mdSupplier.Property, mdSupplier.Fn
+		if have.Contains(property) {
+			// We already have this property, we can skip it
+			continue
+		}
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			if result, err := supplierFunction(); err == nil {
@@ -243,69 +282,67 @@ func waitForMetadataSuppliers(suppliers []metadataSupplier, md map[string]string
 				md[property] = result
 				mx.Unlock()
 			} else {
-				log.Warnf("Error fetching GCP Metadata property %s: %v", property, err)
+				// Log at debug level as these are often missing (when using GKE metadata server)
+				log.Debugf("Error fetching GCP Metadata property %s: %v", property, err)
 			}
 		}()
 	}
 	return &wg
 }
 
-var (
-	parseMetadataOnce sync.Once
-	envPid            string
-	envNpid           string
-	envCluster        string
-	envLocation       string
-)
-
-func parseGCPMetadata() (pid, npid, cluster, location string) {
-	parseMetadataOnce.Do(func() {
-		gcpmd := GCPMetadata
-		if len(gcpmd) > 0 {
-			log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
-			parts := strings.Split(gcpmd, "|")
-			if len(parts) == 4 {
-				envPid = parts[0]
-				envNpid = parts[1]
-				envCluster = parts[2]
-				envLocation = parts[3]
-			}
-		}
-	})
-
-	return envPid, envNpid, envCluster, envLocation
-}
+// Zones are in the form <country_code>-<region_suffix>-<zone_suffix>.
+var zoneRE = regexp.MustCompile(`^([^-]+-[^-]+)-[^-]+$`)
 
 // Converts a GCP zone into a region.
 func zoneToRegion(z string) (string, error) {
-	// Zones are in the form <region>-<zone_suffix>, so capture everything but the suffix.
-	re := regexp.MustCompile("(.*)-.*")
-	m := re.FindStringSubmatch(z)
+	m := zoneRE.FindStringSubmatch(z)
 	if len(m) != 2 {
 		return "", fmt.Errorf("unable to extract region from GCP zone: %s", z)
 	}
 	return m[1], nil
 }
 
+// Returns the zone where the pod is located in.
+func (e *gcpEnv) getPodZone() (string, error) {
+	z := e.cachedZone.Load()
+	if z != "" {
+		return z, nil
+	}
+	// Try to read resolv.conf and extract Pod's zone.
+	z = zoneFromResolvConf()
+	if z != "" {
+		e.cachedZone.Store(z)
+		return z, nil
+	}
+	// Fallback to Metadata Server to get the zone.
+	ctx, cfn := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cfn()
+	z, err := zoneFn(ctx)
+	if err != nil {
+		log.Warnf("Error fetching GCP zone from the metadata server: %v", err)
+		return "", err
+	}
+	e.cachedZone.Store(z)
+	return z, nil
+}
+
 // Locality returns the GCP-specific region and zone.
 func (e *gcpEnv) Locality() *core.Locality {
 	var l core.Locality
-	if e.shouldFillMetadata() {
-		z, zerr := metadata.Zone()
-		if zerr != nil {
-			log.Warnf("Error fetching GCP zone: %v", zerr)
-			return &l
-		}
-		r, rerr := zoneToRegion(z)
-		if rerr != nil {
-			log.Warnf("Error fetching GCP region: %v", rerr)
-			return &l
-		}
-		l.Region = r
-		l.Zone = z
+	z, err := e.getPodZone()
+	if err != nil {
+		return &l
 	}
-
-	return &l
+	r, err := zoneToRegion(z)
+	if err != nil {
+		log.Warnf("Error fetching GCP region from zone %v: %v", z, err)
+		return &l
+	}
+	return &core.Locality{
+		Region:  r,
+		Zone:    z,
+		SubZone: "", // GCP has no subzone concept
+	}
 }
 
 const ComputeReadonlyScope = "https://www.googleapis.com/auth/compute.readonly"
@@ -363,11 +400,13 @@ type GcpInstance struct {
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
-// Checks metadata to see if GKE metadata or Kubernetes env vars exist
+// IsKubernetes checks to see if GKE metadata or Kubernetes env vars exist
 func (e *gcpEnv) IsKubernetes() bool {
-	md := e.Metadata()
 	_, onKubernetes := os.LookupEnv(KubernetesServiceHost)
-	return md[GCPCluster] != "" || onKubernetes
+	if onKubernetes {
+		return true
+	}
+	return e.Metadata()[GCPCluster] != ""
 }
 
 func createMetadataSupplier(property string, fn func() (string, error)) metadataSupplier {

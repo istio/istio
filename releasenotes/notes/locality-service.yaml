@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Removed** the requirement for a workload to have a Service associated with it in order for locality load balancing to work.

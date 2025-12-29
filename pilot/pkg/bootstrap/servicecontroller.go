@@ -21,7 +21,8 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func (s *Server) ServiceController() *aggregate.Controller {
@@ -34,18 +35,19 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 	s.serviceEntryController = serviceentry.NewController(
 		s.configController, s.XDSServer,
+		s.environment.Watcher,
 		serviceentry.WithClusterID(s.clusterID),
 	)
 	serviceControllers.AddRegistry(s.serviceEntryController)
 
-	registered := make(map[provider.ID]bool)
+	registered := sets.New[provider.ID]()
 	for _, r := range args.RegistryOptions.Registries {
 		serviceRegistry := provider.ID(r)
-		if _, exists := registered[serviceRegistry]; exists {
+		if registered.Contains(serviceRegistry) {
 			log.Warnf("%s registry specified multiple times.", r)
 			continue
 		}
-		registered[serviceRegistry] = true
+		registered.Insert(serviceRegistry)
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
 		case provider.Kubernetes:
@@ -58,7 +60,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	}
 
 	// Defer running of the service controllers.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("service controllers", func(stop <-chan struct{}) error {
 		go serviceControllers.Run(stop)
 		return nil
 	})
@@ -69,24 +71,24 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 // initKubeRegistry creates all the k8s service controllers under this pilot
 func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.ClusterID = s.clusterID
+	args.RegistryOptions.KubeOptions.Revision = args.Revision
+	args.RegistryOptions.KubeOptions.KrtDebugger = args.KrtDebugger
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
-	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
+	args.RegistryOptions.KubeOptions.MeshNetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.MeshWatcher = s.environment.Watcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
 	// pass namespace to k8s service registry
-	args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter = s.multiclusterController.DiscoveryNamespacesFilter
-	s.multiclusterController.AddHandler(kubecontroller.NewMulticluster(args.PodName,
-		s.kubeClient.Kube(),
-		args.RegistryOptions.ClusterRegistriesNamespace,
+	kubecontroller.NewMulticluster(args.PodName,
 		args.RegistryOptions.KubeOptions,
 		s.serviceEntryController,
 		s.istiodCertBundleWatcher,
 		args.Revision,
 		s.shouldStartNsController(),
 		s.environment.ClusterLocal(),
-		s.server))
+		s.server,
+		s.multiclusterController)
 
-	return
+	return err
 }

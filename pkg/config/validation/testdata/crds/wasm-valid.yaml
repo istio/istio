@@ -1,0 +1,44 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: full
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  url: file:///opt/filters/openid.wasm
+  sha256: 1ef0c9a92b0420cf25f7fe5d481b231464bc88f486ca3b9c83ed5cc21d2f6210
+  phase: AUTHN
+  pluginConfig:
+    openid_server: authn
+    openid_realm: ingress
+---
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: sha256-empty
+spec:
+  url: "http://test"
+---
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: url-without-schema
+spec:
+  url: "test"
+---
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: env
+spec:
+  url: "http://test"
+  vmConfig:
+    env:
+      - name: "test"
+        valueFrom: HOST
+      - name: "test2"
+        valueFrom: INLINE
+        value: "test"
+      - name: "test3"
+        value: "test"

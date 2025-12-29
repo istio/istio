@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -59,11 +58,11 @@ func TestMultiVersionRevision(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
-		Features("installation.upgrade").
 		// Requires installation of CPs from manifests, won't succeed
 		// if existing CPs have different root cert
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/pull/46213")
 			skipIfK8sVersionUnsupported(t)
 
 			// keep track of applied configurations and clean up after the test

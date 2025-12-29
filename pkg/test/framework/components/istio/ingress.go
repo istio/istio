@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -91,79 +92,126 @@ func (c *ingressImpl) Close() error {
 	return c.caller.Close()
 }
 
-// getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,
-// the returned net.Addr will have the externally reachable NodePort address and port.
-func (c *ingressImpl) getAddressInner(port int) (string, int, error) {
+// getAddressesInner returns the external addresses for the given port. When we don't have support for LoadBalancer,
+// the returned list will contain will have the externally reachable NodePort address and port.
+func (c *ingressImpl) getAddressesInner(port int) ([]string, []int, error) {
 	attempts := 0
-	addr, err := retry.UntilComplete(func() (result any, completed bool, err error) {
+	rawAddrs, err := retry.UntilComplete(func() (rawAddrs any, completed bool, err error) {
 		attempts++
-		result, completed, err = getRemoteServiceAddress(c.env.Settings(), c.cluster, c.service.Namespace, c.labelSelector, c.service.Name, port)
+		rawAddrs, completed, err = getRemoteServiceAddresses(c.env.Settings(), c.cluster, c.service.Namespace, c.labelSelector, c.service.Name, port)
 		if err != nil && attempts > 1 {
 			// Log if we fail more than once to avoid test appearing to hang
 			// LB provision be slow, so timeout here needs to be long we should give context
 			scopes.Framework.Warnf("failed to get address for port %v: %v", port, err)
 		}
-		return
+
+		// Check and wait for resolvable ingress DNS name. Skip if IP.
+		if err == nil && completed {
+			hostPorts, ok := rawAddrs.([]any)
+			if !ok || len(hostPorts) == 0 {
+				return rawAddrs, completed, err
+			}
+			v, ok := hostPorts[0].(string)
+			if !ok {
+				return rawAddrs, completed, err
+			}
+			host, _, splitErr := net.SplitHostPort(v)
+			if splitErr != nil || net.ParseIP(host) != nil {
+				// If address is malformed or is already an IP, skip DNS resolution
+				return rawAddrs, completed, err
+			}
+			if _, lookupErr := net.LookupHost(host); lookupErr != nil {
+				scopes.Framework.Infof("waiting for DNS to resolve for host %q", host)
+				return nil, false, fmt.Errorf("the DNS for %q not ready: %v", host, lookupErr)
+			}
+		}
+		return rawAddrs, completed, err
 	}, getAddressTimeout, getAddressDelay)
 	if err != nil {
-		return "", 0, err
+		return nil, nil, err
+	}
+	hostPorts, ok := rawAddrs.([]any)
+	if !ok {
+		return nil, nil, fmt.Errorf("unexpected address format: %T", rawAddrs)
 	}
 
-	switch v := addr.(type) {
-	case string:
-		host, portStr, err := net.SplitHostPort(v)
-		if err != nil {
-			return "", 0, err
+	var addrs []string
+	var ports []int
+	for _, addr := range hostPorts {
+		switch v := addr.(type) {
+		case string:
+			host, portStr, err := net.SplitHostPort(v)
+			if err != nil {
+				return nil, nil, err
+			}
+			mappedPort, err := strconv.Atoi(portStr)
+			if err != nil {
+				return nil, nil, err
+			}
+			addrs = append(addrs, host)
+			ports = append(ports, mappedPort)
+		case netip.AddrPort:
+			addrs = append(addrs, v.Addr().String())
+			ports = append(ports, int(v.Port()))
 		}
-		mappedPort, err := strconv.Atoi(portStr)
-		if err != nil {
-			return "", 0, err
-		}
-		return host, mappedPort, nil
-	case netip.AddrPort:
-		return v.Addr().String(), int(v.Port()), nil
+	}
+	if len(addrs) > 0 {
+		return addrs, ports, nil
 	}
 
-	return "", 0, fmt.Errorf("failed to get address for port %v", port)
+	return nil, nil, fmt.Errorf("failed to resolve any address for port %d after %d attempts", port, attempts)
 }
 
 // AddressForPort returns the externally reachable host and port of the component for the given port.
-func (c *ingressImpl) AddressForPort(port int) (string, int) {
-	host, port, err := c.getAddressInner(port)
+func (c *ingressImpl) AddressesForPort(port int) ([]string, []int) {
+	addrs, ports, err := c.getAddressesInner(port)
 	if err != nil {
 		scopes.Framework.Error(err)
-		return "", 0
+		return nil, nil
 	}
-	return host, port
+	return addrs, ports
 }
 
 func (c *ingressImpl) Cluster() cluster.Cluster {
 	return c.cluster
 }
 
-// HTTPAddress returns the externally reachable HTTP host and port (80) of the component.
-func (c *ingressImpl) HTTPAddress() (string, int) {
-	return c.AddressForPort(80)
+// HTTPAddresses returns the externally reachable HTTP hosts and port (80) of the component.
+func (c *ingressImpl) HTTPAddresses() ([]string, []int) {
+	return c.AddressesForPort(80)
 }
 
-// TCPAddress returns the externally reachable TCP host and port (31400) of the component.
-func (c *ingressImpl) TCPAddress() (string, int) {
-	return c.AddressForPort(31400)
+// TCPAddresses returns the externally reachable TCP hosts and port (31400) of the component.
+func (c *ingressImpl) TCPAddresses() ([]string, []int) {
+	return c.AddressesForPort(31400)
 }
 
-// HTTPSAddress returns the externally reachable TCP host and port (443) of the component.
-func (c *ingressImpl) HTTPSAddress() (string, int) {
-	return c.AddressForPort(443)
+// HTTPSAddresses returns the externally reachable TCP hosts and port (443) of the component.
+func (c *ingressImpl) HTTPSAddresses() ([]string, []int) {
+	return c.AddressesForPort(443)
 }
 
-// DiscoveryAddress returns the externally reachable discovery address (15012) of the component.
-func (c *ingressImpl) DiscoveryAddress() netip.AddrPort {
-	host, port := c.AddressForPort(discoveryPort)
-	ip, err := netip.ParseAddr(host)
-	if err != nil {
-		return netip.AddrPort{}
+// HBONEAddresses returns the externally reachable HBONE hosts and port (15008) of the component.
+func (c *ingressImpl) HBONEAddresses() ([]string, []int) {
+	return c.AddressesForPort(15008)
+}
+
+// DiscoveryAddresses returns the externally reachable discovery addresses (15012) of the component.
+func (c *ingressImpl) DiscoveryAddresses() []netip.AddrPort {
+	hosts, ports := c.AddressesForPort(discoveryPort)
+	var addrs []netip.AddrPort
+	if hosts == nil {
+		return []netip.AddrPort{{}}
 	}
-	return netip.AddrPortFrom(ip, uint16(port))
+	for i, host := range hosts {
+		ip, err := netip.ParseAddr(host)
+		if err != nil {
+			return []netip.AddrPort{}
+		}
+		addrs = append(addrs, netip.AddrPortFrom(ip, uint16(ports[i])))
+	}
+
+	return addrs
 }
 
 func (c *ingressImpl) Call(options echo.CallOptions) (echo.CallResult, error) {
@@ -185,7 +233,8 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 		port int
 	)
 	opts = opts.DeepCopy()
-
+	var addrs []string
+	var ports []int
 	if opts.Port.ServicePort == 0 {
 		s, err := c.schemeFor(opts)
 		if err != nil {
@@ -196,34 +245,39 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 		// Default port based on protocol
 		switch s {
 		case scheme.HTTP:
-			addr, port = c.HTTPAddress()
+			addrs, ports = c.HTTPAddresses()
 		case scheme.HTTPS:
-			addr, port = c.HTTPSAddress()
+			addrs, ports = c.HTTPSAddresses()
 		case scheme.TCP:
-			addr, port = c.TCPAddress()
+			addrs, ports = c.TCPAddresses()
 		default:
 			return echo.CallResult{}, fmt.Errorf("ingress: scheme %v not supported. Options: %v+", s, opts)
 		}
 	} else {
-		addr, port = c.AddressForPort(opts.Port.ServicePort)
+		addrs, ports = c.AddressesForPort(opts.Port.ServicePort)
 	}
-
-	if addr == "" || port == 0 {
+	if addrs == nil || ports == nil {
 		scopes.Framework.Warnf("failed to get host and port for %s/%d", opts.Port.Protocol, opts.Port.ServicePort)
+	}
+	addr = addrs[0]
+	port = ports[0]
+
+	// When the Ingress is a domain name (in public cloud), it might take a bit of time to make it reachable.
+	_, err := testKube.WaitUntilReachableIngress(addr)
+	if err != nil {
+		return echo.CallResult{}, fmt.Errorf("unable to get reachable ingress. Error: %v", err)
 	}
 
 	// Even if they set ServicePort, when load balancer is disabled, we may need to switch to NodePort, so replace it.
 	opts.Port.ServicePort = port
-	if len(opts.Address) == 0 {
-		// Default address based on port
-		opts.Address = addr
-	}
 	if opts.HTTP.Headers == nil {
 		opts.HTTP.Headers = map[string][]string{}
 	}
 	if host := opts.GetHost(); len(host) > 0 {
 		opts.HTTP.Headers.Set(headers.Host, host)
 	}
+	// Default address based on port
+	opts.Address = addr
 	if len(c.cluster.HTTPProxy()) > 0 && !c.cluster.ProxyKubectlOnly() {
 		opts.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}
@@ -251,6 +305,10 @@ func (c *ingressImpl) PodID(i int) (string, error) {
 		return "", fmt.Errorf("pod index out of boundary (%d): %d", len(pods.Items), i)
 	}
 	return pods.Items[i].Name, nil
+}
+
+func (c *ingressImpl) ServiceName() string {
+	return c.service.Name
 }
 
 func (c *ingressImpl) Namespace() string {

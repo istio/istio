@@ -21,32 +21,13 @@ import (
 )
 
 func TestURL(t *testing.T) {
-	assert.Equal(t, ReleaseTar,
-		`https://github.com/istio/istio/releases/download/`+patchVersion+`/istio-`+patchVersion+`-`+buildOS+`-`+
-			buildArch+`.tar.gz`,
-		"base url should be equal")
-
 	assert.Equal(t, BaseURL, "https://istio.io/", "base url should be equal")
 	assert.Equal(t, DocsURL, "https://istio.io/"+DocsVersion+"/docs/", "docs url should be equal")
-
-	assert.Equal(t, SetupURL, "https://istio.io/"+DocsVersion+"/docs/setup/", "setup url should be equal")
-	assert.Equal(t, SidecarInjection,
-		"https://istio.io/"+DocsVersion+"/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection",
-		"SidecarInjection url should be equal")
-	assert.Equal(t, SidecarDeployingApp,
-		"https://istio.io/"+DocsVersion+"/docs/setup/additional-setup/sidecar-injection/#deploying-an-app",
-		"SidecarDeployingApp url should be equal")
-
-	assert.Equal(t, TasksURL, "https://istio.io/"+DocsVersion+"/docs/tasks/", "tasks url should be equal")
-	assert.Equal(t, ExamplesURL, "https://istio.io/"+DocsVersion+"/docs/examples/", "examples url should be equal")
 
 	assert.Equal(t, OpsURL, "https://istio.io/"+DocsVersion+"/docs/ops/", "ops url should be equal")
 	assert.Equal(t, DeploymentRequirements,
 		"https://istio.io/"+DocsVersion+"/docs/ops/deployment/requirements/",
 		"DeploymentRequirements url should be equal")
-	assert.Equal(t, ConfigureSAToken,
-		"https://istio.io/"+DocsVersion+"/docs/ops/best-practices/security/#configure-third-party-service-account-tokens",
-		"ConfigureSAToken url should be equal")
 	assert.Equal(t, ProtocolSelection, "https://istio.io/"+DocsVersion+"/docs/ops/configuration/traffic-management/protocol-selection/")
 
 	assert.Equal(t, ReferenceURL, "https://istio.io/"+DocsVersion+"/docs/reference/", "reference url should be equal")
@@ -56,8 +37,4 @@ func TestURL(t *testing.T) {
 	assert.Equal(t, ConfigAnalysis,
 		"https://istio.io/"+DocsVersion+"/docs/reference/config/analysis",
 		"ConfigAnalysis url should be equal")
-
-	assert.Equal(t, K8TLSBootstrapping,
-		"https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping",
-		"K8TLSBootstrapping url should be equal")
 }

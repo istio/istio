@@ -23,8 +23,9 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/moby/buildkit/frontend/dockerfile/shell"
 
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/tools/docker-builder/builder"
-	istiolog "istio.io/pkg/log"
 )
 
 // Option is a functional option for remote operations.
@@ -60,7 +61,7 @@ func BaseDir(dir string) Option {
 	}
 }
 
-var log = istiolog.RegisterScope("dockerfile", "", 0)
+var log = istiolog.RegisterScope("dockerfile", "")
 
 type state struct {
 	args   map[string]string
@@ -185,8 +186,21 @@ func (s state) Expand(i string) string {
 	for k, v := range s.env {
 		avail[k] = v
 	}
-	r, _ := s.shlex.ProcessWordWithMap(i, avail)
+	r, _, _ := s.shlex.ProcessWord(i, envGetter(avail))
 	return r
+}
+
+type envGetter map[string]string
+
+var _ shell.EnvGetter = envGetter{}
+
+func (e envGetter) Get(key string) (string, bool) {
+	v, ok := e[key]
+	return v, ok
+}
+
+func (e envGetter) Keys() []string {
+	return maps.Keys(e)
 }
 
 // Below is inspired by MIT licensed https://github.com/asottile/dockerfile

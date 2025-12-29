@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
 )
 
-var scope = log.RegisterScope("retry", "logs for retries", 0)
+var scope = log.RegisterScope("retry", "logs for retries")
 
 const (
 	// DefaultTimeout the default timeout for the entire retry operation
@@ -129,7 +129,7 @@ func UntilSuccessOrFail(t test.Failer, fn func() error, options ...Option) {
 
 var ErrConditionNotMet = errors.New("expected condition not met")
 
-// Until retries the given function until it returns true or hits the timeout timeout
+// Until retries the given function until it returns true or hits the timeout
 func Until(fn func() bool, options ...Option) error {
 	return UntilSuccess(func() error {
 		if !fn() {

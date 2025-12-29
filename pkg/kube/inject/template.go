@@ -27,12 +27,13 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kstrings "k8s.io/utils/strings"
 	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 var InjectionFuncmap = createInjectionFuncmap()
@@ -49,7 +50,6 @@ func createInjectionFuncmap() template.FuncMap {
 		"annotation":          getAnnotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
-		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
 		"structToJSON":        structToJSON,
 		"protoToJSON":         protoToJSON,
@@ -60,6 +60,10 @@ func createInjectionFuncmap() template.FuncMap {
 		"toLower":             strings.ToLower,
 		"appendMultusNetwork": appendMultusNetwork,
 		"env":                 env,
+		"omit":                omit,
+		"strdict":             strdict,
+		"toJsonMap":           toJSONMap,
+		"mergeMaps":           mergeMaps,
 	}
 }
 
@@ -192,12 +196,25 @@ func appendMultusNetwork(existingValue, istioCniNetwork string) string {
 			log.Warnf("Unable to unmarshal Multus Network annotation JSON value: %v", err)
 			return existingValue
 		}
+		istioCniNetworkNs, istioCniNetworkName := kstrings.SplitQualifiedName(istioCniNetwork)
 		for _, net := range networks {
-			if net["name"] == istioCniNetwork {
-				return existingValue
+			if net["name"] == istioCniNetworkName {
+				ns := net["namespace"]
+				if ns == nil {
+					ns = ""
+				}
+				if ns == istioCniNetworkNs {
+					return existingValue
+				}
 			}
 		}
-		return existingValue[0:i] + fmt.Sprintf(`, {"name": "%s"}`, istioCniNetwork) + existingValue[i:]
+		var istioCniNetworkJSON string
+		if istioCniNetworkNs == "" {
+			istioCniNetworkJSON = fmt.Sprintf(`, {"name": "%s"}`, istioCniNetworkName)
+		} else {
+			istioCniNetworkJSON = fmt.Sprintf(`, {"name": "%s", "namespace": "%s"}`, istioCniNetworkName, istioCniNetworkNs)
+		}
+		return existingValue[0:i] + istioCniNetworkJSON + existingValue[i:]
 	}
 	for _, net := range strings.Split(existingValue, ",") {
 		if strings.TrimSpace(net) == istioCniNetwork {
@@ -286,7 +303,7 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if !ok || originalProxyConfig == nil {
 		return msg
 	}
-	pc := proto.Clone(originalProxyConfig).(*meshconfig.ProxyConfig)
+	pc := protomarshal.Clone(originalProxyConfig)
 	defaults := mesh.DefaultProxyConfig()
 	if pc.ConfigPath == defaults.ConfigPath {
 		pc.ConfigPath = ""
@@ -337,4 +354,59 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 		pc.ProxyMetadata = nil
 	}
 	return proto.Message(pc)
+}
+
+func toJSONMap(mps ...map[string]string) string {
+	data, err := json.Marshal(mergeMaps(mps...))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func omit(dict map[string]string, keys ...string) map[string]string {
+	res := map[string]string{}
+
+	omit := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		omit[k] = true
+	}
+
+	for k, v := range dict {
+		if _, ok := omit[k]; !ok {
+			res[k] = v
+		}
+	}
+	return res
+}
+
+// strdict is the same as the "dict" function (http://masterminds.github.io/sprig/dicts.html)
+// but returns a map[string]string instead of interface{} types. This allows it to be used
+// in annotations/labels.
+func strdict(v ...string) map[string]string {
+	dict := map[string]string{}
+	lenv := len(v)
+	for i := 0; i < lenv; i += 2 {
+		key := v[i]
+		if i+1 >= lenv {
+			dict[key] = ""
+			continue
+		}
+		dict[key] = v[i+1]
+	}
+	return dict
+}
+
+// Merge maps merges multiple maps. Latter maps take precedence over previous maps on overlapping fields
+func mergeMaps(maps ...map[string]string) map[string]string {
+	if len(maps) == 0 {
+		return nil
+	}
+	res := make(map[string]string, len(maps[0]))
+	for _, m := range maps {
+		for k, v := range m {
+			res[k] = v
+		}
+	}
+	return res
 }

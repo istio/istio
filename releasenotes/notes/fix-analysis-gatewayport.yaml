@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** Analyzer produces incorrect results for `GatewayPortNotOnWorkload` due to incorrect association of `Gateway.Spec.Servers[].Port.Number` with Service's `Port` instead of `TargetPort`.

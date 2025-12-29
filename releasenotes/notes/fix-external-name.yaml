@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** a regression in Istio 1.21.0 causing `VirtualService`s routing to `ExternalName` services to not work when 
+    `ENABLE_EXTERNAL_NAME_ALIAS=false` is configured.

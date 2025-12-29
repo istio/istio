@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+- |
+  **Improved** request JWT authentication to use the upstream Envoy JWT filter
+  instead of the custom Istio Proxy filter. Because the new upstream JWT filter
+  capabilities are needed, the feature is gated for the proxies that support
+  them. Note that a custom Envoy or Wasm filter that used `istio_authn` dynamic
+  metadata key  needs to be updated to use `envoy.filters.http.jwt_authn`
+  dynamic metadata key.
+

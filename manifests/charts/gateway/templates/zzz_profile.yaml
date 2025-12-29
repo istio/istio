@@ -1,0 +1,75 @@
+{{/*
+WARNING: DO NOT EDIT, THIS FILE IS A PROBABLY COPY.
+The original version of this file is located at /manifests directory.
+If you want to make a change in this file, edit the original one and run "make gen".
+
+Complex logic ahead...
+We have three sets of values, in order of precedence (last wins):
+1. The builtin values.yaml defaults
+2. The profile the user selects
+3. Users input (-f or --set)
+
+Unfortunately, Helm provides us (1) and (3) together (as .Values), making it hard to insert (2).
+
+However, we can workaround this by placing all of (1) under a specific key (.Values.defaults).
+We can then merge the profile onto the defaults, then the user settings onto that.
+Finally, we can set all of that under .Values so the chart behaves without awareness.
+*/}}
+{{- if $.Values.defaults}}
+{{ fail (cat
+  "Setting with .default prefix found; remove it. For example, replace `--set defaults.hub=foo` with `--set hub=foo`. Defaults set:\n"
+  ($.Values.defaults | toYaml |nindent 4)
+) }}
+{{- end }}
+{{- $defaults := $.Values._internal_defaults_do_not_set }}
+{{- $_ := unset $.Values "_internal_defaults_do_not_set" }}
+{{- $profile := dict }}
+{{- with (coalesce ($.Values).profile ($.Values.global).profile) }}
+{{- with $.Files.Get (printf "files/profile-%s.yaml" .)}}
+{{- $profile = (. | fromYaml) }}
+{{- else }}
+{{ fail (cat "unknown profile" .) }}
+{{- end }}
+{{- end }}
+{{- with .Values.compatibilityVersion }}
+{{- with $.Files.Get (printf "files/profile-compatibility-version-%s.yaml" .) }}
+{{- $ignore := mustMergeOverwrite $profile (. | fromYaml) }}
+{{- else }}
+{{ fail (cat "unknown compatibility version" $.Values.compatibilityVersion) }}
+{{- end }}
+{{- end }}
+{{- with (coalesce ($.Values).platform ($.Values.global).platform) }}
+{{- with $.Files.Get (printf "files/profile-platform-%s.yaml" .) }}
+{{- $ignore := mustMergeOverwrite $profile (. | fromYaml) }}
+{{- else }}
+{{ fail (cat "unknown platform" .) }}
+{{- end }}
+{{- end }}
+{{- if $profile }}
+{{- $a := mustMergeOverwrite $defaults $profile }}
+{{- end }}
+#  Flatten globals, if defined on a per-chart basis
+{{- if true }}
+{{- $a := mustMergeOverwrite $defaults ($profile.global) ($.Values.global | default dict)  }}
+{{- end }}
+{{- $x := set $.Values "_original" (deepCopy $.Values) }}
+{{- $b := set $ "Values" (mustMergeOverwrite $defaults $.Values) }}
+
+{{/*
+Labels that should be applied to ALL resources.
+*/}}
+{{- define "istio.labels" -}}
+{{- if .Release.Service -}}
+app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+{{- end }}
+{{- if .Release.Name }}
+app.kubernetes.io/instance: {{ .Release.Name | quote }}
+{{- end }}
+app.kubernetes.io/part-of: "istio"
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+{{- if and .Chart.Name .Chart.Version }}
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end -}}

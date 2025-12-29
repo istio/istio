@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: mesh-route-outbound-traffic-to-external-svc-via-egress-gw
@@ -12,7 +12,7 @@ spec:
     - port: {{ .externalSvcTcpPort }}
     route:
     - destination:
-        host: istio-egressgateway.istio-system.svc.cluster.local
+        host: {{ .EgressGatewayServiceName | default "istio-egressgateway" }}.{{ .EgressGatewayServiceNamespace | default "istio-system" }}.svc.cluster.local
         port:
           number: 80
   tls:
@@ -22,11 +22,11 @@ spec:
       - external.{{ .externalNamespace }}.svc.cluster.local
     route:
     - destination:
-        host: istio-egressgateway.istio-system.svc.cluster.local
+        host: {{ .EgressGatewayServiceName | default "istio-egressgateway" }}.{{ .EgressGatewayServiceNamespace | default "istio-system" }}.svc.cluster.local
         port:
           number: 443
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: egress-gw-route-outbound-traffic-to-external-svc-via-external-forward-proxy
@@ -34,7 +34,7 @@ spec:
   hosts:
   - external.{{ .externalNamespace }}.svc.cluster.local
   gateways:
-  - istio-egressgateway
+  - {{ .EgressGatewayServiceName | default "istio-egressgateway" }}
   tcp:
   - match:
     - port: 80

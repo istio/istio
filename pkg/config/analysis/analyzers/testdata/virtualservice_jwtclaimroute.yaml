@@ -1,6 +1,6 @@
 # The following virtual service should cause the error IST0149 because it uses JWT claim based routing but there is
 # no request authentication applied on the gateway.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: foo
@@ -22,7 +22,7 @@ spec:
             port:
               number: 15010
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: foo-gateway

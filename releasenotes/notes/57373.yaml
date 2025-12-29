@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 57372
+releaseNotes:
+- |
+  **Added** flags to support list debug types for `istioctl experimental internal-debug`

@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -74,8 +73,8 @@ var (
 
 	hostTypes = []hostType{hostTypeClusterSetLocal, hostTypeClusterLocal}
 
-	serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
-	serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
+	serviceA match.Matcher
+	serviceB match.Matcher
 )
 
 func TestMain(m *testing.M) {
@@ -93,11 +92,11 @@ func TestMain(m *testing.M) {
 
 func TestClusterLocal(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.servicediscovery").
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
+			serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
+			serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 			// Don't export service B in any cluster. All requests should stay in-cluster.
-
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
 					runForAllClusterCombinations(t, func(t framework.TestContext, from echo.Instance, to echo.Target) {
@@ -120,10 +119,11 @@ func TestClusterLocal(t *testing.T) {
 
 func TestMeshWide(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.servicediscovery").
 		Run(func(t framework.TestContext) {
 			// Export service B in all clusters.
 			createAndCleanupServiceExport(t, common.ServiceB, t.Clusters())
+			serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
+			serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
@@ -145,7 +145,6 @@ func TestMeshWide(t *testing.T) {
 
 func TestServiceExportedInOneCluster(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.servicediscovery").
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/34051")
 			// Get all the clusters where service B resides.
@@ -153,7 +152,6 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 
 			// Test exporting service B exclusively in each cluster.
 			for _, exportCluster := range bClusters {
-				exportCluster := exportCluster
 				t.NewSubTestf("b exported in %s", exportCluster.StableName()).
 					Run(func(t framework.TestContext) {
 						// Export service B in the export cluster.
@@ -191,7 +189,6 @@ func enableMCSServiceDiscovery(t resource.Context, cfg *istio.Config) {
 values:
   pilot:
     env:
-      PILOT_USE_ENDPOINT_SLICE: "true"
       ENABLE_MCS_SERVICE_DISCOVERY: "true"
       ENABLE_MCS_HOST: "true"
       ENABLE_MCS_CLUSTER_LOCAL: "true"
@@ -236,7 +233,7 @@ func checkDNSLookupFailed() echo.Checker {
 	return check.And(
 		check.Error(),
 		func(_ echo.CallResult, err error) error {
-			if strings.Contains(err.Error(), "no such host") {
+			if strings.Contains(err.Error(), "no such host") || strings.Contains(err.Error(), "server misbehaving") {
 				return nil
 			}
 			return err
@@ -298,7 +295,7 @@ func getClusterDetailsYAML(t framework.TestContext, address string, from echo.In
 
 	destName := to.Config().Service
 	destNS := to.Config().Namespace.Name()
-	istioNS := istio.GetOrFail(t, t).Settings().SystemNamespace
+	istioNS := istio.GetOrFail(t).Settings().SystemNamespace
 
 	for _, c := range t.Clusters() {
 		info := IPs{
@@ -375,7 +372,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	// Create the ServiceExports in each cluster concurrently.
 	g := errgroup.Group{}
 	for _, c := range exportClusters {
-		c := c
 		g.Go(func() error {
 			_, err := c.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace.Name()).Create(context.TODO(),
 				&unstructured.Unstructured{Object: u}, metav1.CreateOptions{})
@@ -389,11 +385,11 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	}
 
 	// Now wait for ServiceImport to be created
+	serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
 	importClusters := serviceA.GetMatches(echos.Instances).Clusters()
 	if common.IsMCSControllerEnabled(t) {
 		scopes.Framework.Infof("Waiting for the MCS Controller to create ServiceImport in each cluster")
 		for _, c := range importClusters {
-			c := c
 			serviceImports := c.Dynamic().Resource(serviceImportGVR).Namespace(echos.Namespace.Name())
 
 			g.Go(func() error {
@@ -416,7 +412,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	} else {
 		scopes.Framework.Infof("No MCS Controller running. Manually creating ServiceImport in each cluster")
 		for _, c := range importClusters {
-			c := c
 			g.Go(func() error {
 				// Generate a dummy service in the cluster to reserve the ClusterSet VIP.
 				clusterSetIPSvc, err := genClusterSetIPService(c)
@@ -446,7 +441,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	t.Cleanup(func() {
 		wg := sync.WaitGroup{}
 		for _, c := range exportClusters {
-			c := c
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

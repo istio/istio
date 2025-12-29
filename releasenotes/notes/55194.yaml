@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 55194
+releaseNotes:
+- |
+  **Fixed** `istioctl analyze` will now report `PartiallyInvalid` status for `AuthorizationPolicy` with invalid `targetRefs`.

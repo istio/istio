@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 46951
+releaseNotes:
+- |
+  **Fixed** an issue where all requests were being denied when the custom external authorization service had an issue. Now only requests that are delegated to the custom external authorization service are denied.

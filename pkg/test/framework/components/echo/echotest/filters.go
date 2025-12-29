@@ -73,13 +73,13 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 
 // WithDefaultFilters applies common filters that work for most tests.
 // Example:
-//   - The full set of apps is a, b, c, headless, naked, and vm (one simple pod).
-//   - Only a, headless, naked and vm are used as sources.
+//   - The full set of apps is a, b, c, d (dualStack), e (IPv6), headless, naked, and vm (one simple pod).
+//   - Services d and e are used only when dualStack mode is enabled as part of the tests.
 //   - Subtests are generated only for reachable destinations.
-//   - Pod a will not be in destinations, but b will (one simpe pod not in sources)
 func (t *T) WithDefaultFilters(minimumFrom, minimumTo int) *T {
 	return t.
 		From(FilterMatch(match.NotExternal)).
+		From(FilterMatch(match.NotWaypoint)).
 		From(SimplePodServiceAndAllSpecial(minimumFrom)).
 		ConditionallyTo(ReachableDestinations).
 		To(SimplePodServiceAndAllSpecial(minimumTo, t.sources...))
@@ -96,15 +96,15 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
 // Example:
-//   - The full set of apps is a, b, c, headless, naked, and vm.
+//   - The full set of apps is a, b, c, d, e, headless, naked, and vm.
 //   - The plain-pods are a, b and c.
-//   - This filter would result in a, headless, naked and vm.
+//   - This filter would result in a, d, e, headless, naked and vm.
 //
 // TODO this name is not good
-func SimplePodServiceAndAllSpecial(min int, exclude ...echo.Instance) Filter {
+func SimplePodServiceAndAllSpecial(minimum int, exclude ...echo.Instance) Filter {
 	return func(instances echo.Instances) echo.Instances {
 		nonRegular := notRegularPods()(instances)
-		needed := min - len(nonRegular)
+		needed := minimum - len(nonRegular)
 		if needed <= 0 {
 			needed = 1
 		}
@@ -167,6 +167,19 @@ var NoSelfCalls CombinationFilter = func(from echo.Instance, to echo.Instances) 
 	return match.Not(match.ServiceName(from.NamespacedName())).GetMatches(to)
 }
 
+// HasL7 only allows traffic where there is some L7 processing occurring on the path
+var HasL7 CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
+	if from.Config().HasSidecar() || from.Config().IsProxylessGRPC() {
+		// client has l7
+		return to
+	}
+	// otherwise give only serverside l7 endpoints
+	return match.Matcher(func(instance echo.Instance) bool {
+		return instance.Config().HasServiceAddressedWaypointProxy() ||
+			instance.Config().HasWorkloadAddressedWaypointProxy()
+	}).GetMatches(to)
+}
+
 // ReachableDestinations filters out known-unreachable destinations given a source.
 // - from a naked pod, we can't reach cross-network endpoints or VMs
 // - we can't reach cross-cluster headless endpoints
@@ -177,8 +190,17 @@ var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.I
 		reachableFromVM(from),
 		reachableFromProxylessGRPC(from),
 		reachableNakedDestinations(from),
-		reachableHeadlessDestinations(from)).
+		reachableHeadlessDestinations(from),
+		reachableWaypoints(from)).
 		GetMatches(to)
+}
+
+// reachableWaypoints removes waypointed targets when the client doesn't
+func reachableWaypoints(from echo.Instance) match.Matcher {
+	if from.Config().WaypointClient() {
+		return match.Any
+	}
+	return match.NotWaypoint
 }
 
 // reachableHeadlessDestinations filters out headless services that aren't in the same cluster
@@ -220,7 +242,9 @@ func reachableFromProxylessGRPC(from echo.Instance) match.Matcher {
 	}
 	return match.And(
 		match.NotExternal,
-		match.NotHeadless)
+		match.NotHeadless,
+		match.NotWaypoint,
+	)
 }
 
 // reachableFromNaked filters out all virtual machines and any instance that isn't on the same network

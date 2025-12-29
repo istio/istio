@@ -91,24 +91,18 @@ func (s *udpInstance) Start(onReady OnReadyFunc) error {
 func (s *udpInstance) getResponseFields(conn net.Addr) string {
 	ip, _, _ := net.SplitHostPort(conn.String())
 	// Write non-request fields specific to the instance
-	respFields := map[echo.Field]string{
-		echo.StatusCodeField:     strconv.Itoa(http.StatusOK),
-		echo.ClusterField:        s.Cluster,
-		echo.IstioVersionField:   s.IstioVersion,
-		echo.ServiceVersionField: s.Version,
-		echo.ServicePortField:    strconv.Itoa(s.Port.Port),
-		echo.IPField:             ip,
-		echo.ProtocolField:       "UDP",
-	}
+	out := &strings.Builder{}
+	echo.StatusCodeField.Write(out, strconv.Itoa(http.StatusOK))
+	echo.ClusterField.WriteNonEmpty(out, s.Cluster)
+	echo.IstioVersionField.WriteNonEmpty(out, s.IstioVersion)
+	echo.NamespaceField.WriteNonEmpty(out, s.Namespace)
+	echo.ServiceVersionField.Write(out, s.Version)
+	echo.ServicePortField.Write(out, strconv.Itoa(s.Port.Port))
+	echo.IPField.Write(out, ip)
+	echo.ProtocolField.Write(out, "TCP")
 
 	if hostname, err := os.Hostname(); err == nil {
-		respFields[echo.HostnameField] = hostname
-	}
-
-	var out strings.Builder
-	for field, val := range respFields {
-		val := fmt.Sprintf("%s=%s\n", string(field), val)
-		_, _ = out.WriteString(val)
+		echo.HostnameField.Write(out, hostname)
 	}
 	return out.String()
 }

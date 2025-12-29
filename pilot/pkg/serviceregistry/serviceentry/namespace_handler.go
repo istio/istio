@@ -28,13 +28,13 @@ func (s *Controller) NamespaceDiscoveryHandler(namespace string, event model.Eve
 		log.Debugf("Handle event namespace %s selected", namespace)
 	}
 
-	cfgs, _ := s.store.List(gvk.WorkloadEntry, namespace)
+	cfgs := s.store.List(gvk.WorkloadEntry, namespace)
 	for _, cfg := range cfgs {
 		s.workloadEntryHandler(cfg, cfg, event)
 	}
 
 	if !s.workloadEntryController {
-		cfgs, _ := s.store.List(gvk.ServiceEntry, namespace)
+		cfgs := s.store.List(gvk.ServiceEntry, namespace)
 		for _, cfg := range cfgs {
 			s.serviceEntryHandler(cfg, cfg, event)
 		}

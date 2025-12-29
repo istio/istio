@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Removed** writing the experimental field `GatewayClass.status.supportedFeatures`, as it is unstable in the API.

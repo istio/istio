@@ -47,3 +47,17 @@ func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (*anypb.Any, error) {
 
 	return dumpAny, nil
 }
+
+func (w *Wrapper) getSections(sectionTypeURL configTypeURL) ([]*anypb.Any, error) {
+	var dumpAny []*anypb.Any
+	for _, conf := range w.Configs {
+		if conf.TypeUrl == string(sectionTypeURL) {
+			dumpAny = append(dumpAny, conf)
+		}
+	}
+	if dumpAny == nil {
+		return nil, fmt.Errorf("config dump has no configuration type %s", sectionTypeURL)
+	}
+
+	return dumpAny, nil
+}

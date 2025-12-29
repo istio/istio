@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -34,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/forwardproxy"
 )
@@ -52,7 +50,7 @@ type tunnelingTestCase struct {
 
 type testRequestSpec struct {
 	protocol protocol.Instance
-	portName string
+	port     echo.Port
 }
 
 var forwardProxyConfigurations = []forwardproxy.ListenerSettings{
@@ -81,11 +79,11 @@ var forwardProxyConfigurations = []forwardproxy.ListenerSettings{
 var requestsSpec = []testRequestSpec{
 	{
 		protocol: protocol.HTTP,
-		portName: ports.TCPForHTTP,
+		port:     ports.TCPForHTTP,
 	},
 	{
 		protocol: protocol.HTTPS,
-		portName: ports.HTTPS,
+		port:     ports.HTTPS,
 	},
 }
 
@@ -107,25 +105,31 @@ var testCases = []tunnelingTestCase{
 func TestTunnelingOutboundTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.tunneling").
 		RequireIstioVersion("1.15.0").
 		Run(func(ctx framework.TestContext) {
 			meshNs := apps.A.NamespaceName()
 			externalNs := apps.External.Namespace.Name()
 
 			applyForwardProxyConfigMaps(ctx, externalNs)
-			ctx.ConfigIstio().File(externalNs, "testdata/external-forward-proxy-deployment.yaml").ApplyOrFail(ctx)
+			ctx.ConfigIstio().EvalFile(externalNs, map[string]any{
+				"OpenShift": ctx.Settings().OpenShift,
+			}, "testdata/external-forward-proxy-deployment.yaml").ApplyOrFail(ctx)
 			applyForwardProxyService(ctx, externalNs)
-			waitForPodsReadyOrFail(ctx, externalNs, "external-forward-proxy")
-			externalForwardProxyIP := getPodIP(ctx, externalNs, "external-forward-proxy")
+			externalForwardProxyIPs, err := i.PodIPsFor(ctx.Clusters().Default(), externalNs, "app=external-forward-proxy")
+			if err != nil {
+				t.Fatalf("error getting external forward proxy ips: %v", err)
+			}
 
 			for _, proxyConfig := range forwardProxyConfigurations {
 				templateParams := map[string]any{
-					"externalNamespace":  externalNs,
-					"forwardProxyPort":   proxyConfig.Port,
-					"tlsEnabled":         proxyConfig.TLSEnabled,
-					"externalSvcTcpPort": apps.External.All.PortForName(ports.TCPForHTTP).ServicePort,
-					"externalSvcTlsPort": apps.External.All.PortForName(ports.HTTPS).ServicePort,
+					"externalNamespace":             externalNs,
+					"forwardProxyPort":              proxyConfig.Port,
+					"tlsEnabled":                    proxyConfig.TLSEnabled,
+					"externalSvcTcpPort":            ports.TCPForHTTP.ServicePort,
+					"externalSvcTlsPort":            ports.HTTPS.ServicePort,
+					"EgressGatewayIstioLabel":       i.Settings().EgressGatewayIstioLabel,
+					"EgressGatewayServiceName":      i.Settings().EgressGatewayServiceName,
+					"EgressGatewayServiceNamespace": i.Settings().EgressGatewayServiceNamespace,
 				}
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).ApplyOrFail(ctx)
 
@@ -142,10 +146,10 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 							retry.UntilSuccessOrFail(ctx, func() error {
 								client := apps.A[0]
 								target := apps.External.All[0]
-								if err := testConnectivity(client, target, spec.protocol, spec.portName, testName); err != nil {
+								if err := testConnectivity(client, target, spec.protocol, spec.port, testName); err != nil {
 									return err
 								}
-								if err := verifyThatRequestWasTunneled(target, externalForwardProxyIP, testName); err != nil {
+								if err := verifyThatRequestWasTunneled(target, externalForwardProxyIPs, testName); err != nil {
 									return err
 								}
 								return nil
@@ -160,7 +164,8 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 					// Make sure that configuration changes were pushed to istio-proxies.
 					// Otherwise, test results could be false-positive,
 					// because subsequent test cases could work thanks to previous configurations.
-					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs)
+
+					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs, i.Settings().EgressGatewayServiceNamespace, i.Settings().EgressGatewayServiceName)
 				}
 
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).DeleteOrFail(ctx)
@@ -168,12 +173,12 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 		})
 }
 
-func testConnectivity(from, to echo.Instance, p protocol.Instance, portName, testName string) error {
+func testConnectivity(from, to echo.Instance, p protocol.Instance, port echo.Port, testName string) error {
 	res, err := from.Call(echo.CallOptions{
 		Address: to.ClusterLocalFQDN(),
 		Port: echo.Port{
 			Protocol:    p,
-			ServicePort: to.PortForName(portName).ServicePort,
+			ServicePort: port.ServicePort,
 		},
 		HTTP: echo.HTTP{
 			Path: "/" + testName,
@@ -188,7 +193,7 @@ func testConnectivity(from, to echo.Instance, p protocol.Instance, portName, tes
 	return nil
 }
 
-func verifyThatRequestWasTunneled(target echo.Instance, expectedSourceIP, expectedPath string) error {
+func verifyThatRequestWasTunneled(target echo.Instance, expectedSourceIPs []corev1.PodIP, expectedPath string) error {
 	workloads, err := target.Workloads()
 	if err != nil {
 		return fmt.Errorf("failed to get workloads of %s: %s", target.ServiceName(), err)
@@ -202,9 +207,16 @@ func verifyThatRequestWasTunneled(target echo.Instance, expectedSourceIP, expect
 		logs.WriteString(workloadLogs)
 	}
 
-	expectedLog := fmt.Sprintf("remoteAddr=%s method=GET url=/%s", expectedSourceIP, expectedPath)
-	if !strings.Contains(logs.String(), expectedLog) {
-		return fmt.Errorf("failed to find expected log: %s in logs of %s", expectedLog, target.ServiceName())
+	expectedTunnelLogFound := false
+	for _, expectedSourceIP := range expectedSourceIPs {
+		expectedLog := fmt.Sprintf("remoteAddr=%s method=GET url=/%s", expectedSourceIP.IP, expectedPath)
+		if strings.Contains(logs.String(), expectedLog) {
+			expectedTunnelLogFound = true
+			break
+		}
+	}
+	if !expectedTunnelLogFound {
+		return fmt.Errorf("failed to find expected tunnel log in logs of %s", target.ServiceName())
 	}
 	return nil
 }
@@ -235,7 +247,7 @@ func applyForwardProxyService(ctx framework.TestContext, externalNs string) {
 		servicePorts = append(servicePorts, corev1.ServicePort{
 			Name:       fmt.Sprintf("%s-%d", selectPortName(cfg.HTTPVersion), i),
 			Port:       int32(cfg.Port),
-			TargetPort: intstr.FromInt(int(cfg.Port)),
+			TargetPort: intstr.FromInt32(int32(cfg.Port)),
 		})
 	}
 	templateParams := map[string]any{
@@ -263,12 +275,6 @@ func selectPortName(httpVersion string) string {
 	return "http2-connect"
 }
 
-func getPodIP(ctx framework.TestContext, ns, appSelector string) string {
-	return getPodStringProperty(ctx, ns, appSelector, func(pod corev1.Pod) string {
-		return pod.Status.PodIP
-	})
-}
-
 func getPodName(ctx framework.TestContext, ns, appSelector string) string {
 	return getPodStringProperty(ctx, ns, appSelector, func(pod corev1.Pod) string {
 		return pod.Name
@@ -292,17 +298,7 @@ func getPodStringProperty(ctx framework.TestContext, ns, selector string, getPod
 	return podProperty
 }
 
-func waitForPodsReadyOrFail(ctx framework.TestContext, ns, appSelector string) {
-	kubeClient := ctx.Clusters().Kube().Default()
-	retry.UntilSuccessOrFail(ctx, func() error {
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(kubeClient, ns, "app="+appSelector)); err != nil {
-			return fmt.Errorf("pods app=%s are not ready: %v", appSelector, err)
-		}
-		return nil
-	}, retry.Timeout(1*time.Minute), retry.Delay(500*time.Millisecond))
-}
-
-func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, meshNs string) {
+func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, meshNs string, egressNs string, egressLabel string) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -312,13 +308,13 @@ func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, m
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		waitForTunnelingRemovedOrFail(ctx, "istio-system", "istio-egressgateway")
+		waitForTunnelingRemovedOrFail(ctx, egressNs, egressLabel)
 	}()
 	wg.Wait()
 }
 
 func waitForTunnelingRemovedOrFail(ctx framework.TestContext, ns, app string) {
-	istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Clusters().Default()})
+	istioCtl := istioctl.NewOrFail(ctx, istioctl.Config{Cluster: ctx.Clusters().Default()})
 	podName := getPodName(ctx, ns, app)
 	args := []string{"proxy-config", "listeners", "-n", ns, podName, "-o", "json"}
 	retry.UntilSuccessOrFail(ctx, func() error {

@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 48985
+
+releaseNotes:
+- |
+  **Added** endpoints acked generation to the proxy distribution report available through the pilot debug api (/debug/config_distribution).

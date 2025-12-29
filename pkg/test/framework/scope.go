@@ -42,6 +42,8 @@ type scope struct {
 
 	closeChan chan struct{}
 
+	topLevel bool
+
 	skipDump bool
 
 	// Mutex to lock changes to resources, children, and closers that can be done concurrently
@@ -180,6 +182,12 @@ func (s *scope) skipDumping() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.skipDump = true
+}
+
+func (s *scope) markTopLevel() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.topLevel = true
 }
 
 func (s *scope) dump(ctx resource.Context, recursive bool) {

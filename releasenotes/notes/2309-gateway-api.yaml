@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - https://github.com/kubernetes-sigs/gateway-api/issues/2309
+
+releaseNotes:
+- |
+  **Fixed** Istio's Gateway API implementation to adhere to the Gateway API
+  requirement that a `group: ""` field must be set for a `parentRef` of `kind: Service`.
+  Istio previously tolerated the missing group for Service-kind parent references. This
+  is a breaking change; see the upgrade notes for details.

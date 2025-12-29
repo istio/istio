@@ -1,0 +1,9 @@
+
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - https://github.com/istio/istio/issues/54288
+releaseNotes:
+  - |
+    **Fixed** a issue where `includeInboundPorts: ""` could not work when istio-CNI is enabled.

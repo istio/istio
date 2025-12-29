@@ -73,6 +73,15 @@ func getHTTPMirrorDestinations(vs *v1alpha3.VirtualService) []*AnnotatedDestinat
 				Destination:  m,
 			})
 		}
+
+		for j, m := range r.GetMirrors() {
+			destinations = append(destinations, &AnnotatedDestination{
+				RouteRule:        "http.mirrors",
+				ServiceIndex:     i,
+				DestinationIndex: j,
+				Destination:      m.GetDestination(),
+			})
+		}
 	}
 
 	return destinations

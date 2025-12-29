@@ -1,0 +1,31 @@
+_err: 'spec: Required value'
+apiVersion: networking.istio.io/v1
+kind: WorkloadGroup
+metadata:
+  name: no-spec
+---
+_err: port must be between 1-65535
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: tcp-probe-invalid
+spec:
+  probe:
+    tcpSocket:
+      port: 65536
+  template:
+    serviceAccount: sa
+    network: net
+---
+_err: 'spec.probe.httpGet.httpHeaders[0].name in body should match'
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: http-probe-invalid
+spec:
+  probe:
+    httpGet:
+      httpHeaders:
+        - name: "**"
+      port: 80
+  template: {}

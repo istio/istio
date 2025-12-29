@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+- https://github.com/cert-manager/istio-csr/issues/113
+
+docs: []
+
+releaseNotes:
+- |
+  **Added** values to the Istio Pilot Helm charts for configuring additional container arguments, volumeMounts, and volumes. Can be used in conjunction with cert-manager istio-csr.
+
+upgradeNotes: []
+
+securityNotes: []

@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 //  Copyright Istio Authors
 //
@@ -44,10 +43,11 @@ import (
 // are routed securely through the egress gateway and that the TLS origination happens at the gateway.
 func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.egress.tls.filebased").
 		Run(func(t framework.TestContext) {
 			// Apply Egress Gateway for service namespace to originate external traffic
-			createGateway(t, t, appNS, serviceNS)
+
+			createGateway(t, t, appNS, serviceNS, inst.Settings().EgressGatewayServiceNamespace,
+				inst.Settings().EgressGatewayServiceName, inst.Settings().EgressGatewayIstioLabel)
 
 			if err := WaitUntilNotCallable(internalClient[0], externalService[0]); err != nil {
 				t.Fatalf("failed to apply sidecar, %v", err)
@@ -145,7 +145,7 @@ func TestEgressGatewayTls(t *testing.T) {
 const (
 	// Destination Rule configs
 	DestinationRuleConfigSimple = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server-filebased-simple
@@ -163,7 +163,7 @@ spec:
 `
 	// Destination Rule configs
 	DestinationRuleConfigDisabledOrIstioMutual = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server-filebased-disabled
@@ -179,7 +179,7 @@ spec:
 
 `
 	DestinationRuleConfigMutual = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server-filebased-mutual
@@ -216,7 +216,7 @@ func createDestinationRule(t framework.TestContext, serviceNamespace namespace.I
 		rootCertPathToUse = "/etc/certs/custom/root-cert.pem"
 	}
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNamespace := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	systemNamespace := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 	args := map[string]string{
 		"AppNamespace": serviceNamespace.Name(),
 		"Mode":         destinationRuleMode, "RootCertPath": rootCertPathToUse,
@@ -226,13 +226,13 @@ func createDestinationRule(t framework.TestContext, serviceNamespace namespace.I
 
 const (
 	Gateway = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: istio-egressgateway-filebased
 spec:
   selector:
-    istio: egressgateway
+    istio: {{.EgressLabel}}
   servers:
     - port:
         number: 443
@@ -243,12 +243,12 @@ spec:
       tls:
         mode: ISTIO_MUTUAL
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: egressgateway-for-server-filebased
 spec:
-  host: istio-egressgateway.istio-system.svc.cluster.local
+  host: {{.EgressService}}.{{.EgressNamespace}}.svc.cluster.local
   subsets:
   - name: server
     trafficPolicy:
@@ -260,7 +260,7 @@ spec:
           sni: external-service.{{.ServerNamespace}}.svc.cluster.local
 `
 	VirtualService = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route-via-egressgateway-filebased
@@ -277,7 +277,7 @@ spec:
           port: 80
       route:
         - destination:
-            host: istio-egressgateway.istio-system.svc.cluster.local
+            host: {{.EgressService}}.{{.EgressNamespace}}.svc.cluster.local
             subset: server
             port:
               number: 443
@@ -299,10 +299,18 @@ spec:
 `
 )
 
-func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
+func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.Instance,
+	serviceNamespace namespace.Instance, egressNs string, egressSvc string, egressLabel string,
+) {
 	ctx.ConfigIstio().
-		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name()}, Gateway).
-		Eval(appsNamespace.Name(), map[string]string{"ServerNamespace": serviceNamespace.Name()}, VirtualService).
+		Eval(appsNamespace.Name(), map[string]string{
+			"ServerNamespace": serviceNamespace.Name(),
+			"EgressNamespace": egressNs, "EgressLabel": egressLabel, "EgressService": egressSvc,
+		}, Gateway).
+		Eval(appsNamespace.Name(), map[string]string{
+			"ServerNamespace": serviceNamespace.Name(),
+			"EgressNamespace": egressNs, "EgressService": egressSvc,
+		}, VirtualService).
 		ApplyOrFail(t)
 }
 

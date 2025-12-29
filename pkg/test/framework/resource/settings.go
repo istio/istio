@@ -21,8 +21,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	gwConformanceConfig "sigs.k8s.io/gateway-api/conformance/utils/config"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/label"
@@ -41,6 +42,9 @@ type ImageSettings struct {
 
 	// Tag value to use in Helm templates
 	Tag string
+
+	// Variant value to use in Helm templates
+	Variant string
 
 	// Image pull policy to use for deployments. If not specified, the defaults of each deployment will be used.
 	PullPolicy string
@@ -132,11 +136,18 @@ type Settings struct {
 	// Skip VM related parts for all the tests.
 	SkipVM bool
 
-	// Skip Delta XDS related parts for all the tests.
-	SkipDelta bool
-
 	// Skip TProxy related parts for all the tests.
 	SkipTProxy bool
+
+	// Ambient mesh is being used
+	Ambient bool
+
+	// Use ambient instead of sidecars
+	AmbientEverywhere bool
+
+	AmbientMultiNetwork bool
+
+	IstioOwnedCNIConfig bool
 
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
@@ -163,11 +174,39 @@ type Settings struct {
 	// MaxDumps is the maximum number of full test dumps that are allowed to occur within a test suite.
 	MaxDumps uint64
 
-	// EnableDualStack indicates the test should have dual stack enabled or not.
-	EnableDualStack bool
+	// IP Families (IPv6, IPv4) to test with. The order indicates precedence.
+	IPFamilies ArrayFlags
+
+	// Helm repo to be used for tests
+	HelmRepo string
+
+	DisableDefaultExternalServiceConnectivity bool
+
+	PeerMetadataDiscovery bool
+
+	// GatewayConformanceStandardOnly indicates that only the standard gateway conformance tests should be run.
+	GatewayConformanceStandardOnly bool
+
+	GatewayConformanceTimeoutConfig gwConformanceConfig.TimeoutConfig
+
+	// GatewayConformanceAllowCRDsMismatch lets gateway conformance tests to run on environments with pre-installed gateway-api CRDs
+	GatewayConformanceAllowCRDsMismatch bool
+
+	// OpenShift indicates the tests run in an OpenShift platform rather than in plain Kubernetes.
+	OpenShift bool
+
+	// If enabled, native nftable rules will be used for traffic redirection instead of iptable rules.
+	NativeNftables bool
 }
 
-func (s Settings) Skip(class string) bool {
+// SkipVMs changes the skip settings at runtime
+func (s *Settings) SkipVMs() {
+	s.SkipVM = true
+	s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "vm")
+}
+
+// Skip checks whether a given class is skipped
+func (s *Settings) Skip(class string) bool {
 	if s.SkipWorkloadClassesAsSet().Contains(class) {
 		return true
 	}
@@ -178,11 +217,11 @@ func (s Settings) Skip(class string) bool {
 }
 
 func (s *Settings) SkipWorkloadClassesAsSet() sets.String {
-	return sets.New(s.SkipWorkloadClasses...)
+	return sets.New[string](s.SkipWorkloadClasses...)
 }
 
 func (s *Settings) OnlyWorkloadClassesAsSet() sets.String {
-	return sets.New(s.OnlyWorkloadClasses...)
+	return sets.New[string](s.OnlyWorkloadClasses...)
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -217,24 +256,29 @@ func DefaultSettings() *Settings {
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("TestID:            %s\n", s.TestID)
-	result += fmt.Sprintf("RunID:             %s\n", s.RunID.String())
-	result += fmt.Sprintf("NoCleanup:         %v\n", s.NoCleanup)
-	result += fmt.Sprintf("BaseDir:           %s\n", s.BaseDir)
-	result += fmt.Sprintf("Selector:          %v\n", s.Selector)
-	result += fmt.Sprintf("FailOnDeprecation: %v\n", s.FailOnDeprecation)
-	result += fmt.Sprintf("CIMode:            %v\n", s.CIMode)
-	result += fmt.Sprintf("Retries:           %v\n", s.Retries)
-	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
-	result += fmt.Sprintf("Revision:          %v\n", s.Revision)
-	result += fmt.Sprintf("SkipWorkloads      %v\n", s.SkipWorkloadClasses)
-	result += fmt.Sprintf("Compatibility:     %v\n", s.Compatibility)
-	result += fmt.Sprintf("Revisions:         %v\n", s.Revisions.String())
-	result += fmt.Sprintf("Hub:               %s\n", s.Image.Hub)
-	result += fmt.Sprintf("Tag:               %s\n", s.Image.Tag)
-	result += fmt.Sprintf("PullPolicy:        %s\n", s.Image.PullPolicy)
-	result += fmt.Sprintf("PullSecret:        %s\n", s.Image.PullSecret)
-	result += fmt.Sprintf("MaxDumps:          %d\n", s.MaxDumps)
+	result += fmt.Sprintf("TestID:            						 %s\n", s.TestID)
+	result += fmt.Sprintf("RunID:             						 %s\n", s.RunID.String())
+	result += fmt.Sprintf("NoCleanup:         						 %v\n", s.NoCleanup)
+	result += fmt.Sprintf("BaseDir:           						 %s\n", s.BaseDir)
+	result += fmt.Sprintf("Selector:          						 %v\n", s.Selector)
+	result += fmt.Sprintf("FailOnDeprecation: 						 %v\n", s.FailOnDeprecation)
+	result += fmt.Sprintf("CIMode:            						 %v\n", s.CIMode)
+	result += fmt.Sprintf("Retries:           						 %v\n", s.Retries)
+	result += fmt.Sprintf("StableNamespaces:  						 %v\n", s.StableNamespaces)
+	result += fmt.Sprintf("Revision:          						 %v\n", s.Revision)
+	result += fmt.Sprintf("SkipWorkloads      						 %v\n", s.SkipWorkloadClasses)
+	result += fmt.Sprintf("Compatibility:     						 %v\n", s.Compatibility)
+	result += fmt.Sprintf("Revisions:         						 %v\n", s.Revisions.String())
+	result += fmt.Sprintf("Hub:               						 %s\n", s.Image.Hub)
+	result += fmt.Sprintf("Tag:               						 %s\n", s.Image.Tag)
+	result += fmt.Sprintf("Variant:           						 %s\n", s.Image.Variant)
+	result += fmt.Sprintf("PullPolicy:        						 %s\n", s.Image.PullPolicy)
+	result += fmt.Sprintf("PullSecret:        						 %s\n", s.Image.PullSecret)
+	result += fmt.Sprintf("MaxDumps:          						 %d\n", s.MaxDumps)
+	result += fmt.Sprintf("HelmRepo:          						 %v\n", s.HelmRepo)
+	result += fmt.Sprintf("IPFamilies:							 %v\n", s.IPFamilies)
+	result += fmt.Sprintf("GatewayConformanceStandardOnly: %v\n", s.GatewayConformanceStandardOnly)
+	result += fmt.Sprintf("GatewayConformanceAllowCRDsMismatch: %v\n", s.GatewayConformanceAllowCRDsMismatch)
 	return result
 }
 

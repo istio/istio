@@ -17,7 +17,6 @@ package namespace
 import (
 	"time"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -35,6 +34,8 @@ type Config struct {
 	// SkipDump, if enabled, will disable dumping the namespace. This is useful to avoid duplicate
 	// dumping of istio-system.
 	SkipDump bool
+	// SkipCleanup, if enabled, the namespace will not be deleted during cleanup. Used for istio-system namespace
+	SkipCleanup bool
 }
 
 func (c *Config) overwriteRevisionIfEmpty(revision string) {
@@ -57,6 +58,8 @@ type Instance interface {
 	RemoveLabel(key string) error
 	Prefix() string
 	Labels() (map[string]string, error)
+	IsAmbient() bool
+	IsInjected() bool
 }
 
 // Claim an existing namespace in all clusters, or create a new one if doesn't exist.
@@ -66,13 +69,13 @@ func Claim(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // ClaimOrFail calls Claim and fails test if it returns error
-func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
+func ClaimOrFail(t resource.ContextFailer, name string) Instance {
 	t.Helper()
 	nsCfg := Config{
 		Prefix: name,
 		Inject: true,
 	}
-	i, err := Claim(ctx, nsCfg)
+	i, err := Claim(t, nsCfg)
 	if err != nil {
 		t.Fatalf("namespace.ClaimOrFail:: %v", err)
 	}
@@ -100,9 +103,9 @@ func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 }
 
 // NewOrFail calls New and fails test if it returns error
-func NewOrFail(t test.Failer, ctx resource.Context, nsConfig Config) Instance {
+func NewOrFail(t resource.ContextFailer, nsConfig Config) Instance {
 	t.Helper()
-	i, err := New(ctx, nsConfig)
+	i, err := New(t, nsConfig)
 	if err != nil {
 		t.Fatalf("namespace.NewOrFail: %v", err)
 	}
@@ -122,7 +125,7 @@ func GetAll(ctx resource.Context) ([]Instance, error) {
 func Setup(ns *Instance, cfg Config) resource.SetupFn {
 	return func(ctx resource.Context) (err error) {
 		*ns, err = New(ctx, cfg)
-		return
+		return err
 	}
 }
 

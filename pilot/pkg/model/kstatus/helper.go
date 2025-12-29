@@ -15,11 +15,9 @@
 package kstatus
 
 import (
-	"reflect"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -37,39 +35,6 @@ func InvertStatus(status metav1.ConditionStatus) metav1.ConditionStatus {
 	}
 }
 
-// WrappedStatus provides a wrapper around a status message that keeps track of whether or not any
-// changes have been made. This allows users to declarative write status, without worrying about
-// tracking changes. When read to commit (typically to Kubernetes), any messages with Dirty=false can
-// be discarded.
-type WrappedStatus struct {
-	// Status is the object that is wrapped.
-	config.Status
-	// Dirty indicates if this object has been modified at all.
-	// Note: only changes wrapped in Mutate are tracked.
-	Dirty bool
-}
-
-func Wrap(s config.Status) *WrappedStatus {
-	return &WrappedStatus{config.DeepCopy(s), false}
-}
-
-func (w *WrappedStatus) Mutate(f func(s config.Status) config.Status) {
-	if w.Status == nil {
-		return
-	}
-	old := config.DeepCopy(w.Status)
-	w.Status = f(w.Status)
-	// TODO: change this to be more efficient. Likely we allow modifications via WrappedStatus that
-	// modify specific things (ie conditions).
-	if !reflect.DeepEqual(old, w.Status) {
-		w.Dirty = true
-	}
-}
-
-func (w *WrappedStatus) Unwrap() config.Status {
-	return w.Status
-}
-
 var EmptyCondition = metav1.Condition{}
 
 func GetCondition(conditions []metav1.Condition, condition string) metav1.Condition {
@@ -83,26 +48,25 @@ func GetCondition(conditions []metav1.Condition, condition string) metav1.Condit
 
 // UpdateConditionIfChanged updates a condition if it has been changed.
 func UpdateConditionIfChanged(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
-	ret := append([]metav1.Condition(nil), conditions...)
-	idx := -1
-	for i, cond := range ret {
-		if cond.Type == condition.Type {
-			idx = i
-			break
-		}
-	}
-
-	if idx == -1 {
+	ret := slices.Clone(conditions)
+	existing := slices.FindFunc(ret, func(cond metav1.Condition) bool {
+		return cond.Type == condition.Type
+	})
+	if existing == nil {
 		ret = append(ret, condition)
 		return ret
 	}
-	if ret[idx].Message == condition.Message &&
-		ret[idx].ObservedGeneration == condition.ObservedGeneration &&
-		ret[idx].Status == condition.Status {
-		// Skip update, no changes
-		return conditions
+
+	if existing.Status == condition.Status {
+		if existing.Message == condition.Message &&
+			existing.ObservedGeneration == condition.ObservedGeneration {
+			// Skip update, no changes
+			return conditions
+		}
+		// retain LastTransitionTime if status is not changed
+		condition.LastTransitionTime = existing.LastTransitionTime
 	}
-	ret[idx] = condition
+	*existing = condition
 
 	return ret
 }

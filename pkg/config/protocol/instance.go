@@ -57,6 +57,9 @@ const (
 	// HBONE declares that the port carries HBONE traffic.
 	// This cannot be declared by Services, but is used for some internal code that uses Protocol
 	HBONE Instance = "HBONE"
+	// DoubleHBONE declares that the port carries Double HBONE traffic.
+	// This is only used to send or simulate multi-network traffic
+	DoubleHBONE Instance = "DoubleHBONE"
 	// Unsupported - value to signify that the protocol is unsupported.
 	Unsupported Instance = "UnsupportedProtocol"
 )
@@ -88,6 +91,8 @@ func Parse(s string) Instance {
 		return Redis
 	case "mysql":
 		return MySQL
+	case "DoubleHBONE":
+		return DoubleHBONE
 	}
 
 	return Unsupported
@@ -101,6 +106,11 @@ func (i Instance) IsHTTP2() bool {
 	default:
 		return false
 	}
+}
+
+// IsHTTPOrSniffed is true for protocols that use HTTP as transport protocol, or *can* use it if sniffed to be HTTP
+func (i Instance) IsHTTPOrSniffed() bool {
+	return i.IsHTTP() || i.IsUnsupported()
 }
 
 // IsHTTP is true for protocols that use HTTP as transport protocol

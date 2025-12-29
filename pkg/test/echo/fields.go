@@ -30,6 +30,12 @@ func (f Field) Write(out io.StringWriter, value string) {
 	_, _ = out.WriteString(fmt.Sprintf("%s=%s\n", f, value))
 }
 
+func (f Field) WriteNonEmpty(out io.StringWriter, value string) {
+	if value != "" {
+		_, _ = out.WriteString(fmt.Sprintf("%s=%s\n", f, value))
+	}
+}
+
 func (f Field) WriteKeyValue(out io.StringWriter, key, value string) {
 	f.Write(out, key+":"+value)
 }
@@ -51,30 +57,36 @@ func WriteError(out io.StringWriter, requestID int, err error) {
 }
 
 const (
-	RequestIDField        Field = "X-Request-Id"
-	ServiceVersionField   Field = "ServiceVersion"
-	ServicePortField      Field = "ServicePort"
-	StatusCodeField       Field = "StatusCode"
-	URLField              Field = "URL"
-	ForwarderURLField     Field = "Url"
-	ForwarderMessageField Field = "Echo"
-	ForwarderHeaderField  Field = "Header"
-	HostField             Field = "Host"
-	HostnameField         Field = "Hostname"
-	MethodField           Field = "Method"
-	ProtocolField         Field = "Proto"
-	AlpnField             Field = "Alpn"
-	RequestHeaderField    Field = "RequestHeader"
-	ResponseHeaderField   Field = "ResponseHeader"
-	ClusterField          Field = "Cluster"
-	IstioVersionField     Field = "IstioVersion"
-	IPField               Field = "IP" // The Requester’s IP Address.
-	LatencyField          Field = "Latency"
-	ActiveRequestsField   Field = "ActiveRequests"
-	DNSProtocolField      Field = "Protocol"
-	DNSQueryField         Field = "Query"
-	DNSServerField        Field = "DnsServer"
-	CipherField           Field = "Cipher"
-	TLSVersionField       Field = "Version"
-	TLSServerName         Field = "ServerName"
+	RequestIDField              Field = "X-Request-Id"
+	ServiceVersionField         Field = "ServiceVersion"
+	ServicePortField            Field = "ServicePort"
+	StatusCodeField             Field = "StatusCode"
+	URLField                    Field = "URL"
+	ForwarderURLField           Field = "Url"
+	ForwarderMessageField       Field = "Echo"
+	ForwarderHeaderField        Field = "Header"
+	HostField                   Field = "Host"
+	HostnameField               Field = "Hostname"
+	NamespaceField              Field = "Namespace"
+	MethodField                 Field = "Method"
+	ProtocolField               Field = "Proto"
+	ProxyProtocolField          Field = "ProxyProtocol"
+	AlpnField                   Field = "Alpn"
+	SNIField                    Field = "Sni"
+	ClientCertSubjectField      Field = "ClientCertSubject"
+	ClientCertSerialNumberField Field = "ClientCertSerialNumber"
+	RequestHeaderField          Field = "RequestHeader"
+	ResponseHeaderField         Field = "ResponseHeader"
+	ClusterField                Field = "Cluster"
+	IstioVersionField           Field = "IstioVersion"
+	IPField                     Field = "IP"       // The Requester’s IP Address, as reported from the destination
+	SourceIPField               Field = "SourceIP" // The Requester’s IP Address, as reported from the source.
+	LatencyField                Field = "Latency"
+	ActiveRequestsField         Field = "ActiveRequests"
+	DNSProtocolField            Field = "Protocol"
+	DNSQueryField               Field = "Query"
+	DNSServerField              Field = "DnsServer"
+	CipherField                 Field = "Cipher"
+	TLSVersionField             Field = "Version"
+	TLSServerName               Field = "ServerName"
 )

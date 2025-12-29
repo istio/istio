@@ -21,6 +21,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/validation/agent"
 )
 
 type HTTPRouteType int
@@ -48,65 +49,66 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bo
 	errs = WrapError(validateHTTPRouteConflict(http, routeType))
 
 	// check http route match requests
-	errs = appendValidation(errs, validateHTTPRouteMatchRequest(http, routeType))
+	errs = AppendValidation(errs, validateHTTPRouteMatchRequest(http))
 
 	// header manipulation
 	for name, val := range http.Headers.GetRequest().GetAdd() {
-		errs = appendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
-		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+		errs = AppendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for name, val := range http.Headers.GetRequest().GetSet() {
-		errs = appendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
-		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+		errs = AppendValidation(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetRequest().GetRemove() {
-		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderOperationName(name))
 	}
 	for name, val := range http.Headers.GetResponse().GetAdd() {
-		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
-		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+		errs = AppendValidation(errs, ValidateHTTPHeaderOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for name, val := range http.Headers.GetResponse().GetSet() {
-		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
-		errs = appendValidation(errs, ValidateHTTPHeaderValue(val))
+		errs = AppendValidation(errs, ValidateHTTPHeaderOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetResponse().GetRemove() {
-		errs = appendValidation(errs, ValidateHTTPHeaderOperationName(name))
+		errs = AppendValidation(errs, ValidateHTTPHeaderOperationName(name))
 	}
 
-	errs = appendValidation(errs, validateCORSPolicy(http.CorsPolicy))
-	errs = appendValidation(errs, validateHTTPFaultInjection(http.Fault))
+	errs = AppendValidation(errs, validateCORSPolicy(http.CorsPolicy))
+	errs = AppendValidation(errs, validateHTTPFaultInjection(http.Fault))
 
 	// nolint: staticcheck
 	if http.MirrorPercent != nil {
 		if value := http.MirrorPercent.GetValue(); value > 100 {
-			errs = appendValidation(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
+			errs = AppendValidation(errs, fmt.Errorf("mirror_percent must have a max value of 100 (it has %d)", value))
 		}
-		errs = appendValidation(errs, WrapWarning(errors.New(`using deprecated setting "mirrorPercent", use "mirrorPercentage" instead`)))
+		errs = AppendValidation(errs, WrapWarning(errors.New(`using deprecated setting "mirrorPercent", use "mirrorPercentage" instead`)))
 	}
 
 	if http.MirrorPercentage != nil {
 		value := http.MirrorPercentage.GetValue()
 		if value > 100 {
-			errs = appendValidation(errs, fmt.Errorf("mirror_percentage must have a max value of 100 (it has %f)", value))
+			errs = AppendValidation(errs, fmt.Errorf("mirror_percentage must have a max value of 100 (it has %f)", value))
 		}
 		if value < 0 {
-			errs = appendValidation(errs, fmt.Errorf("mirror_percentage must have a min value of 0 (it has %f)", value))
+			errs = AppendValidation(errs, fmt.Errorf("mirror_percentage must have a min value of 0 (it has %f)", value))
 		}
 	}
 
-	errs = appendValidation(errs, validateDestination(http.Mirror))
-	errs = appendValidation(errs, validateHTTPRedirect(http.Redirect))
-	errs = appendValidation(errs, validateHTTPDirectResponse(http.DirectResponse))
-	errs = appendValidation(errs, validateHTTPRetry(http.Retries))
-	errs = appendValidation(errs, validateHTTPRewrite(http.Rewrite))
-	errs = appendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
-	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route, gatewaySemantics))
+	errs = AppendValidation(errs, validateDestination(http.Mirror))
+	errs = AppendValidation(errs, validateHTTPMirrors(http.Mirrors))
+	errs = AppendValidation(errs, validateHTTPRedirect(http.Redirect))
+	errs = AppendValidation(errs, validateHTTPDirectResponse(http.DirectResponse))
+	errs = AppendValidation(errs, validateHTTPRetry(http.Retries))
+	errs = AppendValidation(errs, validateHTTPRewrite(http.Rewrite))
+	errs = AppendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
+	errs = AppendValidation(errs, validateHTTPRouteDestinations(http.Route, gatewaySemantics))
 	if http.Timeout != nil {
-		errs = appendValidation(errs, ValidateDuration(http.Timeout))
+		errs = AppendValidation(errs, agent.ValidateDuration(http.Timeout))
 	}
 
-	return
+	return errs
 }
 
 // validateAuthorityRewrite ensures we only attempt rewrite authority in a single place.
@@ -133,48 +135,35 @@ func validateAuthorityRewrite(rewrite *networking.HTTPRewrite, headers *networki
 	return nil
 }
 
-func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRouteType) (errs error) {
-	if routeType == IndependentRoute {
-		for _, match := range http.Match {
-			if match != nil {
-				for name, header := range match.Headers {
-					if header == nil {
-						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
-					}
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-					errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
+func validateHTTPRouteMatchRequest(http *networking.HTTPRoute) (errs error) {
+	for _, match := range http.Match {
+		if match != nil {
+			for name, header := range match.Headers {
+				if header == nil {
+					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
+				errs = appendErrors(errs, ValidateHTTPHeaderNameOrJwtClaimRoute(name))
+				errs = appendErrors(errs, validateStringMatch(header, "headers"))
+			}
 
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
-				for _, qp := range match.GetQueryParams() {
-					errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
+			for name, header := range match.WithoutHeaders {
+				errs = appendErrors(errs, ValidateHTTPHeaderNameOrJwtClaimRoute(name))
+				// `*` is NOT a RE2 style regex, it will be translated as present_match.
+				if header != nil && header.GetRegex() != "*" {
+					errs = appendErrors(errs, validateStringMatch(header, "withoutHeaders"))
 				}
 			}
-		}
-	} else {
-		for _, match := range http.Match {
-			if match != nil {
-				for name, header := range match.Headers {
-					if header == nil {
-						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
-					}
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-				}
-				for name, param := range match.QueryParams {
-					if param == nil {
-						errs = appendErrors(errs, fmt.Errorf("query param match %v cannot be null", name))
-					}
-				}
-				for name, header := range match.WithoutHeaders {
-					if header == nil {
-						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v cannot be null", name))
-					}
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-				}
 
+			// uri allows empty prefix match:
+			// https://github.com/envoyproxy/envoy/blob/v1.29.2/api/envoy/config/route/v3/route_components.proto#L560
+			// whereas scheme/method/authority does not:
+			// https://github.com/envoyproxy/envoy/blob/v1.29.2/api/envoy/type/matcher/string.proto#L38
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+			errs = appendErrors(errs, validateStringMatch(match.GetScheme(), "scheme"))
+			errs = appendErrors(errs, validateStringMatch(match.GetMethod(), "method"))
+			errs = appendErrors(errs, validateStringMatch(match.GetAuthority(), "authority"))
+			for _, qp := range match.GetQueryParams() {
+				errs = appendErrors(errs, validateStringMatch(qp, "queryParams"))
 			}
 		}
 	}
@@ -182,10 +171,10 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 	for _, match := range http.Match {
 		if match != nil {
 			if match.Port != 0 {
-				errs = appendErrors(errs, ValidatePort(int(match.Port)))
+				errs = appendErrors(errs, agent.ValidatePort(int(match.Port)))
 			}
 			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
-			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+			errs = appendErrors(errs, validateGatewayNames(match.Gateways, false))
 			if match.SourceNamespace != "" {
 				if !labels.IsDNS1123Label(match.SourceNamespace) {
 					errs = appendErrors(errs, fmt.Errorf("sourceNamespace match %s is invalid", match.SourceNamespace))
@@ -194,7 +183,7 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 		}
 	}
 
-	return
+	return errs
 }
 
 func validateHTTPRouteConflict(http *networking.HTTPRoute, routeType HTTPRouteType) (errs error) {
@@ -252,6 +241,10 @@ func validateHTTPRouteConflict(http *networking.HTTPRoute, routeType HTTPRouteTy
 		}
 	} else if len(http.Route) == 0 {
 		errs = appendErrors(errs, errors.New("HTTP route, redirect or direct_response is required"))
+	}
+
+	if http.Mirror != nil && len(http.Mirrors) > 0 {
+		errs = appendErrors(errs, errors.New("HTTP route cannot contain both mirror and mirrors"))
 	}
 
 	return errs

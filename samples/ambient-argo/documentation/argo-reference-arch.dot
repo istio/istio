@@ -1,0 +1,83 @@
+digraph G {
+  rankdir=LR
+  graph[fontname="Arial"]
+  node [fontname = "Arial"];
+  subgraph cluster_0 {
+    style=filled;
+    color=lightgrey;
+    node [style=filled,color=white,class=application];
+    meta[label="meta-application.yaml"]
+    app[label="application/application.yaml"]
+    meta -> app
+    istio[label="istio/*"]
+    meta -> istio
+    cni[label="istio/cni.yaml"]
+    istio -> cni
+    cpt[label="istio/control-plane-appset.yaml"]
+    istio -> cpt
+    ztunnel[label="istio/ztunnel.yaml"]
+    istio -> ztunnel
+    extras[label="istio/extras.yaml"]
+    istio -> extras
+    tags[label="istio/tags.yaml"]
+    istio -> tags
+    fontsize="32"
+    label = "ArgoCD Cluster";
+  }
+
+  subgraph cluster_1 {
+    node [style=filled,color=white]
+    subgraph cluster_istio {
+        fontsize="24"
+        label = "NS istio-system"
+        istiod18[label="Istio 1.18.5 Control"]
+        istiod19[label="Istio 1.19.3 Control"]
+        ztunnelds[label="ztunnel"]
+        cnids[label="cni"]
+        extrads[label="prometheus, etc"]
+        tagdef[label="tag default->1.18.5"]
+        tagrap[label="tag rapid->1.19.3"]
+        tagsta[label="tag stable->1.18.5"]
+    }
+
+    subgraph cluster_app {
+        rankdir=TB
+        node [style=filled];
+        appcontents[label="App Pods"]
+        appwp[label="App Waypoints"]
+        ig[label="Ingress Gateway"]
+        nwc[label="App Network Configs"]
+        fontsize="24"
+        label = "NS ambient";
+    }
+    fontsize="32"
+    label = "Application Cluster";
+    style=filled
+    color=deepskyblue
+
+  }
+  
+  edge[weight=5]
+  appfiles[label="application/*"]
+  app -> appfiles [constraint=false]
+  appfiles -> appcontents
+  appfiles -> appwp
+  appfiles -> ig
+  appfiles -> nwc
+  ztunchart[label="ztunnel",class="helm"]
+  ztunnel -> ztunchart -> ztunnelds
+  istiodchart[label="istiod",class="helm"]
+  cpt -> istiodchart
+  istiodchart -> istiod18
+  istiodchart -> istiod19
+  cnichart[label="cni",class="helm"]
+  cni -> cnichart -> cnids
+  istiogh[label="istio github"]
+  extras -> istiogh -> extrads
+  tagchart[label="tag*"]
+  edge[weight=1]
+  tags->tagchart->tagdef
+  tagchart->tagrap
+  tagchart->tagsta
+
+}

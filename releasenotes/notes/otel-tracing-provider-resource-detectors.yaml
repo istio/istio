@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 48885
+releaseNotes:
+  - |
+    **Enabled** configuring Resource Detectors for the `OpenTelemetryTracingProvider` in `MeshConfig`.

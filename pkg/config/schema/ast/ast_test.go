@@ -31,11 +31,6 @@ func TestParse(t *testing.T) {
 		},
 		{
 			input: `
-collections:
-  - name:  "istio/meshconfig"
-    kind:  "MeshConfig"
-    group: ""
-
 resources:
   - kind:         "VirtualService"
     group:        "networking.istio.io"
@@ -44,23 +39,15 @@ resources:
     protoPackage: "istio.io/api/networking/v1alpha3"
 `,
 			expected: &Metadata{
-				Collections: []*Collection{
-					{
-						Name:         "istio/meshconfig",
-						VariableName: "IstioMeshconfig",
-						Description:  "describes the collection istio/meshconfig",
-						Kind:         "MeshConfig",
-						Group:        "",
-					},
-				},
 				Resources: []*Resource{
 					{
+						Identifier:   "VirtualService",
 						Kind:         "VirtualService",
 						Group:        "networking.istio.io",
 						Version:      "v1alpha3",
 						Proto:        "istio.networking.v1alpha3.VirtualService",
 						ProtoPackage: "istio.io/api/networking/v1alpha3",
-						Validate:     "ValidateVirtualService",
+						Validate:     "validation.ValidateVirtualService",
 					},
 				},
 			},

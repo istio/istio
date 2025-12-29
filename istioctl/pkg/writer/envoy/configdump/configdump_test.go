@@ -121,7 +121,7 @@ func TestConfigWriter_PrintVersionSummary(t *testing.T) {
 			if tt.callPrime {
 				cw.Prime(cd)
 			}
-			err := cw.PrintVersionSummary()
+			err := cw.PrintBootstrapSummary()
 			if tt.wantOutputFile != "" {
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputFile)
 			}

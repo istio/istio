@@ -1,0 +1,10 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    base:
+      enabled: false
+    pilot:
+      enabled: false
+    cni:
+      enabled: true

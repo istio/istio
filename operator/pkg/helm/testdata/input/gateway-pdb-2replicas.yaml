@@ -1,0 +1,7 @@
+spec:
+  values:
+    replicaCount: 2
+    autoscaling:
+      enabled: false
+    podDisruptionBudget:
+      minAvailable: 1

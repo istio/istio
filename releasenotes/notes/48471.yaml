@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 48336
+releaseNotes:
+  - |
+    **Added** always `istio.cluster_id` tag to all tracing spans.

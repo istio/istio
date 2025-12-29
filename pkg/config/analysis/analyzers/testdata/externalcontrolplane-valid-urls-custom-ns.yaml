@@ -1,0 +1,60 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-validator-custom-ns
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  - v1
+  clientConfig:
+    url: https://test.com:15017/validate
+  name: rev.validation.istio.io
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-default-validator
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  - v1
+  clientConfig:
+    url: https://test.com:15017/validate
+  failurePolicy: Ignore
+  name: validation.istio.io
+  
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-sidecar-injector-custom-ns
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  - v1
+  clientConfig:
+    url: https://test.com/inject/cluster/your-cluster-name/net/network1
+  failurePolicy: Fail
+  name: rev.namespace.sidecar-injector.istio.io
+- admissionReviewVersions:
+  - v1beta1
+  - v1
+  clientConfig:
+    url: https://test.com/inject/cluster/your-cluster-name/net/network1
+  failurePolicy: Fail
+  name: rev.object.sidecar-injector.istio.io
+- admissionReviewVersions:
+  - v1beta1
+  - v1
+  clientConfig:
+    url: https://test.com/inject/cluster/your-cluster-name/net/network1
+  failurePolicy: Fail
+  name: namespace.sidecar-injector.istio.io
+- admissionReviewVersions:
+  - v1beta1
+  - v1
+  clientConfig:
+    url: https://test.com/inject/cluster/your-cluster-name/net/network1
+  failurePolicy: Fail
+  name: object.sidecar-injector.istio.io

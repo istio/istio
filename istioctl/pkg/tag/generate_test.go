@@ -15,17 +15,21 @@
 package tag
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var (
@@ -58,10 +62,14 @@ var (
 		},
 	}
 	samplePath               = "/sample/path"
+	operatorManaged          = operatorNamespace + "/managed"
 	revisionCanonicalWebhook = admitv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "istio-sidecar-injector-revision",
-			Labels: map[string]string{label.IoIstioRev.Name: "revision"},
+			Name: "istio-sidecar-injector-revision",
+			Labels: map[string]string{
+				label.IoIstioRev.Name: "revision",
+				operatorManaged:       "Reconcile",
+			},
 		},
 		Webhooks: []admitv1.MutatingWebhook{
 			{
@@ -110,7 +118,69 @@ var (
 			},
 		},
 	}
-	remoteValidationURL = "https://random.host.com/validate"
+	remoteValidationURL                                        = "https://random.host.com/validate"
+	neverReinvocationPolicy                                    = admitv1.NeverReinvocationPolicy
+	ifNeededReinvocationPolicy                                 = admitv1.IfNeededReinvocationPolicy
+	defaultRevisionCanonicalWebhookWithNeverReinvocationPolicy = admitv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-sidecar-injector",
+			Labels: map[string]string{label.IoIstioRev.Name: "default"},
+		},
+		Webhooks: []admitv1.MutatingWebhook{
+			{
+				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
+				ClientConfig: admitv1.WebhookClientConfig{
+					Service: &admitv1.ServiceReference{
+						Namespace: "default",
+						Name:      "istiod",
+					},
+					CABundle: []byte("ca"),
+				},
+				ReinvocationPolicy: &neverReinvocationPolicy,
+			},
+			{
+				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
+				ClientConfig: admitv1.WebhookClientConfig{
+					Service: &admitv1.ServiceReference{
+						Namespace: "default",
+						Name:      "istiod",
+					},
+					CABundle: []byte("ca"),
+				},
+				ReinvocationPolicy: &neverReinvocationPolicy,
+			},
+		},
+	}
+	defaultRevisionCanonicalWebhookWithIfNeededReinvocationPolicy = admitv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-sidecar-injector",
+			Labels: map[string]string{label.IoIstioRev.Name: "default"},
+		},
+		Webhooks: []admitv1.MutatingWebhook{
+			{
+				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
+				ClientConfig: admitv1.WebhookClientConfig{
+					Service: &admitv1.ServiceReference{
+						Namespace: "default",
+						Name:      "istiod",
+					},
+					CABundle: []byte("ca"),
+				},
+				ReinvocationPolicy: &ifNeededReinvocationPolicy,
+			},
+			{
+				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
+				ClientConfig: admitv1.WebhookClientConfig{
+					Service: &admitv1.ServiceReference{
+						Namespace: "default",
+						Name:      "istiod",
+					},
+					CABundle: []byte("ca"),
+				},
+				ReinvocationPolicy: &ifNeededReinvocationPolicy,
+			},
+		},
+	}
 )
 
 func TestGenerateValidatingWebhook(t *testing.T) {
@@ -121,6 +191,7 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 		whURL          string
 		whSVC          string
 		whCA           string
+		userManaged    bool
 	}{
 		{
 			name:           "webhook-pointing-to-service",
@@ -146,18 +217,53 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			whSVC:          "",
 			whCA:           "ca",
 		},
+		{
+			name:           "webhook-process-failure-policy",
+			istioNamespace: "istio-system",
+			webhook:        revisionCanonicalWebhook,
+			whURL:          "",
+			whSVC:          "istiod-revision",
+			whCA:           "ca",
+			userManaged:    true,
+		},
 	}
 	scheme := runtime.NewScheme()
 	codecFactory := serializer.NewCodecFactory(scheme)
 	deserializer := codecFactory.UniversalDeserializer()
 
+	fail := admitv1.Fail
+	fakeClient := kube.NewFakeClient(&admitv1.ValidatingWebhookConfiguration{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "istiod-default-validator",
+		},
+		Webhooks: []admitv1.ValidatingWebhook{
+			{
+				Name: "random",
+			},
+			{
+				FailurePolicy: &fail,
+				Name:          "validation.istio.io",
+			},
+		},
+	})
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, "default", tc.istioNamespace)
 			if err != nil {
 				t.Fatalf("webhook parsing failed with error: %v", err)
 			}
-			webhookYAML, err := generateValidatingWebhook(fixWhConfig(webhookConfig), filepath.Join(env.IstioSrc, "manifests"))
+			webhookConfig, err = fixWhConfig(fakeClient, webhookConfig)
+			if err != nil {
+				t.Fatalf("webhook fixing failed with error: %v", err)
+			}
+			opts := &GenerateOptions{
+				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+			}
+			if tc.userManaged {
+				opts.UserManaged = true
+			}
+			webhookYAML, err := generateValidatingWebhook(webhookConfig, opts)
 			if err != nil {
 				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 			}
@@ -168,8 +274,20 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			}
 			wh := vwhObject.(*admitv1.ValidatingWebhookConfiguration)
 
+			if tc.userManaged {
+				// User created webhooks should not have operator labels, otherwise will be pruned.
+				_, ok := wh.GetLabels()[operatorManaged]
+				assert.Equal(t, ok, false)
+			}
+
 			for _, webhook := range wh.Webhooks {
 				validationWhConf := webhook.ClientConfig
+
+				// this is nil since we've already have one with failed FailurePolicy in the fake client
+				if webhook.FailurePolicy != nil {
+					t.Fatalf("expected FailurePolicy to be nil, got %v", *webhook.FailurePolicy)
+				}
+
 				if tc.whSVC != "" {
 					if validationWhConf.Service == nil {
 						t.Fatalf("expected validation service %s, got nil", tc.whSVC)
@@ -201,49 +319,74 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 
 func TestGenerateMutatingWebhook(t *testing.T) {
 	tcs := []struct {
-		name        string
-		webhook     admitv1.MutatingWebhookConfiguration
-		tagName     string
-		whURL       string
-		whSVC       string
-		whCA        string
-		numWebhooks int
+		name                 string
+		webhook              admitv1.MutatingWebhookConfiguration
+		tagName              string
+		whURL                string
+		whSVC                string
+		whCA                 string
+		whReinvocationPolicy string
+		numWebhooks          int
 	}{
 		{
-			name:        "webhook-pointing-to-service",
-			webhook:     revisionCanonicalWebhook,
-			tagName:     "canary",
-			whURL:       "",
-			whSVC:       "istiod-revision",
-			whCA:        "ca",
-			numWebhooks: 2,
+			name:                 "webhook-pointing-to-service",
+			webhook:              revisionCanonicalWebhook,
+			tagName:              "canary",
+			whURL:                "",
+			whSVC:                "istiod-revision",
+			whCA:                 "ca",
+			whReinvocationPolicy: string(admitv1.NeverReinvocationPolicy),
+			numWebhooks:          2,
 		},
 		{
-			name:        "webhook-pointing-to-url",
-			webhook:     revisionCanonicalWebhookRemote,
-			tagName:     "canary",
-			whURL:       remoteInjectionURL,
-			whSVC:       "",
-			whCA:        "ca",
-			numWebhooks: 2,
+			name:                 "webhook-pointing-to-url",
+			webhook:              revisionCanonicalWebhookRemote,
+			tagName:              "canary",
+			whURL:                remoteInjectionURL,
+			whSVC:                "",
+			whCA:                 "ca",
+			whReinvocationPolicy: string(admitv1.NeverReinvocationPolicy),
+			numWebhooks:          2,
 		},
 		{
-			name:        "webhook-pointing-to-default-revision",
-			webhook:     defaultRevisionCanonicalWebhook,
-			tagName:     "canary",
-			whURL:       "",
-			whSVC:       "istiod",
-			whCA:        "ca",
-			numWebhooks: 2,
+			name:                 "webhook-pointing-to-default-revision",
+			webhook:              defaultRevisionCanonicalWebhook,
+			tagName:              "canary",
+			whURL:                "",
+			whSVC:                "istiod",
+			whCA:                 "ca",
+			whReinvocationPolicy: string(admitv1.NeverReinvocationPolicy),
+			numWebhooks:          2,
 		},
 		{
-			name:        "webhook-pointing-to-default-revision",
-			webhook:     defaultRevisionCanonicalWebhook,
-			tagName:     "default",
-			whURL:       "",
-			whSVC:       "istiod",
-			whCA:        "ca",
-			numWebhooks: 4,
+			name:                 "webhook-pointing-to-default-revision",
+			webhook:              defaultRevisionCanonicalWebhook,
+			tagName:              "default",
+			whURL:                "",
+			whSVC:                "istiod",
+			whCA:                 "ca",
+			whReinvocationPolicy: string(admitv1.NeverReinvocationPolicy),
+			numWebhooks:          4,
+		},
+		{
+			name:                 "webhook-pointing-to-default-revision-with-never-reinvocation-policy",
+			webhook:              defaultRevisionCanonicalWebhookWithNeverReinvocationPolicy,
+			tagName:              "default",
+			whURL:                "",
+			whSVC:                "istiod",
+			whCA:                 "ca",
+			whReinvocationPolicy: string(admitv1.NeverReinvocationPolicy),
+			numWebhooks:          4,
+		},
+		{
+			name:                 "webhook-pointing-to-default-revision-with-ifneeded-reinvocation-policy",
+			webhook:              defaultRevisionCanonicalWebhookWithIfNeededReinvocationPolicy,
+			tagName:              "default",
+			whURL:                "",
+			whSVC:                "istiod",
+			whCA:                 "ca",
+			whReinvocationPolicy: string(admitv1.IfNeededReinvocationPolicy),
+			numWebhooks:          4,
 		},
 	}
 	scheme := runtime.NewScheme()
@@ -255,7 +398,12 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 		if err != nil {
 			t.Fatalf("webhook parsing failed with error: %v", err)
 		}
-		webhookYAML, err := generateMutatingWebhook(webhookConfig, "", filepath.Join(env.IstioSrc, "manifests"), false)
+		webhookYAML, err := generateMutatingWebhook(webhookConfig, &GenerateOptions{
+			WebhookName:          "",
+			ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
+			AutoInjectNamespaces: false,
+			CustomLabels:         nil,
+		})
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}
@@ -271,9 +419,9 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			t.Errorf("expected %d webhook(s) in MutatingWebhookConfiguration, found %d",
 				tc.numWebhooks, len(wh.Webhooks))
 		}
-		tag, exists := wh.ObjectMeta.Labels[IstioTagLabel]
+		tag, exists := wh.ObjectMeta.Labels[label.IoIstioTag.Name]
 		if !exists {
-			t.Errorf("expected tag webhook to have %s label, did not find", IstioTagLabel)
+			t.Errorf("expected tag webhook to have %s label, did not find", label.IoIstioTag.Name)
 		}
 		if tag != tc.tagName {
 			t.Errorf("expected tag webhook to have istio.io/tag=%s, found %s instead", tc.tagName, tag)
@@ -304,5 +452,85 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 				}
 			}
 		}
+
+		// ensure all webhooks have the correct reinvocation policy
+		for _, webhook := range wh.Webhooks {
+			if webhook.ReinvocationPolicy == nil {
+				t.Fatalf("expected reinvocation policy %q, got nil", tc.whReinvocationPolicy)
+			}
+			if string(*webhook.ReinvocationPolicy) != tc.whReinvocationPolicy {
+				t.Fatalf("expected reinvocation policy %q, got %q", tc.whReinvocationPolicy, *webhook.ReinvocationPolicy)
+			}
+		}
 	}
+}
+
+func TestGenerateTagService(t *testing.T) {
+	scheme := runtime.NewScheme()
+	codecFactory := serializer.NewCodecFactory(scheme)
+	deserializer := codecFactory.UniversalDeserializer()
+
+	tag := "canary"
+	revision := "revision"
+	opts := &GenerateOptions{
+		IstioNamespace: "istio-system",
+		Tag:            tag,
+		Revision:       revision,
+	}
+	svcYAML, err := generateTagService(opts)
+	if err != nil {
+		t.Fatalf("Could not generate tag service: %q", err)
+	}
+
+	svcObject, _, err := deserializer.Decode([]byte(svcYAML), nil, &corev1.Service{})
+	if err != nil {
+		t.Fatalf("Could not parse service: %q", svcYAML)
+	}
+
+	service := svcObject.(*corev1.Service)
+
+	labels := service.GetLabels()
+	assert.Equal(t, labels[label.IoIstioRev.Name], revision, "Tag service does not have expected revision")
+	assert.Equal(t, labels[label.IoIstioTag.Name], tag, "Tag service does not have expected tag")
+	assert.Equal(t, service.GetName(), "istiod-revision-tag-canary", "Tag service does not have expected name")
+	assert.Equal(t, service.GetNamespace(), "istio-system", "Tag service does not have expected namespace")
+
+	selector := service.Spec.Selector
+
+	assert.Equal(t, selector[label.IoIstioRev.Name], revision, "Selector istio.io/rev does not match expected value")
+}
+
+func testGenerateOption(t *testing.T, generate bool, assertFunc func(*testing.T, []admitv1.MutatingWebhook, []admitv1.MutatingWebhook)) {
+	defaultWh := defaultRevisionCanonicalWebhook.DeepCopy()
+	fakeClient := kube.NewFakeClient(defaultWh)
+
+	opts := &GenerateOptions{
+		Generate:       generate,
+		Tag:            "default",
+		Revision:       "default",
+		IstioNamespace: "istio-system",
+	}
+
+	_, err := Generate(context.TODO(), fakeClient, opts)
+	assert.NoError(t, err)
+
+	wh, err := fakeClient.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
+		Get(context.Background(), "istio-sidecar-injector", metav1.GetOptions{})
+	assert.NoError(t, err)
+
+	assertFunc(t, wh.Webhooks, defaultWh.Webhooks)
+}
+
+func TestGenerateOptions(t *testing.T) {
+	// Test generate option 'true', should not modify webhooks
+	testGenerateOption(t, true, func(t *testing.T, actual, expected []admitv1.MutatingWebhook) {
+		assert.Equal(t, actual, expected)
+	})
+
+	// Test generate option 'false', should modify webhooks
+	testGenerateOption(t, false, func(t *testing.T, actual, expected []admitv1.MutatingWebhook) {
+		if err := assert.Compare(actual, expected); err == nil {
+			t.Errorf("expected diff between webhooks, got none")
+		}
+	})
 }

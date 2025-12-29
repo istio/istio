@@ -18,9 +18,13 @@ metadata:
   labels:
     app: gce-metadata
 spec:
+  # Use LB service so it can be reached cross cluster
+  type: LoadBalancer
   ports:
   - name: http
     port: 8080
+  - name: http-vm
+    port: 8081
   selector:
     app: gce-metadata
 ---
@@ -39,7 +43,7 @@ spec:
         app: gce-metadata
     spec:
       containers:
-      - image: gcr.io/istio-testing/fake-gce-metadata:1.1
+      - image: gcr.io/istio-testing/fake-gce-metadata:1.2
         imagePullPolicy: Always
         name: gce-metadata
         ports:

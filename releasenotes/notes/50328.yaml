@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issues:
+  - 30393
+  - 42792
+releaseNotes:
+- |
+  **Fixed** Allow for re-executions of istio-iptables by skipping apply step if existing rules are compatible.
+---
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** `--cleanup-only` option to istio-iptables to perform a cleanup of chains/rules without creating new ones.
+- |
+  **Added** `--reconcile` option to reconcile iptables if existing chains/rules are found and a drift with the desired state is detected.

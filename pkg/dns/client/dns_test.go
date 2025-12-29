@@ -27,6 +27,8 @@ import (
 
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestDNSForwardParallel(t *testing.T) {
@@ -37,6 +39,90 @@ func TestDNSForwardParallel(t *testing.T) {
 func TestDNS(t *testing.T) {
 	d := initDNS(t, false)
 	testDNS(t, d)
+}
+
+func TestBuildAlternateHosts(t *testing.T) {
+	// Create the server instance without starting it, as it's unnecessary for this test
+	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Fill the DNS table with test data
+	fillTable(d)
+
+	testCases := []struct {
+		startsWith string
+		expected   sets.Set[string]
+	}{
+		{
+			startsWith: "www.google.com",
+			expected:   sets.New("www.google.com", "www.google.com."),
+		},
+		{
+			startsWith: "example",
+			expected:   sets.New("example.ns2.", "example.ns2.svc.", "example.localhost.", "example.ns2.svc.cluster.local.", "example.ns2.svc.cluster.local"),
+		},
+		{
+			startsWith: "details",
+			expected:   sets.New("details.ns2.svc.cluster.remote", "details.ns2.svc.cluster.remote."),
+		},
+		{
+			startsWith: "productpage",
+			expected: sets.New(
+				"productpage.ns1.svc.cluster.local.", "productpage.", "productpage.ns1.svc.cluster.local", "productpage.ns1.", "productpage.ns1.svc.",
+			),
+		},
+		{
+			startsWith: "svc-with-alt",
+			expected: sets.New(
+				"svc-with-alt.",
+				"svc-with-alt.ns1.",
+				"svc-with-alt.ns1.svc.",
+				"svc-with-alt.ns1.svc.clusterset.local.",
+				"svc-with-alt.ns1.svc.cluster.local.",
+				"svc-with-alt.ns1.svc.cluster.local",
+			),
+		},
+		{
+			startsWith: "*.wildcard",
+			expected:   sets.New("*.wildcard", "*.wildcard."),
+		},
+		{
+			startsWith: "example.localhost.",
+			expected:   sets.New("example.localhost."),
+		},
+	}
+
+	nt := d.NameTable()
+	nt = protomarshal.Clone(nt)
+	d.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {
+		for host := range althosts {
+			if _, exists := nt.Table[host]; !exists {
+				addresses := make([]string, 0, len(ipv4)+len(ipv6))
+				for _, addr := range ipv4 {
+					addresses = append(addresses, addr.String())
+				}
+				for _, addr := range ipv6 {
+					addresses = append(addresses, addr.String())
+				}
+				nt.Table[host] = &dnsProto.NameTable_NameInfo{
+					Ips:      addresses,
+					Registry: "Kubernetes",
+				}
+			}
+		}
+	})
+	for _, tc := range testCases {
+		matched := sets.New[string]()
+		for key := range nt.Table {
+			if strings.HasPrefix(key, tc.startsWith) {
+				matched.Insert(key)
+			}
+		}
+		if !matched.Equals(tc.expected) {
+			t.Errorf("expected records %v, got: %v", tc.expected, matched)
+		}
+	}
 }
 
 func testDNS(t *testing.T, d *LocalDNSServer) {
@@ -70,6 +156,10 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 			name:     "success: k8s host - fqdn",
 			host:     "productpage.ns1.svc.cluster.local.",
 			expected: a("productpage.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}),
+		},
+		{
+			name: "not found: k8s host, fqdn with search namespace[0]",
+			host: "productpage.ns1.svc.cluster.local.ns1.svc.cluster.local.", // This should not exist in the table.
 		},
 		{
 			name:     "success: k8s host - name.namespace",
@@ -182,6 +272,12 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 			expected: a("a.b.wildcard.", []netip.Addr{netip.MustParseAddr("11.11.11.11")}),
 		},
 		{
+			name: "success: wild card with with search namespace chained pointer correctly",
+			host: "foo.wildcard.ns1.svc.cluster.local.",
+			expected: append(cname("foo.wildcard.ns1.svc.cluster.local.", "*.wildcard."),
+				a("*.wildcard.", []netip.Addr{netip.MustParseAddr("10.10.10.10")})...),
+		},
+		{
 			name:     "success: wild card with domain returns A record correctly",
 			host:     "foo.svc.mesh.company.net.",
 			expected: a("foo.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")}),
@@ -194,8 +290,8 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name: "success: wild card with search domain returns A record correctly",
 			host: "foo.svc.mesh.company.net.ns1.svc.cluster.local.",
-			expected: append(cname("*.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
-				a("foo.svc.mesh.company.net.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("10.1.2.3")})...),
+			expected: append(cname("foo.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
+				a("*.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")})...),
 		},
 		{
 			name:      "success: TypeAAAA query returns AAAA records only",
@@ -457,7 +553,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	}()
 	select {
 	case <-time.After(time.Second * 10):
-		t.Fatalf("setup timeout")
+		t.Fatal("setup timeout")
 	case <-up:
 	}
 
@@ -478,7 +574,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	}()
 	select {
 	case <-time.After(time.Second * 10):
-		t.Fatalf("setup timeout")
+		t.Fatal("setup timeout")
 	case <-up:
 	}
 	t.Cleanup(func() { _ = server.Shutdown() })
@@ -486,7 +582,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 
 	select {
 	case <-time.After(time.Second * 10):
-		t.Fatalf("setup timeout")
+		t.Fatal("setup timeout")
 	case <-up:
 	}
 	t.Cleanup(func() { _ = tcp.Shutdown() })
@@ -503,8 +599,14 @@ func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 	}
 	testAgentDNS.resolvConfServers = []string{srv}
 	testAgentDNS.StartDNS()
-	testAgentDNS.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
-	testAgentDNS.UpdateLookupTable(&dnsProto.NameTable{
+	fillTable(testAgentDNS)
+	t.Cleanup(testAgentDNS.Close)
+	return testAgentDNS
+}
+
+func fillTable(server *LocalDNSServer) {
+	server.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+	server.UpdateLookupTable(&dnsProto.NameTable{
 		Table: map[string]*dnsProto.NameTable_NameInfo{
 			"www.google.com": {
 				Ips:      []string{"1.1.1.1"},
@@ -567,8 +669,6 @@ func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 			},
 		},
 	})
-	t.Cleanup(testAgentDNS.Close)
-	return testAgentDNS
 }
 
 // reflect.DeepEqual doesn't seem to work well for dns.RR

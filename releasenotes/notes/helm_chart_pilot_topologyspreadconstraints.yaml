@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+- 42938
+
+docs: []
+
+releaseNotes:
+- |
+  **Added** values to the Istiod Helm chart for configuring [topologySpreadConstraints](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/) on the Deployment. Can be used for better placement of istiod workloads.
+
+upgradeNotes: []
+
+securityNotes: []

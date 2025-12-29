@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 45557
+releaseNotes:
+- |
+  **Fixed** an issue in dual stack meshes where virtualHost.Domains was missing the second IP address from dual stack services.

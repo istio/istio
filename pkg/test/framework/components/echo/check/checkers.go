@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -52,15 +53,16 @@ func And(checkers ...echo.Checker) echo.Checker {
 }
 
 // Or is an aggregate Checker that requires at least one Checker succeeds.
+// Note: the checkers must succeed for all requests; there is no per-request Or().
 func Or(checkers ...echo.Checker) echo.Checker {
 	return func(result echo.CallResult, err error) error {
 		out := istiomultierror.New()
-		for _, c := range checkers {
+		for idx, c := range checkers {
 			err := c(result, err)
 			if err == nil {
 				return nil
 			}
-			out = multierror.Append(out, err)
+			out = multierror.Append(out, fmt.Errorf("failed Or() index %d: %v", idx, err))
 		}
 		return out.ErrorOrNil()
 	}
@@ -127,7 +129,7 @@ func NotOK() echo.Checker {
 	return ErrorOrNotStatus(http.StatusOK)
 }
 
-// NoErrorAndStatus is checks that no error occurred and htat the returned status code matches the expected
+// NoErrorAndStatus is checks that no error occurred and that the returned status code matches the expected
 // value.
 func NoErrorAndStatus(expected int) echo.Checker {
 	return And(NoError(), Status(expected))
@@ -237,6 +239,16 @@ func Host(expected string) echo.Checker {
 	})
 }
 
+// Hostname checks the hostname the request landed on. This differs from Host which is the request we called.
+func Hostname(expected string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if r.Hostname != expected {
+			return fmt.Errorf("expected hostname %s, received %s", expected, r.Hostname)
+		}
+		return nil
+	})
+}
+
 func Protocol(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if r.Protocol != expected {
@@ -250,6 +262,80 @@ func Alpn(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if r.Alpn != expected {
 			return fmt.Errorf("expected alpn %s, received %s", expected, r.Alpn)
+		}
+		return nil
+	})
+}
+
+func SNI(expected string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if r.SNI != expected {
+			return fmt.Errorf("expected SNI %s, received %s", expected, r.SNI)
+		}
+		return nil
+	})
+}
+
+func ProxyProtocolVersion(expected string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if r.ProxyProtocol != expected {
+			return fmt.Errorf("expected proxy protocol %s, received %s", expected, r.ProxyProtocol)
+		}
+		return nil
+	})
+}
+
+// DestinationIPv4 checks the request was received by the server over IPv4
+func DestinationIPv4() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		ip, err := netip.ParseAddr(r.IP)
+		if err != nil {
+			return fmt.Errorf("could not parse IP %q: %v", r.IP, err)
+		}
+		if !ip.Is4() {
+			return fmt.Errorf("expected DestinationIPv4, got %s", ip.String())
+		}
+		return nil
+	})
+}
+
+// DestinationIPv6 checks the request was received by the server over IPv6
+func DestinationIPv6() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		ip, err := netip.ParseAddr(r.IP)
+		if err != nil {
+			return fmt.Errorf("could not parse IP %q: %v", r.IP, err)
+		}
+		if !ip.Is6() {
+			return fmt.Errorf("expected DestinationIPv6, got %s", ip.String())
+		}
+		return nil
+	})
+}
+
+// SourceIPv4 checks the request was sent by the client over IPv4
+func SourceIPv4() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		ip, err := netip.ParseAddr(r.IP)
+		if err != nil {
+			return fmt.Errorf("could not parse IP %q: %v", r.IP, err)
+		}
+		if !ip.Is4() {
+			return fmt.Errorf("expected SourceIPv4, got %s", ip.String())
+		}
+		return nil
+	})
+}
+
+// SourceIPv6 checks the request was sent by the client over IPv6
+func SourceIPv6() echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		ip, err := netip.ParseAddr(r.IP)
+		if err != nil {
+			return fmt.Errorf("could not parse IP %q: %v", r.IP, err)
+		}
+		if !ip.Is6() {
+			return fmt.Errorf("expected SourceIPv6, got %s", ip.String())
 		}
 		return nil
 	})
@@ -372,7 +458,7 @@ func URL(expected string) echo.Checker {
 
 func IsDNSCaptureEnabled(t framework.TestContext) bool {
 	t.Helper()
-	mc := istio.GetOrFail(t, t).MeshConfigOrFail(t)
+	mc := istio.GetOrFail(t).MeshConfigOrFail(t)
 	if mc.DefaultConfig != nil && mc.DefaultConfig.ProxyMetadata != nil {
 		return mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_CAPTURE"] == "true"
 	}

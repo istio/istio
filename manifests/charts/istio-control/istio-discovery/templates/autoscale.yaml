@@ -1,35 +1,8 @@
-{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
-{{- if not .Values.global.autoscalingv2API }}
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: istiod
-    release: {{ .Release.Name }}
-    istio.io/rev: {{ .Values.revision | default "default" }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
-    operator.istio.io/component: "Pilot"
-spec:
-  maxReplicas: {{ .Values.pilot.autoscaleMax }}
-  minReplicas: {{ .Values.pilot.autoscaleMin }}
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      targetAverageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
----
-{{- else }}
-{{- if (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
+# Not created if istiod is running remotely
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
+{{- if and .Values.autoscaleEnabled .Values.autoscaleMin .Values.autoscaleMax }}
 apiVersion: autoscaling/v2
-{{- else }}
-apiVersion: autoscaling/v2beta2
-{{- end }}
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
@@ -37,12 +10,14 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
-  maxReplicas: {{ .Values.pilot.autoscaleMax }}
-  minReplicas: {{ .Values.pilot.autoscaleMin }}
+  maxReplicas: {{ .Values.autoscaleMax }}
+  minReplicas: {{ .Values.autoscaleMin }}
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -53,7 +28,19 @@ spec:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
+        averageUtilization: {{ .Values.cpu.targetAverageUtilization }}
+  {{- if .Values.memory.targetAverageUtilization }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.memory.targetAverageUtilization }}
+  {{- end }}
+  {{- if .Values.autoscaleBehavior }}
+  behavior: {{ toYaml .Values.autoscaleBehavior | nindent 4 }}
+  {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** an issue where sometimes `uninstall` was performed without confirmation when istiod was not available to be connected.

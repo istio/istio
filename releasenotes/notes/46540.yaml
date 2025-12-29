@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 46540
+
+releaseNotes:
+- |
+  **Fixed** adding waypoints can cause traffic disruption

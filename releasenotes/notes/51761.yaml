@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+- |
+  **Fixed** an issue where the `cluster_name` and `http_conn_manager_prefix` label was incorrectly truncated for services without a `.svc.cluster.local` suffix
+upgradeNote:
+- title: Custom stat names
+  content: |
+    Previously, the Envoy cluster metrics for services that did not have a `.svc.cluster.local` suffix
+    were incorrectly truncated and parsed. This was due to the fact that Envoy cluster metrics use dots "." as
+    a delimeter between metric namespaces, and it is impossible to properly distinguish between those
+    delimeters and the dots in hostnames/cluster names. To address this, the regex for parsing the cluster_name
+    has been updated to look for a semicolon to indicate the end of the cluster name. If you're using
+    the `inbound_cluster_stat_name` or `outbound_cluster_stat_name` fields in meshconfig, the semicolon
+    will be added automatically for you. If you have any dependency on the full stat name for cluster metrics,
+    you will need to update your monitoring system to account for this change. To revert to the old behavior,
+    you can set the `ENABLE_DELIMITED_STATS_TAG_REGEX` env var via proxyConfig or specify the 1.22 compatibility
+    version.

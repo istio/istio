@@ -19,7 +19,7 @@ spec:
   {{- if $.StatefulSet }}
   serviceName: {{ $.Service }}
   {{- end }}
-  replicas: 1
+  replicas: {{$subset.Replicas | default 1 }}
   selector:
     matchLabels:
       app: {{ $.Service }}
@@ -39,16 +39,28 @@ spec:
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
 {{- end }}
+{{- range $name, $value := $subset.Labels }}
+        {{$name}}: "{{$value}}"
+{{- end }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
 {{- range $name, $value := $subset.Annotations }}
-        {{ $name.Name }}: {{ printf "%q" $value.Value }}
+        {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- if $.ProxylessGRPC }}
         proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
 {{- end }}
     spec:
+{{- if $.Ambient }}
+      topologySpreadConstraints:
+      - topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: "ScheduleAnyway"
+        maxSkew: 1
+        labelSelector:
+          matchLabels:
+            app: {{ $.Service }}
+{{- end }}
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
@@ -61,9 +73,10 @@ spec:
 {{- end }}
       containers:
 {{- if and
-  (ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false")
-  (ne ($subset.Annotations.GetByName "inject.istio.io/templates") "grpc")
+  (ne (index $subset.Annotations "sidecar.istio.io/inject") "false")
+  (ne (index $subset.Annotations "inject.istio.io/templates") "grpc")
   ($.OverlayIstioProxy)
+  (not (and $.OpenShift (eq $.Service "tproxy")))
 }}
       - name: istio-proxy
         image: auto
@@ -87,9 +100,6 @@ spec:
         image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
 {{- end }}
         imagePullPolicy: {{ $.ImagePullPolicy }}
-        securityContext:
-          runAsUser: 1338
-          runAsGroup: 1338
         args:
 {{- if $appContainer.FallbackPort }}
           - --forwarding_address=0.0.0.0:{{ $appContainer.FallbackPort }}
@@ -99,6 +109,8 @@ spec:
 {{- range $i, $p := $appContainer.ContainerPorts }}
 {{- if and $p.XDSServer (eq .Protocol "GRPC") }}
           - --xds-grpc-server={{ $p.Port }}
+{{- else if $p.EndpointPicker }}
+          - --endpoint-picker={{ $p.Port }}
 {{- else if eq .Protocol "GRPC" }}
           - --grpc={{ $p.Port }}
 {{- else if eq .Protocol "TCP" }}
@@ -109,8 +121,14 @@ spec:
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
 {{- end }}
+{{- if $p.RequireClientCert }}
+          - --mtls={{ $p.Port }}
+{{- end }}
 {{- if $p.ServerFirst }}
           - --server-first={{ $p.Port }}
+{{- end }}
+{{- if $p.ProxyProtocol }}
+          - --proxy-protocol={{ $p.Port }}
 {{- end }}
 {{- if $p.InstanceIP }}
           - --bind-ip={{ $p.Port }}
@@ -124,12 +142,18 @@ spec:
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
+{{- if not $appContainer.DisableCAFlag }}
+          - --ca=/etc/certs/custom/root-cert.pem
+{{- end }}
 {{- if $.TLSSettings.AcceptAnyALPN}}
           - --disable-alpn
 {{- end }}
 {{- else }}
           - --crt=/cert.crt
           - --key=/cert.key
+{{- if not $appContainer.DisableCAFlag }}
+          - --ca=/root-cert.pem
+{{- end}}
 {{- end }}
         ports:
 {{- range $i, $p := $appContainer.ContainerPorts }}
@@ -141,10 +165,16 @@ spec:
 {{- end }}
 {{- end }}
         env:
-        - name: INSTANCE_IP
+        - name: INSTANCE_IPS
           valueFrom:
             fieldRef:
-              fieldPath: status.podIP
+              fieldPath: status.podIPs
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: BIND_FAMILY
+          value: {{ $.BindFamily }}
 {{- if $.ProxylessGRPC }}
         - name: EXPOSE_GRPC_ADMIN
           value: "true"

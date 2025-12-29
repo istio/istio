@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Updated** `istioctl x workload configure` accepts IPv6 address passed in `--ingressIP`.

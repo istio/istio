@@ -16,15 +16,13 @@ package istio
 
 import (
 	"net/netip"
-	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
-	"google.golang.org/protobuf/types/known/structpb"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -32,45 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 )
-
-// OperatorValues is the map of the values from the installed operator yaml.
-type OperatorValues map[string]*structpb.Value
-
-// This regular expression matches list object index selection expression such as
-// abc[100], Tba_a[0].
-var listObjRex = regexp.MustCompile(`^([a-zA-Z]?[a-z_A-Z\d]*)\[([ ]*[\d]+)[ ]*\]$`)
-
-func getConfigValue(path []string, val map[string]*structpb.Value) *structpb.Value {
-	retVal := structpb.NewNullValue()
-	if len(path) > 0 {
-		match := listObjRex.FindStringSubmatch(path[0])
-		// valid list index
-		switch len(match) {
-		case 0: // does not match list object selection, should be name of a field, should be struct value
-			thisVal := val[path[0]]
-			// If it is a struct and looking for more down the path
-			if thisVal.GetStructValue() != nil && len(path) > 1 {
-				return getConfigValue(path[1:], thisVal.GetStructValue().Fields)
-			}
-			retVal = thisVal
-		case 3: // match somthing like aaa[100]
-			thisVal := val[match[1]]
-			// If it is a list and looking for more down the path
-			if thisVal.GetListValue() != nil && len(path) > 1 {
-				index, _ := strconv.Atoi(match[2])
-				return getConfigValue(path[1:], thisVal.GetListValue().Values[index].GetStructValue().Fields)
-			}
-			retVal = thisVal
-		}
-	}
-	return retVal
-}
-
-// GetConfigValue returns a structpb value from a structpb map by
-// using a dotted path such as `pilot.env.LOCAL_CLUSTER_SECRET_WATCHER`.
-func (v OperatorValues) GetConfigValue(path string) *structpb.Value {
-	return getConfigValue(strings.Split(path, "."), v)
-}
 
 // Instance represents a deployed Istio instance
 type Instance interface {
@@ -85,6 +44,11 @@ type Instance interface {
 	// EastWestGatewayFor returns an ingress used for east-west traffic and accessing the control plane
 	// from outside of the cluster.
 	EastWestGatewayFor(cluster cluster.Cluster) ingress.Instance
+	// EastWestGatewayForAmbient returns an ingress used for east-west traffic and accessing the control plane
+	// from outside of the cluster when in ambient mode.
+	// TODO: Accessing the control plane from outside of the cluster is not supported yet in ambient mode
+	// since we don't allow other listeners on the east west gateway waypoint.
+	EastWestGatewayForAmbient(cluster cluster.Cluster) ingress.Instance
 	// CustomIngressFor returns an ingress with a specific service name and "istio" label used for reaching workloads
 	// in the given cluster.
 	CustomIngressFor(cluster cluster.Cluster, service types.NamespacedName, istioLabel string) ingress.Instance
@@ -95,18 +59,24 @@ type Instance interface {
 	RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.AddrPort, error)
 	// CreateRemoteSecret on the cluster with the given options.
 	CreateRemoteSecret(ctx resource.Context, c cluster.Cluster, opts ...string) (string, error)
-	// Values returns the operator values for the installed control plane.
-	Values() (OperatorValues, error)
-	ValuesOrFail(test.Failer) OperatorValues
+	// InternalDiscoveryAddressFor returns an internal (port-forwarded) address for an Istiod instance in the
+	// cluster.
+	InternalDiscoveryAddressFor(cluster cluster.Cluster) (string, error)
+
+	// Return POD IPs for the pod with the specified label in the specified namespace
+	PodIPsFor(cluster cluster.Cluster, namespace string, label string) ([]corev1.PodIP, error)
+
 	// MeshConfig used by the Istio installation.
 	MeshConfig() (*meshconfig.MeshConfig, error)
 	MeshConfigOrFail(test.Failer) *meshconfig.MeshConfig
 	// UpdateMeshConfig used by the Istio installation.
 	UpdateMeshConfig(resource.Context, func(*meshconfig.MeshConfig) error, cleanup.Strategy) error
-	UpdateMeshConfigOrFail(resource.Context, test.Failer, func(*meshconfig.MeshConfig) error, cleanup.Strategy)
+	UpdateMeshConfigOrFail(resource.ContextFailer, func(*meshconfig.MeshConfig) error, cleanup.Strategy)
 	// PatchMeshConfig with the given patch yaml.
 	PatchMeshConfig(resource.Context, string) error
-	PatchMeshConfigOrFail(resource.Context, test.Failer, string)
+	PatchMeshConfigOrFail(resource.ContextFailer, string)
+	UpdateInjectionConfig(resource.Context, func(*inject.Config) error, cleanup.Strategy) error
+	InjectionConfig() (*inject.Config, error)
 }
 
 // SetupConfigFn is a setup function that specifies the overrides of the configuration to deploy Istio.
@@ -125,9 +95,9 @@ func Get(ctx resource.Context) (Instance, error) {
 }
 
 // GetOrFail returns the Istio component from the context. If there is none the test is failed.
-func GetOrFail(t test.Failer, ctx resource.Context) Instance {
+func GetOrFail(t resource.ContextFailer) Instance {
 	t.Helper()
-	i, err := Get(ctx)
+	i, err := Get(t)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -52,7 +52,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 			name: "download retry",
 			handler: func(w http.ResponseWriter, r *http.Request, num int) {
 				if num <= 2 {
-					w.WriteHeader(500)
+					w.WriteHeader(http.StatusInternalServerError)
 				} else {
 					fmt.Fprintln(w, "wasm")
 				}
@@ -63,7 +63,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 		{
 			name: "download max retry",
 			handler: func(w http.ResponseWriter, r *http.Request, num int) {
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 			},
 			timeout:        5 * time.Second,
 			wantNumRequest: 5,
@@ -72,7 +72,7 @@ func TestWasmHTTPFetch(t *testing.T) {
 		{
 			name: "download is never tried by immediate context timeout",
 			handler: func(w http.ResponseWriter, r *http.Request, num int) {
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 			},
 			timeout:        0, // Immediately timeout in the context level.
 			wantNumRequest: 0, // Should not retried because it is already timed out.

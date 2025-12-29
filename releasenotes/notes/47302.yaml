@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 47227
+releaseNotes:
+- |
+  **Fixed** an issue where the Wasmplugin resource was not correctly applied to the waypoint.

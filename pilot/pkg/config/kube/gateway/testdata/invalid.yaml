@@ -1,11 +1,11 @@
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -24,7 +24,7 @@ spec:
       namespaces:
         from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: invalid-service
@@ -40,7 +40,7 @@ spec:
   - value: fake-service.com
     type: Hostname
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: target-port-reference
@@ -56,7 +56,7 @@ spec:
     port: 8080 # Test service has port 80 with targetPort 8080
     protocol: HTTP
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: invalid-gateway-address
@@ -72,7 +72,7 @@ spec:
     port: 80
     protocol: HTTP
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: invalid-cert-kind
@@ -94,7 +94,7 @@ spec:
         group: core
         kind: unknown
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: invalid-cert-notfound
@@ -115,7 +115,7 @@ spec:
       - name: nonexistent
         kind: Secret
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: invalid-cert-malformed
@@ -136,7 +136,159 @@ spec:
       - name: malformed
         kind: Secret
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-malformed
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+            - group: ""
+              kind: ConfigMap
+              name: malformed
+            - group: ""
+              kind: ConfigMap
+              name: malformed-trustbundle
+  listeners:
+  - name: default
+    hostname: "two.example"
+    port: 34000
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-unknown
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: core
+            kind: unknown
+            name: my-cert-http
+  listeners:
+  - name: default
+    hostname: "two.example"
+    port: 34000
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-nonexistent
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: ""
+            kind: ConfigMap
+            name: nonexistent
+  listeners:
+  - name: default
+    hostname: "two.example"
+    port: 34000
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-missing-refgrant
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: ""
+            kind: ConfigMap
+            namespace: default
+            name: auth-cert
+  listeners:
+  - name: default
+    hostname: "two.example"
+    port: 34000
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: udp-protocol
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: udp
+      port: 1234
+      protocol: UDP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: unknown-protocol
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: unknown
+      port: 1234
+      protocol: unknown
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: protocol-lower-case
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: http
+      port: 1234
+      protocol: http
+---
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: invalid-backendRef-kind
@@ -151,7 +303,7 @@ spec:
     - name: httpbin
       kind: GcsBucket
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: invalid-backendRef-notfound
@@ -166,7 +318,7 @@ spec:
     - name: nonexistent
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: invalid-backendRef-mixed
@@ -188,7 +340,7 @@ spec:
       kind: GcsBucket
       weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: invalid-mirror
@@ -209,14 +361,15 @@ spec:
     - name: httpbin
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: no-backend
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: httpbin
   rules:
   - filters:
@@ -225,3 +378,126 @@ spec:
         backendRef:
           name: httpbin
           port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-parentRef-port
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    port: 1234
+  hostnames: ["first.domain.example"]
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 80
+      weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-sectionname-port
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: fake
+  hostnames: ["first.domain.example"]
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 80
+      weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-parentRef-service
+  namespace: default
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: not-found
+  rules:
+    - backendRefs:
+        - name: httpbin
+          port: 80
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-parentRef-service-entry
+  namespace: default
+spec:
+  parentRefs:
+    - group: "networking.istio.io"
+      kind: ServiceEntry
+      name: not-found
+  rules:
+    - backendRefs:
+        - name: httpbin
+          port: 80
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-backendRef-hostname
+  namespace: default
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: httpbin
+  rules:
+    - backendRefs:
+        - name: unknown.example.com
+          kind: Hostname
+          group: networking.istio.io
+          port: 80
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-backendRef-serviceimport
+  namespace: default
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: httpbin
+  rules:
+    - backendRefs:
+      - group: multicluster.x-k8s.io
+        kind: ServiceImport
+        name: unknown-service-import
+        port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-backendRef-mirror
+  namespace: default
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: httpbin
+  rules:
+  - filters:
+      - type: RequestMirror
+        requestMirror:
+          backendRef:
+            name: does-not-exist
+            port: 80
+    backendRefs:
+      - name: httpbin
+        port: 80
+        weight: 1

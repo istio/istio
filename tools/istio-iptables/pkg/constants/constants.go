@@ -17,47 +17,19 @@ package constants
 import (
 	"time"
 
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
-// iptables tables
-const (
-	MANGLE = "mangle"
-	NAT    = "nat"
-	FILTER = "filter"
-	RAW    = "raw"
-)
-
-// Built-in iptables chains
-const (
-	INPUT       = "INPUT"
-	OUTPUT      = "OUTPUT"
-	FORWARD     = "FORWARD"
-	PREROUTING  = "PREROUTING"
-	POSTROUTING = "POSTROUTING"
-)
-
-var BuiltInChainsMap = map[string]struct{}{
-	INPUT:       {},
-	OUTPUT:      {},
-	FORWARD:     {},
-	PREROUTING:  {},
-	POSTROUTING: {},
-}
-
-// Constants used for generating iptables commands
-const (
-	TCP = "tcp"
-	UDP = "udp"
-
-	TPROXY   = "TPROXY"
-	RETURN   = "RETURN"
-	ACCEPT   = "ACCEPT"
-	REJECT   = "REJECT"
-	REDIRECT = "REDIRECT"
-	MARK     = "MARK"
-	CT       = "CT"
-	DROP     = "DROP"
+var BuiltInChainsAndTargetsMap = sets.New(
+	"INPUT",
+	"OUTPUT",
+	"FORWARD",
+	"PREROUTING",
+	"POSTROUTING",
+	"ACCEPT",
+	"RETURN",
+	"DROP",
 )
 
 const (
@@ -66,14 +38,20 @@ const (
 	IPVersionSpecific = "PLACEHOLDER_IP_VERSION_SPECIFIC"
 )
 
+// In TPROXY mode, mark the packet from envoy outbound to app by podIP,
+// this is to prevent it being intercepted to envoy inbound listener.
+const OutboundMark = "1338"
+
 // iptables chains
 const (
 	ISTIOOUTPUT     = "ISTIO_OUTPUT"
+	ISTIOOUTPUTDNS  = "ISTIO_OUTPUT_DNS"
 	ISTIOINBOUND    = "ISTIO_INBOUND"
 	ISTIODIVERT     = "ISTIO_DIVERT"
 	ISTIOTPROXY     = "ISTIO_TPROXY"
 	ISTIOREDIRECT   = "ISTIO_REDIRECT"
 	ISTIOINREDIRECT = "ISTIO_IN_REDIRECT"
+	ISTIODROP       = "ISTIO_DROP"
 )
 
 // Constants used in cobra/viper CLI
@@ -93,22 +71,24 @@ const (
 	InboundTunnelPort         = "inbound-tunnel-port"
 	ProxyUID                  = "proxy-uid"
 	ProxyGID                  = "proxy-gid"
-	KubeVirtInterfaces        = "kube-virt-interfaces"
+	RerouteVirtualInterfaces  = "kube-virt-interfaces"
 	DryRun                    = "dry-run"
 	TraceLogging              = "iptables-trace-logging"
-	Clean                     = "clean"
-	RestoreFormat             = "restore-format"
 	SkipRuleApply             = "skip-rule-apply"
 	RunValidation             = "run-validation"
 	IptablesProbePort         = "iptables-probe-port"
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
 	DropInvalid               = "drop-invalid"
+	DualStack                 = "dual-stack"
 	CaptureAllDNS             = "capture-all-dns"
-	OutputPath                = "output-paths"
 	NetworkNamespace          = "network-namespace"
 	CNIMode                   = "cni-mode"
-	HostNSEnterExec           = "host-nsenter-exec"
+	Reconcile                 = "reconcile"
+	CleanupOnly               = "cleanup-only"
+	ForceApply                = "force-apply"
+	NativeNftables            = "native-nftables"
+	ForceIptablesBinary       = "force-iptables-binary"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.
@@ -117,6 +97,9 @@ const (
 //
 // Use viper to resolve the value of the environment variable.
 var (
+	HostIPv4LoopbackCidr = env.Register("ISTIO_OUTBOUND_IPV4_LOOPBACK_CIDR", "127.0.0.1/32",
+		`IPv4 CIDR range used to identify outbound traffic on loopback interface intended for application container`)
+
 	OwnerGroupsInclude = env.Register("ISTIO_OUTBOUND_OWNER_GROUPS", "*",
 		`Comma separated list of groups whose outgoing traffic is to be redirected to Envoy.
 A group can be specified either by name or by a numeric GID.
@@ -135,24 +118,13 @@ Only applies when traffic from all groups (i.e. "*") is being redirected to Envo
 )
 
 const (
-	DefaultProxyUID = "1337"
+	DefaultProxyUID    = "1337"
+	DefaultProxyUIDInt = int64(1337)
 )
 
 // Constants used in environment variables
 const (
-	DisableRedirectionOnLocalLoopback = "DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK"
-	EnvoyUser                         = "ENVOY_USER"
-)
-
-// Constants for iptables commands
-const (
-	IPTABLES         = "iptables"
-	IPTABLESRESTORE  = "iptables-restore"
-	IPTABLESSAVE     = "iptables-save"
-	IP6TABLES        = "ip6tables"
-	IP6TABLESRESTORE = "ip6tables-restore"
-	IP6TABLESSAVE    = "ip6tables-save"
-	NSENTER          = "nsenter"
+	EnvoyUser = "ENVOY_USER"
 )
 
 // Constants for syscall
@@ -162,8 +134,8 @@ const (
 )
 
 const (
-	DefaultIptablesProbePort = "15002"
-	DefaultProbeTimeout      = 5 * time.Second
+	DefaultIptablesProbePortUint = 15002
+	DefaultProbeTimeout          = 5 * time.Second
 )
 
 const (
@@ -176,6 +148,13 @@ const (
 	IstioAgentDNSListenerPort = "15053"
 )
 
+// type of iptables operation/command to run, as an enum
+// the implementation will choose the correct underlying binary,
+// so callers should just use these enums to indicate what they want to do.
+type IptablesCmd int
+
 const (
-	CommandConfigureRoutes = "configure-routes"
+	IPTables        IptablesCmd = iota
+	IPTablesSave    IptablesCmd = iota
+	IPTablesRestore IptablesCmd = iota
 )

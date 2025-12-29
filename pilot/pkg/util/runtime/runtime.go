@@ -17,7 +17,7 @@ package runtime
 import (
 	"runtime"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // LogPanic logs the caller tree when a panic occurs.

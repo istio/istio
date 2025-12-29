@@ -19,15 +19,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -46,6 +49,7 @@ type Params struct {
 	Container      string
 	KubeConfig     string
 	KubeContext    string
+	ProxyAdminPort int
 }
 
 func (p *Params) SetDryRun(dryRun bool) *Params {
@@ -57,6 +61,12 @@ func (p *Params) SetDryRun(dryRun bool) *Params {
 func (p *Params) SetVerbose(verbose bool) *Params {
 	out := *p
 	out.Verbose = verbose
+	return &out
+}
+
+func (p *Params) SetProxyAdminPort(proxyAdminPort int) *Params {
+	out := *p
+	out.ProxyAdminPort = proxyAdminPort
 	return &out
 }
 
@@ -84,22 +94,15 @@ func (p *Params) SetContainer(container string) *Params {
 	return &out
 }
 
-func retMap(filename, text string, err error) (map[string]string, error) {
-	if err != nil {
-		return nil, err
-	}
-	return map[string]string{
-		filename: text,
-	}, nil
-}
-
 // GetK8sResources returns all k8s cluster resources.
 func GetK8sResources(p *Params) (map[string]string, error) {
 	out, err := p.Runner.RunCmd("get --all-namespaces "+
-		"all,namespaces,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events,"+
-		"mutatingwebhookconfigurations,validatingwebhookconfigurations "+
+		"all,nodes,namespaces,jobs,ingresses,endpoints,endpointslices,customresourcedefinitions,configmaps,events,"+
+		"mutatingwebhookconfigurations,validatingwebhookconfigurations,networkpolicies "+
 		"-o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
-	return retMap("k8s-resources", out, err)
+	return map[string]string{
+		"k8s-resources": out,
+	}, err
 }
 
 // GetSecrets returns all k8s secrets. If full is set, the secret contents are also returned.
@@ -109,7 +112,9 @@ func GetSecrets(p *Params) (map[string]string, error) {
 		cmdStr += " -o yaml"
 	}
 	out, err := p.Runner.RunCmd(cmdStr, "", p.KubeConfig, p.KubeContext, p.DryRun)
-	return retMap("secrets", out, err)
+	return map[string]string{
+		"secrets": out,
+	}, err
 }
 
 // GetCRs returns CR contents for all CRDs in the cluster.
@@ -119,7 +124,9 @@ func GetCRs(p *Params) (map[string]string, error) {
 		return nil, err
 	}
 	out, err := p.Runner.RunCmd("get --all-namespaces "+strings.Join(crds, ",")+" -o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
-	return retMap("crs", out, err)
+	return map[string]string{
+		"crs": out,
+	}, err
 }
 
 // GetClusterInfo returns the cluster info.
@@ -146,23 +153,29 @@ func GetClusterContext(runner *kubectlcmd.Runner, kubeConfig string) (string, er
 
 // GetNodeInfo returns node information.
 func GetNodeInfo(p *Params) (map[string]string, error) {
-	out, err := p.Runner.RunCmd("describe nodes", "", p.KubeConfig, p.KubeContext, p.DryRun)
-	return retMap("nodes", out, err)
+	out, err := p.Runner.RunCmd("get nodes -o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
+	return map[string]string{
+		"nodes": out,
+	}, err
 }
 
-// GetDescribePods returns describe pods for istioNamespace.
-func GetDescribePods(p *Params) (map[string]string, error) {
+// GetPodInfo returns pod details for istioNamespace.
+func GetPodInfo(p *Params) (map[string]string, error) {
 	if p.IstioNamespace == "" {
-		return nil, fmt.Errorf("getDescribePods requires the Istio namespace")
+		return nil, fmt.Errorf("getPodInfo requires the Istio namespace")
 	}
-	out, err := p.Runner.RunCmd("describe pods", p.IstioNamespace, p.KubeConfig, p.KubeContext, p.DryRun)
-	return retMap("describe-pods", out, err)
+	out, err := p.Runner.RunCmd("get pods -o yaml", p.IstioNamespace, p.KubeConfig, p.KubeContext, p.DryRun)
+	return map[string]string{
+		"pods": out,
+	}, err
 }
 
 // GetEvents returns events for all namespaces.
 func GetEvents(p *Params) (map[string]string, error) {
-	out, err := p.Runner.RunCmd("get events --all-namespaces -o wide", "", p.KubeConfig, p.KubeContext, p.DryRun)
-	return retMap("events", out, err)
+	out, err := p.Runner.RunCmd("get events --all-namespaces -o wide --sort-by=.metadata.creationTimestamp", "", p.KubeConfig, p.KubeContext, p.DryRun)
+	return map[string]string{
+		"events": out,
+	}, err
 }
 
 // GetIstiodInfo returns internal Istiod debug info.
@@ -170,29 +183,59 @@ func GetIstiodInfo(p *Params) (map[string]string, error) {
 	if p.Namespace == "" || p.Pod == "" {
 		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
 	}
+	errs := istiomultierror.New()
 	ret := make(map[string]string)
 	for _, url := range common.IstiodDebugURLs(p.ClusterVersion) {
 		out, err := p.Runner.Exec(p.Namespace, p.Pod, common.DiscoveryContainerName, fmt.Sprintf(`pilot-discovery request GET %s`, url), p.DryRun)
 		if err != nil {
-			return nil, err
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		ret[url] = out
+	}
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
 	}
 	return ret, nil
 }
 
 // GetProxyInfo returns internal proxy debug info.
 func GetProxyInfo(p *Params) (map[string]string, error) {
+	errs := istiomultierror.New()
 	if p.Namespace == "" || p.Pod == "" {
-		return nil, fmt.Errorf("getIstiodInfo requires namespace and pod")
+		return nil, fmt.Errorf("getProxyInfo requires namespace and pod")
 	}
 	ret := make(map[string]string)
 	for _, url := range common.ProxyDebugURLs(p.ClusterVersion) {
-		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun)
+		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun, p.ProxyAdminPort)
 		if err != nil {
-			return nil, err
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		ret[url] = out
+	}
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
+	}
+	return ret, nil
+}
+
+func GetZtunnelInfo(p *Params) (map[string]string, error) {
+	if p.Namespace == "" || p.Pod == "" {
+		return nil, fmt.Errorf("getZtunnelInfo requires namespace and pod")
+	}
+	errs := istiomultierror.New()
+	ret := make(map[string]string)
+	for _, url := range common.ZtunnelDebugURLs(p.ClusterVersion) {
+		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun, p.ProxyAdminPort)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			continue
+		}
+		ret[url] = out
+	}
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
 	}
 	return ret, nil
 }
@@ -207,18 +250,21 @@ func GetNetstat(p *Params) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return retMap("netstat", out, err)
+	return map[string]string{
+		"netstat": out,
+	}, err
 }
 
 // GetAnalyze returns the output of istioctl analyze.
 func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 	out := make(map[string]string)
-	sa := local.NewSourceAnalyzer(analyzers.AllCombined(), resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, timeout)
+	sa := local.NewSourceAnalyzer(analyzers.AllCombined(), resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil)
 
-	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(p.Runner.Client.RESTConfig()))
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(p.Runner.Client.RESTConfig()), "")
 	if err != nil {
 		return nil, err
 	}
+	k = kube.EnableCrdWatcher(k)
 	sa.AddRunningKubeSource(k)
 
 	cancel := make(chan struct{})
@@ -255,20 +301,6 @@ func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 	}
 	return out, nil
 }
-
-// GetNetfilter returns netfilter for the given container.
-/*func GetNetfilter(p *Params) (map[string]string, error) {
-	if p.Namespace == "" || p.Pod == "" {
-		return nil, fmt.Errorf("getNetfilter requires namespace and pod")
-	}
-
-	out, err := kubectlcmd.RunCmd("exec -it -n "+p.Namespace+" "+p.Pod+
-		" -- bash -c for fl in $(ls -1 /proc/sys/net/netfilter/*); do echo $fl: $(cat $fl); done", "", p.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	return retMap("netfilter", out, err)
-}*/
 
 // GetCoredumps returns coredumps for the given namespace/pod/container.
 func GetCoredumps(p *Params) (map[string]string, error) {

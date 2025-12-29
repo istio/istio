@@ -27,11 +27,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	xdsfake "istio.io/istio/pilot/test/xds"
 )
 
 func TestSyncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		ads := s.ConnectADS()
 
 		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
@@ -49,7 +50,7 @@ func TestSyncz(t *testing.T) {
 		verifySyncStatus(t, s.Discovery, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		ads := s.ConnectADS()
 
 		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
@@ -66,7 +67,7 @@ func TestSyncz(t *testing.T) {
 		verifySyncStatus(t, s.Discovery, node.ID, true, false)
 	})
 	t.Run("sync ecds", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 			ConfigString: mustReadFile(t, "./testdata/ecds.yaml"),
 		})
 		ads := s.ConnectADS()
@@ -81,7 +82,7 @@ func TestSyncz(t *testing.T) {
 }
 
 func getSyncStatus(t *testing.T, server *xds.DiscoveryServer) []xds.SyncStatus {
-	req, err := http.NewRequest("GET", "/debug", nil)
+	req, err := http.NewRequest(http.MethodGet, "/debug", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +174,7 @@ func TestConfigDump(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 			ads := s.ConnectADS()
 			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
 			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
@@ -199,7 +200,7 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 	if proxyID != "" {
 		path += fmt.Sprintf("?proxyID=%v", proxyID)
 	}
-	req, err := http.NewRequest("GET", path, nil)
+	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,14 +215,14 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 	}
 	got := &configdump.Wrapper{}
 	if err := got.UnmarshalJSON(rr.Body.Bytes()); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	return got
 }
 
 func TestDebugHandlers(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	req, err := http.NewRequest("GET", "/debug", nil)
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	req, err := http.NewRequest(http.MethodGet, "/debug", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

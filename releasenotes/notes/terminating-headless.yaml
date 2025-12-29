@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 47348
+releaseNotes:
+  - |
+    **Fixed** an issue causing traffic to terminating headless service instances to not function correctly.

@@ -30,10 +30,10 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -54,6 +54,8 @@ var (
 	serverFirst             bool
 	followRedirects         bool
 	newConnectionPerRequest bool
+	v4Only                  bool
+	v6Only                  bool
 	forceDNSLookup          bool
 
 	clientCert string
@@ -61,12 +63,15 @@ var (
 
 	caFile string
 
-	hboneAddress            string
-	hboneHeaders            []string
-	hboneClientCert         string
-	hboneClientKey          string
-	hboneCaFile             string
-	hboneInsecureSkipVerify bool
+	hboneAddress                 string
+	hboneHeaders                 []string
+	doubleHboneAddress           string
+	hboneClientCert              string
+	hboneClientKey               string
+	hboneCaFile                  string
+	hboneInsecureSkipVerify      bool
+	innerHboneCaFile             string
+	innerHboneInsecureSkipVerify bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -110,7 +115,7 @@ where the network configuration doesn't support gRPC to the source pod.'
 				fmt.Println(line)
 			}
 
-			log.Infof("All requests succeeded")
+			log.Infof("All %d requests succeeded", len(response.Output))
 		},
 	}
 )
@@ -150,6 +155,8 @@ func init() {
 		"If enabled, a new connection will be made to the server for each individual request. "+
 			"If false, an attempt will be made to re-use the connection for the life of the forward request. "+
 			"This is automatically set for DNS, TCP, TLS, and WebSocket protocols.")
+	rootCmd.PersistentFlags().BoolVarP(&v4Only, "ipv4", "4", false, "Only use IPv4")
+	rootCmd.PersistentFlags().BoolVarP(&v6Only, "ipv6", "6", false, "Only use IPv6")
 	rootCmd.PersistentFlags().BoolVar(&forceDNSLookup, "force-dns-lookup", false,
 		"If enabled, each request will force a DNS lookup. Only applies if new-connection-per-request is also enabled.")
 	rootCmd.PersistentFlags().StringVar(&clientCert, "client-cert", "", "client certificate file to use for request")
@@ -158,12 +165,17 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&serverName, "server-name", "", serverName, "server name to set")
 
 	rootCmd.PersistentFlags().StringVar(&hboneAddress, "hbone", "", "address to send HBONE request to")
+	rootCmd.PersistentFlags().StringVar(&doubleHboneAddress, "double-hbone", "", "address to send double HBONE request to")
 	rootCmd.PersistentFlags().StringSliceVarP(&hboneHeaders, "hbone-header", "M", hboneHeaders,
 		"A list of http headers for HBONE connection (use Host for authority) - 'name: value', following curl syntax")
 	rootCmd.PersistentFlags().StringVar(&hboneCaFile, "hbone-ca", "", "CA root cert file used for the HBONE request")
 	rootCmd.PersistentFlags().StringVar(&hboneClientCert, "hbone-client-cert", "", "client certificate file used for the HBONE request")
 	rootCmd.PersistentFlags().StringVar(&hboneClientKey, "hbone-client-key", "", "client certificate key file used for the HBONE request")
 	rootCmd.PersistentFlags().BoolVar(&hboneInsecureSkipVerify, "hbone-insecure-skip-verify", hboneInsecureSkipVerify, "skip TLS verification of HBONE request")
+	rootCmd.PersistentFlags().StringVar(&innerHboneCaFile, "inner-hbone-ca", "",
+		"CA root cert file used for the inner HBONE request. Only used if --double-hbone is set")
+	rootCmd.PersistentFlags().BoolVar(&innerHboneInsecureSkipVerify, "inner-hbone-insecure-skip-verify", innerHboneInsecureSkipVerify,
+		"skip TLS verification of inner HBONE request")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -199,6 +211,47 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		NewConnectionPerRequest: newConnectionPerRequest,
 		ForceDNSLookup:          forceDNSLookup,
 	}
+	if v4Only && v6Only {
+		return nil, fmt.Errorf("--v4-only and --v6-only are mutually exclusive")
+	} else if v4Only {
+		request.ForceIpFamily = "tcp4"
+	} else if v6Only {
+		request.ForceIpFamily = "tcp6"
+	}
+	if len(doubleHboneAddress) > 0 {
+		request.DoubleHbone = &proto.HBONE{
+			Address:            doubleHboneAddress,
+			CertFile:           hboneClientCert,
+			KeyFile:            hboneClientKey,
+			CaCertFile:         hboneCaFile,
+			InsecureSkipVerify: hboneInsecureSkipVerify,
+		}
+		for _, header := range hboneHeaders {
+			parts := strings.SplitN(header, ":", 2)
+			// require name:value format
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
+			}
+
+			request.DoubleHbone.Headers = append(request.Hbone.Headers, &proto.Header{
+				Key:   parts[0],
+				Value: strings.Trim(parts[1], " "),
+			})
+		}
+
+		request.Hbone = &proto.HBONE{
+			CertFile:           hboneClientCert, // same creds for inner tunnel
+			KeyFile:            hboneClientKey,
+			CaCertFile:         hboneCaFile,
+			InsecureSkipVerify: hboneInsecureSkipVerify,
+		}
+		if len(innerHboneCaFile) > 0 {
+			request.Hbone.CaCertFile = innerHboneCaFile
+		}
+		if innerHboneInsecureSkipVerify != hboneInsecureSkipVerify {
+			request.Hbone.InsecureSkipVerify = innerHboneInsecureSkipVerify
+		}
+	}
 	if len(hboneAddress) > 0 {
 		request.Hbone = &proto.HBONE{
 			Address:            hboneAddress,
@@ -230,16 +283,14 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 	}
 
 	for _, header := range headers {
-		parts := strings.Split(header, ":")
-
-		// require name:value format
-		if len(parts) != 2 {
+		headerKey, headerVal, colonFound := strings.Cut(header, ":")
+		if !colonFound {
 			return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
 		}
 
 		request.Headers = append(request.Headers, &proto.Header{
-			Key:   parts[0],
-			Value: strings.Trim(parts[1], " "),
+			Key:   headerKey,
+			Value: strings.TrimSpace(headerVal),
 		})
 	}
 

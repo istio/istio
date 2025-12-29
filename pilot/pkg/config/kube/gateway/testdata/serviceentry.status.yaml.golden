@@ -1,28 +1,22 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Resources not yet deployed to the cluster
+    message: Resource accepted
     reason: Accepted
-    status: "False"
+    status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "gateway.istio-system.svc.domain.suffix"
+    message: 'Failed to assign to any requested addresses: hostname "gateway-istio.istio-system.svc.domain.suffix"
       not found'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources not yet deployed to the cluster
-    reason: ResourcesPending
-    status: "False"
-    type: Scheduled
+    type: Programmed
   listeners:
   - attachedRoutes: 1
     conditions:
@@ -38,19 +32,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -60,11 +44,37 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
+  name: egress
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
   name: http
   namespace: default
 spec: null
@@ -85,4 +95,54 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: egress
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: egress
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
 ---

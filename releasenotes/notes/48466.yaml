@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 48105
+releaseNotes:
+- |
+  **Added** message IST0167 to warn users that policies, such as Sidecar, will have no impact when applied to ambient namespaces.

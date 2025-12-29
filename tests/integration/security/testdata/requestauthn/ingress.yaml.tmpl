@@ -1,10 +1,10 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: {{ .To.ServiceName }}-gateway
 spec:
   selector:
-    istio: ingressgateway # use istio default ingress gateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
     - port:
         number: 80
@@ -13,7 +13,7 @@ spec:
       hosts:
         - "*.{{ .To.ServiceName }}.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: {{ .To.ServiceName }}

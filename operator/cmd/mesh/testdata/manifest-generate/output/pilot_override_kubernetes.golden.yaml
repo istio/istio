@@ -1,21 +1,14 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+apiVersion: v1
+kind: ServiceAccount
 metadata:
   labels:
     app: istio-reader
     release: istio
-  name: istio-reader-istio-system
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-reader-istio-system
-subjects:
-- kind: ServiceAccount
-  name: my-service-role
+  name: istio-reader-service-account
   namespace: istio-system
+spec:
+  automountServiceAccountToken: false
 ---
-
-
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -28,7 +21,6 @@ metadata:
   name: istio-sidecar-injector-istio-control
 webhooks:
 - admissionReviewVersions:
-  - v1beta1
   - v1
   clientConfig:
     service:
@@ -52,6 +44,7 @@ webhooks:
       operator: NotIn
       values:
       - "false"
+  reinvocationPolicy: Never
   rules:
   - apiGroups:
     - ""
@@ -63,7 +56,6 @@ webhooks:
     - pods
   sideEffects: None
 - admissionReviewVersions:
-  - v1beta1
   - v1
   clientConfig:
     service:
@@ -89,6 +81,7 @@ webhooks:
       operator: In
       values:
       - default
+  reinvocationPolicy: Never
   rules:
   - apiGroups:
     - ""
@@ -100,7 +93,6 @@ webhooks:
     - pods
   sideEffects: None
 - admissionReviewVersions:
-  - v1beta1
   - v1
   clientConfig:
     service:
@@ -122,6 +114,7 @@ webhooks:
       operator: NotIn
       values:
       - "false"
+  reinvocationPolicy: Never
   rules:
   - apiGroups:
     - ""
@@ -133,7 +126,6 @@ webhooks:
     - pods
   sideEffects: None
 - admissionReviewVersions:
-  - v1beta1
   - v1
   clientConfig:
     service:
@@ -157,6 +149,7 @@ webhooks:
       - "true"
     - key: istio.io/rev
       operator: DoesNotExist
+  reinvocationPolicy: Never
   rules:
   - apiGroups:
     - ""
@@ -168,8 +161,6 @@ webhooks:
     - pods
   sideEffects: None
 ---
-
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -200,6 +191,7 @@ spec:
         app: istiod
         install.operator.istio.io/owning-resource: unknown
         istio: pilot
+        istio.io/dataplane-mode: none
         istio.io/rev: default
         operator.istio.io/component: Pilot
         sidecar.istio.io/inject: "false"
@@ -214,8 +206,6 @@ spec:
         - --keepaliveMaxServerConnectionAge
         - 60m
         env:
-        - name: JWT_POLICY
-          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: POD_NAME
@@ -235,18 +225,24 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: KUBECONFIG
           value: /var/run/secrets/remote/config
+        - name: CA_TRUSTED_NODE_ACCOUNTS
+          value: istio-control/ztunnel
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-          value: "true"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "true"
-        - name: ISTIOD_ADDR
-          value: istiod.istio-control.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: PLATFORM
+          value: ""
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
@@ -255,6 +251,8 @@ spec:
         - containerPort: 15010
           protocol: TCP
         - containerPort: 15017
+          protocol: TCP
+        - containerPort: 15014
           protocol: TCP
         readinessProbe:
           httpGet:
@@ -279,9 +277,16 @@ spec:
         - mountPath: /var/run/secrets/remote
           name: istio-kubeconfig
           readOnly: true
-      securityContext:
-        fsGroup: 1337
+        - mountPath: /var/run/secrets/istiod/tls
+          name: istio-csr-dns-cert
+          readOnly: true
+        - mountPath: /var/run/secrets/istiod/ca
+          name: istio-csr-ca-configmap
+          readOnly: true
       serviceAccountName: istiod
+      tolerations:
+      - key: cni.istio.io/not-ready
+        operator: Exists
       volumes:
       - emptyDir:
           medium: Memory
@@ -301,9 +306,36 @@ spec:
         secret:
           optional: true
           secretName: istio-kubeconfig
+      - name: istio-csr-dns-cert
+        secret:
+          optional: true
+          secretName: istiod-tls
+      - configMap:
+          defaultMode: 420
+          name: istio-ca-root-cert
+          optional: true
+        name: istio-csr-ca-configmap
 ---
-
-
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app: istiod
+    install.operator.istio.io/owning-resource: unknown
+    istio: pilot
+    istio.io/rev: default
+    operator.istio.io/component: Pilot
+    release: istio
+  name: istiod
+  namespace: istio-control
+spec:
+  maxUnavailable: 1
+  minAvailable: null
+  selector:
+    matchLabels:
+      app: istiod
+      istio: pilot
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -334,4 +366,3 @@ spec:
   selector:
     app: istiod
     istio: pilot
----

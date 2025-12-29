@@ -7,6 +7,7 @@ buildscript {
 apply plugin: 'eclipse'
 
 task copyApplication(type: Copy) {
+    dependsOn ':reviews-application:war'
     from '../reviews-application/build/libs/reviews-application-1.0.war'
     into 'servers/LibertyProjectServer/apps/'
 }

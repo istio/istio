@@ -20,17 +20,16 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -43,7 +42,7 @@ func NewRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "pilot-discovery",
 		Short:        "Istio Pilot.",
-		Long:         "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
+		Long:         "Istio Pilot provides mesh-wide traffic management, security and policy capabilities in the Istio Service Mesh.",
 		SilenceUsage: true,
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			// Allow unknown flags for backward-compatibility.
@@ -59,7 +58,7 @@ func NewRootCommand() *cobra.Command {
 	addFlags(discoveryCmd)
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, collateral.Metadata{
 		Title:   "Istio Pilot Discovery",
 		Section: "pilot-discovery CLI",
 		Manual:  "Istio Pilot Discovery",
@@ -141,6 +140,8 @@ func addFlags(c *cobra.Command) {
 		"File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used.")
 	c.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", bootstrap.PodNamespace,
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
+	c.PersistentFlags().StringVar(&serverArgs.CniNamespace, "cniNamespace", bootstrap.PodNamespace,
+		"Select a namespace where the istio-cni resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	c.PersistentFlags().DurationVar(&serverArgs.ShutdownDuration, "shutdownDuration", 10*time.Second,
 		"Duration the discovery server needs to terminate gracefully")
 
@@ -152,7 +153,7 @@ func addFlags(c *cobra.Command) {
 	c.PersistentFlags().StringVar((*string)(&serverArgs.RegistryOptions.KubeOptions.ClusterID), "clusterID", features.ClusterName,
 		"The ID of the cluster that this Istiod instance resides")
 	c.PersistentFlags().StringToStringVar(&serverArgs.RegistryOptions.KubeOptions.ClusterAliases, "clusterAliases", map[string]string{},
-		"Alias names for clusters")
+		"Alias names for clusters. Example: alias1=cluster1,alias2=cluster2")
 
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
 	c.PersistentFlags().StringVar(&serverArgs.ServerOptions.HTTPAddr, "httpAddr", ":8080",

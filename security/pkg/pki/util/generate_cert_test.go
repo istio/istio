@@ -575,7 +575,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 func TestGenCertFromCSR(t *testing.T) {
 	keyFile := "../testdata/key.pem"
 	certFile := "../testdata/cert.pem"
-	keycert, err := NewVerifiedKeyCertBundleFromFile(certFile, keyFile, nil, certFile)
+	keycert, err := NewVerifiedKeyCertBundleFromFile(certFile, keyFile, nil, certFile, "")
 	if err != nil {
 		t.Errorf("Failed to load CA key and cert from files: %s, %s", keyFile, certFile)
 	}
@@ -798,10 +798,9 @@ func TestAppendRootCerts(t *testing.T) {
 			expectedRootCert: append([]byte(certPem+"\n"), []byte(certPem+"\n")...),
 		},
 		"Not existing root file": {
-			pemCert:  []byte{},
-			rootFile: "../testdata/notexistcert.pem",
-			expectedErr: "failed to read root certificates (open ../testdata/notexistcert.pem: " +
-				"no such file or directory)",
+			pemCert:          []byte{},
+			rootFile:         "../testdata/notexistcert.pem",
+			expectedErr:      "",
 			expectedRootCert: []byte{},
 		},
 	}

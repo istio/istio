@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 51377
+
+releaseNotes:
+- |
+  **Added** Fixes a bug where UDP traffic handled in ISTIO_OUTPUT chain incorrectly exits early.

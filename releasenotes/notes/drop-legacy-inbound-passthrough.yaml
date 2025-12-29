@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Removed** the `PILOT_ENABLE_INBOUND_PASSTHROUGH` setting, which has been enabled-by-default for the past 8 releases.
+  This feature can now be configured using a new Inbound Traffic Policy Mode (https://github.com/istio/api/blob/9911a0a6990a18a45ed1b00559156dcc7e836e52/mesh/v1alpha1/config.proto#L203).

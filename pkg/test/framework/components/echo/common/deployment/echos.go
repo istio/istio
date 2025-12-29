@@ -17,18 +17,21 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
 
-	"istio.io/istio/pkg/test"
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 // Config for new echo deployment.
@@ -65,6 +68,25 @@ type Config struct {
 	// Custom echo instances will be accessible from the `All` field in the namespace(s) under which they
 	// were created.
 	Configs echo.ConfigGetter
+
+	// ServiceNamePrefix allows setting a common prefix for all Services in the Configs
+	ServiceNamePrefix string
+}
+
+// AddConfigs appends to the configs to be deployed
+func (c *Config) AddConfigs(configs []echo.Config) *Config {
+	var existing echo.ConfigGetter
+	if c.Configs != nil {
+		existing = c.Configs
+	}
+	c.Configs = func() []echo.Config {
+		var out []echo.Config
+		if existing != nil {
+			out = append(out, existing()...)
+		}
+		return append(out, configs...)
+	}
+	return c
 }
 
 func (c *Config) fillDefaults(ctx resource.Context) error {
@@ -80,8 +102,16 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 		c.Configs = echo.ConfigFuture(&defaultConfigs)
 	}
 
+	configs := c.Configs.Get()
+
+	if c.ServiceNamePrefix != "" {
+		for i := 0; i < len(configs); i++ {
+			configs[i].Service = c.ServiceNamePrefix + configs[i].Service
+		}
+	}
+
 	// Verify the namespace for any custom deployments.
-	for _, config := range c.Configs.Get() {
+	for _, config := range configs {
 		if config.Namespace != nil {
 			found := false
 			for _, ns := range c.Namespaces {
@@ -103,6 +133,11 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 		c.NamespaceCount = 1
 	}
 
+	nsLabels := map[string]string{}
+	if ctx.Settings().Ambient {
+		nsLabels["istio.io/dataplane-mode"] = "ambient"
+	}
+
 	// Create the echo namespaces.
 	if len(c.Namespaces) == 0 {
 		c.Namespaces = make([]namespace.Getter, c.NamespaceCount)
@@ -110,8 +145,9 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 			// If only using a single namespace, preserve the "echo" prefix.
 			g.Go(func() error {
 				ns, err := namespace.New(ctx, namespace.Config{
+					Inject: !ctx.Settings().AmbientEverywhere,
 					Prefix: "echo",
-					Inject: true,
+					Labels: nsLabels,
 				})
 				if err != nil {
 					return err
@@ -121,7 +157,6 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 			})
 		} else {
 			for i := 0; i < c.NamespaceCount; i++ {
-				i := i
 				g.Go(func() error {
 					ns, err := namespace.New(ctx, namespace.Config{
 						Prefix: fmt.Sprintf("echo%d", i+1),
@@ -159,6 +194,11 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 	var defaultConfigs []echo.Config
 
+	disableAutomountSAToken := true
+	if t.Settings().Revisions.Minimum() < "1.16" {
+		disableAutomountSAToken = false
+	}
+
 	a := echo.Config{
 		Service:                 ASvc,
 		ServiceAccount:          true,
@@ -166,7 +206,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Subsets:                 []echo.SubsetConfig{{}},
 		Locality:                "region.zone.subzone",
 		IncludeExtAuthz:         c.IncludeExtAuthz,
-		DisableAutomountSAToken: true,
+		DisableAutomountSAToken: disableAutomountSAToken,
 	}
 
 	b := echo.Config{
@@ -210,10 +250,10 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Ports:          ports.All(),
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: map[echo.Annotation]*echo.AnnotationValue{
-					echo.SidecarInject: {
-						Value: strconv.FormatBool(false),
-					},
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels: map[string]string{
+					label.SidecarInject.Name:        "false",
+					label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 				},
 			},
 		},
@@ -224,7 +264,10 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		ServiceAccount: true,
 		Ports:          ports.All(),
 		Subsets: []echo.SubsetConfig{{
-			Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
+			Annotations: map[string]string{annotation.SidecarInterceptionMode.Name: "TPROXY"},
+			Labels: map[string]string{
+				label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
+			},
 		}},
 		IncludeExtAuthz: c.IncludeExtAuthz,
 	}
@@ -241,17 +284,41 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 
 	defaultConfigs = append(defaultConfigs, a, b, cSvc, headless, stateful, naked, tProxy, vmSvc)
 
-	if !skipDeltaXDS(t) {
-		delta := echo.Config{
-			Service:        DeltaSvc,
+	if len(t.Settings().IPFamilies) > 1 {
+		dSvc := echo.Config{
+			Service:         DSvc,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: c.IncludeExtAuthz,
+			IPFamilies:      t.Settings().IPFamilies[0],
+			DualStack:       true,
+		}
+		eSvc := echo.Config{
+			Service:         ESvc,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: c.IncludeExtAuthz,
+			IPFamilies:      t.Settings().IPFamilies[1],
+			DualStack:       true,
+		}
+		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
+	}
+
+	sotw := `{"proxyMetadata": {"ISTIO_DELTA_XDS": "false"}}`
+
+	if !t.Settings().Skip(echo.Sotw) {
+		sotw := echo.Config{
+			Service:        SotwSvc,
 			ServiceAccount: true,
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{{
-				Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-ISTIO_DELTA_XDS: "true"`),
+				Labels:      map[string]string{label.SidecarInject.Name: "true"},
+				Annotations: map[string]string{annotation.ProxyConfig.Name: sotw},
 			}},
 		}
-		defaultConfigs = append(defaultConfigs, delta)
+		defaultConfigs = append(defaultConfigs, sotw)
 	}
 
 	if !t.Clusters().IsMulticluster() {
@@ -262,15 +329,49 @@ ISTIO_DELTA_XDS: "true"`),
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
-					Annotations: map[echo.Annotation]*echo.AnnotationValue{
-						echo.SidecarInjectTemplates: {
-							Value: "grpc-agent",
-						},
-					},
+					Labels:      map[string]string{label.SidecarInject.Name: "true"},
+					Annotations: map[string]string{annotation.InjectTemplates.Name: "grpc-agent"},
 				},
 			},
 		}
 		defaultConfigs = append(defaultConfigs, proxylessGRPC)
+	}
+
+	if t.Settings().Ambient {
+		if t.Settings().AmbientEverywhere {
+			for i, config := range defaultConfigs {
+				if !config.HasSidecar() && !config.IsProxylessGRPC() {
+					scopes.Framework.Infof("adding waypoint to %s", config.NamespacedName())
+					defaultConfigs[i].ServiceWaypointProxy = "shared"
+					defaultConfigs[i].WorkloadWaypointProxy = "shared"
+				}
+			}
+		} else {
+			waypointed := echo.Config{
+				Service:               WaypointSvc,
+				ServiceAccount:        true,
+				Ports:                 ports.All(),
+				ServiceWaypointProxy:  "shared",
+				WorkloadWaypointProxy: "shared",
+				Subsets: []echo.SubsetConfig{{
+					Labels: map[string]string{label.SidecarInject.Name: "false"},
+				}},
+			}
+			defaultConfigs = append(defaultConfigs, waypointed)
+		}
+
+		captured := echo.Config{
+			Service:        CapturedSvc,
+			ServiceAccount: true,
+			Ports:          ports.All(),
+			Subsets: []echo.SubsetConfig{{
+				Labels: map[string]string{
+					label.SidecarInject.Name:           "false",
+					annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled,
+				},
+			}},
+		}
+		defaultConfigs = append(defaultConfigs, captured)
 	}
 
 	return defaultConfigs
@@ -356,8 +457,11 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	apps.NS = make([]EchoNamespace, len(cfg.Namespaces))
 	for i, ns := range cfg.Namespaces {
 		apps.NS[i].Namespace = ns.Get()
+		apps.NS[i].ServiceNamePrefix = cfg.ServiceNamePrefix
 	}
-	apps.External.Namespace = cfg.ExternalNamespace.Get()
+	if !cfg.NoExternalNamespace {
+		apps.External.Namespace = cfg.ExternalNamespace.Get()
+	}
 
 	builder := deployment.New(ctx).WithClusters(ctx.Clusters()...)
 	for _, n := range apps.NS {
@@ -365,7 +469,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	}
 
 	if !cfg.NoExternalNamespace {
-		builder = apps.External.build(builder)
+		builder = apps.External.Build(ctx, builder)
 	}
 
 	echos, err := builder.Build()
@@ -373,20 +477,45 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 		return nil, err
 	}
 
+	if ctx.Settings().Ambient {
+
+		waypointProxies := make(map[string]ambient.Waypoints)
+
+		for _, echo := range echos {
+			svcwp := echo.Config().ServiceWaypointProxy
+			wlwp := echo.Config().WorkloadWaypointProxy
+			var err error
+			if svcwp != "" {
+				if _, found := waypointProxies[svcwp]; !found {
+					waypointProxies[svcwp], err = ambient.NewWaypointProxy(ctx, echo.Config().Namespace, svcwp)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+			if wlwp != "" {
+				if _, found := waypointProxies[wlwp]; !found {
+					waypointProxies[wlwp], err = ambient.NewWaypointProxy(ctx, echo.Config().Namespace, wlwp)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+
+		}
+	}
+
 	apps.All = echos.Services()
 
 	g := multierror.Group{}
 	for i := 0; i < len(apps.NS); i++ {
-		i := i
 		g.Go(func() error {
 			return apps.NS[i].loadValues(ctx, echos, apps)
 		})
 	}
 
 	if !cfg.NoExternalNamespace {
-		g.Go(func() error {
-			return apps.External.loadValues(echos)
-		})
+		apps.External.LoadValues(echos)
 	}
 
 	if err := g.Wait().ErrorOrNil(); err != nil {
@@ -397,9 +526,9 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 }
 
 // NewOrFail calls New and fails if an error is returned.
-func NewOrFail(t test.Failer, ctx resource.Context, cfg Config) *Echos {
+func NewOrFail(t resource.ContextFailer, cfg Config) *Echos {
 	t.Helper()
-	out, err := New(ctx, cfg)
+	out, err := New(t, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -487,9 +616,4 @@ func Setup(apps *Echos, cfg Config) resource.SetupFn {
 
 		return nil
 	}
-}
-
-// TODO(nmittler): should ctx.Settings().Skip(echo.Delta) do all of this?
-func skipDeltaXDS(ctx resource.Context) bool {
-	return ctx.Settings().Skip(echo.Delta) || !ctx.Settings().Revisions.AtLeast("1.12")
 }

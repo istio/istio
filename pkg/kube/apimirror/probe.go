@@ -18,7 +18,11 @@
 // upstream Kubernetes API instead.
 package apimirror
 
-import "k8s.io/apimachinery/pkg/util/intstr"
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+)
 
 // HTTPGetAction describes an action based on HTTP Get requests.
 type HTTPGetAction struct {
@@ -28,7 +32,7 @@ type HTTPGetAction struct {
 	// Name or number of the port to access on the container.
 	// Number must be in the range 1 to 65535.
 	// Name must be an IANA_SVC_NAME.
-	Port intstr.IntOrString `json:"port" protobuf:"bytes,2,opt,name=port"`
+	Port IntOrString `json:"port" protobuf:"bytes,2,opt,name=port"`
 	// Host name to connect to, defaults to the pod IP. You probably want to set
 	// "Host" in httpHeaders instead.
 	// +optional
@@ -65,7 +69,7 @@ type TCPSocketAction struct {
 	// Number or name of the port to access on the container.
 	// Number must be in the range 1 to 65535.
 	// Name must be an IANA_SVC_NAME.
-	Port intstr.IntOrString `json:"port" protobuf:"bytes,1,opt,name=port"`
+	Port IntOrString `json:"port" protobuf:"bytes,1,opt,name=port"`
 	// Optional: Host name to connect to, defaults to the pod IP.
 	// +optional
 	Host string `json:"host,omitempty" protobuf:"bytes,2,opt,name=host"`
@@ -83,4 +87,48 @@ type GRPCAction struct {
 	// +optional
 	// +default=""
 	Service *string `json:"service" protobuf:"bytes,2,opt,name=service"`
+}
+
+// Type represents the stored type of IntOrString.
+type Type int64
+
+const (
+	Int    Type = iota // The IntOrString holds an int.
+	String             // The IntOrString holds a string.
+)
+
+type IntOrString struct {
+	Type   Type
+	IntVal int32
+	StrVal string
+}
+
+// UnmarshalJSON implements the json.Unmarshaller interface.
+func (intstr *IntOrString) UnmarshalJSON(value []byte) error {
+	if value[0] == '"' {
+		intstr.Type = String
+		return json.Unmarshal(value, &intstr.StrVal)
+	}
+	intstr.Type = Int
+	return json.Unmarshal(value, &intstr.IntVal)
+}
+
+// MarshalJSON implements the json.Marshaller interface.
+func (intstr IntOrString) MarshalJSON() ([]byte, error) {
+	switch intstr.Type {
+	case Int:
+		return json.Marshal(intstr.IntVal)
+	case String:
+		return json.Marshal(intstr.StrVal)
+	default:
+		return []byte{}, fmt.Errorf("impossible IntOrString.Type")
+	}
+}
+
+func (intstr *IntOrString) IntValue() int {
+	if intstr.Type == String {
+		i, _ := strconv.Atoi(intstr.StrVal)
+		return i
+	}
+	return int(intstr.IntVal)
 }

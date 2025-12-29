@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"time"
 
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -70,6 +71,23 @@ type TLS struct {
 
 	Alpn       []string
 	ServerName string
+}
+
+type HBONE struct {
+	Address string
+	Headers http.Header
+	// If non-empty, make the request with the corresponding cert and key.
+	Cert string
+	Key  string
+	// If non-empty, verify the server CA
+	CaCert string
+	// If non-empty, make the request with the corresponding cert and key file.
+	CertFile string
+	KeyFile  string
+	// If non-empty, verify the server CA with the ca cert file.
+	CaCertFile string
+	// Skip verifying peer's certificate.
+	InsecureSkipVerify bool
 }
 
 // Retry settings
@@ -134,6 +152,12 @@ type CallOptions struct {
 	// Headless/StatefulSet deployments.
 	NewConnectionPerRequest bool
 
+	// ForceIPFamily will force a specific IP family to be used for DNS resolution only.
+	// Valid values: "tcp4", "tcp6".
+	ForceIPFamily string
+	// If DualStack is true, an IPv4 and IPv6 request will be sent if the source workload supports dual stack.
+	DualStack bool
+
 	// ForceDNSLookup if true, the forwarder will force a DNS lookup for each individual request. This is
 	// useful for any situation where DNS is used for load balancing (e.g. headless). This is ignored if
 	// NewConnectionPerRequest is false or if the deployment is Headless or StatefulSet.
@@ -151,12 +175,25 @@ type CallOptions struct {
 	// TLS settings.
 	TLS TLS
 
+	// HBONE settings.
+	HBONE HBONE
+
+	// DoubleHBONE settings
+	DoubleHBONE HBONE
+
 	// Message to be sent.
 	Message string
 
 	// Check the server responses. If none is provided, only the number of responses received
 	// will be checked.
 	Check Checker
+
+	// If we have been asked to do TCP comms with a PROXY protocol header,
+	// determine which version (1 or 2), and send the header.
+	// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
+	ProxyProtocolVersion int
+
+	PropagateResponse func(req *http.Request, resp *http.Response)
 }
 
 // GetHost returns the best default host for the call. Returns the first host defined from the following
@@ -172,11 +209,13 @@ func (o CallOptions) GetHost() string {
 		return o.To.Config().DefaultHostHeader
 	}
 
-	// Next, if the Address was manually specified use it as the Host.
+	// Next, if the Address was manually specified use it as the Host. If it is an IP, leave it so Go can handle the logic to decide
+	// how to format it (whether to add brackets, port, etc)
 	if len(o.Address) > 0 {
-		return o.Address
+		if _, err := netip.ParseAddr(o.Address); err != nil {
+			return o.Address
+		}
 	}
-
 	// Finally, use the target's FQDN.
 	if o.To != nil {
 		return o.To.Config().ClusterLocalFQDN()
@@ -227,10 +266,14 @@ func (o *CallOptions) FillDefaults() error {
 	// Fill in default retry options, if not specified.
 	o.fillRetryOptions()
 
-	// If no Check was specified, assume no error.
+	// check must be specified
 	if o.Check == nil {
-		o.Check = NoChecker()
+		panic("o.Check not set")
 	}
+
+	// If ProxyProtoVersion is not 0, 1, or 2, default to 0 (disabled)
+	o.fillProxyProtoVersion()
+
 	return nil
 }
 
@@ -255,6 +298,14 @@ func (o *CallOptions) fillCallCount() {
 	if newCount > o.Count {
 		o.Count = newCount
 	}
+}
+
+func (o *CallOptions) fillProxyProtoVersion() int {
+	if o.ProxyProtocolVersion > 0 && o.ProxyProtocolVersion < 3 {
+		// Nothing to do.
+		return o.ProxyProtocolVersion
+	}
+	return 0
 }
 
 func (o *CallOptions) numWorkloads() int {
@@ -436,3 +487,8 @@ func (o *CallOptions) fillRetryOptions() {
 	// Now append user-provided options to override the defaults.
 	o.Retry.Options = append(retryOpts, o.Retry.Options...)
 }
+
+const (
+	ForceIPFamilyV4 = "tcp4"
+	ForceIPFamilyV6 = "tcp6"
+)

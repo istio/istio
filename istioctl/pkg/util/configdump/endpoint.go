@@ -15,8 +15,6 @@
 package configdump
 
 import (
-	"fmt"
-
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 )
 
@@ -24,7 +22,7 @@ import (
 func (w *Wrapper) GetEndpointsConfigDump() (*admin.EndpointsConfigDump, error) {
 	endpointsDumpAny, err := w.getSection(endpoints)
 	if err != nil {
-		return nil, fmt.Errorf("endpoints not found (was include_eds=true used?): %v", err)
+		return nil, nil
 	}
 	endpointsDump := &admin.EndpointsConfigDump{}
 	err = endpointsDumpAny.UnmarshalTo(endpointsDump)

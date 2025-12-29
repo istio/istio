@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issues:
+  - 37331
+releaseNotes:
+  - |
+    **Fixed** an issue causing `ExternalName` services failing to resolve when using Ambient mode and DNS proxying.

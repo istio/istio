@@ -15,29 +15,20 @@
 package xds
 
 import (
-	networkingapi "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/config/labels"
+	"fmt"
+	"strings"
 )
 
-// getSubSetLabels returns the labels associated with a subset of a given service.
-func getSubSetLabels(dr *networkingapi.DestinationRule, subsetName string) labels.Instance {
-	// empty subset
-	if subsetName == "" {
-		return nil
+func atMostNJoin(data []string, limit int) string {
+	if limit == 0 || limit == 1 {
+		// Assume limit >1, but make sure we dpn't crash if someone does pass those
+		return strings.Join(data, ", ")
 	}
-
-	if dr == nil {
-		return nil
+	if len(data) == 0 {
+		return ""
 	}
-
-	for _, subset := range dr.Subsets {
-		if subset.Name == subsetName {
-			if len(subset.Labels) == 0 {
-				return nil
-			}
-			return subset.Labels
-		}
+	if len(data) < limit {
+		return strings.Join(data, ", ")
 	}
-
-	return nil
+	return strings.Join(data[:limit-1], ", ") + fmt.Sprintf(", and %d others", len(data)-limit+1)
 }

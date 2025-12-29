@@ -20,19 +20,22 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/pkg/config/analysis/analyzers/authz"
+	"istio.io/istio/pkg/config/analysis/analyzers/conditions"
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/pkg/config/analysis/analyzers/envoyfilter"
+	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/pkg/config/analysis/analyzers/k8sgateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
 	schemaValidation "istio.io/istio/pkg/config/analysis/analyzers/schema"
@@ -45,7 +48,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -97,6 +99,10 @@ var testGrid = []testCase{
 			{msg.AlphaAnnotation, "Pod invalid-annotations"},
 			{msg.AlphaAnnotation, "Pod invalid-annotations"},
 			{msg.AlphaAnnotation, "Service httpbin"},
+			{msg.AlphaAnnotation, "Pod anno-not-set-by-default"},
+			{msg.AlphaAnnotation, "Pod anno-not-set-by-default"},
+			{msg.AlphaAnnotation, "Pod anno-not-set-by-default"},
+			{msg.AlphaAnnotation, "Pod anno-not-set-by-default"},
 		},
 		skipAll: true,
 	},
@@ -107,6 +113,48 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.Deprecated, "VirtualService foo/productpage"},
 			{msg.Deprecated, "Sidecar default/no-selector"},
+		},
+	},
+	{
+		name:       "externalControlPlaneMissingWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-missing-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.InvalidExternalControlPlaneConfig, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+			{msg.InvalidExternalControlPlaneConfig, "ValidatingWebhookConfiguration istio-validator-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneMissingWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-missing-urls-custom-ns.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.InvalidExternalControlPlaneConfig, "MutatingWebhookConfiguration istio-sidecar-injector-custom-ns"},
+			{msg.InvalidExternalControlPlaneConfig, "ValidatingWebhookConfiguration istio-validator-custom-ns"},
+		},
+	},
+	{
+		name:       "externalControlPlaneUsingIpAddresses",
+		inputFiles: []string{"testdata/externalcontrolplane-using-ip-addr.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.ExternalControlPlaneAddressIsNotAHostname, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneValidWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-valid-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "externalControlPlaneValidWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-valid-urls-custom-ns.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
 		},
 	},
 	{
@@ -122,7 +170,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-no-port.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -146,7 +194,23 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
+		},
+	},
+	{
+		name:       "gatewayCustomIngressGatewayBadPortWithoutTarget",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport-notarget.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
+		},
+	},
+	{
+		name:       "gatewayCustomIngressGatewayTranslation",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-translation.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
 		},
 	},
 	{
@@ -154,7 +218,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway httpbin8002-gateway"},
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin8002-gateway"},
 		},
 	},
 	{
@@ -168,6 +232,17 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewaySecretValidations",
+		inputFiles: []string{"testdata/gateway-secrets-validation.yaml"},
+		analyzer:   &gateway.SecretAnalyzer{},
+		expected: []message{
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-invalid-keys"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-missing-keys"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-invalid-cert"},
+			{msg.InvalidGatewayCredential, "Gateway defaultgateway-expired"},
+		},
+	},
+	{
 		name:       "conflicting gateways detect",
 		inputFiles: []string{"testdata/conflicting-gateways.yaml"},
 		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
@@ -177,6 +252,38 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gateways with different port are non-conflicting",
+		inputFiles: []string{"testdata/gateway-different-port.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected:   []message{
+			// no conflict expected, verify that no false-positive conflict is returned
+		},
+	},
+	{
+		name:       "conflicting gateways with multiple port declarations",
+		inputFiles: []string{"testdata/conflicting-gateways-multiple-ports.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway beta"},
+		},
+	},
+	{
+		name:       "conflicting gateways detect by sub selector",
+		inputFiles: []string{"testdata/conflicting-gateways-subSelector.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway beta"},
+		},
+	},
+	{
+		name:       "conflicting gateways detect: no port",
+		inputFiles: []string{"testdata/conflicting-gateways-invalid-port.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},
@@ -184,6 +291,9 @@ var testGrid = []testCase{
 			{msg.NamespaceNotInjected, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod default/noninjectedpod"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-1"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-2"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-3"},
 		},
 	},
 	{
@@ -197,6 +307,9 @@ var testGrid = []testCase{
 			{msg.NamespaceInjectionEnabledByDefault, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod default/noninjectedpod"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-1"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-2"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-3"},
 		},
 	},
 	{
@@ -207,8 +320,30 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyImageMismatch, "Pod enabled-namespace/details-v1-pod-old"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace-native"},
 		},
+	},
+	{
+		name: "injectionImageDistroless",
+		inputFiles: []string{
+			"testdata/injection-image-distroless.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		meshConfigFile: "testdata/common/meshconfig.yaml",
+		analyzer:       &injection.ImageAnalyzer{},
+		expected: []message{
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+		},
+	},
+	{
+		name: "injectionImageDistrolessNoMeshConfig",
+		inputFiles: []string{
+			"testdata/injection-image-distroless-no-meshconfig.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{},
 	},
 	{
 		name: "istioInjectionProxyImageMismatchAbsolute",
@@ -218,7 +353,8 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyImageMismatch, "Pod enabled-namespace/details-v1-pod-old"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace-native"},
 		},
 	},
 	{
@@ -230,8 +366,9 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyImageMismatch, "Pod enabled-namespace/details-v1-pod-old"},
-			{msg.IstioProxyImageMismatch, "Pod revision-namespace/revision-details-v1-pod-old"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace-native"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace revision-namespace"},
 		},
 	},
 	{
@@ -259,10 +396,12 @@ var testGrid = []testCase{
 	{
 		name:       "sidecarDefaultSelector",
 		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
-		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
+		analyzer:   &sidecar.SelectorAnalyzer{},
 		expected: []message{
 			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-2"},
 			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-1"},
+			{msg.IneffectivePolicy, "Sidecar ns-ambient/namespace-scoped"},
+			{msg.IneffectivePolicy, "Sidecar ns-ambient/pod-scoped"},
 		},
 	},
 	{
@@ -311,6 +450,7 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogushost"},
+			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogushost"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bookinfo-other"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-mirror-bogushost"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogusport"},
@@ -349,14 +489,20 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "virtualServiceInternalGatewayRef",
+		inputFiles: []string{"testdata/virtualservice_internal_gateway_ref.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedInternalGateway, "VirtualService httpbin"},
+		},
+	},
+	{
 		name:       "serviceMultipleDeployments",
 		inputFiles: []string{"testdata/deployment-multi-service.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
 		expected: []message{
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment bookinfo/multiple-svc-multiple-prot"},
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment bookinfo/multiple-without-port"},
-			{msg.DeploymentRequiresServiceAssociated, "Deployment bookinfo/no-services"},
-			{msg.DeploymentRequiresServiceAssociated, "Deployment injection-disabled-ns/ann-enabled-ns-disabled"},
 			{msg.DeploymentConflictingPorts, "Deployment bookinfo/conflicting-ports"},
 		},
 	},
@@ -367,21 +513,10 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
-		name: "regexes",
-		inputFiles: []string{
-			"testdata/virtualservice_regexes.yaml",
-		},
-		analyzer: &virtualservice.RegexAnalyzer{},
-		expected: []message{
-			{msg.InvalidRegexp, "VirtualService bad-match"},
-			{msg.InvalidRegexp, "VirtualService ecma-not-v2"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-		},
+		name:       "serviceWithNoSelector",
+		inputFiles: []string{"testdata/deployment-service-no-selector.yaml"},
+		analyzer:   &deployment.ServiceAssociationAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name: "unknown service registry in mesh networks",
@@ -409,6 +544,7 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-ns"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-not-ns"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-not-ns"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy test-ambient/no-workload"},
 		},
 	},
 	{
@@ -440,6 +576,42 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
 		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at destinationlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at destinationlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
 	},
 	{
 		name: "destinationrule with no cacert, mutual at portlevel",
@@ -487,7 +659,7 @@ var testGrid = []testCase{
 			"testdata/virtualservice_dupmatches.yaml",
 			"testdata/virtualservice_overlappingmatches.yaml",
 		},
-		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.IstioNetworkingV1Alpha3Virtualservices),
+		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.VirtualService),
 		expected: []message{
 			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-match"},
 			{msg.VirtualServiceUnreachableRule, "VirtualService foo/sample-foo-cluster01"},
@@ -692,6 +864,12 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "EnvoyFilterFilterChainMatch",
+		inputFiles: []string{"testdata/envoy-filter-filterchain.yaml"},
+		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "EnvoyFilterUsesAbsoluteOperation",
 		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
@@ -742,10 +920,133 @@ var testGrid = []testCase{
 	{
 		name:       "Analyze invalid telemetry",
 		inputFiles: []string{"testdata/telemetry-invalid-provider.yaml"},
-		analyzer:   &telemetry.ProdiverAnalyzer{},
+		analyzer:   &telemetry.ProviderAnalyzer{},
 		expected: []message{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
+	},
+	{
+		name:       "Analyze invalid telemetry",
+		inputFiles: []string{"testdata/telemetry-disable-provider.yaml"},
+		analyzer:   &telemetry.ProviderAnalyzer{},
+		expected:   []message{},
+	},
+	{
+		name:       "telemetrySelector",
+		inputFiles: []string{"testdata/telemetry-selector.yaml"},
+		analyzer:   &telemetry.SelectorAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Telemetry default/maps-to-nonexistent"},
+			{msg.ReferencedResourceNotFound, "Telemetry other/maps-to-different-ns"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/dupe-1"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/dupe-2"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/overlap-1"},
+			{msg.ConflictingTelemetryWorkloadSelectors, "Telemetry default/overlap-2"},
+		},
+	},
+	{
+		name:       "telemetryDefaultSelector",
+		inputFiles: []string{"testdata/telemetry-default-selector.yaml"},
+		analyzer:   &telemetry.DefaultSelectorAnalyzer{},
+		expected: []message{
+			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-2"},
+			{msg.MultipleTelemetriesWithoutWorkloadSelectors, "Telemetry ns2/has-conflict-1"},
+		},
+	},
+	{
+		name:           "Telemetry Lightstep",
+		inputFiles:     []string{"testdata/telemetry-lightstep.yaml"},
+		analyzer:       &telemetry.LightstepAnalyzer{},
+		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
+		expected: []message{
+			{msg.Deprecated, "Telemetry istio-system/mesh-default"},
+		},
+	},
+	{
+		name:       "KubernetesGatewaySelector",
+		inputFiles: []string{"testdata/k8sgateway-selector.yaml"},
+		analyzer:   &k8sgateway.SelectorAnalyzer{},
+		expected: []message{
+			{msg.IneffectiveSelector, "RequestAuthentication default/ra-ineffective"},
+			{msg.IneffectiveSelector, "AuthorizationPolicy default/ap-ineffective"},
+			{msg.IneffectiveSelector, "WasmPlugin default/wasmplugin-ineffective"},
+			{msg.IneffectiveSelector, "Telemetry default/telemetry-ineffective"},
+		},
+	},
+	{
+		name:       "ServiceEntry Addresses Required Lowercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-lowercase.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-lowercase"},
+		},
+	},
+	{
+		name:       "ServiceEntry Addresses Required Uppercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-uppercase.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-uppercase"},
+		},
+	},
+	{
+		name:       "Condition Analyzer",
+		inputFiles: []string{"testdata/condition-analyzer.yaml"},
+		analyzer:   &conditions.ConditionAnalyzer{},
+		expected: []message{
+			{msg.NegativeConditionStatus, "Service default/negative-condition-svc"},
+			{msg.NegativeConditionStatus, "ServiceEntry default/negative-condition-svcEntry"},
+			{msg.NegativeConditionStatus, "AuthorizationPolicy default/negative-condition-authz"},
+			{msg.NegativeConditionStatus, "Gateway default/negative-condition-gateway"},
+			{msg.NegativeConditionStatus, "HTTPRoute default/negative-condition-httproute"},
+			{msg.NegativeConditionStatus, "GRPCRoute default/negative-condition-grpcroute"},
+			{msg.NegativeConditionStatus, "AuthorizationPolicy default/negative-condition-authz-partially-invalid"},
+		},
+	},
+	{
+		name:       "DestinationRuleWithFakeHost",
+		inputFiles: []string{"testdata/destinationrule-with-fake-host.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			{msg.UnknownDestinationRuleHost, "DestinationRule default/fake-host"},
+		},
+	},
+	{
+		name:       "DestinationRuleSubsetsNotSelectPods",
+		inputFiles: []string{"testdata/destinationrule-subsets-not-select-pods.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			{msg.DestinationRuleSubsetNotSelectPods, "DestinationRule default/subsets-not-select-pods"},
+		},
+	},
+	{
+		name:       "DestinationRuleSubsetsWithTopologyLabels",
+		inputFiles: []string{"testdata/destinationrule-subsets-with-topology-labels.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected:   []message{
+			// Should not report false positives for topology labels
+			// All subsets should match because the analyzer augments pod labels with node topology labels:
+			// - "region-us-west": matches topology.kubernetes.io/region from node
+			// - "zone-us-west-1a": matches topology.kubernetes.io/zone from node
+			// - "app-v1": matches version label from pod
+			// - "mixed-labels": matches both version from pod AND topology.kubernetes.io/region from node
+		},
+	},
+	{
+		name:       "DestinationRuleEmptyTopologyLabels",
+		inputFiles: []string{"testdata/destinationrule-empty-topology-labels.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			// Istio doesn't match on empty node locality labels.
+			{msg.DestinationRuleSubsetNotSelectPods, "DestinationRule default/empty-topology-labels"},
+		},
+	},
+	{
+		name:           "ServiceEntry Addresses Allocated",
+		inputFiles:     []string{"testdata/serviceentry-address-allocated.yaml"},
+		meshConfigFile: "testdata/serviceentry-address-allocated-mesh-cfg.yaml",
+		analyzer:       &serviceentry.ProtocolAddressesAnalyzer{},
+		expected:       []message{},
 	},
 }
 
@@ -759,19 +1060,18 @@ var ignoreAnalyzers = []string{
 
 // TestAnalyzers allows for table-based testing of Analyzers.
 func TestAnalyzers(t *testing.T) {
-	requestedInputsByAnalyzer := make(map[string]map[collection.Name]struct{})
+	requestedInputsByAnalyzer := make(map[string]map[config.GroupVersionKind]struct{})
 
 	// For each test case, verify we get the expected messages as output
 	for _, tc := range testGrid {
-		tc := tc // Capture range variable so subtests work correctly
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
 
 			// Set up a hook to record which collections are accessed by each analyzer
 			analyzerName := tc.analyzer.Metadata().Name
-			cr := func(col collection.Name) {
+			cr := func(col config.GroupVersionKind) {
 				if _, ok := requestedInputsByAnalyzer[analyzerName]; !ok {
-					requestedInputsByAnalyzer[analyzerName] = make(map[collection.Name]struct{})
+					requestedInputsByAnalyzer[analyzerName] = make(map[config.GroupVersionKind]struct{})
 				}
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
@@ -798,6 +1098,16 @@ func TestAnalyzers(t *testing.T) {
 		g := NewWithT(t)
 	outer:
 		for _, a := range All() {
+			var isMultiClusterAnalyzer bool
+			for _, mc := range AllMultiCluster() {
+				if a.Metadata().Name == mc.Metadata().Name {
+					isMultiClusterAnalyzer = true
+					break
+				}
+			}
+			if isMultiClusterAnalyzer {
+				continue
+			}
 			analyzerName := a.Metadata().Name
 
 			// Skip this check for explicitly ignored analyzers
@@ -811,7 +1121,7 @@ func TestAnalyzers(t *testing.T) {
 				}
 			}
 
-			requestedInputs := make([]collection.Name, 0)
+			requestedInputs := make([]config.GroupVersionKind, 0)
 			for col := range requestedInputsByAnalyzer[analyzerName] {
 				requestedInputs = append(requestedInputs, col)
 			}
@@ -865,7 +1175,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
-	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
+	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {
@@ -882,12 +1192,6 @@ func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.Is
 		}
 	}
 
-	// Include default resources
-	err := sa.AddDefaultResources()
-	if err != nil {
-		return nil, fmt.Errorf("error adding default resources: %v", err)
-	}
-
 	// Gather test files
 	var files []local.ReaderSource
 	for _, f := range tc.inputFiles {
@@ -899,9 +1203,15 @@ func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.Is
 	}
 
 	// Include resources from test files
-	err = sa.AddReaderKubeSource(files)
+	err := sa.AddTestReaderKubeSource(files)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
+	}
+
+	// Include default resources
+	err = sa.AddDefaultResources()
+	if err != nil {
+		return nil, fmt.Errorf("error adding default resources: %v", err)
 	}
 
 	return sa, nil

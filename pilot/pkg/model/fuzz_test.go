@@ -17,41 +17,69 @@ package model
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	"istio.io/istio/pkg/fuzz"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func FuzzDeepCopyService(f *testing.F) {
-	fuzzDeepCopy[*Service](f, cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"))
+	fuzzDeepCopyEqual[*Service](f)
 }
 
 func FuzzDeepCopyServiceInstance(f *testing.F) {
-	fuzzDeepCopy[*ServiceInstance](f, protocmp.Transform(), cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"))
+	fuzzDeepCopy[*ServiceInstance](f)
 }
 
 func FuzzDeepCopyWorkloadInstance(f *testing.F) {
-	fuzzDeepCopy[*WorkloadInstance](f, protocmp.Transform(), cmp.AllowUnexported())
+	fuzzDeepCopy[*WorkloadInstance](f)
 }
 
 func FuzzDeepCopyIstioEndpoint(f *testing.F) {
-	fuzzDeepCopy[*IstioEndpoint](f, protocmp.Transform(), cmp.AllowUnexported())
+	fuzzDeepCopyEqual[*IstioEndpoint](f)
 }
 
 type deepCopier[T any] interface {
 	DeepCopy() T
 }
 
-func fuzzDeepCopy[T deepCopier[T]](f test.Fuzzer, opts ...cmp.Option) {
+type equalCopier[T any] interface {
+	deepCopier[T]
+	Equals(T) bool
+}
+
+// fuzzDeepCopy runs a fuzz test that, after calling DeepCopy, the result is equal
+func fuzzDeepCopy[T deepCopier[T]](f test.Fuzzer) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		orig := fuzz.Struct[T](fg)
-		copied := orig.DeepCopy()
-		if !cmp.Equal(orig, copied, opts...) {
-			diff := cmp.Diff(orig, copied, opts...)
-			fg.T().Fatalf("unexpected diff %v", diff)
-		}
+		fast := orig.DeepCopy()
+		slow := fuzz.DeepCopySlow[T](orig)
+
+		// check copy is correct
+		assert.Equal(fg.T(), orig, fast)
+		assert.Equal(fg.T(), orig, slow)
+
+		// check is deep copy
+		fuzz.MutateStruct(fg.T(), &orig)
+		assert.Equal(fg.T(), fast, slow)
+	})
+}
+
+// fuzzDeepCopyEqual runs a fuzz test that, after calling DeepCopy, the result is equal by both cmp.Equal and the struct-defined Equals() method
+func fuzzDeepCopyEqual[T equalCopier[T]](f test.Fuzzer) {
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
+		orig := fuzz.Struct[T](fg)
+		fast := orig.DeepCopy()
+		slow := fuzz.DeepCopySlow[T](orig)
+
+		// check copy is correct
+		assert.Equal(fg.T(), orig, fast)
+		assert.Equal(fg.T(), orig.Equals(fast), true)
+		assert.Equal(fg.T(), orig, slow)
+		assert.Equal(fg.T(), orig.Equals(slow), true)
+
+		// check is deep copy
+		fuzz.MutateStruct(fg.T(), &orig)
+		assert.Equal(fg.T(), fast, slow)
+		assert.Equal(fg.T(), fast.Equals(slow), true)
 	})
 }

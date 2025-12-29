@@ -38,12 +38,12 @@ For even more flexibility, there is also a script, `gen-helloworld.sh`, that wil
 generate YAML for the helloworld service. This script takes the following
 arguments:
 
-Argument | Default | Description
--------- | ------- | -----------
-`-h`,`--help` | | Prints usage information.
-`--version` | `v1` | Specifies the version that will be returned by the helloworld service.
-`--includeService` | `true` | If `true` the service will be included in the YAML.
-`--includeDeployment` | `true` | If `true` the deployment will be included in the YAML.
+| Argument              | Default | Description                                                            |
+|-----------------------|---------|------------------------------------------------------------------------|
+| `-h`,`--help`         |         | Prints usage information.                                              |
+| `--version`           | `v1`    | Specifies the version that will be returned by the helloworld service. |
+| `--includeService`    | `true`  | If `true` the service will be included in the YAML.                    |
+| `--includeDeployment` | `true`  | If `true` the deployment will be included in the YAML.                 |
 
 You can use this script to deploy a custom version:
 

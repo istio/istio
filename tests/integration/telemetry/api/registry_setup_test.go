@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -23,7 +22,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/telemetry/common"
 )
 
 var registry registryredirector.Instance
@@ -35,19 +33,23 @@ const (
 )
 
 func testRegistrySetup(ctx resource.Context) (err error) {
-	registry, err = registryredirector.New(ctx, registryredirector.Config{
-		Cluster: ctx.AllClusters().Default(),
-	})
-	if err != nil {
-		return
+	var config registryredirector.Config
+
+	isKind := ctx.Clusters().IsKindCluster()
+
+	// By default, for any platform, the test will pull the test image from public "gcr.io" registry.
+	// For "Kind" environment, it will pull the images from the "kind-registry".
+	// For "Kind", this is due to DNS issues in IPv6 cluster
+	if isKind {
+		config = registryredirector.Config{
+			Cluster:        ctx.AllClusters().Default(),
+			TargetRegistry: "kind-registry:5000",
+			Scheme:         "http",
+		}
 	}
 
-	args := map[string]any{
-		"DockerConfigJson": base64.StdEncoding.EncodeToString(
-			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
-	}
-	if err := ctx.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, "testdata/registry-secret.yaml").
-		Apply(); err != nil {
+	registry, err = registryredirector.New(ctx, config)
+	if err != nil {
 		return err
 	}
 

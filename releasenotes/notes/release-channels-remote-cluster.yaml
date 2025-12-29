@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- https://github.com/istio/enhancements/issues/173
+releaseNotes:
+- |
+  **Added** a new, optional experimental admission policy that only allows stable features/fields to be used in Istio APIs when using a remote Istiod cluster.

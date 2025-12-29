@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestGetDefaultCNINetwork(t *testing.T) {
+func TestGetConfigFilenames(t *testing.T) {
 	tempDir := t.TempDir()
 
 	cases := []struct {
@@ -104,13 +104,13 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 				}
 			}
 
-			result, err := getDefaultCNINetwork(c.dir)
+			result, err := getConfigFilenames(c.dir)
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
 				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
 			}
 
 			if c.fileContents != "" {
-				if c.outFilename != result {
+				if len(result) > 0 && c.outFilename != result[0] {
 					t.Fatalf("expected %s, got %s", c.outFilename, result)
 				}
 			}
@@ -200,11 +200,6 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				}
 			}
 
-			cfg := pluginConfig{
-				mountedCNINetDir: tempDir,
-				cniConfName:      c.specifiedConfName,
-				chainedCNIPlugin: c.chainedCNIPlugin,
-			}
 			var expectedFilepath string
 			if len(c.expectedConfName) > 0 {
 				expectedFilepath = filepath.Join(tempDir, c.expectedConfName)
@@ -215,7 +210,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				parent := context.Background()
 				ctx1, cancel := context.WithTimeout(parent, 100*time.Millisecond)
 				defer cancel()
-				result, err := getCNIConfigFilepath(ctx1, cfg)
+				result, err := getCNIConfigFilepath(ctx1, c.specifiedConfName, tempDir, c.chainedCNIPlugin)
 				if err != nil {
 					assert.Equal(t, result, "")
 					if err == context.DeadlineExceeded {
@@ -232,17 +227,16 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 
 			// Handle chained CNI plugin cases
 			// Call with goroutine to test fsnotify watcher
-			parent, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			parent := t.Context()
 			resultChan, errChan := make(chan string, 1), make(chan error, 1)
-			go func(resultChan chan string, errChan chan error, ctx context.Context, cfg pluginConfig) {
-				result, err := getCNIConfigFilepath(ctx, cfg)
+			go func(resultChan chan string, errChan chan error, ctx context.Context, cniConfName, mountedCNINetDir string, chained bool) {
+				result, err := getCNIConfigFilepath(ctx, cniConfName, mountedCNINetDir, chained)
 				if err != nil {
 					errChan <- err
 					return
 				}
 				resultChan <- result
-			}(resultChan, errChan, parent, cfg)
+			}(resultChan, errChan, parent, c.specifiedConfName, tempDir, c.chainedCNIPlugin)
 
 			select {
 			case result := <-resultChan:
@@ -271,6 +265,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
+					t.Logf("delayed write to %v", filepath.Join(tempDir, c.delayedConfName))
 				} else if len(c.expectedConfName) > 0 {
 					t.Fatalf("timed out waiting for expected %s", expectedFilepath)
 				} else {
@@ -369,7 +364,8 @@ const (
   "cniVersion": "0.3.1",
   "name": "istio-cni",
   "type": "istio-cni",
-  "log_level": "__LOG_LEVEL__",
+  "plugin_log_level": "__LOG_LEVEL__",
+  "pod_namespace": "__POD_NAMESPACE__",
   "kubernetes": {
       "kubeconfig": "__KUBECONFIG_FILENAME__",
       "cni_bin_dir": "/path/cni/bin"
@@ -380,12 +376,15 @@ const (
 
 func TestCreateCNIConfigFile(t *testing.T) {
 	cases := []struct {
-		name              string
-		chainedCNIPlugin  bool
-		specifiedConfName string
-		expectedConfName  string
-		goldenConfName    string
-		existingConfFiles map[string]string // {srcFilename: targetFilename, ...}
+		name                    string
+		chainedCNIPlugin        bool
+		specifiedConfName       string
+		expectedConfName        string
+		goldenConfName          string
+		existingConfFiles       map[string]string // {srcFilename: targetFilename, ...}
+		ambientEnabled          bool
+		istioOwnedCNIConfig     bool
+		istioOwnedCNIConfigFile string
 	}{
 		{
 			name:              "unspecified existing CNI config file (existing .conf to conflist)",
@@ -436,6 +435,8 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			goldenConfName:    "list.conflist.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "undetectable.file"},
 		},
+		// TODO(jaellio): Fix unspecified behavior when chainedCNIPlugin is false
+		// expected config name should remain YYY-istio-cni.conf
 		{
 			name:             "standalone CNI plugin unspecified CNI config file",
 			expectedConfName: "YYY-istio-cni.conf",
@@ -447,23 +448,91 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			expectedConfName:  "specific-name.conf",
 			goldenConfName:    "istio-cni.conf",
 		},
+		{
+			name:                "specified existing .conf primary CNI config file - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "bridge.conflist",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned-bridge.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified existing primary .conflist CNI config file - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "list.conflist",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified existing CNI config file (specified .conf to .conflist) - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "list.conf",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified existing CNI config file (existing .conf to .conflist) - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "bridge.conflist",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned-bridge.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified CNI config file never created - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "02-istio-conf.conflist",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified CNI config file undetectable - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "undetectable.file",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "undetectable.file"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
 	}
 
 	for _, c := range cases {
+		if c.istioOwnedCNIConfig && len(c.istioOwnedCNIConfigFile) == 0 {
+			c.istioOwnedCNIConfigFile = "02-istio-conf.conflist"
+		}
 		cfgFile := config.InstallConfig{
-			CNIConfName:          c.specifiedConfName,
-			ChainedCNIPlugin:     c.chainedCNIPlugin,
-			CNINetworkConfigFile: cniNetworkConfigFile,
-			LogLevel:             "debug",
-			KubeconfigFilename:   kubeconfigFilename,
+			CNIConfName:                 c.specifiedConfName,
+			ChainedCNIPlugin:            c.chainedCNIPlugin,
+			PluginLogLevel:              "debug",
+			CNIAgentRunDir:              kubeconfigFilename,
+			PodNamespace:                "my-namespace",
+			AmbientEnabled:              c.ambientEnabled,
+			IstioOwnedCNIConfig:         c.istioOwnedCNIConfig,
+			IstioOwnedCNIConfigFilename: c.istioOwnedCNIConfigFile,
 		}
 
 		cfg := config.InstallConfig{
-			CNIConfName:        c.specifiedConfName,
-			ChainedCNIPlugin:   c.chainedCNIPlugin,
-			CNINetworkConfig:   cniNetworkConfig,
-			LogLevel:           "debug",
-			KubeconfigFilename: kubeconfigFilename,
+			CNIConfName:                 c.specifiedConfName,
+			ChainedCNIPlugin:            c.chainedCNIPlugin,
+			PluginLogLevel:              "debug",
+			CNIAgentRunDir:              kubeconfigFilename,
+			PodNamespace:                "my-namespace",
+			AmbientEnabled:              c.ambientEnabled,
+			IstioOwnedCNIConfig:         c.istioOwnedCNIConfig,
+			IstioOwnedCNIConfigFilename: c.istioOwnedCNIConfigFile,
+			NativeNftables:              false,
 		}
 		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {
@@ -486,7 +555,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
-				resultFilepath, err := createCNIConfigFile(ctx, &cfg, "")
+				resultFilepath, err := createCNIConfigFile(ctx, &cfg)
 				if err != nil {
 					assert.Equal(t, resultFilepath, "")
 					if err == context.DeadlineExceeded {

@@ -22,10 +22,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-var k8sControllerLog = log.RegisterScope("secretcontroller", "Citadel kubernetes controller log", 0)
+var k8sControllerLog = log.RegisterScope("secretcontroller", "Citadel kubernetes controller log")
 
 // CaSecretController manages the self-signed signing CA secret.
 type CaSecretController struct {

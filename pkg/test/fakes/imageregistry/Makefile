@@ -22,7 +22,7 @@ BIN_NAME := main
 
 # NOTE: TAG should be updated whenever changes are made in this directory
 # This should also be updated in dependent components
-TAG := 1.3
+TAG := 1.4
 
 all: build_and_push clean
 

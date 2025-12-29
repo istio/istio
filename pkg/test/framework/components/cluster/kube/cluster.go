@@ -56,7 +56,7 @@ func (c *Cluster) isVMSupported() bool {
 
 // OverrideTopology allows customizing the relationship between this and other clusters
 // for a single suite. This practice is discouraged, and separate test jobs should be created
-// on a per-topology bassis.
+// on a per-topology basis.
 // TODO remove this when centralistiod test is isolated as it's own job
 func (c *Cluster) OverrideTopology(fn func(cluster.Topology) cluster.Topology) {
 	c.Topology = fn(c.Topology)

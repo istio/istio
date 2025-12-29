@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ingress
+  namespace: istio-ingress
+  labels:
+    app.kubernetes.io/name: istio-ingress
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istio-ingress"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: istio-ingress
+    istio: ingress
+    "istio.io/dataplane-mode": "none"
+  annotations:
+    {}
+spec:
+  selector:
+    matchLabels:
+      app: istio-ingress
+      istio: ingress
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/inject: "true"
+      labels:
+        sidecar.istio.io/inject: "true"
+        app: istio-ingress
+        istio: ingress
+        app.kubernetes.io/name: istio-ingress
+        app.kubernetes.io/managed-by: "Helm"
+        app.kubernetes.io/instance: "istio-ingress"
+        app.kubernetes.io/part-of: "istio"
+        app.kubernetes.io/version: "1.0.0"
+        helm.sh/chart: gateway-1.0.0
+        "istio.io/dataplane-mode": "none"
+    spec:
+      serviceAccountName: istio-ingress
+      securityContext:
+        # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      initContainers:
+        - command:
+          - /bin/sh
+          - -c
+          - echo Hello
+          image: init-image:latest
+          name: init-container
+      containers:
+        - name: istio-proxy
+          # "auto" will be populated at runtime by the mutating webhook. See https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#customizing-injection
+          image: auto
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+          env:
+          ports:
+          - containerPort: 15090
+            protocol: TCP
+            name: http-envoy-prom
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      terminationGracePeriodSeconds: 30

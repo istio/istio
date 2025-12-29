@@ -22,8 +22,6 @@ import (
 	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	dto "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 
@@ -189,36 +187,6 @@ func (s *sidecar) ListenersOrFail(t test.Failer) *admin.Listeners {
 		t.Fatal(err)
 	}
 	return listeners
-}
-
-func (s *sidecar) Stats() (map[string]*dto.MetricFamily, error) {
-	return s.proxyStats()
-}
-
-func (s *sidecar) StatsOrFail(t test.Failer) map[string]*dto.MetricFamily {
-	t.Helper()
-	stats, err := s.Stats()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return stats
-}
-
-func (s *sidecar) proxyStats() (map[string]*dto.MetricFamily, error) {
-	// Exec onto the pod and make a curl request to the admin port, writing
-	command := "pilot-agent request GET /stats/prometheus"
-	stdout, stderr, err := s.cluster.PodExec(s.podName, s.podNamespace, proxyContainerName, command)
-	if err != nil {
-		return nil, fmt.Errorf("failed exec on pod %s/%s: %v. Command: %s. Output:\n%s",
-			s.podNamespace, s.podName, err, command, stdout+stderr)
-	}
-
-	parser := expfmt.TextParser{}
-	mfMap, err := parser.TextToMetricFamilies(strings.NewReader(stdout))
-	if err != nil {
-		return nil, fmt.Errorf("failed parsing prometheus stats: %v", err)
-	}
-	return mfMap, nil
 }
 
 func (s *sidecar) adminRequest(path string, out proto.Message) error {

@@ -17,11 +17,11 @@ package mesh
 import (
 	"github.com/spf13/cobra"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/istioctl/pkg/cli"
 )
 
 // ManifestCmd is a group of commands related to manifest generation, installation, diffing and migration.
-func ManifestCmd(logOpts *log.Options) *cobra.Command {
+func ManifestCmd(ctx cli.Context) *cobra.Command {
 	mc := &cobra.Command{
 		Use:   "manifest",
 		Short: "Commands related to Istio manifests",
@@ -29,24 +29,23 @@ func ManifestCmd(logOpts *log.Options) *cobra.Command {
 	}
 
 	mgcArgs := &ManifestGenerateArgs{}
-	mdcArgs := &manifestDiffArgs{}
+	mtcArgs := &ManifestTranslateArgs{}
 
 	args := &RootArgs{}
 
-	mgc := ManifestGenerateCmd(args, mgcArgs, logOpts)
-	mdc := manifestDiffCmd(args, mdcArgs)
-	ic := InstallCmd(logOpts)
+	mgc := ManifestGenerateCmd(ctx, args, mgcArgs)
+	mtc := ManifestTranslateCmd(ctx, mtcArgs)
+	ic := InstallCmd(ctx)
 
 	addFlags(mc, args)
 	addFlags(mgc, args)
-	addFlags(mdc, args)
 
 	addManifestGenerateFlags(mgc, mgcArgs)
-	addManifestDiffFlags(mdc, mdcArgs)
+	addManifestTranslateFlags(mtc, mtcArgs)
 
 	mc.AddCommand(mgc)
-	mc.AddCommand(mdc)
 	mc.AddCommand(ic)
+	mc.AddCommand(mtc)
 
 	return mc
 }

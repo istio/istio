@@ -18,12 +18,12 @@ import (
 	"fmt"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // DestinationHostAnalyzer checks the destination hosts associated with each virtual service
@@ -41,10 +41,10 @@ func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.DestinationHostAnalyzer",
 		Description: "Checks the destination hosts associated with each virtual service",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Serviceentries.Name(),
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.K8SCoreV1Services.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.ServiceEntry,
+			gvk.VirtualService,
+			gvk.Service,
 		},
 	}
 }
@@ -55,7 +55,7 @@ func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	serviceEntryHosts := util.InitServiceEntryHostMap(ctx)
 	virtualServiceDestinations := initVirtualServiceDestinations(ctx)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
 		a.analyzeSubset(r, ctx, virtualServiceDestinations)
 		return true
@@ -66,16 +66,16 @@ func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analys
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	// if there's no gateway specified, we're done
-	if len(vs.Gateways) == 0 {
+	if len(vs.GetGateways()) == 0 {
 		return
 	}
 
-	for ruleIndex, http := range vs.Http {
-		for routeIndex, route := range http.Route {
-			if route.Destination.Subset == "" {
+	for ruleIndex, http := range vs.GetHttp() {
+		for routeIndex, route := range http.GetRoute() {
+			if route.GetDestination().GetSubset() == "" {
 				for virtualservice, destinations := range vsDestinations {
 					for _, destination := range destinations {
-						if destination.Host == route.Destination.Host {
+						if destination.GetHost() == route.GetDestination().GetHost() {
 							m := msg.NewIngressRouteRulesNotAffected(r, virtualservice.String(), r.Metadata.FullName.String())
 
 							key := fmt.Sprintf(util.DestinationHost, http.Name, ruleIndex, routeIndex)
@@ -83,7 +83,7 @@ func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analys
 								m.Line = line
 							}
 
-							ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+							ctx.Report(gvk.VirtualService, m)
 						}
 					}
 				}
@@ -96,15 +96,15 @@ func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analys
 func initVirtualServiceDestinations(ctx analysis.Context) map[resource.FullName][]*v1alpha3.Destination {
 	virtualservices := make(map[resource.FullName][]*v1alpha3.Destination)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		virtualservice := r.Message.(*v1alpha3.VirtualService)
-		for _, routes := range virtualservice.Http {
-			for _, destinations := range routes.Route {
+		for _, routes := range virtualservice.GetHttp() {
+			for _, destinations := range routes.GetRoute() {
 				// if there's no subset specified, we're done
-				if destinations.Destination.Subset != "" {
-					for _, host := range virtualservice.Hosts {
-						if destinations.Destination.Host == host {
-							virtualservices[r.Metadata.FullName] = append(virtualservices[r.Metadata.FullName], destinations.Destination)
+				if destinations.GetDestination().GetSubset() != "" {
+					for _, host := range virtualservice.GetHosts() {
+						if destinations.GetDestination().GetHost() == host {
+							virtualservices[r.Metadata.FullName] = append(virtualservices[r.Metadata.FullName], destinations.GetDestination())
 						}
 					}
 				}
@@ -133,7 +133,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 				m.Line = line
 			}
 
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			ctx.Report(gvk.VirtualService, m)
 			continue
 		}
 		checkServiceEntryPorts(ctx, r, d, s)
@@ -145,12 +145,17 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 			m := msg.NewReferencedResourceNotFound(r, "mirror host", d.Destination.GetHost())
 
-			key := fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
+			var key string
+			if d.RouteRule == "http.mirror" {
+				key = fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
+			} else {
+				key = fmt.Sprintf(util.MirrorsHost, d.ServiceIndex, d.DestinationIndex)
+			}
 			if line, ok := util.ErrorLine(r, key); ok {
 				m.Line = line
 			}
 
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			ctx.Report(gvk.VirtualService, m)
 			continue
 		}
 		checkServiceEntryPorts(ctx, r, d, s)
@@ -168,19 +173,19 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Annot
 
 			m := msg.NewVirtualServiceDestinationPortSelectorRequired(r, d.Destination.GetHost(), portNumbers)
 
+			var key string
 			if d.RouteRule == "http.mirror" {
-				key := fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
-				if line, ok := util.ErrorLine(r, key); ok {
-					m.Line = line
-				}
+				key = fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
+			} else if d.RouteRule == "http.mirrors" {
+				key = fmt.Sprintf(util.MirrorsHost, d.ServiceIndex, d.DestinationIndex)
 			} else {
-				key := fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
-				if line, ok := util.ErrorLine(r, key); ok {
-					m.Line = line
-				}
+				key = fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
+			}
+			if line, ok := util.ErrorLine(r, key); ok {
+				m.Line = line
 			}
 
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			ctx.Report(gvk.VirtualService, m)
 			return
 		}
 
@@ -200,18 +205,18 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Annot
 		m := msg.NewReferencedResourceNotFound(r, "host:port",
 			fmt.Sprintf("%s:%d", d.Destination.GetHost(), d.Destination.GetPort().GetNumber()))
 
+		var key string
 		if d.RouteRule == "http.mirror" {
-			key := fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
-			if line, ok := util.ErrorLine(r, key); ok {
-				m.Line = line
-			}
+			key = fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
+		} else if d.RouteRule == "http.mirrors" {
+			key = fmt.Sprintf(util.MirrorsHost, d.ServiceIndex, d.DestinationIndex)
 		} else {
-			key := fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
-			if line, ok := util.ErrorLine(r, key); ok {
-				m.Line = line
-			}
+			key = fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
+		}
+		if line, ok := util.ErrorLine(r, key); ok {
+			m.Line = line
 		}
 
-		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+		ctx.Report(gvk.VirtualService, m)
 	}
 }

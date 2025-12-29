@@ -12,15 +12,16 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM node:12.18.1-slim
+FROM node:23.11-slim
 
 #hadolint ignore=DL3008
 RUN apt-get update \
-    && apt-get install curl --no-install-recommends -y \
+    && apt-get install curl ca-certificates --no-install-recommends -y \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 ARG service_version
-ENV SERVICE_VERSION ${service_version:-v1}
+ENV SERVICE_VERSION=${service_version:-v1}
 
 COPY package.json /opt/microservices/
 COPY ratings.js /opt/microservices/
@@ -29,3 +30,5 @@ RUN npm install
 
 EXPOSE 9080
 CMD ["node", "/opt/microservices/ratings.js", "9080"]
+
+USER 1000

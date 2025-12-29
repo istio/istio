@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue: []
+releaseNotes:
+  - |
+    **Added** support for an annotation `sidecar.istio.io/statsHistogramBuckets` to customize the histogram buckets in the proxy.
+
+

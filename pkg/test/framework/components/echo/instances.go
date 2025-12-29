@@ -37,8 +37,8 @@ func (i Instances) NamespaceName() string {
 	return i.Config().NamespaceName()
 }
 
-func (i Instances) ServiceAccountName() string {
-	return i.Config().ServiceAccountName()
+func (i Instances) SpiffeIdentity() string {
+	return i.Config().SpiffeIdentity()
 }
 
 func (i Instances) ClusterLocalFQDN() string {
@@ -90,6 +90,17 @@ func (i Instances) Clusters() cluster.Clusters {
 	out := make(cluster.Clusters, 0, len(clusters))
 	for _, c := range clusters {
 		out = append(out, c)
+	}
+	return out
+}
+
+// ForCluster returns a list of instances that match the cluster name
+func (i Instances) ForCluster(name string) Instances {
+	out := make(Instances, 0, len(i))
+	for _, c := range i {
+		if c.Config().Cluster.Name() == name {
+			out = append(out, c)
+		}
 	}
 	return out
 }
@@ -183,7 +194,6 @@ func (i Instances) Append(instances Instances) Instances {
 func (i Instances) Restart() error {
 	g := multierror.Group{}
 	for _, app := range i {
-		app := app
 		g.Go(app.Restart)
 	}
 	return g.Wait().ErrorOrNil()

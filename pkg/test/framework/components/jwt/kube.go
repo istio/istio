@@ -61,7 +61,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 			Inject: true,
 		})
 		if err != nil {
-			return
+			return server, err
 		}
 	}
 
@@ -72,10 +72,10 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 
 	// Deploy the server.
 	if err = server.deploy(ctx); err != nil {
-		return
+		return server, err
 	}
 
-	return
+	return server, err
 }
 
 func readDeploymentYAML() (string, error) {
@@ -119,7 +119,6 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 	// Wait for the endpoints to be ready.
 	var g multierror.Group
 	for _, c := range ctx.AllClusters() {
-		c := c
 		g.Go(func() error {
 			fetchFn := kube.NewPodFetch(c, s.ns.Name(), "app=jwt-server")
 			_, err := kube.WaitUntilPodsAreReady(fetchFn)

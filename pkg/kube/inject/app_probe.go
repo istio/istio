@@ -25,8 +25,8 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 // ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.
@@ -42,8 +42,16 @@ func ShouldRewriteAppHTTPProbers(annotations map[string]string, specSetting bool
 }
 
 // FindSidecar returns the pointer to the first container whose name matches the "istio-proxy".
-func FindSidecar(containers []corev1.Container) *corev1.Container {
-	return FindContainer(ProxyContainerName, containers)
+func FindSidecar(pod *corev1.Pod) *corev1.Container {
+	return FindContainerFromPod(ProxyContainerName, pod)
+}
+
+// FindContainerFromPod returns the pointer to the first container whose name matches in init containers or regular containers
+func FindContainerFromPod(name string, pod *corev1.Pod) *corev1.Container {
+	if c := FindContainer(name, pod.Spec.Containers); c != nil {
+		return c
+	}
+	return FindContainer(name, pod.Spec.InitContainers)
 }
 
 // FindContainer returns the pointer to the first container whose name matches.
@@ -63,7 +71,7 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	}
 	if probe.HTTPGet != nil {
 		return convertAppProberHTTPGet(probe, newURL, statusPort)
-	} else if probe.TCPSocket != nil && features.RewriteTCPProbes {
+	} else if probe.TCPSocket != nil {
 		return convertAppProberTCPSocket(probe, newURL, statusPort)
 	} else if probe.GRPC != nil {
 		return convertAppProberGRPC(probe, newURL, statusPort)
@@ -72,18 +80,53 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	return nil
 }
 
+// rewriteHTTPGetAction rewrites a HTTPGet action with given URL and port.
+// Also rewrites the scheme to HTTP if the scheme is HTTPS
+// as pilot agent uses https to request application endpoint.
+func rewriteHTTPGetAction(action *corev1.HTTPGetAction, url string, port int) {
+	action.Port = intstr.FromInt32(int32(port))
+	action.Path = url
+	// Kubelet -> HTTP -> Pilot Agent -> HTTPS -> Application
+	if action.Scheme == corev1.URISchemeHTTPS {
+		action.Scheme = corev1.URISchemeHTTP
+	}
+}
+
+// convertAppLifecycleHandler returns an overwritten `LifecycleHandler` for pilot agent to take over.
+func convertAppLifecycleHandler(lifecycleHandler *corev1.LifecycleHandler, newURL string, statusPort int) *corev1.LifecycleHandler {
+	if lifecycleHandler == nil {
+		return nil
+	}
+	if lifecycleHandler.HTTPGet != nil {
+		return convertAppLifecycleHandlerHTTPGet(lifecycleHandler, newURL, statusPort)
+	}
+	if lifecycleHandler.TCPSocket != nil {
+		return convertAppLifecycleHandlerTCPSocket(lifecycleHandler, newURL, statusPort)
+	}
+	return nil
+}
+
+// convertAppLifecycleHandlerHTTPGet returns an overwritten `LifecycleHandler` with HTTPGet for pilot agent to take over.
+func convertAppLifecycleHandlerHTTPGet(lifecycleHandler *corev1.LifecycleHandler, newURL string, statusPort int) *corev1.LifecycleHandler {
+	lh := lifecycleHandler.DeepCopy()
+	rewriteHTTPGetAction(lh.HTTPGet, newURL, statusPort)
+	return lh
+}
+
+// convertAppLifecycleHandlerTCPSocket returns an overwritten `LifecycleHandler` with TCPSocket for pilot agent to take over.
+func convertAppLifecycleHandlerTCPSocket(lifecycleHandler *corev1.LifecycleHandler, newURL string, statusPort int) *corev1.LifecycleHandler {
+	lh := lifecycleHandler.DeepCopy()
+	// the sidecar intercepts all tcp connections, so we change it to a HTTP probe and the sidecar will check tcp
+	lh.HTTPGet = &corev1.HTTPGetAction{}
+	rewriteHTTPGetAction(lh.HTTPGet, newURL, statusPort)
+	lh.TCPSocket = nil
+	return lh
+}
+
 // convertAppProberHTTPGet returns an overwritten `Probe` (HttpGet) for pilot agent to take over.
 func convertAppProberHTTPGet(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
 	p := probe.DeepCopy()
-	// Change the application container prober config.
-	p.HTTPGet.Port = intstr.FromInt(statusPort)
-	p.HTTPGet.Path = newURL
-	// For HTTPS prober, we change to HTTP,
-	// and pilot agent uses https to request application prober endpoint.
-	// Kubelet -> HTTP -> Pilot Agent -> HTTPS -> Application
-	if p.HTTPGet.Scheme == corev1.URISchemeHTTPS {
-		p.HTTPGet.Scheme = corev1.URISchemeHTTP
-	}
+	rewriteHTTPGetAction(p.HTTPGet, newURL, statusPort)
 	return p
 }
 
@@ -92,9 +135,7 @@ func convertAppProberTCPSocket(probe *corev1.Probe, newURL string, statusPort in
 	p := probe.DeepCopy()
 	// the sidecar intercepts all tcp connections, so we change it to a HTTP probe and the sidecar will check tcp
 	p.HTTPGet = &corev1.HTTPGetAction{}
-	p.HTTPGet.Port = intstr.FromInt(statusPort)
-	p.HTTPGet.Path = newURL
-
+	rewriteHTTPGetAction(p.HTTPGet, newURL, statusPort)
 	p.TCPSocket = nil
 	return p
 }
@@ -104,8 +145,7 @@ func convertAppProberGRPC(probe *corev1.Probe, newURL string, statusPort int) *c
 	p := probe.DeepCopy()
 	// the sidecar intercepts all gRPC connections, so we change it to a HTTP probe and the sidecar will check gRPC
 	p.HTTPGet = &corev1.HTTPGetAction{}
-	p.HTTPGet.Port = intstr.FromInt(statusPort)
-	p.HTTPGet.Path = newURL
+	rewriteHTTPGetAction(p.HTTPGet, newURL, statusPort)
 	// For gRPC prober, we change to HTTP,
 	// and pilot agent uses gRPC to request application prober endpoint.
 	// Kubelet -> HTTP -> Pilot Agent -> gRPC -> Application
@@ -125,7 +165,7 @@ type Prober struct {
 
 // DumpAppProbers returns a json encoded string as `status.KubeAppProbers`.
 // Also update the probers so that all usages of named port will be resolved to integer.
-func DumpAppProbers(podSpec *corev1.PodSpec, targetPort int32) string {
+func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 	out := KubeAppProbers{}
 	updateNamedPort := func(p *Prober, portMap map[string]int32) *Prober {
 		if p == nil {
@@ -151,18 +191,18 @@ func DumpAppProbers(podSpec *corev1.PodSpec, targetPort int32) string {
 			if !exists {
 				return nil
 			}
-			*probePort = intstr.FromInt(int(port))
+			*probePort = intstr.FromInt32(port)
 		} else if probePort.IntVal == targetPort {
 			// Already is rewritten
 			return nil
 		}
 		return p
 	}
-	for _, c := range podSpec.Containers {
+	for _, c := range allContainers(pod) {
 		if c.Name == ProxyContainerName {
 			continue
 		}
-		readyz, livez, startupz := status.FormatProberURL(c.Name)
+		readyz, livez, startupz, prestopz, poststartz := status.FormatProberURL(c.Name)
 		portMap := map[string]int32{}
 		for _, p := range c.Ports {
 			if p.Name != "" {
@@ -178,7 +218,14 @@ func DumpAppProbers(podSpec *corev1.PodSpec, targetPort int32) string {
 		if h := updateNamedPort(kubeProbeToInternalProber(c.StartupProbe), portMap); h != nil {
 			out[startupz] = h
 		}
-
+		if c.Lifecycle != nil {
+			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PreStop), portMap); h != nil {
+				out[prestopz] = h
+			}
+			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PostStart), portMap); h != nil {
+				out[poststartz] = h
+			}
+		}
 	}
 	// prevent generate '{}'
 	if len(out) == 0 {
@@ -190,6 +237,10 @@ func DumpAppProbers(podSpec *corev1.PodSpec, targetPort int32) string {
 		return ""
 	}
 	return string(b)
+}
+
+func allContainers(pod *corev1.Pod) []corev1.Container {
+	return append(slices.Clone(pod.Spec.InitContainers), pod.Spec.Containers...)
 }
 
 // patchRewriteProbe generates the patch for webhook.
@@ -207,17 +258,37 @@ func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPo
 		if c.Name == ProxyContainerName {
 			continue
 		}
-		readyz, livez, startupz := status.FormatProberURL(c.Name)
-		if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
-			c.ReadinessProbe = probePatch
-		}
-		if probePatch := convertAppProber(c.LivenessProbe, livez, statusPort); probePatch != nil {
-			c.LivenessProbe = probePatch
-		}
-		if probePatch := convertAppProber(c.StartupProbe, startupz, statusPort); probePatch != nil {
-			c.StartupProbe = probePatch
-		}
+		convertProbe(&c, statusPort)
 		pod.Spec.Containers[i] = c
+	}
+	for i, c := range pod.Spec.InitContainers {
+		// Skip sidecar container.
+		if c.Name == ProxyContainerName {
+			continue
+		}
+		convertProbe(&c, statusPort)
+		pod.Spec.InitContainers[i] = c
+	}
+}
+
+func convertProbe(c *corev1.Container, statusPort int) {
+	readyz, livez, startupz, prestopz, poststartz := status.FormatProberURL(c.Name)
+	if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
+		c.ReadinessProbe = probePatch
+	}
+	if probePatch := convertAppProber(c.LivenessProbe, livez, statusPort); probePatch != nil {
+		c.LivenessProbe = probePatch
+	}
+	if probePatch := convertAppProber(c.StartupProbe, startupz, statusPort); probePatch != nil {
+		c.StartupProbe = probePatch
+	}
+	if c.Lifecycle != nil {
+		if lifecycleHandlerPatch := convertAppLifecycleHandler(c.Lifecycle.PreStop, prestopz, statusPort); lifecycleHandlerPatch != nil {
+			c.Lifecycle.PreStop = lifecycleHandlerPatch
+		}
+		if lifecycleHandlerPatch := convertAppLifecycleHandler(c.Lifecycle.PostStart, poststartz, statusPort); lifecycleHandlerPatch != nil {
+			c.Lifecycle.PostStart = lifecycleHandlerPatch
+		}
 	}
 }
 
@@ -234,7 +305,7 @@ func kubeProbeToInternalProber(probe *corev1.Probe) *Prober {
 		}
 	}
 
-	if probe.TCPSocket != nil && features.RewriteTCPProbes {
+	if probe.TCPSocket != nil {
 		return &Prober{
 			TCPSocket:      probe.TCPSocket,
 			TimeoutSeconds: probe.TimeoutSeconds,
@@ -245,6 +316,25 @@ func kubeProbeToInternalProber(probe *corev1.Probe) *Prober {
 		return &Prober{
 			GRPC:           probe.GRPC,
 			TimeoutSeconds: probe.TimeoutSeconds,
+		}
+	}
+
+	return nil
+}
+
+// kubeLifecycleHandlerToInternalProber converts a Kubernetes LifecycleHandler to an Istio internal Prober
+func kubeLifecycleHandlerToInternalProber(lifecycelHandler *corev1.LifecycleHandler) *Prober {
+	if lifecycelHandler == nil {
+		return nil
+	}
+	if lifecycelHandler.HTTPGet != nil {
+		return &Prober{
+			HTTPGet: lifecycelHandler.HTTPGet,
+		}
+	}
+	if lifecycelHandler.TCPSocket != nil {
+		return &Prober{
+			TCPSocket: lifecycelHandler.TCPSocket,
 		}
 	}
 

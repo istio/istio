@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** creating `istioin` and `istioout` geneve links on nodes which already have configured
+    an external geneve link or another geneve link for the same VNI and remote IP. To avoid getting errors
+    in these cases, istio-cni dynamically determines available destination ports for created geneve links.

@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+docs:
+  - '[usage] https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior'
+
+releaseNotes:
+- |
+  **Added** configurable scaling behavior for Gateway HPA in helm chart
+upgradeNotes: []
+

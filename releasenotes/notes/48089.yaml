@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 44640
+releaseNotes:
+- |
+  **Fixed** slow cleanup of auto-registered `WorkloadEntry` resources
+  when auto-registration and cleanup should occur shortly after the
+  initial `WorkloadGroup` creation.

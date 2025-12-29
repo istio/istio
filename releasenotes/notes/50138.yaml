@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** Gateway status addresses receiving Service VIPs from outside the cluster.

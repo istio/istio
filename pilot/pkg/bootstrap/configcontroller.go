@@ -15,30 +15,45 @@
 package bootstrap
 
 import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pilot/pkg/config/kube/file"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
-	"istio.io/istio/pilot/pkg/config/kube/ingress"
-	ingressv1 "istio.io/istio/pilot/pkg/config/kube/ingressv1"
+	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
-	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
+	istioCredentials "istio.io/istio/pilot/pkg/credentials"
+	"istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
+	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/status/distribution"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/config/validation/agent"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/revisions"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // URL schemes supported by the config store
@@ -59,7 +74,6 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	s.initStatusController(args, features.EnableStatus)
 	meshConfig := s.environment.Mesh()
 	if len(meshConfig.ConfigSources) > 0 {
 		// Using MCP for config.
@@ -68,10 +82,12 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 	} else if args.RegistryOptions.FileDir != "" {
 		// Local files - should be added even if other options are specified
-		store := memory.Make(collections.Pilot)
-		configController := memory.NewController(store)
-
-		err := s.makeFileMonitor(args.RegistryOptions.FileDir, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
+		configController, err := file.NewController(
+			args.RegistryOptions.FileDir,
+			args.RegistryOptions.KubeOptions.DomainSuffix,
+			collections.Pilot,
+			args.RegistryOptions.KubeOptions,
+		)
 		if err != nil {
 			return err
 		}
@@ -86,45 +102,24 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	// If running in ingress mode (requires k8s), wrap the config controller.
 	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
-		// Supporting only Ingress/v1 means we lose support of Kubernetes 1.18
-		// Supporting only Ingress/v1beta1 means we lose support of Kubernetes 1.22
-		// Since supporting both in a monolith controller is painful due to lack of usable conversion logic between
-		// the two versions.
-		// As a compromise, we instead just fork the controller. Once 1.18 support is no longer needed, we can drop the old controller
-		ingressV1 := ingress.V1Available(s.kubeClient)
-		if ingressV1 {
-			s.ConfigStores = append(s.ConfigStores,
-				ingressv1.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
-		} else {
-			s.ConfigStores = append(s.ConfigStores,
-				ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
-		}
+		ic := ingress.NewController(
+			s.kubeClient,
+			s.environment.Watcher,
+			args.RegistryOptions.KubeOptions,
+			s.XDSServer,
+		)
+		s.ConfigStores = append(s.ConfigStores, ic)
 
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		s.addTerminatingStartFunc("ingress status", func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					if ingressV1 {
-						ingressSyncer := ingressv1.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
-						// Start informers again. This fixes the case where informers for namespace do not start,
-						// as we create them only after acquiring the leader lock
-						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-						// basically lazy loading the informer, if we stop it when we lose the lock we will never
-						// recreate it again.
-						s.kubeClient.RunAndWait(stop)
-						log.Infof("Starting ingress controller")
-						ingressSyncer.Run(leaderStop)
-					} else {
-						ingressSyncer := ingress.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
-						// Start informers again. This fixes the case where informers for namespace do not start,
-						// as we create them only after acquiring the leader lock
-						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-						// basically lazy loading the informer, if we stop it when we lose the lock we will never
-						// recreate it again.
-						s.kubeClient.RunAndWait(stop)
-						log.Infof("Starting ingress controller")
-						ingressSyncer.Run(leaderStop)
-					}
+					log.Infof("Starting ingress status writer")
+					ic.SetStatusWrite(true, s.statusManager)
+
+					<-leaderStop
+					log.Infof("Stopping ingress status writer")
+					ic.SetStatusWrite(false, nil)
 				}).
 				Run(stop)
 			return nil
@@ -142,7 +137,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	s.environment.ConfigStore = aggregateConfigController
 
 	// Defer starting the controller until after the service is created.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("config controller", func(stop <-chan struct{}) error {
 		go s.configController.Run(stop)
 		return nil
 	})
@@ -154,30 +149,56 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	if s.kubeClient == nil {
 		return nil
 	}
-	configController, err := s.makeKubeConfigController(args)
-	if err != nil {
-		return err
-	}
+	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
+	tw := revisions.NewTagWatcher(s.kubeClient, args.Revision, args.Namespace)
+	s.addStartFunc("tag-watcher", func(stop <-chan struct{}) error {
+		go tw.Run(stop)
+		return nil
+	})
+	tw.AddHandler(func(sets.String) {
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: model.NewReasonStats(model.TagUpdate),
+			Forced: true,
+		})
+	})
 	if features.EnableGatewayAPI {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
 		}
-		gwc := gateway.NewController(s.kubeClient, configController, configController.WaitForCRD,
-			s.environment.CredentialsController, args.RegistryOptions.KubeOptions)
+		args.RegistryOptions.KubeOptions.KrtDebugger = args.KrtDebugger
+		gwc := gateway.NewController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions, s.XDSServer)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+
+		// Use a channel to signal activation of per-revision status writer
+		activatePerRevisionStatusWriterCh := make(chan struct{})
+		// This check is for backwards compatibility with older(non per-revision) gateway status leader election.
+		// By backward compatibility, we mean that during upgrade, new istiod deployment should not start writing status
+		// until the old istiod deployment has acquired the leader election lock.
+		// If the ConfigMap for leader election exists, the non-revision leader election will be joined by this deployment.
+		// Once the leader election is acquired, it will signal the channel to activate the per-revision status writer.
+		// So this function is helping in handing over the leader election from older non-revision leader election to
+		// per-revision leader election status writer.
+		// If the leader election ConfigMap does not exist, means there is no existing leader,
+		// this func will close the channel to activate the per-revision status writer immediately.
+		s.checkAndRunNonRevisionLeaderElectionIfRequired(args, activatePerRevisionStatusWriterCh)
+
+		s.addTerminatingStartFunc("gateway status", func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
+				NewPerRevisionLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					log.Infof("Starting gateway status writer")
+					log.Infof("waiting for gateway status writer activation")
+					<-activatePerRevisionStatusWriterCh
+					log.Infof("Starting gateway status writer for revision: %s", args.Revision)
 					gwc.SetStatusWrite(true, s.statusManager)
 
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
 						Full:   true,
-						Reason: []model.TriggerReason{model.GlobalUpdate},
+						Reason: model.NewReasonStats(model.GlobalUpdate),
+						Forced: true,
 					})
 					<-leaderStop
 					log.Infof("Stopping gateway status writer")
@@ -187,19 +208,22 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return nil
 		})
 		if features.EnableGatewayAPIDeploymentController {
-			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			s.addTerminatingStartFunc("gateway deployment controller", func(stop <-chan struct{}) error {
 				leaderelection.
-					NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
+					NewPerRevisionLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
-						if configController.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
-							controller := gateway.NewDeploymentController(s.kubeClient)
+						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
+							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision, args.Namespace)
+							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
+								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision, args.Namespace)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
 							// basically lazy loading the informer, if we stop it when we lose the lock we will never
 							// recreate it again.
 							s.kubeClient.RunAndWait(stop)
+							go tagWatcher.Run(leaderStop)
 							controller.Run(leaderStop)
 						}
 					}).
@@ -208,11 +232,29 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			})
 		}
 	}
+	if features.EnableAmbientStatus {
+		statusWritingEnabled := activenotifier.New(false)
+		args.RegistryOptions.KubeOptions.StatusWritingEnabled = statusWritingEnabled
+		s.addTerminatingStartFunc("ambient status", func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaseLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("Starting ambient status writer")
+					statusWritingEnabled.StoreAndNotify(true)
+					<-leaderStop
+					statusWritingEnabled.StoreAndNotify(false)
+					log.Infof("Stopping ambient status writer")
+				}).
+				Run(stop)
+			return nil
+		})
+	}
 	if features.EnableAnalysis {
 		if err := s.initInprocessAnalysisController(args); err != nil {
 			return err
 		}
 	}
+	var err error
 	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
 	if err != nil {
 		return err
@@ -235,32 +277,38 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if srcAddress.Path == "" {
 				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 			}
-			store := memory.Make(collections.Pilot)
-			configController := memory.NewController(store)
 
-			err := s.makeFileMonitor(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, configController)
+			configController, err := file.NewController(
+				srcAddress.Path,
+				args.RegistryOptions.KubeOptions.DomainSuffix,
+				collections.Pilot,
+				args.RegistryOptions.KubeOptions,
+			)
 			if err != nil {
 				return err
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
+			log.Infof("Started File configSource %s", configSource.Address)
 		case XDS:
-			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
-				Namespace: args.Namespace,
-				Workload:  args.PodName,
-				Revision:  args.Revision,
-				Meta: model.NodeMetadata{
-					Generator: "api",
-					// To reduce transported data if upstream server supports. Especially for custom servers.
-					IstioRevision: args.Revision,
-				}.ToStruct(),
+			transportCredentials, err := s.getTransportCredentials(args, configSource.TlsSettings)
+			if err != nil {
+				return fmt.Errorf("failed to read transport credentials from config: %v", err)
+			}
+			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.ADSConfig{
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
-				GrpcOpts: []grpc.DialOption{
-					args.KeepaliveOptions.ConvertToClientOption(),
-					// Because we use the custom grpc options for adsc, here we should
-					// explicitly set transport credentials.
-					// TODO: maybe we should use the tls settings within ConfigSource
-					// to secure the connection between istiod and remote xds server.
-					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				Config: adsc.Config{
+					Namespace: args.Namespace,
+					Workload:  args.PodName,
+					Revision:  args.Revision,
+					Meta: model.NodeMetadata{
+						Generator: "api",
+						// To reduce transported data if upstream server supports. Especially for custom servers.
+						IstioRevision: args.Revision,
+					}.ToStruct(),
+					GrpcOpts: []grpc.DialOption{
+						args.KeepaliveOptions.ConvertToClientOption(),
+						grpc.WithTransportCredentials(transportCredentials),
+					},
 				},
 			})
 			if err != nil {
@@ -276,15 +324,15 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				return fmt.Errorf("MCP: failed running %v", err)
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
-			log.Warn("Started XDS config ", s.ConfigStores)
+			log.Infof("Started XDS configSource %s", configSource.Address)
 		case Kubernetes:
 			if srcAddress.Path == "" || srcAddress.Path == "/" {
 				err2 := s.initK8SConfigStore(args)
 				if err2 != nil {
-					log.Warn("Error loading k8s ", err2)
+					log.Warnf("Error loading k8s: %v", err2)
 					return err2
 				}
-				log.Warn("Started K8S config")
+				log.Infof("Started Kubernetes configSource %s", configSource.Address)
 			} else {
 				log.Warnf("Not implemented, ignore: %v", configSource.Address)
 				// TODO: handle k8s:// scheme for remote cluster. Use same mechanism as service registry,
@@ -304,78 +352,197 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	if s.statusManager == nil {
 		s.initStatusManager(args)
 	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("analysis controller", func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
-			AddRunFunction(func(stop <-chan struct{}) {
-				cont, err := incluster.NewController(stop, s.RWConfigStore,
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				cont, err := incluster.NewController(leaderStop, s.RWConfigStore,
 					s.kubeClient, args.Revision, args.Namespace, s.statusManager, args.RegistryOptions.KubeOptions.DomainSuffix)
 				if err != nil {
 					return
 				}
-				cont.Run(stop)
+				cont.Run(leaderStop)
 			}).Run(stop)
 		return nil
 	})
 	return nil
 }
 
-func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
-	if s.statusManager == nil && writeStatus {
-		s.initStatusManager(args)
-	}
-	s.statusReporter = &distribution.Reporter{
-		UpdateInterval: features.StatusUpdateInterval,
-		PodName:        args.PodName,
-	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.statusReporter.Init(s.environment.GetLedger(), stop)
-		return nil
-	})
-	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-		if writeStatus {
-			s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
-		}
-		return nil
-	})
-	s.XDSServer.StatusReporter = s.statusReporter
-	if writeStatus {
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
-				AddRunFunction(func(leaderStop <-chan struct{}) {
-					// Controller should be created for calling the run function every time, so it can
-					// avoid concurrently calling of informer Run() for controller in controller.Start
-					controller := distribution.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore, s.statusManager)
-					s.statusReporter.SetController(controller)
-					controller.Start(leaderStop)
-				}).Run(stop)
-			return nil
-		})
-	}
-}
-
-func (s *Server) makeKubeConfigController(args *PilotArgs) (*crdclient.Client, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 	opts := crdclient.Option{
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		Identifier:   "crd-controller",
+		KrtDebugger:  args.KrtDebugger,
 	}
-	if args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter != nil {
-		opts.NamespacesFilter = args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter.Filter
+
+	schemas := collections.Pilot
+	if features.EnableGatewayAPI {
+		schemas = collections.PilotGatewayAPI()
 	}
-	return crdclient.New(s.kubeClient, opts)
+	if features.EnableGatewayAPIInferenceExtension {
+		schemas = schemas.Add(collections.InferencePool)
+	}
+	schemas = schemas.Add(collections.Ingress)
+
+	return crdclient.NewForSchemas(s.kubeClient, opts, schemas)
 }
 
-func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot, domainSuffix)
-	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, fileSnapshot.ReadConfigFiles, fileDir)
+// getTransportCredentials attempts to create credentials.TransportCredentials from ClientTLSSettings in mesh config
+// Implemented only for SIMPLE_TLS mode
+// TODO:
+//
+//	Implement for MUTUAL_TLS/ISTIO_MUTUAL_TLS modes
+func (s *Server) getTransportCredentials(args *PilotArgs, tlsSettings *v1alpha3.ClientTLSSettings) (credentials.TransportCredentials, error) {
+	if err := agent.ValidateTLS(args.Namespace, tlsSettings); err != nil && tlsSettings.GetMode() == v1alpha3.ClientTLSSettings_SIMPLE {
+		return nil, err
+	}
+	switch tlsSettings.GetMode() {
+	case v1alpha3.ClientTLSSettings_SIMPLE:
+		if len(tlsSettings.GetCredentialName()) > 0 {
+			rootCert, err := s.getRootCertFromSecret(tlsSettings.GetCredentialName(), args.Namespace)
+			if err != nil {
+				return nil, err
+			}
+			tlsSettings.CaCertificates = string(rootCert.Cert)
+			tlsSettings.CaCrl = string(rootCert.CRL)
+		}
+		if tlsSettings.GetInsecureSkipVerify().GetValue() || len(tlsSettings.GetCaCertificates()) == 0 {
+			return credentials.NewTLS(&tls.Config{
+				ServerName:         tlsSettings.GetSni(),
+				InsecureSkipVerify: tlsSettings.GetInsecureSkipVerify().GetValue(), //nolint
+			}), nil
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(tlsSettings.GetCaCertificates())) {
+			return nil, fmt.Errorf("failed to add ca certificate from configSource.tlsSettings to pool")
+		}
+		return credentials.NewTLS(&tls.Config{
+			ServerName:         tlsSettings.GetSni(),
+			InsecureSkipVerify: tlsSettings.GetInsecureSkipVerify().GetValue(), //nolint
+			RootCAs:            certPool,
+			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+				return s.verifyCert(rawCerts, tlsSettings)
+			},
+		}), nil
+	default:
+		return insecure.NewCredentials(), nil
+	}
+}
 
-	// Defer starting the file monitor until after the service is created.
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		fileMonitor.Start(stop)
-		return nil
-	})
+// verifyCert verifies given cert against TLS settings like SANs and CRL.
+func (s *Server) verifyCert(certs [][]byte, tlsSettings *v1alpha3.ClientTLSSettings) error {
+	if len(certs) == 0 {
+		return fmt.Errorf("no certificates provided")
+	}
+	cert, err := x509.ParseCertificate(certs[0])
+	if err != nil {
+		return fmt.Errorf("failed to parse certificate: %w", err)
+	}
+
+	if len(tlsSettings.SubjectAltNames) > 0 {
+		sanMatchFound := false
+		for _, san := range cert.DNSNames {
+			if sanMatchFound {
+				break
+			}
+			for _, name := range tlsSettings.SubjectAltNames {
+				if san == name {
+					sanMatchFound = true
+					break
+				}
+			}
+		}
+		if !sanMatchFound {
+			return fmt.Errorf("no matching SAN found")
+		}
+	}
+
+	if len(tlsSettings.CaCrl) > 0 {
+		crlData := []byte(strings.TrimSpace(tlsSettings.CaCrl))
+		block, _ := pem.Decode(crlData)
+		if block != nil {
+			crlData = block.Bytes
+		}
+		crl, err := x509.ParseRevocationList(crlData)
+		if err != nil {
+			return fmt.Errorf("failed to parse CRL: %w", err)
+		}
+		for _, revokedCert := range crl.RevokedCertificateEntries {
+			if cert.SerialNumber.Cmp(revokedCert.SerialNumber) == 0 {
+				return fmt.Errorf("certificate is revoked")
+			}
+		}
+	}
 
 	return nil
+}
+
+// getRootCertFromSecret fetches a map of keys and values from a secret with name in namespace
+func (s *Server) getRootCertFromSecret(name, namespace string) (*istioCredentials.CertInfo, error) {
+	secret, err := s.kubeClient.Kube().CoreV1().Secrets(namespace).Get(context.Background(), name, v1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get credential with name %v: %v", name, err)
+	}
+	return kube.ExtractRoot(secret.Data)
+}
+
+// checkAndRunNonRevisionLeaderElectionIfRequired checks the ConfigMap for leader election and runs non-revision leader election
+// to figure out when the older leader has released the lock.
+// Once the lock is acquired, it will close the activateCh channel to signal the per-revision leader to start writing status.
+func (s *Server) checkAndRunNonRevisionLeaderElectionIfRequired(args *PilotArgs, activateCh chan struct{}) {
+	cm, err := s.kubeClient.Kube().CoreV1().ConfigMaps(args.Namespace).Get(context.Background(), leaderelection.GatewayStatusController, v1.GetOptions{})
+
+	if errors.IsNotFound(err) {
+		// ConfigMap does not exist, so per-revision leader election should be active
+		close(activateCh)
+		return
+	}
+	leaderAnn, ok := cm.Annotations[k8sresourcelock.LeaderElectionRecordAnnotationKey]
+	if ok {
+		var leaderInfo struct {
+			HolderIdentity string `json:"holderIdentity"`
+		}
+		if err := json.Unmarshal([]byte(leaderAnn), &leaderInfo); err == nil {
+			if leaderInfo.HolderIdentity != "" {
+				// Non-revision leader election should run, per-revision should be waiting for activation
+				s.addTerminatingStartFunc("gateway status", func(stop <-chan struct{}) error {
+					secondStop := make(chan struct{})
+					// if stop closes, ensure secondStop closes too
+					go func() {
+						<-stop
+						select {
+						case <-secondStop:
+						default:
+							close(secondStop)
+						}
+					}()
+					leaderelection.
+						NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
+						AddRunFunction(func(leaderStop <-chan struct{}) {
+							// now that we have the leader lock, we can activate the per-revision status writer
+							// first close the activateCh channel if it is not already closed
+							log.Infof("Activating gateway status writer")
+							select {
+							case <-activateCh:
+								// Channel already closed, do nothing
+							default:
+								close(activateCh)
+							}
+							// now end this lease itself
+							select {
+							case <-secondStop:
+							default:
+								close(secondStop)
+							}
+						}).
+						Run(secondStop)
+					return nil
+				})
+				return
+			}
+		}
+	}
+	// If annotation missing or holderIdentity is blank, per-revision leader election should be active
+	close(activateCh)
 }

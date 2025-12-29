@@ -33,78 +33,43 @@ var (
 	c2Addresses = []string{"2.1.1.1", "2.1.1.2"}
 )
 
-func TestAddressMapIsEmpty(t *testing.T) {
+func TestAddressMapLen(t *testing.T) {
 	cases := []struct {
 		name     string
 		newMap   func() *model.AddressMap
-		expected bool
+		expected int
 	}{
 		{
-			name: "created empty",
+			name: "nil addresses map",
 			newMap: func() *model.AddressMap {
-				return &model.AddressMap{}
+				return nil
 			},
-			expected: true,
+			expected: 0,
 		},
 		{
-			name: "set nil addresses",
-			newMap: func() *model.AddressMap {
-				m := model.AddressMap{}
-				m.SetAddressesFor(c1ID, nil)
-				return &m
-			},
-			expected: true,
-		},
-		{
-			name: "set empty addresses",
-			newMap: func() *model.AddressMap {
-				m := model.AddressMap{}
-				m.SetAddressesFor(c1ID, make([]string, 0))
-				return &m
-			},
-			expected: true,
-		},
-		{
-			name: "set addresses",
-			newMap: func() *model.AddressMap {
-				m := model.AddressMap{}
-				m.SetAddressesFor(c1ID, c1Addresses)
-				return &m
-			},
-			expected: false,
-		},
-		{
-			name: "add nil addresses",
-			newMap: func() *model.AddressMap {
-				m := model.AddressMap{}
-				m.AddAddressesFor(c1ID, nil)
-				return &m
-			},
-			expected: true,
-		},
-		{
-			name: "add empty addresses",
+			name: "empty addresses map",
 			newMap: func() *model.AddressMap {
 				m := model.AddressMap{}
 				m.AddAddressesFor(c1ID, make([]string, 0))
 				return &m
 			},
-			expected: true,
+			expected: 0,
 		},
 		{
-			name: "add addresses",
+			name: "non-empty addresses map",
 			newMap: func() *model.AddressMap {
 				m := model.AddressMap{}
 				m.AddAddressesFor(c1ID, c1Addresses)
 				return &m
 			},
+			expected: 1,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewWithT(t)
-			g.Expect(c.newMap().IsEmpty()).To(Equal(c.expected))
+			g.Expect(c.newMap().Len()).To(Equal(c.expected))
 		})
 	}
 }

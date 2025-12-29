@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: server-default-svc
+spec:
+  exportTo:
+  - "."
+  hosts:
+  - server.default.svc
+  addresses:
+  - {{ .Address }}
+  endpoints:
+  - address: external.{{.Namespace}}.svc.cluster.local
+  location: MESH_EXTERNAL
+  resolution: DNS
+  ports:
+  - name: https
+    number: 443
+    protocol: HTTPS

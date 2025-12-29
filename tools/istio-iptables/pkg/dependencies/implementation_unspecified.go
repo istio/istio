@@ -1,5 +1,4 @@
 //go:build !linux
-// +build !linux
 
 // Copyright Istio Authors
 //
@@ -17,15 +16,24 @@
 
 package dependencies
 
-import "errors"
+import (
+	"bytes"
+	"errors"
+	"io"
+
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
+)
 
 // ErrNotImplemented is returned when a requested feature is not implemented.
 var ErrNotImplemented = errors.New("not implemented")
 
-func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
-	return ErrNotImplemented
+func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
+	silenceErrors bool, stdin io.ReadSeeker, args ...string,
+) (*bytes.Buffer, error) {
+	return nil, ErrNotImplemented
 }
 
-func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) error {
-	return ErrNotImplemented
+func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, error) {
+	return IptablesVersion{}, ErrNotImplemented
 }

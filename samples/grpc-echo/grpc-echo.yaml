@@ -97,9 +97,6 @@ spec:
             periodSeconds: 2
             successThreshold: 1
             timeoutSeconds: 1
-          securityContext:
-            runAsGroup: 1338
-            runAsUser: 1338
           startupProbe:
             failureThreshold: 10
             periodSeconds: 10
@@ -185,9 +182,6 @@ spec:
             periodSeconds: 2
             successThreshold: 1
             timeoutSeconds: 1
-          securityContext:
-            runAsGroup: 1338
-            runAsUser: 1338
           startupProbe:
             failureThreshold: 10
             periodSeconds: 10

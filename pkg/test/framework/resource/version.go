@@ -107,15 +107,15 @@ func (rv *RevVerMap) Default() string {
 	if rv == nil || len(*rv) == 0 {
 		return ""
 	}
-	max := rv.Maximum()
+	maximum := rv.Maximum()
 	var candidates []string
 	for rev, ver := range *rv {
-		if ver.Compare(max) == 0 {
+		if ver.Compare(maximum) == 0 {
 			candidates = append(candidates, rev)
 		}
 	}
 	if len(candidates) == 0 {
-		panic("could not find revision with max IstioVersion")
+		panic("could not find revision with maximum IstioVersion")
 	}
 	sort.Strings(candidates)
 	if candidates[0] == "default" {
@@ -200,14 +200,14 @@ func (v IstioVersions) Minimum() IstioVersion {
 	if len(v) == 0 {
 		return ""
 	}
-	min := v[0]
+	minimum := v[0]
 	for i := 1; i < len(v); i++ {
 		ver := v[i]
-		if ver.Compare(min) < 0 {
-			min = ver
+		if ver.Compare(minimum) < 0 {
+			minimum = ver
 		}
 	}
-	return min
+	return minimum
 }
 
 // Maximum returns the maximum from a set of IstioVersions
@@ -216,12 +216,12 @@ func (v IstioVersions) Maximum() IstioVersion {
 	if len(v) == 0 {
 		return ""
 	}
-	max := v[0]
+	maximum := v[0]
 	for i := 1; i < len(v); i++ {
 		ver := v[i]
-		if ver.Compare(max) > 0 {
-			max = ver
+		if ver.Compare(maximum) > 0 {
+			maximum = ver
 		}
 	}
-	return max
+	return maximum
 }

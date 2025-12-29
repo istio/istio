@@ -12,7 +12,7 @@ spec:
    - listenerMatch:
        portNumber: 15443
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: productpage
@@ -25,7 +25,7 @@ spec:
       delay:
         percent: 50
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: no-selector

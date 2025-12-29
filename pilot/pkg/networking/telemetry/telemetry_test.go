@@ -28,6 +28,7 @@ func TestBuildStatPrefix(t *testing.T) {
 		statPattern string
 		host        string
 		subsetName  string
+		targetPort  int
 		port        *model.Port
 		attributes  *model.ServiceAttributes
 		want        string
@@ -37,6 +38,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE%",
 			"reviews.default.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -50,6 +52,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE%",
 			"reviews.namespace1.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -63,6 +66,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE%.%SERVICE_PORT%",
 			"reviews.namespace1.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -72,10 +76,53 @@ func TestBuildStatPrefix(t *testing.T) {
 			"reviews.namespace1.7443",
 		},
 		{
+			"Service name only pattern",
+			"%SERVICE_NAME%",
+			"reviews.default.svc.cluster.local",
+			"",
+			0,
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			&model.ServiceAttributes{
+				ServiceRegistry: provider.Kubernetes,
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews",
+		},
+		{
+			"Service name only pattern from different namespace",
+			"%SERVICE_NAME%",
+			"reviews.namespace1.svc.cluster.local",
+			"",
+			0,
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			&model.ServiceAttributes{
+				ServiceRegistry: provider.Kubernetes,
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
+			"reviews",
+		},
+		{
+			"Service name with port pattern from different namespace",
+			"%SERVICE_NAME%.%SERVICE_PORT%",
+			"reviews.namespace1.svc.cluster.local",
+			"",
+			0,
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			&model.ServiceAttributes{
+				ServiceRegistry: provider.Kubernetes,
+				Name:            "reviews",
+				Namespace:       "namespace1",
+			},
+			"reviews.7443",
+		},
+		{
 			"Service FQDN only pattern",
 			"%SERVICE_FQDN%",
 			"reviews.default.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -89,6 +136,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -102,6 +150,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE%_%SERVICE_PORT_NAME%",
 			"reviews.default.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -115,6 +164,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -128,6 +178,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE_FQDN%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -141,6 +192,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%",
 			"reviews.default.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -154,6 +206,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE_FQDN%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -167,6 +220,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE_FQDN%%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -180,6 +234,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE_FQDN%.%SUBSET_NAME%.%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 			"reviews.default.svc.cluster.local",
 			"v1",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -193,6 +248,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE_FQDN%.%DUMMY%",
 			"reviews.default.svc.cluster.local",
 			"v1",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				ServiceRegistry: provider.Kubernetes,
@@ -206,6 +262,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"%SERVICE_FQDN%",
 			"reviews.default.svc.cluster.local",
 			"v1",
+			0,
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			&model.ServiceAttributes{
 				Name:      "reviews",
@@ -213,11 +270,25 @@ func TestBuildStatPrefix(t *testing.T) {
 			},
 			"reviews.default.svc.cluster.local",
 		},
+		{
+			"Service With Port and Port Name pattern With Target Port",
+			"%SERVICE%_%SERVICE_PORT_NAME%_%TARGET_PORT%",
+			"reviews.default.svc.cluster.local",
+			"",
+			9443,
+			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
+			&model.ServiceAttributes{
+				ServiceRegistry: provider.Kubernetes,
+				Name:            "reviews",
+				Namespace:       "default",
+			},
+			"reviews.default_grpc-svc_9443",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := BuildStatPrefix(tt.statPattern, tt.host, tt.subsetName, tt.port, tt.attributes)
+			got := BuildStatPrefix(tt.statPattern, tt.host, tt.subsetName, tt.port, tt.targetPort, tt.attributes)
 			if got != tt.want {
 				t.Errorf("BuildStatPrefix:: Expected alt statname %s, but got %s", tt.want, got)
 			}
@@ -283,6 +354,15 @@ func TestBuildInboundStatPrefix(t *testing.T) {
 			"reviews.namespace1",
 		},
 		{
+			"Service name only pattern",
+			"%SERVICE_NAME%",
+			FilterChainMetadata{InstanceHostname: "reviews.default.svc.cluster.local", KubernetesServiceName: "reviews", KubernetesServiceNamespace: "default"},
+			"",
+			7443,
+			"grpc-svc",
+			"reviews",
+		},
+		{
 			"Service with port pattern from different namespace",
 			"%SERVICE%.%SERVICE_PORT%",
 			FilterChainMetadata{InstanceHostname: "reviews.namespace1.svc.cluster.local", KubernetesServiceName: "reviews", KubernetesServiceNamespace: "namespace1"},
@@ -290,6 +370,15 @@ func TestBuildInboundStatPrefix(t *testing.T) {
 			7443,
 			"grpc-svc",
 			"reviews.namespace1.7443",
+		},
+		{
+			"Service only pattern with empty service name",
+			"%SERVICE_NAME%",
+			FilterChainMetadata{InstanceHostname: "svc.cluster.local"},
+			"",
+			7443,
+			"grpc-svc",
+			"svc.cluster.local",
 		},
 		{
 			"Service FQDN only pattern",

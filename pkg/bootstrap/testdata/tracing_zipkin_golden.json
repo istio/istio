@@ -1,29 +1,37 @@
 {
+  "application_log_config": {
+    "log_format": {
+      "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
+    }
+  },
   "node": {
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_zipkin","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","statusPort":15020,"tracing":{"zipkin":{"address":"localhost:6000"}}}}
+    "metadata": {"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","ISTIO_VERSION":"binary-1.0","METADATA_DISCOVERY":"false","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_zipkin","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","statusPort":15020,"tracing":{"zipkin":{"address":"localhost:6000"}}},"WORKLOAD_IDENTITY_SOCKET_FILE":"test.sock"}
   },
   "layered_runtime": {
-      "layers": [
-          {
-            "name": "global config",
-            "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":"true","envoy.reloadable_features.http_reject_path_with_fragment":"false","envoy.reloadable_features.no_extension_lookup_by_name":"false","overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
-          },
-          {
-              "name": "admin",
-              "admin_layer": {}
-          }
-      ]
+    "layers": [
+      {
+        "name": "global config",
+        "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.fixed_heap_use_allocated":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"re2.max_program_size.error_level":"32768"}
+      },
+      {
+        "name": "admin",
+        "admin_layer": {}
+      }
+    ]
   },
   "bootstrap_extensions": [
     {
       "name": "envoy.bootstrap.internal_listener",
       "typed_config": {
         "@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
-        "type_url": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener"
+        "type_url": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener",
+        "value": {
+          "buffer_size_kb": 64
+        }
       }
     }
   ],
@@ -32,15 +40,19 @@
     "stats_tags": [
       {
         "tag_name": "cluster_name",
-        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
+        "regex": "^cluster(\\.(.+);)"
+      },
+      {
+        "tag_name": "http_conn_manager_prefix",
+        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));\\.)"
+      },
+      {
+        "tag_name": "thread_name",
+        "regex": "^server(\\.(.+))\\.watchdog"
       },
       {
         "tag_name": "tcp_prefix",
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
-      },
-      {
-        "regex": "(response_code=\\.=(.+?);\\.;)",
-        "tag_name": "response_code"
       },
       {
         "regex": "_rq(_(\\d{3}))$",
@@ -55,132 +67,12 @@
         "regex": "^listener(?=\\.).*?\\.http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
       },
       {
-        "tag_name": "http_conn_manager_prefix",
-        "regex": "^http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
-      },
-      {
         "tag_name": "listener_address",
         "regex": "^listener\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
       },
       {
         "tag_name": "mongo_prefix",
         "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
-      },
-      {
-        "regex": "(reporter=\\.=(.*?);\\.;)",
-        "tag_name": "reporter"
-      },
-      {
-        "regex": "(source_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "source_namespace"
-      },
-      {
-        "regex": "(source_workload=\\.=(.*?);\\.;)",
-        "tag_name": "source_workload"
-      },
-      {
-        "regex": "(source_workload_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "source_workload_namespace"
-      },
-      {
-        "regex": "(source_principal=\\.=(.*?);\\.;)",
-        "tag_name": "source_principal"
-      },
-      {
-        "regex": "(source_app=\\.=(.*?);\\.;)",
-        "tag_name": "source_app"
-      },
-      {
-        "regex": "(source_version=\\.=(.*?);\\.;)",
-        "tag_name": "source_version"
-      },
-      {
-        "regex": "(source_cluster=\\.=(.*?);\\.;)",
-        "tag_name": "source_cluster"
-      },
-      {
-        "regex": "(destination_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "destination_namespace"
-      },
-      {
-        "regex": "(destination_workload=\\.=(.*?);\\.;)",
-        "tag_name": "destination_workload"
-      },
-      {
-        "regex": "(destination_workload_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "destination_workload_namespace"
-      },
-      {
-        "regex": "(destination_principal=\\.=(.*?);\\.;)",
-        "tag_name": "destination_principal"
-      },
-      {
-        "regex": "(destination_app=\\.=(.*?);\\.;)",
-        "tag_name": "destination_app"
-      },
-      {
-        "regex": "(destination_version=\\.=(.*?);\\.;)",
-        "tag_name": "destination_version"
-      },
-      {
-        "regex": "(destination_service=\\.=(.*?);\\.;)",
-        "tag_name": "destination_service"
-      },
-      {
-        "regex": "(destination_service_name=\\.=(.*?);\\.;)",
-        "tag_name": "destination_service_name"
-      },
-      {
-        "regex": "(destination_service_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "destination_service_namespace"
-      },
-      {
-        "regex": "(destination_port=\\.=(.*?);\\.;)",
-        "tag_name": "destination_port"
-      },
-      {
-        "regex": "(destination_cluster=\\.=(.*?);\\.;)",
-        "tag_name": "destination_cluster"
-      },
-      {
-        "regex": "(request_protocol=\\.=(.*?);\\.;)",
-        "tag_name": "request_protocol"
-      },
-      {
-        "regex": "(request_operation=\\.=(.*?);\\.;)",
-        "tag_name": "request_operation"
-      },
-      {
-        "regex": "(request_host=\\.=(.*?);\\.;)",
-        "tag_name": "request_host"
-      },
-      {
-        "regex": "(response_flags=\\.=(.*?);\\.;)",
-        "tag_name": "response_flags"
-      },
-      {
-        "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
-        "tag_name": "grpc_response_status"
-      },
-      {
-        "regex": "(connection_security_policy=\\.=(.*?);\\.;)",
-        "tag_name": "connection_security_policy"
-      },
-      {
-        "regex": "(source_canonical_service=\\.=(.*?);\\.;)",
-        "tag_name": "source_canonical_service"
-      },
-      {
-        "regex": "(destination_canonical_service=\\.=(.*?);\\.;)",
-        "tag_name": "destination_canonical_service"
-      },
-      {
-        "regex": "(source_canonical_revision=\\.=(.*?);\\.;)",
-        "tag_name": "source_canonical_revision"
-      },
-      {
-        "regex": "(destination_canonical_revision=\\.=(.*?);\\.;)",
-        "tag_name": "destination_canonical_revision"
       },
       {
         "regex": "(cache\\.(.+?)\\.)",
@@ -245,7 +137,7 @@
           "suffix": "shadow_denied"
           },
           {
-          "safe_regex": {"google_re2":{}, "regex":"vhost\\.*\\.route\\.*"}
+          "safe_regex": {"regex":"vhost\\..*\\.route\\..*"}
           },
           {
           "prefix": "component"
@@ -287,7 +179,7 @@
       "resource_api_version": "V3"
     },
     "ads_config": {
-      "api_type": "GRPC",
+      "api_type": "DELTA_GRPC",
       "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
@@ -303,6 +195,7 @@
     "clusters": [
       {
         "name": "prometheus_stats",
+        "alt_stat_name": "prometheus_stats;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -325,6 +218,7 @@
       },
       {
         "name": "agent",
+        "alt_stat_name": "agent;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -347,6 +241,7 @@
       },
       {
         "name": "sds-grpc",
+        "alt_stat_name": "sds-grpc;",
         "type": "STATIC",
         "typed_extension_protocol_options": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -365,7 +260,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "./var/run/secrets/workload-spiffe-uds/socket"
+                    "path": "./var/run/secrets/workload-spiffe-uds/test.sock"
                   }
                 }
               }
@@ -375,6 +270,7 @@
       },
       {
         "name": "xds-grpc",
+        "alt_stat_name": "xds-grpc;",
         "type" : "STATIC",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -427,6 +323,7 @@
       ,
       {
         "name": "zipkin",
+        "alt_stat_name": "zipkin;",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
@@ -451,13 +348,18 @@
     ],
     "listeners":[
       {
+        "name": "0.0.0.0_15090",
+        
         "address": {
           "socket_address": {
             "protocol": "TCP",
             "address": "0.0.0.0",
+            
             "port_value": 15090
           }
         },
+        "ignore_global_conn_limit": true,
+        "bypass_overload_manager": true,
         "filter_chains": [
           {
             "filters": [
@@ -487,7 +389,8 @@
                       }
                     ]
                   },
-                  "http_filters": [{
+                  "http_filters": [
+                  {
                     "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
@@ -500,6 +403,7 @@
         ]
       },
       {
+        "name": "0.0.0.0_15021",
         "address": {
            "socket_address": {
              "protocol": "TCP",
@@ -507,6 +411,8 @@
              "port_value": 15021
            }
         },
+        "ignore_global_conn_limit": true,
+        "bypass_overload_manager": true,
         "filter_chains": [
           {
             "filters": [
@@ -549,6 +455,17 @@
         ]
       }
     ]
+  },
+  "overload_manager": {
+    "resource_monitors": [
+      {
+        "name": "envoy.resource_monitors.global_downstream_max_connections",
+        "typed_config": {
+          "@type": "type.googleapis.com/envoy.extensions.resource_monitors.downstream_connections.v3.DownstreamConnectionsConfig",
+          "max_active_downstream_connections": 2147483647
+        }
+      }
+    ]
   }
   ,
   "tracing": {
@@ -568,9 +485,13 @@
   
   ,
   "cluster_manager": {
+    "enable_deferred_cluster_creation": true,
     "outlier_detection": {
       "event_log_path": "/dev/stdout"
     }
   }
-  
+  ,
+  "deferred_stat_options": {
+    "enable_deferred_creation_stats": true
+  }
 }

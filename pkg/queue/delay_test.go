@@ -16,6 +16,7 @@ package queue
 
 import (
 	"container/heap"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -44,7 +45,7 @@ func TestPriorityQueue(t *testing.T) {
 			t.Fatalf("pop %d was not in order", i)
 		}
 		if peeked != popped {
-			t.Fatalf("did not peek at the next item to be popped")
+			t.Fatal("did not peek at the next item to be popped")
 		}
 	}
 }
@@ -167,5 +168,32 @@ func TestPriorityQueueShrinking(t *testing.T) {
 		if i == 1+c/2 && cap(pq) != c/2 {
 			t.Fatalf("the capacity of pq should be reduced to half its length %d, but got %d", c/2, cap(pq))
 		}
+	}
+}
+
+func TestDelayQueueRetry(t *testing.T) {
+	dq := NewDelayed()
+	stop := make(chan struct{})
+	defer close(stop)
+	go dq.Run(stop)
+
+	count := 0
+	done := make(chan struct{})
+	dq.PushDelayed(func() error {
+		count++
+		if count == maxTaskRetry+1 {
+			close(done)
+		}
+		return fmt.Errorf("error count %d", count)
+	}, 200*time.Millisecond)
+
+	select {
+	case <-time.After(500 * time.Millisecond):
+		t.Errorf("timeout waiting for the task done")
+	case <-done:
+	}
+
+	if count != maxTaskRetry+1 {
+		t.Errorf("running count %d != %d", count, maxTaskRetry+1)
 	}
 }

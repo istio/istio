@@ -1,11 +1,11 @@
 # To simplify the deployment, disable non-essential components
 alertmanager:
   enabled: false
-pushgateway:
+prometheus-pushgateway:
   enabled: false
-kubeStateMetrics:
+kube-state-metrics:
   enabled: false
-nodeExporter:
+prometheus-node-exporter:
   enabled: false
 server:
   podLabels:
@@ -25,4 +25,12 @@ server:
 
   # use dockerhub
   image:
-    repository: prom/prometheus
+    repository: docker.io/prom/prometheus
+
+  securityContext: null
+
+configmapReload:
+  prometheus:
+    image:
+      # Use ghcr
+      repository: ghcr.io/prometheus-operator/prometheus-config-reloader

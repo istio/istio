@@ -23,7 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -40,6 +41,12 @@ func TestMain(m *testing.M) {
 
 func TestVersion(t *testing.T) {
 	runBinariesTest(t, func(t *testing.T, name string) {
+		if nonGoBinaries.Contains(name) {
+			return
+		}
+		if nonVersionBinaries.Contains(name) {
+			return
+		}
 		cmd := path.Join(*releasedir, name)
 		args := []string{"version", "-ojson"}
 		if name == "istioctl" {
@@ -66,9 +73,17 @@ func TestVersion(t *testing.T) {
 	})
 }
 
+var (
+	nonGoBinaries      = sets.New("ztunnel", "envoy")
+	nonVersionBinaries = sets.New("client", "server")
+)
+
 // Test that flags do not get polluted with unexpected flags
 func TestFlags(t *testing.T) {
 	runBinariesTest(t, func(t *testing.T, name string) {
+		if nonGoBinaries.Contains(name) {
+			return
+		}
 		cmd := path.Join(*releasedir, name)
 		out, err := exec.Command(cmd, "--help").Output()
 		if err != nil {
@@ -91,11 +106,14 @@ func TestBinarySizes(t *testing.T) {
 	}{
 		// TODO: shrink the ranges here once the active work to reduce binary size is complete
 		// For now, having two small a range will result in lots of "merge conflicts"
-		"istioctl":    {60, 100},
-		"pilot-agent": {30, 45},
-		// TODO(https://github.com/kubernetes/kubernetes/issues/101384) bump this down a bit?
-		"pilot-discovery": {60, 95},
-		"bug-report":      {60, 100},
+		"istioctl":        {60, 100},
+		"pilot-agent":     {20, 26},
+		"pilot-discovery": {60, 120}, // TODO: shrink this once we merge the multicluster ambient controller as default
+		"bug-report":      {60, 80},
+		"client":          {15, 30},
+		"server":          {15, 30},
+		"envoy":           {60, 150},
+		"ztunnel":         {12, 17},
 	}
 
 	runBinariesTest(t, func(t *testing.T, name string) {
@@ -116,7 +134,7 @@ func TestBinarySizes(t *testing.T) {
 		if got < tt.minMb {
 			t.Fatalf("Binary size of %dmb was smaller than min allowed size %dmb. This is very likely a good thing, "+
 				"indicating the binary size has decreased. The test will fail to ensure you update the test thresholds to ensure "+
-				"the improvements are 'locked in'.", got, tt.maxMb)
+				"the improvements are 'locked in'.", got, tt.minMb)
 		}
 	})
 }

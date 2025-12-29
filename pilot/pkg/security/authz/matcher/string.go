@@ -25,16 +25,70 @@ func StringMatcher(v string) *matcher.StringMatcher {
 	return StringMatcherWithPrefix(v, "")
 }
 
+// StringOrMatcher creates an OR string matcher for a list of values.
+func StringOrMatcher(vs []string) *matcher.ValueMatcher {
+	matchers := []*matcher.ValueMatcher{}
+	for _, v := range vs {
+		matchers = append(matchers, &matcher.ValueMatcher{
+			MatchPattern: &matcher.ValueMatcher_StringMatch{
+				StringMatch: StringMatcher(v),
+			},
+		})
+	}
+	return OrMatcher(matchers)
+}
+
+// OrMatcher creates an OR matcher for a list of matchers.
+func OrMatcher(matchers []*matcher.ValueMatcher) *matcher.ValueMatcher {
+	if len(matchers) == 1 {
+		return matchers[0]
+	}
+	return &matcher.ValueMatcher{
+		MatchPattern: &matcher.ValueMatcher_OrMatch{
+			OrMatch: &matcher.OrMatcher{
+				ValueMatchers: matchers,
+			},
+		},
+	}
+}
+
 // StringMatcherRegex creates a regex string matcher for regex.
 func StringMatcherRegex(regex string) *matcher.StringMatcher {
 	return &matcher.StringMatcher{
 		MatchPattern: &matcher.StringMatcher_SafeRegex{
 			SafeRegex: &matcher.RegexMatcher{
-				EngineType: &matcher.RegexMatcher_GoogleRe2{
-					GoogleRe2: &matcher.RegexMatcher_GoogleRE2{},
-				},
 				Regex: regex,
 			},
+		},
+	}
+}
+
+// StringMatcherPrefix create a string matcher for prefix matching.
+func StringMatcherPrefix(prefix string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Prefix{
+			Prefix: prefix,
+		},
+	}
+}
+
+// StringMatcherSuffix create a string matcher for suffix matching.
+func StringMatcherSuffix(suffix string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Suffix{
+			Suffix: suffix,
+		},
+	}
+}
+
+// StringMatcherExact create a string matcher for exact matching.
+func StringMatcherExact(exact string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Exact{
+			Exact: exact,
 		},
 	}
 }
@@ -50,24 +104,12 @@ func StringMatcherWithPrefix(v, prefix string) *matcher.StringMatcher {
 		return StringMatcherRegex(".+")
 	case strings.HasPrefix(v, "*"):
 		if prefix == "" {
-			return &matcher.StringMatcher{
-				MatchPattern: &matcher.StringMatcher_Suffix{
-					Suffix: strings.TrimPrefix(v, "*"),
-				},
-			}
+			return StringMatcherSuffix(strings.TrimPrefix(v, "*"), false)
 		}
 		return StringMatcherRegex(prefix + ".*" + strings.TrimPrefix(v, "*"))
 	case strings.HasSuffix(v, "*"):
-		return &matcher.StringMatcher{
-			MatchPattern: &matcher.StringMatcher_Prefix{
-				Prefix: prefix + strings.TrimSuffix(v, "*"),
-			},
-		}
+		return StringMatcherPrefix(prefix+strings.TrimSuffix(v, "*"), false)
 	default:
-		return &matcher.StringMatcher{
-			MatchPattern: &matcher.StringMatcher_Exact{
-				Exact: prefix + v,
-			},
-		}
+		return StringMatcherExact(prefix+v, false)
 	}
 }

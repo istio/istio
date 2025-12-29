@@ -16,95 +16,58 @@ package kube
 
 import (
 	"fmt"
-	"sync"
 
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/pkg/log"
 )
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
-	remoteKubeControllers map[cluster.ID]*CredentialsController
-	m                     sync.Mutex // protects remoteKubeControllers
-	configCluster         cluster.ID
-	secretHandlers        []func(name string, namespace string)
+	configCluster  cluster.ID
+	secretHandlers []func(k kind.Kind, name string, namespace string)
+	component      *multicluster.Component[*CredentialsController]
 }
 
 var _ credentials.MulticlusterController = &Multicluster{}
 
-func NewMulticluster(configCluster cluster.ID) *Multicluster {
+func NewMulticluster(configCluster cluster.ID, controller multicluster.ComponentBuilder) *Multicluster {
 	m := &Multicluster{
-		remoteKubeControllers: map[cluster.ID]*CredentialsController{},
-		configCluster:         configCluster,
+		configCluster: configCluster,
 	}
 
+	m.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *CredentialsController {
+		// Only enable ConfigMaps for the config cluster, not for remote clusters
+		isConfigCluster := cluster.ID == m.configCluster
+		return NewCredentialsController(cluster.Client, m.secretHandlers, isConfigCluster)
+	})
 	return m
 }
 
-func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) error {
-	log.Infof("initializing Kubernetes credential reader for cluster %v", cluster.ID)
-	sc := NewCredentialsController(cluster.Client, cluster.ID)
-	m.m.Lock()
-	defer m.m.Unlock()
-	m.addCluster(cluster, sc)
-	return nil
-}
-
-func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
-	sc := NewCredentialsController(cluster.Client, cluster.ID)
-	m.m.Lock()
-	defer m.m.Unlock()
-	m.deleteCluster(cluster.ID)
-	m.addCluster(cluster, sc)
-	return nil
-}
-
-func (m *Multicluster) ClusterDeleted(key cluster.ID) error {
-	m.m.Lock()
-	defer m.m.Unlock()
-	delete(m.remoteKubeControllers, key)
-	return nil
-}
-
-func (m *Multicluster) addCluster(cluster *multicluster.Cluster, sc *CredentialsController) {
-	m.remoteKubeControllers[cluster.ID] = sc
-	for _, onCredential := range m.secretHandlers {
-		sc.AddEventHandler(onCredential)
-	}
-}
-
-func (m *Multicluster) deleteCluster(key cluster.ID) {
-	delete(m.remoteKubeControllers, key)
-}
-
 func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller, error) {
-	m.m.Lock()
-	defer m.m.Unlock()
-	if _, f := m.remoteKubeControllers[clusterID]; !f {
+	cc := m.component.ForCluster(clusterID)
+	if cc == nil {
 		return nil, fmt.Errorf("cluster %v is not configured", clusterID)
 	}
 	agg := &AggregateController{}
 	agg.controllers = []*CredentialsController{}
-	agg.authController = m.remoteKubeControllers[clusterID]
+	agg.authController = *cc
 	if clusterID != m.configCluster {
 		// If the request cluster is not the config cluster, we will append it and use it for auth
 		// This means we will prioritize the proxy cluster, then the config cluster for credential lookup
 		// Authorization will always use the proxy cluster.
-		agg.controllers = append(agg.controllers, m.remoteKubeControllers[clusterID])
+		agg.controllers = append(agg.controllers, *cc)
 	}
-	agg.controllers = append(agg.controllers, m.remoteKubeControllers[m.configCluster])
+	if cc := m.component.ForCluster(m.configCluster); cc != nil {
+		agg.controllers = append(agg.controllers, *cc)
+	}
 	return agg, nil
 }
 
-func (m *Multicluster) AddSecretHandler(h func(name string, namespace string)) {
+func (m *Multicluster) AddSecretHandler(h func(k kind.Kind, name string, namespace string)) {
+	// Intentionally no lock. The controller today requires that handlers are registered before execution and not in parallel.
 	m.secretHandlers = append(m.secretHandlers, h)
-	m.m.Lock()
-	defer m.m.Unlock()
-	for _, c := range m.remoteKubeControllers {
-		c.AddEventHandler(h)
-	}
 }
 
 type AggregateController struct {
@@ -116,23 +79,23 @@ type AggregateController struct {
 
 var _ credentials.Controller = &AggregateController{}
 
-func (a *AggregateController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte, err error) {
+func (a *AggregateController) GetCertInfo(name, namespace string) (certInfo *credentials.CertInfo, err error) {
 	// Search through all clusters, find first non-empty result
 	var firstError error
 	for _, c := range a.controllers {
-		k, c, err := c.GetKeyAndCert(name, namespace)
+		certInfo, err := c.GetCertInfo(name, namespace)
 		if err != nil {
 			if firstError == nil {
 				firstError = err
 			}
 		} else {
-			return k, c, nil
+			return certInfo, nil
 		}
 	}
-	return nil, nil, firstError
+	return nil, firstError
 }
 
-func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte, err error) {
+func (a *AggregateController) GetCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
 	// Search through all clusters, find first non-empty result
 	var firstError error
 	for _, c := range a.controllers {
@@ -143,6 +106,22 @@ func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte, er
 			}
 		} else {
 			return k, nil
+		}
+	}
+	return nil, firstError
+}
+
+func (a *AggregateController) GetConfigMapCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
+	// Search through all clusters, find first non-empty result
+	var firstError error
+	for _, c := range a.controllers {
+		certInfo, err := c.GetConfigMapCaCert(name, namespace)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+		} else {
+			return certInfo, nil
 		}
 	}
 	return nil, firstError

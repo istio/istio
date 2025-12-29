@@ -28,9 +28,7 @@ import (
 	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
-	"google.golang.org/grpc"
-	v1 "k8s.io/api/core/v1"
+	"google.golang.org/protobuf/types/known/anypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -38,14 +36,14 @@ import (
 	"istio.io/istio/istioctl/pkg/xds"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
-	istioversion "istio.io/pkg/version"
+	istioversion "istio.io/istio/pkg/version"
 )
 
 const (
 	// Service account to create tokens in
 	tokenServiceAccount = "default"
-	// Get the pods with limit = 500.
-	kubeClientGetPodLimit = 500
+
+	proxyNotConnectedMessage = "Proxy not connected to this Pilot instance. It may be connected to another instance."
 )
 
 type ControlPlaneNotFoundError struct {
@@ -61,21 +59,10 @@ var _ error = ControlPlaneNotFoundError{}
 type Options struct {
 	// MessageWriter is a writer for displaying messages to users.
 	MessageWriter io.Writer
-
-	// XdsViaAgents accesses Istiod via the tap service of each agent.
-	// This is only used in `proxy-status` command.
-	XdsViaAgents bool
-
-	// XdsViaAgentsLimit is the maximum number of pods being visited by istioctl,
-	// when `XdsViaAgents` is true. This is only used in `proxy-status` command.
-	// 0 means that there is no limit.
-	XdsViaAgentsLimit int
 }
 
 var DefaultOptions = Options{
-	MessageWriter:     os.Stdout,
-	XdsViaAgents:      false,
-	XdsViaAgentsLimit: 0,
+	MessageWriter: os.Stdout,
 }
 
 // RequestAndProcessXds merges XDS responses from 1 central or 1..N K8s cluster-based XDS servers
@@ -91,15 +78,17 @@ func RequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions
 	return mergeShards(responses)
 }
 
+var GetXdsResponse = xds.GetXdsResponse
+
 // nolint: lll
 func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient, centralOpts clioptions.CentralControlPlaneOptions) ([]*discovery.DiscoveryResponse, error) {
 	labelSelector := centralOpts.XdsPodLabel
 	if labelSelector == "" {
 		labelSelector = "app=istiod"
 	}
-	pods, err := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
-		"labelSelector": labelSelector,
-		"fieldSelector": kube.RunningStatus,
+	pods, err := kubeClient.GetIstioPods(context.TODO(), istioNamespace, metav1.ListOptions{
+		LabelSelector: labelSelector,
+		FieldSelector: kube.RunningStatus,
 	})
 	if err != nil {
 		return nil, err
@@ -130,125 +119,52 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 		}
 		defer fw.Close()
 		xdsOpts.Xds = fw.Address()
-		response, err := xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, xdsOpts, dialOpts)
+		response, err := GetXdsResponse(dr, istioNamespace, tokenServiceAccount, xdsOpts, dialOpts)
 		if err != nil {
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}
-		responses = append(responses, response)
-		if !all && len(responses) > 0 {
+
+		if all {
+			// If we are getting response from all istiod pods, we should append all responses.
+			responses = append(responses, response)
+			continue
+		}
+
+		// If we are not getting response from all istiod pods, and this response is not from the last one istiod pod,
+		// and it is a response that indicates the proxy is not connected to this current istiod instance,
+		// we should skip this response and try the next istiod pod.
+		// This is very useful to get response from a multi replicas istiod cluster and short the time cost than `all=true`.
+		if !proxyNotConnectedToThisPilotInstanceResponse(response) {
+			responses = append(responses, response)
 			break
 		}
+	}
+
+	// If we are not getting response from all istiod pods,
+	// return with the first response that contains resources.
+	if len(responses) == 0 {
+		responses = append(responses, &discovery.DiscoveryResponse{
+			Resources: []*anypb.Any{
+				{
+					Value: []byte(proxyNotConnectedMessage),
+				},
+			},
+		})
 	}
 	return responses, nil
 }
 
-// queryDebugSynczViaAgents sends a debug/syncz xDS request via Istio Agents.
-// By this way, even if istioctl cannot access a specific `istiod` instance directly,
-// `istioctl` can access the debug endpoint.
-// If `all` is true, `queryDebugSynczViaAgents` iterates all the pod having a proxy
-// except the pods of which status information is already queried.
-func queryDebugSynczViaAgents(all bool, dr *discovery.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient,
-	centralOpts clioptions.CentralControlPlaneOptions, options Options,
-) ([]*discovery.DiscoveryResponse, error) {
-	xdsOpts := clioptions.CentralControlPlaneOptions{
-		XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
-		CertDir: centralOpts.CertDir,
-		Timeout: centralOpts.Timeout,
+func proxyNotConnectedToThisPilotInstanceResponse(resp *discovery.DiscoveryResponse) bool {
+	if resp == nil || len(resp.Resources) != 1 {
+		return false
 	}
-	visited := make(map[string]bool)
-	queryToOnePod := func(pod *v1.Pod) (*discovery.DiscoveryResponse, error) {
-		fw, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "localhost", 0, 15004)
-		if err != nil {
-			return nil, err
+	for _, res := range resp.Resources {
+		if strings.Contains(string(res.GetValue()), proxyNotConnectedMessage) {
+			return true
 		}
-		err = fw.Start()
-		if err != nil {
-			return nil, err
-		}
-		defer fw.Close()
-		xdsOpts.Xds = fw.Address()
-		// Use plaintext.
-		response, err := xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, xdsOpts, []grpc.DialOption{})
-		if err != nil {
-			return nil, fmt.Errorf("could not get XDS from the agent pod %q: %v", pod.Name, err)
-		}
-		for _, resource := range response.GetResources() {
-			switch resource.GetTypeUrl() {
-			case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
-				clientConfig := xdsstatus.ClientConfig{}
-				err := resource.UnmarshalTo(&clientConfig)
-				if err != nil {
-					return nil, err
-				}
-				visited[clientConfig.Node.Id] = true
-			default:
-				// ignore unknown types.
-			}
-		}
-		return response, nil
 	}
 
-	responses := []*discovery.DiscoveryResponse{}
-	if all {
-		token := ""
-		touchedPods := 0
-
-	GetProxyLoop:
-		for {
-			list, err := kubeClient.GetProxyPods(context.TODO(), int64(kubeClientGetPodLimit), token)
-			if err != nil {
-				return nil, err
-			}
-			// Iterate all the pod.
-			for _, pod := range list.Items {
-				touchedPods++
-				if options.XdsViaAgentsLimit != 0 && touchedPods > options.XdsViaAgentsLimit {
-					fmt.Fprintf(options.MessageWriter, "Some proxies may be missing from the list"+
-						" because the number of visited pod hits the limit %d,"+
-						" which can be set by `--xds-via-agents-limit` flag.\n", options.XdsViaAgentsLimit)
-					break GetProxyLoop
-				}
-				namespacedName := pod.Name + "." + pod.Namespace
-				if visited[namespacedName] {
-					// If we alredy have information about the pod, skip it.
-					continue
-				}
-				resp, err := queryToOnePod(&pod)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Skip the agent in Pod %s due to the error: %s\n", namespacedName, err.Error())
-					continue
-				}
-				responses = append(responses, resp)
-			}
-			token = list.ListMeta.GetContinue()
-			if token == "" {
-				break
-			}
-		}
-	} else {
-		// If there is a specific pod name in ResourceName, use the agent in the pod.
-		if len(dr.ResourceNames) != 1 {
-			return nil, fmt.Errorf("`ResourceNames` must have one element when `all` flag is turned on")
-		}
-		slice := strings.SplitN(dr.ResourceNames[0], ".", 2)
-		if len(slice) != 2 {
-			return nil, fmt.Errorf("invalid resource name format: %v", slice)
-		}
-		podName := slice[0]
-		ns := slice[1]
-		pod, err := kubeClient.Kube().CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-		resp, err := queryToOnePod(pod)
-		if err != nil {
-			return nil, err
-		}
-		responses = append(responses, resp)
-		return responses, nil
-	}
-
-	return responses, nil
+	return false
 }
 
 func mergeShards(responses map[string]*discovery.DiscoveryResponse) (*discovery.DiscoveryResponse, error) {
@@ -297,7 +213,7 @@ type xdsAddr struct {
 
 func getXdsAddressFromWebhooks(client kube.CLIClient) (*xdsAddr, error) {
 	webhooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,!istio.io/tag", label.IoIstioRev.Name, client.Revision()),
+		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, client.Revision(), label.IoIstioTag.Name),
 	})
 	if err != nil {
 		return nil, err
@@ -348,17 +264,8 @@ func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, central
 		}, nil
 	}
 
-	var (
-		responses []*discovery.DiscoveryResponse
-		err       error
-	)
-
-	if options.XdsViaAgents {
-		responses, err = queryDebugSynczViaAgents(all, dr, istioNamespace, kubeClient, centralOpts, options)
-	} else {
-		// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
-		responses, err = queryEachShard(all, dr, istioNamespace, kubeClient, centralOpts)
-	}
+	// Find all Istiods in revision using K8s, port-forward and call each in turn
+	responses, err := queryEachShard(all, dr, istioNamespace, kubeClient, centralOpts)
 	if err != nil {
 		if _, ok := err.(ControlPlaneNotFoundError); ok {
 			// Attempt to get the XDS address from the webhook and try again

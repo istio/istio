@@ -76,7 +76,7 @@ For more information about integrating with Jaeger, please see the [Jaeger integ
 
 Zipkin is an alternative to Jaeger and is not deployed by default. To replace Jaeger with Zipkin, run `kubectl apply -f samples/addons/extras/zipkin.yaml`.
 You may also want to remove the Jaeger deployment, which will not be used, with `kubectl delete deployment jaeger`, or avoid installing it
-to begin with by following the selective install steps in [Getting Started](#getting-started).
+to begin with by following the selective installation steps in [Getting Started](#getting-started).
 
 For more information about integrating with Zipkin, please see the [Zipkin integration page](https://istio.io/docs/tasks/observability/distributed-tracing/zipkin/).
 

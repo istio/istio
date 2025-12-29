@@ -44,7 +44,7 @@ func FuzzKubeCRD(data []byte) int {
 	}
 
 	// Convert the obj and report if it fails.
-	_, err = crd.ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, obj, "cluster")
+	_, err = crd.ConvertObject(collections.VirtualService, obj, "cluster")
 	if err != nil {
 		panic(err)
 	}

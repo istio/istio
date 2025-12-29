@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -83,7 +82,6 @@ func TestNormalization(t *testing.T) {
 		percentEncodedCases = append(percentEncodedCases, expect{in: input, out: output})
 	}
 	framework.NewTest(t).
-		Features("security.normalization").
 		Run(func(t framework.TestContext) {
 			cases := []struct {
 				name         string
@@ -225,7 +223,7 @@ func TestNormalization(t *testing.T) {
 			}
 			for _, tt := range cases {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
-					istio.GetOrFail(t, t).PatchMeshConfigOrFail(t, t, fmt.Sprintf(`
+					istio.GetOrFail(t).PatchMeshConfigOrFail(t, fmt.Sprintf(`
 pathNormalization:
   normalization: %v`, tt.ntype.String()))
 
@@ -233,8 +231,7 @@ pathNormalization:
 						FromMatch(match.ServiceName(apps.Ns1.A.NamespacedName())).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							for _, expected := range tt.expectations {
-								expected := expected
-								t.NewSubTest(expected.in).RunParallel(func(t framework.TestContext) {
+								t.NewSubTest(expected.in).Run(func(t framework.TestContext) {
 									checker := check.URL(expected.out)
 									if expected.out == "400" {
 										checker = check.Status(http.StatusBadRequest)

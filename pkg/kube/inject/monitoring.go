@@ -15,7 +15,7 @@
 package inject
 
 import (
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 var (
@@ -38,13 +38,10 @@ var (
 		"sidecar_injection_skip_total",
 		"Total number of skipped sidecar injection requests.",
 	)
-)
 
-func init() {
-	monitoring.MustRegister(
-		totalInjections,
-		totalSuccessfulInjections,
-		totalFailedInjections,
-		totalSkippedInjections,
+	injectionTime = monitoring.NewDistribution(
+		"sidecar_injection_time_seconds",
+		"Total time taken for injection in seconds.",
+		[]float64{.1, 1, 3, 5, 10, 20, 30, 60},
 	)
-}
+)

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 48241
+releaseNotes:
+- |
+  **Fixed** an issue where the Istio injection webhook may be modified in dry-run mode.

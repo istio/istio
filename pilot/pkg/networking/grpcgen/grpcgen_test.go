@@ -48,19 +48,20 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
 	echoproto "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
 )
 
 // Address of the test gRPC service, used in tests.
@@ -98,7 +99,7 @@ func GRPCBootstrap(app, namespace, ip string, xdsPort int) []byte {
 				NodeMetadata: model.NodeMetadata{
 					Namespace: namespace,
 					Generator: "grpc",
-					ClusterID: "Kubernetes",
+					ClusterID: constants.DefaultClusterName,
 				},
 			},
 		},
@@ -128,7 +129,7 @@ func resolverForTest(t test.Failer, xdsPort int, ns string) resolver.Builder {
 func init() {
 	// Setup gRPC logging. Do it once in init to avoid races
 	o := log.DefaultOptions()
-	o.LogGrpc = true
+	o.SetDefaultOutputLevel(log.GrpcScopeName, log.DebugLevel)
 	log.Configure(o)
 }
 
@@ -173,7 +174,9 @@ func TestGRPC(t *testing.T) {
 			Scheme: "xds",
 			Path:   "/" + net.JoinHostPort(testSvcHost, xdsPorts),
 		}},
-			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
+			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{
+				Authority: testSvcHost,
+			})
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
 		}
@@ -204,13 +207,17 @@ func TestGRPC(t *testing.T) {
 			grpcOptions = append(grpcOptions, xdsgrpc.BootstrapContentsForTesting(bootstrapB))
 
 			// Replaces: grpc NewServer
-			grpcServer := xdsgrpc.NewGRPCServer(grpcOptions...)
+			grpcServer, err := xdsgrpc.NewGRPCServer(grpcOptions...)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			testRBAC(t, grpcServer, xdsresolver, "echo-rbac-mtls", port, lis)
 		})
 	})
 
 	t.Run("persistent", func(t *testing.T) {
+		test.SetAtomicBoolForTest(t, features.EnablePersistentSessionFilter, true)
 		proxy := ds.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{
 			Generator: "grpc",
 		}})
@@ -228,15 +235,17 @@ func TestGRPC(t *testing.T) {
 		hcm := &hcm.HttpConnectionManager{}
 		ss := &statefulsession.StatefulSession{}
 		sc := &cookiev3.CookieBasedSessionState{}
+		filterIndex := -1
 		for _, rsc := range msg.Resources {
 			valBytes := rsc.Value
 			ll := &listener.Listener{}
 			_ = proto.Unmarshal(valBytes, ll)
 			if strings.HasPrefix(ll.Name, "echo-persistent.test.svc.cluster.local:") {
 				proto.Unmarshal(ll.ApiListener.ApiListener.Value, hcm)
-				for _, f := range hcm.HttpFilters {
+				for index, f := range hcm.HttpFilters {
 					if f.Name == util.StatefulSessionFilter {
 						proto.Unmarshal(f.GetTypedConfig().Value, ss)
+						filterIndex = index
 						if ss.GetSessionState().Name == "envoy.http.stateful_session.cookie" {
 							proto.Unmarshal(ss.GetSessionState().TypedConfig.Value, sc)
 						}
@@ -246,6 +255,9 @@ func TestGRPC(t *testing.T) {
 		}
 		if sc.Cookie == nil {
 			t.Fatal("Failed to find session cookie")
+		}
+		if filterIndex == (len(hcm.HttpFilters) - 1) {
+			t.Fatal("session-cookie-filter cannot be the last filter!")
 		}
 		if sc.Cookie.Name != "test-cookie" {
 			t.Fatal("Missing expected cookie name", sc.Cookie)
@@ -319,7 +331,7 @@ func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 	})
 	sd.SetEndpoints(testSvcHost, "istio-system", []*model.IstioEndpoint{
 		{
-			Address:         "127.0.0.1",
+			Addresses:       []string{"127.0.0.1"},
 			EndpointPort:    uint32(xdsPort),
 			ServicePortName: "grpc-main",
 		},
@@ -349,7 +361,13 @@ func initPersistent(sd *memory.ServiceDiscovery) {
 	})
 	sd.SetEndpoints(hn, ns, []*model.IstioEndpoint{
 		{
-			Address:         "127.0.1.2",
+			Addresses:       []string{"127.0.1.2"},
+			EndpointPort:    uint32(9999),
+			ServicePortName: "grpc-main",
+			HealthStatus:    model.Draining,
+		},
+		{
+			Addresses:       []string{"127.0.1.3", "2001:1::3"},
 			EndpointPort:    uint32(9999),
 			ServicePortName: "grpc-main",
 			HealthStatus:    model.Draining,
@@ -361,7 +379,7 @@ func initPersistent(sd *memory.ServiceDiscovery) {
 func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname string, port int, mtls bool) {
 	ns := "test"
 	hn := svcname + "." + ns + ".svc.cluster.local"
-	// The 'memory' store GetProxyServiceInstances uses the IP address of the node and endpoints to
+	// The 'memory' store GetProxyServiceTargets uses the IP address of the node and endpoints to
 	// identify the service. In k8s store, labels are matched instead.
 	// For server configs to work, the server XDS bootstrap must match the IP.
 	sd.AddService(&model.Service{
@@ -380,10 +398,15 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname
 			},
 		},
 	})
-	// The address will be matched against the INSTANCE_IPS and id in the node id. If they match, the service is returned.
+	// The addresses will be matched against the INSTANCE_IPS and id in the node id. If they match, the service is returned.
 	sd.SetEndpoints(hn, ns, []*model.IstioEndpoint{
 		{
-			Address:         "127.0.1.1",
+			Addresses:       []string{"127.0.1.1"},
+			EndpointPort:    uint32(port),
+			ServicePortName: "grpc-main",
+		},
+		{
+			Addresses:       []string{"127.0.1.2", "2001:1::2"},
 			EndpointPort:    uint32(port),
 			ServicePortName: "grpc-main",
 		},
@@ -496,7 +519,6 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 			log.Error(err)
 		}
 	}()
-	time.Sleep(3 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
@@ -526,7 +548,7 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 }
 
 // From xds_resolver_test
-// testClientConn is a fake implemetation of resolver.ClientConn. All is does
+// testClientConn is a fake implementation of resolver.ClientConn. All is does
 // is to store the state received from the resolver locally and signal that
 // event through a channel.
 type testClientConn struct {

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 50195
+releaseNotes:
+  - |
+    **Fixed** an issue where status code always unset when using OpenTelemetry Tracing.

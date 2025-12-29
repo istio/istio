@@ -21,10 +21,9 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/option"
+	"istio.io/istio/pkg/model"
 )
 
 // nolint: lll
@@ -154,8 +153,15 @@ func TestOptions(t *testing.T) {
 			testName: "dns lookup family v6",
 			key:      "dns_lookup_family",
 			option:   option.DNSLookupFamily(option.DNSLookupFamilyIPv6),
-			expected: option.DNSLookupFamilyValue("AUTO"),
+			expected: option.DNSLookupFamilyValue("V6_ONLY"),
 		},
+		{
+			testName: "dns lookup family dual stack",
+			key:      "dns_lookup_family",
+			option:   option.DNSLookupFamily(option.DNSLookupFamilyIPS),
+			expected: option.DNSLookupFamilyValue("ALL"),
+		},
+
 		{
 			testName: "lightstep address empty",
 			key:      "lightstep",
@@ -203,37 +209,6 @@ func TestOptions(t *testing.T) {
 			key:      "lightstepToken",
 			option:   option.LightstepToken("fake"),
 			expected: "fake",
-		},
-		{
-			testName: "openCensusAgent address",
-			key:      "openCensusAgent",
-			option:   option.OpenCensusAgentAddress("fake-ocagent"),
-			expected: "fake-ocagent",
-		},
-		{
-			testName: "openCensusAgent empty context",
-			key:      "openCensusAgentContexts",
-			option:   option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{}),
-			expected: `["TRACE_CONTEXT","GRPC_TRACE_BIN","CLOUD_TRACE_CONTEXT","B3"]`,
-		},
-		{
-			testName: "openCensusAgent order context",
-			key:      "openCensusAgentContexts",
-			option: option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{
-				meshAPI.Tracing_OpenCensusAgent_CLOUD_TRACE_CONTEXT,
-				meshAPI.Tracing_OpenCensusAgent_B3,
-				meshAPI.Tracing_OpenCensusAgent_GRPC_BIN,
-				meshAPI.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT,
-			}),
-			expected: `["CLOUD_TRACE_CONTEXT","B3","GRPC_TRACE_BIN","TRACE_CONTEXT"]`,
-		},
-		{
-			testName: "openCensusAgent one context",
-			key:      "openCensusAgentContexts",
-			option: option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{
-				meshAPI.Tracing_OpenCensusAgent_B3,
-			}),
-			expected: `["B3"]`,
 		},
 		{
 			testName: "stackdriver enabled",
@@ -646,6 +621,12 @@ func TestOptions(t *testing.T) {
 			expected: 5555,
 		},
 		{
+			testName: "workload identity socket file",
+			key:      "workload_identity_socket_file",
+			option:   option.WorkloadIdentitySocketFile("sheboygan.sock"),
+			expected: "sheboygan.sock",
+		},
+		{
 			testName: "project id",
 			key:      "gcp_project_id",
 			option:   option.GCPProjectID("project"),
@@ -665,6 +646,24 @@ func TestOptions(t *testing.T) {
 				CaCertificates: "/etc/tracing/ca.pem",
 			}, &model.BootstrapNodeMetadata{}, false),
 			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/tracing/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"resource_api_version":"V3"}}}}}}`,
+		},
+		{
+			testName: "stats eviction interval normal",
+			key:      "stats_eviction_interval",
+			option:   option.EnvoyStatsEvictionInterval(durationpb.New(time.Second * 10)),
+			expected: "10s",
+		},
+		{
+			testName: "stats eviction interval fractional",
+			key:      "stats_eviction_interval",
+			option:   option.EnvoyStatsEvictionInterval(durationpb.New(time.Second*2 + time.Millisecond*5)),
+			expected: "2.005000000s",
+		},
+		{
+			testName: "stats eviction interval longer than 60s",
+			key:      "stats_eviction_interval",
+			option:   option.EnvoyStatsEvictionInterval(durationpb.New(time.Second * 120)),
+			expected: "120s",
 		},
 	}
 

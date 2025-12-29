@@ -13,3 +13,5 @@ trustedRegistries:
   - gcr.io
   - docker.io
   - quay.io
+  - "*.pkg.dev"
+  - "cgr.dev"

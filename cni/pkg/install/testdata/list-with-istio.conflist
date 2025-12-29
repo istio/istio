@@ -32,8 +32,8 @@
         "cni_bin_dir": "/path/cni/bin",
         "kubeconfig": "/path/to/kubeconfig"
       },
-      "log_level": "debug",
       "name": "istio-cni",
+      "plugin_log_level": "debug",
       "type": "istio-cni"
     }
   ]

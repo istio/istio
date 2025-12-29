@@ -19,7 +19,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
@@ -43,11 +43,11 @@ func buildHTTPRoute(node *model.Proxy, push *model.PushContext, routeName string
 	// TODO use route-style naming instead of cluster naming
 	_, _, hostname, port := model.ParseSubsetKey(routeName)
 	if hostname == "" || port == 0 {
-		log.Warn("Failed to parse ", routeName)
+		log.Warnf("failed to parse %v", routeName)
 		return nil
 	}
 
-	virtualHosts, _, _ := v1alpha3.BuildSidecarOutboundVirtualHosts(node, push, routeName, port, nil, &model.DisabledCache{})
+	virtualHosts, _, _ := core.BuildSidecarOutboundVirtualHosts(node, push, routeName, port, nil, &model.DisabledCache{})
 
 	// Only generate the required route for grpc. Will need to generate more
 	// as GRPC adds more features.

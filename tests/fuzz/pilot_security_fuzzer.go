@@ -37,15 +37,6 @@ func FuzzHeaderMatcher(data []byte) int {
 	return 1
 }
 
-func FuzzHostMatcherWithRegex(data []byte) int {
-	k, v, err := getKandV(data)
-	if err != nil {
-		return 0
-	}
-	_ = matcher.HostMatcherWithRegex(k, v)
-	return 1
-}
-
 func FuzzHostMatcher(data []byte) int {
 	k, v, err := getKandV(data)
 	if err != nil {
@@ -66,7 +57,7 @@ func FuzzMetadataListMatcher(data []byte) int {
 		return 0
 	}
 	maxKeys := number % 100
-	keys := make([]string, maxKeys)
+	keys := make([]string, 0, maxKeys)
 	for i := 0; i < maxKeys; i++ {
 		key, err := f.GetString()
 		if err != nil {
@@ -78,7 +69,7 @@ func FuzzMetadataListMatcher(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_ = matcher.MetadataListMatcher(filter, keys, matcher.StringMatcher(value))
+	_ = matcher.MetadataListMatcher(filter, keys, matcher.StringMatcher(value), false)
 	return 1
 }
 

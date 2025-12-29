@@ -21,9 +21,6 @@ import (
 	"reflect"
 	"time"
 
-	gogojsonpb "github.com/gogo/protobuf/jsonpb" // nolint: depguard
-	gogoproto "github.com/gogo/protobuf/proto"   // nolint: depguard
-	gogotypes "github.com/gogo/protobuf/types"   // nolint: depguard
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -31,12 +28,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubetypes "k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Meta is metadata attached to each configuration unit.
@@ -104,16 +103,37 @@ type Config struct {
 
 	// Status holds long-running status.
 	Status Status
+
+	// Extra holds additional, non-spec information for internal processing.
+	Extra map[string]any
 }
 
-func ObjectInRevision(o *Config, rev string) bool {
-	configEnv, f := o.Labels[label.IoIstioRev.Name]
+func LabelsInRevision(lbls map[string]string, rev string) bool {
+	configEnv, f := lbls[label.IoIstioRev.Name]
 	if !f {
 		// This is a global object, and always included
 		return true
 	}
+	// If the revision is empty, this means we don't specify a revision, and
+	// we should always include it
+	if rev == "" {
+		return true
+	}
 	// Otherwise, only return true if revisions equal
 	return configEnv == rev
+}
+
+func LabelsInRevisionOrTags(lbls map[string]string, rev string, tags sets.Set[string]) bool {
+	if LabelsInRevision(lbls, rev) {
+		return true
+	}
+	configEnv := lbls[label.IoIstioRev.Name]
+	// Otherwise, only return true if revisions equal
+	return tags.Contains(configEnv)
+}
+
+func ObjectInRevision(o *Config, rev string) bool {
+	return LabelsInRevision(o.Labels, rev)
 }
 
 // Spec defines the spec for the config. In order to use below helper methods,
@@ -131,18 +151,6 @@ func ToProto(s Spec) (*anypb.Any, error) {
 		return protoconv.MessageToAnyWithError(pb)
 	}
 
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		gogoany, err := gogotypes.MarshalAny(pb)
-		if err != nil {
-			return nil, err
-		}
-		return &anypb.Any{
-			TypeUrl: gogoany.TypeUrl,
-			Value:   gogoany.Value,
-		}, nil
-	}
-
 	js, err := json.Marshal(s)
 	if err != nil {
 		return nil, err
@@ -154,20 +162,14 @@ func ToProto(s Spec) (*anypb.Any, error) {
 	return protoconv.MessageToAnyWithError(pbs)
 }
 
-func ToMap(s Spec) (map[string]any, error) {
+func ToRaw(s Spec) (json.RawMessage, error) {
 	js, err := ToJSON(s)
 	if err != nil {
 		return nil, err
 	}
 
 	// Unmarshal from json bytes to go map
-	var data map[string]any
-	err = json.Unmarshal(js, &data)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return js, nil
 }
 
 func ToJSON(s Spec) ([]byte, error) {
@@ -194,12 +196,6 @@ func toJSON(s Spec, pretty bool) ([]byte, error) {
 		}
 	}
 
-	b := &bytes.Buffer{}
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		err := (&gogojsonpb.Marshaler{Indent: indent}).Marshal(b, pb)
-		return b.Bytes(), err
-	}
 	if pretty {
 		return json.MarshalIndent(s, "", indent)
 	}
@@ -208,14 +204,6 @@ func toJSON(s Spec, pretty bool) ([]byte, error) {
 
 type deepCopier interface {
 	DeepCopyInterface() any
-}
-
-func ApplyYAML(s Spec, yml string) error {
-	js, err := yaml.YAMLToJSON([]byte(yml))
-	if err != nil {
-		return err
-	}
-	return ApplyJSON(s, string(js))
 }
 
 func ApplyJSONStrict(s Spec, js string) error {
@@ -227,12 +215,6 @@ func ApplyJSONStrict(s Spec, js string) error {
 			err := protomarshal.ApplyJSONStrict(js, pb)
 			return err
 		}
-	}
-
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		err := gogoprotomarshal.ApplyJSONStrict(js, pb)
-		return err
 	}
 
 	d := json.NewDecoder(bytes.NewReader([]byte(js)))
@@ -251,15 +233,10 @@ func ApplyJSON(s Spec, js string) error {
 		}
 	}
 
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		err := gogoprotomarshal.ApplyJSON(js, pb)
-		return err
-	}
-
 	return json.Unmarshal([]byte(js), &s)
 }
 
+// DeepCopy the object. Note: this does not use the correct DeepCopy on Kubernetes types; only use with Istio types.
 func DeepCopy(s any) any {
 	if s == nil {
 		return nil
@@ -274,13 +251,8 @@ func DeepCopy(s any) any {
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			return proto.Clone(pb)
+			return protomarshal.Clone(pb)
 		}
-	}
-
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		return gogoproto.Clone(pb)
 	}
 
 	// If we don't have a deep copy method, we will have to do some reflection magic. Its not ideal,
@@ -296,6 +268,85 @@ func DeepCopy(s any) any {
 	}
 	data = reflect.ValueOf(data).Elem().Interface()
 	return data
+}
+
+func (c *Config) Equals(other *Config) bool {
+	am, bm := c.Meta, other.Meta
+	if am.GroupVersionKind != bm.GroupVersionKind {
+		return false
+	}
+	if am.UID != bm.UID {
+		return false
+	}
+	if am.Name != bm.Name {
+		return false
+	}
+	if am.Namespace != bm.Namespace {
+		return false
+	}
+	if am.Domain != bm.Domain {
+		return false
+	}
+	if !maps.Equal(am.Labels, bm.Labels) {
+		return false
+	}
+	if !maps.Equal(am.Annotations, bm.Annotations) {
+		return false
+	}
+	if am.ResourceVersion != bm.ResourceVersion {
+		return false
+	}
+	if am.CreationTimestamp != bm.CreationTimestamp {
+		return false
+	}
+	if !slices.EqualFunc(am.OwnerReferences, bm.OwnerReferences, func(a metav1.OwnerReference, b metav1.OwnerReference) bool {
+		if a.APIVersion != b.APIVersion {
+			return false
+		}
+		if a.Kind != b.Kind {
+			return false
+		}
+		if a.Name != b.Name {
+			return false
+		}
+		if a.UID != b.UID {
+			return false
+		}
+		if !ptr.Equal(a.Controller, b.Controller) {
+			return false
+		}
+		if !ptr.Equal(a.BlockOwnerDeletion, b.BlockOwnerDeletion) {
+			return false
+		}
+		return true
+	}) {
+		return false
+	}
+	if am.Generation != bm.Generation {
+		return false
+	}
+
+	if !equals(c.Spec, other.Spec) {
+		return false
+	}
+	if !equals(c.Status, other.Status) {
+		return false
+	}
+	// Can't use map.Equal because store maps as the value
+	if !equals(c.Extra, other.Extra) {
+		return false
+	}
+	return true
+}
+
+func equals(a any, b any) bool {
+	if _, ok := a.(protoreflect.ProtoMessage); ok {
+		if pb, ok := a.(proto.Message); ok {
+			return proto.Equal(pb, b.(proto.Message))
+		}
+	}
+
+	return reflect.DeepEqual(a, b)
 }
 
 type Status any
@@ -326,24 +377,23 @@ func (meta *Meta) ToObjectMeta() metav1.ObjectMeta {
 	}
 }
 
+func (meta Meta) DeepCopy() Meta {
+	nm := meta
+	nm.Labels = maps.Clone(meta.Labels)
+	nm.Annotations = maps.Clone(meta.Annotations)
+	return nm
+}
+
 func (c Config) DeepCopy() Config {
 	var clone Config
-	clone.Meta = c.Meta
-	if c.Labels != nil {
-		clone.Labels = make(map[string]string)
-		for k, v := range c.Labels {
-			clone.Labels[k] = v
-		}
-	}
-	if c.Annotations != nil {
-		clone.Annotations = make(map[string]string)
-		for k, v := range c.Annotations {
-			clone.Annotations[k] = v
-		}
-	}
+	clone.Meta = c.Meta.DeepCopy()
 	clone.Spec = DeepCopy(c.Spec)
 	if c.Status != nil {
 		clone.Status = DeepCopy(c.Status)
+	}
+	// Note that this is effectively a shallow clone, but this is fine as it is not manipulated.
+	if c.Extra != nil {
+		clone.Extra = maps.Clone(c.Extra)
 	}
 	return clone
 }
@@ -354,6 +404,17 @@ func (c Config) GetName() string {
 
 func (c Config) GetNamespace() string {
 	return c.Namespace
+}
+
+func (c Config) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c Config) NamespacedName() kubetypes.NamespacedName {
+	return kubetypes.NamespacedName{
+		Namespace: c.Namespace,
+		Name:      c.Name,
+	}
 }
 
 var _ fmt.Stringer = GroupVersionKind{}
@@ -376,6 +437,14 @@ func (g GroupVersionKind) GroupVersion() string {
 	return g.Group + "/" + g.Version
 }
 
+func FromKubernetesGVK(gvk schema.GroupVersionKind) GroupVersionKind {
+	return GroupVersionKind{
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind,
+	}
+}
+
 // Kubernetes returns the same GVK, using the Kubernetes object type
 func (g GroupVersionKind) Kubernetes() schema.GroupVersionKind {
 	return schema.GroupVersionKind{
@@ -385,13 +454,17 @@ func (g GroupVersionKind) Kubernetes() schema.GroupVersionKind {
 	}
 }
 
+func CanonicalGroup(group string) string {
+	if group != "" {
+		return group
+	}
+	return "core"
+}
+
 // CanonicalGroup returns the group with defaulting applied. This means an empty group will
 // be treated as "core", following Kubernetes API standards
 func (g GroupVersionKind) CanonicalGroup() string {
-	if g.Group != "" {
-		return g.Group
-	}
-	return "core"
+	return CanonicalGroup(g.Group)
 }
 
 // PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
@@ -403,9 +476,9 @@ type Namer interface {
 	GetNamespace() string
 }
 
-func NamespacedName(n Namer) kubetypes.NamespacedName {
+func NamespacedName[T Namer](o T) kubetypes.NamespacedName {
 	return kubetypes.NamespacedName{
-		Namespace: n.GetNamespace(),
-		Name:      n.GetName(),
+		Namespace: o.GetNamespace(),
+		Name:      o.GetName(),
 	}
 }

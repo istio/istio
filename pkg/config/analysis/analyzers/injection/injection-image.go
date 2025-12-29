@@ -17,16 +17,18 @@ package injection
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 // ImageAnalyzer checks the image of auto-injection configured with the running proxies on pods.
@@ -54,10 +56,12 @@ func (a *ImageAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "injection.ImageAnalyzer",
 		Description: "Checks the image of auto-injection configured with the running proxies on pods",
-		Inputs: collection.Names{
-			collections.K8SCoreV1Namespaces.Name(),
-			collections.K8SCoreV1Pods.Name(),
-			collections.K8SCoreV1Configmaps.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Namespace,
+			gvk.Pod,
+			gvk.ConfigMap,
+			gvk.MeshConfig,
+			gvk.ProxyConfig,
 		},
 	}
 }
@@ -67,7 +71,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 	proxyImageMap := make(map[string]string)
 
 	// when multiple injector configmaps exist, we may need to assess them respectively.
-	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.ConfigMap, func(r *resource.Instance) bool {
 		cmName := r.Metadata.FullName.Name.String()
 		if strings.HasPrefix(cmName, "istio-sidecar-injector") {
 			cm := r.Message.(*v1.ConfigMap)
@@ -83,9 +87,11 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 	}
 
 	injectedNamespaces := make(map[string]string)
-
+	namespaceMismatchedPods := make(map[string][]string)
+	namespaceResources := make(map[string]*resource.Instance)
 	// Collect the list of namespaces that have istio injection enabled.
-	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
+		namespaceResources[r.Metadata.FullName.String()] = r
 		nsRevision, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
 		if r.Metadata.Labels[util.InjectionLabelName] == util.InjectionLabelEnableValue || okNewInjectionLabel {
 			if okNewInjectionLabel {
@@ -100,7 +106,9 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
-	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
+	resolver := util.NewEffectiveProxyConfigResolver(c)
+
+	c.ForEach(gvk.Pod, func(r *resource.Instance) bool {
 		var injectionCMName string
 		pod := r.Message.(*v1.PodSpec)
 
@@ -117,7 +125,9 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		for i, container := range pod.Containers {
+		variant := resolver.ImageType(r)
+
+		for _, container := range append(slices.Clone(pod.Containers), pod.InitContainers...) {
 			if container.Name != util.IstioProxyName {
 				continue
 			}
@@ -126,19 +136,18 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			if !okImage {
 				return true
 			}
-			if container.Image != proxyImage {
-				m := msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage)
-
-				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.ImageInContainer, i)); ok {
-					m.Line = line
-				}
-
-				c.Report(collections.K8SCoreV1Pods.Name(), m)
+			if container.Image != proxyImage && container.Image != fmt.Sprintf("%s-%s", proxyImage, variant) {
+				namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()] = append(
+					namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()], r.Metadata.FullName.Name.String())
 			}
 		}
 
 		return true
 	})
+	for ns, pods := range namespaceMismatchedPods {
+		sort.Strings(pods)
+		c.Report(gvk.Namespace, msg.NewPodsIstioProxyImageMismatchInNamespace(namespaceResources[ns], pods))
+	}
 }
 
 // GetIstioProxyImage retrieves the proxy image name defined in the sidecar injector

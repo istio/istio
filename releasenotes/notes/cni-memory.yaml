@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 53493
+releaseNotes:
+  - |
+    **Improved** the memory footprint of the `istio-cni-node` DaemonSet. In many cases this can result in up to 80% memory reduction.

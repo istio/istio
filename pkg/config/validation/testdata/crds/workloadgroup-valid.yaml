@@ -1,0 +1,45 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: full
+spec:
+  metadata:
+    labels:
+      foo: bar
+    annotations:
+      foo: bar
+  probe:
+    failureThreshold: 2
+    initialDelaySeconds: 1
+    periodSeconds: 1
+    successThreshold: 1
+    timeoutSeconds: 1
+    httpGet:
+      port: 8080
+      host: "bar"
+      scheme: HTTPS
+      path: /bar
+      httpHeaders:
+        - name: foo
+          value: bar
+  template:
+    serviceAccount: sa
+    network: net
+    labels:
+      app: app
+    ports:
+      "http": 1
+    weight: 2
+    locality: foo/bar/baz
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: tcp-probe
+spec:
+  probe:
+    tcpSocket:
+      port: 8080
+  template:
+    serviceAccount: sa
+    network: net

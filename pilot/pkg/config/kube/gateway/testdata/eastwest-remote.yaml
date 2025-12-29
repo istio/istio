@@ -1,0 +1,50 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: eastwestgateway
+  namespace: istio-system
+  labels:
+    topology.istio.io/network: "network-1"
+spec:
+  addresses:
+    - value: 1.1.1.1
+      type: IPAddress
+  gatewayClassName: istio-remote
+  listeners:
+  - name: cross-network
+    hostname: "*.local"
+    port: 15443
+    protocol: TLS
+    tls:
+      mode: Passthrough
+---
+# These routes should be ignored since this is an istio-remote gateway!
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: eastwestgateway-grpc
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: eastwestgateway
+      kind: Gateway
+      sectionName: istiod-grpc
+  rules:
+    - backendRefs:
+        - name: istiod
+          port: 15012
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: eastwestgateway-webhook
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: eastwestgateway
+      kind: Gateway
+      sectionName: istiod-webhook
+  rules:
+    - backendRefs:
+        - name: istiod
+          port: 15017

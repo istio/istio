@@ -133,6 +133,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer certChainFile.Close()
+	defer os.Remove("certChainFile")
+
 	certChainBytes, err := f.GetBytes()
 	if err != nil {
 		return 0
@@ -157,7 +159,7 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	bundle, err := util.NewVerifiedKeyCertBundleFromFile("certfile", "privKeyFile", []string{"certChainFile"}, "rootCertFile")
+	bundle, err := util.NewVerifiedKeyCertBundleFromFile("certfile", "privKeyFile", []string{"certChainFile"}, "rootCertFile", "")
 	if err != nil {
 		return 0
 	}
@@ -187,6 +189,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer newPrivKeyFile.Close()
+	defer os.Remove("newPrivKeyFile")
+
 	newPrivKeyFileBytes, err := f.GetBytes()
 	if err != nil {
 		return 0
@@ -228,6 +232,6 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 
-	bundle.UpdateVerifiedKeyCertBundleFromFile("newCertfile", "newPrivKeyFile", []string{"newCertChainFile"}, "newRootCertFile")
+	bundle.UpdateVerifiedKeyCertBundleFromFile("newCertfile", "newPrivKeyFile", []string{"newCertChainFile"}, "newRootCertFile", "")
 	return 1
 }

@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-tags
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    name: ambient-cluster
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  source:
+    path: tag-chart
+    repoURL: '{repo-placeholder}'
+    targetRevision: HEAD
+    helm:
+      valuesObject:
+        base:
+          tags:
+            default:
+              revision: "1-18-5"
+            stable:
+              revision: "1-18-5"
+            rapid:
+              revision: "1-19-3"
+          istiodservice: "1-18-5" # This can be removed once ztunnel is on 1.20

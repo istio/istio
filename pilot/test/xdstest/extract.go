@@ -16,6 +16,7 @@ package xdstest
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 
@@ -28,17 +29,19 @@ import (
 	tcpproxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func ExtractResource(res model.Resources) sets.String {
@@ -65,6 +68,49 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 		}
 	}
 	return routes
+}
+
+func ExtractClusterSecretResources(t test.Failer, c *cluster.Cluster) []string {
+	resourceNames := sets.New[string]()
+	var sockets []*core.TransportSocket
+	if c.TransportSocket != nil {
+		sockets = append(sockets, c.TransportSocket)
+	}
+	for _, ts := range c.TransportSocketMatches {
+		sockets = append(sockets, ts.TransportSocket)
+	}
+	for _, s := range sockets {
+		if s.GetTypedConfig().TypeUrl != TypeName[*tls.UpstreamTlsContext]() {
+			continue
+		}
+		tl := UnmarshalAny[tls.UpstreamTlsContext](t, s.GetTypedConfig())
+		resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
+		for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
+			resourceNames.Insert(s.GetName())
+		}
+	}
+	return resourceNames.UnsortedList()
+}
+
+func ExtractListenerSecretResources(t test.Failer, l *listener.Listener) []string {
+	resourceNames := sets.New[string]()
+	var sockets []*core.TransportSocket
+	for _, fc := range l.GetFilterChains() {
+		if fc.GetTransportSocket() != nil {
+			sockets = append(sockets, fc.GetTransportSocket())
+		}
+	}
+	if ts := l.GetDefaultFilterChain().GetTransportSocket(); ts != nil {
+		sockets = append(sockets, ts)
+	}
+	for _, s := range sockets {
+		tl := UnmarshalAny[tls.DownstreamTlsContext](t, s.GetTypedConfig())
+		resourceNames.Insert(tl.GetCommonTlsContext().GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName())
+		for _, s := range tl.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs() {
+			resourceNames.Insert(s.GetName())
+		}
+	}
+	return resourceNames.UnsortedList()
 }
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
@@ -248,6 +294,17 @@ func ExtractHTTPConnectionManager(t test.Failer, fcs *listener.FilterChain) *hcm
 	return nil
 }
 
+func ExtractLocalityLbEndpoints(cla []*endpoint.ClusterLoadAssignment) map[string][]*endpoint.LocalityLbEndpoints {
+	got := map[string][]*endpoint.LocalityLbEndpoints{}
+	for _, cla := range cla {
+		if cla == nil {
+			continue
+		}
+		got[cla.ClusterName] = cla.Endpoints
+	}
+	return got
+}
+
 func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]string {
 	got := map[string][]string{}
 	for _, cla := range cla {
@@ -259,6 +316,15 @@ func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]
 	return got
 }
 
+func ExtractListenerAddresses(l *listener.Listener) []string {
+	res := []string{}
+	res = append(res, addressToString(l.Address, nil))
+	for _, aa := range l.AdditionalAddresses {
+		res = append(res, addressToString(aa.Address, nil))
+	}
+	return res
+}
+
 // ExtractHealthEndpoints returns all health and unhealth endpoints
 func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []string) {
 	if cla == nil {
@@ -268,24 +334,45 @@ func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []st
 	unhealthy := []string{}
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
+			addresses := []*core.Address{lb.GetEndpoint().GetAddress()}
+			for _, aa := range lb.GetEndpoint().GetAdditionalAddresses() {
+				addresses = append(addresses, aa.GetAddress())
+			}
+			var addrString string
+			for i, addr := range addresses {
+				if i != 0 {
+					addrString += ","
+				}
+				addrString += addressToString(addr, lb)
+			}
 			if lb.HealthStatus == core.HealthStatus_HEALTHY {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					healthy = append(healthy, fmt.Sprintf("%s:%d",
-						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
-				} else {
-					healthy = append(healthy, lb.GetEndpoint().Address.GetPipe().Path)
-				}
+				healthy = append(healthy, addrString)
 			} else {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					unhealthy = append(unhealthy, fmt.Sprintf("%s:%d",
-						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
-				} else {
-					unhealthy = append(unhealthy, lb.GetEndpoint().Address.GetPipe().Path)
-				}
+				unhealthy = append(unhealthy, addrString)
 			}
 		}
 	}
 	return healthy, unhealthy
+}
+
+func addressToString(addr *core.Address, lb *endpoint.LbEndpoint) string {
+	res := ""
+	switch addr.Address.(type) {
+	case *core.Address_SocketAddress:
+		res = net.JoinHostPort(addr.GetSocketAddress().Address, fmt.Sprint(addr.GetSocketAddress().GetPortValue()))
+	case *core.Address_Pipe:
+		res = addr.GetPipe().Path
+	case *core.Address_EnvoyInternalAddress:
+		internalAddr := addr.GetEnvoyInternalAddress().GetServerListenerName()
+		if lb != nil {
+			destinationAddr := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["local"].GetStringValue()
+			res = fmt.Sprintf("%s;%s", internalAddr, destinationAddr)
+			if wp := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["waypoint"].GetStringValue(); wp != "" {
+				res += fmt.Sprintf(";%s", wp)
+			}
+		}
+	}
+	return res
 }
 
 // ExtractEndpoints returns all endpoints in the load assignment (including unhealthy endpoints)
@@ -323,6 +410,8 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 			if v.Type != cluster.Cluster_EDS {
 				continue
 			}
+		default:
+			continue
 		}
 		res = append(res, c.Name)
 	}
@@ -332,10 +421,7 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 func ExtractTLSSecrets(t test.Failer, secrets []*anypb.Any) map[string]*tls.Secret {
 	res := map[string]*tls.Secret{}
 	for _, a := range secrets {
-		scrt := &tls.Secret{}
-		if err := a.UnmarshalTo(scrt); err != nil {
-			t.Fatal(err)
-		}
+		scrt := UnmarshalAny[tls.Secret](t, a)
 		res[scrt.Name] = scrt
 	}
 	return res
@@ -415,4 +501,9 @@ func MapKeys[M ~map[string]V, V any](mp M) []string {
 	res := maps.Keys(mp)
 	sort.Strings(res)
 	return res
+}
+
+func TypeName[T proto.Message]() string {
+	ft := new(T)
+	return pm.APITypePrefix + string((*ft).ProtoReflect().Descriptor().FullName())
 }

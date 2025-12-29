@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 47960
+releaseNotes:
+- |
+  **Fixed** an issue where uninstalling Istio didn't prune all the resources created by custom files.

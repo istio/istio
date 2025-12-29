@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 //  Copyright Istio Authors
 //
@@ -27,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/jwt"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
@@ -41,15 +41,19 @@ var (
 	authzServer      authz.Server
 	localAuthzServer authz.Server
 	jwtServer        jwt.Server
+
+	i istio.Instance
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(nil, func(c resource.Context, cfg *istio.Config) {
-			if !c.Settings().EnableDualStack {
-				cfg.ControlPlaneValues = `
+		Setup(istio.Setup(&i, func(c resource.Context, cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
 values:
+  global:
+    logging:
+      level: delta:debug
   pilot: 
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
@@ -58,21 +62,6 @@ meshConfig:
     gatewayTopology:
       numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
 `
-			} else {
-				cfg.ControlPlaneValues = `
-values:
-  pilot: 
-    env: 
-      PILOT_JWT_ENABLE_REMOTE_JWKS: true
-      ISTIO_DUAL_STACK: true
-meshConfig:
-  defaultConfig:
-    proxyMetadata:
-      ISTIO_AGENT_DUAL_STACK: "true"
-    gatewayTopology:
-      numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
-`
-			}
 		})).
 		// Create namespaces first. This way, echo can correctly configure egress to all namespaces.
 		SetupParallel(
@@ -92,5 +81,8 @@ meshConfig:
 				},
 				ExternalNamespace: namespace.Future(&externalNS),
 			})).
+		Setup(func(ctx resource.Context) error {
+			return ingressutil.SetInstances(apps.Ns1.All)
+		}).
 		Run()
 }

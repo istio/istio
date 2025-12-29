@@ -30,12 +30,13 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
+var log = istiolog.RegisterScope("dns", "Istio DNS proxy")
 
 // LocalDNSServer holds configurations for the DNS downstreamUDPServer in Istio Agent
 type LocalDNSServer struct {
@@ -68,7 +69,7 @@ type LookupTable struct {
 	// host does not exist in this map, then we will return nil, causing the caller to query the upstream
 	// DNS server to resolve the host. Without this map, we would end up making unnecessary upstream DNS queries
 	// for hosts that will never resolve (e.g., AAAA for svc1.ns1.svc.cluster.local.svc.cluster.local.)
-	allHosts map[string]struct{}
+	allHosts sets.String
 
 	// The key is a FQDN matching a DNS query (like example.com.), the value is pre-created DNS RR records
 	// of A or AAAA type as appropriate.
@@ -91,8 +92,6 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 		proxyNamespace:            proxyNamespace,
 		forwardToUpstreamParallel: forwardToUpstreamParallel,
 	}
-
-	registerStats()
 
 	// proxyDomain could contain the namespace making it redundant.
 	// we just need the .svc.cluster.local piece
@@ -125,7 +124,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 	// We will use the local resolv.conf for resolving unknown names.
 	dnsConfig, err := dns.ClientConfigFromFile(resolvConf)
 	if err != nil {
-		log.Warnf("failed to load /etc/resolv.conf: %v", err)
+		log.Warnf("failed to load %s: %v", resolvConf, err)
 		return nil, err
 	}
 
@@ -151,7 +150,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 	v4, v6 := netutil.ParseIPsSplitToV4V6(dnsConfig.Servers)
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		return nil, fmt.Errorf("dns address must be a valid host:port")
+		return nil, fmt.Errorf("dns address must be a valid host:port: %v", err)
 	}
 	addresses := []string{addr}
 	if host == "localhost" && len(v4)+len(v6) > 0 {
@@ -188,7 +187,7 @@ func (h *LocalDNSServer) StartDNS() {
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 	lookupTable := &LookupTable{
-		allHosts: map[string]struct{}{},
+		allHosts: sets.String{},
 		name4:    map[string][]dns.RR{},
 		name6:    map[string][]dns.RR{},
 		cname:    map[string][]dns.RR{},
@@ -309,7 +308,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	_ = w.WriteMsg(response)
 }
 
-// IsReady returns true if DNS lookup table is updated atleast once.
+// IsReady returns true if DNS lookup table is updated at least once.
 func (h *LocalDNSServer) IsReady() bool {
 	return h.lookupTable.Load() != nil
 }
@@ -364,13 +363,13 @@ func roundRobin(in []dns.RR) []dns.RR {
 	return out
 }
 
-func roundRobinShuffle(records []dns.RR) {
-	switch l := len(records); l {
+func roundRobinShuffle[T any](entries []T) {
+	switch l := len(entries); l {
 	case 0, 1:
 		break
 	case 2:
 		if dns.Id()%2 == 0 {
-			records[0], records[1] = records[1], records[0]
+			entries[0], entries[1] = entries[1], entries[0]
 		}
 	default:
 		for j := 0; j < l*(int(dns.Id())%4+1); j++ {
@@ -379,7 +378,7 @@ func roundRobinShuffle(records []dns.RR) {
 			if q == p {
 				p = (p + 1) % l
 			}
-			records[q], records[p] = records[p], records[q]
+			entries[q], entries[p] = entries[p], entries[q]
 		}
 	}
 }
@@ -396,8 +395,9 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 	}
 
 	var response *dns.Msg
-
-	for _, upstream := range h.resolvConfServers {
+	servers := slices.Clone(h.resolvConfServers)
+	roundRobinShuffle(servers)
+	for _, upstream := range servers {
 		cResponse, _, err := upstreamClient.Exchange(req, upstream)
 		if err == nil {
 			response = cResponse
@@ -470,6 +470,7 @@ func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *
 }
 
 func serverFailure(req *dns.Msg) *dns.Msg {
+	failures.Increment()
 	response := new(dns.Msg)
 	response.SetReply(req)
 	response.Rcode = dns.RcodeServerFailure
@@ -480,6 +481,9 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 	proxyDomainParts []string,
 ) sets.String {
 	out := sets.New[string]()
+	if strings.HasSuffix(hostname, ".") {
+		return out
+	}
 	out.Insert(hostname + ".")
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
 	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains
@@ -508,12 +512,10 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 // If it is not part of the registry, return nil so that caller queries upstream. If it is part
 // of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
 func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
-	var hostFound bool
-
-	question := host.Name(hostname)
+	question := string(host.Name(hostname))
 	wildcard := false
 	// First check if host exists in all hosts.
-	_, hostFound = table.allHosts[hostname]
+	hostFound := table.allHosts.Contains(hostname)
 	// If it is not found, check if a wildcard host exists for it.
 	// For example for "*.example.com", with the question "svc.svcns.example.com",
 	// we check if we have entries for "*.svcns.example.com", "*.example.com" etc.
@@ -521,7 +523,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		labels := dns.SplitDomainName(hostname)
 		for idx := range labels {
 			qhost := "*." + strings.Join(labels[idx+1:], ".") + "."
-			if _, hostFound = table.allHosts[qhost]; hostFound {
+			if hostFound = table.allHosts.Contains(qhost); hostFound {
 				wildcard = true
 				hostname = qhost
 				break
@@ -534,16 +536,21 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 	}
 
 	var out []dns.RR
+	var ipAnswers []dns.RR
+	var wcAnswers []dns.RR
+	var cnAnswers []dns.RR
+
 	// Odds are, the first query will always be an expanded hostname
 	// (productpage.ns1.svc.cluster.local.ns1.svc.cluster.local)
 	// So lookup the cname table first
-	cn := table.cname[hostname]
-	if len(cn) > 0 {
+	for _, cn := range table.cname[hostname] {
 		// this was a cname match
-		hostname = cn[0].(*dns.CNAME).Target
+		copied := dns.Copy(cn).(*dns.CNAME)
+		copied.Header().Name = question
+		cnAnswers = append(cnAnswers, copied)
+		hostname = copied.Target
 	}
-	var ipAnswers []dns.RR
-	var wcAnswers []dns.RR
+
 	switch qtype {
 	case dns.TypeA:
 		ipAnswers = table.name4[hostname]
@@ -559,16 +566,23 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		if wildcard {
 			for _, answer := range ipAnswers {
 				copied := dns.Copy(answer)
-				copied.Header().Name = string(question)
+				/// If there is a CNAME record for the wildcard host, we will sent a chained response of CNAME + A/AAAA pointer
+				/// Otherwise we expand the wildcard to the original question domain
+				if len(cnAnswers) > 0 {
+					copied.Header().Name = hostname
+				} else {
+					copied.Header().Name = question
+				}
 				wcAnswers = append(wcAnswers, copied)
 			}
 		}
+
 		// We will return a chained response. In a chained response, the first entry is the cname record,
 		// and the second one is the A/AAAA record itself. Some clients do not follow cname redirects
 		// with additional DNS queries. Instead, they expect all the resolved records to be in the same
 		// big DNS response (presumably assuming that a recursive DNS query should do the deed, resolve
 		// cname et al and return the composite response).
-		out = append(out, cn...)
+		out = append(out, cnAnswers...)
 		if wildcard {
 			out = append(out, wcAnswers...)
 		} else {
@@ -596,14 +610,14 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, searchNamespaces []string) {
 	for h := range altHosts {
 		h = strings.ToLower(h)
-		table.allHosts[h] = struct{}{}
+		table.allHosts.Insert(h)
 		if len(ipv4) > 0 {
 			table.name4[h] = a(h, ipv4)
 		}
 		if len(ipv6) > 0 {
 			table.name6[h] = aaaa(h, ipv6)
 		}
-		if len(searchNamespaces) > 0 {
+		if len(searchNamespaces) > 0 && !strings.HasSuffix(h, searchNamespaces[0]+".") {
 			// NOTE: Right now, rather than storing one expanded host for each one of the search namespace
 			// entries, we are going to store just the first one (assuming that most clients will
 			// do sequential dns resolution, starting with the first search namespace)
@@ -620,7 +634,7 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 			// that is likely to be already present in the altHosts
 			if _, exists := altHosts[expandedHost]; !exists {
 				table.cname[expandedHost] = cname(expandedHost, h)
-				table.allHosts[expandedHost] = struct{}{}
+				table.allHosts.Insert(expandedHost)
 			}
 		}
 	}

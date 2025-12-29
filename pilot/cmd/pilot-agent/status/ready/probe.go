@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )
@@ -29,7 +27,7 @@ type Probe struct {
 	LocalHostAddr       string
 	AdminPort           uint16
 	receivedFirstUpdate bool
-	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
+	// Indicates that Envoy is ready at least once so that we can cache and reuse that probe.
 	atleastOnceReady bool
 	Context          context.Context
 	// NoEnvoy so we only check config status
@@ -78,9 +76,8 @@ func (p *Probe) checkConfigStatus() error {
 		return fmt.Errorf("config not received from XDS server (is Istiod running?): %s", s.String())
 	} else if s.LDSUpdatesRejection > 0 || s.CDSUpdatesRejection > 0 {
 		return fmt.Errorf("config received from XDS server, but was rejected: %s", s.String())
-	} else {
-		return fmt.Errorf("config not fully received from XDS server: %s", s.String())
 	}
+	return fmt.Errorf("config not fully received from XDS server: %s", s.String())
 }
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
@@ -93,7 +90,7 @@ func (p *Probe) isEnvoyReady() error {
 	}
 	select {
 	case <-p.Context.Done():
-		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_DRAINING.String())
+		return fmt.Errorf("server is terminated: %v", context.Cause(p.Context))
 	default:
 		return p.checkEnvoyReadiness()
 	}
@@ -118,6 +115,33 @@ func (p *Probe) checkEnvoyReadiness() error {
 	return err
 }
 
+type ServerInfoState int32
+
+const (
+	// Server is live and serving traffic.
+	Live ServerInfoState = 0
+	// Server is draining listeners in response to external health checks failing.
+	Draining ServerInfoState = 1
+	// Server has not yet completed cluster manager initialization.
+	PreInitializing ServerInfoState = 2
+	// Server is running the cluster manager initialization callbacks (e.g., RDS).
+	Initializing ServerInfoState = 3
+)
+
+func StateString(state ServerInfoState) string {
+	switch state {
+	case Live:
+		return "LIVE"
+	case Draining:
+		return "DRAINING"
+	case PreInitializing:
+		return "PRE_INITIALIZING"
+	case Initializing:
+		return "INITIALIZING"
+	}
+	return "UNKNOWN"
+}
+
 // checkEnvoyStats actually executes the Stats Query on Envoy admin endpoint.
 func checkEnvoyStats(host string, port uint16) error {
 	state, ws, err := util.GetReadinessStats(host, port)
@@ -125,8 +149,8 @@ func checkEnvoyStats(host string, port uint16) error {
 		return fmt.Errorf("failed to get readiness stats: %v", err)
 	}
 
-	if state != nil && admin.ServerInfo_State(*state) != admin.ServerInfo_LIVE {
-		return fmt.Errorf("server is not live, current state is: %v", admin.ServerInfo_State(*state).String())
+	if state != nil && ServerInfoState(*state) != Live {
+		return fmt.Errorf("server is not live, current state is: %v", StateString(ServerInfoState(*state)))
 	}
 
 	if !ws {

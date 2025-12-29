@@ -19,13 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	"github.com/google/go-cmp/cmp"
+	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -34,40 +34,39 @@ import (
 )
 
 func TestAggregateStoreBasicMake(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
-	schema1 := collections.K8SGatewayApiV1Beta1Httproutes
-	schema2 := collections.K8SGatewayApiV1Beta1Gatewayclasses
+	schema1 := collections.HTTPRoute
+	schema2 := collections.GatewayClass
 	store1 := memory.Make(collection.SchemasFor(schema1))
 	store2 := memory.Make(collection.SchemasFor(schema2))
 
 	stores := []model.ConfigStore{store1, store2}
 
 	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	schemas := store.Schemas()
-	g.Expect(schemas.All()).To(gomega.HaveLen(2))
-	fixtures.ExpectEqual(t, schemas, collection.SchemasFor(schema1, schema2))
+	g.Expect(cmp.Diff(schemas, collection.SchemasFor(schema1, schema2))).To(BeEmpty())
 }
 
 func TestAggregateStoreMakeValidationFailure(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	store1 := memory.Make(collection.SchemasFor(schemaFor("SomeConfig", "broken message name")))
 
 	stores := []model.ConfigStore{store1}
 
 	store, err := makeStore(stores, nil)
-	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("not found: broken message name")))
-	g.Expect(store).To(gomega.BeNil())
+	g.Expect(err).To(MatchError(ContainSubstring("not found: broken message name")))
+	g.Expect(store).To(BeNil())
 }
 
 func TestAggregateStoreGet(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Gatewayclasses))
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Gatewayclasses))
+	store1 := memory.Make(collection.SchemasFor(collections.GatewayClass))
+	store2 := memory.Make(collection.SchemasFor(collections.GatewayClass))
 
 	configReturn := &config.Config{
 		Meta: config.Meta{
@@ -77,22 +76,22 @@ func TestAggregateStoreGet(t *testing.T) {
 	}
 
 	_, err := store1.Create(*configReturn)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	stores := []model.ConfigStore{store1, store2}
 
 	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	c := store.Get(gvk.GatewayClass, "other", "")
-	g.Expect(c.Name).To(gomega.Equal(configReturn.Name))
+	g.Expect(c.Name).To(Equal(configReturn.Name))
 }
 
 func TestAggregateStoreList(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
+	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 
 	if _, err := store1.Create(config.Config{
 		Meta: config.Meta{
@@ -114,23 +113,22 @@ func TestAggregateStoreList(t *testing.T) {
 	stores := []model.ConfigStore{store1, store2}
 
 	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
-	l, err := store.List(gvk.HTTPRoute, "")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(l).To(gomega.HaveLen(2))
+	l := store.List(gvk.HTTPRoute, "")
+	g.Expect(l).To(HaveLen(2))
 }
 
 func TestAggregateStoreWrite(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
+	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 
 	stores := []model.ConfigStore{store1, store2}
 
 	store, err := makeStore(stores, store1)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	if _, err := store.Create(config.Config{
 		Meta: config.Meta{
@@ -141,34 +139,31 @@ func TestAggregateStoreWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	la, err := store.List(gvk.HTTPRoute, "")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(la).To(gomega.HaveLen(1))
-	g.Expect(la[0].Name).To(gomega.Equal("other"))
+	la := store.List(gvk.HTTPRoute, "")
+	g.Expect(la).To(HaveLen(1))
+	g.Expect(la[0].Name).To(Equal("other"))
 
-	l, err := store1.List(gvk.HTTPRoute, "")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(l).To(gomega.HaveLen(1))
-	g.Expect(l[0].Name).To(gomega.Equal("other"))
+	l := store1.List(gvk.HTTPRoute, "")
+	g.Expect(l).To(HaveLen(1))
+	g.Expect(l[0].Name).To(Equal("other"))
 
 	// Check the aggregated and individual store return identical response
-	g.Expect(la).To(gomega.BeEquivalentTo(l))
+	g.Expect(la).To(BeEquivalentTo(l))
 
-	l, err = store2.List(gvk.HTTPRoute, "")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(l).To(gomega.HaveLen(0))
+	l = store2.List(gvk.HTTPRoute, "")
+	g.Expect(l).To(HaveLen(0))
 }
 
 func TestAggregateStoreWriteWithoutWriter(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
+	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 
 	stores := []model.ConfigStore{store1, store2}
 
 	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	if _, err := store.Create(config.Config{
 		Meta: config.Meta{
@@ -181,36 +176,36 @@ func TestAggregateStoreWriteWithoutWriter(t *testing.T) {
 }
 
 func TestAggregateStoreFails(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	store1 := memory.Make(collection.SchemasFor(schemaFor("OtherConfig", "istio.networking.v1alpha3.Gateway")))
 
 	stores := []model.ConfigStore{store1}
 
 	store, err := makeStore(stores, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	t.Run("Fails to Delete", func(t *testing.T) {
-		g := gomega.NewWithT(t)
+		g := NewWithT(t)
 
 		err = store.Delete(config.GroupVersionKind{Kind: "not"}, "gonna", "work", nil)
-		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
+		g.Expect(err).To(MatchError(ContainSubstring("unsupported operation")))
 	})
 
 	t.Run("Fails to Create", func(t *testing.T) {
-		g := gomega.NewWithT(t)
+		g := NewWithT(t)
 
 		c, err := store.Create(config.Config{})
-		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
-		g.Expect(c).To(gomega.BeEmpty())
+		g.Expect(err).To(MatchError(ContainSubstring("unsupported operation")))
+		g.Expect(c).To(BeEmpty())
 	})
 
 	t.Run("Fails to Update", func(t *testing.T) {
-		g := gomega.NewWithT(t)
+		g := NewWithT(t)
 
 		c, err := store.Update(config.Config{})
-		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
-		g.Expect(c).To(gomega.BeEmpty())
+		g.Expect(err).To(MatchError(ContainSubstring("unsupported operation")))
+		g.Expect(c).To(BeEmpty())
 	})
 }
 
@@ -218,11 +213,11 @@ func TestAggregateStoreCache(t *testing.T) {
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
 
-	store1 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 	controller1 := memory.NewController(store1)
 	go controller1.Run(stop)
 
-	store2 := memory.Make(collection.SchemasFor(collections.K8SGatewayApiV1Beta1Httproutes))
+	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
 	controller2 := memory.NewController(store2)
 	go controller2.Run(stop)
 
@@ -253,13 +248,10 @@ func TestAggregateStoreCache(t *testing.T) {
 	})
 }
 
-func schemaFor(kind, proto string) collection.Schema {
-	return collection.Builder{
-		Name: strings.ToLower(kind),
-		Resource: resource.Builder{
-			Kind:   kind,
-			Plural: strings.ToLower(kind) + "s",
-			Proto:  proto,
-		}.BuildNoValidate(),
-	}.MustBuild()
+func schemaFor(kind, proto string) resource.Schema {
+	return resource.Builder{
+		Kind:   kind,
+		Plural: strings.ToLower(kind) + "s",
+		Proto:  proto,
+	}.BuildNoValidate()
 }

@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -26,10 +27,11 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pkg/log"
 	testenv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/tracing"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
-	pkgversion "istio.io/pkg/version"
+	pkgversion "istio.io/istio/pkg/version"
 )
 
 func main() {
@@ -39,6 +41,7 @@ func main() {
 	rootCmd.Flags().StringVar(&globalArgs.BaseVersion, "base-version", globalArgs.BaseVersion, "base version to use")
 	rootCmd.Flags().StringVar(&globalArgs.BaseImageRegistry, "image-base-registry", globalArgs.BaseImageRegistry, "base image registry to use")
 	rootCmd.Flags().StringVar(&globalArgs.ProxyVersion, "proxy-version", globalArgs.ProxyVersion, "proxy version to use")
+	rootCmd.Flags().StringVar(&globalArgs.ZtunnelVersion, "ztunnel-version", globalArgs.ZtunnelVersion, "ztunnel version to use")
 	rootCmd.Flags().StringVar(&globalArgs.IstioVersion, "istio-version", globalArgs.IstioVersion, "istio version to use")
 
 	rootCmd.Flags().StringSliceVar(&globalArgs.Targets, "targets", globalArgs.Targets, "targets to build")
@@ -73,6 +76,11 @@ var rootCmd = &cobra.Command{
 		defer func() {
 			log.WithLabels("runtime", time.Since(t0)).Infof("build complete")
 		}()
+		ctx, shutdown, err := tracing.InitializeFullBinary("docker-builder")
+		if err != nil {
+			return err
+		}
+		defer shutdown()
 		if version {
 			fmt.Println(pkgversion.Info.GitRevision)
 			os.Exit(0)
@@ -82,7 +90,7 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		args, err := ReadPlan(globalArgs)
+		args, err := ReadPlan(ctx, globalArgs)
 		if err != nil {
 			return fmt.Errorf("plan: %v", err)
 		}
@@ -92,7 +100,7 @@ var rootCmd = &cobra.Command{
 		// The crane builder is much faster but less tested.
 		// Neither builder is doing standard logic; see each builder for details.
 		if args.Builder == CraneBuilder {
-			return RunCrane(args)
+			return RunCrane(ctx, args)
 		}
 
 		return RunDocker(args)
@@ -154,7 +162,9 @@ func ReadPlanTargets() ([]string, []string, error) {
 
 var LocalArch = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 
-func ReadPlan(a Args) (Args, error) {
+func ReadPlan(ctx context.Context, a Args) (Args, error) {
+	_, span := tracing.Start(ctx, "ReadPlan")
+	defer span.End()
 	by, err := os.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
 	if err != nil {
 		return a, err
@@ -241,7 +251,9 @@ func StandardEnv(args Args) []string {
 var SkipMake = os.Getenv("SKIP_MAKE")
 
 // RunMake runs a make command for the repo, with standard environment variables set
-func RunMake(args Args, arch string, c ...string) error {
+func RunMake(ctx context.Context, args Args, arch string, c ...string) error {
+	_, span := tracing.Start(ctx, "RunMake")
+	defer span.End()
 	if len(c) == 0 {
 		log.Infof("nothing to make")
 		return nil

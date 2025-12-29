@@ -30,11 +30,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // nolint: gosec
@@ -89,7 +90,7 @@ func (n *kubeNamespace) Prefix() string {
 }
 
 func (n *kubeNamespace) Labels() (map[string]string, error) {
-	perCluster := make([]map[string]string, len(n.ctx.Clusters()))
+	perCluster := make([]map[string]string, len(n.ctx.AllClusters()))
 	if err := n.forEachCluster(func(i int, c cluster.Cluster) error {
 		ns, err := c.Kube().CoreV1().Namespaces().Get(context.TODO(), n.Name(), metav1.GetOptions{})
 		if err != nil {
@@ -133,7 +134,7 @@ func (n *kubeNamespace) Close() error {
 	// Perform the cleanup across all clusters concurrently.
 	var err error
 	if len(cleanupFuncs) > 0 {
-		scopes.Framework.Debugf("%s deleting namespace", n.id)
+		scopes.Framework.Debugf("%s deleting namespace %v", n.id, n.name)
 
 		g := multierror.Group{}
 		for _, cleanup := range cleanupFuncs {
@@ -232,20 +233,25 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 		return err
 	}
 
-	n.addCleanup(func() error {
-		return c.Kube().CoreV1().Namespaces().Delete(context.TODO(), n.name, kube2.DeleteOptionsForeground())
-	})
+	if !cfg.SkipCleanup {
+		n.addCleanup(func() error {
+			return c.Kube().CoreV1().Namespaces().Delete(context.TODO(), n.name, kube2.DeleteOptionsForeground())
+		})
+	}
 
 	s := n.ctx.Settings()
 	if s.Image.PullSecret != "" {
 		if err := c.ApplyYAMLFiles(n.name, s.Image.PullSecret); err != nil {
 			return err
 		}
-		_, err := c.Kube().CoreV1().ServiceAccounts(n.name).Patch(context.TODO(),
-			"default",
-			types.JSONPatchType,
-			[]byte(`[{"op": "add", "path": "/imagePullSecrets", "value": [{"name": "test-gcr-secret"}]}]`),
-			metav1.PatchOptions{})
+		err := retry.UntilSuccess(func() error {
+			_, err := c.Kube().CoreV1().ServiceAccounts(n.name).Patch(context.TODO(),
+				"default",
+				types.JSONPatchType,
+				[]byte(`[{"op": "add", "path": "/imagePullSecrets", "value": [{"name": "test-gcr-secret"}]}]`),
+				metav1.PatchOptions{})
+			return err
+		}, retry.Delay(1*time.Second), retry.Timeout(10*time.Second))
 		if err != nil {
 			return err
 		}
@@ -255,8 +261,7 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 
 func (n *kubeNamespace) forEachCluster(fn func(i int, c cluster.Cluster) error) error {
 	errG := multierror.Group{}
-	for i, c := range n.ctx.AllClusters().Kube() {
-		i, c := i, c
+	for i, c := range n.ctx.AllClusters() {
 		errG.Go(func() error {
 			return fn(i, c)
 		})
@@ -268,6 +273,29 @@ func (n *kubeNamespace) addCleanup(fn func() error) {
 	n.cleanupMutex.Lock()
 	defer n.cleanupMutex.Unlock()
 	n.cleanupFuncs = append(n.cleanupFuncs, fn)
+}
+
+func (n *kubeNamespace) IsAmbient() bool {
+	// TODO cache labels and invalidate on SetLabel to avoid a ton of kube calls
+	labels, err := n.Labels()
+	if err != nil {
+		scopes.Framework.Warnf("failed getting labels for namespace %s, assuming ambient is on", n.name)
+	}
+	return err != nil || labels["istio.io/dataplane-mode"] == "ambient"
+}
+
+func (n *kubeNamespace) IsInjected() bool {
+	if n == nil {
+		return false
+	}
+	// TODO cache labels and invalidate on SetLabel to avoid a ton of kube calls
+	labels, err := n.Labels()
+	if err != nil {
+		scopes.Framework.Warnf("failed getting labels for namespace %s, assuming injection is on", n.name)
+		return true
+	}
+	_, hasRevision := labels[label.IoIstioRev.Name]
+	return hasRevision || labels["istio-injection"] == "enabled"
 }
 
 // createNamespaceLabels will take a namespace config and generate the proper k8s labels
@@ -288,6 +316,10 @@ func createNamespaceLabels(ctx resource.Context, cfg Config) map[string]string {
 		// if we're running compatibility tests, disable injection in the namespace
 		// explicitly so that object selectors are ignored
 		if ctx.Settings().Compatibility {
+			l["istio-injection"] = "disabled"
+		}
+		if cfg.Revision != "" {
+			l[label.IoIstioRev.Name] = cfg.Revision
 			l["istio-injection"] = "disabled"
 		}
 	}

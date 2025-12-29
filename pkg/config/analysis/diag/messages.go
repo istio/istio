@@ -16,8 +16,6 @@ package diag
 
 import (
 	"sort"
-
-	"istio.io/istio/operator/pkg/object"
 )
 
 // Messages is a slice of Message items.
@@ -28,11 +26,14 @@ func (ms *Messages) Add(m ...Message) {
 	*ms = append(*ms, m...)
 }
 
-// Sort the message lexicographically by level, code, resource origin name, then string.
+// Sort the message lexicographically by cluster name, level, code, resource origin name, then string.
 func (ms *Messages) Sort() {
 	sort.Slice(*ms, func(i, j int) bool {
 		a, b := (*ms)[i], (*ms)[j]
 		switch {
+		case a.Resource != nil && b.Resource != nil &&
+			a.Resource.Origin.ClusterName().String() != b.Resource.Origin.ClusterName().String():
+			return a.Resource.Origin.ClusterName().String() < b.Resource.Origin.ClusterName().String()
 		case a.Type.Level() != b.Type.Level():
 			return a.Type.Level().sortOrder < b.Type.Level().sortOrder
 		case a.Type.Code() != b.Type.Code():
@@ -81,19 +82,6 @@ func (ms *Messages) FilterOutLowerThan(outputLevel Level) Messages {
 	for _, m := range *ms {
 		if m.Type.Level().IsWorseThanOrEqualTo(outputLevel) {
 			outputMessages = append(outputMessages, m)
-		}
-	}
-	return outputMessages
-}
-
-func (ms *Messages) FilterOutBasedOnResources(resources object.K8sObjects) Messages {
-	outputMessages := Messages{}
-	for _, m := range *ms {
-		for _, rs := range resources {
-			if rs.Name == m.Resource.Metadata.FullName.Name.String() {
-				outputMessages = append(outputMessages, m)
-				break
-			}
 		}
 	}
 	return outputMessages

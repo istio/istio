@@ -15,13 +15,12 @@
 package platform
 
 import (
+	"context"
 	"errors"
-	"fmt"
-	"reflect"
-	"sync"
 	"testing"
 
-	"cloud.google.com/go/compute/metadata"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestGCPMetadata(t *testing.T) {
@@ -223,68 +222,48 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
-			map[string]string{"GCP_METADATA": "env_pid|env_pn|env_cluster|env_location"},
+			map[string]string{
+				GCPProject:       "env_pid",
+				GCPProjectNumber: "env_pn",
+				GCPCluster:       "env_cluster",
+				GCPLocation:      "env_location",
+			},
 			map[string]string{
 				GCPProject: "env_pid", GCPProjectNumber: "env_pn", GCPLocation: "env_location", GCPCluster: "env_cluster",
-				GCEInstance: "instanceName", GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy",
-				GCPClusterURL: "https://container.googleapis.com/v1/projects/env_pid/locations/env_location/clusters/env_cluster",
+			},
+		},
+		{
+			"use env variable without fill",
+			func() bool { return false },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			func() (string, error) { return "", nil },
+			map[string]string{
+				GCPProject:       "env_pid",
+				GCPProjectNumber: "env_pn",
+				GCPCluster:       "env_cluster",
+				GCPLocation:      "env_location",
+			},
+			map[string]string{
+				GCPProject: "env_pid", GCPProjectNumber: "env_pn", GCPLocation: "env_location", GCPCluster: "env_cluster",
 			},
 		},
 	}
 
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			for e, v := range tt.env {
-				t.Setenv(e, v)
-				if e == "GCP_METADATA" {
-					GCPMetadata = v
-				}
-			}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &GCPStaticMetadata, tt.env)
 			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn,
 				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn,
 				tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
 			e := NewGCP()
 			got := e.Metadata()
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
-			}
-			for e := range tt.env {
-				if e == "GCP_METADATA" {
-					GCPMetadata = ""
-				}
-			}
-			parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
-		})
-	}
-}
-
-func TestGCPQuotaProject(t *testing.T) {
-	cases := []struct {
-		name         string
-		quotaProject string
-		wantFound    bool
-		wantProject  string
-	}{
-		{"no value set", "", false, ""},
-		{"value set", "234234323", true, "234234323"},
-	}
-	for _, v := range cases {
-		t.Run(v.name, func(tt *testing.T) {
-			shouldFillMetadata = func() bool { return true }
-			tmpQuotaProject := GCPQuotaProjectVar
-			GCPQuotaProjectVar = v.quotaProject
-			defer func() {
-				GCPQuotaProjectVar = tmpQuotaProject
-				shouldFillMetadata = metadata.OnGCE
-			}()
-			meta := NewGCP().Metadata()
-			val, found := meta[GCPQuotaProject]
-			if got, want := found, v.wantFound; got != want {
-				tt.Errorf("Metadata() returned an unexpected value for GCPQuotaProject; found value: %t, want %t", got, want)
-			}
-			if got, want := val, v.wantProject; got != want {
-				tt.Errorf("Incorrect value for GCPQuotaProject; got = %q, want = %q", got, want)
-			}
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }
@@ -301,7 +280,6 @@ func TestMetadataCache(t *testing.T) {
 		instanceIDFn        metadataFn
 		instanceTemplateFn  metadataFn
 		instanceCreatedByFn metadataFn
-		env                 map[string]string
 		want                map[string]string
 	}{
 		{
@@ -315,7 +293,6 @@ func TestMetadataCache(t *testing.T) {
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
-			map[string]string{},
 			map[string]string{
 				GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
 				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy",
@@ -332,7 +309,6 @@ func TestMetadataCache(t *testing.T) {
 			func() (string, error) { return "newInstance", nil },
 			func() (string, error) { return "newInstanceTemplate", nil },
 			func() (string, error) { return "newCreatedBy", nil },
-			map[string]string{},
 			map[string]string{
 				GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
 				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy",
@@ -342,8 +318,8 @@ func TestMetadataCache(t *testing.T) {
 	}
 
 	var gcpEnvVar Environment
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn,
 				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn,
 				tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
@@ -352,10 +328,7 @@ func TestMetadataCache(t *testing.T) {
 				gcpEnvVar = NewGCP()
 			}
 			got := gcpEnvVar.Metadata()
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
-			}
-			parseMetadataOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }
@@ -382,6 +355,161 @@ func TestDefaultPort(t *testing.T) {
 		t.Run(tt.host, func(t *testing.T) {
 			if got := defaultPort(tt.host, "80"); got != tt.want {
 				t.Errorf("defaultPort() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLocality(t *testing.T) {
+	tests := []struct {
+		name     string
+		zoneFn   func(context.Context) (string, error)
+		resolvFn func() string
+		env      map[string]string
+		want     map[string]string
+	}{
+		{
+			"fill by env variable",
+			func(context.Context) (string, error) { return "us-east1-ir", nil },
+			func() string { return "us-central3-f" },
+			map[string]string{
+				GCPZone: "us-central2-ir",
+			},
+			map[string]string{"Zone": "us-central2-ir", "Region": "us-central2"},
+		},
+		{
+			"fill by metadata server",
+			func(context.Context) (string, error) { return "us-east1-ir", nil },
+			func() string { return "" },
+			map[string]string{},
+			map[string]string{"Zone": "us-east1-ir", "Region": "us-east1"},
+		},
+		{
+			"fill by env variable without compute metadata",
+			func(context.Context) (string, error) { return "", errors.New("error") },
+			func() string { return "" },
+			map[string]string{
+				GCPZone: "us-central2-ir",
+			},
+			map[string]string{"Zone": "us-central2-ir", "Region": "us-central2"},
+		},
+		{
+			"no env variable and unable to reach compute metadata",
+			func(context.Context) (string, error) { return "", errors.New("error") },
+			func() string { return "" },
+			map[string]string{},
+			map[string]string{},
+		},
+		{
+			"fill by resolv.conf",
+			func(context.Context) (string, error) { return "us-east1-ir", nil },
+			func() string { return "us-central3-f" },
+			map[string]string{},
+			map[string]string{"Zone": "us-central3-f", "Region": "us-central3"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &zoneFromResolvConf, tt.resolvFn)
+			test.SetForTest(t, &GCPStaticMetadata, tt.env)
+			zoneFn = tt.zoneFn
+			e := NewGCP()
+			got := e.Locality()
+			assert.Equal(t, got.Zone, tt.want["Zone"])
+			assert.Equal(t, got.Region, tt.want["Region"])
+		})
+	}
+}
+
+func TestZoneToRegion(t *testing.T) {
+	tests := []struct {
+		zone       string
+		wantRegion string
+		wantErr    bool
+	}{
+		{
+			zone:       "us-central1-f",
+			wantRegion: "us-central1",
+		},
+		{
+			zone:    "us-central1",
+			wantErr: true,
+		},
+		{
+			zone:    "abcd",
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.zone, func(t *testing.T) {
+			got, err := zoneToRegion(tc.zone)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error was not raised")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error was raised")
+				}
+				if got != tc.wantRegion {
+					t.Errorf("unexpected region was returned. (got: %v, want: %v)", got, tc.wantRegion)
+				}
+			}
+		})
+	}
+}
+
+func TestZoneFromResolvConfData(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name: "firstElementAndMiddleLine",
+			input: `domain us-central1-c.c.test-proj.internal
+search us-central1-c.c.test-proj.internal. c.test-proj.internal. google.internal.
+nameserver 8.8.8.8
+`,
+			want: "us-central1-c",
+		},
+		{
+			name: "middleElementAndFirstLine",
+			input: `search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal c.test-proj.internal google.internal
+nameserver 34.118.224.10
+options ndots:5`,
+			want: "us-central1-f",
+		},
+		{
+			name: "lastElement",
+			input: `nameserver 34.118.224.10
+options ndots:5
+search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal`,
+			want: "us-central1-f",
+		},
+		{
+			name: "lastElementWithTrailingSpace",
+			input: `nameserver 34.118.224.10
+options ndots:5
+search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal `,
+			want: "us-central1-f",
+		},
+		{
+			name: "withoutSearchTerm",
+			input: `nameserver 34.118.224.10
+options ndots:5
+search httpbin.svc.cluster.local svc.cluster.local cluster.local
+domain us-central1-f.c.test-proj.internal `,
+			want: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := zoneFromResolvConfData(tc.input)
+			if got != tc.want {
+				t.Errorf("unexpected output from zoneFromResolvConfData (got: %v, want: %v)", got, tc.want)
 			}
 		})
 	}

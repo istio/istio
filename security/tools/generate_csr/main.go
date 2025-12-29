@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"os"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -32,6 +32,7 @@ var (
 	outPriv = flag.String("out-priv", "priv.pem", "Output private key file.")
 	keySize = flag.Int("key-size", 2048, "Size of the generated private key")
 	ec      = flag.String("ec-sig-alg", "", "Generate an elliptical curve private key with the specified algorithm")
+	curve   = flag.String("curve", "P256", "Specify the elliptic curve to use to generate an elliptical curve private key")
 )
 
 func saveCreds(csrPem []byte, privPem []byte) {
@@ -54,6 +55,7 @@ func main() {
 		Org:        *org,
 		RSAKeySize: *keySize,
 		ECSigAlg:   util.SupportedECSignatureAlgorithms(*ec),
+		ECCCurve:   util.SupportedEllipticCurves(*curve),
 	})
 	if err != nil {
 		log.Fatalf("Failed to generate CSR: %s.", err)

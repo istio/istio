@@ -15,6 +15,8 @@
 package model
 
 import (
+	"regexp"
+	"strings"
 	"testing"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
@@ -22,8 +24,214 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
+
+func TestRequestPrincipal(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{
+			in: "*",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+`,
+		},
+		{
+			in: "foo*",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  prefix: foo
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+`,
+		},
+		{
+			in: "foo/*",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  exact: foo
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+`,
+		},
+		{
+			in: "foo/bar*",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  exact: foo
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  prefix: bar
+`,
+		},
+		{
+			in: "*foo",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  suffix: foo
+`,
+		},
+		{
+			in: "*/foo",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  exact: foo
+`,
+		},
+		{
+			in: "*bar/foo",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  suffix: bar
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  exact: foo
+`,
+		},
+		{
+			in: "foo/bar",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  exact: foo
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  exact: bar
+`,
+		},
+	}
+	rpg := requestPrincipalGenerator{}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			got, err := rpg.extendedPrincipal("", []string{tc.in}, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			principal := yamlPrincipal(t, tc.want)
+			if diff := cmp.Diff(got, principal, protocmp.Transform()); diff != "" {
+				t.Errorf("diff detected: %v", diff)
+			}
+		})
+	}
+}
 
 func TestGenerator(t *testing.T) {
 	cases := []struct {
@@ -121,7 +329,6 @@ func TestGenerator(t *testing.T) {
            key: io.istio.peer_principal
            string_match:
             safeRegex:
-              googleRe2: {}
               regex: .*/ns/foo/.*`),
 		},
 		{
@@ -134,7 +341,6 @@ func TestGenerator(t *testing.T) {
            key: io.istio.peer_principal
            string_match:
             safeRegex:
-              googleRe2: {}
               regex: .*/ns/foo/.*`),
 		},
 		{
@@ -161,91 +367,15 @@ func TestGenerator(t *testing.T) {
             exact: spiffe://foo`),
 		},
 		{
-			name:  "requestPrincipalGenerator",
-			g:     requestPrincipalGenerator{},
-			key:   "request.auth.principal",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.principal
-          value:
-            stringMatch:
-              exact: foo`),
-		},
-		{
-			name:  "requestAudiencesGenerator",
-			g:     requestAudiencesGenerator{},
-			key:   "request.auth.audiences",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.audiences
-          value:
-            stringMatch:
-              exact: foo`),
-		},
-		{
-			name:  "requestPresenterGenerator",
-			g:     requestPresenterGenerator{},
-			key:   "request.auth.presenter",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.presenter
-          value:
-            stringMatch:
-              exact: foo`),
-		},
-		{
 			name:  "requestHeaderGenerator",
 			g:     requestHeaderGenerator{},
 			key:   "request.headers[x-foo]",
 			value: "foo",
 			want: yamlPrincipal(t, `
-         header:
-          exactMatch: foo
-          name: x-foo`),
-		},
-		{
-			name:  "requestClaimGenerator",
-			g:     requestClaimGenerator{},
-			key:   "request.auth.claims[bar]",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.claims
-          - key: bar
-          value:
-            listMatch:
-              oneOf:
-                stringMatch:
-                  exact: foo`),
-		},
-		{
-			name:  "requestNestedClaimsGenerator",
-			g:     requestClaimGenerator{},
-			key:   "request.auth.claims[bar][baz]",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.claims
-          - key: bar
-          - key: baz
-          value:
-            listMatch:
-              oneOf:
-                stringMatch:
-                  exact: foo`),
+        header:
+          name: x-foo
+          stringMatch:
+            exact: foo`),
 		},
 		{
 			name:  "hostGenerator",
@@ -268,13 +398,25 @@ func TestGenerator(t *testing.T) {
             exact: /abc`),
 		},
 		{
+			name:  "pathGenerator-template",
+			g:     pathGenerator{},
+			value: "/abc/{*}",
+			want: yamlPermission(t, `
+         uriTemplate:
+           name: uri-template
+           typedConfig:
+            '@type': type.googleapis.com/envoy.extensions.path.match.uri_template.v3.UriTemplateMatchConfig
+            pathTemplate: /abc/*`),
+		},
+		{
 			name:  "methodGenerator",
 			g:     methodGenerator{},
 			value: "GET",
 			want: yamlPermission(t, `
          header:
-          exactMatch: GET
-          name: :method`),
+          name: :method
+          stringMatch:
+            exact: GET`),
 		},
 	}
 
@@ -297,7 +439,7 @@ func TestGenerator(t *testing.T) {
 				_, err1 := tc.g.principal(tc.key, tc.value, tc.forTCP, false)
 				_, err2 := tc.g.permission(tc.key, tc.value, tc.forTCP)
 				if err1 == nil || err2 == nil {
-					t.Fatalf("wanted error")
+					t.Fatal("wanted error")
 				}
 				return
 			}
@@ -312,6 +454,101 @@ func TestGenerator(t *testing.T) {
 				}
 				t.Errorf("got:\n %v\n but want:\n %v", gotYaml, tc.want)
 			}
+		})
+	}
+}
+
+func TestServiceAccount(t *testing.T) {
+	input := "my-ns/my-sa"
+	cases := []struct {
+		Name     string
+		Identity string
+		Match    bool
+	}{
+		{
+			Name:     "standard",
+			Identity: "spiffe://cluster.local/ns/my-ns/sa/my-sa",
+			Match:    true,
+		},
+		{
+			Name:     "suffix attributes",
+			Identity: "spiffe://cluster.local/ns/my-ns/sa/my-sa/k/v",
+			Match:    true,
+		},
+		{
+			Name:     "prefix attributes",
+			Identity: "spiffe://cluster.local/k/v/ns/my-ns/sa/my-sa",
+			Match:    true,
+		},
+		{
+			Name:     "middle attributes",
+			Identity: "spiffe://cluster.local/ns/my-ns/k/v/sa/my-sa",
+			Match:    true,
+		},
+		{
+			Name:     "all attributes",
+			Identity: "spiffe://cluster.local/k1/v1/ns/my-ns/k2/v2/sa/my-sa/k3/v3",
+			Match:    true,
+		},
+		{
+			Name:     "sa suffix string",
+			Identity: "spiffe://cluster.local/ns/my-ns/sa/my-sa-suffix",
+			Match:    false,
+		},
+		{
+			Name:     "ns suffix string",
+			Identity: "spiffe://cluster.local/ns/my-ns-suffix/sa/my-sa",
+			Match:    false,
+		},
+		{
+			Name:     "not spiffe",
+			Identity: "cluster.local/ns/my-ns/sa/my-sa",
+			Match:    false,
+		},
+		{
+			Name:     "invalid spiffe",
+			Identity: "spiffe://ns/my-ns/sa/my-sa",
+			Match:    false,
+		},
+		{
+			Name:     "missing sa",
+			Identity: "spiffe://cluster.local/ns/my-ns",
+			Match:    false,
+		},
+		{
+			Name:     "missing ns",
+			Identity: "spiffe://cluster.local/sa/my-sa",
+			Match:    false,
+		},
+		{
+			Name:     "missing ns",
+			Identity: "spiffe://cluster.local/sa/my-sa",
+			Match:    false,
+		},
+		{
+			Name: "weird keys",
+			// This test case matches when it shouldn't ideally.
+			// Spiffe is a set of k/v pairs. Here we are accidentally matching
+			// on previous value + next key when we shouldn't.
+			// The chance of an identity being formatted like this is exceptionally low though
+			Identity: "spiffe://cluster.local/" + strings.Join([]string{
+				"k", "ns",
+				"my-ns", "something",
+				"bar", "sa",
+				"my-sa", "baz",
+			}, "/"),
+			Match: true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.Name, func(t *testing.T) {
+			r := serviceAccountRegex("", input)
+			// Parse as regex. Envoy does a full string match, so handle that
+			rgx, err := regexp.Compile("^" + r + "$")
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, rgx.MatchString(tt.Identity), tt.Match)
 		})
 	}
 }
@@ -332,4 +569,9 @@ func yamlPrincipal(t *testing.T, yaml string) *rbacpb.Principal {
 		t.Fatalf("failed to parse yaml: %s", err)
 	}
 	return p
+}
+
+func TestServiceAccountRegex(t *testing.T) {
+	assert.Equal(t, serviceAccountRegex("", "my-ns/my-sa"), `spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?`)
+	assert.Equal(t, serviceAccountRegex("my-ns", "my-sa"), `spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?`)
 }

@@ -1,0 +1,13 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            paths: ["/allow/admin/{**}", "/foo/{*}/bar/{**}", "/store/{**}/cart"]

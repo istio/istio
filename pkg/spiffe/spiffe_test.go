@@ -29,78 +29,65 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 )
 
 var (
-	validSpiffeX509Bundle = `
-{
-	"spiffe_sequence": 1,
-	"spiffe_refresh_hint": 450000,
-	"keys": [
-		{
-		"kty": "RSA",
-		"use": "x509-svid",
-		"n": "r10W2IcjT-vvSTpaFsS4OAcPOX87kw-zKZuJgXhxDhkOQyBdPZpUfK4H8yZ2q14Laym4bmiMLocIeGP70k` +
-		`UXcp9T4SP-P0DmBTPx3hVgP3YteHzaKsja056VtDs9kAufmFGemTSCenMt7aSlryUbLRO0H-__fTeNkCXR7uIoq` +
-		`RfU6jL0nN4EBh02q724iGuX6dpJcQam5bEJjq6Kn4Ry4qn1xHXqQXM4o2f6xDT13sp4U32stpmKh0HOd1WWKr0W` +
-		`RYnAh4GnToKr21QySZi9QWTea3zqeFmti-Isji1dKZkgZA2S89BdTWSLe6S_9lV0mtdXvDaT8RmaIX72jE_Abhn` +
-		`bUYV84pNYv-T2LtIKoi5PjWk0raaYoexAjtCWiu3PnizxjYOnNwpzgQN9Qh_rY2jv74cgzG50_Ft1B7XUiakNFx` +
-		`AiD1k6pNuiu4toY0Es7qt1yeqaC2zcIuuV7HUv1AbFBkIdF5quJHVtZ5AE1MCh1ipLPq-lIjmFdQKSRdbssVw8y` +
-		`q9FtFVyVqTz9GnQtoctCIPGQqmJDWmt8E7gjFhweUQo-fGgGuTlZRl9fiPQ6luPyGQ1WL6wH79G9eu4UtmgUDNw` +
-		`q7kpYq0_NQ5vw_1WQSY3LsPclfKzkZ-Lw2RVef-SFVVvUFMcd_3ALeeEnnSe4GSY-7vduPUAE5qMH7M",
-		"e": "AQAB",
-		"x5c": ["MIIGlDCCBHygAwIBAgIQEW25APa7S9Sj/Nj6V6GxQTANBgkqhkiG9w0BAQsFADCBwTELMAkGA1UEBhM` +
-		`CVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDU1vdW50YWluIFZpZXcxEzARBgNVBAoTCkdvb2dsZS` +
-		`BMTEMxDjAMBgNVBAsTBUNsb3VkMWAwXgYDVQQDDFdpc3Rpb192MV9jbG91ZF93b3JrbG9hZF9yb290LXNpZ25lc` +
-		`i0wLTIwMTgtMDQtMjVUMTQ6MTE6MzMtMDc6MDAgSzoxLCAxOkg1MnZnd0VtM3RjOjA6MTgwIBcNMTgwNDI1MjEx` +
-		`MTMzWhgPMjExODA0MjUyMjExMzNaMIHBMQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1U` +
-		`EBxMNTW91bnRhaW4gVmlldzETMBEGA1UEChMKR29vZ2xlIExMQzEOMAwGA1UECxMFQ2xvdWQxYDBeBgNVBAMMV2` +
-		`lzdGlvX3YxX2Nsb3VkX3dvcmtsb2FkX3Jvb3Qtc2lnbmVyLTAtMjAxOC0wNC0yNVQxNDoxMTozMy0wNzowMCBLO` +
-		`jEsIDE6SDUydmd3RW0zdGM6MDoxODCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK9dFtiHI0/r70k6` +
-		`WhbEuDgHDzl/O5MPsymbiYF4cQ4ZDkMgXT2aVHyuB/MmdqteC2spuG5ojC6HCHhj+9JFF3KfU+Ej/j9A5gUz8d4` +
-		`VYD92LXh82irI2tOelbQ7PZALn5hRnpk0gnpzLe2kpa8lGy0TtB/v/303jZAl0e7iKKkX1Ooy9JzeBAYdNqu9uI` +
-		`hrl+naSXEGpuWxCY6uip+EcuKp9cR16kFzOKNn+sQ09d7KeFN9rLaZiodBzndVliq9FkWJwIeBp06Cq9tUMkmYv` +
-		`UFk3mt86nhZrYviLI4tXSmZIGQNkvPQXU1ki3ukv/ZVdJrXV7w2k/EZmiF+9oxPwG4Z21GFfOKTWL/k9i7SCqIu` +
-		`T41pNK2mmKHsQI7Qlortz54s8Y2DpzcKc4EDfUIf62No7++HIMxudPxbdQe11ImpDRcQIg9ZOqTboruLaGNBLO6` +
-		`rdcnqmgts3CLrlex1L9QGxQZCHReariR1bWeQBNTAodYqSz6vpSI5hXUCkkXW7LFcPMqvRbRVclak8/Rp0LaHLQ` +
-		`iDxkKpiQ1prfBO4IxYcHlEKPnxoBrk5WUZfX4j0Opbj8hkNVi+sB+/RvXruFLZoFAzcKu5KWKtPzUOb8P9VkEmN` +
-		`y7D3JXys5Gfi8NkVXn/khVVb1BTHHf9wC3nhJ50nuBkmPu73bj1ABOajB+zAgMBAAGjgYMwgYAwDgYDVR0PAQH/` +
-		`BAQDAgEGMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQ` +
-		`/VsuyjgRDAEmcZjyJ77619Js9ijAfBgNVHSMEGDAWgBQ/VsuyjgRDAEmcZjyJ77619Js9ijANBgkqhkiG9w0BAQ` +
-		`sFAAOCAgEAUc5QJOqxmMJY0E2rcHEWQYRah1vat3wuIHtEZ3SkSumyj+y9eyIHb9XTTyc4SyGyX1n8Rary8oSgQ` +
-		`V4cbyJTFXEEQOGLHB9/98EKThgJtfPsos2WKe/59S8yN05onpxcaL9y4S295Kv9kcSQxLm5UfjlqsKeHJZymvxi` +
-		`YzmBox7LA1zqcLYZvslJNkJxKAk5JA66iyDSQqOK7jIixn8pi305dFGCZglUFStwWqY6Rc9rR8EycVhSx2AhrvT` +
-		`7OQTVdKLfoKA84D8JZJPB7hrxqKf7JJFs87Kjt7c/5bXPFJ2osmjoNYnbHjiq64bh20sSCd630qvhhePLwjjOlB` +
-		`PiFyK36o/hQN871AEm1SCHy+aQcfJqF5KTgPnZQy5D+D/CGau+BfkO+WCGDVxRleYBJ4g2NbATolygB2KWXrj07` +
-		`U/WaWqV2hERbkmxXFh6cUdlkX2MeoG4v6ZD2OKAPx5DpJCfp0TEq6PznP+Z1mLd/ZjGsOF8R2WGQJEuU8HRzvsr` +
-		`0wsX9UyLMqf5XViDK11V/W+dcIvjHCayBpX2se3dfex5jFht+JcQc+iwB8caSXkR6tGSiargEtSJODORacO9IB8` +
-		`b6W8Sm//JWf/8zyiCcMm1i2yVVphwE1kczFwunAh0JB896VaXGVxXeKEAMQoXHjgDdCYp8/Etxjb8UkCmyjU="]
-		}
-	]
+	// nolint: lll
+	validSpiffeX509Bundle = `{
+  "keys": [
+    {
+      "use": "x509-svid",
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "8JAyuuX9TpQJUUCQdKIX4NUG5a2FmzWFORz-VEkET6k",
+      "y": "HX1rdVwFy7NAsLcWtmt0D9IxtbwmU3oDJfji9T4ZXDs",
+      "x5c": [
+        "MIIBnTCCAUOgAwIBAgIBATAKBggqhkjOPQQDAjAkMSIwIAYDVQQDExlSb290IENBIGZvciB0cnVzdGRvbWFpbi5hMB4XDTA5MTExMDIzMDAwMFoXDTEwMTExMDIzMDAwMFowJDEiMCAGA1UEAxMZUm9vdCBDQSBmb3IgdHJ1c3Rkb21haW4uYTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABPCQMrrl/U6UCVFAkHSiF+DVBuWthZs1hTkc/lRJBE+pHX1rdVwFy7NAsLcWtmt0D9IxtbwmU3oDJfji9T4ZXDujZjBkMA4GA1UdDwEB/wQEAwICBDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBTm7xwcyW6KEkYeXRSFTn6Ngjcl9TAfBgNVHR4BAf8EFTAToBEwD4YNdHJ1c3Rkb21haW4uYTAKBggqhkjOPQQDAgNIADBFAiEA3uhdfxgrSehr+s7wSnD9QRpZjaiUcogPhAXyS73Qn9ACICUGj8pqxqfejMpdHEnz803lc6bHzaoUbd6cgemL7MRn"
+      ]
+    }
+  ]
 }`
 
-	invalidSpiffeX509Bundle = `
-{
-	"spiffe_sequence": 1,
-	"spiffe_refresh_hint": 450000,
-	"keys": [
-		{
-		"kty": "RSA",
-		"use": "x509-svid",
-		"n": "r10W2IcjT-vvSTpaFsS4OAcPOX87kw-zKZuJgXhxDhkOQyBdPZpUfK4H8yZ2q14Laym4bmiMLocIeGP70k` +
-		`UXcp9T4SP-P0DmBTPx3hVgP3YteHzaKsja056VtDs9kAufmFGemTSCenMt7aSlryUbLRO0H-__fTeNkCXR7uIoq` +
-		`RfU6jL0nN4EBh02q724iGuX6dpJcQam5bEJjq6Kn4Ry4qn1xHXqQXM4o2f6xDT13sp4U32stpmKh0HOd1WWKr0W` +
-		`RYnAh4GnToKr21QySZi9QWTea3zqeFmti-Isji1dKZkgZA2S89BdTWSLe6S_9lV0mtdXvDaT8RmaIX72jE_Abhn` +
-		`bUYV84pNYv-T2LtIKoi5PjWk0raaYoexAjtCWiu3PnizxjYOnNwpzgQN9Qh_rY2jv74cgzG50_Ft1B7XUiakNFx` +
-		`AiD1k6pNuiu4toY0Es7qt1yeqaC2zcIuuV7HUv1AbFBkIdF5quJHVtZ5AE1MCh1ipLPq-lIjmFdQKSRdbssVw8y` +
-		`q9FtFVyVqTz9GnQtoctCIPGQqmJDWmt8E7gjFhweUQo-fGgGuTlZRl9fiPQ6luPyGQ1WL6wH79G9eu4UtmgUDNw` +
-		`q7kpYq0_NQ5vw_1WQSY3LsPclfKzkZ-Lw2RVef-SFVVvUFMcd_3ALeeEnnSe4GSY-7vduPUAE5qMH7M",
-		"e": "AQAB"
-		}
-	]
+	// nolint: lll
+	validSpiffeX509BundleWithMultipleCerts = `{
+  "keys": [
+    {
+      "use": "x509-svid",
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "HFlg42KnDPaiGvQrAIaKWDqJw_4ngCwZ_687jLrBUVE",
+      "y": "ActNT7SNmcX3tQD9YZgRueiajOgmYv-rANQ8_H8GBEU",
+      "x5c": [
+        "MIIBnTCCAUOgAwIBAgIBAjAKBggqhkjOPQQDAjAkMSIwIAYDVQQDExlSb290IENBIGZvciB0cnVzdGRvbWFpbi5iMB4XDTA5MTExMDIzMDAwMFoXDTEwMTExMDIzMDAwMFowJDEiMCAGA1UEAxMZUm9vdCBDQSBmb3IgdHJ1c3Rkb21haW4uYjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABBxZYONipwz2ohr0KwCGilg6icP+J4AsGf+vO4y6wVFRActNT7SNmcX3tQD9YZgRueiajOgmYv+rANQ8/H8GBEWjZjBkMA4GA1UdDwEB/wQEAwICBDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBTR41Rmvs/3JBw24dDjlwgLuFB13zAfBgNVHR4BAf8EFTAToBEwD4YNdHJ1c3Rkb21haW4uYjAKBggqhkjOPQQDAgNIADBFAiEA243KZVSU5IUTmoj0OCvcBYnKo3a1p/kQal1qqFcE0BgCIBZB+2OJU/dPRs1AoGilH6AZqVC5KZlSPZq9bv6Pm5UG"
+      ]
+    },
+    {
+      "use": "x509-svid",
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "vzhUQgVXLcdwrDmP6REclI3lusWR6MHM6i5bXXq87Pk",
+      "y": "-407emssjw1NjyK1gs33mczZapiqHoWMesi2sUudgsw",
+      "x5c": [
+        "MIIBnTCCAUOgAwIBAgIBAjAKBggqhkjOPQQDAjAkMSIwIAYDVQQDExlSb290IENBIGZvciB0cnVzdGRvbWFpbi5iMB4XDTA5MTExMDIzMDAwMFoXDTEwMTExMDIzMDAwMFowJDEiMCAGA1UEAxMZUm9vdCBDQSBmb3IgdHJ1c3Rkb21haW4uYjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABL84VEIFVy3HcKw5j+kRHJSN5brFkejBzOouW116vOz5+407emssjw1NjyK1gs33mczZapiqHoWMesi2sUudgsyjZjBkMA4GA1UdDwEB/wQEAwICBDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQSZLzOBu77lDJGEP5uxqAJgze0+zAfBgNVHR4BAf8EFTAToBEwD4YNdHJ1c3Rkb21haW4uYjAKBggqhkjOPQQDAgNIADBFAiA9KU1cfQilqatMt7cWoIPUeq72rso1B0RAN9MxcZV9ugIhAOHbu0dHR1Pq3iuHCrwSCiM1xQ+fnay6m64B/Hv78q2W"
+      ]
+    }
+  ]
+}`
+
+	invalidSpiffeX509Bundle = `{
+  "keys": [
+    {
+      "use": "x509-svid",
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "8JAyuuX9TpQJUUCQdKIX4NUG5a2FmzWFORz-VEkET6k",
+      "y": "HX1rdVwFy7NAsLcWtmt0D9IxtbwmU3oDJfji9T4ZXDs"
+    }
+  ]
 }`
 
 	// validRootCertFile, validIntCertFile and validWorkloadCertFile are in a certification chain.
@@ -116,9 +103,6 @@ var (
 )
 
 func TestGenSpiffeURI(t *testing.T) {
-	oldTrustDomain := GetTrustDomain()
-	defer SetTrustDomain(oldTrustDomain)
-
 	testCases := []struct {
 		namespace      string
 		trustDomain    string
@@ -156,8 +140,7 @@ func TestGenSpiffeURI(t *testing.T) {
 		},
 	}
 	for id, tc := range testCases {
-		SetTrustDomain(tc.trustDomain)
-		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
+		got, err := genSpiffeURI(tc.trustDomain, tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
 			t.Errorf("teste case [%v] failed, error %v", id, tc)
 		}
@@ -175,172 +158,146 @@ func TestGenSpiffeURI(t *testing.T) {
 	}
 }
 
-func TestGetSetTrustDomain(t *testing.T) {
-	oldTrustDomain := GetTrustDomain()
-	defer SetTrustDomain(oldTrustDomain)
-
-	cases := []struct {
-		in  string
-		out string
-	}{
-		{
-			in:  "test.local",
-			out: "test.local",
-		},
-		{
-			in:  "test@local",
-			out: "test.local",
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.in, func(t *testing.T) {
-			SetTrustDomain(c.in)
-			if GetTrustDomain() != c.out {
-				t.Errorf("expected=%s, actual=%s", c.out, GetTrustDomain())
-			}
-		})
-	}
-}
-
 func TestMustGenSpiffeURI(t *testing.T) {
-	if nonsense := MustGenSpiffeURI("", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
+	mesh := &meshconfig.MeshConfig{TrustDomain: "something.local"}
+	if nonsense := MustGenSpiffeURI(mesh, "", ""); nonsense != "spiffe://something.local/ns//sa/" {
 		t.Errorf("Unexpected spiffe URI for empty namespace and service account: %s", nonsense)
 	}
 }
 
-// The test starts one or two local servers and tests RetrieveSpiffeBundleRootCerts is able to correctly retrieve the
-// SPIFFE bundles.
-func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
-	inputStringTemplate1 := `foo|URL1`
-	inputStringTemplate2 := `foo|URL1||bar|URL2`
-	totalRetryTimeout = time.Millisecond * 50
-	testCases := []struct {
-		name        string
-		template    string
-		trustCert   bool
-		status      int
-		body        string
-		twoServers  bool
-		errContains string
+type handler struct {
+	statusCode int
+	body       []byte
+}
+
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(h.statusCode)
+	w.Write(h.body)
+}
+
+func TestRetrieveSpiffeBundleRootCerts(t *testing.T) {
+	// Create a fake handler whose response can be overridden for each test case.
+	h := &handler{}
+
+	// Create servers that will act as SPIFFE bundle endpoints.
+	s1 := httptest.NewTLSServer(h)
+	s2 := httptest.NewTLSServer(h)
+
+	// The system needs to trust these server certs to securely connect to
+	// the SPIFFE bundle endpoints.
+	serverCerts := []*x509.Certificate{s1.Certificate(), s2.Certificate()}
+
+	input1 := map[string]string{
+		"foo": s1.Listener.Addr().String(),
+	}
+	// This simulates the case when there are multiple different servers to talk to.
+	input2 := map[string]string{
+		"foo": s1.Listener.Addr().String(),
+		"bar": s2.Listener.Addr().String(),
+	}
+
+	cases := []struct {
+		name         string
+		in           map[string]string
+		extraCerts   []*x509.Certificate
+		statusCode   int
+		body         string
+		errContains  string
+		wantNumCerts int
 	}{
 		{
-			name:       "success",
-			template:   inputStringTemplate1,
-			trustCert:  true,
-			status:     http.StatusOK,
-			body:       validSpiffeX509Bundle,
-			twoServers: false,
+			name:         "Success with one trust domain",
+			in:           input1,
+			extraCerts:   serverCerts,
+			statusCode:   http.StatusOK,
+			body:         validSpiffeX509Bundle,
+			wantNumCerts: 1,
 		},
 		{
-			name:       "success",
-			template:   inputStringTemplate2,
-			trustCert:  true,
-			status:     http.StatusOK,
-			body:       validSpiffeX509Bundle,
-			twoServers: true,
+			name:         "Success with multiple trust domains",
+			in:           input2,
+			extraCerts:   serverCerts,
+			statusCode:   http.StatusOK,
+			body:         validSpiffeX509Bundle,
+			wantNumCerts: 1,
 		},
 		{
-			name:        "Invalid input 1",
-			template:    "foo||URL1",
-			trustCert:   false,
-			status:      http.StatusOK,
+			name:         "Success when response contains multiple certs",
+			in:           input1,
+			extraCerts:   serverCerts,
+			statusCode:   http.StatusOK,
+			body:         validSpiffeX509BundleWithMultipleCerts,
+			wantNumCerts: 2,
+		},
+		{
+			name:        "Bundle endpoint is not trusted",
+			in:          input1,
+			extraCerts:  nil,
+			statusCode:  http.StatusOK,
 			body:        validSpiffeX509Bundle,
-			twoServers:  false,
-			errContains: "config is invalid",
-		},
-		{
-			name:        "Invalid input 2",
-			template:    "foo|URL1|bar|URL2",
-			trustCert:   false,
-			status:      http.StatusOK,
-			body:        validSpiffeX509Bundle,
-			twoServers:  true,
-			errContains: "config is invalid",
-		},
-		{
-			name:        "Invalid input 3",
-			template:    "URL1||bar|URL2",
-			trustCert:   false,
-			status:      http.StatusOK,
-			body:        validSpiffeX509Bundle,
-			twoServers:  true,
-			errContains: "config is invalid",
-		},
-		{
-			name:        "Unauthenticated cert",
-			template:    inputStringTemplate1,
-			trustCert:   false,
-			status:      http.StatusOK,
-			body:        validSpiffeX509Bundle,
-			twoServers:  false,
 			errContains: "x509: certificate signed by unknown authority",
 		},
 		{
-			name:        "non-200 status",
-			template:    inputStringTemplate1,
-			trustCert:   true,
-			status:      http.StatusServiceUnavailable,
-			body:        "tHe SYsTEm iS DowN",
-			twoServers:  false,
-			errContains: "unexpected status: 503, fetching bundle: tHe SYsTEm iS DowN",
+			name:        "Bundle endpoint returns non-200 status",
+			in:          input1,
+			extraCerts:  serverCerts,
+			statusCode:  http.StatusServiceUnavailable,
+			body:        `{"error": "system down"}`,
+			errContains: `unexpected status: 503, fetching bundle: {"error": "system down"}`,
 		},
 		{
-			name:        "Certificate absent",
-			template:    inputStringTemplate1,
-			trustCert:   true,
-			status:      http.StatusOK,
+			name:        "Bundle contains no certificate",
+			in:          input1,
+			extraCerts:  serverCerts,
+			statusCode:  http.StatusOK,
 			body:        invalidSpiffeX509Bundle,
-			twoServers:  false,
 			errContains: "expected 1 certificate in x509-svid entry 0; got 0",
 		},
 		{
-			name:        "invalid bundle content",
-			template:    inputStringTemplate1,
-			trustCert:   true,
-			status:      http.StatusOK,
+			name:        "Bundle cannot be decoded",
+			in:          input1,
+			extraCerts:  serverCerts,
+			statusCode:  http.StatusOK,
 			body:        "NOT JSON",
-			twoServers:  false,
 			errContains: "failed to decode bundle",
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				w.WriteHeader(testCase.status)
-				_, _ = w.Write([]byte(testCase.body))
-			})
-			server := httptest.NewTLSServer(handler)
-			input := strings.Replace(testCase.template, "URL1", server.Listener.Addr().String(), 1)
-			var trustedCerts []*x509.Certificate
-			if testCase.trustCert {
-				trustedCerts = append(trustedCerts, server.Certificate())
-			}
-			if testCase.twoServers {
-				input = strings.Replace(testCase.template, "URL1", server.Listener.Addr().String(), 1)
-				handler2 := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-					w.WriteHeader(testCase.status)
-					_, _ = w.Write([]byte(testCase.body))
-				})
-				server2 := httptest.NewTLSServer(handler2)
-				input = strings.Replace(input, "URL2", server2.Listener.Addr().String(), 1)
-				if testCase.trustCert {
-					trustedCerts = append(trustedCerts, server2.Certificate())
-				}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h.body = []byte(c.body)
+			h.statusCode = c.statusCode
 
-			}
-			rootCertMap, err := RetrieveSpiffeBundleRootCertsFromStringInput(input, trustedCerts)
-			if testCase.errContains != "" {
-				if !strings.Contains(err.Error(), testCase.errContains) {
-					t.Errorf("unexpected error returned: %v. The error should contain: %s", err, testCase.errContains)
-				}
-				return
-			}
+			caCertPool, err := x509.SystemCertPool()
 			if err != nil {
-				t.Errorf("unexpected error: %s. Expected no error.", err)
+				t.Fatalf("failed to get SystemCertPool: %v", err)
 			}
-			if rootCertMap == nil {
-				t.Errorf("returned root cert map is nil")
+			for _, cert := range c.extraCerts {
+				caCertPool.AddCert(cert)
+			}
+
+			// This is the system-under-test.
+			rootCertMap, err := RetrieveSpiffeBundleRootCerts(c.in, caCertPool, time.Millisecond*50)
+
+			if c.errContains != "" {
+				if err == nil {
+					t.Fatalf("got nil error; wanted error to contain %q", c.errContains)
+				}
+				if !strings.Contains(err.Error(), c.errContains) {
+					t.Fatalf("got error: %q; wanted error to contain %q", err, c.errContains)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("got error: %q; wanted no error", err)
+				}
+				if rootCertMap == nil {
+					t.Errorf("returned root cert map is nil")
+				}
+				for k, v := range rootCertMap {
+					if len(v) != c.wantNumCerts {
+						t.Errorf("got %d certs for %s; wanted %d certs", len(v), k, c.wantNumCerts)
+					}
+				}
 			}
 		})
 	}
@@ -361,17 +318,17 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 
 	workloadCertBlock, _ := pem.Decode([]byte(validWorkloadCert))
 	if workloadCertBlock == nil {
-		t.Fatalf("failed to decode workload PEM cert")
+		t.Fatal("failed to decode workload PEM cert")
 	}
 	intCertBlock, _ := pem.Decode([]byte(validIntCert))
 	if intCertBlock == nil {
-		t.Fatalf("failed to decode intermediate PEM cert")
+		t.Fatal("failed to decode intermediate PEM cert")
 	}
 	serverCert := [][]byte{workloadCertBlock.Bytes, intCertBlock.Bytes}
 
 	keyBlock, _ := pem.Decode([]byte(validWorkloadKey))
 	if keyBlock == nil {
-		t.Fatalf("failed to parse PEM block containing the workload private key")
+		t.Fatal("failed to parse PEM block containing the workload private key")
 	}
 
 	privateKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
@@ -439,11 +396,11 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 				for _, certStr := range certStrs {
 					block, _ := pem.Decode([]byte(certStr))
 					if block == nil {
-						t.Fatalf("Can't decode the root cert.")
+						t.Fatal("Can't decode the root cert.")
 					}
 					rootCert, err := x509.ParseCertificate(block.Bytes)
 					if err != nil {
-						t.Fatalf("Failed to parse certificate: " + err.Error())
+						t.Fatal("Failed to parse certificate: " + err.Error())
 					}
 					certMap[trustDomain] = append(certMap[trustDomain], rootCert)
 				}
@@ -452,7 +409,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 			verifier := NewPeerCertVerifier()
 			verifier.AddMappings(certMap)
 			if verifier == nil {
-				t.Fatalf("Failed to create peer cert verifier.")
+				t.Fatal("Failed to create peer cert verifier.")
 			}
 			client := &http.Client{
 				Timeout: time.Second,
@@ -466,7 +423,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 				},
 			}
 
-			req, err := http.NewRequest("POST", "https://"+server.Listener.Addr().String(), bytes.NewBuffer([]byte("ABC")))
+			req, err := http.NewRequest(http.MethodPost, "https://"+server.Listener.Addr().String(), bytes.NewBuffer([]byte("ABC")))
 			if err != nil {
 				t.Errorf("failed to create HTTP client: %v", err)
 			}
@@ -559,6 +516,16 @@ func TestExpandWithTrustDomains(t *testing.T) {
 				"spiffe://cluster.local/custom-suffix": {},
 			},
 		},
+		{
+			name:      "Non SPIFFE URI",
+			spiffeURI: []string{"testdns.com"},
+			trustDomains: []string{
+				"foo",
+			},
+			want: map[string]struct{}{
+				"testdns.com": {},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -612,8 +579,13 @@ func TestIdentity(t *testing.T) {
 			nil,
 		},
 		{
-			// wrong separator /
-			"spiffe://td/ns/ns/foobar/sa/",
+			// Wrong ns separator
+			"spiffe://td/foobar/ns/sa/sa",
+			nil,
+		},
+		{
+			// Wrong sa separator
+			"spiffe://td/ns/ns/foobar/sa",
 			nil,
 		},
 	}

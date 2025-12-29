@@ -14,9 +14,14 @@
 
 package options
 
+import (
+	istioagent "istio.io/istio/pkg/istio-agent"
+)
+
 // ProxyArgs provides all of the configuration parameters for the Pilot proxy.
 type ProxyArgs struct {
-	DNSDomain          string
+	istioagent.Proxy
+
 	StsPort            int
 	TokenManagerPlugin string
 
@@ -32,6 +37,9 @@ type ProxyArgs struct {
 
 	PodName      string
 	PodNamespace string
+
+	// enableProfiling enables profiling via web interface host:port/debug/pprof/
+	EnableProfiling bool
 }
 
 // NewProxyArgs constructs proxyArgs with default values.
@@ -45,7 +53,7 @@ func NewProxyArgs() ProxyArgs {
 }
 
 // applyDefaults apply default value to ProxyArgs
-func (p *ProxyArgs) applyDefaults() {
-	p.PodName = PodNameVar.Get()
-	p.PodNamespace = PodNamespaceVar.Get()
+func (node *ProxyArgs) applyDefaults() {
+	node.PodName = PodNameVar.Get()
+	node.PodNamespace = PodNamespaceVar.Get()
 }

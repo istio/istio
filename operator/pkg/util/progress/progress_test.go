@@ -19,7 +19,7 @@ import (
 	"io"
 	"testing"
 
-	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/component"
 )
 
 func TestProgressLog(t *testing.T) {
@@ -38,10 +38,10 @@ func TestProgressLog(t *testing.T) {
 	}
 
 	p := NewLog()
-	cnp := name.PilotComponentName
-	cnpo := name.UserFacingComponentName(cnp)
-	cnb := name.IstioBaseComponentName
-	cnbo := name.UserFacingComponentName(cnb)
+	cnp := component.PilotComponentName
+	cnpo := component.UserFacingComponentName(cnp)
+	cnb := component.BaseComponentName
+	cnbo := component.UserFacingComponentName(cnb)
 	foo := p.NewComponent(string(cnp))
 	foo.ReportProgress()
 	expect(`- Processing resources for ` + cnpo + `.`)
@@ -63,7 +63,7 @@ func TestProgressLog(t *testing.T) {
 	expect(`- Processing resources for ` + cnpo + `.`)
 
 	foo.ReportFinished()
-	expect(`✔ ` + cnpo + ` installed`)
+	expect(`✔ ` + cnpo + ` installed 🧠`)
 
 	p.SetState(StatePruning)
 	expect(`- Pruning removed resources`)

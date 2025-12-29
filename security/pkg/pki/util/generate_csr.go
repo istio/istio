@@ -31,12 +31,12 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-// minimumRsaKeySize is the minimum RSA key size to generate certificates
+// MinimumRsaKeySize is the minimum RSA key size to generate certificates
 // to ensure proper security
-const minimumRsaKeySize = 2048
+const MinimumRsaKeySize = 2048
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
@@ -45,7 +45,14 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	if options.ECSigAlg != "" {
 		switch options.ECSigAlg {
 		case EcdsaSigAlg:
-			priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			var curve elliptic.Curve
+			switch options.ECCCurve {
+			case P384Curve:
+				curve = elliptic.P384()
+			default:
+				curve = elliptic.P256()
+			}
+			priv, err = ecdsa.GenerateKey(curve, rand.Reader)
 			if err != nil {
 				return nil, nil, fmt.Errorf("EC key generation failed (%v)", err)
 			}
@@ -53,8 +60,8 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 			return nil, nil, errors.New("csr cert generation fails due to unsupported EC signature algorithm")
 		}
 	} else {
-		if options.RSAKeySize < minimumRsaKeySize {
-			return nil, nil, fmt.Errorf("requested key size does not meet the minimum requied size of %d (requested: %d)", minimumRsaKeySize, options.RSAKeySize)
+		if options.RSAKeySize < MinimumRsaKeySize {
+			return nil, nil, fmt.Errorf("requested key size does not meet the minimum required size of %d (requested: %d)", MinimumRsaKeySize, options.RSAKeySize)
 		}
 
 		priv, err = rsa.GenerateKey(rand.Reader, options.RSAKeySize)
@@ -110,7 +117,7 @@ func AppendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 	if len(rootCertFile) > 0 {
 		log.Debugf("append root certificates from %v", rootCertFile)
 		certBytes, err := os.ReadFile(rootCertFile)
-		if err != nil {
+		if err != nil && !os.IsNotExist(err) {
 			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
 		}
 		rootCerts = AppendCertByte(pemCert, certBytes)

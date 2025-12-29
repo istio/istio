@@ -9,7 +9,7 @@ version: 1.0.0
 appVersion: 1.0.0
 
 sources:
-- http://github.com/istio/istio
+- https://github.com/istio/istio
 icon: https://istio.io/latest/favicons/android-192x192.png
 keywords:
 - istio

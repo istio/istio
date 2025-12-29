@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # shellcheck disable=SC2034
 
 # WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
@@ -49,6 +49,8 @@ elif [[ ${LOCAL_ARCH} == s390x ]]; then
     TARGET_ARCH=s390x
 elif [[ ${LOCAL_ARCH} == ppc64le ]]; then
     TARGET_ARCH=ppc64le
+elif [[ ${LOCAL_ARCH} == riscv64 ]]; then
+    TARGET_ARCH=riscv64
 else
     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
     exit 1
@@ -72,8 +74,10 @@ else
 fi
 
 # Build image to use
+TOOLS_REGISTRY_PROVIDER=${TOOLS_REGISTRY_PROVIDER:-gcr.io}
+PROJECT_ID=${PROJECT_ID:-istio-testing}
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  IMAGE_VERSION=master-24aeccb0dc41b81e9c7c087a20d8285ad9f7a3f9
+  IMAGE_VERSION=master-de1539f06db13a41873250de1c77892314172016
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   IMAGE_NAME=build-tools
@@ -89,9 +93,22 @@ TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux_${TARGET_ARCH}}"
 CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT:-/work/out/${TARGET_OS}_${TARGET_ARCH}}"
 CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux_${TARGET_ARCH}}"
 
-IMG="${IMG:-gcr.io/istio-testing/${IMAGE_NAME}:${IMAGE_VERSION}}"
+IMG="${IMG:-${TOOLS_REGISTRY_PROVIDER}/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_VERSION}}"
 
 CONTAINER_CLI="${CONTAINER_CLI:-docker}"
+
+# Try to use the latest cached image we have. Use at your own risk, may have incompatibly-old versions
+if [[ "${LATEST_CACHED_IMAGE:-}" != "" ]]; then
+  prefix="$(<<<"$IMAGE_VERSION" cut -d- -f1)"
+  query="${TOOLS_REGISTRY_PROVIDER}/${PROJECT_ID}/${IMAGE_NAME}:${prefix}-*"
+  latest="$("${CONTAINER_CLI}" images --filter=reference="${query}" --format "{{.CreatedAt|json}}~{{.Repository}}:{{.Tag}}~{{.CreatedSince}}" | sort -n -r | head -n1)"
+  IMG="$(<<<"$latest" cut -d~ -f2)"
+  if [[ "${IMG}" == "" ]]; then
+    echo "Attempted to use LATEST_CACHED_IMAGE, but found no images matching ${query}" >&2
+    exit 1
+  fi
+  echo "Using cached image $IMG, created $(<<<"$latest" cut -d~ -f3)" >&2
+fi
 
 ENV_BLOCKLIST="${ENV_BLOCKLIST:-^_\|^PATH=\|^GOPATH=\|^GOROOT=\|^SHELL=\|^EDITOR=\|^TMUX=\|^USER=\|^HOME=\|^PWD=\|^TERM=\|^RUBY_\|^GEM_\|^rvm_\|^SSH=\|^TMPDIR=\|^CC=\|^CXX=\|^MAKEFILE_LIST=}"
 
@@ -128,12 +145,17 @@ fi
 # echo ${CONDITIONAL_HOST_MOUNTS}
 
 # This function checks if the file exists. If it does, it creates a randomly named host location
-# for the file, adds it to the host KUBECONFIG, and creates a mount for it.
+# for the file, adds it to the host KUBECONFIG, and creates a mount for it. Note that we use a copy
+# of the original file, so that the container can write to it.
 add_KUBECONFIG_if_exists () {
   if [[ -f "$1" ]]; then
+    local local_config
+    local_config="$(mktemp)"
+    cp "${1}" "${local_config}"
+
     kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
     container_kubeconfig+="/config/${kubeconfig_random}:"
-    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${1},destination=/config/${kubeconfig_random},readonly "
+    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${local_config},destination=/config/${kubeconfig_random} "
   fi
 }
 

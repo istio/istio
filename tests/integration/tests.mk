@@ -4,7 +4,7 @@
 
 # The following flags (in addition to ${V}) can be specified on the command-line, or the environment. This
 # is primarily used by the CI systems.
-_INTEGRATION_TEST_FLAGS ?= $(INTEGRATION_TEST_FLAGS)
+_INTEGRATION_TEST_FLAGS := $(INTEGRATION_TEST_FLAGS)
 
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 ifneq ($(CI),)
@@ -32,6 +32,14 @@ ifneq ($(TAG),)
     _INTEGRATION_TEST_FLAGS += --istio.test.tag=$(TAG)
 endif
 
+ifneq ($(VARIANT),)
+    _INTEGRATION_TEST_FLAGS += --istio.test.variant=$(VARIANT)
+endif
+
+ifneq ($(IP_FAMILIES),)
+   _INTEGRATION_TEST_FLAGS += --istio.test.IPFamilies=$(IP_FAMILIES)
+endif
+
 _INTEGRATION_TEST_SELECT_FLAGS ?= --istio.test.select=$(TEST_SELECT)
 ifneq ($(JOB_TYPE),postsubmit)
 	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-postsubmit"
@@ -39,11 +47,10 @@ endif
 
 # both ipv6 only and dual stack support ipv6
 support_ipv6 =
-ifeq ($(IP_FAMILY),ipv6)
+ifeq ($(KIND_IP_FAMILY),ipv6)
 	support_ipv6 = yes
-else ifeq ($(IP_FAMILY),dual)
+else ifeq ($(KIND_IP_FAMILY),dual)
 	support_ipv6 = yes
-	_INTEGRATION_TEST_FLAGS += --istio.test.enableDualStack
 endif
 ifdef support_ipv6
 	_INTEGRATION_TEST_SELECT_FLAGS:="$(_INTEGRATION_TEST_SELECT_FLAGS),-ipv4"
@@ -77,15 +84,12 @@ else
 	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 endif
 
-RUN_TEST=$(GO) test -p 1 ${T} -tags=integ -vet=off
 
-test.integration.analyze: test.integration...analyze
-
-test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
-	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} \
-	--istio.test.analyze \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+# Precompile tests before running. See https://blog.howardjohn.info/posts/go-build-times/#integration-tests.
+define run-test
+$(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags=integ $2 $1
+$(GO) test -p 1 ${T} -tags=integ -vet=off -timeout 30m $2 $1 ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+endef
 
 # Ensure that all test files are tagged properly. This ensures that we don't accidentally skip tests
 # and that integration tests are not run as part of the unit test suite.
@@ -94,15 +98,11 @@ check-go-tag:
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
-	$(RUN_TEST) ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	$(call run-test,./tests/integration/$(subst .,/,$*)/...)
 
 # Generate integration fuzz test targets for kubernetes environment.
 test.integration-fuzz.%.kube: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 -vet=off ${T} -tags="integfuzz integ" ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	$(call run-test,./tests/integration/$(subst .,/,$*)/...,-tags="integfuzz integ")
 
 # Generate presubmit integration test targets for each component in kubernetes environment
 test.integration.%.kube.presubmit:
@@ -116,21 +116,14 @@ test.integration.kube: test.integration.kube.presubmit
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
-	$(RUN_TEST) ./tests/integration/... -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	$(call run-test,./tests/integration/...)
 
 # Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc)
 # In presubmit, this target runs a minimal set. In postsubmit, all tests are run
 .PHONY: test.integration.kube.environment
 test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
 ifeq (${JOB_TYPE},postsubmit)
-	$(RUN_TEST) ./tests/integration/... -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	$(call run-test,./tests/integration/...)
 else
-	$(RUN_TEST) ./tests/integration/security/ ./tests/integration/pilot -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	--test.run="TestReachability|TestTraffic" \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	$(call run-test,./tests/integration/security/ ./tests/integration/pilot,-run="TestReachability|TestTraffic|TestGatewayConformance")
 endif

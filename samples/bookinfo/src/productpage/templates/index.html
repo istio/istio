@@ -1,4 +1,3 @@
-{% extends "bootstrap/base.html" %}
 {% block metas %}
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -6,31 +5,57 @@
 {% endblock %}
 
 {% block styles %}
-<!-- Latest compiled and minified CSS -->
-<link rel="stylesheet" href="static/bootstrap/css/bootstrap.min.css">
+<style>
+    table {
+        color: #333;
+        background: white;
+        border: 1px solid grey;
+        font-size: 12pt;
+        border-collapse: collapse;
+        width: 100%;
+    }
 
-<!-- Optional theme -->
-<link rel="stylesheet" href="static/bootstrap/css/bootstrap-theme.min.css">
+    table thead th,
+    table tfoot th {
+        color: #fff;
+        background: #466BB0;
+    }
+
+    table caption {
+        padding: .5em;
+    }
+
+    table th,
+    table td {
+        padding: .5em;
+        border: 1px solid lightgrey;
+    }
+</style>
 {% endblock %}
+
 {% block scripts %}
-<!-- Latest compiled and minified JavaScript -->
-<script src="static/jquery.min.js"></script>
-
-<!-- Latest compiled and minified JavaScript -->
-<script src="static/bootstrap/js/bootstrap.min.js"></script>
+<script src="static/tailwind/tailwind.css"></script>
 {% endblock %}
-{% block title %}Simple Bookstore App{% endblock %}
+
 {% block content %}
-<p>
-    <h3>Hello! This is a simple bookstore application consisting of three services as shown below</h3>
-</p>
-{% autoescape false %}
-{{ serviceTable }}
-{% endautoescape %}
-<p>
-    <h4>Click on one of the links below to auto generate a request to the backend as a real user or a tester
-    </h4>
-</p>
-<p><a href="/productpage?u=normal">Normal user</a></p>
-<p><a href="/productpage?u=test">Test user</a></p>
+<div class="mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col space-y-5 py-32 mx-auto max-w-7xl">
+        <h3 class="text-2xl">Hello! This is a simple bookstore application consisting of three services as shown below
+        </h3>
+        {% autoescape false %}
+        {{ serviceTable }}
+        {% endautoescape %}
+        <p>
+            Click on one of the links below to auto generate a request to the backend as a real user or a tester
+        </p>
+        <ul>
+            <li>
+                <a href="/productpage?u=normal" class="text-blue-500 hover:text-blue-600">Normal user</a>
+            </li>
+            <li>
+                <a href="/productpage?u=test" class="text-blue-500 hover:text-blue-600">Test user</a>
+            </li>
+        </ul>
+    </div>
+</div>
 {% endblock %}

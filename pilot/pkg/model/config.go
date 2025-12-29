@@ -15,11 +15,11 @@
 package model
 
 import (
+	"cmp"
 	"sort"
 	"strings"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -35,19 +35,6 @@ var _ = udpa.TypedStruct{}
 
 type ConfigHash uint64
 
-// NamespacedName defines a name and namespace of a resource, with the type elided. This can be used in
-// places where the type is implied.
-// This is preferred to a ConfigKey with empty Kind, especially in performance sensitive code - hashing this struct
-// is 2x faster than ConfigKey.
-type NamespacedName struct {
-	Name      string
-	Namespace string
-}
-
-func (key NamespacedName) String() string {
-	return key.Namespace + "/" + key.Name
-}
-
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
 type ConfigKey struct {
@@ -60,10 +47,10 @@ func (key ConfigKey) HashCode() ConfigHash {
 	h := hash.New()
 	h.Write([]byte{byte(key.Kind)})
 	// Add separator / to avoid collision.
-	h.Write([]byte("/"))
-	h.Write([]byte(key.Namespace))
-	h.Write([]byte("/"))
-	h.Write([]byte(key.Name))
+	h.WriteString("/")
+	h.WriteString(key.Namespace)
+	h.WriteString("/")
+	h.WriteString(key.Name)
 	return ConfigHash(h.Sum64())
 }
 
@@ -77,11 +64,21 @@ func ConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.Set[ConfigK
 
 	for conf := range configs {
 		if conf.Kind == kind {
-			ret[conf] = struct{}{}
+			ret.Insert(conf)
 		}
 	}
 
 	return ret
+}
+
+// HasConfigsOfKind returns true if configs has changes of type kind
+func HasConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) bool {
+	for c := range configs {
+		if c.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 // ConfigNamesOfKind extracts config names of the specified kind.
@@ -135,7 +132,7 @@ type ConfigStore interface {
 
 	// List returns objects by type and namespace.
 	// Use "" for the namespace to list across namespaces.
-	List(typ config.GroupVersionKind, namespace string) ([]config.Config, error)
+	List(typ config.GroupVersionKind, namespace string) []config.Config
 
 	// Create adds a new configuration object to the store. If an object with the
 	// same name and namespace for the type already exists, the operation fails
@@ -149,10 +146,6 @@ type ConfigStore interface {
 	// revision if the operation succeeds.
 	Update(config config.Config) (newRevision string, err error)
 	UpdateStatus(config config.Config) (newRevision string, err error)
-
-	// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
-	// read-modify-write conflicts when there are many concurrent-writers to the same resource.
-	Patch(orig config.Config, patchFn config.PatchFunc) (string, error)
 
 	// Delete removes an object from the store by key
 	// For k8s, resourceVersion must be fulfilled before a deletion is carried out.
@@ -182,14 +175,9 @@ type ConfigStoreController interface {
 	// configuration type
 	RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler)
 
-	// Run until a signal is received
+	// Run until a signal is received.
+	// Run *should* block, so callers should typically call `go controller.Run(stop)`
 	Run(stop <-chan struct{})
-
-	// SetWatchErrorHandler should be call if store has started
-	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
-
-	// HasStarted return ture after store started.
-	HasStarted() bool
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
@@ -310,22 +298,19 @@ func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]
 	return matchHost, matchValue, found
 }
 
-// sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortConfigByCreationTime(configs []config.Config) {
+// sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available)
+func sortConfigByCreationTime(configs []config.Config) []config.Config {
 	sort.Slice(configs, func(i, j int) bool {
+		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
+			return r == -1 // -1 means i is less than j, so return true
+		}
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if configs[i].CreationTimestamp == configs[j].CreationTimestamp {
-			in := configs[i].Name + "." + configs[i].Namespace
-			jn := configs[j].Name + "." + configs[j].Namespace
-			return in < jn
+		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
+			return r == -1
 		}
-		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
+		return cmp.Compare(configs[i].Namespace, configs[j].Namespace) == -1
 	})
-}
-
-// key creates a key from a reference's name and namespace.
-func key(name, namespace string) string {
-	return name + "/" + namespace
+	return configs
 }

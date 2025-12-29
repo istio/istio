@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 52422
+releaseNotes:
+- | 
+  **Fixed** ServiceEntry validation to suppress warning for address required if using auto IP allocation controller

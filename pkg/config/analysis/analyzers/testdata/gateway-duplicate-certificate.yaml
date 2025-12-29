@@ -1,5 +1,5 @@
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-01-test-01
@@ -18,7 +18,7 @@ spec:
     hosts:
     - "01.test-01.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-02-test-01
@@ -37,7 +37,7 @@ spec:
     hosts:
     - "02.test-01.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-01-test-02
@@ -56,7 +56,7 @@ spec:
     hosts:
     - "01.test-02.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-02-test-02
@@ -76,7 +76,7 @@ spec:
     hosts:
     - "02.test-02.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-01-test-03
@@ -95,7 +95,7 @@ spec:
     hosts:
     - "01.test-03.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-02-test-03
@@ -115,7 +115,7 @@ spec:
     hosts:
     - "02.test-03.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-01-test-04
@@ -134,7 +134,7 @@ spec:
     hosts:
     - "01.test-04.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-02-test-04
@@ -153,7 +153,7 @@ spec:
     hosts:
     - "02.test-04.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-01-test-05
@@ -172,7 +172,7 @@ spec:
     hosts:
     - "01.test-05.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-02-test-05
@@ -192,7 +192,7 @@ spec:
     hosts:
     - "02.test-05.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-01-test-06
@@ -211,7 +211,7 @@ spec:
     hosts:
     - "01.test-06.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-02-test-06
@@ -230,7 +230,7 @@ spec:
     hosts:
     - "02.test-06.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-03-test-06
@@ -246,7 +246,7 @@ spec:
     hosts:
     - "03.test-06.com" # no validation error
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-04-test-06

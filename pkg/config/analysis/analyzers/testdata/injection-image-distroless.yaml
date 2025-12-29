@@ -1,0 +1,60 @@
+# Namespace 'enabled-namespace' has istio injection enabled, so will be enforced.
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: enabled-namespace
+---
+# Namespace 'enabled-namespace-2' has istio injection enabled, so will be enforced.
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: enabled-namespace-2
+---
+# Details-v1-pod-old is out of date and should get a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-old
+  namespace: enabled-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.0
+    name: istio-proxy
+---
+# details-v1-pod-new is up-to-date and should not get a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-new
+  namespace: enabled-namespace-2
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.1
+    name: istio-proxy
+---
+# details-v1-pod-new-distroless is up-to-date and should not get a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-new-distroless
+  namespace: enabled-namespace-2
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.1-distroless
+    name: istio-proxy

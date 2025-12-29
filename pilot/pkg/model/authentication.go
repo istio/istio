@@ -15,16 +15,16 @@
 package model
 
 import (
-	"crypto/md5"
-	"fmt"
 	"strings"
 	"time"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/hash"
 )
 
 // MutualTLSMode is the mutual TLS mode specified by authentication policy.
@@ -43,6 +43,10 @@ const (
 	// MTLSStrict if authentication policy enable mTLS in strict mode.
 	MTLSStrict
 )
+
+// In Ambient, we convert k8s PeerAuthentication resources to the same type as AuthorizationPolicies
+// To prevent conflicts in xDS, we add this prefix to the converted PeerAuthentication resources.
+const convertedPeerAuthenticationPrefix = "converted_peer_authentication_" // use '_' character since those are illegal in k8s names
 
 // String converts MutualTLSMode to human readable string for debugging.
 func (mode MutualTLSMode) String() string {
@@ -98,7 +102,7 @@ type AuthenticationPolicies struct {
 
 // initAuthenticationPolicies creates a new AuthenticationPolicies struct and populates with the
 // authentication policies in the mesh environment.
-func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, error) {
+func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
 	policy := &AuthenticationPolicies{
 		requestAuthentications: map[string][]config.Config{},
 		peerAuthentications:    map[string][]config.Config{},
@@ -106,22 +110,10 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 		rootNamespace:          env.Mesh().GetRootNamespace(),
 	}
 
-	if configs, err := env.List(
-		gvk.RequestAuthentication, NamespaceAll); err == nil {
-		sortConfigByCreationTime(configs)
-		policy.addRequestAuthentication(configs)
-	} else {
-		return nil, err
-	}
+	policy.addRequestAuthentication(sortConfigByCreationTime(env.List(gvk.RequestAuthentication, NamespaceAll)))
+	policy.addPeerAuthentication(sortConfigByCreationTime(env.List(gvk.PeerAuthentication, NamespaceAll)))
 
-	if configs, err := env.List(
-		gvk.PeerAuthentication, NamespaceAll); err == nil {
-		policy.addPeerAuthentication(configs)
-	} else {
-		return nil, err
-	}
-
-	return policy, nil
+	return policy
 }
 
 func (policy *AuthenticationPolicies) addRequestAuthentication(configs []config.Config) {
@@ -174,9 +166,9 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 		policy.peerAuthentications[config.Namespace] = append(policy.peerAuthentications[config.Namespace], config)
 	}
 
-	// nolint: gosec
-	// Not security sensitive code
-	policy.aggregateVersion = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(versions, ";"))))
+	hash := hash.New()
+	hash.WriteString(strings.Join(versions, ";"))
+	policy.aggregateVersion = hash.Sum()
 
 	// Process found namespace-level policy.
 	policy.namespaceMutualTLSMode = make(map[string]MutualTLSMode, len(foundNamespaceMTLS))
@@ -206,17 +198,13 @@ func (policy *AuthenticationPolicies) GetNamespaceMutualTLSMode(namespace string
 }
 
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
-func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
-	workloadLabels labels.Instance,
-) []*config.Config {
-	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, namespace, workloadLabels)
+func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(policyMatcher WorkloadPolicyMatcher) []*config.Config {
+	return getConfigsForWorkload(policy.rootNamespace, policy.requestAuthentications, policyMatcher)
 }
 
 // GetPeerAuthenticationsForWorkload returns a list of peer authentication policies matching to labels.
-func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespace string,
-	workloadLabels labels.Instance,
-) []*config.Config {
-	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, namespace, workloadLabels)
+func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(policyMatcher WorkloadPolicyMatcher) []*config.Config {
+	return getConfigsForWorkload(policy.rootNamespace, policy.peerAuthentications, policyMatcher)
 }
 
 // GetRootNamespace return root namespace that is tracked by the policy object.
@@ -229,19 +217,24 @@ func (policy *AuthenticationPolicies) GetVersion() string {
 	return policy.aggregateVersion
 }
 
-func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
-	rootNamespace string,
-	namespace string,
-	workloadLabels labels.Instance,
-) []*config.Config {
-	configs := make([]*config.Config, 0)
-	lookupInNamespaces := []string{namespace}
-	if namespace != rootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = append(lookupInNamespaces, rootNamespace)
+func GetAmbientPolicyConfigName(key ConfigKey) string {
+	switch key.Kind {
+	case kind.PeerAuthentication:
+		return convertedPeerAuthenticationPrefix + key.Name
+	default:
+		return key.Name
 	}
-	for _, ns := range lookupInNamespaces {
+}
+
+func getConfigsForWorkload(rootNamespace string, configsByNamespace map[string][]config.Config, selectionOpts WorkloadPolicyMatcher) []*config.Config {
+	workloadLabels := selectionOpts.WorkloadLabels
+	namespace := selectionOpts.WorkloadNamespace
+	configs := make([]*config.Config, 0)
+	lookupInNamespaces := []string{namespace, rootNamespace}
+	for _, svc := range selectionOpts.Services {
+		lookupInNamespaces = append(lookupInNamespaces, svc.Namespace)
+	}
+	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		if nsConfig, ok := configsByNamespace[ns]; ok {
 			for idx := range nsConfig {
 				cfg := &nsConfig[idx]
@@ -250,18 +243,21 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 					log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, ns)
 					continue
 				}
-				var selector labels.Instance
 				switch cfg.GroupVersionKind {
-				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
-					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
-				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
-					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
+				case gvk.RequestAuthentication:
+					ra := cfg.Spec.(*v1beta1.RequestAuthentication)
+					should := selectionOpts.WithRootNamespace(rootNamespace).ShouldAttachPolicy(cfg.GroupVersionKind, cfg.NamespacedName(), ra)
+					if should {
+						configs = append(configs, cfg)
+					}
+				case gvk.PeerAuthentication:
+					selector := labels.Instance(cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels())
+					if selector.SubsetOf(workloadLabels) {
+						configs = append(configs, cfg)
+					}
 				default:
 					log.Warnf("Not support authentication type %q", cfg.GroupVersionKind)
 					continue
-				}
-				if selector.SubsetOf(workloadLabels) {
-					configs = append(configs, cfg)
 				}
 			}
 		}

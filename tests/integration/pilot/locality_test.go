@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -30,10 +29,14 @@ import (
 )
 
 const localityTemplate = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-service-locality
+  {{ with .TrafficDistribution }}
+  annotations:
+    networking.istio.io/traffic-distribution: {{.}}
+  {{ end }}
 spec:
   hosts:
   - {{.Host}}
@@ -46,14 +49,21 @@ spec:
   endpoints:
   - address: {{.Local}}
     locality: region/zone/subzone
+{{with .Network}}
+    network: {{.}}
+{{end}}
   - address: {{.Remote}}
     locality: notregion/notzone/notsubzone
+{{with .Network}}
+    network: {{.}}
+{{end}}
   {{ if ne .NearLocal "" }}
   - address: {{.NearLocal}}
     locality: "nearregion/zone/subzone"
   {{ end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+{{ if .LocalitySetting }}
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: external-service-locality
@@ -70,15 +80,18 @@ spec:
     outlierDetection:
       interval: 1s
       baseEjectionTime: 10m
-      maxEjectionPercent: 100`
+      maxEjectionPercent: 100
+{{ end }}`
 
 type LocalityInput struct {
-	LocalitySetting string
-	Host            string
-	Resolution      string
-	Local           string
-	NearLocal       string
-	Remote          string
+	LocalitySetting     string
+	TrafficDistribution string
+	Host                string
+	Resolution          string
+	Local               string
+	NearLocal           string
+	Remote              string
+	Network             string
 }
 
 const localityFailover = `
@@ -103,7 +116,6 @@ func TestLocality(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
-		Features("traffic.locality").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			destA := apps.B[0]
@@ -114,6 +126,10 @@ func TestLocality(t *testing.T) {
 				destC = apps.VM[0]
 			}
 
+			var network string
+			if len(t.Clusters()) == 1 {
+				network = t.Clusters()[0].NetworkName()
+			}
 			cases := []struct {
 				name     string
 				input    LocalityInput
@@ -199,6 +215,40 @@ func TestLocality(t *testing.T) {
 						destB.Config().Service: sendCount * .8,
 						destA.Config().Service: sendCount * .2,
 					},
+				},
+				{
+					"TrafficDistributionPreferClose/EDS",
+					LocalityInput{
+						TrafficDistribution: "PreferClose",
+						Resolution:          "STATIC",
+						Local:               destB.Address(),
+						Remote:              destA.Address(),
+						Network:             network,
+					},
+					expectAllTrafficTo(destB.Config().Service),
+				},
+				{
+					"TrafficDistributionPreferSameZone/EDS",
+					LocalityInput{
+						TrafficDistribution: "PreferSameZone",
+						Resolution:          "STATIC",
+						Local:               destB.Address(),
+						Remote:              destA.Address(),
+						Network:             network,
+					},
+					expectAllTrafficTo(destB.Config().Service),
+				},
+				{
+					// Not terribly meaningful because we only have one node, but we can still test that traffic passes
+					"TrafficDistributionPreferSameNode/EDS",
+					LocalityInput{
+						TrafficDistribution: "PreferSameNode",
+						Resolution:          "STATIC",
+						Local:               destB.Address(),
+						Remote:              destA.Address(),
+						Network:             network,
+					},
+					expectAllTrafficTo(destB.Config().Service),
 				},
 			}
 			for _, tt := range cases {

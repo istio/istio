@@ -41,11 +41,9 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-1/.*
       ns[foo]-policy[httpbin-deny]-rule[4]:
         permissions:
@@ -81,11 +79,9 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-2/.*
       ns[foo]-policy[httpbin-deny]-rule[7]:
         permissions:
@@ -99,11 +95,9 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-1/.*
       ns[foo]-policy[httpbin-deny]-rule[8]:
         permissions:
@@ -163,125 +157,93 @@ typedConfig:
                   rules:
                   - requestedServerName:
                       exact: not-exact.com
-            - orRules:
-                rules:
-                - metadata:
-                    filter: envoy.filters.a.b
-                    path:
-                    - key: c
-                    value:
-                      stringMatch:
-                        exact: exact
+            - metadata:
+                filter: envoy.filters.a.b
+                path:
+                - key: c
+                value:
+                  stringMatch:
+                    exact: exact
             - notRule:
-                orRules:
-                  rules:
-                  - metadata:
-                      filter: envoy.filters.a.b
-                      path:
-                      - key: c
-                      value:
-                        stringMatch:
-                          exact: not-exact
+                metadata:
+                  filter: envoy.filters.a.b
+                  path:
+                  - key: c
+                  value:
+                    stringMatch:
+                      exact: not-exact
         principals:
         - andIds:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://principal
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*principal-suffix
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       prefix: spiffe://principal-prefix
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         exact: spiffe://not-principal
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: spiffe://.*not-principal-suffix
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         prefix: spiffe://not-principal-prefix
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*ns-suffix/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-prefix.*/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*/.*
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*not-ns-suffix/.*
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns-prefix.*/.*
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*/.*
             - orIds:
                 ids:
@@ -329,101 +291,73 @@ typedConfig:
                       prefixLen: 32
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*ns-suffix/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns-prefix.*/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/.*/.*
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*not-ns-suffix/.*
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns-prefix.*/.*
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/.*/.*
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://principal
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*principal-suffix
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       prefix: spiffe://principal-prefix
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         exact: spiffe://not-principal
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: spiffe://.*not-principal-suffix
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         prefix: spiffe://not-principal-prefix
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .+
   shadowRulesStatPrefix: istio_dry_run_allow_
   statPrefix: tcp.

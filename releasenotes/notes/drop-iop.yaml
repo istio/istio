@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Removed** the `istioctl experimental revision` command. Revisions can be inspected by the stable `istioctl tag list` command.
+  - |
+    **Removed** the `installed-state` `IstioOperator` that was created when running `istioctl install`. This previously provided only a snapshot
+    of what was installed.
+    However, it was a common source of confusion (as users would change it and nothing would happen), and did not reliably represent the current state.
+    As there is no `IstioOperator` needed for these usages anymore, `istioctl install` and `helm install` no longer install the `IstioOperator` CRD.
+    Note this only impacts `istioctl install`, not the in-cluster operator.

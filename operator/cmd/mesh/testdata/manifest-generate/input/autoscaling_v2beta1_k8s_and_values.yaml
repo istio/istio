@@ -11,8 +11,14 @@ spec:
               name: cpu
               targetAverageUtilization: 70
             type: Resource
+          - resource:
+              name: memory
+              targetAverageUtilization: 70
+            type: Resource
       name: istio-ingressgateway
   values:
     pilot:
       cpu:
+        targetAverageUtilization: 90
+      memory:
         targetAverageUtilization: 90

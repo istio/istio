@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Updated** Change `istio-cni` config map to only expose env vars that are actually user-configurable

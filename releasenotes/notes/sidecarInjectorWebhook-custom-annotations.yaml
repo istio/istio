@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** Allow user to add customized annotation to MutatingWebhookConfiguration for revision-tags through helm chart.

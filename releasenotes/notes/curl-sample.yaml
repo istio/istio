@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: documentation
+issue: 
+  - https://github.com/istio/istio.io/issues/15725
+releaseNotes: 
+  - | 
+    **Improved** legibility of Istio's documentation by renaming the `sleep` sample to `curl`.

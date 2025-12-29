@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+ - https://github.com/istio/istio/issues/57734
+
+releaseNotes:
+- |
+  **Fixed** status conflicts on Route resources when multiple istio revisions are installed.

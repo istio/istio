@@ -32,6 +32,7 @@ metadata:
     service.istio.io/canonical-name: {{ index .ObjectMeta.Labels `service.istio.io/canonical-name` | default (index .ObjectMeta.Labels `app.kubernetes.io/name`) | default (index .ObjectMeta.Labels `app`) | default .DeploymentMeta.Name  | quote }}
     service.istio.io/canonical-revision: {{ index .ObjectMeta.Labels `service.istio.io/canonical-revision` | default (index .ObjectMeta.Labels `app.kubernetes.io/version`) | default (index .ObjectMeta.Labels `version`) | default "latest"  | quote }}
   annotations: {
+    istio.io/rev: {{ .Revision | default "default" | quote }},
     {{- if ge (len $containers) 1 }}
     {{- if not (isset .ObjectMeta.Annotations `kubectl.kubernetes.io/default-logs-container`) }}
     kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
@@ -80,12 +81,10 @@ spec:
       value: grpc
     - name: OUTPUT_CERTS
       value: /var/lib/istio/data
-    {{- if eq (env "PILOT_ENABLE_INBOUND_PASSTHROUGH" "true") "false" }}
+    {{- if eq .InboundTrafficPolicyMode "localhost" }}
     - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
       value: "true"
     {{- end }}
-    - name: JWT_POLICY
-      value: {{ .Values.global.jwtPolicy }}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
     - name: CA_ADDR
@@ -202,10 +201,8 @@ spec:
     # UDS channel between istioagent and gRPC client for XDS/SDS
     - mountPath: /etc/istio/proxy
       name: istio-xds
-    {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
     - mountPath: /var/run/secrets/tokens
       name: istio-token
-    {{- end }}
     {{- if .Values.global.mountMtlsCerts }}
     # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
     - mountPath: /etc/certs/
@@ -276,7 +273,6 @@ spec:
         - path: "annotations"
           fieldRef:
             fieldPath: metadata.annotations
-  {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:
       sources:
@@ -284,11 +280,18 @@ spec:
           path: istio-token
           expirationSeconds: 43200
           audience: {{ .Values.global.sds.token.aud }}
-  {{- end }}
   {{- if eq .Values.global.pilotCertProvider "istiod" }}
   - name: istiod-ca-cert
+  {{- if eq (.Values.pilot.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+    projected:
+      sources:
+      - clusterTrustBundle:
+          name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+          path: root-cert.pem
+  {{- else }}
     configMap:
-      name: istio-ca-root-cert
+      name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
+  {{- end }}
   {{- end }}
   {{- if .Values.global.mountMtlsCerts }}
   # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
@@ -312,8 +315,4 @@ spec:
     {{- range .Values.global.imagePullSecrets }}
     - name: {{ . }}
     {{- end }}
-  {{- end }}
-  {{- if eq (env "ENABLE_LEGACY_FSGROUP_INJECTION" "false") "true" }}
-  securityContext:
-    fsGroup: 1337
   {{- end }}

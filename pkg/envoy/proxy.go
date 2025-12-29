@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,10 +23,12 @@ import (
 	"syscall"
 
 	"google.golang.org/protobuf/types/known/durationpb"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/util/network"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/env"
+	common_features "istio.io/istio/pkg/features"
+	"istio.io/istio/pkg/log"
 )
 
 type envoy struct {
@@ -35,13 +38,13 @@ type envoy struct {
 
 // Envoy binary flags
 type ProxyConfig struct {
-	LogLevel          string
-	ComponentLogLevel string
-	NodeIPs           []string
-	Sidecar           bool
-	LogAsJSON         bool
-	// TODO: outlier log path configuration belongs to mesh ProxyConfig
-	OutlierLogPath string
+	LogLevel           string
+	ComponentLogLevel  string
+	NodeIPs            []string
+	Sidecar            bool
+	LogAsJSON          bool
+	OutlierLogPath     string
+	SkipDeprecatedLogs bool
 
 	BinaryPath    string
 	ConfigPath    string
@@ -70,6 +73,14 @@ func NewProxy(cfg ProxyConfig) Proxy {
 		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
 	}
 
+	if cfg.SkipDeprecatedLogs {
+		args = append(args, "--skip-deprecated-logs")
+	}
+
+	// Explicitly enable core dumps. This may be desirable more often (by default), but for now we only set it in VM tests.
+	if enableEnvoyCoreDump {
+		args = append(args, "--enable-core-dump")
+	}
 	return &envoy{
 		ProxyConfig: cfg,
 		extraArgs:   args,
@@ -96,10 +107,10 @@ func splitComponentLog(level string) (string, []string) {
 	return logLevel, componentLogs
 }
 
-func (e *envoy) Drain() error {
+func (e *envoy) Drain(skipExit bool) error {
 	adminPort := uint32(e.AdminPort)
 
-	err := DrainListeners(adminPort, e.Sidecar)
+	err := DrainListeners(adminPort, e.Sidecar, skipExit)
 	if err != nil {
 		log.Infof("failed draining listeners for Envoy on port %d: %v", adminPort, err)
 	}
@@ -110,7 +121,7 @@ func (e *envoy) UpdateConfig(config []byte) error {
 	return os.WriteFile(e.ConfigPath, config, 0o666)
 }
 
-func (e *envoy) args(fname string, bootstrapConfig string) []string {
+func (e *envoy) args(fname string, overrideFname string) []string {
 	proxyLocalAddressType := "v4"
 	if network.AllIPv6(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
@@ -130,25 +141,16 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
 		"--allow-unknown-static-fields",
 	}
-	if e.ProxyConfig.LogAsJSON {
-		startupArgs = append(startupArgs,
-			"--log-format",
-			`{"level":"%l","time":"%Y-%m-%dT%T.%fZ","scope":"envoy %n","msg":"%j","caller":"%g:%#","thread":%t}`,
-		)
-	} else {
-		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
-		// this matches Istio log format
-		startupArgs = append(startupArgs, "--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t")
-	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)
 
-	if bootstrapConfig != "" {
-		bytes, err := os.ReadFile(bootstrapConfig)
+	if overrideFname != "" {
+		s, err := readBootstrapToJSON(overrideFname)
 		if err != nil {
-			log.Warnf("Failed to read bootstrap override %s, %v", bootstrapConfig, err)
+			log.Warnf("Failed to read bootstrap override: %v", err)
 		} else {
-			startupArgs = append(startupArgs, "--config-yaml", string(bytes))
+			// Despite the name Envoy also accepts JSON string
+			startupArgs = append(startupArgs, "--config-yaml", s)
 		}
 	}
 
@@ -159,7 +161,35 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	return startupArgs
 }
 
-var istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+// readBootstrapToJSON reads a config file, in YAML or JSON, and returns JSON string
+func readBootstrapToJSON(fname string) (string, error) {
+	b, err := os.ReadFile(fname)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %s, %v", fname, err)
+	}
+
+	// Replace host with HOST_IP env var if it is "$(HOST_IP)".
+	// This is to support some tracer setting (Datadog, Zipkin), where "$(HOST_IP)" is used for address.
+	HostIPEnv := os.Getenv("HOST_IP")
+
+	if strings.Contains(HostIPEnv, ":") { // For IPv6, address needs to be of form `[ff06::c3]:8126`
+		HostIPEnv = "[" + HostIPEnv + "]"
+		// Avoid adding extra [] where users add them explicitly
+		b = bytes.ReplaceAll(b, []byte("[$(HOST_IP)]"), []byte(HostIPEnv))
+	}
+	b = bytes.ReplaceAll(b, []byte("$(HOST_IP)"), []byte(HostIPEnv))
+
+	converted, err := yaml.YAMLToJSON(b)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert to JSON: %s, %v", fname, err)
+	}
+	return string(converted), nil
+}
+
+var (
+	istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+	enableEnvoyCoreDump       = env.Register("ISTIO_ENVOY_ENABLE_CORE_DUMP", false, "").Get()
+)
 
 func (e *envoy) Run(abort <-chan error) error {
 	// spin up a new Envoy process
@@ -168,6 +198,12 @@ func (e *envoy) Run(abort <-chan error) error {
 
 	/* #nosec */
 	cmd := exec.Command(e.BinaryPath, args...)
+	cmd.Env = os.Environ()
+	if common_features.CompliancePolicy == common_features.FIPS_140_2 {
+		// Limit the TLSv1.2 ciphers in google_grpc client in Envoy to the compliant ciphers.
+		cmd.Env = append(cmd.Env,
+			"GRPC_SSL_CIPHER_SUITES=ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384")
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if e.AgentIsRoot {

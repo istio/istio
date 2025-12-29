@@ -29,14 +29,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-var scope = log.RegisterScope("validationServer", "validation webhook server", 0)
+var scope = log.RegisterScope("validationServer", "validation webhook server")
 
 var (
 	runtimeScheme = runtime.NewScheme()
@@ -193,46 +194,59 @@ func (wh *Webhook) serveValidate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionResponse {
+	isDryRun := request.DryRun != nil && *request.DryRun
+	addDryRunMessageIfNeeded := func(errStr string) error {
+		err := fmt.Errorf("%s", errStr)
+		if isDryRun {
+			err = fmt.Errorf("%s (dry run)", err)
+		}
+		return err
+	}
 	switch request.Operation {
 	case kube.Create, kube.Update:
 	default:
-		scope.Warnf("Unsupported webhook operation %v", request.Operation)
-		reportValidationFailed(request, reasonUnsupportedOperation)
+		scope.Warnf("Unsupported webhook operation %v", addDryRunMessageIfNeeded(request.Operation))
+		reportValidationFailed(request, reasonUnsupportedOperation, isDryRun)
 		return &kube.AdmissionResponse{Allowed: true}
 	}
 
 	var obj crd.IstioKind
 	if err := json.Unmarshal(request.Object.Raw, &obj); err != nil {
-		scope.Infof("cannot decode configuration: %v", err)
-		reportValidationFailed(request, reasonYamlDecodeError)
+		scope.Infof("cannot decode configuration: %v", addDryRunMessageIfNeeded(err.Error()))
+		reportValidationFailed(request, reasonYamlDecodeError, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
 	gvk := obj.GroupVersionKind()
 
-	s, exists := wh.schemas.FindByGroupVersionAliasesKind(resource.FromKubernetesGVK(&gvk))
+	// "Version" is not relevant for Istio types; each version has the same schema. So do a lookup that does not consider
+	// version. This ensures if a new version comes out and Istiod is not updated, we won't reject it.
+	s, exists := wh.schemas.FindByGroupKind(resource.FromKubernetesGVK(&gvk))
 	if !exists {
-		scope.Infof("unrecognized type %v", obj.GroupVersionKind())
-		reportValidationFailed(request, reasonUnknownType)
+		scope.Infof("unrecognized type %v", addDryRunMessageIfNeeded(obj.GroupVersionKind().String()))
+		reportValidationFailed(request, reasonUnknownType, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.GroupVersionKind()))
 	}
 
 	out, err := crd.ConvertObject(s, &obj, wh.domainSuffix)
 	if err != nil {
-		scope.Infof("error decoding configuration: %v", err)
-		reportValidationFailed(request, reasonCRDConversionError)
+		scope.Infof("error decoding configuration: %v", addDryRunMessageIfNeeded(err.Error()))
+		reportValidationFailed(request, reasonCRDConversionError, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	warnings, err := s.Resource().ValidateConfig(*out)
+	warnings, err := s.ValidateConfig(*out)
 	if err != nil {
-		scope.Infof("configuration is invalid: %v", err)
-		reportValidationFailed(request, reasonInvalidConfig)
+		if _, f := out.Annotations[constants.AlwaysReject]; !f {
+			// Hide error message if it was intentionally rejected (by our own internal call)
+			scope.Infof("configuration is invalid: %v", addDryRunMessageIfNeeded(err.Error()))
+		}
+		reportValidationFailed(request, reasonInvalidConfig, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
 	}
 
 	if reason, err := checkFields(request.Object.Raw, request.Kind.Kind, request.Namespace, obj.Name); err != nil {
-		reportValidationFailed(request, reason)
+		reportValidationFailed(request, reason, isDryRun)
 		return toAdmissionResponse(err)
 	}
 

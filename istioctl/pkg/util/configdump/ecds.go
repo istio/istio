@@ -20,12 +20,22 @@ import (
 
 // GetEcdsConfigDump retrieves the extension config dump from the ConfigDump
 func (w *Wrapper) GetEcdsConfigDump() (*admin.EcdsConfigDump, error) {
-	ecdsDumpAny, err := w.getSection(ecds)
+	ecdsDumpAny, err := w.getSections(ecds)
 	if err != nil {
 		return nil, err
 	}
+
 	ecdsDump := &admin.EcdsConfigDump{}
-	err = ecdsDumpAny.UnmarshalTo(ecdsDump)
+	for _, dump := range ecdsDumpAny {
+		ecds := &admin.EcdsConfigDump{}
+		err = dump.UnmarshalTo(ecds)
+		if err != nil {
+			return nil, err
+		}
+
+		ecdsDump.EcdsFilters = append(ecdsDump.EcdsFilters, ecds.EcdsFilters...)
+	}
+
 	if err != nil {
 		return nil, err
 	}

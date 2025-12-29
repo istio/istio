@@ -17,6 +17,7 @@ package builder
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -25,7 +26,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -33,7 +33,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/tracing"
 )
 
 type BuildSpec struct {
@@ -76,7 +77,9 @@ var (
 	basesMu sync.RWMutex
 )
 
-func WarmBase(architectures []string, baseImages ...string) {
+func WarmBase(ctx context.Context, architectures []string, baseImages ...string) {
+	_, span := tracing.Start(ctx, "RunCrane")
+	defer span.End()
 	basesMu.Lock()
 	wg := sync.WaitGroup{}
 	wg.Add(len(baseImages) * len(architectures))
@@ -97,7 +100,6 @@ func WarmBase(architectures []string, baseImages ...string) {
 
 	t0 := time.Now()
 	for i, b := range keys {
-		b, i := b, i
 		go func() {
 			defer wg.Done()
 			ref, err := name.ParseReference(b.name)
@@ -134,11 +136,13 @@ func ByteCount(b int64) string {
 		float64(b)/float64(div), "kMGTPE"[exp])
 }
 
-func Build(b BuildSpec) error {
+func Build(ctx context.Context, b BuildSpec) error {
+	ctx, span := tracing.Start(ctx, "Build")
+	defer span.End()
 	t0 := time.Now()
 	lt := t0
-	trace := func(d ...any) {
-		log.WithLabels("image", b.Name, "total", time.Since(t0), "step", time.Since(lt)).Infof(d...)
+	trace := func(format string, d ...any) {
+		log.WithLabels("image", b.Name, "total", time.Since(t0), "step", time.Since(lt)).Infof(format, d...)
 		lt = time.Now()
 	}
 	if len(b.Dests) == 0 {
@@ -251,6 +255,17 @@ func Build(b BuildSpec) error {
 
 	// Write Remote
 
+	err := writeImage(ctx, b, images, trace)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeImage(ctx context.Context, b BuildSpec, images []v1.Image, trace func(format string, d ...any)) error {
+	_, span := tracing.Start(ctx, "Write")
+	defer span.End()
 	var artifact remote.Taggable
 	if len(images) == 1 {
 		// Single image, just push that
@@ -318,7 +333,6 @@ func Build(b BuildSpec) error {
 		}
 		trace("upload %v", s)
 	}
-
 	return nil
 }
 
@@ -348,8 +362,4 @@ func CreateProgress(name string) chan v1.Update {
 		}
 	}()
 	return updates
-}
-
-func Experiment() {
-	registry.New()
 }

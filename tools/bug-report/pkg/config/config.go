@@ -78,6 +78,7 @@ const (
 type SelectionSpec struct {
 	Namespaces  []string          `json:"namespaces,omitempty"`
 	Deployments []string          `json:"deployments,omitempty"`
+	Daemonsets  []string          `json:"daemonsets,omitempty"`
 	Pods        []string          `json:"pods,omitempty"`
 	Containers  []string          `json:"containers,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
@@ -140,6 +141,9 @@ type BugReportConfig struct {
 	// FullSecrets controls whether secret contents are included.
 	FullSecrets bool `json:"fullSecrets,omitempty"`
 
+	// ProxyAdminPort is envoy proxy admin port
+	ProxyAdminPort int `json:"proxyAdminPort,omitempty"`
+
 	// CommandTimeout is the maximum amount of time running the command
 	// before giving up, even if not all logs are captured. Upon timeout,
 	// the command creates an archive with only the logs captured so far.
@@ -161,6 +165,10 @@ type BugReportConfig struct {
 	// If set, StartTime must be unset.
 	Since Duration `json:"since,omitempty"`
 
+	// TimeFilterApplied stores if user has provided any time filtering flags.
+	// If Since, StartTime, EndTime are all not applied by the user, set TimeFilterApplied as false; Otherwise set true
+	TimeFilterApplied bool `json:"timeFilterApplied,omitempty"`
+
 	// CriticalErrors is a list of glob pattern matches for errors that,
 	// if found in a log, set the highest priority for the log to ensure
 	// that it is Include in the capture archive.
@@ -169,8 +177,8 @@ type BugReportConfig struct {
 	// calculating the error heuristic for a log.
 	IgnoredErrors []string `json:"ignoredErrors,omitempty"`
 
-	// RequestsPerSecondLimit controls the RPS limit to the API server.
-	RequestsPerSecondLimit int `json:"requestsPerSecondLimit,omitempty"`
+	// RequestConcurrency controls the request concurrency limit to the API server.
+	RequestConcurrency int `json:"requestConcurrency,omitempty"`
 }
 
 func (b *BugReportConfig) String() string {

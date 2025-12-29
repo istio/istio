@@ -1,4 +1,6 @@
-{{ $mcsAPIGroup := or .Values.pilot.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
+# Created if cluster resources are not omitted
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
+{{ $mcsAPIGroup := or .Values.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -6,6 +8,8 @@ metadata:
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istio-reader"
+    {{- include "istio.labels" . | nindent 4 }}
 rules:
   - apiGroups:
       - "config.istio.io"
@@ -13,14 +17,19 @@ rules:
       - "networking.istio.io"
       - "authentication.istio.io"
       - "rbac.istio.io"
+      - "telemetry.istio.io"
+      - "extensions.istio.io"
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces", "secrets"]
+    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces", "secrets", "configmaps"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list" ]
     resources: [ "workloadentries" ]
+  - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
+    resources: ["gateways"]
+    verbs: ["get", "watch", "list"]
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
@@ -42,7 +51,7 @@ rules:
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
     verbs: ["create"]
-{{- if .Values.global.externalIstiod }}
+{{- if .Values.istiodRemote.enabled }}
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]
@@ -53,3 +62,4 @@ rules:
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
 {{- end}}
+{{- end }}

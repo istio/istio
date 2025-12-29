@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	xdsfake "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config"
@@ -33,54 +34,21 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/tests/util/leak"
 )
 
 const (
+	testConfigNamespace = "default"
+
 	routeA = "http.80"
 	routeB = "https.443.https.my-gateway.testns"
 )
 
-func TestStatusEvents(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-
-	ads := s.Connect(
-		&model.Proxy{
-			Metadata: &model.NodeMetadata{
-				Generator: "event",
-			},
-		},
-		[]string{xds.TypeURLConnect},
-		[]string{},
-	)
-	defer ads.Close()
-
-	dr, err := ads.WaitVersion(5*time.Second, xds.TypeURLConnect, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if dr.Resources == nil || len(dr.Resources) == 0 {
-		t.Error("Expected connections, but not found")
-	}
-
-	// Create a second connection - we should get an event.
-	ads2 := s.Connect(nil, nil, nil)
-	defer ads2.Close()
-
-	dr, err = ads.WaitVersion(5*time.Second, xds.TypeURLConnect,
-		dr.VersionInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if dr.Resources == nil || len(dr.Resources) == 0 {
-		t.Error("Expected connections, but not found")
-	}
-}
-
 func TestAdsReconnectAfterRestart(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
@@ -100,7 +68,7 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 // TestAdsReconnectRequests provides a regression test for a case where Envoy sends an EDS request as the first
 // request on a connection.
 func TestAdsReconnectRequests(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 	ads := s.ConnectADS()
 	// Send normal CDS and EDS requests
@@ -108,7 +76,7 @@ func TestAdsReconnectRequests(t *testing.T) {
 	eres := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.EndpointType, ResourceNames: []string{"my-resource"}})
 
 	// A push should get a response for both
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
 	ads.ExpectResponse(t)
 	ads.ExpectResponse(t)
 	// Close the connection and reconnect
@@ -137,7 +105,7 @@ func TestAdsReconnectRequests(t *testing.T) {
 }
 
 func TestAdsUnsubscribe(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
@@ -152,7 +120,7 @@ func TestAdsUnsubscribe(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
 	ads.RequestResponseAck(t, nil)
 
@@ -170,14 +138,28 @@ func TestAdsReconnect(t *testing.T) {
 
 // Regression for connection with a bad ID
 func TestAdsBadId(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithID("").WithType(v3.ClusterType)
 	xds.AdsPushAll(s.Discovery)
 	ads.ExpectNoResponse(t)
 }
 
+func TestVersionNonce(t *testing.T) {
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	ads := s.ConnectADS().WithType(v3.ClusterType)
+	resp1 := ads.RequestResponseAck(t, nil)
+	fullPush(s)
+	resp2 := ads.ExpectResponse(t)
+	if !(resp1.VersionInfo < resp2.VersionInfo) {
+		t.Fatalf("version should be incrementing: %v -> %v", resp1.VersionInfo, resp2.VersionInfo)
+	}
+	if resp1.Nonce == resp2.Nonce {
+		t.Fatalf("nonce should change %v -> %v", resp1.Nonce, resp2.Nonce)
+	}
+}
+
 func TestAdsClusterUpdate(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 
 	version := ""
@@ -207,7 +189,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 // nolint: lll
 func TestAdsPushScoping(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 	const (
 		svcSuffix = ".testPushScoping.com"
@@ -243,11 +225,11 @@ func TestAdsPushScoping(t *testing.T) {
 
 		for _, name := range names {
 			hostname := host.Name(name)
-			configsUpdated[model.ConfigKey{
+			configsUpdated.Insert(model.ConfigKey{
 				Kind:      kind.ServiceEntry,
 				Name:      string(hostname),
 				Namespace: ns,
-			}] = struct{}{}
+			})
 
 			s.MemRegistry.AddService(&model.Service{
 				Hostname:       hostname,
@@ -280,14 +262,14 @@ func TestAdsPushScoping(t *testing.T) {
 			s.MemRegistry.AddEndpoint(hostname, "http-main", 2080, "192.168.1.10", i)
 		}
 
-		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: model.IstioDefaultConfigNamespace})})
+		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: testConfigNamespace})})
 	}
 
 	addVirtualService := func(i int, hosts []string, dest string) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+				Name:             fmt.Sprintf("vs%d", i), Namespace: testConfigNamespace,
 			},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
@@ -306,14 +288,14 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 	}
 	removeVirtualService := func(i int) {
-		s.Store().Delete(gvk.VirtualService, fmt.Sprintf("vs%d", i), model.IstioDefaultConfigNamespace, nil)
+		s.Store().Delete(gvk.VirtualService, fmt.Sprintf("vs%d", i), testConfigNamespace, nil)
 	}
 
 	addDelegateVirtualService := func(i int, hosts []string, dest string) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("rootvs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+				Name:             fmt.Sprintf("rootvs%d", i), Namespace: testConfigNamespace,
 			},
 			Spec: &networking.VirtualService{
 				Hosts: hosts,
@@ -322,7 +304,7 @@ func TestAdsPushScoping(t *testing.T) {
 					Name: "dest-foo",
 					Delegate: &networking.Delegate{
 						Name:      fmt.Sprintf("delegatevs%d", i),
-						Namespace: model.IstioDefaultConfigNamespace,
+						Namespace: testConfigNamespace,
 					},
 				}},
 				ExportTo: nil,
@@ -334,7 +316,7 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: testConfigNamespace,
 			},
 			Spec: &networking.VirtualService{
 				Http: []*networking.HTTPRoute{{
@@ -356,7 +338,7 @@ func TestAdsPushScoping(t *testing.T) {
 		if _, err := s.Store().Update(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
-				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: model.IstioDefaultConfigNamespace,
+				Name:             fmt.Sprintf("delegatevs%d", i), Namespace: testConfigNamespace,
 			},
 			Spec: &networking.VirtualService{
 				Http: []*networking.HTTPRoute{{
@@ -382,15 +364,15 @@ func TestAdsPushScoping(t *testing.T) {
 	}
 
 	removeDelegateVirtualService := func(i int) {
-		s.Store().Delete(gvk.VirtualService, fmt.Sprintf("rootvs%d", i), model.IstioDefaultConfigNamespace, nil)
-		s.Store().Delete(gvk.VirtualService, fmt.Sprintf("delegatevs%d", i), model.IstioDefaultConfigNamespace, nil)
+		s.Store().Delete(gvk.VirtualService, fmt.Sprintf("rootvs%d", i), testConfigNamespace, nil)
+		s.Store().Delete(gvk.VirtualService, fmt.Sprintf("delegatevs%d", i), testConfigNamespace, nil)
 	}
 
 	addDestinationRule := func(i int, host string) {
 		if _, err := s.Store().Create(config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
-				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace,
+				Name:             fmt.Sprintf("dr%d", i), Namespace: testConfigNamespace,
 			},
 			Spec: &networking.DestinationRule{
 				Host:     host,
@@ -401,27 +383,27 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 	}
 	removeDestinationRule := func(i int) {
-		s.Store().Delete(gvk.DestinationRule, fmt.Sprintf("dr%d", i), model.IstioDefaultConfigNamespace, nil)
+		s.Store().Delete(gvk.DestinationRule, fmt.Sprintf("dr%d", i), testConfigNamespace, nil)
 	}
 
 	sc := &networking.Sidecar{
 		Egress: []*networking.IstioEgressListener{
 			{
-				Hosts: []string{model.IstioDefaultConfigNamespace + "/*" + svcSuffix},
+				Hosts: []string{testConfigNamespace + "/*" + svcSuffix},
 			},
 		},
 	}
 	scc := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
-			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace,
+			Name:             "sc", Namespace: testConfigNamespace,
 		},
 		Spec: sc,
 	}
 	notMatchedScc := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
-			Name:             "notMatchedSc", Namespace: model.IstioDefaultConfigNamespace,
+			Name:             "notMatchedSc", Namespace: testConfigNamespace,
 		},
 		Spec: &networking.Sidecar{
 			WorkloadSelector: &networking.WorkloadSelector{
@@ -432,7 +414,7 @@ func TestAdsPushScoping(t *testing.T) {
 	if _, err := s.Store().Create(scc); err != nil {
 		t.Fatal(err)
 	}
-	addService(model.IstioDefaultConfigNamespace, 1, 2, 3)
+	addService(testConfigNamespace, 1, 2, 3)
 
 	adscConn := s.Connect(nil, nil, nil)
 	defer adscConn.Close()
@@ -471,7 +453,7 @@ func TestAdsPushScoping(t *testing.T) {
 			desc:            "Add a scoped service",
 			ev:              model.EventAdd,
 			svcIndexes:      []int{4},
-			ns:              model.IstioDefaultConfigNamespace,
+			ns:              testConfigNamespace,
 			expectedUpdates: []string{v3.ListenerType},
 		}, // then: default 1,2,3,4
 		{
@@ -481,7 +463,7 @@ func TestAdsPushScoping(t *testing.T) {
 				name    string
 				indexes []int
 			}{{fmt.Sprintf("svc%d%s", 4, svcSuffix), []int{1, 2}}},
-			ns:              model.IstioDefaultConfigNamespace,
+			ns:              testConfigNamespace,
 			expectedUpdates: []string{v3.EndpointType},
 		}, // then: default 1,2,3,4
 		{
@@ -526,7 +508,7 @@ func TestAdsPushScoping(t *testing.T) {
 			desc:              "Add a unscoped(name not match) service",
 			ev:                model.EventAdd,
 			svcNames:          []string{"foo.com"},
-			ns:                model.IstioDefaultConfigNamespace,
+			ns:                testConfigNamespace,
 			unexpectedUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3,4, foo.com; ns1: 11
 		{
@@ -536,7 +518,7 @@ func TestAdsPushScoping(t *testing.T) {
 				name    string
 				indexes []int
 			}{{"foo.com", []int{1, 2}}},
-			ns:                model.IstioDefaultConfigNamespace,
+			ns:                testConfigNamespace,
 			unexpectedUpdates: []string{v3.EndpointType},
 		}, // then: default 1,2,3,4
 		{
@@ -601,7 +583,7 @@ func TestAdsPushScoping(t *testing.T) {
 				name    string
 				indexes []int
 			}{{"foo.com", []int{1, 2}}},
-			ns:              model.IstioDefaultConfigNamespace,
+			ns:              testConfigNamespace,
 			expectedUpdates: []string{v3.EndpointType},
 		},
 		{
@@ -648,14 +630,14 @@ func TestAdsPushScoping(t *testing.T) {
 			desc:            "Remove a scoped service",
 			ev:              model.EventDelete,
 			svcIndexes:      []int{4},
-			ns:              model.IstioDefaultConfigNamespace,
+			ns:              testConfigNamespace,
 			expectedUpdates: []string{v3.ListenerType},
 		}, // then: default 1,2,3, foo.com; ns: 11
 		{
 			desc:              "Remove a unscoped(name not match) service",
 			ev:                model.EventDelete,
 			svcNames:          []string{"foo.com"},
-			ns:                model.IstioDefaultConfigNamespace,
+			ns:                testConfigNamespace,
 			unexpectedUpdates: []string{v3.ClusterType},
 		}, // then: default 1,2,3; ns1: 11
 		{
@@ -669,14 +651,14 @@ func TestAdsPushScoping(t *testing.T) {
 			desc:              "Add an unmatched Sidecar config",
 			ev:                model.EventAdd,
 			cfgs:              []config.Config{notMatchedScc},
-			ns:                model.IstioDefaultConfigNamespace,
+			ns:                testConfigNamespace,
 			unexpectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
 		},
 		{
 			desc:            "Update the Sidecar config",
 			ev:              model.EventUpdate,
 			cfgs:            []config.Config{scc},
-			ns:              model.IstioDefaultConfigNamespace,
+			ns:              testConfigNamespace,
 			expectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
 		},
 	}
@@ -767,12 +749,12 @@ func TestAdsPushScoping(t *testing.T) {
 			timeout := time.Millisecond * 200
 			upd, _ := adscConn.Wait(timeout, wantUpdates...)
 			for _, expect := range c.expectedUpdates {
-				if !contains(upd, expect) {
+				if !slices.Contains(upd, expect) {
 					t.Fatalf("expected update %s not in updates %v", expect, upd)
 				}
 			}
 			for _, unexpect := range c.unexpectedUpdates {
-				if contains(upd, unexpect) {
+				if slices.Contains(upd, unexpect) {
 					t.Fatalf("expected to not get update %s, but it is in updates %v", unexpect, upd)
 				}
 			}
@@ -781,7 +763,7 @@ func TestAdsPushScoping(t *testing.T) {
 }
 
 func TestAdsUpdate(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS()
 
 	s.MemRegistry.AddService(&model.Service{
@@ -799,7 +781,7 @@ func TestAdsUpdate(t *testing.T) {
 			Namespace: "default",
 		},
 	})
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
 	time.Sleep(time.Millisecond * 200)
 	s.MemRegistry.SetEndpoints("adsupdate.default.svc.cluster.local", "default",
 		newEndpointWithAccount("10.2.0.1", "hello-sa", "v1"))
@@ -828,7 +810,7 @@ func TestAdsUpdate(t *testing.T) {
 }
 
 func TestEnvoyRDSProtocolError(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.RouteType)
 	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 
@@ -859,7 +841,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 			t.Fatalf("expected routes %v got %v", expected, got)
 		}
 	}
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.RouteType)
 	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 	expectRoutes(resp, routeA)
@@ -891,7 +873,7 @@ func TestEdsCache(t *testing.T) {
 			},
 			Spec: &networking.ServiceEntry{
 				Hosts: []string{"foo.com"},
-				Ports: []*networking.Port{{
+				Ports: []*networking.ServicePort{{
 					Number:   80,
 					Protocol: "HTTP",
 					Name:     "http",
@@ -914,7 +896,7 @@ func TestEdsCache(t *testing.T) {
 		}, retry.Timeout(time.Second*5))
 	}
 
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		Configs: []config.Config{
 			makeEndpoint([]*networking.WorkloadEntry{
 				{Address: "1.2.3.4", Locality: "region/zone"},
@@ -984,4 +966,16 @@ func TestEdsCache(t *testing.T) {
 	}
 	assertEndpoints(ads)
 	t.Logf("endpoints: %+v", ads.GetEndpoints())
+}
+
+// TestPushQueueLeak is a regression test for https://github.com/grpc/grpc-go/issues/4758
+func TestPushQueueLeak(t *testing.T) {
+	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	p := ds.ConnectADS()
+	p.RequestResponseAck(t, nil)
+	for _, c := range ds.Discovery.AllClients() {
+		leak.MustGarbageCollect(t, c)
+	}
+	ds.Discovery.AdsPushAll(&model.PushRequest{Push: ds.PushContext(), Forced: true})
+	p.Cleanup()
 }

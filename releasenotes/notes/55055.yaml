@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 55055
+releaseNotes:
+- |
+  **Added** analyzer to report negative status conditions on select Istio and Kubernetes Gateway-API resources. 

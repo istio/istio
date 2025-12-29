@@ -23,32 +23,52 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.ServiceEntry {
 	result := make(map[ScopedFqdn]*v1alpha3.ServiceEntry)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.ServiceEntry, func(r *resource.Instance) bool {
 		s := r.Message.(*v1alpha3.ServiceEntry)
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
-		if IsExportToAllNamespaces(s.ExportTo) {
-			hostsNamespaceScope = ExportToAllNamespaces
-		}
+
+		exportsToAll := false
 		for _, h := range s.GetHosts() {
-			result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
+			// ExportToAll scenario
+			if len(s.GetExportTo()) == 0 || exportsToAll {
+				result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h)] = s
+				continue // If exports to all, we can skip adding to each namespace
+			}
+
+			for _, ns := range s.GetExportTo() {
+				switch ns {
+				case ExportToAllNamespaces:
+					result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h)] = s
+					exportsToAll = true
+				case ExportToNamespaceLocal:
+					result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
+				default:
+					result[NewScopedFqdn(ns, r.Metadata.FullName.Namespace, h)] = s
+				}
+
+				// If exports to all, we don't need to check other namespaces
+				if exportsToAll {
+					break
+				}
+			}
 		}
 		return true
 	})
 
 	// converts k8s service to serviceEntry since destinationHost
 	// validation is performed against serviceEntry
-	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.Service, func(r *resource.Instance) bool {
 		s := r.Message.(*corev1.ServiceSpec)
 		var se *v1alpha3.ServiceEntry
-		var ports []*v1alpha3.Port
+		var ports []*v1alpha3.ServicePort
 		for _, p := range s.Ports {
-			ports = append(ports, &v1alpha3.Port{
+			ports = append(ports, &v1alpha3.ServicePort{
 				Number:   uint32(p.Port),
 				Name:     p.Name,
 				Protocol: string(p.Protocol),
@@ -75,6 +95,7 @@ func getVisibleNamespacesFromExportToAnno(anno, resourceNamespace string) []stri
 		scopes = append(scopes, ExportToAllNamespaces)
 	} else {
 		for _, ns := range strings.Split(anno, ",") {
+			ns = strings.TrimSpace(ns)
 			if ns == ExportToNamespaceLocal {
 				scopes = append(scopes, resourceNamespace)
 			} else {

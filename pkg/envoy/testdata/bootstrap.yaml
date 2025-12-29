@@ -1,0 +1,5 @@
+---
+# Sample custom bootstrap in YAML
+key: value
+ip: "[$(HOST_IP)]:8126"
+ip2: "$(HOST_IP):8126"

@@ -1,0 +1,8 @@
+spec:
+  values:
+    additionalContainers:
+    - name: additional-container
+      image: additional-image:latest
+      ports:
+      - containerPort: 8080
+        protocol: TCP

@@ -17,6 +17,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -24,16 +25,16 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/validation"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/validation/agent"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 )
 
 // ConstructProxyConfig returns proxyConfig
-func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (*meshconfig.ProxyConfig, error) {
+func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int) (*meshconfig.ProxyConfig, error) {
 	annotations, err := bootstrap.ReadPodAnnotations("")
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -50,7 +51,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		}
 		fileMeshContents = string(contents)
 	}
-	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name], proxyConfigEnv, role.Type == model.SidecarProxy)
+	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name], proxyConfigEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -59,11 +60,29 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		proxyConfig = meshConfig.DefaultConfig
 	}
 
-	if concurrency != 0 {
-		// If --concurrency is explicitly set, we will use that. Otherwise, use source determined by
-		// proxy config.
-		proxyConfig.Concurrency = &wrapperspb.Int32Value{Value: int32(concurrency)}
+	// Concurrency wasn't explicitly set
+	if proxyConfig.Concurrency == nil {
+		// We want to detect based on CPU limit configured. If we are running on a 100 core machine, but with
+		// only 2 CPUs allocated, we want to have 2 threads, not 100, or we will get excessively throttled.
+		if CPULimit != 0 {
+			log.Infof("cpu limit detected as %v, setting concurrency", CPULimit)
+			proxyConfig.Concurrency = wrapperspb.Int32(int32(CPULimit))
+		}
 	}
+	// Respect the old flag, if they set it. This should never be set in typical installation.
+	if concurrency != 0 {
+		log.Warnf("legacy --concurrency=%d flag detected; prefer to use ProxyConfig", concurrency)
+		proxyConfig.Concurrency = wrapperspb.Int32(int32(concurrency))
+	}
+
+	if proxyConfig.Concurrency.GetValue() == 0 {
+		if CPULimit < runtime.NumCPU() {
+			log.Warnf("concurrency is set to 0, which will use a thread per CPU on the host. However, CPU limit is set lower. "+
+				"This is not recommended and may lead to performance issues. "+
+				"CPU count: %d, CPU Limit: %d.", runtime.NumCPU(), CPULimit)
+		}
+	}
+
 	if x, ok := proxyConfig.GetClusterName().(*meshconfig.ProxyConfig_ServiceCluster); ok {
 		if x.ServiceCluster == "" {
 			proxyConfig.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: serviceCluster}
@@ -79,8 +98,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
-	if err := validation.ValidateMeshConfigProxyConfig(proxyConfig); err != nil {
-		return nil, err
+	validation := agent.ValidateMeshConfigProxyConfig(proxyConfig)
+	if validation.Err != nil {
+		return nil, validation.Err
 	}
 	return applyAnnotations(proxyConfig, annotations), nil
 }
@@ -93,13 +113,8 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 //
 // Merging is done by replacement. Any fields present in the overlay will replace those existing fields, while
 // untouched fields will remain untouched. This means lists will be replaced, not appended to, for example.
-func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string, isSidecar bool) (*meshconfig.MeshConfig, error) {
+func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string) (*meshconfig.MeshConfig, error) {
 	mc := mesh.DefaultMeshConfig()
-	// Gateway default should be concurrency unset (ie listen on all threads)
-	if !isSidecar {
-		mc.DefaultConfig.Concurrency = nil
-	}
-
 	if fileOverride != "" {
 		log.Infof("Apply mesh config from file %v", fileOverride)
 		fileMesh, err := mesh.ApplyMeshConfig(fileOverride, mc)
@@ -160,3 +175,9 @@ func GetPilotSan(discoveryAddress string) string {
 	}
 	return discHost
 }
+
+var CPULimit = env.Register(
+	"ISTIO_CPU_LIMIT",
+	0,
+	"CPU limit for the current process. Expressed as an integer value, rounded up.",
+).Get()

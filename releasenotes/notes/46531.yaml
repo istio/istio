@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 46510
+
+releaseNotes:
+  - |
+    **Fixed** an issue where the creation of a Telemetry object without any providers throws the IST0157 error.

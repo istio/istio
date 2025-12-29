@@ -5,11 +5,13 @@ metadata:
   labels:
     app: istiod
     istio: istiod
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     istio.io/tag: "default"
     # Required to make sure this resource is removed
     # when purging Istio resources
     operator.istio.io/component: Pilot
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 webhooks:
   - name: validation.istio.io
     clientConfig:
@@ -30,16 +32,13 @@ webhooks:
           - networking.istio.io
           - telemetry.istio.io
           - extensions.istio.io
-          {{- if .Values.base.validateGateway }}
-          - gateway.networking.k8s.io
-          {{- end }}
         apiVersions:
           - "*"
         resources:
           - "*"
     failurePolicy: Ignore
     sideEffects: None
-    admissionReviewVersions: ["v1beta1", "v1"]
+    admissionReviewVersions: ["v1"]
     objectSelector:
       matchExpressions:
         - key: istio.io/rev

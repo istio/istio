@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+releaseNotes:
+  - |
+    **Added** waypoint span tags `istio.downstream.workload`, `istio.downstream.namespace`, `istio.upstream.workload`, `istio.upstream.namespace`,
+    with the upstream and downstream workload and namespace.

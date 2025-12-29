@@ -22,54 +22,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 var (
-	errTag     = monitoring.MustCreateLabel("err")
-	nodeTag    = monitoring.MustCreateLabel("node")
-	typeTag    = monitoring.MustCreateLabel("type")
-	versionTag = monitoring.MustCreateLabel("version")
-
-	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
-	cdsReject = monitoring.NewGauge(
-		"pilot_xds_cds_reject",
-		"Pilot rejected CDS configs.",
-		monitoring.WithLabels(nodeTag, errTag),
-	)
-
-	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
-	edsReject = monitoring.NewGauge(
-		"pilot_xds_eds_reject",
-		"Pilot rejected EDS.",
-		monitoring.WithLabels(nodeTag, errTag),
-	)
-
-	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
-	ldsReject = monitoring.NewGauge(
-		"pilot_xds_lds_reject",
-		"Pilot rejected LDS.",
-		monitoring.WithLabels(nodeTag, errTag),
-	)
-
-	// pilot_total_xds_rejects should be used instead. This is for backwards compatibility
-	rdsReject = monitoring.NewGauge(
-		"pilot_xds_rds_reject",
-		"Pilot rejected RDS.",
-		monitoring.WithLabels(nodeTag, errTag),
-	)
-
-	totalXDSRejects = monitoring.NewSum(
-		"pilot_total_xds_rejects",
-		"Total number of XDS responses from pilot rejected by proxy.",
-		monitoring.WithLabels(typeTag),
-	)
-
-	xdsExpiredNonce = monitoring.NewSum(
-		"pilot_xds_expired_nonce",
-		"Total number of XDS requests with an expired nonce.",
-		monitoring.WithLabels(typeTag),
-	)
+	typeTag    = monitoring.CreateLabel("type")
+	versionTag = monitoring.CreateLabel("version")
 
 	monServices = monitoring.NewGauge(
 		"pilot_services",
@@ -81,21 +39,14 @@ var (
 	xdsClients = monitoring.NewGauge(
 		"pilot_xds",
 		"Number of endpoints connected to this pilot using XDS.",
-		monitoring.WithLabels(versionTag),
 	)
 	xdsClientTrackerMutex = &sync.Mutex{}
 	xdsClientTracker      = make(map[string]float64)
-
-	xdsResponseWriteTimeouts = monitoring.NewSum(
-		"pilot_xds_write_timeout",
-		"Pilot XDS response write timeouts.",
-	)
 
 	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
 	pushes = monitoring.NewSum(
 		"pilot_xds_pushes",
 		"Pilot build and send errors for lds, rds, cds and eds.",
-		monitoring.WithLabels(typeTag),
 	)
 
 	cdsSendErrPushes = pushes.With(typeTag.Value("cds_senderr"))
@@ -105,7 +56,7 @@ var (
 
 	debounceTime = monitoring.NewDistribution(
 		"pilot_debounce_time",
-		"Delay in seconds between the first config enters debouncing and the merged push request is pushed into the push queue.",
+		"Delay in seconds between the first config enters debouncing and the merged push request is pushed into the push queue (includes pushcontext_init_seconds).",
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 	)
 
@@ -119,13 +70,6 @@ var (
 		"pilot_xds_push_time",
 		"Total time in seconds Pilot takes to push lds, rds, cds and eds.",
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
-		monitoring.WithLabels(typeTag),
-	)
-
-	sendTime = monitoring.NewDistribution(
-		"pilot_xds_send_time",
-		"Total time in seconds Pilot takes to send generated configuration.",
-		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 	)
 
 	proxiesQueueTime = monitoring.NewDistribution(
@@ -137,7 +81,6 @@ var (
 	pushTriggers = monitoring.NewSum(
 		"pilot_push_triggers",
 		"Total number of times a push was triggered, labeled by reason for the push.",
-		monitoring.WithLabels(typeTag),
 	)
 
 	proxiesConvergeDelay = monitoring.NewDistribution(
@@ -146,20 +89,9 @@ var (
 		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
 	)
 
-	pushContextErrors = monitoring.NewSum(
-		"pilot_xds_push_context_errors",
-		"Number of errors (timeouts) initiating push context.",
-	)
-
-	totalXDSInternalErrors = monitoring.NewSum(
-		"pilot_total_xds_internal_errors",
-		"Total number of internal XDS errors in pilot.",
-	)
-
 	inboundUpdates = monitoring.NewSum(
 		"pilot_inbound_updates",
 		"Total number of updates received by pilot.",
-		monitoring.WithLabels(typeTag),
 	)
 
 	pilotSDSCertificateErrors = monitoring.NewSum(
@@ -179,7 +111,6 @@ var (
 		// 4M default limit for gRPC, 10M config will start to strain system,
 		// 40M is likely upper-bound on config sizes supported.
 		[]float64{1, 10000, 1000000, 4000000, 10000000, 40000000},
-		monitoring.WithLabels(typeTag),
 		monitoring.WithUnit(monitoring.Bytes),
 	)
 )
@@ -207,11 +138,11 @@ var triggerMetric = map[model.TriggerReason]monitoring.Metric{
 	model.ClusterUpdate:   pushTriggers.With(typeTag.Value(string(model.ClusterUpdate))),
 }
 
-func recordPushTriggers(reasons ...model.TriggerReason) {
-	for _, r := range reasons {
+func recordPushTriggers(reasons model.ReasonStats) {
+	for r, cnt := range reasons {
 		t, f := triggerMetric[r]
 		if f {
-			t.Increment()
+			t.RecordInt(int64(cnt))
 		} else {
 			pushTriggers.With(typeTag.Value(string(r))).Increment()
 		}
@@ -246,52 +177,7 @@ func recordSendError(xdsType string, err error) bool {
 	return false
 }
 
-func incrementXDSRejects(xdsType string, node, errCode string) {
-	totalXDSRejects.With(typeTag.Value(v3.GetMetricType(xdsType))).Increment()
-	switch xdsType {
-	case v3.ListenerType:
-		ldsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
-	case v3.ClusterType:
-		cdsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
-	case v3.EndpointType:
-		edsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
-	case v3.RouteType:
-		rdsReject.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
-	}
-}
-
-func recordSendTime(duration time.Duration) {
-	sendTime.Record(duration.Seconds())
-}
-
 func recordPushTime(xdsType string, duration time.Duration) {
 	pushTime.With(typeTag.Value(v3.GetMetricType(xdsType))).Record(duration.Seconds())
 	pushes.With(typeTag.Value(v3.GetMetricType(xdsType))).Increment()
-}
-
-func init() {
-	monitoring.MustRegister(
-		cdsReject,
-		edsReject,
-		ldsReject,
-		rdsReject,
-		xdsExpiredNonce,
-		totalXDSRejects,
-		monServices,
-		xdsClients,
-		xdsResponseWriteTimeouts,
-		pushes,
-		debounceTime,
-		pushContextInitTime,
-		pushTime,
-		proxiesConvergeDelay,
-		proxiesQueueTime,
-		pushContextErrors,
-		totalXDSInternalErrors,
-		inboundUpdates,
-		pushTriggers,
-		sendTime,
-		pilotSDSCertificateErrors,
-		configSizeBytes,
-	)
 }

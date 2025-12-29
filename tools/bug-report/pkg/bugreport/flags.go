@@ -24,15 +24,17 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/slices"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 )
 
 var (
-	startTime, endTime, configFile, tempDir string
-	included, excluded                      []string
-	commandTimeout, since                   time.Duration
-	gConfig                                 = &config2.BugReportConfig{}
+	startTime, endTime, configFile, tempDir, outputDir string
+	included, excluded                                 []string
+	commandTimeout, since                              time.Duration
+	gConfig                                            = &config2.BugReportConfig{}
 )
 
 func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
@@ -50,6 +52,9 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// dry run
 	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false,
 		"Only log commands that would be run, don't fetch or write.")
+
+	cmd.PersistentFlags().IntVar(&args.ProxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort,
+		"Envoy proxy admin port")
 
 	// full secrets
 	cmd.PersistentFlags().BoolVarP(&args.FullSecrets, "full-secrets", "", false,
@@ -88,14 +93,16 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 		"List of comma separated glob patterns to match against log error strings. "+
 			"Any error matching these patterns is ignored when calculating the log importance heuristic.")
 
-	// output/working dir
+	// working dir to store temporary artifacts
 	cmd.PersistentFlags().StringVar(&tempDir, "dir", "",
 		"Set a specific directory for temporary artifact storage.")
 
-	// requests per second limit
-	cmd.PersistentFlags().IntVar(&args.RequestsPerSecondLimit, "rps-limit", 0,
-		"Requests per second limit to the Kubernetes API server, defaults to 10."+
-			"A higher limit can make bug report collection much faster.")
+	cmd.PersistentFlags().StringVar(&outputDir, "output-dir", "",
+		"Set a specific directory for output archive file.")
+
+	// in-flight request limit
+	cmd.PersistentFlags().IntVar(&args.RequestConcurrency, "rq-concurrency", 0,
+		"Set the concurrency limit of requests to the Kubernetes API server, defaults to 32.")
 }
 
 func parseConfig() (*config2.BugReportConfig, error) {
@@ -133,7 +140,7 @@ func parseConfig() (*config2.BugReportConfig, error) {
 		if err := ess.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
-		ess.Namespaces = filterSystemNamespacesOut(ess.Namespaces)
+		ess.Namespaces = slices.FilterInPlace(ess.Namespaces, func(ns string) bool { return !inject.IgnoredNamespaces.Contains(ns) })
 		if len(ess.Namespaces) > 0 {
 			gConfig.Exclude = append(gConfig.Exclude, ess)
 		}
@@ -142,6 +149,12 @@ func parseConfig() (*config2.BugReportConfig, error) {
 }
 
 func parseTimes(config *config2.BugReportConfig, startTime, endTime string, duration time.Duration) error {
+	if startTime == "" && endTime == "" {
+		config.TimeFilterApplied = false
+	} else {
+		config.TimeFilterApplied = true
+	}
+
 	config.EndTime = time.Now()
 	config.Since = config2.Duration(duration)
 	if endTime != "" {
@@ -191,15 +204,4 @@ func overlayConfig(base, overlay *config2.BugReportConfig) (*config2.BugReportCo
 	out := &config2.BugReportConfig{}
 	err = json.Unmarshal(mj, out)
 	return out, err
-}
-
-func filterSystemNamespacesOut(namespaces []string) []string {
-	filteredNss := make([]string, 0)
-	for _, ns := range namespaces {
-		if inject.IgnoredNamespaces.Contains(ns) {
-			continue
-		}
-		filteredNss = append(filteredNss, ns)
-	}
-	return filteredNss
 }

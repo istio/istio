@@ -19,22 +19,22 @@ import (
 	"fmt"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/kube"
 )
 
 // PodFilteredInfo represents a small subset of fields from
 // Pod object in Kubernetes. Exposed for integration test
 type PodFilteredInfo struct {
-	Namespace string      `json:"namespace"`
-	Name      string      `json:"name"`
-	Address   string      `json:"address"`
-	Status    v1.PodPhase `json:"status"`
-	Age       string      `json:"age"`
+	Namespace string          `json:"namespace"`
+	Name      string          `json:"name"`
+	Address   string          `json:"address"`
+	Status    corev1.PodPhase `json:"status"`
+	Age       string          `json:"age"`
 }
 
 // IstioOperatorCRInfo represents a tiny subset of fields from
@@ -92,7 +92,7 @@ func ListRevisionDescriptions(client kube.CLIClient) (map[string]*RevisionDescri
 	}
 	for _, hook := range webhooks {
 		rev := renderWithDefault(hook.GetLabels()[label.IoIstioRev.Name], DefaultRevisionName)
-		tagLabel := hook.GetLabels()[IstioTagLabel]
+		tagLabel := hook.GetLabels()[label.IoIstioTag.Name]
 		ri, revPresent := revisions[rev]
 		if revPresent {
 			if tagLabel != "" {

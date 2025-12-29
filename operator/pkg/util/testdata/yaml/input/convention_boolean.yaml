@@ -1,0 +1,15 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio
+spec:
+  profile: default
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_DUAL_STACK: false
+        PROXY_XDS_VIA_AGENT: false
+  values:
+    pilot:
+      env:
+        ISTIO_DUAL_STACK: false

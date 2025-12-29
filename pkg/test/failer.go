@@ -20,16 +20,11 @@ import (
 	"os"
 	"runtime"
 	"sync"
-	"testing"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-var (
-	_ Failer = &testing.T{}
-	_ Failer = &testing.B{}
-	_ Failer = &errorWrapper{}
-)
+var _ Failer = &errorWrapper{}
 
 // Failer is an interface to be provided to test functions of the form XXXOrFail. This is a
 // substitute for testing.TB, which cannot be implemented outside of the testing
@@ -131,13 +126,11 @@ func (e *errorWrapper) Cleanup(f func()) {
 }
 
 func (e *errorWrapper) Log(args ...any) {
-	log.Info(args...)
+	log.Info(fmt.Sprint(args...))
 }
 
 func (e *errorWrapper) Logf(format string, args ...any) {
-	ag := []any{format}
-	ag = append(ag, args...)
-	log.Infof(ag...)
+	log.Infof(format, args...)
 }
 
 func (e *errorWrapper) TempDir() string {

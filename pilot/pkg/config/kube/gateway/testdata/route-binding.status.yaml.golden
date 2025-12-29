@@ -1,9 +1,7 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -13,10 +11,9 @@ status:
     status: "True"
     type: Accepted
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -26,20 +23,15 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Resources available
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
-    reason: ListenersValid
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
     status: "True"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
+    type: Programmed
   listeners:
   - attachedRoutes: 1
     conditions:
@@ -55,19 +47,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -77,6 +59,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
   - attachedRoutes: 3
     conditions:
     - lastTransitionTime: fake
@@ -91,19 +75,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -127,19 +101,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -149,6 +113,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
@@ -163,19 +129,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: Invalid route kinds
       reason: InvalidRouteKinds
@@ -197,9 +153,32 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: slctr-labels
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
       status: "False"
-      type: Detached
+      type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
       reason: Programmed
@@ -207,23 +186,271 @@ status:
       type: Programmed
     - lastTransitionTime: fake
       message: No errors found
-      reason: Ready
+      reason: ResolvedRefs
       status: "True"
-      type: Ready
+      type: ResolvedRefs
+    name: slctr-expr-in-yes
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: namespace-selector
+    name: slctr-expr-in-no
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 2
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: slctr-expr-notin-yes
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: slctr-expr-notin-no
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 2
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: slctr-expr-exists-yes
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: slctr-expr-exists-no
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 2
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: slctr-expr-dne-yes
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: slctr-expr-dne-no
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: slctr-combined-yes
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: slctr-combined-no
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: bind-all
   namespace: default
 spec: null
@@ -231,7 +458,7 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid, bound to 2 parents
+      message: Route was valid, bound to 6 parents
       reason: Accepted
       status: "True"
       type: Accepted
@@ -245,10 +472,9 @@ status:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: host-mismatch
   namespace: default
 spec: null
@@ -271,10 +497,9 @@ status:
       namespace: istio-system
       sectionName: foobar
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: invalid-bind-cross-namespace
   namespace: default
 spec: null
@@ -282,8 +507,8 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: hostnames matched parent hostname "*.namespace-selector.example", but
-        namespace "default" is not allowed by the parent
+      message: hostnames matched parent hostname "*.slctr-labels.example", but namespace
+        "default" is not allowed by the parent
       reason: NotAllowedByListeners
       status: "False"
       type: Accepted
@@ -296,12 +521,11 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
-      sectionName: namespace-selector
+      sectionName: slctr-labels
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: same-namespace-invalid
   namespace: default
 spec: null
@@ -325,10 +549,9 @@ status:
       namespace: istio-system
       sectionName: same-namespace
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: section-name-cross-namespace
   namespace: default
 spec: null
@@ -351,10 +574,9 @@ status:
       namespace: istio-system
       sectionName: foobar
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: bind-cross-namespace
   namespace: group-namespace1
 spec: null
@@ -375,12 +597,176 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
-      sectionName: namespace-selector
+      sectionName: slctr-labels
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-notin-yes
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-expr-notin-no.example",
+        but namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-notin-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-in-yes
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-expr-in-no.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-in-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-exists-yes
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-expr-exists-no.example",
+        but namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-exists-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-dne-yes
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-expr-dne-no.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-dne-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-combined-yes
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-combined-no.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-combined-no
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: bind-cross-namespace
   namespace: group-namespace2
 spec: null
@@ -401,12 +787,11 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
-      sectionName: namespace-selector
+      sectionName: slctr-labels
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: same-namespace-valid
   namespace: istio-system
 spec: null
@@ -448,7 +833,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
-  creationTimestamp: null
   name: wrong-protocol
   namespace: default
 spec: null

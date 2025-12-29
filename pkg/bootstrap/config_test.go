@@ -15,20 +15,20 @@
 package bootstrap
 
 import (
-	"encoding/json"
 	"os"
 	"reflect"
+	"regexp"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/version"
 )
 
 func TestParseDownwardApi(t *testing.T) {
@@ -117,126 +117,36 @@ func TestGetNodeMetaData(t *testing.T) {
 	g.Expect(node.Metadata.Labels[model.LocalityLabel]).To(Equal("region/zone/subzone"))
 }
 
-func TestConvertNodeMetadata(t *testing.T) {
-	node := &model.Node{
-		ID: "test",
-		Metadata: &model.BootstrapNodeMetadata{
-			NodeMetadata: model.NodeMetadata{
-				ProxyConfig: &model.NodeMetaProxyConfig{
-					ClusterName: &v1alpha1.ProxyConfig_ServiceCluster{
-						ServiceCluster: "cluster",
-					},
-				},
-			},
-			Owner: "real-owner",
-		},
-		RawMetadata: map[string]any{},
-	}
-	node.Metadata.Owner = "real-owner"
-	node.RawMetadata["OWNER"] = "fake-owner"
-	node.RawMetadata["UNKNOWN"] = "new-field"
-	node.RawMetadata["A"] = 1
-	node.RawMetadata["B"] = map[string]any{"b": 1}
+func TestSetIstioVersion(t *testing.T) {
+	test.SetForTest(t, &version.Info.Version, "binary")
 
-	out := ConvertNodeToXDSNode(node)
-	{
-		b, err := protomarshal.MarshalProtoNames(out)
-		if err != nil {
-			t.Fatalf("failed to marshal: %v", err)
-		}
-		// nolint: lll
-		want := `{"id":"test","cluster":"cluster","metadata":{"A":1,"B":{"b":1},"OWNER":"real-owner","PROXY_CONFIG":{"serviceCluster":"cluster"},"UNKNOWN":"new-field"}}`
-		test.JSONEquals(t, want, string(b))
-	}
-
-	node2 := ConvertXDSNodeToNode(out)
-	{
-		got, err := json.Marshal(node2)
-		if err != nil {
-			t.Fatalf("failed to marshal: %v", err)
-		}
-		// nolint: lll
-		want := `{"ID":"test","Metadata":{"PROXY_CONFIG":{"serviceCluster":"cluster"},"OWNER":"real-owner"},"RawMetadata":null,"Locality":null}`
-		if want != string(got) {
-			t.Fatalf("ConvertXDSNodeToNode: got %q, want %q", string(got), want)
-		}
-	}
-}
-
-func TestConvertNodeServiceClusterNaming(t *testing.T) {
-	cases := []struct {
-		name        string
-		proxyCfg    *model.NodeMetaProxyConfig
-		labels      map[string]string
-		wantCluster string
+	testCases := []struct {
+		name            string
+		meta            *model.BootstrapNodeMetadata
+		binaryVersion   string
+		expectedVersion string
 	}{
 		{
-			name:        "no cluster name (no labels)",
-			proxyCfg:    &model.NodeMetaProxyConfig{},
-			wantCluster: "istio-proxy.bar",
+			name:            "if IstioVersion is not specified, set it from binary version",
+			meta:            &model.BootstrapNodeMetadata{},
+			expectedVersion: "binary",
 		},
 		{
-			name:        "no cluster name (defaults)",
-			proxyCfg:    &model.NodeMetaProxyConfig{},
-			labels:      map[string]string{"app": "foo"},
-			wantCluster: "foo.bar",
-		},
-		{
-			name: "service cluster",
-			proxyCfg: &model.NodeMetaProxyConfig{
-				ClusterName: &v1alpha1.ProxyConfig_ServiceCluster{
-					ServiceCluster: "foo",
+			name: "if IstioVersion is specified, don't set it from binary version",
+			meta: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					IstioVersion: "metadata-version",
 				},
 			},
-			wantCluster: "foo",
-		},
-		{
-			name: "trace service name (app label and namespace)",
-			proxyCfg: &model.NodeMetaProxyConfig{
-				ClusterName: &v1alpha1.ProxyConfig_TracingServiceName_{
-					TracingServiceName: v1alpha1.ProxyConfig_APP_LABEL_AND_NAMESPACE,
-				},
-			},
-			labels:      map[string]string{"app": "foo"},
-			wantCluster: "foo.bar",
-		},
-		{
-			name: "trace service name (canonical name)",
-			proxyCfg: &model.NodeMetaProxyConfig{
-				ClusterName: &v1alpha1.ProxyConfig_TracingServiceName_{
-					TracingServiceName: v1alpha1.ProxyConfig_CANONICAL_NAME_ONLY,
-				},
-			},
-			labels:      map[string]string{"service.istio.io/canonical-name": "foo"},
-			wantCluster: "foo",
-		},
-		{
-			name: "trace service name (canonical name and namespace)",
-			proxyCfg: &model.NodeMetaProxyConfig{
-				ClusterName: &v1alpha1.ProxyConfig_TracingServiceName_{
-					TracingServiceName: v1alpha1.ProxyConfig_CANONICAL_NAME_AND_NAMESPACE,
-				},
-			},
-			labels:      map[string]string{"service.istio.io/canonical-name": "foo"},
-			wantCluster: "foo.bar",
+			expectedVersion: "metadata-version",
 		},
 	}
 
-	for _, v := range cases {
-		t.Run(v.name, func(tt *testing.T) {
-			node := &model.Node{
-				ID: "test",
-				Metadata: &model.BootstrapNodeMetadata{
-					NodeMetadata: model.NodeMetadata{
-						ProxyConfig: v.proxyCfg,
-						Labels:      v.labels,
-						Namespace:   "bar",
-					},
-				},
-			}
-			out := ConvertNodeToXDSNode(node)
-			if got, want := out.Cluster, v.wantCluster; got != want {
-				tt.Errorf("ConvertNodeToXDSNode(%#v) => cluster = %s; want %s", node, got, want)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ret := SetIstioVersion(tc.meta)
+			if ret.IstioVersion != tc.expectedVersion {
+				t.Fatalf("SetIstioVersion: expected '%s', got '%s'", tc.expectedVersion, ret.IstioVersion)
 			}
 		})
 	}
@@ -281,5 +191,12 @@ func TestGetStatOptions(t *testing.T) {
 				tt.Errorf("unexpected inclusion suffixes. want: %v, got: %v", tc.wantInclusionSuffixes, inclusionSuffixes)
 			}
 		})
+	}
+}
+
+func TestRequiredEnvoyStatsMatcherInclusionRegexes(t *testing.T) {
+	ok, _ := regexp.MatchString(requiredEnvoyStatsMatcherInclusionRegexes, "vhost.default.local:18000.route.routev1.upstream_rq_200")
+	if !ok {
+		t.Fatal("requiredEnvoyStatsMatcherInclusionRegexes doesn't match the route's stat_prefix")
 	}
 }

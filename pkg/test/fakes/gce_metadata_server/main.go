@@ -27,8 +27,6 @@ import (
 )
 
 const (
-	addr = ":8080"
-
 	projID     = "test-project"
 	projNumber = "123456789"
 	instance   = "test-instance"
@@ -46,6 +44,12 @@ const (
 )
 
 var instAttrs = map[string]string{
+	"instance-template": "some-template",
+	"created-by":        "some-creator",
+	"cluster-name":      "test-cluster",
+}
+
+var vmInstAttrs = map[string]string{
 	"instance-template": "some-template",
 	"created-by":        "some-creator",
 }
@@ -68,18 +72,35 @@ func checkMetadataHeaders(next http.Handler) http.Handler {
 	})
 }
 
-func handleAttrs(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
+func handleAttrs(attrs map[string]string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
 
-	if val, ok := instAttrs[vars[attrKey]]; ok {
-		fmt.Fprint(w, val)
-		return
+		if val, ok := attrs[vars[attrKey]]; ok {
+			fmt.Fprint(w, val)
+			return
+		}
+
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 	}
-
-	http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 }
 
 func main() {
+	s1 := runServer(":8080", instAttrs)
+	s2 := runServer(":8081", vmInstAttrs)
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	log.Println("GCE metadata server started")
+	<-done
+	if err := s1.Shutdown(context.Background()); err != nil {
+		log.Fatalf("GCE Metadata Shutdown Failed: %+v", err)
+	}
+	if err := s2.Shutdown(context.Background()); err != nil {
+		log.Fatalf("GCE Metadata Shutdown Failed: %+v", err)
+	}
+}
+
+func runServer(addr string, attrs map[string]string) *http.Server {
 	r := mux.NewRouter()
 	r.Use(checkMetadataHeaders)
 	r.HandleFunc(projIDPath, func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, projID) }).Methods("GET")
@@ -87,25 +108,14 @@ func main() {
 	r.HandleFunc(instIDPath, func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, instID) }).Methods("GET")
 	r.HandleFunc(instancePath, func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, instance) }).Methods("GET")
 	r.HandleFunc(zonePath, func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, zone) }).Methods("GET")
-	r.HandleFunc(attrPath, handleAttrs).Methods("GET")
-	http.Handle("/", r)
+	r.HandleFunc(attrPath, handleAttrs(attrs)).Methods("GET")
 
-	srv := &http.Server{Addr: addr}
-
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	srv := &http.Server{Addr: addr, Handler: r}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("listen: %v\n", err)
 		}
 	}()
-
-	log.Println("GCE metadata server started (" + addr + ")")
-	<-done
-	log.Println("GCE metadata server stopped.")
-
-	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Fatalf("GCE Metadata Shutdown Failed: %+v", err)
-	}
+	return srv
 }

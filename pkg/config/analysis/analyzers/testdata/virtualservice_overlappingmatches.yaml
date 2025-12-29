@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: non-method-get
@@ -18,7 +18,7 @@ spec:
     - destination:
         host: sample.foo.svc.cluster.local
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: uri-with-prefix-exact 
@@ -38,7 +38,7 @@ spec:
     - destination:
         host: sample.foo.svc.cluster.local
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: overlapping-in-single-match
@@ -60,7 +60,7 @@ spec:
     - destination:
         host: sample.foo.svc.cluster.local
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: overlapping-in-two-matches
@@ -88,7 +88,7 @@ spec:
         host: sample.bar.svc.cluster.local
         subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: overlapping-mathes-with-different-methods

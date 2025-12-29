@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 51612
+
+releaseNotes:
+  - |
+    **Fixed** an issue causing resources to incorrectly be reported by `istioctl proxy-status` as `STALE`.

@@ -85,13 +85,14 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
 					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
-						Service:                         "foo/my-custom-ext-authz.foo.svc.cluster.local",
-						Port:                            9000,
-						Timeout:                         &durationpb.Duration{Seconds: 10},
-						FailOpen:                        true,
-						StatusOnError:                   "403",
-						PathPrefix:                      "/check",
-						IncludeRequestHeadersInCheck:    []string{"x-custom-id", "x-prefix-*", "*-suffix"},
+						Service:                      "foo/my-custom-ext-authz.foo.svc.cluster.local",
+						Port:                         9000,
+						Timeout:                      &durationpb.Duration{Seconds: 10},
+						FailOpen:                     true,
+						StatusOnError:                "403",
+						PathPrefix:                   "/check",
+						IncludeRequestHeadersInCheck: []string{"x-custom-id", "x-prefix-*", "*-suffix"},
+						//nolint: staticcheck
 						IncludeHeadersInCheck:           []string{"should-not-include-when-IncludeRequestHeadersInCheck-is-set"},
 						IncludeAdditionalHeadersInCheck: map[string]string{"x-header-1": "value-1", "x-header-2": "value-2"},
 						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
@@ -250,21 +251,30 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 	}
 
 	baseDir := "http/"
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			option := Option{
-				IsCustomBuilder: tc.meshConfig != nil,
-			}
-			push := push(t, baseDir+tc.input, tc.meshConfig)
-			proxy := node(tc.version)
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
-			g := New(tc.tdBundle, push, policies, option)
-			if g == nil {
-				t.Fatalf("failed to create generator")
-			}
-			got := g.BuildHTTP()
-			verify(t, convertHTTP(got), baseDir, tc.want, false /* forTCP */)
-		})
+	for _, extended := range []bool{false, true} {
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				option := Option{
+					IsCustomBuilder: tc.meshConfig != nil,
+				}
+				push := push(t, baseDir+tc.input, tc.meshConfig)
+				proxy := node(tc.version)
+				selectionOpts := model.PolicyMatcherForProxy(proxy)
+				policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
+				g := New(tc.tdBundle, push, policies, option)
+				if g == nil {
+					t.Fatal("failed to create generator")
+				}
+				got := g.BuildHTTP()
+				wants := tc.want
+				if extended {
+					for i := range wants {
+						wants[i] = "extended-" + wants[i]
+					}
+				}
+				verify(t, convertHTTP(got), baseDir, tc.want, false /* forTCP */)
+			})
+		}
 	}
 }
 
@@ -323,10 +333,11 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(nil)
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
+			selectionOpts := model.PolicyMatcherForProxy(proxy)
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
-				t.Fatalf("failed to create generator")
+				t.Fatal("failed to create generator")
 			}
 			got := g.BuildTCP()
 			verify(t, convertTCP(got), baseDir, tc.want, true /* forTCP */)
@@ -347,13 +358,13 @@ func verify(t *testing.T, gots []proto.Message, baseDir string, wants []string, 
 		}
 
 		wantFile := basePath + baseDir + wants[i]
+		util.RefreshGoldenFile(t, []byte(gotYaml), wantFile)
 		want := yamlConfig(t, wantFile, forTCP)
 		wantYaml, err := protomarshal.ToYAML(want)
 		if err != nil {
 			t.Fatalf("failed to convert to YAML: %v", err)
 		}
 
-		util.RefreshGoldenFile(t, []byte(gotYaml), wantFile)
 		if err := util.Compare([]byte(gotYaml), []byte(wantYaml)); err != nil {
 			t.Error(err)
 		}
@@ -422,12 +433,9 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 		}
 	}
 
-	authzPolicies, err := model.GetAuthorizationPolicies(&model.Environment{
+	authzPolicies := model.GetAuthorizationPolicies(&model.Environment{
 		ConfigStore: store,
 	})
-	if err != nil {
-		t.Fatalf("newAuthzPolicies: %v", err)
-	}
 	return authzPolicies
 }
 
@@ -453,7 +461,8 @@ func node(version *model.IstioVersion) *model.Proxy {
 		ConfigNamespace: "foo",
 		Labels:          httpbin,
 		Metadata: &model.NodeMetadata{
-			Labels: httpbin,
+			Labels:    httpbin,
+			Namespace: "foo",
 		},
 		IstioVersion: version,
 	}

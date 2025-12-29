@@ -20,6 +20,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
@@ -98,7 +99,7 @@ func TestPodKeyByProxy(t *testing.T) {
 	testCases := []struct {
 		name        string
 		proxy       *model.Proxy
-		expectedKey string
+		expectedKey types.NamespacedName
 	}{
 		{
 			name: "invalid id: bad format",
@@ -108,7 +109,6 @@ func TestPodKeyByProxy(t *testing.T) {
 					Namespace: "default",
 				},
 			},
-			expectedKey: "",
 		},
 		{
 			name: "invalid id: namespace mismatch",
@@ -118,7 +118,6 @@ func TestPodKeyByProxy(t *testing.T) {
 					Namespace: "default",
 				},
 			},
-			expectedKey: "",
 		},
 		{
 			name: "invalid id: namespace mismatch",
@@ -128,7 +127,7 @@ func TestPodKeyByProxy(t *testing.T) {
 					Namespace: "ns1",
 				},
 			},
-			expectedKey: "ns1/pod1",
+			expectedKey: types.NamespacedName{Namespace: "ns1", Name: "pod1"},
 		},
 	}
 
@@ -202,4 +201,13 @@ func makeFakeSvc(nodeSelector string) *v1.Service {
 		}
 	}
 	return svc
+}
+
+func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
+	for _, addr := range addresses {
+		if addr.IP == proxyIP {
+			return true
+		}
+	}
+	return false
 }

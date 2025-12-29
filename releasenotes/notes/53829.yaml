@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+  **Added** unconfined AppArmor annotation to the istio-cni-node DaemonSet to avoid conflicts with
+  AppArmor profiles which block certain privileged pod capabilities. Previously, AppArmor
+  (when enabled) was bypassed for the istio-cni-node DaemonSet since privileged was set to true
+  in the SecurityContext. This change ensures that the AppArmor profile is set to unconfined
+  for the istio-cni-node DaemonSet.

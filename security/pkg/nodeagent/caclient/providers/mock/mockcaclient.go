@@ -21,7 +21,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -50,7 +49,7 @@ func NewMockCAClient(certLifetime time.Duration, mockTrustAnchor bool) (*CAClien
 		certLifetime:    certLifetime,
 		mockTrustAnchor: mockTrustAnchor,
 	}
-	bundle, err := util.NewVerifiedKeyCertBundleFromFile(caCertPath, caKeyPath, certChainPath, rootCertPath)
+	bundle, err := util.NewVerifiedKeyCertBundleFromFile(caCertPath, caKeyPath, certChainPath, rootCertPath, "")
 	if err != nil {
 		return nil, fmt.Errorf("mock ca client creation error: %v", err)
 	}
@@ -94,29 +93,4 @@ func (c *CAClient) GetRootCertBundle() ([]string, error) {
 	}
 
 	return []string{}, nil
-}
-
-// TokenExchangeServer is the mocked token exchange server for testing.
-type TokenExchangeServer struct {
-	exchangeMap map[string]string
-}
-
-// NewMockTokenExchangeServer creates an instance of TokenExchangeServer. errors is used to
-// specify the number of errors before ExchangeToken returns a dumb token.
-func NewMockTokenExchangeServer(exchangeMap map[string]string) *TokenExchangeServer {
-	return &TokenExchangeServer{exchangeMap}
-}
-
-var _ security.TokenExchanger = &TokenExchangeServer{}
-
-// ExchangeToken returns a dumb token or errors depending on the settings.
-func (s *TokenExchangeServer) ExchangeToken(token string) (string, error) {
-	if len(s.exchangeMap) == 0 {
-		return "some-token", nil
-	}
-	ex, f := s.exchangeMap[token]
-	if !f {
-		return "", fmt.Errorf("token %v not found", token)
-	}
-	return ex, nil
 }

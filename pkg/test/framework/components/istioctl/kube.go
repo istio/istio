@@ -22,7 +22,8 @@ import (
 	"time"
 
 	"istio.io/istio/istioctl/cmd"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -33,8 +34,9 @@ import (
 var invokeMutex sync.Mutex
 
 type kubeComponent struct {
-	config     Config
-	kubeconfig string
+	config         Config
+	kubeconfig     string
+	istioNamespace string
 }
 
 // Filenamer is an interface to avoid importing kubecluster package, instead build our own interface
@@ -49,39 +51,28 @@ func newKube(ctx resource.Context, config Config) (Instance, error) {
 		return nil, fmt.Errorf("cluster does not support fetching kube config")
 	}
 	n := &kubeComponent{
-		config:     config,
-		kubeconfig: fn.Filename(),
+		config:         config,
+		kubeconfig:     fn.Filename(),
+		istioNamespace: config.IstioNamespace,
 	}
 
 	return n, nil
 }
 
-// Invoke implements WaitForConfigs
-func (c *kubeComponent) WaitForConfig(defaultNamespace string, configs string) error {
-	cfgs, _, err := crd.ParseInputs(configs)
-	if err != nil {
-		return fmt.Errorf("failed to parse input: %v", err)
-	}
-	for _, cfg := range cfgs {
-		ns := cfg.Namespace
-		if ns == "" {
-			ns = defaultNamespace
-		}
-		// TODO(https://github.com/istio/istio/issues/37148) increase timeout. Right now it fails often, so
-		// set it to low timeout to reduce impact
-		if out, stderr, err := c.Invoke([]string{"x", "wait", "-v", "--timeout=5s", cfg.GroupVersionKind.Kind, cfg.Name + "." + ns}); err != nil {
-			return fmt.Errorf("wait: %v\nout: %v\nerr: %v", err, out, stderr)
-		}
-	}
-	return nil
-}
-
 // Invoke implements Instance
 func (c *kubeComponent) Invoke(args []string) (string, string, error) {
-	cmdArgs := append([]string{
-		"--kubeconfig",
-		c.kubeconfig,
-	}, args...)
+	var cmdArgs []string
+	// Prefer using kubeconfig specified in input args. If not available, fall back
+	// to kubeconfig of client.
+	if !slices.Contains(args, "--kubeconfig") {
+		cmdArgs = []string{"--kubeconfig", c.kubeconfig}
+	}
+
+	if c.istioNamespace != "" && !slices.Contains(args, "--istioNamespace") {
+		cmdArgs = append(cmdArgs, "--istioNamespace", c.istioNamespace)
+	}
+
+	cmdArgs = append(cmdArgs, args...)
 
 	var out bytes.Buffer
 	var err bytes.Buffer
@@ -92,6 +83,13 @@ func (c *kubeComponent) Invoke(args []string) (string, string, error) {
 	rootCmd := cmd.GetRootCmd(cmdArgs)
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&err)
+	// istioctl will overwrite logs which we don't want.
+	// It happens to do this via PersistentPreRunE, which we can disable.
+	// We add an additional check in case someone refactors this away, to ensure we don't wipe out non-logging code.
+	if fmt.Sprintf("%p", rootCmd.PersistentPreRunE) != fmt.Sprintf("%p", cmd.ConfigureLogging) {
+		log.Fatal("istioctl PersistentPreRunE is not configuring logging")
+	}
+	rootCmd.PersistentPreRunE = nil
 	fErr := rootCmd.Execute()
 	invokeMutex.Unlock()
 

@@ -1,0 +1,60 @@
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: no-selector # Since this is the only Telemetry in the namespace without a selector, no conflict
+  namespace: ns1
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+    overrides:
+    - match:
+        metric: ALL_METRICS
+      disabled: false
+---
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: has-selector
+  namespace: ns1
+spec:
+  selector: # Since this has a selector, it shouldn't conflict with the other Telemetry in the namespace
+    matchLabels:
+      app: foo
+  metrics:
+  - providers:
+    - name: prometheus
+    overrides:
+    - match:
+        metric: ALL_METRICS
+      disabled: false
+---
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: has-conflict-1 # Both Telemetries in this namespace omit workload selector, so they are in conflict
+  namespace: ns2
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+    overrides:
+    - match:
+        metric: ALL_METRICS
+        mode: CLIENT
+      disabled: false
+---
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: has-conflict-2 # Both Telemetries in this namespace omit workload selector, so they are in conflict
+  namespace: ns2
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+    overrides:
+    - match:
+        metric: ALL_METRICS
+        mode: SERVER
+      disabled: false

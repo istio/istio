@@ -17,14 +17,17 @@ package cmd
 import (
 	"errors"
 	"testing"
+
+	"istio.io/istio/istioctl/pkg/analyze"
+	"istio.io/istio/istioctl/pkg/util"
 )
 
 var KnownErrorCode = map[error]int{
-	errors.New("unknown command"):                           ExitIncorrectUsage,
-	errors.New("unexpected error"):                          ExitUnknownError,
-	CommandParseError{e: errors.New("command parse error")}: ExitIncorrectUsage,
-	FileParseError{}:                                        ExitDataError,
-	AnalyzerFoundIssuesError{}:                              ExitAnalyzerFoundIssues,
+	errors.New("unknown command"):                                  ExitIncorrectUsage,
+	errors.New("unexpected error"):                                 ExitUnknownError,
+	util.CommandParseError{Err: errors.New("command parse error")}: ExitIncorrectUsage,
+	analyze.FileParseError{}:                                       ExitDataError,
+	analyze.AnalyzerFoundIssuesError{}:                             ExitAnalyzerFoundIssues,
 }
 
 func TestKnownExitStrings(t *testing.T) {

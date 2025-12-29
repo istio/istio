@@ -17,24 +17,27 @@ package install
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/viper"
 
-	"istio.io/istio/cni/pkg/cmd"
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/install"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -42,21 +45,6 @@ const (
 	k8sSvcAcctSubDir = "/testdata/k8s_svcacct/"
 
 	defaultFileMode = 0o644
-
-	cniConfName          = "CNI_CONF_NAME"
-	chainedCNIPluginName = "CHAINED_CNI_PLUGIN"
-	cniNetworkConfigName = "CNI_NETWORK_CONFIG"
-	cniNetworkConfig     = `{
-  "cniVersion": "0.3.1",
-  "type": "istio-cni",
-  "log_level": "info",
-  "kubernetes": {
-      "kubeconfig": "__KUBECONFIG_FILEPATH__",
-      "cni_bin_dir": "/opt/cni/bin",
-      "exclude_namespaces": [ "istio-system" ]
-  }
-}
-`
 )
 
 func getEnv(key, fallback string) string {
@@ -64,14 +52,6 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
-}
-
-func setEnv(key, value string, t *testing.T) {
-	t.Helper()
-	err := os.Setenv(key, value)
-	if err != nil {
-		t.Fatalf("Couldn't set environment variable, err: %v", err)
-	}
 }
 
 func mktemp(dir, prefix string, t *testing.T) string {
@@ -90,11 +70,9 @@ func ls(dir string, t *testing.T) []string {
 	if err != nil {
 		t.Fatalf("Failed to list files, err: %v", err)
 	}
-	fileNames := make([]string, len(files))
-	for i, f := range files {
-		fileNames[i] = f.Name()
-	}
-	return fileNames
+	return slices.Map(files, func(e os.DirEntry) string {
+		return e.Name()
+	})
 }
 
 func cp(src, dest string, t *testing.T) {
@@ -169,32 +147,26 @@ func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, te
 	t.Logf("Finished pre-populating working dirs")
 }
 
-// startDocker starts a test Docker container and runs the install-cni script.
-func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
-	tempK8sSvcAcctDir, cniConfFileName string, chainedCNIPlugin bool,
-) {
-	root := cmd.GetCommand()
-	constants.ServiceAccountPath = tempK8sSvcAcctDir
-	constants.HostCNIBinDir = tempCNIBinDir
-	constants.CNIBinDir = filepath.Join(env.IstioSrc, "cni/test/testdata/bindir")
-	root.SetArgs([]string{
-		"--mounted-cni-net-dir", tempCNIConfDir,
-		"--ctrlz_port", "0",
-	})
-	os.Setenv("KUBERNETES_SERVICE_PORT", "443")
-	os.Setenv("KUBERNETES_SERVICE_HOST", "10.110.0.1")
-	if cniConfFileName != "" {
-		os.Setenv(cniConfName, cniConfFileName)
-	} else {
-		os.Unsetenv(cniConfName)
+// create an install server instance and run it, blocking until it gets terminated
+// via context cancellation
+func startInstallServer(ctx context.Context, serverConfig *config.Config, t *testing.T) {
+	readyFlag := &atomic.Value{}
+	installer := install.NewInstaller(&serverConfig.InstallConfig, readyFlag)
+
+	t.Logf("CNI installer created, watching...")
+	// installer.Run() will block indefinitely, and attempt to permanently "keep"
+	// the CNI binary installed.
+	if err := installer.Run(ctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			// Error was caused by interrupt/termination signal
+			t.Logf("installer complete: %v", err)
+		} else {
+			t.Errorf("installer failed: %v", err)
+		}
 	}
-	if !chainedCNIPlugin {
-		os.Setenv(chainedCNIPluginName, "false")
-	} else {
-		os.Unsetenv(chainedCNIPluginName)
-	}
-	if err := root.ExecuteContext(ctx); err != nil {
-		log.Errorf("error during install-cni execution")
+
+	if cleanErr := installer.Cleanup(); cleanErr != nil {
+		t.Errorf("Error during test CNI installer cleanup, error was: %s", cleanErr)
 	}
 }
 
@@ -223,23 +195,27 @@ func compareConfResult(result, expected string, t *testing.T) {
 }
 
 // checkBinDir verifies the presence/absence of test files.
-func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) {
+func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) error {
 	t.Helper()
 	for _, f := range files {
 		if _, err := os.Stat(tempCNIBinDir + "/" + f); !os.IsNotExist(err) {
 			if op == "add" {
 				t.Logf("PASS: File %v was added to %v", f, tempCNIBinDir)
+				return nil
 			} else if op == "del" {
-				t.Fatalf("FAIL: File %v was not removed from %v", f, tempCNIBinDir)
+				return fmt.Errorf("FAIL: File %v was not removed from %v", f, tempCNIBinDir)
 			}
 		} else {
 			if op == "add" {
-				t.Fatalf("FAIL: File %v was not added to %v", f, tempCNIBinDir)
+				return fmt.Errorf("FAIL: File %v was not added to %v", f, tempCNIBinDir)
 			} else if op == "del" {
 				t.Logf("PASS: File %v was removed from %v", f, tempCNIBinDir)
+				return nil
 			}
 		}
 	}
+
+	return fmt.Errorf("no files, or unrecognized op")
 }
 
 // checkTempFilesCleaned verifies that all temporary files have been cleaned up
@@ -264,6 +240,10 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 ) {
 	t.Logf("prior cni-conf='%v', expected result='%v'", preConfFile, resultFileName)
 
+	// disable monitoring & repair
+	viper.Set(constants.MonitoringPort, 0)
+	viper.Set(constants.RepairEnabled, false)
+
 	// Don't set the CNI conf file env var if preConfFile is not set
 	var envPreconf string
 	if preConfFile != "" {
@@ -271,21 +251,41 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	} else {
 		preConfFile = resultFileName
 	}
-	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
 
-	// disable monitoring & uds logging
-	viper.Set(constants.MonitoringPort, 0)
-	viper.Set(constants.LogUDSAddress, "")
+	ztunnelAddr := "/tmp/ztfoo"
+	cniEventAddr := filepath.Join("/tmp", constants.CNIEventSocketName)
+	defer os.Remove(ztunnelAddr)
+	defer os.Remove(cniEventAddr)
+
+	installConfig := config.Config{
+		InstallConfig: config.InstallConfig{
+			ZtunnelUDSAddress:     ztunnelAddr,
+			MountedCNINetDir:      tempCNIConfDir,
+			CNIBinSourceDir:       filepath.Join(env.IstioSrc, "cni/test/testdata/bindir"),
+			CNIBinTargetDirs:      []string{tempCNIBinDir},
+			K8sServicePort:        "443",
+			K8sServiceHost:        "10.110.0.1",
+			MonitoringPort:        0,
+			CNIAgentRunDir:        "/tmp",
+			ChainedCNIPlugin:      chainedCNIPlugin,
+			PluginLogLevel:        "debug",
+			ExcludeNamespaces:     "istio-system",
+			KubeconfigMode:        constants.DefaultKubeconfigMode,
+			CNIConfName:           envPreconf,
+			K8sServiceAccountPath: tempK8sSvcAcctDir,
+		},
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}
+
 	wg.Add(1)
 	defer func() {
 		cancel()
 		wg.Wait()
 	}()
 	go func() {
-		runInstall(ctx, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, chainedCNIPlugin)
+		startInstallServer(ctx, &installConfig, t)
 		wg.Done()
 	}()
 
@@ -307,8 +307,11 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 		cp(delayedConfFile, tempCNIConfDir+"/"+destFilenm, t)
 	}
 
+	retry.UntilSuccessOrFail(t, func() error {
+		return checkBinDir(t, tempCNIBinDir, "add", "istio-cni")
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
+
 	compareConfResult(resultFile, expectedOutputFile, t)
-	checkBinDir(t, tempCNIBinDir, "add", "istio-cni")
 
 	// Test script restart by removing configuration
 	if chainedCNIPlugin {
@@ -336,7 +339,10 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			t.Logf("FAIL: Istio CNI config file was not removed: %s", resultFile)
 		}
 	}
-	checkBinDir(t, tempCNIBinDir, "del", "istio-cni")
+	retry.UntilSuccessOrFail(t, func() error {
+		return checkBinDir(t, tempCNIBinDir, "del", "istio-cni")
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
+
 	checkTempFilesCleaned(tempCNIConfDir, t)
 }
 

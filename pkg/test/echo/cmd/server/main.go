@@ -19,37 +19,43 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
-	// To install the xds resolvers and balancers.
-	_ "google.golang.org/grpc/xds"
+	"go.uber.org/atomic"
+	_ "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
 
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server"
-	"istio.io/pkg/log"
 )
 
 var (
-	httpPorts        []int
-	grpcPorts        []int
-	tcpPorts         []int
-	udpPorts         []int
-	tlsPorts         []int
-	hbonePorts       []int
-	instanceIPPorts  []int
-	localhostIPPorts []int
-	serverFirstPorts []int
-	xdsGRPCServers   []int
-	metricsPort      int
-	uds              string
-	version          string
-	cluster          string
-	crt              string
-	key              string
-	istioVersion     string
-	disableALPN      bool
+	httpPorts           []int
+	grpcPorts           []int
+	tcpPorts            []int
+	udpPorts            []int
+	tlsPorts            []int
+	mtlsPorts           []int
+	hbonePorts          []int
+	doubleHbonePorts    []int
+	instanceIPPorts     []int
+	localhostIPPorts    []int
+	serverFirstPorts    []int
+	proxyProtocolPorts  []int
+	xdsGRPCServers      []int
+	endpointPickerPorts []int
+	metricsPort         int
+	uds                 string
+	version             string
+	cluster             string
+	crt                 string
+	key                 string
+	ca                  string
+	istioVersion        string
+	disableALPN         bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -60,48 +66,67 @@ var (
 		Long:              `Echo application for testing Istio E2E`,
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
-			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts))
+			shutdown := NewShutdown()
+			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts)+len(doubleHbonePorts)+len(endpointPickerPorts))
 			tlsByPort := map[int]bool{}
+			mtlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
 				tlsByPort[p] = true
+			}
+			for _, p := range mtlsPorts {
+				// mTLS ports are also TLS ports.
+				tlsByPort[p] = true
+				mtlsByPort[p] = true
 			}
 			serverFirstByPort := map[int]bool{}
 			for _, p := range serverFirstPorts {
 				serverFirstByPort[p] = true
 			}
+			proxyProtocolByPort := map[int]bool{}
+			for _, p := range proxyProtocolPorts {
+				proxyProtocolByPort[p] = true
+			}
 			xdsGRPCByPort := map[int]bool{}
 			for _, p := range xdsGRPCServers {
 				xdsGRPCByPort[p] = true
 			}
+			endpointPickerByPort := map[int]bool{}
+			for _, p := range endpointPickerPorts {
+				endpointPickerByPort[p] = true
+			}
 			portIndex := 0
 			for i, p := range httpPorts {
 				ports[portIndex] = &common.Port{
-					Name:        "http-" + strconv.Itoa(i),
-					Protocol:    protocol.HTTP,
-					Port:        p,
-					TLS:         tlsByPort[p],
-					ServerFirst: serverFirstByPort[p],
+					Name:              "http-" + strconv.Itoa(i),
+					Protocol:          protocol.HTTP,
+					Port:              p,
+					TLS:               tlsByPort[p],
+					RequireClientCert: mtlsByPort[p],
+					ServerFirst:       serverFirstByPort[p],
+					ProxyProtocol:     proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
 			for i, p := range grpcPorts {
 				ports[portIndex] = &common.Port{
-					Name:        "grpc-" + strconv.Itoa(i),
-					Protocol:    protocol.GRPC,
-					Port:        p,
-					TLS:         tlsByPort[p],
-					ServerFirst: serverFirstByPort[p],
-					XDSServer:   xdsGRPCByPort[p],
+					Name:          "grpc-" + strconv.Itoa(i),
+					Protocol:      protocol.GRPC,
+					Port:          p,
+					TLS:           tlsByPort[p],
+					ServerFirst:   serverFirstByPort[p],
+					XDSServer:     xdsGRPCByPort[p],
+					ProxyProtocol: proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
 			for i, p := range tcpPorts {
 				ports[portIndex] = &common.Port{
-					Name:        "tcp-" + strconv.Itoa(i),
-					Protocol:    protocol.TCP,
-					Port:        p,
-					TLS:         tlsByPort[p],
-					ServerFirst: serverFirstByPort[p],
+					Name:          "tcp-" + strconv.Itoa(i),
+					Protocol:      protocol.TCP,
+					Port:          p,
+					TLS:           tlsByPort[p],
+					ServerFirst:   serverFirstByPort[p],
+					ProxyProtocol: proxyProtocolByPort[p],
 				}
 				portIndex++
 			}
@@ -122,6 +147,28 @@ var (
 				}
 				portIndex++
 			}
+			for i, p := range doubleHbonePorts {
+				ports[portIndex] = &common.Port{
+					Name:     "double-hbone-" + strconv.Itoa(i),
+					Protocol: protocol.DoubleHBONE,
+					Port:     p,
+					TLS:      tlsByPort[p],
+				}
+				portIndex++
+			}
+			for i, p := range endpointPickerPorts {
+				ports[portIndex] = &common.Port{
+					Name:           "endpoint-picker-" + strconv.Itoa(i),
+					Protocol:       protocol.GRPC,
+					Port:           p,
+					TLS:            tlsByPort[p],
+					ServerFirst:    serverFirstByPort[p],
+					ProxyProtocol:  proxyProtocolByPort[p],
+					EndpointPicker: true,
+				}
+				portIndex++
+			}
+
 			instanceIPByPort := map[int]struct{}{}
 			for _, p := range instanceIPPorts {
 				instanceIPByPort[p] = struct{}{}
@@ -138,11 +185,14 @@ var (
 				BindLocalhostPortsMap: localhostIPByPort,
 				TLSCert:               crt,
 				TLSKey:                key,
+				TLSCACert:             ca,
 				Version:               version,
 				Cluster:               cluster,
 				IstioVersion:          istioVersion,
+				Namespace:             os.Getenv("NAMESPACE"),
 				UDSServer:             uds,
 				DisableALPN:           disableALPN,
+				ReportRequest:         shutdown.ReportRequest,
 			})
 
 			if err := s.Start(); err != nil {
@@ -152,14 +202,49 @@ var (
 			defer func() {
 				_ = s.Close()
 			}()
-
-			// Wait for the process to be shutdown.
-			sigs := make(chan os.Signal, 1)
-			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-			<-sigs
+			shutdown.WaitForShutdown()
 		},
 	}
 )
+
+const shutdownTime = time.Second
+
+type Shutdown struct {
+	timer *atomic.Pointer[time.Timer]
+}
+
+func NewShutdown() *Shutdown {
+	return &Shutdown{timer: atomic.NewPointer[time.Timer](nil)}
+}
+
+func (s *Shutdown) ReportRequest() {
+	// On every request, reset our shutdown timer. This lets us dynamically drain: if we continue to receive requests, we will
+	// keep alive up to 10s. If not, we will shutdown quickly (shutdownTimer)
+	if timer := s.timer.Load(); timer != nil {
+		timer.Reset(shutdownTime)
+	}
+}
+
+func (s *Shutdown) WaitForShutdown() {
+	// Wait for the process to be shutdown.
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
+	// Keep alive while we are still receiving requests.
+	log.Infof("Draining server")
+	maxShutdownTime := time.After(time.Second * 10)
+	ti := time.NewTimer(shutdownTime)
+	s.timer.Store(ti)
+	select {
+	case <-maxShutdownTime:
+		log.Warnf("Shutdown after 10s while requests were still incoming")
+		return
+	case <-ti.C:
+		log.Infof("Shutdown complete")
+	case <-sigs:
+		log.Infof("Shutdown forced")
+	}
+}
 
 func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
@@ -174,17 +259,23 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&tcpPorts, "tcp", []int{9090}, "TCP ports")
 	rootCmd.PersistentFlags().IntSliceVar(&udpPorts, "udp", []int{}, "UDP ports")
 	rootCmd.PersistentFlags().IntSliceVar(&hbonePorts, "hbone", []int{}, "HBONE ports")
+	rootCmd.PersistentFlags().IntSliceVar(&doubleHbonePorts, "double-hbone", []int{}, "Double HBONE ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tlsPorts, "tls", []int{}, "Ports that are using TLS. These must be defined as http/grpc/tcp.")
+	rootCmd.PersistentFlags().IntSliceVar(&mtlsPorts, "mtls", []int{}, "Ports that are using mTLS. These must be defined as http.")
 	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&localhostIPPorts, "bind-localhost", []int{}, "Ports that are bound to localhost rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&serverFirstPorts, "server-first", []int{}, "Ports that are server first. These must be defined as tcp.")
+	rootCmd.PersistentFlags().IntSliceVar(&proxyProtocolPorts, "proxy-protocol", []int{}, "Ports that are wrapped in HA-PROXY protocol.")
 	rootCmd.PersistentFlags().IntSliceVar(&xdsGRPCServers, "xds-grpc-server", []int{}, "Ports that should rely on XDS configuration to serve.")
+	rootCmd.PersistentFlags().IntSliceVar(&endpointPickerPorts, "endpoint-picker", []int{},
+		"Endpoint picker (ext_proc) ports. These are GRPC ports that implement the Envoy external processor protocol.")
 	rootCmd.PersistentFlags().IntVar(&metricsPort, "metrics", 0, "Metrics port")
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")
 	rootCmd.PersistentFlags().StringVar(&version, "version", "", "Version string")
 	rootCmd.PersistentFlags().StringVar(&cluster, "cluster", "", "Cluster where this server is deployed")
-	rootCmd.PersistentFlags().StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
-	rootCmd.PersistentFlags().StringVar(&key, "key", "", "gRPC TLS server-side key")
+	rootCmd.PersistentFlags().StringVar(&crt, "crt", "", "TLS server-side certificate")
+	rootCmd.PersistentFlags().StringVar(&key, "key", "", "TLS server-side key")
+	rootCmd.PersistentFlags().StringVar(&ca, "ca", "", "TLS CA certificate")
 	rootCmd.PersistentFlags().StringVar(&istioVersion, "istio-version", "", "Istio sidecar version")
 	rootCmd.PersistentFlags().BoolVar(&disableALPN, "disable-alpn", disableALPN, "disable ALPN negotiation")
 

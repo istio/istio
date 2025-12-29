@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -57,7 +56,6 @@ values:
 func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(t framework.TestContext) {
 			common.RunAllTrafficTests(t, i, apps)
 		})

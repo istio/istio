@@ -1,32 +1,35 @@
 ---
-# Source: prometheus/templates/server/serviceaccount.yaml
+# Source: prometheus/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    component: "server"
-    app: prometheus
-    release: prometheus
-    chart: prometheus-15.9.0
-    heritage: Helm
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: prometheus
+    app.kubernetes.io/version: v3.8.0
+    helm.sh/chart: prometheus-27.50.1
+    app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
   annotations:
     {}
 ---
-# Source: prometheus/templates/server/cm.yaml
+# Source: prometheus/templates/cm.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   labels:
-    component: "server"
-    app: prometheus
-    release: prometheus
-    chart: prometheus-15.9.0
-    heritage: Helm
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: prometheus
+    app.kubernetes.io/version: v3.8.0
+    helm.sh/chart: prometheus-27.50.1
+    app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
 data:
+  allow-snippet-annotations: "false"
   alerting_rules.yml: |
     {}
   alerts: |
@@ -60,7 +63,6 @@ data:
       scheme: https
       tls_config:
         ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        insecure_skip_verify: true
     - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
       job_name: kubernetes-nodes
       kubernetes_sd_configs:
@@ -78,7 +80,6 @@ data:
       scheme: https
       tls_config:
         ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        insecure_skip_verify: true
     - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
       job_name: kubernetes-nodes-cadvisor
       kubernetes_sd_configs:
@@ -96,7 +97,6 @@ data:
       scheme: https
       tls_config:
         ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        insecure_skip_verify: true
     - honor_labels: true
       job_name: kubernetes-service-endpoints
       kubernetes_sd_configs:
@@ -121,7 +121,7 @@ data:
         - __meta_kubernetes_service_annotation_prometheus_io_path
         target_label: __metrics_path__
       - action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
+        regex: (.+?)(?::\d+)?;(\d+)
         replacement: $1:$2
         source_labels:
         - __address__
@@ -164,7 +164,7 @@ data:
         - __meta_kubernetes_service_annotation_prometheus_io_path
         target_label: __metrics_path__
       - action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
+        regex: (.+?)(?::\d+)?;(\d+)
         replacement: $1:$2
         source_labels:
         - __address__
@@ -251,11 +251,18 @@ data:
         - __meta_kubernetes_pod_annotation_prometheus_io_path
         target_label: __metrics_path__
       - action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
-        replacement: $1:$2
+        regex: (\d+);(([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4})
+        replacement: '[$2]:$1'
         source_labels:
-        - __address__
         - __meta_kubernetes_pod_annotation_prometheus_io_port
+        - __meta_kubernetes_pod_ip
+        target_label: __address__
+      - action: replace
+        regex: (\d+);((([0-9]+?)(\.|$)){4})
+        replacement: $2:$1
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_port
+        - __meta_kubernetes_pod_ip
         target_label: __address__
       - action: labelmap
         regex: __meta_kubernetes_pod_annotation_prometheus_io_param_(.+)
@@ -274,6 +281,10 @@ data:
         regex: Pending|Succeeded|Failed|Completed
         source_labels:
         - __meta_kubernetes_pod_phase
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_node_name
+        target_label: node
     - honor_labels: true
       job_name: kubernetes-pods-slow
       kubernetes_sd_configs:
@@ -294,11 +305,18 @@ data:
         - __meta_kubernetes_pod_annotation_prometheus_io_path
         target_label: __metrics_path__
       - action: replace
-        regex: ([^:]+)(?::\d+)?;(\d+)
-        replacement: $1:$2
+        regex: (\d+);(([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4})
+        replacement: '[$2]:$1'
         source_labels:
-        - __address__
         - __meta_kubernetes_pod_annotation_prometheus_io_port
+        - __meta_kubernetes_pod_ip
+        target_label: __address__
+      - action: replace
+        regex: (\d+);((([0-9]+?)(\.|$)){4})
+        replacement: $2:$1
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_port
+        - __meta_kubernetes_pod_ip
         target_label: __address__
       - action: labelmap
         regex: __meta_kubernetes_pod_annotation_prometheus_io_param_(.+)
@@ -317,6 +335,10 @@ data:
         regex: Pending|Succeeded|Failed|Completed
         source_labels:
         - __meta_kubernetes_pod_phase
+      - action: replace
+        source_labels:
+        - __meta_kubernetes_pod_node_name
+        target_label: node
       scrape_interval: 5m
       scrape_timeout: 30s
   recording_rules.yml: |
@@ -324,16 +346,17 @@ data:
   rules: |
     {}
 ---
-# Source: prometheus/templates/server/clusterrole.yaml
+# Source: prometheus/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    component: "server"
-    app: prometheus
-    release: prometheus
-    chart: prometheus-15.9.0
-    heritage: Helm
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: prometheus
+    app.kubernetes.io/version: v3.8.0
+    helm.sh/chart: prometheus-27.50.1
+    app.kubernetes.io/part-of: prometheus
   name: prometheus
 rules:
   - apiGroups:
@@ -352,11 +375,18 @@ rules:
       - list
       - watch
   - apiGroups:
-      - "extensions"
       - "networking.k8s.io"
     resources:
       - ingresses/status
       - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "discovery.k8s.io"
+    resources:
+      - endpointslices
     verbs:
       - get
       - list
@@ -366,16 +396,17 @@ rules:
     verbs:
       - get
 ---
-# Source: prometheus/templates/server/clusterrolebinding.yaml
+# Source: prometheus/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-    component: "server"
-    app: prometheus
-    release: prometheus
-    chart: prometheus-15.9.0
-    heritage: Helm
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: prometheus
+    app.kubernetes.io/version: v3.8.0
+    helm.sh/chart: prometheus-27.50.1
+    app.kubernetes.io/part-of: prometheus
   name: prometheus
 subjects:
   - kind: ServiceAccount
@@ -386,16 +417,17 @@ roleRef:
   kind: ClusterRole
   name: prometheus
 ---
-# Source: prometheus/templates/server/service.yaml
+# Source: prometheus/templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    component: "server"
-    app: prometheus
-    release: prometheus
-    chart: prometheus-15.9.0
-    heritage: Helm
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: prometheus
+    app.kubernetes.io/version: v3.8.0
+    helm.sh/chart: prometheus-27.50.1
+    app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
 spec:
@@ -405,39 +437,45 @@ spec:
       protocol: TCP
       targetPort: 9090
   selector:
-    component: "server"
-    app: prometheus
-    release: prometheus
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: prometheus
   sessionAffinity: None
   type: "ClusterIP"
 ---
-# Source: prometheus/templates/server/deploy.yaml
+# Source: prometheus/templates/deploy.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    component: "server"
-    app: prometheus
-    release: prometheus
-    chart: prometheus-15.9.0
-    heritage: Helm
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/instance: prometheus
+    app.kubernetes.io/version: v3.8.0
+    helm.sh/chart: prometheus-27.50.1
+    app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
 spec:
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels:
-      component: "server"
-      app: prometheus
-      release: prometheus
+      app.kubernetes.io/component: server
+      app.kubernetes.io/name: prometheus
+      app.kubernetes.io/instance: prometheus
   replicas: 1
+  revisionHistoryLimit: 10
   template:
     metadata:
       labels:
-        component: "server"
-        app: prometheus
-        release: prometheus
-        chart: prometheus-15.9.0
-        heritage: Helm
+        app.kubernetes.io/component: server
+        app.kubernetes.io/name: prometheus
+        app.kubernetes.io/instance: prometheus
+        app.kubernetes.io/version: v3.8.0
+        helm.sh/chart: prometheus-27.50.1
+        app.kubernetes.io/part-of: prometheus
         
         sidecar.istio.io/inject: "false"
     spec:
@@ -445,20 +483,35 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus-server-configmap-reload
-          image: "jimmidyson/configmap-reload:v0.5.0"
+          image: "ghcr.io/prometheus-operator/prometheus-config-reloader:v0.87.1"
           imagePullPolicy: "IfNotPresent"
           args:
-            - --volume-dir=/etc/config
-            - --webhook-url=http://127.0.0.1:9090/-/reload
-          resources:
-            {}
+            - --watched-dir=/etc/config
+            - --listen-address=0.0.0.0:8080
+            - --reload-url=http://127.0.0.1:9090/-/reload
+          ports:
+            - containerPort: 8080
+              name: metrics
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 10
           volumeMounts:
             - name: config-volume
               mountPath: /etc/config
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v2.34.0"
+          image: "docker.io/prom/prometheus:v3.8.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d
@@ -489,21 +542,13 @@ spec:
             timeoutSeconds: 10
             failureThreshold: 3
             successThreshold: 1
-          resources:
-            {}
           volumeMounts:
             - name: config-volume
               mountPath: /etc/config
             - name: storage-volume
               mountPath: /data
               subPath: ""
-      hostNetwork: false
       dnsPolicy: ClusterFirst
-      securityContext:
-        fsGroup: 65534
-        runAsGroup: 65534
-        runAsNonRoot: true
-        runAsUser: 65534
       terminationGracePeriodSeconds: 300
       volumes:
         - name: config-volume

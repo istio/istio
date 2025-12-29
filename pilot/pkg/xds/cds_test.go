@@ -19,16 +19,19 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	v1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -67,22 +70,23 @@ func TestSAN(t *testing.T) {
 			ClusterIP: "9.9.9.9",
 		},
 	}
-	endpoint := &v1.Endpoints{
+	endpoint := &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      service.Name,
 			Namespace: service.Namespace,
+			Labels: map[string]string{
+				discoveryv1.LabelServiceName: service.Name,
+			},
 		},
-		Subsets: []v1.EndpointSubset{{
-			Addresses: []v1.EndpointAddress{{
-				IP: pod.Status.PodIP,
-				TargetRef: &v1.ObjectReference{
-					Kind:      "Pod",
-					Namespace: pod.Namespace,
-					Name:      pod.Name,
-				},
-			}},
-			Ports: []v1.EndpointPort{{Name: "http", Port: 80}},
+		Endpoints: []discoveryv1.Endpoint{{
+			Addresses: []string{pod.Status.PodIP},
+			TargetRef: &v1.ObjectReference{
+				Kind:      "Pod",
+				Namespace: pod.Namespace,
+				Name:      pod.Name,
+			},
 		}},
+		Ports: []discoveryv1.EndpointPort{{Name: ptr.Of("http"), Port: ptr.Of(int32(80))}},
 	}
 	dr := config.Config{
 		Meta: config.Meta{
@@ -116,6 +120,7 @@ func TestSAN(t *testing.T) {
 			}},
 		},
 	}
+	// ServiceEntry for a Service in `default`, but with ServiceEntry in `test`. Proxy lives in `test`.
 	seEDS := config.Config{
 		Meta: config.Meta{
 			Name:             "service-entry",
@@ -125,7 +130,7 @@ func TestSAN(t *testing.T) {
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"example.default.svc.cluster.local"},
-			Ports: []*networking.Port{{
+			Ports: []*networking.ServicePort{{
 				Number:   80,
 				Protocol: "HTTP",
 				Name:     "http",
@@ -138,6 +143,7 @@ func TestSAN(t *testing.T) {
 			}},
 		},
 	}
+	// ServiceEntry for a Service in `default`, but with ServiceEntry in `test`. Proxy lives in `test`.
 	seNONE := config.Config{
 		Meta: config.Meta{
 			Name:             "service-entry",
@@ -147,12 +153,12 @@ func TestSAN(t *testing.T) {
 		},
 		Spec: &networking.ServiceEntry{
 			Hosts: []string{"example.default.svc.cluster.local"},
-			Ports: []*networking.Port{{
+			Ports: []*networking.ServicePort{{
 				Number:   80,
 				Protocol: "HTTP",
 				Name:     "http",
 			}},
-			SubjectAltNames: []string{"custom"},
+			SubjectAltNames: []string{"se-top"},
 			Resolution:      networking.ServiceEntry_NONE,
 		},
 	}
@@ -166,36 +172,35 @@ func TestSAN(t *testing.T) {
 			name:    "Kubernetes service and EDS ServiceEntry",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{dr, seEDS},
-			// The ServiceEntry rule will "win" the PushContext.ServiceAccounts.
-			// However, the Service will be processed first into a cluster. Since its not external, we do not add the SANs automatically
-			sans: nil,
+			// The ServiceEntry rule will "win" the conflict since it is in the proxy namespace.
+			sans: []string{"se-top", "spiffe://cluster.local/ns/test/sa/se-endpoint"},
 		},
 		{
 			name:    "Kubernetes service and NONE ServiceEntry",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{dr, seNONE},
-			// Service properly sets SAN. Since it's not external, we do not add the SANs automatically though
-			sans: nil,
+			// The ServiceEntry rule will "win" the conflict since it is in the proxy namespace.
+			sans: []string{"se-top"},
 		},
 		{
 			name:    "Kubernetes service and EDS ServiceEntry ISTIO_MUTUAL",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{drIstioMTLS, seEDS},
-			// The Service has precedence, so its cluster will be used
-			sans: []string{"spiffe://cluster.local/ns/default/sa/pod"},
+			// The ServiceEntry rule will "win" the conflict since it is in the proxy namespace.
+			sans: []string{"se-top", "spiffe://cluster.local/ns/test/sa/se-endpoint"},
 		},
 		{
 			name:    "Kubernetes service and NONE ServiceEntry ISTIO_MUTUAL",
 			objs:    []runtime.Object{service, pod, endpoint},
 			configs: []config.Config{drIstioMTLS, seNONE},
-			// The Service has precedence, so its cluster will be used
-			sans: []string{"spiffe://cluster.local/ns/default/sa/pod"},
+			// The ServiceEntry rule will "win" the conflict since it is in the proxy namespace.
+			sans: []string{"se-top"},
 		},
 		{
 			name:    "NONE ServiceEntry ISTIO_MUTUAL",
 			configs: []config.Config{drIstioMTLS, seNONE},
 			// Totally broken; service level ServiceAccount are ignored.
-			sans: []string{"custom"},
+			sans: []string{"se-top"},
 		},
 	}
 	for _, tt := range cases {
@@ -228,4 +233,96 @@ func TestSAN(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServiceEntryMerge(t *testing.T) {
+	// Regression test for https://github.com/istio/istio/issues/50478
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se1
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se2
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 8080
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se3
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se4
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    targetPort: 1234
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se5
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: port1
+    number: 80
+    targetPort: 999
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  - address: endpoint.example.com
+  - address: endpoint-port-override.example.com
+    ports:
+      port1: 2345
+`})
+
+	res := xdstest.ExtractClusterEndpoints(s.Clusters(s.SetupProxy(nil)))
+	// TODO(https://github.com/istio/istio/issues/50749) order should be deterministic
+	slices.Sort(res["outbound|80||example.com"])
+	assert.Equal(t, res, map[string][]string{
+		"outbound|8080||example.com": {"example.com:8080"},
+		// Kind of weird to have multiple here, but it is what it is...
+		// If we had targetPort, etc, set here this would be required
+		"outbound|80||example.com": {
+			"endpoint-port-override.example.com:2345",
+			"endpoint.example.com:999",
+			"example.com:1234",
+			"example.com:80",
+			"example.com:80",
+		},
+	})
 }

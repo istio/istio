@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56741
+releaseNotes:
+- |
+  **Fixed** cluster waypoint correct_originate configuration when `PILOT_SKIP_VALIDATE_TRUST_DOMAIN` is set.

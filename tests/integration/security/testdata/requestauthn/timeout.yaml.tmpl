@@ -1,0 +1,14 @@
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .To.ServiceName }}
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "{{ .JWTServer.JwksURI }}?delay=500ms"
+    outputPayloadToHeader: "x-test-payload"
+    forwardOriginalToken: true
+    timeout: "10ms"

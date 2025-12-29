@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Improved** Added `.Values.pilot.trustedZtunnelNamespace` to `istiod` chart. Set this if installing ztunnel to a different namespace from `istiod`. Supercedes `.Values.pilot.env.CA_TRUSTED_NODE_ACCOUNTS` (which is still respected if set)

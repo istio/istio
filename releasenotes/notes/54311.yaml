@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 54311
+releaseNotes:
+- |
+  **Fixed** an issue where the CNI installation left temporary files when a container was repeatedly killed during the binary copy, which could have filled the storage space.

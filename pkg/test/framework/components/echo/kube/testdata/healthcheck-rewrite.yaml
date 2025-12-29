@@ -48,9 +48,6 @@ spec:
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
-        securityContext:
-          runAsUser: 1338
-          runAsGroup: 1338
         args:
           - --metrics=15014
           - --cluster=cluster-0
@@ -71,6 +68,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         readinessProbe:
           httpGet:
             path: /

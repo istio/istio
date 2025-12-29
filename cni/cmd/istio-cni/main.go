@@ -24,15 +24,21 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 
 	"istio.io/istio/cni/pkg/plugin"
-	"istio.io/istio/tools/istio-iptables/pkg/cmd"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/log"
-	istioversion "istio.io/pkg/version"
+	"istio.io/istio/pkg/log"
+	istioversion "istio.io/istio/pkg/version"
 )
 
 func main() {
-	if err := log.Configure(plugin.GetLoggingOptions("")); err != nil {
+	if err := runPlugin(); err != nil {
 		os.Exit(1)
+	}
+}
+
+func runPlugin() error {
+	// Setup initial logging now. We will override it with proper logging over UDS later, but at this point we don't have the config
+	// read yet and do not want to be completely blind to logs.
+	if err := log.Configure(plugin.GetLoggingOptions(nil)); err != nil {
+		return err
 	}
 	defer func() {
 		// Log sync will send logs to install-cni container via UDS.
@@ -42,25 +48,21 @@ func main() {
 		_ = log.Sync()
 	}()
 
-	// configure-routes allows setting up the iproute2 configuration.
-	// This is an old workaround and kept in place to preserve old behavior.
-	// It is called standalone when HostNSEnterExec=true.
-	// Default behavior is to use go netns, which is not in need for this:
-
-	// Older versions of Go < 1.10 cannot change network namespaces safely within a go program
-	// (see https://www.weave.works/blog/linux-namespaces-and-go-don-t-mix).
-	// As a result, the flow is:
-	// * CNI plugin is called with no args, skipping this section.
-	// * CNI code invokes iptables code with CNIMode=true. This in turn runs 'nsenter -- istio-cni configure-routes'
-	if len(os.Args) > 1 && os.Args[1] == constants.CommandConfigureRoutes {
-		if err := cmd.GetRouteCommand().Execute(); err != nil {
-			log.Errorf("failed to configure routes: %v", err)
-			os.Exit(1)
+	// TODO: implement plugin version
+	funcs := skel.CNIFuncs{
+		Add:   plugin.CmdAdd,
+		Del:   plugin.CmdDelete,
+		Check: plugin.CmdCheck,
+	}
+	err := skel.PluginMainFuncsWithError(funcs, version.All, fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
+	if err != nil {
+		log.Errorf("istio-cni failed with: %v", err)
+		if err := err.Print(); err != nil {
+			log.Errorf("istio-cni failed to write error JSON to stdout: %v", err)
 		}
-		return
+
+		return err
 	}
 
-	// TODO: implement plugin version
-	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
-		fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
+	return nil
 }

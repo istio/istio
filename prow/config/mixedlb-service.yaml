@@ -7,7 +7,6 @@ featureGates:
   EndpointSlice: true
 kubeadmConfigPatches:
   - |
-    apiVersion: kubeadm.k8s.io/v1beta2
     kind: ClusterConfiguration
     metadata:
       name: config

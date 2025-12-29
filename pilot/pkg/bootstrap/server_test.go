@@ -15,19 +15,17 @@ package bootstrap
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
-	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,13 +35,13 @@ import (
 	"istio.io/istio/pilot/pkg/server"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/filewatcher"
 )
 
 func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
@@ -126,7 +124,7 @@ func TestNewServerCertInit(t *testing.T) {
 				CaCertFile: tlsArgcaCertFile,
 			},
 			enableCA:                  false,
-			certProvider:              constants.CertProviderKubernetes,
+			certProvider:              constants.CertProviderIstiod,
 			expNewCert:                false,
 			expCert:                   testcerts.ServerCert,
 			expKey:                    testcerts.ServerKey,
@@ -204,6 +202,8 @@ func TestNewServerCertInit(t *testing.T) {
 			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
 			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
 
+			// Run test in an isolated directory so we don't read test files written by other cases
+			assert.NoError(t, os.Chdir(t.TempDir()))
 			// check if we have some tls assets to write for test
 			if c.FSCertsPaths != (TLSFSLoadPaths{}) {
 				err := loadCertFilesAtPaths(c.FSCertsPaths)
@@ -249,7 +249,7 @@ func TestNewServerCertInit(t *testing.T) {
 			} else {
 				if len(c.expCert) != 0 {
 					if !checkCert(t, s, c.expCert, c.expKey) {
-						t.Errorf("Istiod certifiate does not match the expectation")
+						t.Errorf("Istiod certificate does not match the expectation")
 					}
 				} else {
 					if _, err := s.getIstiodCertificate(nil); err == nil {
@@ -304,12 +304,12 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// setup cert watches.
-	if err := s.initCertificateWatches(tlsOptions); err != nil {
+	if err := s.initFileCertificateWatches(tlsOptions); err != nil {
 		t.Fatalf("initCertificateWatches failed: %v", err)
 	}
 
 	if err := s.initIstiodCertLoader(); err != nil {
-		t.Fatalf("istiod unable to load its cert")
+		t.Fatal("istiod unable to load its cert")
 	}
 
 	if err := s.server.Start(stop); err != nil {
@@ -318,7 +318,7 @@ func TestReloadIstiodCert(t *testing.T) {
 
 	// Validate that the certs are loaded.
 	if !checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey) {
-		t.Errorf("Istiod certifiate does not match the expectation")
+		t.Errorf("Istiod certificate does not match the expectation")
 	}
 
 	// Update cert/key files.
@@ -334,6 +334,90 @@ func TestReloadIstiodCert(t *testing.T) {
 	// Validate that istiod cert is updated.
 	g.Eventually(func() bool {
 		return checkCert(t, s, testcerts.RotatedCert, testcerts.RotatedKey)
+	}, "10s", "100ms").Should(BeTrue())
+}
+
+func TestReloadcacerts(t *testing.T) {
+	var err error
+
+	// Run test in an isolated directory so we don't read test files written by other cases
+	// set ROOT_CA_DIR to temp cacertsDir and create the directory
+	cacertsDir := filepath.Join(t.TempDir(), "/etc/cacerts")
+	if err := os.MkdirAll(cacertsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(%v) failed: %v", cacertsDir, err)
+	}
+	test.SetEnvForTest(t, "ROOT_CA_DIR", cacertsDir)
+	test.SetForTest(t, &features.EnableCAServer, true)
+	assert.NoError(t, os.Chdir(t.TempDir()))
+
+	// load cacerts files into memory
+	var caCert, caKey, certChain, rootCert []byte
+	if caCert, err = readSampleCertFromFile("ca-cert.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if caKey, err = readSampleCertFromFile("ca-key.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if certChain, err = readSampleCertFromFile("cert-chain.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if rootCert, err = readSampleCertFromFile("root-cert.pem"); err != nil {
+		t.Fatal(err)
+	}
+	// write cacerts files to temp dir
+	if err := os.WriteFile(filepath.Join(cacertsDir, "ca-cert.pem"), caCert, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "ca-cert.pem"), err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "ca-key.pem"), caKey, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "ca-key.pem"), err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "cert-chain.pem"), certChain, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "cert-chain.pem"), err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "root-cert.pem"), rootCert, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "root-cert.pem"), err)
+	}
+
+	stop := make(chan struct{})
+	s := &Server{
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+		server:                  server.New(),
+	}
+
+	defer func() {
+		close(stop)
+		_ = s.cacertsWatcher.Close()
+	}()
+
+	// start server
+	if err := s.server.Start(stop); err != nil {
+		t.Fatalf("Could not invoke startFuncs: %v", err)
+	}
+
+	// create server CA for load cacerts files
+	if err = s.maybeCreateCA(&caOptions{}); err != nil {
+		t.Fatalf("Could not create CA: %v", err)
+	}
+
+	// validate that the cacerts files are loaded
+	g := NewWithT(t)
+	g.Eventually(func() bool {
+		return len(s.CA.GetCAKeyCertBundle().GetCertChainPem()) > 0
+	}, "10s", "100ms").Should(BeTrue())
+
+	// update cert chain of cert bundle to alt version
+	certChainAlt, err := readSampleCertFromFile("cert-chain-alt.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "cert-chain.pem"), certChainAlt, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "cert-chain.pem"), err)
+	}
+
+	// validate that the cert chain is updated
+	g.Eventually(func() bool {
+		currentCertChain := s.CA.GetCAKeyCertBundle().GetCertChainPem()
+		return bytes.Equal(currentCertChain, certChainAlt)
 	}, "10s", "100ms").Should(BeTrue())
 }
 
@@ -375,14 +459,9 @@ func TestNewServer(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			configDir := t.TempDir()
 
-			var secureGRPCPort int
-			var err error
+			secureGRPCPort := ""
 			if c.enableSecureGRPC {
-				secureGRPCPort, err = findFreePort()
-				if err != nil {
-					t.Errorf("unable to find a free port: %v", err)
-					return
-				}
+				secureGRPCPort = ":0"
 			}
 
 			args := NewPilotArgs(func(p *PilotArgs) {
@@ -392,7 +471,7 @@ func TestNewServer(t *testing.T) {
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
-					SecureGRPCAddr: fmt.Sprintf(":%d", secureGRPCPort),
+					SecureGRPCAddr: secureGRPCPort,
 				}
 				p.RegistryOptions = RegistryOptions{
 					KubeOptions: kubecontroller.Options{
@@ -420,14 +499,7 @@ func TestNewServer(t *testing.T) {
 
 			g.Expect(s.environment.DomainSuffix).To(Equal(c.expectedDomain))
 
-			if c.enableSecureGRPC {
-				tcpAddr := s.secureGrpcAddress
-				_, port, err := net.SplitHostPort(tcpAddr)
-				if err != nil {
-					t.Errorf("invalid SecureGrpcListener addr %v", err)
-				}
-				g.Expect(port).To(Equal(strconv.Itoa(secureGRPCPort)))
-			}
+			assert.Equal(t, s.secureGrpcServer != nil, c.enableSecureGRPC)
 		})
 	}
 }
@@ -525,13 +597,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			configDir := t.TempDir()
-
-			port, err := findFreePort()
-			if err != nil {
-				t.Errorf("unable to find a free port: %v", err)
-				return
-			}
-
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{
@@ -539,9 +604,9 @@ func TestIstiodCipherSuites(t *testing.T) {
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
-					HTTPSAddr:      fmt.Sprintf(":%d", port),
+					HTTPSAddr:      ":0",
 					TLSOptions: TLSOptions{
-						CipherSuits: c.serverCipherSuites,
+						CipherSuites: c.serverCipherSuites,
 					},
 				}
 				p.RegistryOptions = RegistryOptions{
@@ -565,42 +630,56 @@ func TestIstiodCipherSuites(t *testing.T) {
 				close(stop)
 				s.WaitUntilCompletion()
 			}()
-
-			// nolint: gosec // test only code
-			httpsReadyClient := &http.Client{
-				Timeout: time.Second,
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-						CipherSuites:       c.clientCipherSuites,
-						MinVersion:         tls.VersionTLS12,
-						MaxVersion:         tls.VersionTLS12,
-					},
-				},
-			}
-
-			retry.UntilSuccessOrFail(t, func() error {
-				req := &http.Request{
-					Method: http.MethodGet,
-					URL: &url.URL{
-						Scheme: "https",
-						Host:   s.httpsServer.Addr,
-						Path:   HTTPSHandlerReadyPath,
-					},
-				}
-				response, err := httpsReadyClient.Do(req)
-				if c.expectSuccess && err != nil {
-					return fmt.Errorf("expect success but got err %v", err)
-				}
-				if !c.expectSuccess && err == nil {
-					return fmt.Errorf("expect failure but succeeded")
-				}
-				if response != nil {
-					response.Body.Close()
-				}
-				return nil
-			})
 		})
+	}
+}
+
+func TestIstiodReadinessHandler(t *testing.T) {
+	configDir := t.TempDir()
+
+	args := NewPilotArgs(func(p *PilotArgs) {
+		p.Namespace = "istio-system"
+		p.ServerOptions = DiscoveryServerOptions{
+			// Dynamically assign all ports.
+			HTTPAddr:       ":0",
+			HTTPSAddr:      ":0",
+			MonitoringAddr: ":0",
+			GRPCAddr:       ":0",
+		}
+		p.RegistryOptions = RegistryOptions{
+			KubeConfig: "config",
+			FileDir:    configDir,
+		}
+		p.ShutdownDuration = 1 * time.Millisecond
+	})
+
+	g := NewWithT(t)
+	s, err := NewServer(args, func(s *Server) {
+		s.kubeClient = kube.NewFakeClient()
+	})
+	g.Expect(err).To(Succeed())
+
+	stop := make(chan struct{})
+	g.Expect(s.Start(stop)).To(Succeed())
+	defer func() {
+		close(stop)
+		s.WaitUntilCompletion()
+	}()
+
+	c := http.Client{}
+	c.Transport = &http.Transport{
+		// nolint: gosec
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+	defer c.CloseIdleConnections()
+
+	for _, url := range []string{"http://" + s.httpAddr, "https://" + s.httpsAddr} {
+		resp, err := c.Get(url + "/ready")
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.Body.Close()).To(Succeed())
 	}
 }
 
@@ -632,7 +711,7 @@ func TestInitOIDC(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := &PilotArgs{JwtRule: tt.jwtRule}
 
-			_, err := initOIDC(args, "domain-foo")
+			_, err := initOIDC(args, nil)
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
@@ -673,6 +752,7 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 		kubeClient:              kube.NewFakeClient(csr),
 		dnsNames:                []string{"abc.xyz"},
 	}
+	s.kubeClient.RunAndWait(test.NewStop(t))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -684,7 +764,6 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			var certRotated bool
 			var rotatedCertBytes []byte
 			err := retry.Until(func() bool {
-				time.Sleep(time.Second)
 				rotatedCertBytes = s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem
 				st := string(rotatedCertBytes)
 				certRotated = st != string(tt.certToWatch)
@@ -697,12 +776,12 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			}
 			cert, certErr := util.ParsePemEncodedCertificate(rotatedCertBytes)
 			if certErr != nil {
-				t.Fatalf("rotated cert is not valid")
+				t.Fatal("rotated cert is not valid")
 			}
 			currTime := time.Now()
 			timeToExpire := cert.NotAfter.Sub(currTime)
 			if timeToExpire < 0 {
-				t.Fatalf("rotated cert is already expired")
+				t.Fatal("rotated cert is already expired")
 			}
 		})
 	}
@@ -712,24 +791,114 @@ func checkCert(t *testing.T, s *Server, cert, key []byte) bool {
 	t.Helper()
 	actual, err := s.getIstiodCertificate(nil)
 	if err != nil {
-		t.Fatalf("fail to load fetch certs.")
+		t.Fatal("fail to load fetch certs.")
 	}
 	expected, err := tls.X509KeyPair(cert, key)
 	if err != nil {
-		t.Fatalf("fail to load test certs.")
+		t.Fatal("fail to load test certs.")
 	}
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }
 
-func findFreePort() (int, error) {
-	ln, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
+func TestGetDNSNames(t *testing.T) {
+	tests := []struct {
+		name             string
+		customHost       string
+		discoveryAddress string
+		revision         string
+		sans             []string
+	}{
+		{
+			name:             "no customHost",
+			customHost:       "",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "default",
+			sans: []string{
+				"istio-pilot.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
+			name:             "default revision",
+			customHost:       "a.com,b.com,c.com",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "default",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
+			name:             "empty revision",
+			customHost:       "a.com,b.com,c.com",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
+			name:             "canary revision",
+			customHost:       "a.com,b.com,c.com",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "canary",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod-canary.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
+			name:             "customHost has duplicate hosts with inner default",
+			customHost:       "a.com,b.com,c.com,istiod",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "canary",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod", // from the customHost
+				"istiod-canary.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
+			name:             "customHost has duplicate hosts with discovery address",
+			customHost:       "a.com,b.com,c.com,test.com",
+			discoveryAddress: "test.com",
+			revision:         "canary",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod-canary.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"test.com",
+			},
+		},
 	}
-	defer ln.Close()
-	tcpAddr, ok := ln.Addr().(*net.TCPAddr)
-	if !ok {
-		return 0, fmt.Errorf("invalid listen address: %q", ln.Addr().String())
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			features.IstiodServiceCustomHost = tc.customHost
+			var args PilotArgs
+			args.Revision = tc.revision
+			args.Namespace = "istio-system"
+			sans := getDNSNames(&args, tc.discoveryAddress)
+			assert.Equal(t, sans, tc.sans)
+		})
 	}
-	return tcpAddr.Port, nil
 }

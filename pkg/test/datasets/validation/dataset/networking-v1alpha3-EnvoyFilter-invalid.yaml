@@ -1,8 +1,0 @@
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: simple-envoy-filter
-spec:
-  configPatches:
-  - applyTo: LISTENER
-    patch: {}

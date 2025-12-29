@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/tests/util/leak"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
@@ -53,7 +52,7 @@ func ExpectTimeout(t *testing.T, p *PushQueue) {
 	}()
 	select {
 	case <-done:
-		t.Fatalf("Expected timeout")
+		t.Fatal("Expected timeout")
 	case <-time.After(time.Millisecond * 500):
 	}
 }
@@ -71,14 +70,16 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *Connection) {
 			t.Fatalf("Expected proxy %v, got %v", expected, got)
 		}
 	case <-time.After(time.Millisecond * 500):
-		t.Fatalf("Timed out")
+		t.Fatal("Timed out")
 	}
 }
 
 func TestProxyQueue(t *testing.T) {
 	proxies := make([]*Connection, 0, 100)
 	for p := 0; p < 100; p++ {
-		proxies = append(proxies, &Connection{conID: fmt.Sprintf("proxy-%d", p)})
+		conn := newConnection("", nil)
+		conn.SetID(fmt.Sprintf("proxy-%d", p))
+		proxies = append(proxies, conn)
 	}
 
 	t.Run("simple add and remove", func(t *testing.T) {
@@ -244,14 +245,14 @@ func TestProxyQueue(t *testing.T) {
 		p := NewPushQueue()
 		defer p.ShutDown()
 
-		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.conID, eds) }
+		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.ID(), eds) }
 
 		// We will trigger many pushes for eds services to each proxy. In the end we will expect
 		// all of these to be dequeue, but order is not deterministic.
-		expected := map[string]struct{}{}
+		expected := sets.String{}
 		for eds := 0; eds < 100; eds++ {
 			for _, pr := range proxies {
-				expected[key(pr, fmt.Sprintf("%d", eds))] = struct{}{}
+				expected.Insert(key(pr, fmt.Sprintf("%d", eds)))
 			}
 		}
 		go func() {
@@ -300,7 +301,9 @@ func TestProxyQueue(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
 		defer p.ShutDown()
-		con := &Connection{conID: "proxy-test"}
+
+		con := newConnection("", nil)
+		con.SetID("proxy-test")
 
 		// We will trigger many pushes for eds services to the proxy. In the end we will expect
 		// all of these to be dequeue, but order is deterministic.
@@ -369,16 +372,4 @@ func TestProxyQueue(t *testing.T) {
 			t.Fatalf("expected order %v, but got %v", expected, processed)
 		}
 	})
-}
-
-// TestPushQueueLeak is a regression test for https://github.com/grpc/grpc-go/issues/4758
-func TestPushQueueLeak(t *testing.T) {
-	ds := NewFakeDiscoveryServer(t, FakeOptions{})
-	p := ds.ConnectADS()
-	p.RequestResponseAck(t, nil)
-	for _, c := range ds.Discovery.AllClients() {
-		leak.MustGarbageCollect(t, c)
-	}
-	ds.Discovery.startPush(&model.PushRequest{})
-	p.Cleanup()
 }

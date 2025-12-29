@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 //  Copyright Istio Authors
 //
@@ -23,6 +22,7 @@ import (
 	"path"
 	"testing"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -54,7 +54,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Setup(namespace.Setup(&appNS, namespace.Config{Prefix: "appns", Inject: true})).
 		Setup(namespace.Setup(&serviceNS, namespace.Config{Prefix: "serverns", Inject: true})).
@@ -128,9 +127,10 @@ func setupApps(ctx resource.Context, appNs namespace.Getter,
 			// Set up custom annotations to mount the certs. We will re-use the configmap created by "server"
 			// so that we don't need to manage it ourselves.
 			// The paths here match the destination rule above
-			Annotations: echo.NewAnnotations().
-				Set(echo.SidecarVolume, `{"custom-certs":{"configMap":{"name":"server-certs"}}}`).
-				Set(echo.SidecarVolumeMount, `{"custom-certs":{"mountPath":"/etc/certs/custom"}}`),
+			Annotations: map[string]string{
+				annotation.SidecarUserVolume.Name:      `{"custom-certs":{"configMap":{"name":"server-certs"}}}`,
+				annotation.SidecarUserVolumeMount.Name: `{"custom-certs":{"mountPath":"/etc/certs/custom"}}`,
+			},
 		}},
 		Cluster: ctx.Clusters().Default(),
 	}
@@ -169,7 +169,7 @@ func setupApps(ctx resource.Context, appNs namespace.Getter,
 		// Do not inject, as we are testing non-Istio TLS here
 		Subsets: []echo.SubsetConfig{{
 			Version:     "v1",
-			Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 		}},
 		Cluster: ctx.Clusters().Default(),
 	}
@@ -215,7 +215,7 @@ func setupApps(ctx resource.Context, appNs namespace.Getter,
 		},
 		Subsets: []echo.SubsetConfig{{
 			Version:     "v1",
-			Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 		}},
 		Cluster: ctx.Clusters().Default(),
 	}

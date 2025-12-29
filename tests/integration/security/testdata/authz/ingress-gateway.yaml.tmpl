@@ -14,7 +14,7 @@ spec:
   action: DENY
   selector:
     matchLabels:
-      app: istio-ingressgateway
+      app: {{.GatewayIstioLabel | default "istio-ingressgateway"}}
   rules:
     - to:
         - operation:
@@ -49,7 +49,7 @@ spec:
 
 # The following gateway allows request to "*.{{ .To.ServiceName }}.com"
 
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gw-{{ .To.ServiceName }}
@@ -68,7 +68,7 @@ spec:
 
 # The following virtual service routes requests to workload
 
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs-{{ .To.ServiceName }}

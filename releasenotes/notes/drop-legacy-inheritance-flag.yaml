@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 37095
+releaseNotes:
+- |
+  **Removed** the `PILOT_ENABLE_DESTINATION_RULE_INHERITANCE` experimental feature, which has been disable-by-default since it was created.

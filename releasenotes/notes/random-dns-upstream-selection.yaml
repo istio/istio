@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 53414
+releaseNotes:
+- |
+  **Updated** randomly select which upstreams to forward DNS requests to

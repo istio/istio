@@ -29,6 +29,7 @@ const (
 // AnalysisResult represents the returnable results of an analysis execution
 type AnalysisResult struct {
 	Messages          diag.Messages
+	MappedMessages    map[string]diag.Messages
 	SkippedAnalyzers  []string
 	ExecutedAnalyzers []string
 }

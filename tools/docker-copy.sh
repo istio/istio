@@ -29,6 +29,18 @@ function detect_arch() {
     arch="$(dpkg-deb --info "${FILE}" | grep Arch | cut -d: -f 2 | cut -c 2-)"
     echo "${arch}"
     return 0
+  elif [[ "${extension}" == "rpm" ]]; then
+    arch="$(rpm -qp --queryformat '%{arch}' "${FILE}" 2>/dev/null || true)"
+    case ${arch} in
+      "x86_64")
+        echo "amd64"
+        return 0
+        ;;
+      "aarch64")
+        echo "arm64"
+        return 0
+        ;;
+    esac
   fi
   FILE_INFO=$(file "${FILE}" || true)
   if [[ ${FILE_INFO} == *"ELF 64-bit LSB"* ]]; then

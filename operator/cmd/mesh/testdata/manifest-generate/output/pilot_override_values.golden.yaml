@@ -28,6 +28,7 @@ spec:
         app: istiod
         install.operator.istio.io/owning-resource: unknown
         istio: pilot
+        istio.io/dataplane-mode: none
         istio.io/rev: default
         operator.istio.io/component: Pilot
         sidecar.istio.io/inject: "false"
@@ -44,8 +45,6 @@ spec:
         env:
         - name: REVISION
           value: default
-        - name: JWT_POLICY
-          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: POD_NAME
@@ -65,18 +64,24 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: KUBECONFIG
           value: /var/run/secrets/remote/config
+        - name: CA_TRUSTED_NODE_ACCOUNTS
+          value: istio-control/ztunnel
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-          value: "true"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "true"
-        - name: ISTIOD_ADDR
-          value: istiod.istio-control.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: PLATFORM
+          value: ""
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
@@ -85,6 +90,8 @@ spec:
         - containerPort: 15010
           protocol: TCP
         - containerPort: 15017
+          protocol: TCP
+        - containerPort: 15014
           protocol: TCP
         readinessProbe:
           httpGet:
@@ -103,9 +110,7 @@ spec:
             drop:
             - ALL
           readOnlyRootFilesystem: true
-          runAsGroup: 1337
           runAsNonRoot: true
-          runAsUser: 1337
         volumeMounts:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
@@ -118,11 +123,18 @@ spec:
         - mountPath: /var/run/secrets/remote
           name: istio-kubeconfig
           readOnly: true
+        - mountPath: /var/run/secrets/istiod/tls
+          name: istio-csr-dns-cert
+          readOnly: true
+        - mountPath: /var/run/secrets/istiod/ca
+          name: istio-csr-ca-configmap
+          readOnly: true
       nodeSelector:
         node-name: test
-      securityContext:
-        fsGroup: 1337
       serviceAccountName: istiod
+      tolerations:
+      - key: cni.istio.io/not-ready
+        operator: Exists
       volumes:
       - emptyDir:
           medium: Memory
@@ -142,32 +154,38 @@ spec:
         secret:
           optional: true
           secretName: istio-kubeconfig
+      - name: istio-csr-dns-cert
+        secret:
+          optional: true
+          secretName: istiod-tls
+      - configMap:
+          defaultMode: 420
+          name: istio-ca-root-cert
+          optional: true
+        name: istio-csr-ca-configmap
 ---
-
-
-apiVersion: autoscaling/v2beta2
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istiod
-  namespace: istio-control
   labels:
     app: istiod
-    release: istio
-    istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
-    operator.istio.io/component: "Pilot"
+    istio.io/rev: default
+    operator.istio.io/component: Pilot
+    release: istio
+  name: istiod
+  namespace: istio-control
 spec:
   maxReplicas: 8
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 80
+        type: Utilization
+    type: Resource
   minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: istiod
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 80
----

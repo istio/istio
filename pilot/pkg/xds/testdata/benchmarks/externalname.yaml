@@ -1,0 +1,31 @@
+# Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: proxy-service-instance
+spec:
+  hosts:
+    - example.com
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+    - address: 1.1.1.1
+      labels:
+        security.istio.io/tlsMode: istio
+{{- range $i := until .Services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-{{$i}}
+spec:
+  type: ExternalName
+  externalName: random-{{$i}}.example.com
+  ports:
+    - port: 80
+      name: http
+{{- end }}

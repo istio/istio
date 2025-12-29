@@ -23,8 +23,8 @@ import (
 	"github.com/alecholmes/xfccparser"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -45,7 +45,7 @@ func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.C
 	remoteAddr := ctx.RemoteAddress()
 	xfccHeader := ctx.Header(xfccparser.ForwardedClientCertHeader)
 	if len(remoteAddr) == 0 || len(xfccHeader) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("caller from %s does not have Xfcc header", remoteAddr)
 	}
 	// First check if client is trusted client so that we can "trust" the Xfcc Header.
 	if !isTrustedAddress(remoteAddr, features.TrustedGatewayCIDR) {
@@ -58,16 +58,14 @@ func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.C
 func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
 	clientCerts, err := xfccparser.ParseXFCCHeader(xfccHeader)
 	if err != nil {
-		message := fmt.Sprintf("error in parsing xfcc header: %v", err)
-		return nil, fmt.Errorf(message)
+		return nil, fmt.Errorf("error in parsing xfcc header: %v", err)
 	}
 	if len(clientCerts) == 0 {
-		message := "xfcc header does not have atleast one client certs"
-		return nil, fmt.Errorf(message)
+		return nil, fmt.Errorf("xfcc header does not have at least one client certs")
 	}
 	ids := []string{}
 	for _, cc := range clientCerts {
-		ids = append(ids, cc.URI)
+		ids = append(ids, cc.URI...)
 		ids = append(ids, cc.DNS...)
 		if cc.Subject != nil {
 			ids = append(ids, cc.Subject.CommonName)

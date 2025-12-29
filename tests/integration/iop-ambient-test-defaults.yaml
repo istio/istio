@@ -1,0 +1,22 @@
+# This file provides some defaults for integration testing.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: install
+spec:
+  profile: ambient
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+  values:
+    meshConfig:
+      accessLogFile: /dev/stdout
+      # Just used to exclude for testing
+      discoverySelectors:
+      - matchExpressions:
+        - key: istio.io/test-exclude-namespace
+          operator: DoesNotExist
+    global:
+      networkPolicy:
+        enabled: true

@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: ns-override
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: workload-override
+---
+# ProxyConfig for root namespace
+apiVersion: networking.istio.io/v1beta1
+kind: ProxyConfig
+metadata:
+  name: valid-example-pc
+  namespace: istio-system
+---
+# ProxyConfig for ns-override namespace
+apiVersion: networking.istio.io/v1beta1
+kind: ProxyConfig
+metadata:
+  name: valid-example-pc
+  namespace: ns-override
+spec:
+  image:
+    imageType: distroless
+---
+# ProxyConfig for workload-override namespace
+apiVersion: networking.istio.io/v1beta1
+kind: ProxyConfig
+metadata:
+  name: valid-example-pc
+  namespace: workload-override
+spec:
+  selector:
+    matchLabels:
+      app: details
+      workload: details
+  image:
+    imageType: distroless
+---
+# Pod with ProxyConfig for ns-override namespace should not get a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-ns-override
+  namespace: ns-override
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.1-distroless
+    name: istio-proxy
+---
+# Pod with ProxyConfig for workload-override namespace should not get a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+    workload: details
+  name: details-v1-pod-workload-override
+  namespace: workload-override
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.1-distroless
+    name: istio-proxy
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: annotation-override
+---
+# Pod with annotation override should not get a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    proxy.istio.io/config: |
+      image:
+        imageType: distroless
+  labels:
+    app: details
+  name: details-v1-pod-annotation-override
+  namespace: annotation-override
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.1-distroless
+    name: istio-proxy

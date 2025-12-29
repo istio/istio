@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -31,12 +30,11 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 
-	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
-var wasmLog = log.RegisterScope("wasm", "", 0)
+var wasmLog = log.RegisterScope("wasm", "")
 
 const (
 	// oci URL prefix
@@ -67,7 +65,7 @@ type LocalFileCache struct {
 	// mux is needed because stale Wasm module files will be purged periodically.
 	mux sync.Mutex
 
-	// option sets for configurating the cache.
+	// option sets for configuring the cache.
 	cacheOptions
 	// stopChan currently is only used by test
 	stopChan chan struct{}
@@ -77,7 +75,7 @@ var _ Cache = &LocalFileCache{}
 
 type checksumEntry struct {
 	checksum string
-	// Keeps the resource version per each resource for dealing with multiple resources which pointing the same image.
+	// Keeps the resource version for each resource to deal with multiple resources pointing to the same image.
 	resourceVersionByResource map[string]string
 }
 
@@ -105,7 +103,7 @@ type cacheEntry struct {
 	modulePath string
 	// Last time that this local Wasm module is referenced.
 	last time.Time
-	// set of URLs referencing this entry
+	// Set of URLs referencing this entry
 	referencingURLs sets.String
 }
 
@@ -166,19 +164,19 @@ func NewLocalFileCache(dir string, options Options) *LocalFileCache {
 func moduleNameFromURL(fullURLStr string) string {
 	if strings.HasPrefix(fullURLStr, ociURLPrefix) {
 		if tag, err := name.ParseReference(fullURLStr[len(ociURLPrefix):]); err == nil {
-			// remove tag or sha
+			// Remove tag or sha
 			return ociURLPrefix + tag.Context().Name()
 		}
 	}
 	return fullURLStr
 }
 
-func shouldIgnoreResourceVersion(pullPolicy extensions.PullPolicy, u *url.URL) bool {
+func shouldIgnoreResourceVersion(pullPolicy PullPolicy, u *url.URL) bool {
 	switch pullPolicy {
-	case extensions.PullPolicy_Always:
+	case Always:
 		// When Always, pull a wasm module when the resource version is changed.
 		return false
-	case extensions.PullPolicy_IfNotPresent:
+	case IfNotPresent:
 		// When IfNotPresent, use the cached one regardless of the resource version.
 		return true
 	default:
@@ -191,11 +189,8 @@ func getModulePath(baseDir string, mkey moduleKey) (string, error) {
 	sha := sha256.Sum256([]byte(mkey.name))
 	hashedName := hex.EncodeToString(sha[:])
 	moduleDir := filepath.Join(baseDir, hashedName)
-	if _, err := os.Stat(moduleDir); errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(moduleDir, 0o755)
-		if err != nil {
-			return "", err
-		}
+	if err := os.Mkdir(moduleDir, 0o755); err != nil && !os.IsExist(err) {
+		return "", err
 	}
 	return filepath.Join(moduleDir, fmt.Sprintf("%s.wasm", mkey.checksum)), nil
 }
@@ -387,10 +382,10 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (*ca
 		// If the image was pulled before, there should be a checksum of the most recently pulled image.
 		if ce, found := c.checksums[key.downloadURL]; found {
 			if ignoreResourceVersion || key.resourceVersion == ce.resourceVersionByResource[key.resourceName] {
-				// update checksum
+				// Update checksum
 				key.checksum = ce.checksum
 			}
-			// update resource version here
+			// Update resource version here
 			ce.resourceVersionByResource[key.resourceName] = key.resourceVersion
 		}
 	}

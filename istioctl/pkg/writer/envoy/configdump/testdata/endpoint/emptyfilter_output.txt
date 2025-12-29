@@ -1,4 +1,4 @@
-ENDPOINT                                         STATUS      LOCALITY     CLUSTER
+NAME                                             STATUS      LOCALITY     CLUSTER
 127.0.0.1:15020                                  HEALTHY                  agent
 10.244.0.156:9402                                HEALTHY                  outbound|9402||cert-manager-istio-csr-metrics.cert-manager.svc.cluster.local
 10.244.0.156:6443                                HEALTHY                  outbound|443||cert-manager-istio-csr.cert-manager.svc.cluster.local

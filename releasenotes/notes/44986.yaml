@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 44986
+releaseNotes:
+  - |
+    **Fixed** cpu usage abnormally high when cert specified by DestinationRule are invalid.

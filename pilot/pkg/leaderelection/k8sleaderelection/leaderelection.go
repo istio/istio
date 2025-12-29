@@ -22,7 +22,7 @@ limitations under the License.
 // A client only acts on timestamps captured locally to infer the state of the
 // leader election. The client does not consider timestamps in the leader
 // election record to be accurate because these timestamps may not have been
-// produced by a local clock. The implemention does not depend on their
+// produced by a local clock. The implementation does not depend on their
 // accuracy and only uses their change to indicate that another client has
 // renewed the leader lease. Thus the implementation is tolerant to arbitrary
 // clock skew, but is not tolerant to arbitrary clock skew rate.
@@ -151,7 +151,7 @@ type LeaderElectionConfig struct {
 	//
 	// It is the responsibility of the caller to ensure that all KeyComparison functions are
 	// logically consistent between all clients participating in the leader election to avoid multiple
-	// clients claiming to have high precedence and constantly pre-empting the existing leader.
+	// clients claiming to have high precedence and constantly preempting the existing leader.
 	//
 	// KeyComparison functions should ensure they handle an empty existingKey, as "key" is not a required field.
 	//
@@ -289,9 +289,10 @@ func (le *LeaderElector) renew(ctx context.Context) {
 	wait.Until(func() {
 		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, le.config.RenewDeadline)
 		defer timeoutCancel()
-		err := wait.PollImmediateUntil(le.config.RetryPeriod, func() (bool, error) {
-			return le.tryAcquireOrRenew(timeoutCtx), nil
-		}, timeoutCtx.Done())
+
+		err := wait.PollUntilContextCancel(timeoutCtx, le.config.RetryPeriod, true, func(ctx context.Context) (bool, error) {
+			return le.tryAcquireOrRenew(ctx), nil
+		})
 
 		le.maybeReportTransition()
 		desc := le.config.Lock.Describe()
@@ -373,7 +374,7 @@ func (le *LeaderElector) tryAcquireOrRenew(ctx context.Context) bool {
 		!le.IsLeader() {
 		if le.config.KeyComparison != nil && le.config.KeyComparison(oldLeaderElectionRecord.HolderKey) {
 			// Lock is held and not expired, but our key is higher than the existing one.
-			// We will pre-empt the existing leader.
+			// We will preempt the existing leader.
 			// nolint: lll
 			klog.V(4).Infof("lock is held by %v with key %v, but our key (%v) evicts it", oldLeaderElectionRecord.HolderIdentity, oldLeaderElectionRecord.HolderKey, le.config.Lock.Key())
 		} else {

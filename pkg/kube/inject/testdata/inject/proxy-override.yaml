@@ -26,6 +26,8 @@ spec:
           resources:
             requests:
               cpu: 123m
+            limits:
+              cpu: 3000m
           livenessProbe:
             failureThreshold: 30
             httpGet:
@@ -47,6 +49,9 @@ spec:
           securityContext:
             allowPrivilegeEscalation: true
             readOnlyRootFilesystem: false
+            # These should not be removed or ignored, should be honored
+            runAsUser: 1234
+            runAsGroup: 1234
       volumes:
         - name: certs
           secret:

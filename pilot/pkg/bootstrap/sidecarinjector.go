@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/webhooks"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -76,10 +76,11 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	log.Info("initializing sidecar injector")
 
 	parameters := inject.WebhookParameters{
-		Watcher:  watcher,
-		Env:      s.environment,
-		Mux:      s.httpsMux,
-		Revision: args.Revision,
+		Watcher:      watcher,
+		Env:          s.environment,
+		Mux:          s.httpsMux,
+		Revision:     args.Revision,
+		MultiCluster: s.multiclusterController,
 	}
 
 	wh, err := inject.NewWebhook(parameters)
@@ -90,7 +91,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 	// operator or CI/CD
 	if features.InjectionWebhookConfigName != "" {
-		s.addStartFunc(func(stop <-chan struct{}) error {
+		s.addStartFunc("injection patcher", func(stop <-chan struct{}) error {
 			// No leader election - different istiod revisions will patch their own cert.
 			// update webhook configuration by watching the cabundle
 			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, webhookName, s.istiodCertBundleWatcher)
@@ -103,7 +104,8 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 			return nil
 		})
 	}
-	s.addStartFunc(func(stop <-chan struct{}) error {
+
+	s.addStartFunc("injection server", func(stop <-chan struct{}) error {
 		wh.Run(stop)
 		return nil
 	})

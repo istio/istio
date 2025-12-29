@@ -33,35 +33,40 @@ import (
 	"syscall"
 	"time"
 
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
-	"go.opencensus.io/stats/view"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"google.golang.org/protobuf/proto"
+	k8sUtilIo "k8s.io/utils/io"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/env"
+	commonFeatures "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube/apimirror"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
+	istioNetUtil "istio.io/istio/pkg/util/net"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
 	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
 	// quitPath is to notify the pilot agent to quit.
-	quitPath = "/quitquitquit"
+	quitPath  = "/quitquitquit"
+	drainPath = "/drain"
 	// KubeAppProberEnvName is the name of the command line flag for pilot agent to pass app prober config.
 	// The json encoded string to pass app HTTP probe information from injector(istioctl or webhook).
 	// For example, ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"httpGet":{"path": "/hello", "port": 8080}}.
@@ -69,9 +74,14 @@ const (
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
 
-	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "::1"
+	localHostIPv4     = "127.0.0.1"
+	localHostIPv6     = "::1"
+	maxRespBodyLength = 10 * 1 << 10
 )
+
+// probes is a logging scope for probe responses. Since these logs are about the application, not Istio, users may need
+// to configure them to meet their preferences.
+var probes = log.RegisterScope("probes", "Status of forwarded application probes")
 
 var (
 	UpstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
@@ -81,9 +91,7 @@ var (
 var PrometheusScrapingConfig = env.Register("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
 
 var (
-	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz|startupz)$`)
-
-	promRegistry *prometheus.Registry
+	appProberPattern = regexp.MustCompile(`^/(app-health|app-lifecycle)/[^/]+/(livez|readyz|startupz|prestopz|poststartz)$`)
 
 	EnableHTTP2Probing = env.Register("ISTIO_ENABLE_HTTP2_PROBING", true,
 		"If enabled, HTTP2 probes will be enabled for HTTPS probes, following Kubernetes").Get()
@@ -127,6 +135,12 @@ type Options struct {
 	FetchDNS            func() *dnsProto.NameTable
 	NoEnvoy             bool
 	GRPCBootstrap       string
+	EnableProfiling     bool
+	// PrometheusRegistry to use. Just for testing.
+	PrometheusRegistry prometheus.Gatherer
+	Shutdown           context.CancelCauseFunc
+	TriggerDrain       func()
+	DisableDrain       func()
 }
 
 // Server provides an endpoint for handling status probes.
@@ -144,21 +158,24 @@ type Server struct {
 	upstreamLocalAddress  *net.TCPAddr
 	config                Options
 	http                  *http.Client
+	enableProfiling       bool
+	registry              prometheus.Gatherer
+	shutdown              context.CancelCauseFunc
+	drain                 func()
+	disableDrain          func()
 }
 
-func init() {
+func initializeMonitoring() (prometheus.Gatherer, error) {
 	registry := prometheus.NewRegistry()
-	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", prometheus.Registerer(registry))
+	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", registry)
 	wrapped.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	wrapped.MustRegister(collectors.NewGoCollector())
 
-	promRegistry = registry
-	// go collector metrics collide with other metrics.
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry, Registerer: wrapped})
+	_, err := monitoring.RegisterPrometheusExporter(wrapped, registry)
 	if err != nil {
-		log.Fatalf("could not setup exporter: %v", err)
+		return nil, fmt.Errorf("could not setup exporter: %v", err)
 	}
-	view.RegisterExporter(exporter)
+	return registry, nil
 }
 
 // NewServer creates a new status server.
@@ -192,6 +209,14 @@ func NewServer(config Options) (*Server, error) {
 	}
 
 	probes = append(probes, config.Probes...)
+	registry := config.PrometheusRegistry
+	if registry == nil {
+		var err error
+		registry, err = initializeMonitoring()
+		if err != nil {
+			return nil, err
+		}
+	}
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
@@ -201,6 +226,11 @@ func NewServer(config Options) (*Server, error) {
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
 		config:                config,
+		enableProfiling:       config.EnableProfiling,
+		registry:              registry,
+		shutdown:              config.Shutdown,
+		drain:                 config.TriggerDrain,
+		disableDrain:          config.DisableDrain,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -248,9 +278,8 @@ func NewServer(config Options) (*Server, error) {
 			return nil, err
 		}
 		if prober.HTTPGet != nil {
-			d := &net.Dialer{
-				LocalAddr: s.upstreamLocalAddress,
-			}
+			d := ProbeDialer()
+			d.LocalAddr = s.upstreamLocalAddress
 			// nolint: gosec
 			// This is matching Kubernetes. It is a reasonable usage of this, as it is just a health check over localhost.
 			transport, err := setTransportDefaults(&http.Transport{
@@ -317,10 +346,10 @@ func validateAppKubeProber(path string, prober *Prober) error {
 	if count != 1 {
 		return fmt.Errorf(`invalid prober type, must be one of type httpGet, tcpSocket or gRPC`)
 	}
-	if prober.HTTPGet != nil && prober.HTTPGet.Port.Type != intstr.Int {
+	if prober.HTTPGet != nil && prober.HTTPGet.Port.Type != apimirror.Int {
 		return fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 	}
-	if prober.TCPSocket != nil && prober.TCPSocket.Port.Type != intstr.Int {
+	if prober.TCPSocket != nil && prober.TCPSocket.Port.Type != apimirror.Int {
 		return fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 	}
 	return nil
@@ -328,13 +357,15 @@ func validateAppKubeProber(path string, prober *Prober) error {
 
 // FormatProberURL returns a set of HTTP URLs that pilot agent will serve to take over Kubernetes
 // app probers.
-func FormatProberURL(container string) (string, string, string) {
+func FormatProberURL(container string) (string, string, string, string, string) {
 	return fmt.Sprintf("/app-health/%v/readyz", container),
 		fmt.Sprintf("/app-health/%v/livez", container),
-		fmt.Sprintf("/app-health/%v/startupz", container)
+		fmt.Sprintf("/app-health/%v/startupz", container),
+		fmt.Sprintf("/app-lifecycle/%v/prestopz", container),
+		fmt.Sprintf("/app-lifecycle/%v/poststartz", container)
 }
 
-// Run opens a the status port and begins accepting probes.
+// Run opens the status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
 	log.Infof("Opening status port %d", s.statusPort)
 
@@ -348,14 +379,18 @@ func (s *Server) Run(ctx context.Context) {
 	// Keep for backward compat with configs.
 	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
 	mux.HandleFunc(quitPath, s.handleQuit)
+	mux.HandleFunc(drainPath, s.handleDrain)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
+	mux.HandleFunc("/app-lifecycle/", s.handleAppProbe)
 
-	// Add the handler for pprof.
-	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
-	mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
-	mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
-	mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
-	mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	if s.enableProfiling {
+		// Add the handler for pprof.
+		mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
+		mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
+		mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
+		mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
+		mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	}
 	mux.HandleFunc("/debug/ndsz", s.handleNdsz)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
@@ -375,7 +410,9 @@ func (s *Server) Run(ctx context.Context) {
 
 	go func() {
 		if err := http.Serve(l, mux); err != nil {
-			log.Error(err)
+			if network.IsUnexpectedListenerError(err) {
+				log.Error(err)
+			}
 			select {
 			case <-ctx.Done():
 				// We are shutting down already, don't trigger SIGTERM
@@ -394,7 +431,7 @@ func (s *Server) Run(ctx context.Context) {
 }
 
 func (s *Server) handlePprofIndex(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -403,7 +440,7 @@ func (s *Server) handlePprofIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePprofCmdline(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -412,7 +449,7 @@ func (s *Server) handlePprofCmdline(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePprofSymbol(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -421,7 +458,7 @@ func (s *Server) handlePprofSymbol(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePprofProfile(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -430,7 +467,7 @@ func (s *Server) handlePprofProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePprofTrace(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -466,16 +503,6 @@ func (s *Server) isReady() error {
 	return nil
 }
 
-func isRequestFromLocalhost(r *http.Request) bool {
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return false
-	}
-
-	userIP := net.ParseIP(ip)
-	return userIP.IsLoopback()
-}
-
 type PrometheusScrapeConfiguration struct {
 	Scrape string `json:"scrape"`
 	Path   string `json:"path"`
@@ -490,6 +517,10 @@ type PrometheusScrapeConfiguration struct {
 // Note that we do not return any errors here. If we do, we will drop metrics. For example, the app may be having issues,
 // but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
+	if commonFeatures.MetricsLocalhostAccessOnly && !istioNetUtil.IsRequestFromLocalhost(r) {
+		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+		return
+	}
 	metrics.ScrapeTotals.Increment()
 	var err error
 	var envoy, application io.ReadCloser
@@ -517,7 +548,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 	// Gather all the metrics we will merge
 	if !s.config.NoEnvoy {
-		if envoy, envoyCancel, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
+		scrapeURL := fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort)
+		if r.URL != nil && len(r.URL.RawQuery) > 0 {
+			scrapeURL = fmt.Sprintf("%s?%s", scrapeURL, r.URL.RawQuery)
+		}
+		if envoy, envoyCancel, _, err = s.scrape(scrapeURL, r.Header); err != nil {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
@@ -535,13 +570,13 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		format = negotiateMetricsFormat(contentType)
 	} else {
 		// Without app metrics format use a default
-		format = expfmt.FmtText
+		format = FmtText
 	}
 
 	w.Header().Set("Content-Type", string(format))
 
 	// Write out the metrics
-	if err = scrapeAndWriteAgentMetrics(io.Writer(w)); err != nil {
+	if err = scrapeAndWriteAgentMetrics(s.registry, io.Writer(w)); err != nil {
 		log.Errorf("failed scraping and writing agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
 	}
@@ -565,17 +600,30 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+const (
+	// nolint: revive, stylecheck
+	FmtOpenMetrics_0_0_1 = expfmt.OpenMetricsType + `; version=` + expfmt.OpenMetricsVersion_0_0_1 + `; charset=utf-8`
+	// nolint: revive, stylecheck
+	FmtOpenMetrics_1_0_0 = expfmt.OpenMetricsType + `; version=` + expfmt.OpenMetricsVersion_1_0_0 + `; charset=utf-8`
+	FmtText              = `text/plain; version=` + expfmt.TextVersion + `; charset=utf-8`
+)
+
 func negotiateMetricsFormat(contentType string) expfmt.Format {
-	mediaType, _, err := mime.ParseMediaType(contentType)
+	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err == nil && mediaType == expfmt.OpenMetricsType {
-		return expfmt.FmtOpenMetrics
+		switch params["version"] {
+		case expfmt.OpenMetricsVersion_1_0_0:
+			return FmtOpenMetrics_1_0_0
+		case expfmt.OpenMetricsVersion_0_0_1, "":
+			return FmtOpenMetrics_0_0_1
+		}
 	}
-	return expfmt.FmtText
+	return FmtText
 }
 
-func scrapeAndWriteAgentMetrics(w io.Writer) error {
-	mfs, err := promRegistry.Gather()
-	enc := expfmt.NewEncoder(w, expfmt.FmtText)
+func scrapeAndWriteAgentMetrics(registry prometheus.Gatherer, w io.Writer) error {
+	mfs, err := registry.Gather()
+	enc := expfmt.NewEncoder(w, FmtText)
 	if err != nil {
 		return err
 	}
@@ -643,7 +691,7 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.
 }
 
 func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -654,7 +702,24 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 	log.Infof("handling %s, notifying pilot-agent to exit", quitPath)
-	notifyExit()
+	s.disableDrain()
+	// Notify the agent to exit.
+	s.shutdown(fmt.Errorf("%v called", quitPath))
+}
+
+func (s *Server) handleDrain(w http.ResponseWriter, r *http.Request) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
+		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("OK"))
+	log.Infof("handling %s, starting drain", drainPath)
+	s.drain()
 }
 
 func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
@@ -701,26 +766,21 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		return
 	}
 
+	appReq.Host = req.Host
+	if host, port, err := net.SplitHostPort(req.Host); err == nil {
+		port, _ := strconv.Atoi(port)
+		// the port is same as the status port, then we need to replace the port in the host with the real one
+		if port == int(s.statusPort) {
+			realPort := strconv.Itoa(prober.HTTPGet.Port.IntValue())
+			appReq.Host = net.JoinHostPort(host, realPort)
+		}
+	}
 	// Forward incoming headers to the application.
 	for name, values := range req.Header {
-		newValues := make([]string, len(values))
-		copy(newValues, values)
-		appReq.Header[name] = newValues
-	}
-
-	// If there are custom HTTPHeaders, it will override the forwarding header
-	if headers := prober.HTTPGet.HTTPHeaders; len(headers) != 0 {
-		for _, h := range headers {
-			delete(appReq.Header, h.Name)
-		}
-		for _, h := range headers {
-			if h.Name == "Host" || h.Name == ":authority" {
-				// Probe has specific host header override; honor it
-				appReq.Host = h.Value
-				appReq.Header.Set(h.Name, h.Value)
-			} else {
-				appReq.Header.Add(h.Name, h.Value)
-			}
+		appReq.Header[name] = slices.Clone(values)
+		if len(values) > 0 && (name == "Host") {
+			// Probe has specific host header override; honor it
+			appReq.Host = values[0]
 		}
 	}
 
@@ -730,7 +790,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	// Send the request.
 	response, err := httpClient.Do(appReq)
 	if err != nil {
-		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, proberPath)
+		probes.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, proberPath)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -748,15 +808,17 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
+	// Return the body from probe as well
+	b, _ := k8sUtilIo.ReadAtMost(response.Body, maxRespBodyLength)
+	_, _ = w.Write(b)
 }
 
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
-	d := &net.Dialer{
-		LocalAddr: s.upstreamLocalAddress,
-		Timeout:   timeout,
-	}
+	d := ProbeDialer()
+	d.LocalAddr = s.upstreamLocalAddress
+	d.Timeout = timeout
 
 	conn, err := d.Dial("tcp", net.JoinHostPort(s.appProbersDestination, strconv.Itoa(prober.TCPSocket.Port.IntValue())))
 	if err != nil {
@@ -765,7 +827,7 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		w.WriteHeader(http.StatusOK)
 		err = conn.Close()
 		if err != nil {
-			log.Infof("tcp connection is not closed: %v", err)
+			probes.Infof("tcp connection is not closed: %v", err)
 		}
 	}
 }
@@ -777,10 +839,9 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // credentials are currently not supported
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			d := net.Dialer{
-				LocalAddr: s.upstreamLocalAddress,
-				Timeout:   timeout,
-			}
+			d := ProbeDialer()
+			d.LocalAddr = s.upstreamLocalAddress
+			d.Timeout = timeout
 			return d.DialContext(ctx, "tcp", addr)
 		}),
 	}
@@ -798,7 +859,7 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 	addr := net.JoinHostPort(s.appProbersDestination, strconv.Itoa(int(prober.GRPC.Port)))
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
-		log.Errorf("Failed to create grpc connection to probe app: %v", err)
+		probes.Errorf("Failed to create grpc connection to probe app: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -818,14 +879,14 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 		if ok {
 			switch status.Code() {
 			case codes.Unimplemented:
-				log.Errorf("server does not implement the grpc health protocol (grpc.health.v1.Health): %v", err)
+				probes.Errorf("server does not implement the grpc health protocol (grpc.health.v1.Health): %v", err)
 			case codes.DeadlineExceeded:
-				log.Errorf("grpc request not finished within timeout: %v", err)
+				probes.Errorf("grpc request not finished within timeout: %v", err)
 			default:
-				log.Errorf("grpc probe failed: %v", err)
+				probes.Errorf("grpc probe failed: %v", err)
 			}
 		} else {
-			log.Errorf("grpc probe failed: %v", err)
+			probes.Errorf("grpc probe failed: %v", err)
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -839,7 +900,7 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 }
 
 func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {
-	if !isRequestFromLocalhost(r) {
+	if !istioNetUtil.IsRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
@@ -854,9 +915,9 @@ func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeJSONProto writes a protobuf to a json payload, handling content type, marshaling, and errors
-func writeJSONProto(w http.ResponseWriter, obj any) {
+func writeJSONProto(w http.ResponseWriter, obj proto.Message) {
 	w.Header().Set("Content-Type", "application/json")
-	b, err := config.ToJSON(obj)
+	b, err := protomarshal.Marshal(obj)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))

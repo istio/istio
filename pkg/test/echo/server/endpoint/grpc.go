@@ -39,9 +39,8 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/xds"
-	"k8s.io/utils/env"
 
-	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -82,7 +81,11 @@ func (s *grpcInstance) newServer(opts ...grpc.ServerOption) grpcServer {
 			opts = append(opts, xds.BootstrapContentsForTesting(s.Port.XDSTestBootstrap))
 		}
 		epLog.Infof("Using xDS for serverside gRPC on %d", s.Port.Port)
-		return xds.NewGRPCServer(opts...)
+		grpcServer, err := xds.NewGRPCServer(opts...)
+		if err != nil {
+			return nil
+		}
+		return grpcServer
 	}
 	return grpc.NewServer(opts...)
 }
@@ -132,7 +135,7 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 		Forwarder: s.f,
 	})
 	reflection.Register(s.server)
-	if val, _ := env.GetBool("EXPOSE_GRPC_ADMIN", false); val {
+	if val := env.Register("EXPOSE_GRPC_ADMIN", false, "").Get(); val {
 		cleanup, err := admin.Register(s.server)
 		if err != nil {
 			return err
@@ -191,7 +194,7 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 // we could send traffic to another instance. Instead we look into gRPC internals to authenticate with ourself.
 func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca string, err error) {
 	if !s.Port.XDSServer {
-		return
+		return cert, key, ca, err
 	}
 
 	var bootstrapData []byte
@@ -202,20 +205,20 @@ func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca
 	} else if data := os.Getenv("GRPC_XDS_BOOTSTRAP_CONFIG"); len(data) > 0 {
 		bootstrapData = []byte(data)
 	}
-	var bootstrap grpcxds.Bootstrap
+	var bootstrap Bootstrap
 	if uerr := json.Unmarshal(bootstrapData, &bootstrap); uerr != nil {
 		err = uerr
-		return
+		return cert, key, ca, err
 	}
 	certs := bootstrap.FileWatcherProvider()
 	if certs == nil {
 		err = fmt.Errorf("no certs found in bootstrap")
-		return
+		return cert, key, ca, err
 	}
 	cert = certs.CertificateFile
 	key = certs.PrivateKeyFile
 	ca = certs.CACertificateFile
-	return
+	return cert, key, ca, err
 }
 
 func (s *grpcInstance) Close() error {
@@ -238,6 +241,7 @@ type EchoGrpcHandler struct {
 }
 
 func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
+	h.ReportRequest()
 	defer common.Metrics.GrpcRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
 	body := bytes.Buffer{}
 	md, ok := metadata.FromIncomingContext(ctx)
@@ -278,9 +282,10 @@ func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*pr
 	echo.StatusCodeField.Write(&body, strconv.Itoa(http.StatusOK))
 	echo.ServiceVersionField.Write(&body, h.Version)
 	echo.ServicePortField.Write(&body, strconv.Itoa(portNumber))
-	echo.ClusterField.Write(&body, h.Cluster)
+	echo.ClusterField.WriteNonEmpty(&body, h.Cluster)
+	echo.NamespaceField.WriteNonEmpty(&body, h.Namespace)
 	echo.IPField.Write(&body, ip)
-	echo.IstioVersionField.Write(&body, h.IstioVersion)
+	echo.IstioVersionField.WriteNonEmpty(&body, h.IstioVersion)
 	echo.ProtocolField.Write(&body, "GRPC")
 	echo.Field("Echo").Write(&body, req.GetMessage())
 

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 46652
+releaseNotes:
+- |
+  **Added** support for auto-detecting the pilot's monitoring port if it is not set to the default value of `15014`.

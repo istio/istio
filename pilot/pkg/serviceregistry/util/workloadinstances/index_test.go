@@ -18,14 +18,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var GlobalTime = time.Now()
@@ -40,7 +39,7 @@ var selector = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"selector.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 			{Number: 445, Name: "http-445", Protocol: "http"},
 		},
@@ -57,9 +56,9 @@ func TestIndex(t *testing.T) {
 		Name:      selector.Name,
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			ServiceAccount: spiffe.MustGenSpiffeURIForTrustDomain("cluster.local", selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -68,9 +67,9 @@ func TestIndex(t *testing.T) {
 		Name:      "some-other-name",
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "3.3.3.3",
+			Addresses:      []string{"3.3.3.3"},
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			ServiceAccount: spiffe.MustGenSpiffeURIForTrustDomain("cluster.local", selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -79,9 +78,9 @@ func TestIndex(t *testing.T) {
 		Name:      "another-name",
 		Namespace: "dns-selector",
 		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "dns-wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI("dns-selector", "default"),
+			ServiceAccount: spiffe.MustGenSpiffeURIForTrustDomain("cluster.local", "dns-selector", "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -94,17 +93,7 @@ func TestIndex(t *testing.T) {
 	index.Insert(wi3)
 
 	verifyGetByIP := func(ip string, expected []*model.WorkloadInstance) {
-		actual := index.GetByIP(ip)
-
-		if diff := cmp.Diff(len(expected), len(actual)); diff != "" {
-			t.Errorf("GetByIP() returned unexpected number of workload instances (--want/++got): %v", diff)
-		}
-
-		for i := range expected {
-			if diff := cmp.Diff(expected[i], actual[i]); diff != "" {
-				t.Errorf("GetByIP() returned unexpected workload instance %d (--want/++got): %v", i, diff)
-			}
-		}
+		assert.Equal(t, expected, index.GetByIP(ip))
 	}
 
 	// GetByIP should return 2 workload instances
@@ -114,9 +103,7 @@ func TestIndex(t *testing.T) {
 	// Delete should return previously inserted value
 
 	deleted := index.Delete(wi1)
-	if diff := cmp.Diff(wi1, deleted); diff != "" {
-		t.Errorf("1st Delete() returned unexpected value (--want/++got): %v", diff)
-	}
+	assert.Equal(t, wi1, deleted)
 
 	// GetByIP should return 1 workload instance
 
@@ -125,9 +112,7 @@ func TestIndex(t *testing.T) {
 	// Delete should return nil since there is no such element in the index
 
 	deleted = index.Delete(wi1)
-	if diff := cmp.Diff((*model.WorkloadInstance)(nil), deleted); diff != "" {
-		t.Errorf("2nd Delete() returned unexpected value (--want/++got): %v", diff)
-	}
+	assert.Equal(t, nil, deleted)
 
 	// GetByIP should return nil
 
@@ -140,8 +125,8 @@ func TestIndex_FindAll(t *testing.T) {
 		Name:      selector.Name,
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address: "2.2.2.2",
-			Labels:  map[string]string{"app": "wle"}, // should match
+			Addresses: []string{"2.2.2.2"},
+			Labels:    map[string]string{"app": "wle"}, // should match
 		},
 	}
 
@@ -149,8 +134,8 @@ func TestIndex_FindAll(t *testing.T) {
 		Name:      "same-ip",
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address: "2.2.2.2",
-			Labels:  map[string]string{"app": "wle"}, // should match
+			Addresses: []string{"2.2.2.2"},
+			Labels:    map[string]string{"app": "wle"}, // should match
 		},
 	}
 
@@ -158,8 +143,8 @@ func TestIndex_FindAll(t *testing.T) {
 		Name:      "another-ip",
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address: "3.3.3.3",
-			Labels:  map[string]string{"app": "another-wle"}, // should not match because of another label
+			Addresses: []string{"3.3.3.3"},
+			Labels:    map[string]string{"app": "another-wle"}, // should not match because of another label
 		},
 	}
 
@@ -167,8 +152,8 @@ func TestIndex_FindAll(t *testing.T) {
 		Name:      "another-name",
 		Namespace: "another-namespace", // should not match because of another namespace
 		Endpoint: &model.IstioEndpoint{
-			Address: "2.2.2.2",
-			Labels:  map[string]string{"app": "wle"},
+			Addresses: []string{"2.2.2.2"},
+			Labels:    map[string]string{"app": "wle"},
 		},
 	}
 
@@ -184,9 +169,7 @@ func TestIndex_FindAll(t *testing.T) {
 	actual := FindAllInIndex(index, ByServiceSelector(selector.Namespace, labels.Instance{"app": "wle"}))
 	want := []*model.WorkloadInstance{wi1, wi2}
 
-	if diff := cmp.Diff(len(want), len(actual)); diff != "" {
-		t.Errorf("FindAllInIndex() returned unexpected number of workload instances (--want/++got): %v", diff)
-	}
+	assert.Equal(t, len(want), len(actual))
 
 	got := map[string]*model.WorkloadInstance{}
 	for _, instance := range actual {
@@ -194,8 +177,6 @@ func TestIndex_FindAll(t *testing.T) {
 	}
 
 	for _, expected := range want {
-		if diff := cmp.Diff(expected, got[expected.Name]); diff != "" {
-			t.Fatalf("FindAllInIndex() returned unexpected workload instance %q (--want/++got): %v", expected.Name, diff)
-		}
+		assert.Equal(t, expected, got[expected.Name])
 	}
 }

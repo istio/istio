@@ -16,8 +16,8 @@ package deployment
 
 import (
 	"path"
-	"strconv"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 )
 
@@ -41,16 +42,19 @@ type External struct {
 	All echo.Instances
 }
 
-func (e External) build(b deployment.Builder) deployment.Builder {
-	return b.WithConfig(echo.Config{
+func (e External) Build(t resource.Context, b deployment.Builder) deployment.Builder {
+	// External is a good case where MTLS makes sense, so add the port to default "All" list.
+	withMTLS := append(ports.All(), ports.MTLS)
+	config := echo.Config{
 		Service:           ExternalSvc,
 		Namespace:         e.Namespace,
 		DefaultHostHeader: ExternalHostname,
-		Ports:             ports.All(),
+		Ports:             withMTLS,
 		// Set up TLS certs on the server. This will make the server listen with these credentials.
 		TLSSettings: &common.TLSSettings{
 			// Echo has these test certs baked into the docker image
-			RootCert:   file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+			RootCert: file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+			// Note: this certificate has the subject "CN=server.default.svc.cluster.local"
 			ClientCert: file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
 			Key:        file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
 			// Override hostname to match the SAN in the cert we are using
@@ -59,18 +63,18 @@ func (e External) build(b deployment.Builder) deployment.Builder {
 		},
 		Subsets: []echo.SubsetConfig{
 			{
-				Version: "v1",
-				Annotations: map[echo.Annotation]*echo.AnnotationValue{
-					echo.SidecarInject: {
-						Value: strconv.FormatBool(false),
-					},
-				},
+				Version:     "v1",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+			},
+			{
+				Version:     "v2",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 		},
-	})
+	}
+	return b.WithConfig(config)
 }
 
-func (e *External) loadValues(echos echo.Instances) error {
+func (e *External) LoadValues(echos echo.Instances) {
 	e.All = match.ServiceName(echo.NamespacedName{Name: ExternalSvc, Namespace: e.Namespace}).GetMatches(echos)
-	return nil
 }

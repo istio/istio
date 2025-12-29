@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Added** a pod `dnsPolicy` of ClusterFirstWithHostNet to `istio-cni` when it runs with `hostNetwork=true` (i.e. ambient mode).

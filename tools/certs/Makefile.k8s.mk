@@ -27,14 +27,14 @@ export KUBECONFIG
 fetch-root-ca:
 	@echo "fetching root ca from k8s cluster: "$(cluster)""
 	@mkdir -p $(pwd)/$(cluster)
-	@res=$(shell kubectl get secret istio-ca-secret  -n  $(ISTIO-NAMESPACE) >/dev/null 2>&1;  echo $$?)
-ifeq ($(res), 1)
-	@kubectl get secret cacerts   -n  $(ISTIO_NAMESPACE) -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > $(cluster)/k8s-root-cert.pem
-	@kubectl get secret cacerts  -n  $(ISTIO_NAMESPACE) -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > $(cluster)/k8s-root-key.pem
-else
-	@kubectl get secret istio-ca-secret   -n  $(ISTIO_NAMESPACE) -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > $(cluster)/k8s-root-cert.pem
-	@kubectl get secret istio-ca-secret   -n  $(ISTIO_NAMESPACE) -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > $(cluster)/k8s-root-key.pem
-endif
+	@res=$$(kubectl get secret istio-ca-secret -n $(ISTIO_NAMESPACE) >/dev/null 2>&1; echo $$?); \
+	if [ $$res -eq 1 ]; then \
+		kubectl get secret cacerts -n $(ISTIO_NAMESPACE) -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > $(cluster)/k8s-root-cert.pem; \
+		kubectl get secret cacerts -n $(ISTIO_NAMESPACE) -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > $(cluster)/k8s-root-key.pem; \
+	else \
+		kubectl get secret istio-ca-secret -n $(ISTIO_NAMESPACE) -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > $(cluster)/k8s-root-cert.pem; \
+		kubectl get secret istio-ca-secret -n $(ISTIO_NAMESPACE) -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > $(cluster)/k8s-root-key.pem; \
+	fi
 
 k8s-root-cert.pem:
 	@cat $(cluster)/k8s-root-cert.pem > $@

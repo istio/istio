@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2018 Istio Authors
+# Copyright Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ limitations under the License.
 EOF
 
 {
-	echo "// This file was generated using openssl by the gencerts.sh script"
+	echo "// This file was generated using openssl by the generate-certs.sh script"
 	echo "// and holds raw certificates for the webhook tests."
 	echo ""
 	echo "package testcerts"

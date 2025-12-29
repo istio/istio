@@ -65,7 +65,9 @@ func callInternal(srcName string, from echo.Caller, opts echo.CallOptions, send 
 	if opts.Retry.NoRetry {
 		// Retry is disabled, just send once.
 		t0 := time.Now()
-		defer scopes.Framework.Debugf("echo call complete with duration %v", time.Since(t0))
+		defer func() {
+			scopes.Framework.Debugf("echo call complete with duration %v", time.Since(t0))
+		}()
 		return sendAndValidate()
 	}
 
@@ -107,8 +109,9 @@ func (c *Caller) CallEcho(from echo.Caller, opts echo.CallOptions) (echo.CallRes
 		defer cancel()
 
 		ret, err := c.f.ForwardEcho(ctx, &forwarder.Config{
-			Request: req,
-			Proxy:   opts.HTTP.HTTPProxy,
+			Request:           req,
+			Proxy:             opts.HTTP.HTTPProxy,
+			PropagateResponse: opts.PropagateResponse,
 		})
 		if err != nil {
 			return nil, err
@@ -142,8 +145,42 @@ func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
 		FollowRedirects:         opts.HTTP.FollowRedirects,
 		ServerName:              opts.TLS.ServerName,
 		NewConnectionPerRequest: opts.NewConnectionPerRequest,
+		ForceIpFamily:           opts.ForceIPFamily,
 		ForceDNSLookup:          opts.ForceDNSLookup,
+		Hbone: &proto.HBONE{
+			Address:            opts.HBONE.Address,
+			Headers:            common.HTTPToProtoHeaders(opts.HBONE.Headers),
+			Cert:               opts.HBONE.Cert,
+			Key:                opts.HBONE.Key,
+			CaCert:             opts.HBONE.CaCert,
+			CertFile:           opts.HBONE.CertFile,
+			KeyFile:            opts.HBONE.KeyFile,
+			CaCertFile:         opts.HBONE.CaCertFile,
+			InsecureSkipVerify: opts.HBONE.InsecureSkipVerify,
+		},
+		DoubleHbone: &proto.HBONE{
+			Address:            opts.DoubleHBONE.Address,
+			Headers:            common.HTTPToProtoHeaders(opts.DoubleHBONE.Headers),
+			Cert:               opts.DoubleHBONE.Cert,
+			Key:                opts.DoubleHBONE.Key,
+			CaCert:             opts.DoubleHBONE.CaCert,
+			CertFile:           opts.DoubleHBONE.CertFile,
+			KeyFile:            opts.DoubleHBONE.KeyFile,
+			CaCertFile:         opts.DoubleHBONE.CaCertFile,
+			InsecureSkipVerify: opts.DoubleHBONE.InsecureSkipVerify,
+		},
+		ProxyProtocolVersion: getProxyProtoVersion(opts.ProxyProtocolVersion),
 	}
+}
+
+func getProxyProtoVersion(protoVer int) proto.ProxyProtoVersion {
+	if protoVer == 1 {
+		return proto.ProxyProtoVersion_V1
+	} else if protoVer == 2 {
+		return proto.ProxyProtoVersion_V2
+	}
+
+	return proto.ProxyProtoVersion_NONE
 }
 
 func getProtoALPN(alpn []string) *proto.Alpn {

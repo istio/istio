@@ -15,10 +15,15 @@
 package file
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+
+	"istio.io/istio/pkg/log"
 )
 
 // AtomicCopy copies file by reading the file then writing atomically into the target directory
@@ -27,19 +32,20 @@ func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	var size int64
+	defer func() {
+		tryMarkLargeFileAsNotNeeded(size, in)
+		_ = in.Close()
+	}()
 
 	perm, err := in.Stat()
 	if err != nil {
 		return err
 	}
 
-	input, err := io.ReadAll(in)
-	if err != nil {
-		return err
-	}
+	size = perm.Size()
 
-	return AtomicWrite(filepath.Join(targetDir, targetFilename), input, perm.Mode())
+	return AtomicWriteReader(filepath.Join(targetDir, targetFilename), in, perm.Mode())
 }
 
 func Copy(srcFilepath, targetDir, targetFilename string) error {
@@ -67,10 +73,14 @@ func Copy(srcFilepath, targetDir, targetFilename string) error {
 }
 
 // Write atomically by writing to a temporary file in the same directory then renaming
-func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
+func AtomicWrite(path string, data []byte, mode os.FileMode) error {
+	return AtomicWriteReader(path, bytes.NewReader(data), mode)
+}
+
+func AtomicWriteReader(path string, data io.Reader, mode os.FileMode) error {
 	tmpFile, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp.")
 	if err != nil {
-		return
+		return err
 	}
 	defer func() {
 		if Exists(tmpFile.Name()) {
@@ -84,44 +94,30 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 		}
 	}()
 
-	if err = os.Chmod(tmpFile.Name(), mode); err != nil {
-		return
+	if err := os.Chmod(tmpFile.Name(), mode); err != nil {
+		return err
 	}
 
-	_, err = tmpFile.Write(data)
-	if err != nil {
+	n, err := io.Copy(tmpFile, data)
+	if _, err := io.Copy(tmpFile, data); err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {
 			err = fmt.Errorf("%s: %w", closeErr.Error(), err)
 		}
-		return
+		return err
 	}
-	if err = tmpFile.Close(); err != nil {
-		return
+	tryMarkLargeFileAsNotNeeded(n, tmpFile)
+	if err := tmpFile.Close(); err != nil {
+		return err
 	}
 
-	err = os.Rename(tmpFile.Name(), path)
-	return
+	return os.Rename(tmpFile.Name(), path)
 }
 
 func Exists(name string) bool {
+	// We must explicitly check if the error is due to the file not existing (as opposed to a
+	// permissions error).
 	_, err := os.Stat(name)
-	return err == nil
-}
-
-const (
-	// PrivateFileMode grants owner to read/write a file.
-	PrivateFileMode = 0o600
-)
-
-// IsDirWriteable checks if dir is writable by writing and removing a file
-// to dir. It returns nil if dir is writable.
-// Inspired by etcd fileutil.
-func IsDirWriteable(dir string) error {
-	f := filepath.Join(dir, ".touch")
-	if err := os.WriteFile(f, []byte(""), PrivateFileMode); err != nil {
-		return err
-	}
-	return os.Remove(f)
+	return !errors.Is(err, fs.ErrNotExist)
 }
 
 // DirEquals check if two directories are referring to the same directory
@@ -135,4 +131,16 @@ func DirEquals(a, b string) (bool, error) {
 		return false, err
 	}
 	return aa == bb, nil
+}
+
+func tryMarkLargeFileAsNotNeeded(size int64, in *os.File) {
+	// Somewhat arbitrary value to not bother with this on small files
+	const largeFileThreshold = 16 * 1024
+	if size < largeFileThreshold {
+		return
+	}
+	if err := markNotNeeded(in); err != nil {
+		// Error is fine, this is just an optimization anyways. Continue
+		log.Debugf("failed to mark not needed, continuing anyways: %v", err)
+	}
 }

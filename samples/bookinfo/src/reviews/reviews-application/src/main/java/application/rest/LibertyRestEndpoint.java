@@ -40,7 +40,8 @@ public class LibertyRestEndpoint extends Application {
     private final static String star_color = System.getenv("STAR_COLOR") == null ? "black" : System.getenv("STAR_COLOR");
     private final static String services_domain = System.getenv("SERVICES_DOMAIN") == null ? "" : ("." + System.getenv("SERVICES_DOMAIN"));
     private final static String ratings_hostname = System.getenv("RATINGS_HOSTNAME") == null ? "ratings" : System.getenv("RATINGS_HOSTNAME");
-    private final static String ratings_service = String.format("http://%s%s:9080/ratings", ratings_hostname, services_domain);
+    private final static String ratings_port = System.getenv("RATINGS_SERVICE_PORT") == null ? "9080" : System.getenv("RATINGS_SERVICE_PORT");
+    private final static String ratings_service = String.format("http://%s%s:%s/ratings", ratings_hostname, services_domain, ratings_port);
     private final static String pod_hostname = System.getenv("HOSTNAME");
     private final static String clustername = System.getenv("CLUSTER_NAME");
     // HTTP headers to propagate for distributed tracing are documented at

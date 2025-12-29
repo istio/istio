@@ -15,19 +15,20 @@
 package install
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
+
+	file2 "istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 func TestCopyBinaries(t *testing.T) {
 	cases := []struct {
-		name           string
-		srcFiles       map[string]string // {filename: contents, ...}
-		existingFiles  map[string]string // {filename: contents, ...}
-		expectedFiles  map[string]string // {filename: contents. ...}
-		updateBinaries bool
-		skipBinaries   []string
+		name          string
+		srcFiles      map[string]string
+		existingFiles map[string]string
+		expectedFiles map[string]string
 	}{
 		{
 			name:          "basic",
@@ -35,24 +36,10 @@ func TestCopyBinaries(t *testing.T) {
 			expectedFiles: map[string]string{"istio-cni": "cni111", "istio-iptables": "iptables111"},
 		},
 		{
-			name:           "update binaries",
-			updateBinaries: true,
-			srcFiles:       map[string]string{"istio-cni": "cni111", "istio-iptables": "iptables111"},
-			existingFiles:  map[string]string{"istio-cni": "cni000", "istio-iptables": "iptables111"},
-			expectedFiles:  map[string]string{"istio-cni": "cni111", "istio-iptables": "iptables111"},
-		},
-		{
-			name:           "don't update binaries",
-			updateBinaries: false,
-			srcFiles:       map[string]string{"istio-cni": "cni111", "istio-iptables": "iptables111"},
-			existingFiles:  map[string]string{"istio-cni": "cni000", "istio-iptables": "iptables111"},
-			expectedFiles:  map[string]string{"istio-cni": "cni000", "istio-iptables": "iptables111"},
-		},
-		{
-			name:          "skip binaries",
-			skipBinaries:  []string{"istio-iptables"},
+			name:          "update binaries",
 			srcFiles:      map[string]string{"istio-cni": "cni111", "istio-iptables": "iptables111"},
-			expectedFiles: map[string]string{"istio-cni": "cni111"},
+			existingFiles: map[string]string{"istio-cni": "cni000", "istio-iptables": "iptables111"},
+			expectedFiles: map[string]string{"istio-cni": "cni111", "istio-iptables": "iptables111"},
 		},
 	}
 
@@ -60,34 +47,50 @@ func TestCopyBinaries(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			srcDir := t.TempDir()
 			for filename, contents := range c.srcFiles {
-				err := os.WriteFile(filepath.Join(srcDir, filename), []byte(contents), os.ModePerm)
-				if err != nil {
-					t.Fatal(err)
-				}
+				file.WriteOrFail(t, filepath.Join(srcDir, filename), []byte(contents))
 			}
 
 			targetDir := t.TempDir()
 			for filename, contents := range c.existingFiles {
-				err := os.WriteFile(filepath.Join(targetDir, filename), []byte(contents), os.ModePerm)
-				if err != nil {
-					t.Fatal(err)
-				}
+				file.WriteOrFail(t, filepath.Join(targetDir, filename), []byte(contents))
 			}
 
-			err := copyBinaries(srcDir, []string{targetDir}, c.updateBinaries, c.skipBinaries)
+			binariesCopied, err := copyBinaries(srcDir, []string{targetDir})
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			for filename, expectedContents := range c.expectedFiles {
-				contents, err := os.ReadFile(filepath.Join(targetDir, filename))
-				if err != nil {
-					t.Fatal(err)
+				contents := file.AsStringOrFail(t, filepath.Join(targetDir, filename))
+				assert.Equal(t, contents, expectedContents)
+
+				wasCopied := false
+				for _, bin := range binariesCopied.UnsortedList() {
+					if bin == filename {
+						wasCopied = true
+					}
 				}
-				if string(contents) != expectedContents {
-					t.Fatalf("target file contents don't match source file; actual: %s", string(contents))
-				}
+				assert.Equal(t, wasCopied, true)
 			}
 		})
 	}
+}
+
+func TestCopyBinariesWhenTmpExist(t *testing.T) {
+	srcDir := t.TempDir()
+	file.WriteOrFail(t, filepath.Join(srcDir, "testFile1"), []byte("content"))
+	file.WriteOrFail(t, filepath.Join(srcDir, "testFile2"), []byte("content"))
+
+	targetDir := t.TempDir()
+	tmpFile1 := filepath.Join(targetDir, "testFile1.tmp.3816169537")
+	tmpFile2 := filepath.Join(targetDir, "testFile2.tmp.4977877")
+	file.WriteOrFail(t, tmpFile1, []byte("content"))
+	file.WriteOrFail(t, tmpFile2, []byte("content"))
+
+	_, err := copyBinaries(srcDir, []string{targetDir})
+	assert.NoError(t, err)
+
+	// check that all old temp files were removed
+	assert.Equal(t, file2.Exists(tmpFile1), false)
+	assert.Equal(t, file2.Exists(tmpFile2), false)
 }

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Removed**  the experimental flag `--xds-via-agents` to the `istioctl proxy-status` command.

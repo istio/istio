@@ -24,11 +24,12 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	anypb "github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/types/known/anypb"
 	"sigs.k8s.io/yaml"
 
-	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/slices"
 )
 
 type EndpointFilter struct {
@@ -43,9 +44,15 @@ func (e *EndpointFilter) Verify(ep *endpoint.LbEndpoint, cluster string) bool {
 	if e.Address == "" && e.Port == 0 && e.Cluster == "" && e.Status == "" {
 		return true
 	}
-	if e.Address != "" && !strings.EqualFold(retrieveEndpointAddress(ep), e.Address) {
-		return false
+	if e.Address != "" {
+		found := slices.FindFunc(retrieveEndpointAddresses(ep), func(s string) bool {
+			return strings.EqualFold(s, e.Address)
+		}) != nil
+		if !found {
+			return false
+		}
 	}
+
 	if e.Port != 0 && retrieveEndpointPort(ep) != e.Port {
 		return false
 	}
@@ -67,21 +74,32 @@ func retrieveEndpointPort(ep *endpoint.LbEndpoint) uint32 {
 	return ep.GetEndpoint().GetAddress().GetSocketAddress().GetPortValue()
 }
 
-func retrieveEndpointAddress(ep *endpoint.LbEndpoint) string {
-	addr := ep.GetEndpoint().GetAddress()
-	if addr := addr.GetSocketAddress(); addr != nil {
-		return addr.Address + ":" + strconv.Itoa(int(addr.GetPortValue()))
+func retrieveEndpointAddresses(ep *endpoint.LbEndpoint) []string {
+	addrs := []*core.Address{ep.GetEndpoint().GetAddress()}
+	for _, a := range ep.GetEndpoint().GetAdditionalAddresses() {
+		addrs = append(addrs, a.GetAddress())
 	}
-	if addr := addr.GetPipe(); addr != nil {
-		return addr.GetPath()
-	}
-	if internal := addr.GetEnvoyInternalAddress(); internal != nil {
-		switch an := internal.GetAddressNameSpecifier().(type) {
-		case *core.EnvoyInternalAddress_ServerListenerName:
-			return fmt.Sprintf("envoy://%s/%s", an.ServerListenerName, internal.EndpointId)
+	result := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		if addr := addr.GetSocketAddress(); addr != nil {
+			result = append(result, addr.Address+":"+strconv.Itoa(int(addr.GetPortValue())))
+			continue
 		}
+		if addr := addr.GetPipe(); addr != nil {
+			result = append(result, addr.GetPath())
+			continue
+		}
+		if internal := addr.GetEnvoyInternalAddress(); internal != nil {
+			switch an := internal.GetAddressNameSpecifier().(type) {
+			case *core.EnvoyInternalAddress_ServerListenerName:
+				result = append(result, fmt.Sprintf("envoy://%s/%s", an.ServerListenerName, internal.EndpointId))
+				continue
+			}
+		}
+		result = append(result, "unknown")
 	}
-	return "unknown"
+
+	return result
 }
 
 func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string) error {
@@ -92,7 +110,7 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string
 	if err != nil {
 		return err
 	}
-	marshaller := make(protio.MessageSlice, 0, len(dump))
+	marshaller := make(proto.MessageSlice, 0, len(dump))
 	for _, eds := range dump {
 		marshaller = append(marshaller, eds)
 	}
@@ -112,7 +130,7 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string
 func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
 
-	fmt.Fprintln(w, "ENDPOINT\tSTATUS\tLOCALITY\tCLUSTER")
+	fmt.Fprintln(w, "NAME\tSTATUS\tLOCALITY\tCLUSTER")
 	dump, err := c.retrieveSortedEndpointsSlice(filter)
 	if err != nil {
 		return err
@@ -120,8 +138,12 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 	for _, eds := range dump {
 		for _, llb := range eds.Endpoints {
 			for _, ep := range llb.LbEndpoints {
+				addr := strings.Join(retrieveEndpointAddresses(ep), ",")
+				if includeConfigType {
+					addr = fmt.Sprintf("endpoint/%s", addr)
+				}
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
-					retrieveEndpointAddress(ep),
+					addr,
 					ep.GetHealthStatus().String(),
 					util.LocalityToString(llb.Locality),
 					eds.ClusterName,
@@ -140,6 +162,9 @@ func (c *ConfigWriter) retrieveSortedEndpointsSlice(filter EndpointFilter) ([]*e
 	dump, err := c.configDump.GetEndpointsConfigDump()
 	if err != nil {
 		return nil, err
+	}
+	if dump == nil {
+		return nil, nil
 	}
 	endpoints := make([]*endpoint.ClusterLoadAssignment, 0, len(dump.DynamicEndpointConfigs))
 	for _, e := range dump.GetDynamicEndpointConfigs() {

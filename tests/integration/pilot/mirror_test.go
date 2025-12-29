@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -27,11 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 //	Virtual service topology
@@ -122,7 +121,6 @@ func TestMirroringExternalService(t *testing.T) {
 func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 	framework.
 		NewTest(t).
-		Features("traffic.mirroring").
 		Run(func(t framework.TestContext) {
 			for _, c := range options.cases {
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
@@ -142,7 +140,6 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 						ApplyOrFail(t)
 
 					for _, podA := range apps.A {
-						podA := podA
 						t.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 							for _, proto := range mirrorProtocols {
 								t.NewSubTest(string(proto)).Run(func(t framework.TestContext) {
@@ -246,6 +243,6 @@ func logCount(instances echo.Instances, testID string) (float64, error) {
 	for _, c := range counts {
 		total += c
 	}
-	// TODO(landow) mirorr split does not always hit all clusters
+	// TODO(landow) mirror split does not always hit all clusters
 	return total, nil
 }

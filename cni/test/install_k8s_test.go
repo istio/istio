@@ -23,11 +23,6 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
-var (
-	Hub = "gcr.io/istio-release"
-	Tag = "master-latest-daily"
-)
-
 type testCase struct {
 	name             string
 	chainedCNIPlugin bool

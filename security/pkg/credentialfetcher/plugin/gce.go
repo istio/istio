@@ -17,6 +17,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -25,11 +26,11 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
-var gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)
+var gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent")
 
 // Token refresh frequency is default to 5 minutes.
 var rotationInterval = 5 * time.Minute
@@ -139,7 +140,7 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 		return "", fmt.Errorf("jwtPath is unset")
 	}
 	uri := fmt.Sprintf("instance/service-accounts/default/identity?audience=%s&format=full", p.aud)
-	token, err := metadata.Get(uri)
+	token, err := metadata.GetWithContext(context.TODO(), uri)
 	if err != nil {
 		gcecredLog.Errorf("Failed to get vm identity token from metadata server: %v", err)
 		return "", err

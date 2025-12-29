@@ -14,7 +14,7 @@
 
 // Package backoff is a wrapper of `github.com/cenkalti/backoff/v4`.
 // It is to prevent misuse of `github.com/cenkalti/backoff/v4`,
-// thus application could fall into dead loop.
+// thus the application could fall into dead loop.
 package backoff
 
 import (
@@ -72,6 +72,10 @@ func NewExponentialBackOff(o Option) BackOff {
 
 func (b ExponentialBackOff) NextBackOff() time.Duration {
 	duration := b.exponentialBackOff.NextBackOff()
+	// always return maxInterval after it reaches MaxElapsedTime
+	if duration == b.exponentialBackOff.Stop {
+		return b.exponentialBackOff.MaxInterval
+	}
 	return duration
 }
 
@@ -91,7 +95,7 @@ func (b ExponentialBackOff) RetryWithContext(ctx context.Context, operation func
 		if err == nil {
 			return nil
 		}
-		next := b.exponentialBackOff.NextBackOff()
+		next := b.NextBackOff()
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("%v with last error: %v", context.DeadlineExceeded, err)

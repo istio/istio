@@ -16,19 +16,137 @@ package codegen
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
+
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/ast"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/strcase"
 )
 
-const (
-	commentLinePrefix = "// "
-)
+func Run() error {
+	inp, err := buildInputs()
+	if err != nil {
+		return err
+	}
+
+	// Include synthetic types used for XDS pushes
+	kindEntries := append([]colEntry{
+		{
+			Resource: &ast.Resource{Identifier: "Address", Kind: "Address", Version: "internal", Group: "internal"},
+		},
+		{
+			Resource: &ast.Resource{Identifier: "DNSName", Kind: "DNSName", Version: "internal", Group: "internal"},
+		},
+	}, inp.Entries...)
+
+	sort.Slice(kindEntries, func(i, j int) bool {
+		return strings.Compare(kindEntries[i].Resource.Identifier, kindEntries[j].Resource.Identifier) < 0
+	})
+
+	// filter to only types agent needs (to keep binary small)
+	agentEntries := []colEntry{}
+	for _, e := range inp.Entries {
+		if strings.Contains(e.Resource.ProtoPackage, "istio.io") &&
+			e.Resource.Kind != "EnvoyFilter" {
+			agentEntries = append(agentEntries, e)
+		}
+	}
+
+	// add MCS types
+	gvrEntries := append([]colEntry{
+		{Resource: &ast.Resource{Identifier: "ServiceExport", Plural: "serviceexports", Version: features.MCSAPIVersion, Group: features.MCSAPIGroup}},
+		{Resource: &ast.Resource{Identifier: "ServiceImport", Plural: "serviceimports", Version: features.MCSAPIVersion, Group: features.MCSAPIGroup}},
+	}, inp.Entries...)
+
+	// Build a deduplicated list of Kind names for KebabKind function
+	seenKinds := make(map[string]bool)
+	var uniqueKinds []string
+	for _, e := range inp.Entries {
+		if !seenKinds[e.Resource.Kind] {
+			seenKinds[e.Resource.Kind] = true
+			uniqueKinds = append(uniqueKinds, e.Resource.Kind)
+		}
+	}
+	sort.Strings(uniqueKinds)
+
+	return errors.Join(
+		writeTemplate("pkg/config/schema/gvk/resources.gen.go", gvkTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"UniqueKinds": uniqueKinds,
+			"PackageName": "gvk",
+		}),
+		writeTemplate("pkg/config/schema/gvr/resources.gen.go", gvrTemplate, map[string]any{
+			"Entries":     gvrEntries,
+			"PackageName": "gvr",
+		}),
+		writeTemplate("pilot/pkg/config/kube/crdclient/types.gen.go", crdclientTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"Packages":    inp.Packages,
+			"PackageName": "crdclient",
+		}),
+		writeTemplate("pkg/config/schema/kubetypes/resources.gen.go", typesTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"Packages":    inp.Packages,
+			"PackageName": "kubetypes",
+		}),
+		writeTemplate("pkg/config/schema/kubeclient/resources.gen.go", clientsTemplate, map[string]any{
+			"Entries":     inp.Entries,
+			"Packages":    inp.Packages,
+			"PackageName": "kubeclient",
+		}),
+		writeTemplate("pkg/config/schema/kind/resources.gen.go", kindTemplate, map[string]any{
+			"Entries":     kindEntries,
+			"PackageName": "kind",
+		}),
+		writeTemplate("pkg/config/schema/collections/collections.gen.go", collectionsTemplate, map[string]any{
+			"Entries":      inp.Entries,
+			"Packages":     inp.Packages,
+			"PackageName":  "collections",
+			"FilePrefix":   "//go:build !agent",
+			"CustomImport": `  "istio.io/istio/pkg/config/validation/envoyfilter"`,
+		}),
+		writeTemplate("pkg/config/schema/collections/collections.agent.gen.go", collectionsTemplate, map[string]any{
+			"Entries":      agentEntries,
+			"Packages":     inp.Packages,
+			"PackageName":  "collections",
+			"FilePrefix":   "//go:build agent",
+			"CustomImport": "",
+		}),
+	)
+}
+
+func writeTemplate(path, tmpl string, i any) error {
+	t, err := applyTemplate(tmpl, i)
+	if err != nil {
+		return fmt.Errorf("apply template %v: %v", path, err)
+	}
+	dst := filepath.Join(env.IstioSrc, path)
+	if err = os.WriteFile(dst, []byte(t), os.ModePerm); err != nil {
+		return fmt.Errorf("write template %v: %v", path, err)
+	}
+	c := exec.Command("goimports", "-w", "-local", "istio.io", dst)
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	return c.Run()
+}
+
+// camelCaseToKebabCase wraps strcase.CamelCaseToKebabCase for use in templates.
+func camelCaseToKebabCase(s string) string {
+	return strcase.CamelCaseToKebabCase(s)
+}
 
 func applyTemplate(tmpl string, i any) (string, error) {
 	t := template.New("tmpl").Funcs(template.FuncMap{
-		"wordWrap":     wordWrap,
-		"commentBlock": commentBlock,
-		"hasPrefix":    strings.HasPrefix,
+		"contains":  strings.Contains,
+		"kebabcase": camelCaseToKebabCase,
 	})
 
 	t2 := template.Must(t.Parse(tmpl))
@@ -39,62 +157,4 @@ func applyTemplate(tmpl string, i any) (string, error) {
 	}
 
 	return b.String(), nil
-}
-
-func commentBlock(in []string, indentTabs int) string {
-	// Copy the input array.
-	in = append([]string{}, in...)
-
-	// Apply the tabs and comment prefix to each line.
-	for lineIndex := range in {
-		prefix := ""
-		for tabIndex := 0; lineIndex > 0 && tabIndex < indentTabs; tabIndex++ {
-			prefix += "\t"
-		}
-		prefix += commentLinePrefix
-		in[lineIndex] = prefix + in[lineIndex]
-	}
-
-	// Join the lines with carriage returns.
-	return strings.Join(in, "\n")
-}
-
-func wordWrap(in string, maxLineLength int) []string {
-	// First, split the input based on any user-created lines (i.e. the string contains "\n").
-	inputLines := strings.Split(in, "\n")
-	outputLines := make([]string, 0)
-
-	line := ""
-	for i, inputLine := range inputLines {
-		if i > 0 {
-			// Process a user-defined carriage return.
-			outputLines = append(outputLines, line)
-			line = ""
-		}
-
-		words := strings.Split(inputLine, " ")
-
-		for len(words) > 0 {
-			// Take the next word.
-			word := words[0]
-			words = words[1:]
-
-			if len(line)+len(word) > maxLineLength {
-				// Need to word wrap - emit the current line.
-				outputLines = append(outputLines, line)
-				line = ""
-			}
-
-			// Add the word to the current line.
-			if len(line) > 0 {
-				line += " "
-			}
-			line += word
-		}
-	}
-
-	// Emit the final line
-	outputLines = append(outputLines, line)
-
-	return outputLines
 }

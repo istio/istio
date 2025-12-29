@@ -18,60 +18,110 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestInstance(t *testing.T) {
+	type result struct {
+		subsetOf bool
+		selected bool
+	}
+
 	cases := []struct {
 		left     labels.Instance
 		right    labels.Instance
-		expected bool
+		expected result
 	}{
 		{
 			left:     nil,
 			right:    labels.Instance{"app": "a"},
-			expected: true,
+			expected: result{true, false},
+		},
+		{
+			left:     labels.Instance{},
+			right:    labels.Instance{"app": "a"},
+			expected: result{true, false},
 		},
 		{
 			left:     labels.Instance{"app": "a"},
 			right:    nil,
-			expected: false,
+			expected: result{false, false},
 		},
 		{
 			left:     labels.Instance{"app": "a"},
 			right:    labels.Instance{"app": "a", "prod": "env"},
-			expected: true,
+			expected: result{true, true},
 		},
 		{
 			left:     labels.Instance{"app": "a", "prod": "env"},
 			right:    labels.Instance{"app": "a"},
-			expected: false,
+			expected: result{false, false},
 		},
 		{
 			left:     labels.Instance{"app": "a"},
 			right:    labels.Instance{"app": "b", "prod": "env"},
-			expected: false,
+			expected: result{false, false},
 		},
 		{
 			left:     labels.Instance{"foo": ""},
 			right:    labels.Instance{"app": "a"},
-			expected: false,
+			expected: result{false, false},
 		},
 		{
 			left:     labels.Instance{"foo": ""},
 			right:    labels.Instance{"app": "a", "foo": ""},
-			expected: true,
+			expected: result{true, true},
 		},
 		{
 			left:     labels.Instance{"app": "a", "foo": ""},
 			right:    labels.Instance{"foo": ""},
-			expected: false,
+			expected: result{false, false},
 		},
 	}
 	for _, c := range cases {
-		got := c.left.SubsetOf(c.right)
+		var got result
+		got.subsetOf = c.left.SubsetOf(c.right)
+		got.selected = c.left.Match(c.right)
 		if got != c.expected {
 			t.Errorf("%v.SubsetOf(%v) got %v, expected %v", c.left, c.right, got, c.expected)
 		}
+	}
+}
+
+func TestString(t *testing.T) {
+	cases := []struct {
+		input    labels.Instance
+		expected string
+	}{
+		{
+			input:    nil,
+			expected: "",
+		},
+		{
+			input:    labels.Instance{},
+			expected: "",
+		},
+		{
+			input:    labels.Instance{"app": "a"},
+			expected: "app=a",
+		},
+		{
+			input:    labels.Instance{"app": "a", "prod": "env"},
+			expected: "app=a,prod=env",
+		},
+		{
+			input:    labels.Instance{"foo": ""},
+			expected: "foo",
+		},
+		{
+			input:    labels.Instance{"app": "a", "foo": ""},
+			expected: "app=a,foo",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.expected, func(t *testing.T) {
+			assert.Equal(t, tt.input.String(), tt.expected)
+		})
 	}
 }
 
@@ -146,5 +196,30 @@ func TestInstanceValidate(t *testing.T) {
 		if got := c.tags.Validate(); (got == nil) != c.valid {
 			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
 		}
+	}
+}
+
+func BenchmarkLabelString(b *testing.B) {
+	big := labels.Instance{}
+	for i := 0; i < 50; i++ {
+		big["topology.kubernetes.io/region"] = "some value"
+	}
+	small := labels.Instance{
+		"app": "foo",
+		"baz": "bar",
+	}
+	cases := []struct {
+		name  string
+		label labels.Instance
+	}{
+		{"small", small},
+		{"big", big},
+	}
+	for _, tt := range cases {
+		b.Run(tt.name, func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				_ = tt.label.String()
+			}
+		})
 	}
 }

@@ -17,19 +17,20 @@ package model
 import (
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // This function merges one or more destination rules for a given host string
 // into a single destination rule. Note that it does not perform inheritance style merging.
-// IOW, given three dest rules (*.foo.com, *.foo.com, *.com), calling this function for
+// IOW, given three dest rules (*.foo.com, *.foo.com, *.com) without selectors, calling this function for
 // each config will result in a final dest rule set (*.foo.com, and *.com).
 //
 // The following is the merge logic:
@@ -37,9 +38,9 @@ import (
 // 2. If the original rule did not have any top level traffic policy, traffic policies from the new rule will be
 // used.
 // 3. If the original rule did not have any exportTo, exportTo settings from the new rule will be used.
-func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToMap map[visibility.Instance]bool) {
+func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToSet sets.Set[visibility.Instance]) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
-	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
+	resolvedHost := host.Name(rule.Host)
 
 	var destRules map[host.Name][]*ConsolidatedDestRule
 
@@ -50,43 +51,56 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 	}
 
 	if mdrList, exists := destRules[resolvedHost]; exists {
-		// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
-		addRuleToProcessedDestRules := true
+		// `appendSeparately` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
+		appendSeparately := true
 		for _, mdr := range mdrList {
+			if features.EnableEnhancedDestinationRuleMerge {
+				if exportToSet.Equals(mdr.exportTo) {
+					appendSeparately = false
+				} else if len(mdr.exportTo) > 0 && exportToSet.SupersetOf(mdr.exportTo) {
+					// If the new exportTo is superset of existing, merge and also append as a standalone one
+					appendSeparately = true
+				} else {
+					// can not merge with existing one, append as a standalone one
+					appendSeparately = true
+					continue
+				}
+			}
+
 			existingRule := mdr.rule.Spec.(*networking.DestinationRule)
 			bothWithoutSelector := rule.GetWorkloadSelector() == nil && existingRule.GetWorkloadSelector() == nil
 			bothWithSelector := existingRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil
 			selectorsMatch := labels.Instance(existingRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())
-
 			if bothWithSelector && !selectorsMatch {
 				// If the new destination rule and the existing one has workload selectors associated with them, skip merging
 				// if the selectors do not match
+				appendSeparately = true
 				continue
 			}
 			// If both the destination rules are without a workload selector or with matching workload selectors, simply merge them.
 			// If the incoming rule has a workload selector, it has to be merged with the existing rules with workload selector, and
 			// at the same time added as a unique entry in the processedDestRules.
-			if bothWithoutSelector || (rule.GetWorkloadSelector() != nil && selectorsMatch) {
-				addRuleToProcessedDestRules = false
+			if bothWithoutSelector || (bothWithSelector && selectorsMatch) {
+				appendSeparately = false
 			}
 
 			// Deep copy destination rule, to prevent mutate it later when merge with a new one.
 			// This can happen when there are more than one destination rule of same host in one namespace.
 			copied := mdr.rule.DeepCopy()
 			mdr.rule = &copied
-			mdr.from = append(mdr.from, config.NamespacedName(destRuleConfig))
+			mdr.from = append(mdr.from, destRuleConfig.NamespacedName())
 			mergedRule := copied.Spec.(*networking.DestinationRule)
 
-			existingSubset := map[string]struct{}{}
+			existingSubset := sets.String{}
 			for _, subset := range mergedRule.Subsets {
-				existingSubset[subset.Name] = struct{}{}
+				existingSubset.Insert(subset.Name)
 			}
-			// we have an another destination rule for same host.
+			// we have another destination rule for same host.
 			// concatenate both of them -- essentially add subsets from one to other.
 			// Note: we only add the subsets and do not overwrite anything else like exportTo or top level
 			// traffic policies if they already exist
 			for _, subset := range rule.Subsets {
-				if _, ok := existingSubset[subset.Name]; !ok {
+				if !existingSubset.Contains(subset.Name) {
 					// if not duplicated, append
 					mergedRule.Subsets = append(mergedRule.Subsets, subset)
 				} else {
@@ -102,65 +116,21 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
 				mergedRule.TrafficPolicy = rule.TrafficPolicy
 			}
-			// If there is no exportTo in the existing rule and
-			// the incoming rule has an explicit exportTo, use the
-			// one from the incoming rule.
-			if len(p.exportTo[resolvedHost]) == 0 && len(exportToMap) > 0 {
-				p.exportTo[resolvedHost] = exportToMap
-			}
 		}
-		if addRuleToProcessedDestRules {
-			destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
+		if appendSeparately {
+			destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig, exportToSet))
 		}
 		return
 	}
 	// DestinationRule does not exist for the resolved host so add it
-	destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
-	p.exportTo[resolvedHost] = exportToMap
+	destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig, exportToSet))
 }
 
-// inheritDestinationRule child config inherits settings from parent mesh/namespace
-func (ps *PushContext) inheritDestinationRule(parent, child *ConsolidatedDestRule) *ConsolidatedDestRule {
-	if parent == nil {
-		return child
-	}
-	if child == nil {
-		return parent
-	}
-
-	if parent.Equals(child) {
-		return parent
-	}
-
-	parentDR := parent.rule.Spec.(*networking.DestinationRule)
-	if parentDR.TrafficPolicy == nil {
-		return child
-	}
-
-	merged := parent.rule.DeepCopy()
-	// merge child into parent, child fields will overwrite parent's
-	proto.Merge(merged.Spec.(proto.Message), child.rule.Spec.(proto.Message))
-	merged.Meta = child.rule.Meta
-	merged.Status = child.rule.Status
-
-	childDR := child.rule.Spec.(*networking.DestinationRule)
-	// if parent has MUTUAL+certs/secret specified and child specifies SIMPLE, could break caCertificates
-	// if both parent and child specify TLS context, child's will be used only
-	if parentDR.TrafficPolicy.Tls != nil && (childDR.TrafficPolicy != nil && childDR.TrafficPolicy.Tls != nil) {
-		mergedDR := merged.Spec.(*networking.DestinationRule)
-		mergedDR.TrafficPolicy.Tls = childDR.TrafficPolicy.Tls.DeepCopy()
-	}
-	out := &ConsolidatedDestRule{}
-	out.rule = &merged
-	out.from = append(out.from, parent.from...)
-	out.from = append(out.from, child.from...)
-	return out
-}
-
-func ConvertConsolidatedDestRule(cfg *config.Config) *ConsolidatedDestRule {
+func ConvertConsolidatedDestRule(cfg *config.Config, exportToSet sets.Set[visibility.Instance]) *ConsolidatedDestRule {
 	return &ConsolidatedDestRule{
-		rule: cfg,
-		from: []types.NamespacedName{config.NamespacedName(cfg)},
+		exportTo: exportToSet,
+		rule:     cfg,
+		from:     []types.NamespacedName{cfg.NamespacedName()},
 	}
 }
 

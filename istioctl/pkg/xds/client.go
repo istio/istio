@@ -44,17 +44,19 @@ var tokenAudiences = []string{"istio-ca"}
 func GetXdsResponse(dr *discovery.DiscoveryRequest, ns string, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
 	grpcOpts []grpc.DialOption,
 ) (*discovery.DiscoveryResponse, error) {
-	adscConn, err := adsc.NewWithBackoffPolicy(opts.Xds, &adsc.Config{
-		Meta: model.NodeMetadata{
-			Generator:      "event",
-			ServiceAccount: serviceAccount,
-			Namespace:      ns,
-			CloudrunAddr:   opts.IstiodAddr,
-		}.ToStruct(),
-		CertDir:            opts.CertDir,
-		InsecureSkipVerify: opts.InsecureSkipVerify,
-		XDSSAN:             opts.XDSSAN,
-		GrpcOpts:           grpcOpts,
+	adscConn, err := adsc.NewWithBackoffPolicy(opts.Xds, &adsc.ADSConfig{
+		Config: adsc.Config{
+			Meta: model.NodeMetadata{
+				Generator:      "event",
+				ServiceAccount: serviceAccount,
+				Namespace:      ns,
+				CloudrunAddr:   opts.IstiodAddr,
+			}.ToStruct(),
+			CertDir:            opts.CertDir,
+			InsecureSkipVerify: opts.InsecureSkipVerify,
+			XDSSAN:             opts.XDSSAN,
+			GrpcOpts:           grpcOpts,
+		},
 	}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not dial: %w", err)

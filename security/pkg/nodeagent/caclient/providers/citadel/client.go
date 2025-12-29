@@ -12,40 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package caclient
+package citadel
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 
-	"go.uber.org/atomic"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "istio.io/api/security/v1alpha1"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
-	"istio.io/pkg/log"
 )
 
 const (
 	bearerTokenPrefix = "Bearer "
 )
 
-var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
+var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging")
 
 type CitadelClient struct {
 	// It means enable tls connection to Citadel if this is not nil.
-	tlsOpts   *TLSOptions
-	client    pb.IstioCertificateServiceClient
-	conn      *grpc.ClientConn
-	provider  *caclient.TokenProvider
-	opts      *security.Options
-	usingMtls *atomic.Bool
+	tlsOpts  *TLSOptions
+	client   pb.IstioCertificateServiceClient
+	conn     *grpc.ClientConn
+	provider credentials.PerRPCCredentials
+	opts     *security.Options
 }
 
 type TLSOptions struct {
@@ -57,10 +55,9 @@ type TLSOptions struct {
 // NewCitadelClient create a CA client for Citadel.
 func NewCitadelClient(opts *security.Options, tlsOpts *TLSOptions) (*CitadelClient, error) {
 	c := &CitadelClient{
-		tlsOpts:   tlsOpts,
-		opts:      opts,
-		provider:  caclient.NewCATokenProvider(opts),
-		usingMtls: atomic.NewBool(false),
+		tlsOpts:  tlsOpts,
+		opts:     opts,
+		provider: caclient.NewDefaultTokenProvider(opts),
 	}
 
 	conn, err := c.buildConnection()
@@ -80,7 +77,7 @@ func (c *CitadelClient) Close() {
 }
 
 // CSRSign calls Citadel to sign a CSR.
-func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
+func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) (res []string, err error) {
 	crMetaStruct := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			security.CertSigner: {
@@ -93,12 +90,25 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]strin
 		ValidityDuration: certValidTTLInSec,
 		Metadata:         crMetaStruct,
 	}
-
-	if err := c.reconnectIfNeeded(); err != nil {
-		return nil, err
-	}
+	// TODO(hzxuzhonghu): notify caclient rebuilding only when root cert is updated.
+	// It can happen when the istiod dns certs is resigned after root cert is updated,
+	// in this case, the ca grpc client can not automatically connect to istiod after the underlying network connection closed.
+	// Because that the grpc client still use the old tls configuration to reconnect to istiod.
+	// So here we need to rebuild the caClient in order to use the new root cert.
+	defer func() {
+		if err != nil {
+			citadelClientLog.Errorf("failed to sign CSR: %v", err)
+			if err := c.reconnect(); err != nil {
+				citadelClientLog.Errorf("failed reconnect: %v", err)
+			}
+		}
+	}()
 
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", c.opts.ClusterID))
+	for k, v := range c.opts.CAHeaders {
+		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
+	}
+
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create certificate: %v", err)
@@ -119,9 +129,6 @@ func (c *CitadelClient) getTLSOptions() *istiogrpc.TLSOptions {
 			Cert:          c.tlsOpts.Cert,
 			ServerAddress: c.opts.CAEndpoint,
 			SAN:           c.opts.CAEndpointSAN,
-			GetClientCertificateCb: func() {
-				c.usingMtls.Store(true)
-			},
 		}
 	}
 	return nil
@@ -146,20 +153,9 @@ func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func (c *CitadelClient) reconnectIfNeeded() error {
-	if c.opts.ProvCert == "" || c.usingMtls.Load() {
-		// No need to reconnect, already using mTLS or never will use it
-		return nil
-	}
-	_, err := tls.LoadX509KeyPair(c.tlsOpts.Cert, c.tlsOpts.Key)
-	if err != nil {
-		citadelClientLog.Errorf("Failed to load key pair %v", err)
-		// Cannot load the certificates yet, don't both reconnecting
-		return nil
-	}
-
+func (c *CitadelClient) reconnect() error {
 	if err := c.conn.Close(); err != nil {
-		return fmt.Errorf("failed to close connection")
+		return fmt.Errorf("failed to close connection: %v", err)
 	}
 
 	conn, err := c.buildConnection()
@@ -168,7 +164,7 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 	}
 	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
-	citadelClientLog.Errorf("recreated connection")
+	citadelClientLog.Info("recreated connection")
 	return nil
 }
 

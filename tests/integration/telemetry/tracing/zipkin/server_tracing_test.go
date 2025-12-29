@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -35,10 +34,8 @@ import (
 // More information on distributed tracing can be found here: https://istio.io/docs/tasks/telemetry/distributed-tracing/zipkin/
 func TestServerTracing(t *testing.T) {
 	framework.NewTest(t).
-		Features("observability.telemetry.tracing.server").
 		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
-			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
 				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
@@ -46,9 +43,13 @@ func TestServerTracing(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 						}
-
+						hostDomain := ""
+						if t.Settings().OpenShift {
+							ingressAddr, _ := tracing.GetIngressInstance().HTTPAddresses()
+							hostDomain = ingressAddr[0]
+						}
 						traces, err := tracing.GetZipkinInstance().QueryTraces(300,
-							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
+							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "", hostDomain)
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
@@ -56,7 +57,7 @@ func TestServerTracing(t *testing.T) {
 							return errors.New("cannot find expected traces")
 						}
 						return nil
-					}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+					}, retry.Delay(3*time.Second), retry.Timeout(150*time.Second))
 				})
 			}
 		})

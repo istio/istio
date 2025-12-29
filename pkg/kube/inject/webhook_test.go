@@ -45,18 +45,21 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1beta12 "istio.io/api/networking/v1beta1"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/retry"
-	sutil "istio.io/istio/security/pkg/nodeagent/util"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/monitoring/monitortest"
+	"istio.io/istio/pkg/test"
 )
 
 const yamlSeparator = "\n---"
@@ -190,6 +193,42 @@ func TestInjectRequired(t *testing.T) {
 				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 			},
 			want: false,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "invalid-inject-value-yes",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "yes"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "invalid-inject-value-on",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "on"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:      "invalid-inject-value-random",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{label.SidecarInject.Name: "random"},
+			},
+			want: true,
 		},
 		{
 			config: &Config{
@@ -585,31 +624,9 @@ func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
 	return nil
 }
 
-func readInjectionSettings(t testing.TB, fname string) (*Config, ValuesConfig, *meshconfig.MeshConfig) {
-	values := file.AsStringOrFail(t, filepath.Join("testdata", "inputs", fname+".values.gen.yaml"))
-	template := file.AsBytesOrFail(t, filepath.Join("testdata", "inputs", fname+".template.gen.yaml"))
-	meshc := file.AsStringOrFail(t, filepath.Join("testdata", "inputs", fname+".mesh.gen.yaml"))
-
-	vc, err := NewValuesConfig(values)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cfg, err := UnmarshalConfig(template)
-	if err != nil {
-		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
-	}
-	meshConfig, err := mesh.ApplyMeshConfig(meshc, mesh.DefaultMeshConfig())
-	if err != nil {
-		t.Fatalf("failed to unmarshal meshconfig: %v", err)
-	}
-
-	return &cfg, vc, meshConfig
-}
-
 // loadInjectionSettings will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
-func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFilePath string) {
+func getInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (config *Config, valuesConfig ValuesConfig, meshConfig *meshconfig.MeshConfig) {
 	// add --set installPackagePath=<path to charts snapshot>
 	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir(), "profile=empty", "components.pilot.enabled=true")
 	var inFilenames []string
@@ -617,30 +634,18 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 		inFilenames = []string{"testdata/inject/" + inFilePath}
 	}
 
-	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
-	manifests, _, err := manifest.GenManifests(inFilenames, setFlags, false, nil, nil, l)
+	manifests, _, err := render.GenerateManifest(inFilenames, setFlags, false, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
-	for _, mlist := range manifests[name.PilotComponentName] {
-		for _, object := range strings.Split(mlist, yamlSeparator) {
-			if len(object) == 0 {
-				continue
-			}
-			r := bytes.NewReader([]byte(object))
-			decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
-
-			out := &unstructured.Unstructured{}
-			err := decoder.Decode(out)
-			if err != nil {
-				t.Fatalf("error decoding object %q: %v", object, err)
-			}
-			if out.GetName() == "istio-sidecar-injector" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-				data, ok := out.Object["data"].(map[string]any)
+	for _, object := range manifests {
+		for _, o := range object.Manifests {
+			if o.GetName() == "istio-sidecar-injector" && o.GetKind() == gvk.ConfigMap.Kind {
+				data, ok := o.Object["data"].(map[string]any)
 				if !ok {
-					t.Fatalf("failed to convert %v", out)
+					t.Fatalf("failed to convert %v", o)
 				}
-				config, ok := data["config"].(string)
+				rawConfig, ok := data["config"].(string)
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
@@ -648,27 +653,36 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".values.gen.yaml"), []byte(vs), 0o644); err != nil {
+				vc, err := NewValuesConfig(vs)
+				if err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".template.gen.yaml"), []byte(config), 0o644); err != nil {
-					t.Fatal(err)
+				valuesConfig = vc
+
+				cfg, err := UnmarshalConfig([]byte(rawConfig))
+				if err != nil {
+					t.Fatalf("failed to unmarshal injectionConfig: %v", err)
 				}
-			} else if out.GetName() == "istio" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-				data, ok := out.Object["data"].(map[string]any)
+
+				config = &cfg
+			} else if o.GetName() == "istio" && o.GetKind() == gvk.ConfigMap.Kind {
+				data, ok := o.Object["data"].(map[string]any)
 				if !ok {
-					t.Fatalf("failed to convert %v", out)
+					t.Fatalf("failed to convert %v", o)
 				}
 				meshdata, ok := data["mesh"].(string)
 				if !ok {
 					t.Fatalf("failed to get meshconfig %v", data)
 				}
-				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".mesh.gen.yaml"), []byte(meshdata), 0o644); err != nil {
-					t.Fatal(err)
+				mcfg, err := mesh.ApplyMeshConfig(meshdata, mesh.DefaultMeshConfig())
+				if err != nil {
+					t.Fatalf("failed to unmarshal meshconfig: %v", err)
 				}
+				meshConfig = mcfg
 			}
 		}
 	}
+	return config, valuesConfig, meshConfig
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
@@ -685,7 +699,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
 	}
 	if len(byteParts) == 0 {
-		t.Fatalf("Found no injectable parts")
+		t.Fatal("Found no injectable parts")
 	}
 	return byteParts
 }
@@ -722,7 +736,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	}
 }
 
-func convertToJSON(i any, t *testing.T) []byte {
+func convertToJSON(i any, t test.Failer) []byte {
 	t.Helper()
 	outputJSON, err := json.Marshal(i)
 	if err != nil {
@@ -731,12 +745,12 @@ func convertToJSON(i any, t *testing.T) []byte {
 	return prettyJSON(outputJSON, t)
 }
 
-func prettyJSON(inputJSON []byte, t *testing.T) []byte {
+func prettyJSON(inputJSON []byte, t test.Failer) []byte {
 	t.Helper()
 	// Pretty-print the JSON
 	var prettyBuffer bytes.Buffer
 	if err := json.Indent(&prettyBuffer, inputJSON, "", "  "); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	return prettyBuffer.Bytes()
 }
@@ -775,7 +789,7 @@ func normalizeAndCompareDeployments(got, want *corev1.Pod, ignoreIstioMetaJSONAn
 
 	for _, c := range got.Spec.Containers {
 		for _, env := range c.Env {
-			if env.ValueFrom != nil {
+			if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil {
 				env.ValueFrom.FieldRef.APIVersion = ""
 			}
 			// check if metajson is encoded correctly
@@ -873,7 +887,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	if err != nil {
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
-	_, values, _ := readInjectionSettings(t, "default")
+	_, values, _ := getInjectionSettings(t, nil, "")
 	var (
 		configFile = filepath.Join(dir, "config-file.yaml")
 		valuesFile = filepath.Join(dir, "values-file.yaml")
@@ -899,23 +913,25 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 			},
 		}))
 	}
-	pcs, _ := model.GetProxyConfigs(store, m)
+	pcs := model.GetProxyConfigs(store, m)
 	env := model.Environment{
-		Watcher: mesh.NewFixedWatcher(m),
-		PushContext: &model.PushContext{
-			ProxyConfigs: pcs,
-		},
+		Watcher:     meshwatcher.NewTestWatcher(m),
 		ConfigStore: store,
 	}
+	env.SetPushContext(&model.PushContext{
+		ProxyConfigs: pcs,
+	})
 	watcher, err := NewFileWatcher(configFile, valuesFile)
 	if err != nil {
 		t.Fatalf("NewFileWatcher() failed: %v", err)
 	}
+
 	wh, err := NewWebhook(WebhookParameters{
-		Watcher: watcher,
-		Port:    port,
-		Env:     &env,
-		Mux:     http.NewServeMux(),
+		Watcher:      watcher,
+		Port:         port,
+		Env:          &env,
+		Mux:          http.NewServeMux(),
+		MultiCluster: multicluster.NewFakeController(),
 	})
 	if err != nil {
 		t.Fatalf("NewWebhook() failed: %v", err)
@@ -924,9 +940,14 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 }
 
 func TestRunAndServe(t *testing.T) {
+	multi := multicluster.NewFakeController()
+	client := kube.NewFakeClient()
+	stop := test.NewStop(t)
+	multi.Add(constants.DefaultClusterName, client, stop)
+	client.RunAndWait(stop)
 	// TODO: adjust the test to match prod defaults instead of fake defaults.
 	wh := createWebhook(t, minimalSidecarTemplate, 0)
-	stop := make(chan struct{})
+	stop = make(chan struct{})
 	defer func() { close(stop) }()
 	wh.Run(stop)
 
@@ -934,67 +955,12 @@ func TestRunAndServe(t *testing.T) {
 	validReviewV1 := makeTestData(t, false, "v1")
 	skipReview := makeTestData(t, true, "v1beta1")
 
-	// nolint: lll
-	validPatch := []byte(`[
-{
-    "op": "add",
-    "path": "/metadata/annotations",
-    "value": {
-        "prometheus.io/path": "/stats/prometheus",
-        "prometheus.io/port": "15020",
-        "prometheus.io/scrape": "true",
-        "sidecar.istio.io/status": "{\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"],\"revision\":\"default\"}"
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/volumes/1",
-    "value": {
-        "name": "v0"
-    }
-},
-{
-    "op": "replace",
-    "path": "/spec/volumes/0/name",
-    "value": "istio-envoy"
-},
-{
-    "op": "add",
-    "path": "/spec/initContainers/1",
-    "value": {
-        "name": "istio-init",
-        "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/containers/1",
-    "value": {
-        "name": "istio-proxy",
-        "resources": {}
-    }
-},
-{
-    "op": "add",
-    "path": "/spec/imagePullSecrets/1",
-    "value": {
-        "name": "p0"
-    }
-},
-{
-    "op": "replace",
-    "path": "/spec/imagePullSecrets/0/name",
-    "value": "istio-image-pull-secrets"
-}
-]`)
-
 	cases := []struct {
 		name           string
 		body           []byte
 		contentType    string
 		wantAllowed    bool
 		wantStatusCode int
-		wantPatch      []byte
 	}{
 		{
 			name:           "valid",
@@ -1002,7 +968,6 @@ func TestRunAndServe(t *testing.T) {
 			contentType:    "application/json",
 			wantAllowed:    true,
 			wantStatusCode: http.StatusOK,
-			wantPatch:      validPatch,
 		},
 		{
 			name:           "valid(v1 version)",
@@ -1010,7 +975,6 @@ func TestRunAndServe(t *testing.T) {
 			contentType:    "application/json",
 			wantAllowed:    true,
 			wantStatusCode: http.StatusOK,
-			wantPatch:      validPatch,
 		},
 		{
 			name:           "skipped",
@@ -1040,7 +1004,7 @@ func TestRunAndServe(t *testing.T) {
 			wantStatusCode: http.StatusBadRequest,
 		},
 	}
-
+	mt := monitortest.New(t)
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(t *testing.T) {
 			req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(c.body))
@@ -1074,26 +1038,16 @@ func TestRunAndServe(t *testing.T) {
 			var gotPatch bytes.Buffer
 			if len(gotReview.Response.Patch) > 0 {
 				if err := json.Compact(&gotPatch, gotReview.Response.Patch); err != nil {
-					t.Fatalf(err.Error())
+					t.Fatal(err.Error())
 				}
-			}
-			var wantPatch bytes.Buffer
-			if len(c.wantPatch) > 0 {
-				if err := json.Compact(&wantPatch, c.wantPatch); err != nil {
-					t.Fatalf(err.Error())
-				}
-			}
-
-			if !bytes.Equal(gotPatch.Bytes(), wantPatch.Bytes()) {
-				t.Fatalf("got bad patch: \n got  %v \n want %v", gotPatch.String(), wantPatch.String())
 			}
 		})
 	}
 	// Now Validate that metrics are created.
-	testSideCarInjectorMetrics(t)
+	testSideCarInjectorMetrics(mt)
 }
 
-func testSideCarInjectorMetrics(t *testing.T) {
+func testSideCarInjectorMetrics(mt *monitortest.MetricsTest) {
 	expected := []string{
 		"sidecar_injection_requests_total",
 		"sidecar_injection_success_total",
@@ -1101,21 +1055,12 @@ func testSideCarInjectorMetrics(t *testing.T) {
 		"sidecar_injection_failure_total",
 	}
 	for _, e := range expected {
-		retry.UntilSuccessOrFail(t, func() error {
-			got, err := sutil.GetMetricsCounterValueWithTags(e, nil)
-			if err != nil {
-				return err
-			}
-			if got <= 0 {
-				return fmt.Errorf("metric empty")
-			}
-			return nil
-		})
+		mt.Assert(e, nil, monitortest.AtLeast(1))
 	}
 }
 
 func benchmarkInjectServe(pcs int, b *testing.B) {
-	sidecarTemplate, _, _ := readInjectionSettings(b, "default")
+	sidecarTemplate, _, _ := getInjectionSettings(b, nil, "")
 	wh := createWebhook(b, sidecarTemplate, pcs)
 
 	stop := make(chan struct{})
@@ -1268,7 +1213,7 @@ func TestParseInjectEnvs(t *testing.T) {
 			// slash as separators
 			name: "no-predefined-kv-with-mixed-values",
 			in: func() string {
-				req, _ := http.NewRequest("GET",
+				req, _ := http.NewRequest(http.MethodGet,
 					"%2Finject%2Frootpage1%2Ffoo%2Frootpage2%2Fbar", nil)
 				return req.URL.Path
 			}(),
@@ -1279,7 +1224,7 @@ func TestParseInjectEnvs(t *testing.T) {
 			// eg. /inject/:ENV:rootpage1=/foo/bar:ENV:rootpage2=/bar/toe but url encoded.
 			name: "no-predefined-kv-with-slashes",
 			in: func() string {
-				req, _ := http.NewRequest("GET",
+				req, _ := http.NewRequest(http.MethodGet,
 					"%2Finject%2F%3AENV%3Arootpage1%3D%2Ffoo%2Fbar%3AENV%3Arootpage2%3D%2Fbar%2Ftoe", nil)
 				return req.URL.Path
 			}(),
@@ -1348,6 +1293,36 @@ func TestMergeOrAppendProbers(t *testing.T) {
 				{
 					Name:  "TEST_ENV_VAR2",
 					Value: "value2",
+				},
+			},
+		},
+		{
+			// this is to test previously injected without probe rewrites
+			name:               "Merge Prober with absent of KubeAppProberEnv",
+			perviouslyInjected: true,
+			in: []corev1.EnvVar{
+				{
+					Name:  "TEST_ENV_VAR1",
+					Value: "value1",
+				},
+				{
+					Name:  "TEST_ENV_VAR2",
+					Value: "value2",
+				},
+			},
+			probers: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}}}`,
+			want: []corev1.EnvVar{
+				{
+					Name:  "TEST_ENV_VAR1",
+					Value: "value1",
+				},
+				{
+					Name:  "TEST_ENV_VAR2",
+					Value: "value2",
+				},
+				{
+					Name:  status.KubeAppProberEnvName,
+					Value: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}}}`,
 				},
 			},
 		},
@@ -1454,4 +1429,164 @@ func defaultInstallPackageDir() string {
 		panic(err)
 	}
 	return filepath.Join(wd, "../../../manifests/")
+}
+
+func TestNewWebhookConfigParsingError(t *testing.T) {
+	// Create a watcher that returns valid sidecarConfig but invalid valuesConfig
+	faultyWatcher := &FaultyWatcher{
+		sidecarConfig: &Config{},
+		valuesConfig:  "invalid: values: config",
+	}
+
+	whParams := WebhookParameters{
+		Watcher:      faultyWatcher,
+		Port:         0,
+		Env:          &model.Environment{},
+		Mux:          http.NewServeMux(),
+		MultiCluster: multicluster.NewFakeController(),
+	}
+
+	_, err := NewWebhook(whParams)
+	if err == nil || !strings.Contains(err.Error(), "failed to process webhook config") {
+		t.Fatalf("Expected error when creating webhook with faulty valuesConfig, but got: %v", err)
+	}
+}
+
+// FaultyWatcher is a mock Watcher that returns predefined sidecarConfig and valuesConfig
+type FaultyWatcher struct {
+	sidecarConfig *Config
+	valuesConfig  string
+}
+
+func (fw *FaultyWatcher) Run(stop <-chan struct{}) {}
+
+func (fw *FaultyWatcher) Get() (*Config, string, error) {
+	return fw.sidecarConfig, fw.valuesConfig, nil
+}
+
+func (fw *FaultyWatcher) SetHandler(handler func(*Config, string) error) {}
+
+func TestNewWebhookConfigParsingSuccess(t *testing.T) {
+	// Create a watcher that returns valid sidecarConfig and valid valuesConfig
+	validValuesConfig := `
+global:
+  proxy:
+    image: proxyv2
+`
+	faultyWatcher := &FaultyWatcher{
+		sidecarConfig: &Config{},
+		valuesConfig:  validValuesConfig,
+	}
+
+	whParams := WebhookParameters{
+		Watcher: faultyWatcher,
+		Port:    0,
+		Env: &model.Environment{
+			Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
+		},
+		Mux:          http.NewServeMux(),
+		MultiCluster: multicluster.NewFakeController(),
+	}
+
+	wh, err := NewWebhook(whParams)
+	if err != nil {
+		t.Fatalf("Expected no error when creating webhook with valid valuesConfig, but got: %v", err)
+	}
+
+	if wh.valuesConfig.raw != validValuesConfig {
+		t.Fatalf("Expected valuesConfig to be set correctly, but got: %v", wh.valuesConfig.raw)
+	}
+}
+
+func TestDetectNativeSidecar(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(t test.Failer)
+		nodes []*corev1.Node
+		want  bool
+	}{
+		{
+			name: "env disabled should be always disabled",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.34.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
+			},
+			want: false,
+		},
+		{
+			name: "kube versions greater than 1.33 with env auto should enable native sidecar",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.34.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
+			},
+			want: true,
+		},
+		{
+			name: "kube versions less than 1.33 with env auto should disable native sidecar",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.29.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
+			},
+			want: false,
+		},
+		{
+			name: "clusters with at least one node on unsupported version should disable native sidecar",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
+			},
+			want: false,
+		},
+		{
+			name:  "no nodes should disable native sidecar",
+			nodes: []*corev1.Node{{}},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
+			},
+			want: false,
+		},
+		{
+			name: "clusters with at least one node on unsupported version should enable native sidecar if explicitly enabled",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeEnabled)
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup(t)
+			var objects []runtime.Object
+			for i, n := range tt.nodes {
+				nodeCopy := n.DeepCopy()
+				nodeCopy.Name = fmt.Sprintf("node-%d", i+1)
+				objects = append(objects, nodeCopy)
+			}
+			kubeClient := kube.NewFakeClient(objects...)
+			nodes := kclient.New[*corev1.Node](kubeClient)
+			kubeClient.RunAndWait(test.NewStop(t))
+			kube.WaitForCacheSync("test", test.NewStop(t), nodes.HasSynced)
+
+			if got := DetectNativeSidecar(nodes, ""); got != tt.want {
+				t.Errorf("detectNativeSidecar() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

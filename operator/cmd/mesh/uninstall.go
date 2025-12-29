@@ -23,27 +23,18 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/render"
+	"istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/operator/pkg/values"
+	"istio.io/istio/pkg/kube"
 	proxyinfo "istio.io/istio/pkg/proxy"
-	"istio.io/pkg/log"
 )
 
 type uninstallArgs struct {
-	// kubeConfigPath is the path to kube config file.
-	kubeConfigPath string
-	// context is the cluster context in the kube config.
-	context string
 	// skipConfirmation determines whether the user is prompted for confirmation.
 	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
 	skipConfirmation bool
@@ -53,8 +44,6 @@ type uninstallArgs struct {
 	purge bool
 	// revision is the Istio control plane revision the command targets.
 	revision string
-	// istioNamespace is the target namespace of istio control plane.
-	istioNamespace string
 	// filename is the path of input IstioOperator CR.
 	filename string
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
@@ -75,14 +64,10 @@ const (
 )
 
 func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.purge, "purge", false, "Delete all Istio related sources for all versions")
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", constants.IstioSystemNamespace,
-		"The namespace of Istio Control Plane.")
 	cmd.PersistentFlags().StringVarP(&args.filename, "filename", "f", "",
 		"The filename of the IstioOperator CR.")
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
@@ -91,7 +76,7 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 }
 
 // UninstallCmd command uninstalls Istio from a cluster
-func UninstallCmd(logOpts *log.Options) *cobra.Command {
+func UninstallCmd(ctx cli.Context) *cobra.Command {
 	rootArgs := &RootArgs{}
 	uiArgs := &uninstallArgs{}
 	uicmd := &cobra.Command{
@@ -107,7 +92,7 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
   # Uninstall all control planes and shared resources
   istioctl uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if uiArgs.revision == "" && manifest.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
+			if uiArgs.revision == "" && values.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
 				return fmt.Errorf("at least one of the --revision (or --set revision=<revision>), --filename or --purge flags must be set")
 			}
 			if len(args) > 0 {
@@ -116,7 +101,7 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return uninstall(cmd, rootArgs, uiArgs, logOpts)
+			return runUninstall(cmd, ctx, rootArgs, uiArgs)
 		},
 	}
 	addFlags(uicmd, rootArgs)
@@ -124,15 +109,19 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 	return uicmd
 }
 
-// uninstall uninstalls control plane by either pruning by target revision or deleting specified manifests.
-func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
+// runUninstall uninstalls control plane by either pruning by target revision or deleting specified manifests.
+func runUninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *uninstallArgs) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-	if err := configLogs(logOpts); err != nil {
-		return fmt.Errorf("could not configure logs: %s", err)
+
+	var kubeClient kube.CLIClient
+	var err error
+	if uiArgs.revision != "" && uiArgs.revision != "default" {
+		kubeClient, err = ctx.CLIClientWithRevision(uiArgs.revision)
+	} else {
+		kubeClient, err = ctx.CLIClient()
 	}
-	kubeClient, client, err := KubernetesClients(uiArgs.kubeConfigPath, uiArgs.context, l)
 	if err != nil {
-		l.LogAndFatal(err)
+		return err
 	}
 
 	if uiArgs.revision != "" {
@@ -145,77 +134,54 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 		}
 	}
 
-	cache.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: rootArgs.DryRun, Log: l, ProgressLog: progress.NewLog()}
-	var h *helmreconciler.HelmReconciler
-
+	pl := progress.NewLog()
 	// If the user is performing a purge install but also specified a revision or filename, we should warn
 	// that the purge will still remove all resources
 	if uiArgs.purge && (uiArgs.revision != "" || uiArgs.filename != "") {
 		l.LogAndPrint(PurgeWithRevisionOrOperatorSpecifiedWarning)
 	}
-	// If only revision flag is set, we would prune resources by the revision label.
-	// Otherwise we would merge the revision flag and the filename flag and delete resources by generated manifests.
-	if uiArgs.filename == "" {
-		emptyiops := &v1alpha1.IstioOperatorSpec{Profile: "empty", Revision: uiArgs.revision}
-		iop, err := translate.IOPStoIOP(emptyiops, "empty", iopv1alpha1.Namespace(emptyiops))
-		if err != nil {
-			return err
-		}
-		h, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
-		if err != nil {
-			return fmt.Errorf("failed to create reconciler: %v", err)
-		}
-		objectsList, err := h.GetPrunedResources(uiArgs.revision, uiArgs.purge, "")
-		if err != nil {
-			return err
-		}
-		preCheckWarnings(cmd, uiArgs, uiArgs.revision, objectsList, nil, l)
+	setFlags := applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision)
+	filenames := []string{}
+	if uiArgs.filename != "" {
+		filenames = append(filenames, uiArgs.filename)
+	}
+	values, err := render.MergeInputs(filenames, setFlags, nil)
+	if err != nil {
+		return err
+	}
 
-		if err := h.DeleteObjectsList(objectsList, ""); err != nil {
-			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
-		}
-		opts.ProgressLog.SetState(progress.StateUninstallComplete)
-		return nil
-	}
-	manifestMap, iop, err := manifest.GenManifests([]string{uiArgs.filename},
-		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, nil, kubeClient, l)
+	objectsList, err := uninstall.GetPrunedResources(
+		kubeClient,
+		values.GetPathString("metadata.name"),
+		values.GetPathString("metadata.namespace"),
+		uiArgs.revision,
+		uiArgs.purge,
+	)
 	if err != nil {
 		return err
 	}
-	cpManifest := manifestMap[name.PilotComponentName]
-	cpObjects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(cpManifest, object.YAMLSeparator))
-	if err != nil {
-		return err
+	preCheckWarnings(cmd, kubeClient, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, l, rootArgs.DryRun)
+
+	if err := uninstall.DeleteObjectsList(kubeClient, rootArgs.DryRun, l, objectsList); err != nil {
+		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 	}
-	preCheckWarnings(cmd, uiArgs, iop.Spec.Revision, nil, cpObjects, l)
-	h, err = helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
-	if err != nil {
-		return fmt.Errorf("failed to create reconciler: %v", err)
-	}
-	if err := h.DeleteControlPlaneByManifests(manifestMap, iop.Spec.Revision, uiArgs.purge); err != nil {
-		return fmt.Errorf("failed to delete control plane by manifests: %v", err)
-	}
-	opts.ProgressLog.SetState(progress.StateUninstallComplete)
+	pl.SetState(progress.StateUninstallComplete)
 	return nil
 }
 
 // preCheckWarnings checks possible breaking changes and issue warnings to users, it checks the following:
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
-func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
-	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger,
+func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uninstallArgs, istioNamespace,
+	rev string, resourcesList []*unstructured.UnstructuredList, l *clog.ConsoleLogger, dryRun bool,
 ) {
-	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
-	if err != nil {
-		l.LogAndError(err.Error())
-	}
+	pids, err := proxyinfo.GetIDsFromProxyInfo(kubeClient, istioNamespace)
 	needConfirmation, message := false, ""
 	if uiArgs.purge {
 		needConfirmation = true
 		message += AllResourcesRemovedWarning
 	} else {
-		rmListString, gwList := constructResourceListOutput(resourcesList, objectsList)
+		rmListString, gwList := constructResourceListOutput(resourcesList)
 		if rmListString == "" {
 			l.LogAndPrint(NoResourcesRemovedWarning)
 			return
@@ -234,29 +200,30 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 			}
 			message += "If you proceed with the uninstall, these proxies will become detached from any control plane" +
 				" and will not function correctly.\n"
+		} else if rev != "" && err != nil {
+			needConfirmation = true
+			message += fmt.Sprintf("Unable to find any proxies pointing to the %s control plane. "+
+				"This may be because the control plane cannot be connected or there is no %s control plane.\n", rev, rev)
 		}
 		if gwList != "" {
 			needConfirmation = true
 			message += fmt.Sprintf(GatewaysRemovedWarning, gwList)
 		}
 	}
-	if uiArgs.skipConfirmation {
+	if dryRun || uiArgs.skipConfirmation {
 		l.LogAndPrint(message)
 		return
 	}
 	message += "Proceed? (y/N)"
-	if needConfirmation && !confirm(message, cmd.OutOrStdout()) {
+	if needConfirmation && !Confirm(message, cmd.OutOrStdout()) {
 		cmd.Print("Cancelled.\n")
 		os.Exit(1)
 	}
 }
 
 // constructResourceListOutput is a helper function to construct the output of to be removed resources list
-func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects) (string, string) {
+func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList) (string, string) {
 	var items []unstructured.Unstructured
-	if objectsList != nil {
-		items = objectsList.UnstructuredItems()
-	}
 	for _, usList := range resourcesList {
 		items = append(items, usList.Items...)
 	}

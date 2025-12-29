@@ -48,7 +48,7 @@ func MakeServiceInstance(service *model.Service, port *model.Port, version int, 
 
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         MakeIP(service, version),
+			Addresses:       []string{MakeIP(service, version)},
 			EndpointPort:    uint32(target),
 			ServicePortName: port.Name,
 			Labels:          map[string]string{"version": fmt.Sprintf("v%d", version)},
@@ -143,24 +143,4 @@ func MakeIP(service *model.Service, version int) string {
 	ip[2] = byte(1)
 	ip[3] = byte(version)
 	return netip.AddrFrom4(ip).String()
-}
-
-type Controller struct {
-	serviceHandler model.ControllerHandlers
-}
-
-func (c *Controller) AppendServiceHandler(f model.ServiceHandler) {
-	c.serviceHandler.AppendServiceHandler(f)
-}
-
-func (c *Controller) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
-
-func (c *Controller) Run(<-chan struct{}) {}
-
-func (c *Controller) HasSynced() bool { return true }
-
-func (c *Controller) OnServiceEvent(prev, curr *model.Service, e model.Event) {
-	for _, h := range c.serviceHandler.GetServiceHandlers() {
-		h(prev, curr, e)
-	}
 }

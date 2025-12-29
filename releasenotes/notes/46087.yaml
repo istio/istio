@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 46087
+releaseNotes:
+- |
+  **Fixed** app probe: http request.host is not well propagated.

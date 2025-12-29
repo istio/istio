@@ -151,7 +151,10 @@ BB6nORpwdv4LVt/BFgLwWQIdAKvHn7cxBJ+aAC25rIumRNKDzP7PkV0HDbxtX+M=
 -----END CERTIFICATE-----`
 )
 
-var certChainValid = loadPEMFile("../testdata/cert-chain.pem")
+var (
+	certChainValid             = loadPEMFile("../testdata/cert-chain.pem")
+	certChainValidTrailingLine = loadPEMFile("../testdata/cert-chain-trailing-line.pem")
+)
 
 func TestParsePemEncodedCertificate(t *testing.T) {
 	testCases := map[string]struct {
@@ -199,13 +202,16 @@ func TestParsePemEncodedCertificateChain(t *testing.T) {
 		"Parse Certificate Chain": {
 			pem: certChainValid,
 		},
+		"Parse Certificate Chain With Trailing Line": {
+			pem: certChainValidTrailingLine,
+		},
 		"Invalid PEM string": {
 			pem:    "Invalid PEM string",
 			errMsg: "invalid PEM encoded certificate",
 		},
 		"Invalid certificate string": {
 			pem:    keyRSA,
-			errMsg: "failed to parse X.509 certificate",
+			errMsg: "failed to parse X.509 certificate : x509: malformed tbs certificate",
 		},
 	}
 
@@ -217,6 +223,8 @@ func TestParsePemEncodedCertificateChain(t *testing.T) {
 			} else if c.errMsg != err.Error() {
 				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
 			}
+		} else if err != nil {
+			t.Errorf(`%s: Unexpected error message: expected no error but got "%s"`, id, err.Error())
 		} else if len(rootCertByte) == 0 {
 			t.Errorf("%s: rootCertByte is nil", id)
 		}
@@ -302,7 +310,7 @@ func TestParsePemEncodedKey(t *testing.T) {
 		if c.errMsg != "" {
 			if err == nil {
 				t.Errorf(`%s: no error is returned, expected "%s"`, id, c.errMsg)
-			} else if c.errMsg != err.Error() {
+			} else if !strings.HasPrefix(err.Error(), c.errMsg) {
 				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
 			}
 		} else if err != nil {
@@ -355,25 +363,52 @@ func TestGetRSAKeySize(t *testing.T) {
 
 func TestIsSupportedECPrivateKey(t *testing.T) {
 	_, ed25519PrivKey, _ := ed25519.GenerateKey(nil)
-	ecdsaPrivKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	ecdsaPrivKeyP224, _ := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
+	ecdsaPrivKeyP256, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	ecdsaPrivKeyP384, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	ecdsaPrivKeyP521, _ := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 
 	cases := map[string]struct {
-		key         crypto.PrivateKey
-		isSupported bool
+		key           crypto.PrivateKey
+		isErr         bool
+		expectedCurve elliptic.Curve
 	}{
-		"ECDSA": {
-			key:         ecdsaPrivKey,
-			isSupported: true,
+		"ECDSA-P224": {
+			key:           ecdsaPrivKeyP224,
+			isErr:         false,
+			expectedCurve: elliptic.P256(),
+		},
+		"ECDSA-P256": {
+			key:           ecdsaPrivKeyP256,
+			isErr:         false,
+			expectedCurve: elliptic.P256(),
+		},
+		"ECDSA-P384": {
+			key:           ecdsaPrivKeyP384,
+			isErr:         false,
+			expectedCurve: elliptic.P384(),
+		},
+		"ECDSA-P512": {
+			key:           ecdsaPrivKeyP521,
+			isErr:         false,
+			expectedCurve: elliptic.P256(),
 		},
 		"ED25519": {
-			key:         ed25519PrivKey,
-			isSupported: false,
+			key:           ed25519PrivKey,
+			isErr:         true,
+			expectedCurve: nil,
 		},
 	}
 
 	for id, tc := range cases {
-		if IsSupportedECPrivateKey(&tc.key) != tc.isSupported {
-			t.Errorf("%s: does not match expected support level for EC signature algorithms", id)
+		curve, err := GetEllipticCurve(&tc.key)
+		if tc.expectedCurve != curve {
+			t.Errorf("expected (%v) but received (%v)", tc.expectedCurve, curve)
+		}
+		if err != nil {
+			if !tc.isErr {
+				t.Errorf("%s: should be supported, but is failing", id)
+			}
 		}
 	}
 }

@@ -19,15 +19,17 @@ import (
 	"reflect"
 	"testing"
 
-	"google.golang.org/protobuf/proto"
-
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
@@ -51,40 +53,65 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 	}
-	policyWithSelector := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	policyWithSelector := protomarshal.Clone(policy)
 	policyWithSelector.Selector = &selectorpb.WorkloadSelector{
-		MatchLabels: map[string]string{
+		MatchLabels: labels.Instance{
 			"app":     "httpbin",
 			"version": "v1",
 		},
 	}
-	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	policyWithTargetRef := protomarshal.Clone(policy)
+	policyWithTargetRef.TargetRef = &selectorpb.PolicyTargetReference{
+		Group:     gvk.KubernetesGateway.Group,
+		Kind:      gvk.KubernetesGateway.Kind,
+		Name:      "my-gateway",
+		Namespace: "bar",
+	}
+
+	policyWithServiceRef := protomarshal.Clone(policy)
+	policyWithServiceRef.TargetRef = &selectorpb.PolicyTargetReference{
+		Group:     gvk.Service.Group,
+		Kind:      gvk.Service.Kind,
+		Name:      "foo-svc",
+		Namespace: "foo",
+	}
+	policyWithGWClassRef := protomarshal.Clone(policy)
+	policyWithGWClassRef.TargetRef = &selectorpb.PolicyTargetReference{
+		Group: gvk.GatewayClass.Group,
+		Kind:  gvk.GatewayClass.Kind,
+		Name:  "istio-waypoint",
+	}
+
+	denyPolicy := protomarshal.Clone(policy)
 	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
 
-	auditPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	auditPolicy := protomarshal.Clone(policy)
 	auditPolicy.Action = authpb.AuthorizationPolicy_AUDIT
 
-	customPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	customPolicy := protomarshal.Clone(policy)
 	customPolicy.Action = authpb.AuthorizationPolicy_CUSTOM
 
 	cases := []struct {
-		name           string
-		ns             string
-		workloadLabels map[string]string
-		configs        []config.Config
-		wantDeny       []AuthorizationPolicy
-		wantAllow      []AuthorizationPolicy
-		wantAudit      []AuthorizationPolicy
-		wantCustom     []AuthorizationPolicy
+		name          string
+		selectionOpts WorkloadPolicyMatcher
+		configs       []config.Config
+		wantDeny      []AuthorizationPolicy
+		wantAllow     []AuthorizationPolicy
+		wantAudit     []AuthorizationPolicy
+		wantCustom    []AuthorizationPolicy
 	}{
 		{
-			name:      "no policies",
-			ns:        "foo",
+			name: "no policies",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "foo",
+			},
 			wantAllow: nil,
 		},
 		{
 			name: "no policies in namespace foo",
-			ns:   "foo",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "foo",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
@@ -92,8 +119,23 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			wantAllow: nil,
 		},
 		{
+			name: "no policies with a targetRef in namespace foo",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "foo",
+				WorkloadLabels: labels.Instance{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
+				},
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "bar", policyWithTargetRef),
+			},
+			wantAllow: nil,
+		},
+		{
 			name: "one allow policy",
-			ns:   "bar",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
 			},
@@ -107,7 +149,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "one deny policy",
-			ns:   "bar",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", denyPolicy),
 			},
@@ -121,7 +165,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "one audit policy",
-			ns:   "bar",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", auditPolicy),
 			},
@@ -135,7 +181,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "one custom policy",
-			ns:   "bar",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", customPolicy),
 			},
@@ -149,7 +197,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "two policies",
-			ns:   "bar",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "foo", policy),
 				newConfig("authz-1", "bar", policy),
@@ -170,7 +220,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "mixing allow, deny, and audit policies",
-			ns:   "bar",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", denyPolicy),
@@ -205,11 +257,32 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
+			name: "targetRef is an exact match",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+				WorkloadLabels: labels.Instance{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
+				},
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "bar", policyWithTargetRef),
+			},
+			wantAllow: []AuthorizationPolicy{
+				{
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      policyWithTargetRef,
+				},
+			},
+		},
+		{
 			name: "selector exact match",
-			ns:   "bar",
-			workloadLabels: map[string]string{
-				"app":     "httpbin",
-				"version": "v1",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+				WorkloadLabels: labels.Instance{
+					"app":     "httpbin",
+					"version": "v1",
+				},
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithSelector),
@@ -224,11 +297,13 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "selector subset match",
-			ns:   "bar",
-			workloadLabels: map[string]string{
-				"app":     "httpbin",
-				"version": "v1",
-				"env":     "dev",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+				WorkloadLabels: labels.Instance{
+					"app":     "httpbin",
+					"version": "v1",
+					"env":     "dev",
+				},
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithSelector),
@@ -242,11 +317,26 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
+			name: "targetRef is not a match",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+				WorkloadLabels: labels.Instance{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway2",
+				},
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "bar", policyWithTargetRef),
+			},
+			wantAllow: nil,
+		},
+		{
 			name: "selector not match",
-			ns:   "bar",
-			workloadLabels: map[string]string{
-				"app":     "httpbin",
-				"version": "v2",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+				WorkloadLabels: labels.Instance{
+					"app":     "httpbin",
+					"version": "v2",
+				},
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithSelector),
@@ -255,10 +345,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "namespace not match",
-			ns:   "foo",
-			workloadLabels: map[string]string{
-				"app":     "httpbin",
-				"version": "v1",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "foo",
+				WorkloadLabels: labels.Instance{
+					"app":     "httpbin",
+					"version": "v1",
+				},
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithSelector),
@@ -267,7 +359,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "root namespace",
-			ns:   "bar",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
@@ -281,7 +375,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "root namespace equals config namespace",
-			ns:   "istio-config",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "istio-config",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policy),
 			},
@@ -295,7 +391,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "root namespace and config namespace",
-			ns:   "bar",
+			selectionOpts: WorkloadPolicyMatcher{
+				WorkloadNamespace: "bar",
+			},
 			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policy),
 				newConfig("authz-2", "bar", policy),
@@ -313,13 +411,62 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "waypoint service attached",
+			selectionOpts: WorkloadPolicyMatcher{
+				IsWaypoint: true,
+				Services: []ServiceInfoForPolicyMatcher{
+					{Name: "foo-svc", Namespace: "foo", Registry: provider.Kubernetes},
+				},
+				WorkloadNamespace: "foo",
+				WorkloadLabels: labels.Instance{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "foo-waypoint",
+					// labels match in selector policy but ignore them for waypoint
+					"app":     "httpbin",
+					"version": "v1",
+				},
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "foo", policyWithServiceRef),
+				newConfig("authz-2", "foo", policyWithSelector),
+			},
+			wantAllow: []AuthorizationPolicy{
+				{Name: "authz-1", Namespace: "foo", Spec: policyWithServiceRef},
+			},
+		},
+		{
+			name: "waypoint with default policies",
+			selectionOpts: WorkloadPolicyMatcher{
+				IsWaypoint: true,
+				Services: []ServiceInfoForPolicyMatcher{
+					{Name: "foo-svc", Namespace: "foo", Registry: provider.Kubernetes},
+				},
+				WorkloadNamespace: "foo",
+				WorkloadLabels: labels.Instance{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "foo-waypoint",
+					// labels match in selector policy but ignore them for waypoint
+					"app":     "httpbin",
+					"version": "v1",
+				},
+				RootNamespace: "istio-config",
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "foo", policyWithServiceRef),
+				newConfig("default", "istio-config", policyWithGWClassRef),
+				newConfig("default-non-waypoint", "istio-config", policyWithSelector),
+			},
+			wantAllow: []AuthorizationPolicy{
+				{Name: "default", Namespace: "istio-config", Spec: policyWithGWClassRef},
+				{Name: "authz-1", Namespace: "foo", Spec: policyWithServiceRef},
+			},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
+			authzPolicies := createFakeAuthorizationPolicies(tc.configs)
 
-			result := authzPolicies.ListAuthorizationPolicies(tc.ns, tc.workloadLabels)
+			result := authzPolicies.ListAuthorizationPolicies(tc.selectionOpts)
 			if !reflect.DeepEqual(tc.wantAllow, result.Allow) {
 				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, result.Allow)
 			}
@@ -336,26 +483,23 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	}
 }
 
-func createFakeAuthorizationPolicies(configs []config.Config, t *testing.T) *AuthorizationPolicies {
+func createFakeAuthorizationPolicies(configs []config.Config) *AuthorizationPolicies {
 	store := &authzFakeStore{}
 	for _, cfg := range configs {
 		store.add(cfg)
 	}
 	environment := &Environment{
 		ConfigStore: store,
-		Watcher:     mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-config"}),
+		Watcher:     meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-config"}),
 	}
-	authzPolicies, err := GetAuthorizationPolicies(environment)
-	if err != nil {
-		t.Fatalf("GetAuthorizationPolicies failed: %v", err)
-	}
+	authzPolicies := GetAuthorizationPolicies(environment)
 	return authzPolicies
 }
 
 func newConfig(name, ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.AuthorizationPolicy,
 			Name:             name,
 			Namespace:        ns,
 		},
@@ -391,7 +535,7 @@ func (fs *authzFakeStore) Get(_ config.GroupVersionKind, _, _ string) *config.Co
 	return nil
 }
 
-func (fs *authzFakeStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (fs *authzFakeStore) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	var configs []config.Config
 	for _, data := range fs.data {
 		if data.typ == typ {
@@ -401,7 +545,7 @@ func (fs *authzFakeStore) List(typ config.GroupVersionKind, namespace string) ([
 			configs = append(configs, data.cfg)
 		}
 	}
-	return configs, nil
+	return configs
 }
 
 func (fs *authzFakeStore) Delete(_ config.GroupVersionKind, _, _ string, _ *string) error {
@@ -417,9 +561,5 @@ func (fs *authzFakeStore) Update(config.Config) (string, error) {
 }
 
 func (fs *authzFakeStore) UpdateStatus(config.Config) (string, error) {
-	return "not implemented", nil
-}
-
-func (fs *authzFakeStore) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	return "not implemented", nil
 }

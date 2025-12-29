@@ -15,7 +15,7 @@
 package ca
 
 import (
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	errorTag = monitoring.MustCreateLabel(errorlabel)
+	errorTag = monitoring.CreateLabel(errorlabel)
 
 	csrCounts = monitoring.NewSum(
 		"citadel_server_csr_count",
@@ -48,7 +48,6 @@ var (
 	certSignErrorCounts = monitoring.NewSum(
 		"citadel_server_csr_sign_err_count",
 		"The number of errors occurred when signing the CSR.",
-		monitoring.WithLabels(errorTag),
 	)
 
 	successCounts = monitoring.NewSum(
@@ -58,28 +57,23 @@ var (
 
 	rootCertExpiryTimestamp = monitoring.NewGauge(
 		"citadel_server_root_cert_expiry_timestamp",
-		"The unix timestamp, in seconds, when Citadel root cert will expire. "+
-			"A negative time indicates the cert is expired.",
+		"The unix timestamp, in seconds, when the root cert will expire.",
+	)
+	rootCertExpirySeconds = monitoring.NewDerivedGauge(
+		"citadel_server_root_cert_expiry_seconds",
+		"The time remaining, in seconds, before the root cert will expire. "+
+			"A negative value indicates the cert is expired.",
 	)
 	certChainExpiryTimestamp = monitoring.NewGauge(
 		"citadel_server_cert_chain_expiry_timestamp",
-		"The unix timestamp, in seconds, when Citadel cert chain will expire. "+
-			"A negative time indicates the cert is expired.",
+		"The unix timestamp, in seconds, when Istio generated cert chain will expire.",
+	)
+	certChainExpirySeconds = monitoring.NewDerivedGauge(
+		"citadel_server_cert_chain_expiry_seconds",
+		"The time remaining, in seconds, before the Istio Generated cert chain will expire. "+
+			"A negative value indicates the cert is expired.",
 	)
 )
-
-func init() {
-	monitoring.MustRegister(
-		csrCounts,
-		authnErrorCounts,
-		csrParsingErrorCounts,
-		idExtractionErrorCounts,
-		certSignErrorCounts,
-		successCounts,
-		rootCertExpiryTimestamp,
-		certChainExpiryTimestamp,
-	)
-}
 
 // monitoringMetrics are counters for certificate signing related operations.
 type monitoringMetrics struct {

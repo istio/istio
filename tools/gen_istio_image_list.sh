@@ -139,7 +139,7 @@ do
              echo "Please provide an Istio release."
              display_usage
           else
-             if [[ "$2" =~ [0-9].[0-9].[0-9] ]];
+             if [[ "$2" =~ [0-9]+\.[0-9]+\.[0-9]+ ]];
              then
                 CURRENT_RELEASE="$2"
              else

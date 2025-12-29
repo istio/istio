@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 48224
+releaseNotes:
+  - |
+    **Fixed** an issue where memory leak caused when the remote cluster is deleted or kubeConfig is rotated.

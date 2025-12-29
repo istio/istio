@@ -22,8 +22,8 @@ import (
 	"testing"
 )
 
-func getSANExtension(identites []Identity, t *testing.T) *pkix.Extension {
-	ext, err := BuildSANExtension(identites)
+func getSANExtension(identities []Identity, t *testing.T) *pkix.Extension {
+	ext, err := BuildSANExtension(identities)
 	if err != nil {
 		t.Errorf("A unexpected error has been encountered (error: %v)", err)
 	}
@@ -77,13 +77,13 @@ func TestBuildAndExtractIdentities(t *testing.T) {
 		t.Errorf("A unexpected error has been encountered (error: %v)", err)
 	}
 
-	actualIds, err := ExtractIDsFromSAN(san)
+	actualIDs, err := ExtractIDsFromSAN(san)
 	if err != nil {
 		t.Errorf("A unexpected error has been encountered (error: %v)", err)
 	}
 
-	if !reflect.DeepEqual(actualIds, ids) {
-		t.Errorf("Unmatched identities: before encoding: %v, after decoding %v", ids, actualIds)
+	if !reflect.DeepEqual(actualIDs, ids) {
+		t.Errorf("Unmatched identities: before encoding: %v, after decoding %v", ids, actualIDs)
 	}
 
 	if !san.Critical {
@@ -109,7 +109,7 @@ func TestExtractIDsFromSANWithError(t *testing.T) {
 		},
 		"Wrong encoding": {
 			ext: &pkix.Extension{
-				Id:    oidSubjectAlternativeName,
+				Id:    OidSubjectAlternativeName,
 				Value: []byte("bad value"),
 			},
 		},
@@ -124,7 +124,7 @@ func TestExtractIDsFromSANWithError(t *testing.T) {
 
 func TestExtractIDsFromSANWithBadEncoding(t *testing.T) {
 	ext := &pkix.Extension{
-		Id:    oidSubjectAlternativeName,
+		Id:    OidSubjectAlternativeName,
 		Value: []byte("bad value"),
 	}
 

@@ -1,182 +1,253 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # This manifest installs the Istio install-cni container, as well
 # as the Istio CNI plugin and config on
 # each master and worker node in a Kubernetes cluster.
-{{- $defaultBinDir :=
-    (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
-      "/home/kubernetes/bin"
-      "/opt/cni/bin"
+#
+# $detectedBinDir exists to support a GKE-specific platform override,
+# and is deprecated in favor of using the explicit `gke` platform profile.
+{{- $detectedBinDir := (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
+    "/home/kubernetes/bin"
+    "/opt/cni/bin"
 }}
+{{- if .Values.cniBinDir }}
+{{ $detectedBinDir = .Values.cniBinDir }}
+{{- end }}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: istio-cni-node
+  # Note that this is templated but evaluates to a fixed name
+  # which the CNI plugin may fall back onto in some failsafe scenarios.
+  # if this name is changed, CNI plugin logic that checks for this name
+  # format should also be updated.
+  name: {{ template "name" . }}-node
   namespace: {{ .Release.Namespace }}
   labels:
-    k8s-app: istio-cni-node
+    k8s-app: {{ template "name" . }}-node
     release: {{ .Release.Name }}
     istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
+    {{ with .Values.daemonSetLabels -}}{{ toYaml . | nindent 4}}{{ end }}
 spec:
   selector:
     matchLabels:
-      k8s-app: istio-cni-node
+      k8s-app: {{ template "name" . }}-node
+  {{- with .Values.updateStrategy }}
   updateStrategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 1
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   template:
     metadata:
       labels:
-        k8s-app: istio-cni-node
+        k8s-app: {{ template "name" . }}-node
         sidecar.istio.io/inject: "false"
+        istio.io/dataplane-mode: none
+        app.kubernetes.io/name: {{ template "name" . }}
+        {{- include "istio.labels" . | nindent 8 }}
+        {{ with .Values.podLabels -}}{{ toYaml . | nindent 8}}{{ end }}
       annotations:
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations
         prometheus.io/scrape: 'true'
         prometheus.io/port: "15014"
         prometheus.io/path: '/metrics'
+        # Add AppArmor annotation
+        # This is required to avoid conflicts with AppArmor profiles which block certain
+        # privileged pod capabilities.
+        # Required for Kubernetes 1.29 which does not support setting appArmorProfile in the
+        # securityContext which is otherwise preferred.
+        container.apparmor.security.beta.kubernetes.io/install-cni: unconfined
         # Custom annotations
-        {{- if .Values.cni.podAnnotations }}
-{{ toYaml .Values.cni.podAnnotations | indent 8 }}
+        {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
         {{- end }}
     spec:
+{{- if and .Values.ambient.enabled .Values.ambient.shareHostNetworkNamespace }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+{{- end }}
       nodeSelector:
         kubernetes.io/os: linux
+      # Can be configured to allow for excluding istio-cni from being scheduled on specified nodes
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
       tolerations:
-        # Make sure istio-cni-node gets scheduled on all nodes.
-        - effect: NoSchedule
-          operator: Exists
-        # Mark the pod as a critical add-on for rescheduling.
-        - key: CriticalAddonsOnly
-          operator: Exists
-        - effect: NoExecute
-          operator: Exists
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       priorityClassName: system-node-critical
-      serviceAccountName: istio-cni
-      # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
-      # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
-      terminationGracePeriodSeconds: 5
+      serviceAccountName: {{ template "name" . }}
+      # Time to allow for graceful CNI cleanup during pod termination.
+      # Configurable via values.yaml to prevent race conditions during rolling updates.
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       containers:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-{{- if contains "/" .Values.cni.image }}
-          image: "{{ .Values.cni.image }}"
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
 {{- else }}
-          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}{{with (.Values.cni.variant | default .Values.global.variant)}}-{{.}}{{end}}"
+          image: "{{ .Values.hub | default .Values.global.hub }}/{{ .Values.image | default "install-cni" }}:{{ template "istio-tag" . }}"
 {{- end }}
-{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
+{{- if or .Values.pullPolicy .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
+          ports:
+          - containerPort: 15014
+            name: metrics
+            protocol: TCP
           readinessProbe:
             httpGet:
               path: /readyz
               port: 8000
           securityContext:
+            privileged: false
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
-            privileged: {{ .Values.cni.privileged }}
-{{- if .Values.cni.seccompProfile }}
+            # Both ambient and sidecar repair mode require elevated node privileges to function.
+            # But we don't need _everything_ in `privileged`, so explicitly set it to false and
+            # add capabilities based on feature.
+            capabilities:
+              drop:
+              - ALL
+              add:
+              # CAP_NET_ADMIN is required to allow ipset and route table access
+              - NET_ADMIN
+              # CAP_NET_RAW is required to allow iptables mutation of the `nat` table
+              - NET_RAW
+              # CAP_SYS_PTRACE is required for repair and ambient mode to describe
+              # the pod's network namespace.
+              - SYS_PTRACE
+              # CAP_SYS_ADMIN is required for both ambient and repair, in order to open
+              # network namespaces in `/proc` to obtain descriptors for entering pod network
+              # namespaces. There does not appear to be a more granular capability for this.
+              - SYS_ADMIN
+              # While we run as a 'root' (UID/GID 0), since we drop all capabilities we lose
+              # the typical ability to read/write to folders owned by others.
+              # This can cause problems if the hostPath mounts we use, which we require write access into,
+              # are owned by non-root. DAC_OVERRIDE bypasses these and gives us write access into any folder.
+              - DAC_OVERRIDE
+{{- if .Values.seLinuxOptions }}
+{{ with (merge .Values.seLinuxOptions (dict "type" "spc_t")) }}
+            seLinuxOptions:
+{{ toYaml . | trim | indent 14 }}
+{{- end }}
+{{- end }}
+{{- if .Values.seccompProfile }}
             seccompProfile:
-{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
+{{ toYaml .Values.seccompProfile | trim | indent 14 }}
 {{- end }}
           command: ["install-cni"]
           args:
-            {{- if .Values.global.logging.level }}
-            - --log_output_level={{ .Values.global.logging.level }}
+            {{- if or .Values.logging.level .Values.global.logging.level }}
+            - --log_output_level={{ coalesce .Values.logging.level .Values.global.logging.level }}
             {{- end}}
             {{- if .Values.global.logAsJson }}
             - --log_as_json
             {{- end}}
+          envFrom:
+            - configMapRef:
+                name: {{ template "name" . }}-config
           env:
-{{- if .Values.cni.cniConfFileName }}
-            # Name of the CNI config file to create.
-            - name: CNI_CONF_NAME
-              value: "{{ .Values.cni.cniConfFileName }}"
-{{- end }}
-            # The CNI network config to install on each node.
-            - name: CNI_NETWORK_CONFIG
-              valueFrom:
-                configMapKeyRef:
-                  name: istio-cni-config
-                  key: cni_network_config
-            - name: CNI_NET_DIR
-              value: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
-            # Deploy as a standalone CNI plugin or as chained?
-            - name: CHAINED_CNI_PLUGIN
-              value: "{{ .Values.cni.chained }}"
-            - name: REPAIR_ENABLED
-              value: "{{ .Values.cni.repair.enabled }}"
             - name: REPAIR_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            - name: REPAIR_LABEL_PODS
-              value: "{{.Values.cni.repair.labelPods}}"
-            # Set to true to enable pod deletion
-            - name: REPAIR_DELETE_PODS
-              value: "{{.Values.cni.repair.deletePods}}"
             - name: REPAIR_RUN_AS_DAEMON
               value: "true"
             - name: REPAIR_SIDECAR_ANNOTATION
               value: "sidecar.istio.io/status"
-            - name: REPAIR_INIT_CONTAINER_NAME
-              value: "{{ .Values.cni.repair.initContainerName }}"
-            - name: REPAIR_BROKEN_POD_LABEL_KEY
-              value: "{{.Values.cni.repair.brokenPodLabelKey}}"
-            - name: REPAIR_BROKEN_POD_LABEL_VALUE
-              value: "{{.Values.cni.repair.brokenPodLabelValue}}"
+            {{- if not (and .Values.ambient.enabled .Values.ambient.shareHostNetworkNamespace) }}
+            - name: ALLOW_SWITCH_TO_HOST_NS
+              value: "true"
+            {{- end }}
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+                  divisor: "1"
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
+                  divisor: "1"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- if .Values.env }}
+            {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: "{{ $val }}"
+            {{- end }}
+            {{- end }}
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
+            {{- if or .Values.repair.repairPods .Values.ambient.enabled }}
+            - mountPath: /host/proc
+              name: cni-host-procfs
+              readOnly: true
+            {{- end }}
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
-              name: cni-log-dir
+              name: cni-socket-dir
+            {{- if .Values.ambient.enabled }}
+            - mountPath: /host/var/run/netns
+              mountPropagation: HostToContainer
+              name: cni-netns-dir
+            - mountPath: /var/run/ztunnel
+              name: cni-ztunnel-sock-dir
+            {{ end }}
           resources:
-{{- if .Values.cni.resources }}
-{{ toYaml .Values.cni.resources | trim | indent 12 }}
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | trim | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
-{{- end }}
-{{- if .Values.cni.taint.enabled }}
-        - name: taint-controller
-{{- if contains "/" .Values.cni.image }}
-          image: "{{ .Values.cni.image }}"
-{{- else }}
-          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}{{with (.Values.cni.variant | default .Values.global.variant)}}-{{.}}{{end}}"
-{{- end }}
-{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
-{{- end }}
-          command: ["/opt/local/bin/istio-cni-taint"]
-          securityContext:
-            runAsUser: 1337
-            runAsGroup: 1337
-            runAsNonRoot: true
-{{- if .Values.cni.seccompProfile }}
-            seccompProfile:
-{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
-{{- end }}
-          env:
-          - name: "TAINT_RUN-AS-DAEMON"
-            value: "true"
-          - name: "TAINT_CONFIGMAP-NAME"
-            value: "istio-cni-taint-configmap"
-          - name: "TAINT_CONFIGMAP-NAMESPACE"
-            value: {{ .Release.Namespace | quote }}
 {{- end }}
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
+            path: {{ $detectedBinDir }}
+        {{- if or .Values.repair.repairPods .Values.ambient.enabled }}
+        - name: cni-host-procfs
+          hostPath:
+            path: /proc
+            type: Directory
+        {{- end }}
+        {{- if .Values.ambient.enabled }}
+        - name: cni-ztunnel-sock-dir
+          hostPath:
+            path: /var/run/ztunnel
+            type: DirectoryOrCreate
+        {{- end }}
         - name: cni-net-dir
           hostPath:
-            path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
-        # Used for UDS log
-        - name: cni-log-dir
+            path: {{ .Values.cniConfDir }}
+        # Used for UDS sockets for logging, ambient eventing
+        - name: cni-socket-dir
           hostPath:
             path: /var/run/istio-cni
+        - name: cni-netns-dir
+          hostPath:
+            path: {{ .Values.cniNetnsDir }}
+            type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
+            # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
+            # Once the CNI does mount this, it will get populated and we're good.
+{{- end }}

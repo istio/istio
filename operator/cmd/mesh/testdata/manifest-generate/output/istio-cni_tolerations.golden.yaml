@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    install.operator.istio.io/owning-resource: unknown
+    istio.io/rev: default
+    k8s-app: istio-cni-node
+    operator.istio.io/component: Cni
+    release: istio
+  name: istio-cni-node
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      k8s-app: istio-cni-node
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/inject: "false"
+      labels:
+        istio.io/dataplane-mode: none
+        k8s-app: istio-cni-node
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - args:
+        - --log_output_level=info
+        command:
+        - install-cni
+        env:
+        - name: REPAIR_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: REPAIR_RUN_AS_DAEMON
+          value: "true"
+        - name: REPAIR_SIDECAR_ANNOTATION
+          value: sidecar.istio.io/status
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        envFrom:
+        - configMapRef:
+            name: istio-cni-config
+        image: gcr.io/istio-testing/install-cni:latest
+        name: install-cni
+        ports:
+        - containerPort: 15014
+          hostPort: 15014
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            - SYS_ADMIN
+            drop:
+            - ALL
+          privileged: true
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
+        volumeMounts:
+        - mountPath: /host/opt/cni/bin
+          name: cni-bin-dir
+        - mountPath: /host/proc
+          name: cni-host-procfs
+          readOnly: true
+        - mountPath: /host/etc/cni/net.d
+          name: cni-net-dir
+        - mountPath: /var/run/istio-cni
+          name: cni-socket-dir
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      serviceAccountName: istio-cni
+      terminationGracePeriodSeconds: 5
+      tolerations:
+      - effect: NoSchedule
+        key: example-key
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: /opt/cni/bin
+        name: cni-bin-dir
+      - hostPath:
+          path: /proc
+          type: Directory
+        name: cni-host-procfs
+      - hostPath:
+          path: /etc/cni/net.d
+        name: cni-net-dir
+      - hostPath:
+          path: /var/run/istio-cni
+        name: cni-socket-dir
+      - hostPath:
+          path: /var/run/netns
+          type: DirectoryOrCreate
+        name: cni-netns-dir
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate

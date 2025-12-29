@@ -21,23 +21,18 @@ import (
 	"os"
 	"strings"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // TransportSocket wraps UpstreamTLSContext
@@ -46,22 +41,34 @@ type TransportSocket struct {
 	TypedConfig *pstruct.Struct `json:"typed_config,omitempty"`
 }
 
+// TCPKeepalive wraps a thin JSON for xDS proto
+type TCPKeepalive struct {
+	KeepaliveProbes   *wrappers.UInt32Value `json:"keepalive_probes,omitempty"`
+	KeepaliveTime     *wrappers.UInt32Value `json:"keepalive_time,omitempty"`
+	KeepaliveInterval *wrappers.UInt32Value `json:"keepalive_interval,omitempty"`
+}
+
+// UpstreamConnectionOptions wraps a thin JSON for xDS proto
+type UpstreamConnectionOptions struct {
+	TCPKeepalive *TCPKeepalive `json:"tcp_keepalive,omitempty"`
+}
+
 func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) convertFunc {
 	return func(*instance) (any, error) {
-		upstreamConnectionOptions := &cluster.UpstreamConnectionOptions{
-			TcpKeepalive: &core.TcpKeepalive{},
+		upstreamConnectionOptions := &UpstreamConnectionOptions{
+			TCPKeepalive: &TCPKeepalive{},
 		}
 
 		if value.Probes > 0 {
-			upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: value.Probes}
+			upstreamConnectionOptions.TCPKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: value.Probes}
 		}
 
 		if value.Time != nil && value.Time.Seconds > 0 {
-			upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(value.Time.Seconds)}
+			upstreamConnectionOptions.TCPKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(value.Time.Seconds)}
 		}
 
 		if value.Interval != nil && value.Interval.Seconds > 0 {
-			upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(value.Interval.Seconds)}
+			upstreamConnectionOptions.TCPKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(value.Interval.Seconds)}
 		}
 		return convertToJSON(upstreamConnectionOptions), nil
 	}
@@ -79,9 +86,9 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 		// This double conversion is to encode the typed config and get it out as struct
 		// so that convertToJSON properly encodes the structure. Since this is just for
 		// bootstrap generation this is better than having our custom structs.
-		tlsContextStruct, _ := conversion.MessageToStruct(protoconv.MessageToAny(tlsContext))
+		tlsContextStruct, _ := protomarshal.MessageToStructSlow(protoconv.MessageToAny(tlsContext))
 		transportSocket := &TransportSocket{
-			Name:        wellknown.TransportSocketTls,
+			Name:        wellknown.TransportSocketTLS,
 			TypedConfig: tlsContextStruct,
 		}
 		return convertToJSON(transportSocket), nil
@@ -102,11 +109,11 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: model.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.CommonTlsContext.AlpnProtocols = model.ALPNH2Only
 		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_MUTUAL:
 		res := security.SdsCertificateConfig{
@@ -116,28 +123,28 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		}
 		if len(res.GetResourceName()) > 0 {
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
+				model.ConstructSdsSecretConfig(res.GetResourceName()))
 		}
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: model.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.CommonTlsContext.AlpnProtocols = model.ALPNH2Only
 		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
+			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName))
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: model.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+		tlsContext.CommonTlsContext.AlpnProtocols = model.ALPNInMeshH2
 		tlsContext.Sni = tls.Sni
 		// For ISTIO_MUTUAL if custom SNI is not provided, use the default SNI name.
 		if len(tls.Sni) == 0 {
@@ -180,7 +187,7 @@ func addressConverter(addr string) convertFunc {
 			// Replace host with HOST_IP env var if it is "$(HOST_IP)".
 			// This is to support some tracer setting (Datadog, Zipkin), where "$(HOST_IP)"" is used for address.
 			// Tracer address used to be specified within proxy container params, and thus could be interpreted with pod HOST_IP env var.
-			// Now tracer config is passed in with mesh config volumn at gateway, k8s env var interpretation does not work.
+			// Now tracer config is passed in with mesh config volume at gateway, k8s env var interpretation does not work.
 			// This is to achieve the same interpretation as k8s.
 			hostIPEnv := os.Getenv("HOST_IP")
 			if hostIPEnv != "" {
@@ -199,36 +206,26 @@ func jsonConverter(d any) convertFunc {
 	}
 }
 
+// Format duration as a time.Duration string representation like
+// 605s -> 10m5s
 func durationConverter(value *durationpb.Duration) convertFunc {
 	return func(*instance) (any, error) {
 		return value.AsDuration().String(), nil
 	}
 }
 
-// openCensusAgentContextConverter returns a converter that returns the list of
-// distributed trace contexts to propagate with envoy.
-func openCensusAgentContextConverter(contexts []meshAPI.Tracing_OpenCensusAgent_TraceContext) convertFunc {
-	allContexts := `["TRACE_CONTEXT","GRPC_TRACE_BIN","CLOUD_TRACE_CONTEXT","B3"]`
+// Envoy's json-to-protobuf converter wants durations in fractional seconds
+// with "s" suffix like 300s or 10.50000000000s, it doesn't understand formats
+// like 10m0s as produced by durationConverter.
+func envoyDurationConverter(value *durationpb.Duration) convertFunc {
 	return func(*instance) (any, error) {
-		if len(contexts) == 0 {
-			return allContexts, nil
+		if value == nil {
+			return "", fmt.Errorf("nil duration passed as option")
 		}
-
-		var envoyContexts []string
-		for _, c := range contexts {
-			switch c {
-			// Ignore UNSPECIFIED
-			case meshAPI.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT:
-				envoyContexts = append(envoyContexts, "TRACE_CONTEXT")
-			case meshAPI.Tracing_OpenCensusAgent_GRPC_BIN:
-				envoyContexts = append(envoyContexts, "GRPC_TRACE_BIN")
-			case meshAPI.Tracing_OpenCensusAgent_CLOUD_TRACE_CONTEXT:
-				envoyContexts = append(envoyContexts, "CLOUD_TRACE_CONTEXT")
-			case meshAPI.Tracing_OpenCensusAgent_B3:
-				envoyContexts = append(envoyContexts, "B3")
-			}
+		if value.GetNanos() == 0 {
+			return fmt.Sprintf("%ds", value.GetSeconds()), nil
 		}
-		return convertToJSON(envoyContexts), nil
+		return fmt.Sprintf("%d.%09ds", value.GetSeconds(), value.GetNanos()), nil
 	}
 }
 

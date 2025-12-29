@@ -91,7 +91,7 @@ func (q *Queue) stopTimer() {
 func (q *Queue) resetTimer() {
 	// Below is a separate function to limit the scope of the lock.
 	// We don't want to lock when we modify the timer in case it causes
-	// an immediate callback, which would reaquire the lock.
+	// an immediate callback, which would reacquire the lock.
 	needReset, resetDuration := func() (bool, time.Duration) {
 		q.mutex.Lock()
 		defer q.mutex.Unlock()
@@ -154,7 +154,7 @@ func (h *timerHeap) advanceTo(tnow time.Time) (out []func()) {
 			out = append(out, top.handler)
 		} else {
 			// There are no further expired timers.
-			return
+			return out
 		}
 	}
 }

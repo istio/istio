@@ -16,22 +16,23 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/mcs"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -64,15 +65,10 @@ var ClusterLocalModes = []ClusterLocalMode{alwaysClusterLocal, meshWide}
 func TestServiceNotExported(t *testing.T) {
 	for _, clusterLocalMode := range ClusterLocalModes {
 		t.Run(clusterLocalMode.String(), func(t *testing.T) {
-			for _, endpointMode := range EndpointModes {
-				t.Run(endpointMode.String(), func(t *testing.T) {
-					// Create and run the controller.
-					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
-
-					// Check that the endpoint is cluster-local
-					ec.checkServiceInstancesOrFail(t, false)
-				})
-			}
+			// Create and run the controller.
+			ec, endpoints := newTestServiceExportCache(t, clusterLocalMode)
+			// Check that the endpoint is cluster-local
+			ec.checkServiceInstancesOrFail(t, false, endpoints)
 		})
 	}
 }
@@ -80,18 +76,13 @@ func TestServiceNotExported(t *testing.T) {
 func TestServiceExported(t *testing.T) {
 	for _, clusterLocalMode := range ClusterLocalModes {
 		t.Run(clusterLocalMode.String(), func(t *testing.T) {
-			for _, endpointMode := range EndpointModes {
-				t.Run(endpointMode.String(), func(t *testing.T) {
-					// Create and run the controller.
-					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
+			// Create and run the controller.
+			ec, endpoints := newTestServiceExportCache(t, clusterLocalMode)
+			// Export the service.
+			ec.export(t)
 
-					// Export the service.
-					ec.export(t)
-
-					// Check that the endpoint is mesh-wide
-					ec.checkServiceInstancesOrFail(t, true)
-				})
-			}
+			// Check that the endpoint is mesh-wide
+			ec.checkServiceInstancesOrFail(t, true, endpoints)
 		})
 	}
 }
@@ -99,19 +90,14 @@ func TestServiceExported(t *testing.T) {
 func TestServiceUnexported(t *testing.T) {
 	for _, clusterLocalMode := range ClusterLocalModes {
 		t.Run(clusterLocalMode.String(), func(t *testing.T) {
-			for _, endpointMode := range EndpointModes {
-				t.Run(endpointMode.String(), func(t *testing.T) {
-					// Create and run the controller.
-					ec := newTestServiceExportCache(t, clusterLocalMode, endpointMode)
+			// Create and run the controller.
+			ec, endpoints := newTestServiceExportCache(t, clusterLocalMode)
+			// Export the service and then unexport it immediately.
+			ec.export(t)
+			ec.unExport(t)
 
-					// Export the service and then unexport it immediately.
-					ec.export(t)
-					ec.unExport(t)
-
-					// Check that the endpoint is cluster-local
-					ec.checkServiceInstancesOrFail(t, false)
-				})
-			}
+			// Check that the endpoint is cluster-local
+			ec.checkServiceInstancesOrFail(t, false, endpoints)
 		})
 	}
 }
@@ -130,7 +116,7 @@ func newServiceExport() *unstructured.Unstructured {
 	return toUnstructured(se)
 }
 
-func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl) {
+func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode) (*serviceExportCacheImpl, *model.EndpointIndex) {
 	t.Helper()
 
 	istiotest.SetForTest(t, &features.EnableMCSServiceDiscovery, true)
@@ -138,25 +124,24 @@ func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, 
 
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID: testCluster,
-		Mode:      endpointMode,
+		CRDs:      []schema.GroupVersionResource{mcs.ServiceExportGVR},
 	})
 
 	// Create the test service and endpoints.
-	createService(c, serviceExportName, serviceExportNamespace, map[string]string{},
+	createService(c, serviceExportName, serviceExportNamespace, []string{"10.0.0.1"}, map[string]string{}, map[string]string{},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	createEndpoints(t, c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{serviceExportPodIP}, nil, nil)
 
-	ec = c.exports.(*serviceExportCacheImpl)
-
+	ec := c.exports.(*serviceExportCacheImpl)
 	// Wait for the resources to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
 		if svc := ec.GetService(ec.serviceHostname()); svc == nil {
 			return false
 		}
-		inst := ec.getProxyServiceInstances()
-		return len(inst) == 1 && inst[0].Service != nil && inst[0].Endpoint != nil
+		inst := ec.getEndpoint(c.Endpoints)
+		return inst != nil
 	}, serviceExportTimeout)
-	return
+	return ec, c.Endpoints
 }
 
 func (ec *serviceExportCacheImpl) serviceHostname() host.Name {
@@ -176,7 +161,7 @@ func (ec *serviceExportCacheImpl) export(t *testing.T) {
 	// Wait for the export to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
 		return ec.isExported(serviceExportNamespacedName)
-	}, serviceExportTimeout)
+	}, serviceExportTimeout, retry.Message("expected to be exported"))
 
 	// Wait for the XDS event.
 	ec.waitForXDS(t, true)
@@ -202,10 +187,7 @@ func (ec *serviceExportCacheImpl) unExport(t *testing.T) {
 func (ec *serviceExportCacheImpl) waitForXDS(t *testing.T, exported bool) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		event := ec.opts.XDSUpdater.(*FakeXdsUpdater).Wait("eds")
-		if event == nil {
-			return errors.New("failed waiting for XDS event")
-		}
+		event := ec.opts.XDSUpdater.(*xdsfake.Updater).WaitOrFail(t, "eds")
 		if len(event.Endpoints) != 1 {
 			return fmt.Errorf("waitForXDS failed: expected 1 endpoint, found %d", len(event.Endpoints))
 		}
@@ -215,53 +197,63 @@ func (ec *serviceExportCacheImpl) waitForXDS(t *testing.T, exported bool) {
 		if svc == nil {
 			return fmt.Errorf("unable to find service for host %s", hostName)
 		}
-		si := &model.ServiceInstance{
-			Service:  svc,
-			Endpoint: event.Endpoints[0],
-		}
-		return ec.checkServiceInstance(exported, si)
+		return ec.checkEndpoint(exported, event.Endpoints[0])
 	}, serviceExportTimeout)
 }
 
-func (ec *serviceExportCacheImpl) getProxyServiceInstances() []*model.ServiceInstance {
-	return ec.GetProxyServiceInstances(&model.Proxy{
-		Type:            model.SidecarProxy,
-		IPAddresses:     []string{serviceExportPodIP},
-		Locality:        &core.Locality{Region: "r", Zone: "z"},
-		ConfigNamespace: serviceExportNamespace,
-		Labels: map[string]string{
-			"app":                      "prod-app",
-			label.SecurityTlsMode.Name: "mutual",
-		},
-		Metadata: &model.NodeMetadata{
-			ServiceAccount: "account",
-			ClusterID:      ec.Cluster(),
-			Labels: map[string]string{
-				"app":                      "prod-app",
-				label.SecurityTlsMode.Name: "mutual",
-			},
-		},
+func (ec *serviceExportCacheImpl) getEndpoint(endpoints *model.EndpointIndex) *model.IstioEndpoint {
+	svcs := ec.Services()
+	for _, s := range svcs {
+		ep := GetEndpoints(s, endpoints)
+		if len(ep) > 0 {
+			return ep[0]
+		}
+	}
+	return nil
+}
+
+func GetEndpoints(s *model.Service, endpoints *model.EndpointIndex) []*model.IstioEndpoint {
+	return GetEndpointsForPort(s, endpoints, 0)
+}
+
+func GetEndpointsForPort(s *model.Service, endpoints *model.EndpointIndex, port int) []*model.IstioEndpoint {
+	shards, ok := endpoints.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
+	if !ok {
+		return nil
+	}
+	var pn string
+	for _, p := range s.Ports {
+		if p.Port == port {
+			pn = p.Name
+			break
+		}
+	}
+	if pn == "" && port != 0 {
+		return nil
+	}
+	shards.RLock()
+	defer shards.RUnlock()
+	return slices.FilterInPlace(slices.Flatten(maps.Values(shards.Shards)), func(endpoint *model.IstioEndpoint) bool {
+		return pn == "" || endpoint.ServicePortName == pn
 	})
 }
 
-func (ec *serviceExportCacheImpl) checkServiceInstancesOrFail(t *testing.T, exported bool) {
+func (ec *serviceExportCacheImpl) checkServiceInstancesOrFail(t *testing.T, exported bool, endpoints *model.EndpointIndex) {
 	t.Helper()
-	if err := ec.checkServiceInstances(exported); err != nil {
+	if err := ec.checkEndpoints(exported, endpoints); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (ec *serviceExportCacheImpl) checkServiceInstances(exported bool) error {
-	sis := ec.getProxyServiceInstances()
-	if len(sis) != 1 {
-		return fmt.Errorf("expected 1 ServiceInstance, found %d", len(sis))
+func (ec *serviceExportCacheImpl) checkEndpoints(exported bool, endpoints *model.EndpointIndex) error {
+	ep := ec.getEndpoint(endpoints)
+	if ep == nil {
+		return fmt.Errorf("expected an endpoint, found none")
 	}
-	return ec.checkServiceInstance(exported, sis[0])
+	return ec.checkEndpoint(exported, ep)
 }
 
-func (ec *serviceExportCacheImpl) checkServiceInstance(exported bool, si *model.ServiceInstance) error {
-	ep := si.Endpoint
-
+func (ec *serviceExportCacheImpl) checkEndpoint(exported bool, ep *model.IstioEndpoint) error {
 	// Should always be discoverable from the same cluster.
 	if err := ec.checkDiscoverableFromSameCluster(ep); err != nil {
 		return err

@@ -17,15 +17,15 @@ package metrics
 import (
 	"time"
 
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 )
 
 var (
-	typeTag = monitoring.MustCreateLabel("type")
+	typeTag = monitoring.CreateLabel("type")
 
 	// StartupTime measures the time it takes for the agent to get ready Note: This
-	// is dependant on readiness probes. This means our granularity is correlated to
+	// is dependent on readiness probes. This means our granularity is correlated to
 	// the probing interval.
 	startupTime = monitoring.NewGauge(
 		"startup_duration_seconds",
@@ -36,7 +36,6 @@ var (
 	scrapeErrors = monitoring.NewSum(
 		"scrape_failures_total",
 		"The total number of failed scrapes.",
-		monitoring.WithLabels(typeTag),
 	)
 	EnvoyScrapeErrors = scrapeErrors.With(typeTag.Value(ScrapeTypeEnvoy))
 	AppScrapeErrors   = scrapeErrors.With(typeTag.Value(ScrapeTypeApp))
@@ -61,12 +60,4 @@ func RecordStartupTime() {
 	delta := time.Since(processStartTime)
 	startupTime.Record(delta.Seconds())
 	log.Infof("Readiness succeeded in %v", delta)
-}
-
-func init() {
-	monitoring.MustRegister(
-		ScrapeTotals,
-		scrapeErrors,
-		startupTime,
-	)
 }

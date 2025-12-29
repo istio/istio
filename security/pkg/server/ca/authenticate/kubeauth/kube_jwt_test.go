@@ -15,11 +15,10 @@
 package kubeauth
 
 import (
-	"fmt"
+	"context"
 	"reflect"
 	"testing"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	k8sauth "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,9 +28,10 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 type mockMeshConfigHolder struct {
@@ -46,13 +46,13 @@ func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
 	meshHolder := mockMeshConfigHolder{"testdomain.com"}
-	jwtPolicy := jwt.PolicyThirdParty
-
-	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, "kubernetes", nil, jwtPolicy)
+	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, constants.DefaultClusterName, map[string]string{"alias": "cluster"}, nil)
 	expectedAuthenticator := &KubeJWTAuthenticator{
 		meshHolder: meshHolder,
-		jwtPolicy:  jwtPolicy,
-		clusterID:  "kubernetes",
+		clusterID:  constants.DefaultClusterName,
+		clusterAliases: map[cluster.ID]cluster.ID{
+			cluster.ID("alias"): cluster.ID("cluster"),
+		},
 	}
 	if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
 		t.Errorf("Unexpected authentication result: want %v but got %v",
@@ -60,9 +60,29 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	}
 }
 
+type fakeRemoteGetter struct {
+	f func(clusterID cluster.ID) kubernetes.Interface
+}
+
+func (f fakeRemoteGetter) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interface {
+	return f.f(clusterID)
+}
+
+func (f fakeRemoteGetter) ListClusters() []cluster.ID {
+	return []cluster.ID{"remote"}
+}
+
+var _ RemoteKubeClientGetter = fakeRemoteGetter{}
+
 func TestAuthenticate(t *testing.T) {
-	primaryCluster := "Kubernetes"
+	primaryCluster := constants.DefaultClusterName
+	primaryClusterAlias := cluster.ID("primaryAlias")
 	remoteCluster := cluster.ID("remote")
+	remoteClusterAlias := cluster.ID("remoteAlias")
+	clusterAliases := map[string]string{
+		primaryClusterAlias.String(): primaryCluster,
+		remoteClusterAlias.String():  remoteCluster.String(),
+	}
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
 
@@ -70,7 +90,6 @@ func TestAuthenticate(t *testing.T) {
 		remoteCluster  bool
 		metadata       metadata.MD
 		token          string
-		jwtPolicy      string
 		expectedID     string
 		expectedErrMsg string
 	}{
@@ -91,10 +110,9 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			jwtPolicy:      jwt.PolicyFirstParty,
 			expectedErrMsg: `failed to validate the JWT from cluster "Kubernetes": the token is not authenticated`,
 		},
-		"token authenticated": {
+		"token authenticated - local cluster": {
 			token: "bearer-token",
 			metadata: metadata.MD{
 				"clusterid": []string{primaryCluster},
@@ -102,8 +120,42 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedID:     fmt.Sprintf(authenticate.IdentityTemplate, "example.com", "default", "example-pod-sa"),
+			expectedID:     spiffe.MustGenSpiffeURIForTrustDomain("example.com", "default", "example-pod-sa"),
+			expectedErrMsg: "",
+		},
+		"token authenticated - local cluster alias": {
+			token: "bearer-token",
+			metadata: metadata.MD{
+				"clusterid": []string{primaryClusterAlias.String()},
+				"authorization": []string{
+					"Basic callername",
+				},
+			},
+			expectedID:     spiffe.MustGenSpiffeURIForTrustDomain("example.com", "default", "example-pod-sa"),
+			expectedErrMsg: "",
+		},
+		"token authenticated - remote cluster": {
+			remoteCluster: true,
+			token:         "bearer-token",
+			metadata: metadata.MD{
+				"clusterid": []string{remoteCluster.String()},
+				"authorization": []string{
+					"Basic callername",
+				},
+			},
+			expectedID:     spiffe.MustGenSpiffeURIForTrustDomain("example.com", "default", "example-pod-sa"),
+			expectedErrMsg: "",
+		},
+		"token authenticated - remote cluster alias": {
+			remoteCluster: true,
+			token:         "bearer-token",
+			metadata: metadata.MD{
+				"clusterid": []string{remoteClusterAlias.String()},
+				"authorization": []string{
+					"Basic callername",
+				},
+			},
+			expectedID:     spiffe.MustGenSpiffeURIForTrustDomain("example.com", "default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
 		"not found remote cluster results in error": {
@@ -115,8 +167,7 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedErrMsg: "could not get cluster non-exist's kube client",
+			expectedErrMsg: `client claims to be in cluster "non-exist", but we only know about local cluster "Kubernetes" and remote clusters [remote]`,
 		},
 	}
 
@@ -136,9 +187,6 @@ func TestAuthenticate(t *testing.T) {
 					Token: tc.token,
 				},
 			}
-			if tc.jwtPolicy == jwt.PolicyThirdParty {
-				tokenReview.Spec.Audiences = security.TokenAudiences
-			}
 
 			tokenReview.Status.Audiences = []string{}
 			if tc.token != invlidToken {
@@ -149,7 +197,7 @@ func TestAuthenticate(t *testing.T) {
 				Groups:   []string{"system:serviceaccounts"},
 			}
 
-			client := fake.NewSimpleClientset()
+			client := fake.NewClientset()
 			if !tc.remoteCluster {
 				client.PrependReactor("create", "tokenreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
 					return true, tokenReview, nil
@@ -158,17 +206,23 @@ func TestAuthenticate(t *testing.T) {
 
 			remoteKubeClientGetter := func(clusterID cluster.ID) kubernetes.Interface {
 				if clusterID == remoteCluster {
-					client := fake.NewSimpleClientset()
+					client := fake.NewClientset()
 					if tc.remoteCluster {
 						client.PrependReactor("create", "tokenreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
 							return true, tokenReview, nil
 						})
 					}
+					return client
 				}
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(meshHolder, client, "Kubernetes", remoteKubeClientGetter, tc.jwtPolicy)
+			authenticator := NewKubeJWTAuthenticator(
+				meshHolder,
+				client,
+				constants.DefaultClusterName,
+				clusterAliases,
+				fakeRemoteGetter{remoteKubeClientGetter})
 			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {
@@ -186,33 +240,13 @@ func TestAuthenticate(t *testing.T) {
 			expectedCaller := &security.Caller{
 				AuthSource: security.AuthSourceIDToken,
 				Identities: []string{tc.expectedID},
+				KubernetesInfo: security.KubernetesInfo{
+					PodNamespace:      "default",
+					PodServiceAccount: "example-pod-sa",
+				},
 			}
 
-			if !reflect.DeepEqual(actualCaller, expectedCaller) {
-				t.Errorf("Case %q: Unexpected token: want %v but got %v", id, expectedCaller, actualCaller)
-			}
-		})
-	}
-}
-
-func TestIsAllowedKubernetesAudience(t *testing.T) {
-	tests := []struct {
-		in   string
-		want bool
-	}{
-		{"kubernetes.default.svc", true},
-		{"kubernetes.default.svc.cluster.local", true},
-		{"https://kubernetes.default.svc", true},
-		{"https://kubernetes.default.svc.cluster.local", true},
-		{"foo.default.svc", false},
-		{"foo.default.svc:80", false},
-		{"https://foo.default.svc:80", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
-			if got := isAllowedKubernetesAudience(tt.in); got != tt.want {
-				t.Errorf("isAllowedKubernetesAudience() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, actualCaller, expectedCaller)
 		})
 	}
 }

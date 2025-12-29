@@ -18,8 +18,11 @@ import (
 	"reflect"
 	"testing"
 
+	"google.golang.org/protobuf/types/known/structpb"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // TestEnvoyFilterMatch tests the matching logic for EnvoyFilter, in particular the regex -> prefix optimization
@@ -37,19 +40,19 @@ func TestEnvoyFilterMatch(t *testing.T) {
 					{
 						Patch: &networking.EnvoyFilter_Patch{},
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `^1\.6.*`},
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `^1\.19.*`},
 						},
 					},
 				},
 			},
-			"1.6",
+			"1.19",
 			map[string]bool{
-				"1.6":         true,
-				"1.6.0":       true,
-				"1.6-dev.foo": true,
-				"1.5":         false,
-				"11.6":        false,
-				"foo1.6":      false,
+				"1.19":         true,
+				"1.19.0":       true,
+				"1.19-dev.foo": true,
+				"1.5":          false,
+				"11.19":        false,
+				"foo1.19":      false,
 			},
 		},
 		{
@@ -59,19 +62,19 @@ func TestEnvoyFilterMatch(t *testing.T) {
 					{
 						Patch: &networking.EnvoyFilter_Patch{},
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `1\.6.*`},
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `1\.19.*`},
 						},
 					},
 				},
 			},
 			"",
 			map[string]bool{
-				"1.6":         true,
-				"1.6.0":       true,
-				"1.6-dev.foo": true,
-				"1.5":         false,
-				"11.6":        true,
-				"foo1.6":      true,
+				"1.19":         true,
+				"1.19.0":       true,
+				"1.19-dev.foo": true,
+				"1.5":          false,
+				"11.19":        true,
+				"foo1.19":      true,
 			},
 		},
 		{
@@ -88,35 +91,43 @@ func TestEnvoyFilterMatch(t *testing.T) {
 			},
 			"",
 			map[string]bool{
-				"1.6":         false,
-				"1.6.0":       false,
-				"1.6-dev.foo": false,
-				"foobar":      true,
+				"1.19":         false,
+				"1.19.0":       false,
+				"1.19-dev.foo": false,
+				"foobar":       true,
 			},
 		},
 	}
 	for _, tt := range cases {
-		got := convertToEnvoyFilterWrapper(&config.Config{
-			Meta: config.Meta{},
-			Spec: tt.config,
-		})
-		if len(got.Patches[networking.EnvoyFilter_INVALID]) != 1 {
-			t.Fatalf("unexpected patches: %v", got.Patches)
-		}
-		filter := got.Patches[networking.EnvoyFilter_INVALID][0]
-		if filter.ProxyPrefixMatch != tt.expectedVersionPrefix {
-			t.Errorf("unexpected prefix: got %v wanted %v", filter.ProxyPrefixMatch, tt.expectedVersionPrefix)
-		}
-		for ver, match := range tt.matches {
-			got := proxyMatch(&Proxy{Metadata: &NodeMetadata{IstioVersion: ver}}, filter)
-			if got != match {
-				t.Errorf("expected %v to match %v, got %v", ver, match, got)
+		t.Run(tt.name, func(t *testing.T) {
+			got := convertToEnvoyFilterWrapper(&config.Config{
+				Meta: config.Meta{},
+				Spec: tt.config,
+			})
+			if len(got.Patches[networking.EnvoyFilter_INVALID]) != 1 {
+				t.Fatalf("unexpected patches: %v", got.Patches)
 			}
-		}
+			filter := got.Patches[networking.EnvoyFilter_INVALID][0]
+			if filter.ProxyPrefixMatch != tt.expectedVersionPrefix {
+				t.Errorf("unexpected prefix: got %v wanted %v", filter.ProxyPrefixMatch, tt.expectedVersionPrefix)
+			}
+			for ver, match := range tt.matches {
+				got := proxyMatch(&Proxy{Metadata: &NodeMetadata{IstioVersion: ver}}, filter)
+				if got != match {
+					t.Errorf("expected %v to match %v, got %v", ver, match, got)
+				}
+			}
+		})
 	}
 }
 
 func TestConvertEnvoyFilter(t *testing.T) {
+	buildPatchStruct := func(config string) *structpb.Struct {
+		val := &structpb.Struct{}
+		_ = protomarshal.UnmarshalString(config, val)
+		return val
+	}
+
 	cfilter := convertToEnvoyFilterWrapper(&config.Config{
 		Meta: config.Meta{Name: "test", Namespace: "testns"},
 		Spec: &networking.EnvoyFilter{
@@ -127,46 +138,83 @@ func TestConvertEnvoyFilter(t *testing.T) {
 						Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
 					},
 				},
+				{ // valid http route patch
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_MERGE,
+						Value:     buildPatchStruct(`{"statPrefix": "bar"}`),
+					},
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+					},
+					ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+				},
+				{ // invalid http route patch
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_MERGE,
+						Value: buildPatchStruct(`{
+							"typed_per_filter_config": {
+								"envoy.filters.http.ratelimit": {
+									"@type": "type.googleapis.com/thisisaninvalidtype"
+								}
+							}
+						}`),
+					},
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+					},
+					ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+				},
 			},
 		},
 	})
 	if cfilter.Name != "test" && cfilter.Namespace != "testns" {
 		t.Errorf("expected name %s got %s and namespace %s got %s", "test", cfilter.Name, "testns", cfilter.Namespace)
 	}
+	if patches := cfilter.Patches[networking.EnvoyFilter_INVALID]; len(patches) != 1 {
+		t.Fatalf("unexpected patches of %v: %v", networking.EnvoyFilter_INVALID, cfilter.Patches)
+	}
+	if patches := cfilter.Patches[networking.EnvoyFilter_HTTP_ROUTE]; len(patches) != 1 { // check num of invalid http route patches
+		t.Fatalf("unexpected patches of %v: %v", networking.EnvoyFilter_HTTP_ROUTE, cfilter.Patches)
+	}
 }
 
 func TestKeysApplyingTo(t *testing.T) {
-	e := &EnvoyFilterWrapper{
+	e := &MergedEnvoyFilterWrapper{
 		Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
 			networking.EnvoyFilter_HTTP_FILTER: {
 				{
 					Name:      "http",
 					Namespace: "ns",
+					FullName:  "ns/http",
 				},
 			},
 			networking.EnvoyFilter_NETWORK_FILTER: {
 				{
 					Name:      "b",
 					Namespace: "ns",
+					FullName:  "ns/b",
 				},
 				{
 					Name:      "c",
 					Namespace: "ns",
+					FullName:  "ns/c",
 				},
 				{
 					Name:      "a",
 					Namespace: "ns",
+					FullName:  "ns/a",
 				},
 				{
 					Name:      "a",
 					Namespace: "ns",
+					FullName:  "ns/a",
 				},
 			},
 		},
 	}
 	tests := []struct {
 		name    string
-		efw     *EnvoyFilterWrapper
+		efw     *MergedEnvoyFilterWrapper
 		applyTo []networking.EnvoyFilter_ApplyTo
 		want    []string
 	}{

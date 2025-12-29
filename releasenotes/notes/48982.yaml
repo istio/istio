@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- https://github.com/istio/istio/issues/48643
+releaseNotes:
+- |
+  **Added** a message to indicate the default webhook shifting from a revisioned installation to a default installation.

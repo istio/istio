@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
@@ -103,19 +102,18 @@ func (c *grpcCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 			outMD.Set(k, v...)
 		}
 	}
-	outMD.Set("X-Request-Id", strconv.Itoa(requestID))
 	ctx = metadata.NewOutgoingContext(ctx, outMD)
 
 	var outBuffer bytes.Buffer
 	grpcReq := &proto.EchoRequest{
 		Message: cfg.Request.Message,
 	}
-	// TODO(nmittler): This doesn't fit in with the field pattern. Do we need this?
-	outBuffer.WriteString(fmt.Sprintf("[%d] grpcecho.Echo(%v)\n", requestID, cfg.Request))
 
 	start := time.Now()
 	client := proto.NewEchoTestServiceClient(conn)
-	resp, err := client.Echo(ctx, grpcReq)
+	var header metadata.MD
+
+	resp, err := client.Echo(ctx, grpcReq, grpc.Header(&header))
 	if err != nil {
 		return "", err
 	}
@@ -129,6 +127,11 @@ func (c *grpcCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 	for _, line := range strings.Split(resp.GetMessage(), "\n") {
 		if line != "" {
 			echo.WriteBodyLine(&outBuffer, requestID, line)
+		}
+	}
+	for k, v := range header {
+		for _, vv := range v {
+			echo.ResponseHeaderField.WriteKeyValueForRequest(&outBuffer, requestID, k, vv)
 		}
 	}
 	return outBuffer.String(), nil

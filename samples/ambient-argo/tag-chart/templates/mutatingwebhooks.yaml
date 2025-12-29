@@ -1,0 +1,109 @@
+{{- define "core" }}
+- name: {{.Prefix}}sidecar-injector.istio.io
+  clientConfig:
+    {{- if .injectionURL }}
+    url: "{{ .injectionURL }}"
+    {{- else }}
+    service:
+      name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
+      namespace: {{ .Release.Namespace }}
+      path: "{{ .injectionPath }}"
+    {{- end }}
+  sideEffects: None
+  rules:
+    - operations: [ "CREATE" ]
+      apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1"]
+{{- end }}
+
+{{- range $tagName, $tag := $.Values.base.tags }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+{{- if eq $.Release.Namespace "istio-system"}}
+  name: istio-revision-tag-{{ $tagName }}
+{{- else }}
+  name: istio-revision-tag-{{ $tagName }}-{{ $.Release.Namespace }}
+{{- end }}
+  labels:
+    istio.io/tag: {{ $tagName }}
+    istio.io/rev: {{ $tag.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ $.Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    app: sidecar-injector
+    release: {{ $.Release.Name }}
+webhooks:
+{{- include "core" (mergeOverwrite (deepCopy $) (deepCopy $tag) (dict "Prefix" "rev.namespace.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: In
+      values:
+      - "{{ $tagName }}"
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+{{- include "core" (mergeOverwrite (deepCopy $) (deepCopy $tag) (dict "Prefix" "rev.object.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: DoesNotExist
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+    - key: istio.io/rev
+      operator: In
+      values:
+      - "{{ $tagName }}"
+
+{{- /* When the tag is "default" we want to create webhooks for the default revision */}}
+{{- /* These webhooks should be kept in sync with istio-discovery/templates/mutatingwebhook.yaml */}}
+{{- if (eq $tagName "default") }}
+
+{{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
+{{- include "core" (mergeOverwrite (deepCopy $) (deepCopy $tag) (dict "Prefix" "namespace.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+
+{{- /* Case 2: no namespace label, but object selector is enabled (and revision label is not, which has priority) */}}
+{{- include "core" (mergeOverwrite (deepCopy $) (deepCopy $tag) (dict "Prefix" "object.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: In
+      values:
+      - "true"
+    - key: istio.io/rev
+      operator: DoesNotExist
+{{- end }}
+---
+{{- end }}

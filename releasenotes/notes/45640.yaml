@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Removed** `uninstall` command from `istioctl experimental`, use `istioctl uninstall` instead.

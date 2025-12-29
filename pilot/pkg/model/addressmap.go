@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/slices"
 )
 
 // AddressMap provides a thread-safe mapping of addresses for each Kubernetes cluster.
@@ -31,18 +32,21 @@ type AddressMap struct {
 	mutex sync.RWMutex
 }
 
-func (m *AddressMap) IsEmpty() bool {
+func (m *AddressMap) Len() int {
 	if m == nil {
-		return true
+		return 0
 	}
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	return len(m.Addresses) == 0
+	return len(m.Addresses)
 }
 
-func (m *AddressMap) DeepCopy() AddressMap {
-	return AddressMap{
+func (m *AddressMap) DeepCopy() *AddressMap {
+	if m == nil {
+		return nil
+	}
+	return &AddressMap{
 		Addresses: m.GetAddresses(),
 	}
 }
@@ -62,11 +66,7 @@ func (m *AddressMap) GetAddresses() map[cluster.ID][]string {
 
 	out := make(map[cluster.ID][]string)
 	for k, v := range m.Addresses {
-		if v == nil {
-			out[k] = nil
-		} else {
-			out[k] = append([]string{}, v...)
-		}
+		out[k] = slices.Clone(v)
 	}
 	return out
 }
@@ -113,7 +113,7 @@ func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) *AddressM
 			}
 		}
 	} else {
-		// Create the map if if doesn't already exist.
+		// Create the map if it doesn't already exist.
 		if m.Addresses == nil {
 			m.Addresses = make(map[cluster.ID][]string)
 		}

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 50506
+releaseNotes:
+  - |
+    **Fixed** default retry policy to exclude retries on 503 which is potentially unsafe for idempotent requets.
+    It can be reverted by setting "EXCLUDE_UNSAFE_503_FROM_DEFAULT_RETRY" to false. Please note that this flag is
+    only available for backward compatibility reasons and will be removed in future releases.

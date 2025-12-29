@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+- |
+  **Added** helm values for easier installation of ambient when the user wishes to use Helm.

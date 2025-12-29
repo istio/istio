@@ -1,9 +1,7 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -13,10 +11,28 @@ status:
     status: "True"
     type: Accepted
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
+  name: invalid-gateway-address
+  namespace: invalid-gateway-address
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: only Hostname is supported, ignoring [1.2.3.4]
+    reason: UnsupportedAddress
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Failed to assign to any requested addresses
+    reason: UnsupportedAddress
+    status: "False"
+    type: Programmed
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
   name: gateway
   namespace: istio-system
 spec: null
@@ -26,20 +42,15 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Resources available
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
-    reason: ListenersValid
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
     status: "True"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
+    type: Programmed
   listeners:
   - attachedRoutes: 4
     conditions:
@@ -55,19 +66,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -77,32 +78,389 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
+  name: invalid-cert-kind
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: invalid certificate reference core/unknown/my-cert-http., only secret
+        is allowed
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-cert-malformed
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: port 34002 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: 'invalid certificate reference /Secret/malformed., the certificate
+        is malformed: tls: failed to find any PEM data in certificate input'
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-cert-notfound
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34001
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: invalid certificate reference /Secret/nonexistent., secret istio-system/nonexistent
+        not found
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-malformed
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: only one caCertificateRef is supported
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-missing-refgrant
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: caCertificateRef default/auth-cert not accessible to a Gateway in namespace
+        "istio-system" (missing a ReferenceGrant?)
+      reason: RefNotPermitted
+      status: "False"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-nonexistent
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: invalid CA certificate reference /ConfigMap/nonexistent., configmap
+        istio-system/nonexistent not found
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontendvalidation-unknown
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: invalid CA certificate reference core/unknown/my-cert-http., only secret
+        and configmap are allowed
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
   name: invalid-service
   namespace: istio-system
 spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Resources available
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
       not found'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -118,19 +476,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -140,18 +488,64 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
+  name: protocol-lower-case
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: hostname "protocol-lower-case-istio.istio-system.svc.domain.suffix"
+      not found'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: 'protocol "http" is unsupported. hint: "HTTP" (uppercase) may be supported'
+      reason: UnsupportedProtocol
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: http
+    supportedKinds: []
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
   name: target-port-reference
   namespace: istio-system
 spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Resources available
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
@@ -160,14 +554,9 @@ status:
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
       port should be specified, not the workload port. Did you mean one of these ports:
       [80]?)'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -183,19 +572,9 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
@@ -205,39 +584,35 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
-  name: invalid-gateway-address
-  namespace: invalid-gateway-address
+  name: udp-protocol
+  namespace: istio-system
 spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Resources available
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: Only Hostname is supported,
-      ignoring [1.2.3.4]'
-    reason: AddressNotAssigned
+    message: 'Failed to assign to any requested addresses: hostname "udp-protocol-istio.istio-system.svc.domain.suffix"
+      not found'
+    reason: AddressNotUsable
     status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: protocol "UDP" is unsupported
+      reason: UnsupportedProtocol
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -246,60 +621,43 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Ready
-      status: "True"
-      type: Ready
     - lastTransitionTime: fake
       message: No errors found
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
+    name: udp
+    supportedKinds: []
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
-  name: invalid-cert-kind
+  name: unknown-protocol
   namespace: istio-system
 spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Resources available
+    message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Invalid listeners: [default]'
-    reason: ListenersNotValid
+    message: 'Failed to assign to any requested addresses: hostname "unknown-protocol-istio.istio-system.svc.domain.suffix"
+      not found'
+    reason: AddressNotUsable
     status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: protocol "unknown" is unsupported
+      reason: UnsupportedProtocol
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -308,163 +666,45 @@ status:
       type: Conflicted
     - lastTransitionTime: fake
       message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
       reason: Programmed
       status: "True"
       type: Programmed
     - lastTransitionTime: fake
-      message: invalid certificate reference core/unknown/my-cert-http., only secret
-        is allowed
-      reason: InvalidCertificateRef
-      status: "False"
-      type: Ready
-    - lastTransitionTime: fake
-      message: invalid certificate reference core/unknown/my-cert-http., only secret
-        is allowed
-      reason: InvalidCertificateRef
-      status: "False"
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
       type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
+    name: unknown
+    supportedKinds: []
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: invalid-cert-notfound
-  namespace: istio-system
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: Accepted
-    status: "True"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: 'Invalid listeners: [default]'
-    reason: ListenersNotValid
-    status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
-  listeners:
-  - attachedRoutes: 0
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: invalid certificate reference /Secret/nonexistent., secret istio-system/nonexistent
-        not found
-      reason: InvalidCertificateRef
-      status: "False"
-      type: Ready
-    - lastTransitionTime: fake
-      message: invalid certificate reference /Secret/nonexistent., secret istio-system/nonexistent
-        not found
-      reason: InvalidCertificateRef
-      status: "False"
-      type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: invalid-cert-malformed
-  namespace: istio-system
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: Accepted
-    status: "True"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: 'Invalid listeners: [default]'
-    reason: ListenersNotValid
-    status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
-  listeners:
-  - attachedRoutes: 0
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Attached
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: 'invalid certificate reference /Secret/malformed., the certificate
-        is malformed: tls: failed to find any PEM data in certificate input'
-      reason: InvalidCertificateRef
-      status: "False"
-      type: Ready
-    - lastTransitionTime: fake
-      message: 'invalid certificate reference /Secret/malformed., the certificate
-        is malformed: tls: failed to find any PEM data in certificate input'
-      reason: InvalidCertificateRef
-      status: "False"
-      type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
----
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
+  name: invalid-backendRef-hostname
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: backend(unknown.example.com) not found
+      reason: BackendNotFound
+      status: "False"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: httpbin
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
   name: invalid-backendRef-kind
   namespace: default
 spec: null
@@ -486,10 +726,34 @@ status:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
+  name: invalid-backendRef-mirror
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: backend(does-not-exist.default.svc.domain.suffix) not found
+      reason: BackendNotFound
+      status: "False"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: httpbin
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
   name: invalid-backendRef-mixed
   namespace: default
 spec: null
@@ -511,10 +775,9 @@ status:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: invalid-backendRef-notfound
   namespace: default
 spec: null
@@ -536,10 +799,34 @@ status:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
+  name: invalid-backendRef-serviceimport
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: backend(unknown-service-import.default.svc.domain.suffix) not found
+      reason: BackendNotFound
+      status: "False"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: httpbin
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
   name: invalid-mirror
   namespace: default
 spec: null
@@ -561,10 +848,109 @@ status:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
+  name: invalid-parentRef-port
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: port 1234 not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      port: 1234
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-parentRef-service
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: not-found
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-parentRef-service-entry
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: 'parent service entry: "not-found" not found'
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: not-found
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-sectionname-port
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: sectionName "fake" not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: fake
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
   name: no-backend
   namespace: default
 spec: null
@@ -583,6 +969,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: httpbin
 ---

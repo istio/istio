@@ -22,7 +22,7 @@ import (
 )
 
 type hostPort struct {
-	host string
+	host instancesKey
 	port int
 }
 
@@ -30,7 +30,7 @@ type hostPort struct {
 type serviceInstancesStore struct {
 	ip2instance map[string][]*model.ServiceInstance
 	// service instances by hostname -> config
-	instances map[instancesKey]map[configKey][]*model.ServiceInstance
+	instances map[instancesKey]map[configKeyWithParent][]*model.ServiceInstance
 	// instances only for serviceentry
 	instancesBySE map[types.NamespacedName]map[configKey][]*model.ServiceInstance
 	// instancesByHostAndPort tells whether the host has instances.
@@ -43,7 +43,7 @@ func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
 }
 
 func (s *serviceInstancesStore) getAll() []*model.ServiceInstance {
-	all := []*model.ServiceInstance{}
+	all := make([]*model.ServiceInstance, 0, countSliceValue(s.ip2instance))
 	for _, instances := range s.ip2instance {
 		all = append(all, instances...)
 	}
@@ -51,28 +51,47 @@ func (s *serviceInstancesStore) getAll() []*model.ServiceInstance {
 }
 
 func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInstance {
-	all := []*model.ServiceInstance{}
+	all := make([]*model.ServiceInstance, 0, countSliceValue(s.instances[key]))
 	for _, instances := range s.instances[key] {
 		all = append(all, instances...)
 	}
 	return all
 }
 
-func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*model.ServiceInstance) {
+func (s *serviceInstancesStore) countByKey(key instancesKey) int {
+	count := 0
+	for _, instances := range s.instances[key] {
+		count += len(instances)
+	}
+	return count
+}
+
+// deleteInstanceKeys deletes all instances with the given configKey and instanceKey
+// Note: as a convenience, this takes a []ServiceInstance instead of []instanceKey, as most callers have this format
+// However, this function only operates on the instance keys
+func (s *serviceInstancesStore) deleteInstanceKeys(key configKeyWithParent, instances []*model.ServiceInstance) {
 	for _, i := range instances {
 		ikey := makeInstanceKey(i)
-		hostPort := hostPort{ikey.hostname.String(), i.ServicePort.Port}
-		s.instancesByHostAndPort.Delete(hostPort)
-		delete(s.instances[makeInstanceKey(i)], key)
-		delete(s.ip2instance, i.Endpoint.Address)
+		s.instancesByHostAndPort.Delete(hostPort{ikey, i.ServicePort.Port})
+		oldInstances := s.instances[ikey][key]
+		delete(s.instances[ikey], key)
+		if len(s.instances[ikey]) == 0 {
+			delete(s.instances, ikey)
+		}
+		delete(s.ip2instance, i.Endpoint.FirstAddressOrNil())
+		// Cleanup stale IPs, if the IPs changed
+		for _, oi := range oldInstances {
+			s.instancesByHostAndPort.Delete(hostPort{ikey, oi.ServicePort.Port})
+			delete(s.ip2instance, oi.Endpoint.FirstAddressOrNil())
+		}
 	}
 }
 
 // addInstances add the instances to the store.
-func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.ServiceInstance) {
+func (s *serviceInstancesStore) addInstances(key configKeyWithParent, instances []*model.ServiceInstance) {
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
-		hostPort := hostPort{ikey.hostname.String(), instance.ServicePort.Port}
+		hostPort := hostPort{ikey, instance.ServicePort.Port}
 		// For DNSRoundRobinLB resolution type, check if service instances already exist and do not add
 		// if it already exist. This can happen if two Service Entries are created with same host name,
 		// resolution as DNS_ROUND_ROBIN and with same/different endpoints.
@@ -84,17 +103,19 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 			continue
 		}
 		if _, f := s.instances[ikey]; !f {
-			s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
+			s.instances[ikey] = map[configKeyWithParent][]*model.ServiceInstance{}
 		}
 		s.instancesByHostAndPort.Insert(hostPort)
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
-		s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
+		if len(instance.Endpoint.Addresses) > 0 {
+			s.ip2instance[instance.Endpoint.FirstAddressOrNil()] = append(s.ip2instance[instance.Endpoint.FirstAddressOrNil()], instance)
+		}
 	}
 }
 
-func (s *serviceInstancesStore) updateInstances(key configKey, instances []*model.ServiceInstance) {
+func (s *serviceInstancesStore) updateInstances(key configKeyWithParent, instances []*model.ServiceInstance) {
 	// first delete
-	s.deleteInstances(key, instances)
+	s.deleteInstanceKeys(key, instances)
 
 	// second add
 	s.addInstances(key, instances)
@@ -117,6 +138,9 @@ func (s *serviceInstancesStore) updateServiceEntryInstancesPerConfig(key types.N
 
 func (s *serviceInstancesStore) deleteServiceEntryInstances(key types.NamespacedName, cKey configKey) {
 	delete(s.instancesBySE[key], cKey)
+	if len(s.instancesBySE[key]) == 0 {
+		delete(s.instancesBySE, key)
+	}
 }
 
 func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.NamespacedName) {
@@ -132,7 +156,7 @@ type serviceStore struct {
 
 // getAllServices return all the services.
 func (s *serviceStore) getAllServices() []*model.Service {
-	var out []*model.Service
+	out := make([]*model.Service, 0, countSliceValue(s.servicesBySE))
 	for _, svcs := range s.servicesBySE {
 		out = append(out, svcs...)
 	}

@@ -24,9 +24,7 @@ import (
 
 const (
 	// PathSeparator is the separator between path elements.
-	PathSeparator = "."
-	// KVSeparator is the separator between the key and value in a key/value path element,
-	KVSeparator     = string(kvSeparatorRune)
+	PathSeparator   = "."
 	kvSeparatorRune = ':'
 
 	// InsertIndex is the index that means "insert" when setting values
@@ -82,20 +80,6 @@ func (p Path) Equals(p2 Path) bool {
 		}
 	}
 	return true
-}
-
-// ToYAMLPath converts a path string to path such that the first letter of each path element is lower case.
-func ToYAMLPath(path string) Path {
-	p := PathFromString(path)
-	for i := range p {
-		p[i] = firstCharToLowerCase(p[i])
-	}
-	return p
-}
-
-// ToYAMLPathString converts a path string such that the first letter of each path element is lower case.
-func ToYAMLPathString(path string) string {
-	return ToYAMLPath(path).String()
 }
 
 // IsValidPathElement reports whether pe is a valid path element.
@@ -202,8 +186,4 @@ func splitEscaped(s string, r rune) []string {
 	}
 	out = append(out, s[prevIdx:])
 	return out
-}
-
-func firstCharToLowerCase(s string) string {
-	return strings.ToLower(s[0:1]) + s[1:]
 }

@@ -8,4 +8,4 @@ issue:
 releaseNotes:
 - |
   **Improved** XDS generation to send less resource when possible, sometimes omitting a response entirely.
-  This can be disabled by the `PILOT_PARTIAL_FULL_PUSHES=false` environment variable, if neccesary.
+  This can be disabled by the `PILOT_PARTIAL_FULL_PUSHES=false` environment variable, if necessary.

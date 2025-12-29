@@ -1,4 +1,23 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
+# TODO enableCRDTemplates is now defaulted to true as we
+# want to always self-manage CRD upgrades via plain templates,
+# so we should remove this flag after a few releases
 {{- if .Values.base.enableCRDTemplates }}
-{{ .Files.Get "crds/crd-all.gen.yaml" }}
-{{ .Files.Get "crds/crd-operator.yaml" }}
+{{- $replacement := include "istio.labels" . | fromYaml}}
+{{- range $crd := .Files.Get "files/crd-all.gen.yaml"|splitList "\n---\n"}}
+{{- $name := (index ($crd |fromYaml) "metadata" "name") }}
+{{- if not (has $name $.Values.base.excludedCRDs)}}
+{{- $asDict := ($crd | fromYaml) }}
+# If we are templating these CRDs, we want to wipe out the "static"/legacy
+# labels and replace them with the standard templated istio ones.
+# This allows the continued use of `kubectl apply -f crd-all.gen.yaml`
+# without any templating+the old labels, if desired.
+{{- $_ := set $asDict.metadata "labels" $replacement }}
+{{$asDict | toYaml }}
+---
+{{- end }}
+{{- end }}
+{{- else }}
+{{ .Files.Get "files/crd-all.gen.yaml" }}
+{{- end }}
 {{- end }}

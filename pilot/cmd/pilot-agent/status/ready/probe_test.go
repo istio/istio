@@ -36,8 +36,7 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(liveServerStats)
 	defer server.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 	probe.Context = ctx
 
@@ -111,8 +110,7 @@ server.state: 0`,
 		t.Run(tt.name, func(t *testing.T) {
 			server := testserver.CreateAndStartServer(tt.stats)
 			defer server.Close()
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 			probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 			probe.Context = ctx
 			err := probe.Check()
@@ -137,8 +135,7 @@ func TestEnvoyInitializing(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(initServerStats)
 	defer server.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 	probe.Context = ctx
 	err := probe.Check()
@@ -151,8 +148,7 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(onlyServerStats)
 	defer server.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 	probe.Context = ctx
 	err := probe.Check()
@@ -165,8 +161,7 @@ func TestEnvoyNoServerStats(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(noServerStats)
 	defer server.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 	probe.Context = ctx
 	err := probe.Check()
@@ -178,8 +173,7 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	g := NewWithT(t)
 
 	server := testserver.CreateAndStartServer(noServerStats)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 	probe.Context = ctx
 	err := probe.Check()

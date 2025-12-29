@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/config"
@@ -43,7 +43,6 @@ func TestRequestAuthentication(t *testing.T) {
 	payload3 := strings.Split(jwt.TokenIssuer1WithNestedClaims2, ".")[1]
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			type testCase struct {
 				name          string
@@ -64,7 +63,7 @@ func TestRequestAuthentication(t *testing.T) {
 
 					newTrafficTest(t, apps.Ns1.All.Instances()).Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 						for _, c := range cases {
-							t.NewSubTest(c.name).RunParallel(func(t framework.TestContext) {
+							t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 								opts := echo.CallOptions{
 									To: to,
 									Port: echo.Port{
@@ -256,6 +255,19 @@ func TestRequestAuthentication(t *testing.T) {
 				},
 			}))
 
+			t.NewSubTest("timeout").Run(newTest("testdata/requestauthn/timeout.yaml.tmpl", []testCase{
+				{
+					name: "valid-token-forward-remote-jwks",
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.Check = check.And(
+							check.NotOK(),
+							check.Status(http.StatusUnauthorized))
+					},
+				},
+			}))
+
 			t.NewSubTest("aud").Run(newTest("testdata/requestauthn/aud.yaml.tmpl", []testCase{
 				{
 					name: "invalid-aud",
@@ -400,15 +412,16 @@ func TestRequestAuthentication(t *testing.T) {
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authentication.ingressjwt").
 		Run(func(t framework.TestContext) {
 			config.New(t).
 				Source(config.File("testdata/requestauthn/global-jwt.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): istio.ClaimSystemNamespaceOrFail(t, t),
 					"Services":               apps.Ns1.All,
+					"GatewayIstioLabel":      i.Settings().IngressGatewayIstioLabel,
 				})).
 				Source(config.File("testdata/requestauthn/ingress.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Ns1.Namespace,
+					"GatewayIstioLabel":      i.Settings().IngressGatewayIstioLabel,
 				})).
 				BuildAll(nil, apps.Ns1.All).
 				Apply()
@@ -437,7 +450,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 				newTrafficTest(t, apps.Ns1.All.Instances()).
 					Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 						for _, c := range cases {
-							t.NewSubTest(c.name).RunParallel(func(t framework.TestContext) {
+							t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 								opts := echo.CallOptions{
 									To: to,
 									Port: echo.Port{
@@ -459,6 +472,16 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					name          string
 					customizeCall func(opts *echo.CallOptions, to echo.Target)
 				}{
+					{
+						name: "allow healthz",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/healthz"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
 					{
 						name: "deny without token",
 						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
@@ -545,6 +568,50 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							opts.Check = check.Status(http.StatusForbidden)
 						},
 					},
+				}
+
+				newTrafficTest(t, apps.Ns1.All.Instances()).
+					RunViaIngress(func(t framework.TestContext, from ingress.Instance, to echo.Target) {
+						for _, c := range cases {
+							t.NewSubTest(c.name).Run(func(t framework.TestContext) {
+								opts := echo.CallOptions{
+									Port: echo.Port{
+										Protocol: protocol.HTTP,
+									},
+								}
+
+								c.customizeCall(&opts, to)
+
+								from.CallOrFail(t, opts)
+							})
+						}
+					})
+			})
+		})
+}
+
+// TestGatewayAPIRequestAuthentication tests beta authn policy for jwt on gateway API.
+func TestGatewayAPIRequestAuthentication(t *testing.T) {
+	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
+		Run(func(t framework.TestContext) {
+			crd.DeployGatewayAPIOrSkip(t)
+			config.New(t).
+				Source(config.File("testdata/requestauthn/gateway-api.yaml.tmpl").WithParams(param.Params{
+					param.Namespace.String(): apps.Ns1.Namespace,
+				})).
+				Source(config.File("testdata/requestauthn/gateway-jwt.yaml.tmpl").WithParams(param.Params{
+					param.Namespace.String(): apps.Ns1.Namespace,
+					"Services":               apps.Ns1.A.Append(apps.Ns1.B).Services(),
+				})).
+				BuildAll(nil, apps.Ns1.A.Append(apps.Ns1.B).Services()).
+				Apply()
+
+			t.NewSubTest("gateway-authn").Run(func(t framework.TestContext) {
+				cases := []struct {
+					name          string
+					customizeCall func(opts *echo.CallOptions, to echo.Target)
+				}{
 					{
 						name: "allow healthz",
 						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
@@ -555,12 +622,109 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							opts.Check = check.OK()
 						},
 					},
+					{
+						name: "deny without token",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								Build()
+							opts.Check = check.Status(http.StatusForbidden)
+						},
+					},
+					{
+						name: "allow with sub-1 token",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer1).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
+					{
+						name: "allow with sub-1 token despite \"ignored\" RequestAuthentication (enableGatewayAPISelectorPolicies flag = true)",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer3).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
+					{
+						name: "deny with sub-2 token",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer2).
+								Build()
+							opts.Check = check.Status(http.StatusForbidden)
+						},
+					},
+					{
+						name: "deny with expired token",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenExpired).
+								Build()
+							opts.Check = check.Status(http.StatusUnauthorized)
+						},
+					},
+					{
+						name: "allow with sub-1 token on any.com",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("any-request-principal-ok.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer1).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
+					{
+						name: "allow with sub-2 token on any.com",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("any-request-principal-ok.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer2).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
+					{
+						name: "deny without token on any.com",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("any-request-principal-ok.%s.com", to.ServiceName())).
+								Build()
+							opts.Check = check.Status(http.StatusForbidden)
+						},
+					},
+					{
+						name: "deny with token on other host",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("other-host.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer1).
+								Build()
+							opts.Check = check.Status(http.StatusForbidden)
+						},
+					},
 				}
 
-				newTrafficTest(t, apps.Ns1.All.Instances()).
-					RunViaIngress(func(t framework.TestContext, from ingress.Instance, to echo.Target) {
+				newTrafficTest(t, apps.Ns1.A.Append(apps.Ns1.B)).
+					RunViaGatewayIngress("istio", func(t framework.TestContext, from ingress.Instance, to echo.Target) {
 						for _, c := range cases {
-							t.NewSubTest(c.name).RunParallel(func(t framework.TestContext) {
+							t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 								opts := echo.CallOptions{
 									Port: echo.Port{
 										Protocol: protocol.HTTP,

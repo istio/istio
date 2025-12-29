@@ -21,7 +21,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/agent"
 )
 
 // UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
@@ -62,7 +62,7 @@ func (s *Service) Validate() error {
 		} else if !labels.IsDNS1123Label(port.Name) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid name: %q", port.Name))
 		}
-		if err := validation.ValidatePort(port.Port); err != nil {
+		if err := agent.ValidatePort(port.Port); err != nil {
 			errs = multierror.Append(errs,
 				fmt.Errorf("invalid service port value %d for %q: %v", port.Port, port.Name, err))
 		}
@@ -84,7 +84,7 @@ func (instance *ServiceInstance) Validate() error {
 			errs = multierror.Append(errs, err)
 		}
 
-		if err := validation.ValidatePort(int(instance.Endpoint.EndpointPort)); err != nil {
+		if err := agent.ValidatePort(int(instance.Endpoint.EndpointPort)); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}

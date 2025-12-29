@@ -21,7 +21,7 @@ import (
 	"syscall"
 
 	"istio.io/istio/cni/pkg/cmd"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func main() {

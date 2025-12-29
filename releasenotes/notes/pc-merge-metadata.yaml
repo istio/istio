@@ -3,4 +3,4 @@ kind: feature
 area: installation
 releaseNotes:
 - |
-  **Improved** the `meshConfig.defaultConfig.proxyMetadata` field to do a deep merge when overriden, rather than replacing all values.
+  **Improved** the `meshConfig.defaultConfig.proxyMetadata` field to do a deep merge when overridden, rather than replacing all values.

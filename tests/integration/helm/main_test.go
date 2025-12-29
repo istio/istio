@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 //  Copyright Istio Authors
 //
@@ -21,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func TestMain(m *testing.M) {
@@ -28,5 +28,15 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
+		Setup(adoptCRDsFromPreviousTests).
 		Run()
+}
+
+// TODO BML this relabeling/reannotating is only required if the previous release is =< 1.23,
+// and should be dropped once 1.24 is released.
+//
+// Needed as other tests do not clean up CRDs and in this suite that can create issues
+func adoptCRDsFromPreviousTests(ctx resource.Context) error {
+	AdoptPre123CRDResourcesIfNeeded()
+	return nil
 }

@@ -15,47 +15,50 @@
 package controller
 
 import (
-	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
-	informer informer.FilteredSharedIndexInformer
+	pods kclient.Client[*v1.Pod]
 
 	sync.RWMutex
 	// podsByIP maintains stable pod IP to name key mapping
 	// this allows us to retrieve the latest status by pod IP.
 	// This should only contain RUNNING or PENDING pods with an allocated IP.
-	podsByIP map[string]string
-	// IPByPods is a reverse map of podsByIP. This exists to allow us to prune stale entries in the
+	podsByIP map[string]sets.Set[types.NamespacedName]
+	// ipByPods is a reverse map of podsByIP. This exists to allow us to prune stale entries in the
 	// pod cache if a pod changes IP.
-	IPByPods map[string]string
+	ipByPods map[types.NamespacedName]string
 
 	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
 	// in podCache when endpoint event comes.
-	needResync         map[string]sets.String
-	queueEndpointEvent func(string)
+	needResync         map[string]sets.Set[types.NamespacedName]
+	queueEndpointEvent func(types.NamespacedName)
 
 	c *Controller
 }
 
-func newPodCache(c *Controller, informer informer.FilteredSharedIndexInformer, queueEndpointEvent func(string)) *PodCache {
+func newPodCache(c *Controller, pods kclient.Client[*v1.Pod], queueEndpointEvent func(types.NamespacedName)) *PodCache {
 	out := &PodCache{
-		informer:           informer,
+		pods:               pods,
 		c:                  c,
-		podsByIP:           make(map[string]string),
-		IPByPods:           make(map[string]string),
-		needResync:         make(map[string]sets.String),
+		podsByIP:           make(map[string]sets.Set[types.NamespacedName]),
+		ipByPods:           make(map[types.NamespacedName]string),
+		needResync:         make(map[string]sets.Set[types.NamespacedName]),
 		queueEndpointEvent: queueEndpointEvent,
 	}
 
@@ -88,6 +91,10 @@ func shouldPodBeInEndpoints(pod *v1.Pod) bool {
 // isPodPhaseTerminal returns true if the pod's phase is terminal.
 func isPodPhaseTerminal(phase v1.PodPhase) bool {
 	return phase == v1.PodFailed || phase == v1.PodSucceeded
+}
+
+func IsPodRunning(pod *v1.Pod) bool {
+	return pod.Status.Phase == v1.PodRunning
 }
 
 // IsPodReady is copied from kubernetes/pkg/api/v1/pod/utils.go
@@ -127,38 +134,36 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 	return -1, nil
 }
 
-func (pc *PodCache) labelFilter(old, cur interface{}) bool {
-	oldPod := old.(*v1.Pod)
-	curPod := cur.(*v1.Pod)
-
-	// If labels updated, trigger proxy push
-	if curPod.Status.PodIP != "" && !reflect.DeepEqual(oldPod.Labels, curPod.Labels) {
-		pc.proxyUpdates(curPod.Status.PodIP)
-	}
-
-	// always continue calling pc.onEvent
-	return false
+func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
+	// If labels/annotations updated, trigger proxy push
+	labelsChanged := !maps.Equal(old.Labels, cur.Labels)
+	// Annotations are only used in endpoints in one case, so just compare that one
+	relevantAnnotationsChanged := old.Annotations[annotation.AmbientRedirection.Name] != cur.Annotations[annotation.AmbientRedirection.Name]
+	changed := labelsChanged || relevantAnnotationsChanged
+	return changed
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) onEvent(_, curr any, ev model.Event) error {
-	pod := controllers.Extract[*v1.Pod](curr)
-	if pod == nil {
-		return nil
-	}
-
+func (pc *PodCache) onEvent(old, pod *v1.Pod, ev model.Event) error {
 	ip := pod.Status.PodIP
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
 	if len(ip) == 0 {
-		return nil
+		// However, in the case of an Eviction, the event that marks the pod as Failed may *also* have removed the IP.
+		// If the pod *used to* have an IP, then we need to actually delete it.
+		ip = pc.getIPByPod(config.NamespacedName(pod))
+		if len(ip) == 0 {
+			log.Debugf("Pod %s has no IP", config.NamespacedName(pod).String())
+			return nil
+		}
+		log.Debugf("Pod %s has no IP, but was in the cache (%s), continue so we can delete it", config.NamespacedName(pod).String(), ip)
 	}
 
-	key := kube.KeyFunc(pod.Name, pod.Namespace)
+	key := config.NamespacedName(pod)
 	switch ev {
 	case model.EventAdd:
 		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.update(ip, key)
+			pc.addPod(pod, ip, key, false)
 		} else {
 			return nil
 		}
@@ -170,7 +175,8 @@ func (pc *PodCache) onEvent(_, curr any, ev model.Event) error {
 			}
 			ev = model.EventDelete
 		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.update(ip, key)
+			labelUpdated := pc.labelFilter(old, pod)
+			pc.addPod(pod, ip, key, labelUpdated)
 		} else {
 			return nil
 		}
@@ -181,18 +187,31 @@ func (pc *PodCache) onEvent(_, curr any, ev model.Event) error {
 			return nil
 		}
 	}
-	pc.notifyWorkloadHandlers(pod, ev)
+	pc.notifyWorkloadHandlers(pod, ev, ip)
 	return nil
 }
 
 // notifyWorkloadHandlers fire workloadInstance handlers for pod
-func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
+func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event, ip string) {
 	// if no workload handler registered, skip building WorkloadInstance
 	if len(pc.c.handlers.GetWorkloadHandlers()) == 0 {
 		return
 	}
 	// fire instance handles for workload
-	ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable)
+	ep := pc.c.NewEndpointBuilder(pod).buildIstioEndpoint(
+		ip,
+		0,
+		"",
+		model.AlwaysDiscoverable,
+		model.Healthy,
+		features.GlobalSendUnhealthyEndpoints.Load(),
+	)
+	// If pod is dual stack, handle all IPs
+	if features.EnableDualStack && len(pod.Status.PodIPs) > 1 {
+		ep.Addresses = slices.Map(pod.Status.PodIPs, func(e v1.PodIP) string {
+			return e.IP
+		})
+	}
 	workloadInstance := &model.WorkloadInstance{
 		Name:      pod.Name,
 		Namespace: pod.Namespace,
@@ -220,30 +239,33 @@ func getPortMap(pod *v1.Pod) map[string]uint32 {
 }
 
 // deleteIP returns true if the pod and ip are really deleted.
-func (pc *PodCache) deleteIP(ip string, podKey string) bool {
+func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
 	pc.Lock()
 	defer pc.Unlock()
-	if pc.podsByIP[ip] == podKey {
-		delete(pc.podsByIP, ip)
-		delete(pc.IPByPods, podKey)
+	if pc.podsByIP[ip].Contains(podKey) {
+		sets.DeleteCleanupLast(pc.podsByIP, ip, podKey)
+		delete(pc.ipByPods, podKey)
 		return true
 	}
 	return false
 }
 
-func (pc *PodCache) update(ip, key string) {
+func (pc *PodCache) addPod(pod *v1.Pod, ip string, key types.NamespacedName, labelUpdated bool) {
 	pc.Lock()
 	// if the pod has been cached, return
-	if key == pc.podsByIP[ip] {
+	if pc.podsByIP[ip].Contains(key) {
 		pc.Unlock()
+		if labelUpdated {
+			pc.proxyUpdates(pod, true)
+		}
 		return
 	}
-	if current, f := pc.IPByPods[key]; f {
+	if current, f := pc.ipByPods[key]; f {
 		// The pod already exists, but with another IP Address. We need to clean up that
-		delete(pc.podsByIP, current)
+		sets.DeleteCleanupLast(pc.podsByIP, current, key)
 	}
-	pc.podsByIP[ip] = key
-	pc.IPByPods[key] = ip
+	sets.InsertOrNew(pc.podsByIP, ip, key)
+	pc.ipByPods[key] = ip
 
 	if endpointsToUpdate, f := pc.needResync[ip]; f {
 		delete(pc.needResync, ip)
@@ -254,78 +276,111 @@ func (pc *PodCache) update(ip, key string) {
 	}
 	pc.Unlock()
 
-	pc.proxyUpdates(ip)
+	pc.proxyUpdates(pod, false)
 }
 
 // queueEndpointEventOnPodArrival registers this endpoint and queues endpoint event
 // when the corresponding pod arrives.
-func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
+func (pc *PodCache) queueEndpointEventOnPodArrival(key types.NamespacedName, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
-	if _, f := pc.needResync[ip]; !f {
-		pc.needResync[ip] = sets.New(key)
-	} else {
-		pc.needResync[ip].Insert(key)
-	}
+	sets.InsertOrNew(pc.needResync, ip, key)
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
 // endpointDeleted cleans up endpoint from resync endpoint list.
-func (pc *PodCache) endpointDeleted(key string, ip string) {
+func (pc *PodCache) endpointDeleted(key types.NamespacedName, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
-	delete(pc.needResync[ip], key)
-	if len(pc.needResync[ip]) == 0 {
-		delete(pc.needResync, ip)
-	}
+	sets.DeleteCleanupLast(pc.needResync, ip, key)
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
-func (pc *PodCache) proxyUpdates(ip string) {
-	if pc.c != nil && pc.c.opts.XDSUpdater != nil {
-		pc.c.opts.XDSUpdater.ProxyUpdate(pc.c.Cluster(), ip)
+func (pc *PodCache) proxyUpdates(pod *v1.Pod, isPodUpdate bool) {
+	if pc.c != nil {
+		if pc.c.opts.XDSUpdater != nil {
+			ip := pod.Status.PodIP
+			pc.c.opts.XDSUpdater.ProxyUpdate(pc.c.Cluster(), ip)
+		}
+		if isPodUpdate {
+			// Recompute service(s) due to pod label change.
+			// If it is a new pod, no need to recompute, as it yet computed for the first time yet.
+			pc.c.recomputeServiceForPod(pod)
+		}
 	}
 }
 
-func (pc *PodCache) getPodKey(addr string) (string, bool) {
+func (pc *PodCache) getPodKeys(addr string) []types.NamespacedName {
 	pc.RLock()
 	defer pc.RUnlock()
-	key, exists := pc.podsByIP[addr]
-	return key, exists
+	return pc.podsByIP[addr].UnsortedList()
+}
+
+// getIPByPod returns the pod IP or empty string if pod not found.
+func (pc *PodCache) getIPByPod(key types.NamespacedName) string {
+	pc.RLock()
+	defer pc.RUnlock()
+	return pc.ipByPods[key]
 }
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
-func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
-	key, exists := pc.getPodKey(addr)
-	if !exists {
+func (pc *PodCache) getPodsByIP(addr string) []*v1.Pod {
+	keys := pc.getPodKeys(addr)
+	if keys == nil {
 		return nil
 	}
-	return pc.getPodByKey(key)
+	res := make([]*v1.Pod, 0, len(keys))
+	for _, key := range keys {
+		p := pc.getPodByKey(key)
+		// Subtle race condition. getPodKeys is our cache over pods, while getPodByKey hits the informer cache.
+		// if these are out of sync, p may be nil (pod was deleted).
+		if p != nil {
+			res = append(res, p)
+		}
+	}
+	return res
 }
 
-// getPodByKey returns the pod by key formatted `ns/name`
-func (pc *PodCache) getPodByKey(key string) *v1.Pod {
-	item, _, _ := pc.informer.GetIndexer().GetByKey(key)
-	if item != nil {
-		return item.(*v1.Pod)
-	}
-	return nil
+// getPodByKey returns the pod by key
+func (pc *PodCache) getPodByKey(key types.NamespacedName) *v1.Pod {
+	return pc.pods.Get(key.Name, key.Namespace)
 }
 
 // getPodByKey returns the pod of the proxy
 func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
-	var pod *v1.Pod
 	key := podKeyByProxy(proxy)
-	if key != "" {
-		pod = pc.getPodByKey(key)
+	if key.Name != "" {
+		pod := pc.getPodByKey(key)
 		if pod != nil {
 			return pod
 		}
 	}
 
-	// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
-	// because multiple ips belong to the same pod
-	proxyIP := proxy.IPAddresses[0]
-	// just in case the proxy ID is bad formatted
-	return pc.getPodByIP(proxyIP)
+	if features.EnableProxyFindPodByIP {
+		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
+		// because multiple ips belong to the same pod
+		proxyIP := proxy.IPAddresses[0]
+		// just in case the proxy ID is bad formatted
+		pods := pc.getPodsByIP(proxyIP)
+		switch len(pods) {
+		case 0:
+			return nil
+		case 1:
+			return pods[0]
+		default:
+			// This should only happen with hostNetwork pods, which cannot be proxy clients...
+			log.Errorf("unexpected: found multiple pods for proxy %v (%v)", proxy.ID, proxyIP)
+			// Try to handle it gracefully
+			for _, p := range pods {
+				// At least filter out wrong namespaces...
+				if proxy.ConfigNamespace != p.Namespace {
+					continue
+				}
+				return p
+			}
+			return nil
+		}
+	}
+
+	return nil
 }

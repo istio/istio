@@ -14,6 +14,8 @@
 
 package namespace
 
+import "strings"
+
 var (
 	chck Static
 	_    Instance = &chck
@@ -40,6 +42,14 @@ func (s Static) SetLabel(key, value string) error {
 
 func (s Static) RemoveLabel(key string) error {
 	panic("implement me")
+}
+
+func (s Static) IsAmbient() bool {
+	return strings.Contains(string(s), "ambient")
+}
+
+func (s Static) IsInjected() bool {
+	return !s.IsAmbient()
 }
 
 func (s *Static) UnmarshalJSON(bytes []byte) error {

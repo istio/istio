@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+- 52731
+releaseNotes:
+- |
+  **Added** stats tags configuration for watchdog metrics.

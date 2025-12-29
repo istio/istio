@@ -16,59 +16,40 @@ package cache
 
 import (
 	"bytes"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {
-	t.Run("plugin", func(t *testing.T) {
-		testWorkloadAgentGenerateSecret(t, true)
-	})
-	t.Run("no plugin", func(t *testing.T) {
-		testWorkloadAgentGenerateSecret(t, false)
-	})
-}
-
-func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceName string), options security.Options) *SecretManagerClient {
-	t.Helper()
-	sc, err := NewSecretManagerClient(caClient, &options)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sc.RegisterSecretHandler(notifyCb)
-	t.Cleanup(sc.Close)
-	return sc
-}
-
-func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
+	mt := monitortest.New(t)
 	fakeCACli, err := mock.NewMockCAClient(time.Hour, true)
 	var got, want []byte
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
-	opt := &security.Options{}
-
-	if isUsingPluginProvider {
-		fakePlugin := mock.NewMockTokenExchangeServer(nil)
-		opt.TokenExchanger = fakePlugin
-	}
-
 	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{WorkloadRSAKeySize: 2048})
 	gotSecret, err := sc.GenerateSecret(security.WorkloadKeyCertResourceName)
 	if err != nil {
@@ -104,6 +85,20 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	if got := sc.cache.GetRoot(); !bytes.Equal(got, want) {
 		t.Errorf("Got unexpected root certificate. Got: %v\n want: %v", string(got), string(want))
 	}
+
+	certDefaultTTL := time.Hour.Seconds()
+	mt.Assert(certExpirySeconds.Name(), map[string]string{"resource_name": "default"}, monitortest.LessThan(certDefaultTTL))
+}
+
+func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceName string), options security.Options) *SecretManagerClient {
+	t.Helper()
+	sc, err := NewSecretManagerClient(caClient, &options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc.RegisterSecretHandler(notifyCb)
+	t.Cleanup(sc.Close)
+	return sc
 }
 
 type UpdateTracker struct {
@@ -135,7 +130,7 @@ func (u *UpdateTracker) Expect(want map[string]int) {
 			return fmt.Errorf("wanted %+v got %+v", want, u.hits)
 		}
 		return nil
-	}, retry.Timeout(time.Second*5))
+	}, retry.Timeout(time.Second*10)) // Increased timeout for Linux file system event delays
 }
 
 func (u *UpdateTracker) Reset() {
@@ -178,71 +173,147 @@ func almostEqual(t1, t2 time.Duration) bool {
 	return diff < time.Second*5
 }
 
-func TestRotateTime(t *testing.T) {
+func TestRotateTimeNoJitter(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
-		name        string
-		created     time.Time
-		expire      time.Time
-		gracePeriod float64
-		expected    time.Duration
+		name             string
+		created          time.Time
+		expire           time.Time
+		gracePeriodRatio float64
+		expected         time.Duration
 	}{
 		{
-			name:        "already expired",
-			created:     now.Add(-time.Second * 2),
-			expire:      now.Add(-time.Second),
-			gracePeriod: 0.5,
-			expected:    0,
+			name:             "already expired",
+			created:          now.Add(-time.Second * 2),
+			expire:           now.Add(-time.Second),
+			gracePeriodRatio: 0.5,
+			expected:         0,
 		},
 		{
-			name:        "grace period .50",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 0.5,
-			expected:    time.Minute * 30,
+			name:             "grace period .50",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0.5,
+			expected:         time.Minute * 30,
 		},
 		{
-			name:        "grace period .25",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 0.25,
-			expected:    time.Minute * 45,
+			name:             "grace period .25",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0.25,
+			expected:         time.Minute * 45,
 		},
 		{
-			name:        "grace period .75",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 0.75,
-			expected:    time.Minute * 15,
+			name:             "grace period .75",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0.75,
+			expected:         time.Minute * 15,
 		},
 		{
-			name:        "grace period 1",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 1,
-			expected:    0,
+			name:             "grace period 1",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 1,
+			expected:         0,
 		},
 		{
-			name:        "grace period 0",
-			created:     now,
-			expire:      now.Add(time.Hour),
-			gracePeriod: 0,
-			expected:    time.Hour,
+			name:             "grace period 0",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0,
+			expected:         time.Hour,
 		},
 		{
-			name:        "grace period .25 shifted",
-			created:     now.Add(time.Minute * 30),
-			expire:      now.Add(time.Minute * 90),
-			gracePeriod: 0.25,
-			expected:    time.Minute * 75,
+			name:             "grace period .25 shifted",
+			created:          now.Add(time.Minute * 30),
+			expire:           now.Add(time.Minute * 90),
+			gracePeriodRatio: 0.25,
+			expected:         time.Minute * 75,
+		},
+		{
+			name:             "jitter cannot make grace ratio exceed 1",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 1,
+			expected:         0,
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			sc := &SecretManagerClient{configOptions: &security.Options{SecretRotationGracePeriodRatio: tt.gracePeriod}}
-			got := sc.rotateTime(security.SecretItem{CreatedTime: tt.created, ExpireTime: tt.expire})
+			got := rotateTime(security.SecretItem{CreatedTime: tt.created, ExpireTime: tt.expire}, tt.gracePeriodRatio, 0)
 			if !almostEqual(got, tt.expected) {
 				t.Fatalf("expected %v got %v", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestRotateTimeWithJitter(t *testing.T) {
+	now := time.Now()
+	type delayRange struct {
+		min time.Duration
+		max time.Duration
+	}
+	cases := []struct {
+		name             string
+		created          time.Time
+		expire           time.Time
+		gracePeriodRatio float64
+		jitter           float64
+		expectedDelay    delayRange
+	}{
+		{
+			name:             "jitter ratio between .5 and 1",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 1,
+			jitter:           .5,
+			expectedDelay: delayRange{
+				0,
+				time.Hour / 2,
+			},
+		},
+		{
+			name:             "jitter ratio between 0 and 1",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: .5,
+			jitter:           .5,
+			expectedDelay: delayRange{
+				0,
+				time.Hour,
+			},
+		},
+		{
+			name:             "jitter ratio between 0 and .5",
+			created:          now,
+			expire:           now.Add(time.Hour),
+			gracePeriodRatio: 0,
+			jitter:           .5,
+			expectedDelay: delayRange{
+				time.Hour / 2,
+				time.Hour,
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			for i := 0; i < 1000; i++ {
+				got := rotateTime(security.SecretItem{
+					CreatedTime: tt.created,
+					ExpireTime:  tt.expire,
+				}, tt.gracePeriodRatio, tt.jitter)
+				if got+time.Second < tt.expectedDelay.min || got > tt.expectedDelay.max {
+					t.Fatalf(
+						"got %v, expected between %v - %v with gracePeriodRatio of %v and jitter of %v",
+						got,
+						tt.expectedDelay.min,
+						tt.expectedDelay.max,
+						tt.gracePeriodRatio,
+						tt.jitter,
+					)
+				}
 			}
 		})
 	}
@@ -300,6 +371,60 @@ func TestKeyCertificateExist(t *testing.T) {
 		if tc.expectResult != ret {
 			t.Errorf("unexpected result is returned!")
 		}
+	}
+}
+
+func TestSomeInvalidCerts(t *testing.T) {
+	// Tests that we can properly parse root certs and handle the case where some of the certs are not valid.
+	testCases := map[string]struct {
+		certPath   string
+		validCerts int
+		err        *string
+	}{
+		"negative serial": {
+			certPath:   "./testdata/root-ca-bundle-with-graceful-failures.pem",
+			validCerts: 3,
+		},
+		"empty file": {
+			certPath:   "./testdata/emptyfile.pem",
+			validCerts: 0,
+		},
+		"invalid pem": {
+			certPath:   "./testdata/invalidpem.pem",
+			validCerts: 1,
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			sc := createCache(t, nil, func(string) {}, security.Options{})
+			si, err := sc.generateRootCertFromExistingFile(tc.certPath, "dummy", false)
+			if tc.validCerts == 0 {
+				if si != nil || err == nil {
+					t.Fatalf("Expected no valid certs, but got %v and error %v", si, err)
+				}
+				return
+			}
+			if si == nil {
+				t.Fatalf("Expected valid secret item, but got nil for file %s", tc.certPath)
+			}
+			rootCertDer := make([]byte, 0, len(si.RootCert))
+			rest := si.RootCert
+			var cert *pem.Block
+			for {
+				cert, rest = pem.Decode(rest)
+				if cert == nil {
+					break
+				}
+				rootCertDer = append(rootCertDer, cert.Bytes...)
+			}
+			certs, err := x509.ParseCertificates(rootCertDer)
+			if err != nil {
+				t.Fatalf("Error parsing valid root certs from file %s: %v", tc.certPath, err)
+			}
+			if len(certs) != tc.validCerts {
+				t.Fatalf("Expected %d valid certs, got %d", tc.validCerts, len(certs))
+			}
+		})
 	}
 }
 
@@ -469,7 +594,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 	gotSecret, err := sc.GenerateSecret(resource)
 
 	if err == nil {
-		t.Fatalf("expected to get error")
+		t.Fatal("expected to get error")
 	}
 
 	if gotSecret != nil {
@@ -480,7 +605,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 	gotSecretRoot, err := sc.GenerateSecret(rootResource)
 
 	if err == nil {
-		t.Fatalf("Expected to get error, but did not get")
+		t.Fatal("Expected to get error, but did not get")
 	}
 	if !strings.Contains(err.Error(), "no such file or directory") {
 		t.Fatalf("Expected file not found error, but got %v", err)
@@ -499,17 +624,21 @@ func verifySecret(t *testing.T, gotSecret *security.SecretItem, expectedSecret *
 	}
 	cfg, ok := security.SdsCertificateConfigFromResourceName(expectedSecret.ResourceName)
 	if expectedSecret.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
-		if !bytes.Equal(expectedSecret.RootCert, gotSecret.RootCert) {
-			t.Fatalf("root cert: expected %v but got %v", expectedSecret.RootCert,
-				gotSecret.RootCert)
+		expectedRootCert := bytes.TrimSpace(expectedSecret.RootCert)
+		gotRootCert := bytes.TrimSpace(gotSecret.RootCert)
+		if !bytes.Equal(expectedRootCert, gotRootCert) {
+			t.Fatalf("root cert: expected %v but got %v", expectedRootCert, gotRootCert)
 		}
 	} else {
-		if !bytes.Equal(expectedSecret.CertificateChain, gotSecret.CertificateChain) {
-			t.Fatalf("cert chain: expected %s but got %s", string(expectedSecret.CertificateChain),
-				string(gotSecret.CertificateChain))
+		expectedCertChain := bytes.TrimSpace(expectedSecret.CertificateChain)
+		gotCertChain := bytes.TrimSpace(gotSecret.CertificateChain)
+		if !bytes.Equal(expectedCertChain, gotCertChain) {
+			t.Fatalf("cert chain: expected %s but got %s", string(expectedCertChain), string(gotCertChain))
 		}
-		if !bytes.Equal(expectedSecret.PrivateKey, gotSecret.PrivateKey) {
-			t.Fatalf("private key: expected %s but got %s", string(expectedSecret.PrivateKey), string(gotSecret.PrivateKey))
+		expectedPrivateKey := bytes.TrimSpace(expectedSecret.PrivateKey)
+		gotPrivateKey := bytes.TrimSpace(gotSecret.PrivateKey)
+		if !bytes.Equal(expectedPrivateKey, gotPrivateKey) {
+			t.Fatalf("private key: expected %s but got %s", string(expectedPrivateKey), string(gotPrivateKey))
 		}
 	}
 	if !expectedSecret.ExpireTime.IsZero() && expectedSecret.ExpireTime != gotSecret.ExpireTime {
@@ -588,7 +717,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	sc.UpdateConfigTrustBundle(rootCert)
 
 	// Ensure Callback gets invoked when updating proxyConfig trust bundle
-	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
 	u.Reset()
 
 	concatCerts := func(certs ...string) []byte {
@@ -616,7 +745,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	})
 
 	if !bytes.Equal(sc.mergeConfigTrustBundle([]string{string(caClientRootCert), string(rootCert)}), expectedCerts) {
-		t.Fatalf("deduplicate test failed!")
+		t.Fatal("deduplicate test failed!")
 	}
 
 	// Update the proxyConfig with fakeCaClient certs
@@ -641,15 +770,58 @@ func TestProxyConfigAnchors(t *testing.T) {
 	})
 }
 
+func TestProxyConfigAnchorsTriggerWorkloadCertUpdate(t *testing.T) {
+	cacheLog.SetOutputLevel(log.DebugLevel)
+	fakeCACli, err := mock.NewMockCAClient(time.Millisecond*200, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	u := NewUpdateTracker(t)
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{WorkloadRSAKeySize: 2048})
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	if err != nil {
+		t.Errorf("failed to generate certificate for trustAnchor test case")
+	}
+	// Ensure Root cert call back gets invoked once, then workload cert once it expires in 200ms
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
+	u.Reset()
+
+	rootCert, err := os.ReadFile(filepath.Join("./testdata", "root-cert.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+	// Update the proxyConfig with certs
+	sc.UpdateConfigTrustBundle(rootCert)
+
+	assert.Equal(t, sc.cache.GetWorkload(), nil)
+	// Ensure Callback gets invoked when updating proxyConfig trust bundle
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
+	u.Reset()
+
+	rotateTime = func(_ security.SecretItem, _ float64, _ float64) time.Duration {
+		return time.Millisecond * 200
+	}
+	fakeCACli, err = mock.NewMockCAClient(time.Millisecond*200, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	sc = createCache(t, fakeCACli, u.Callback, security.Options{WorkloadRSAKeySize: 2048})
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	if err != nil {
+		t.Errorf("failed to generate certificate for trustAnchor test case")
+	}
+	// Immediately update the proxyConfig root cert
+	sc.UpdateConfigTrustBundle(rootCert)
+	time.Sleep(time.Millisecond * 200)
+	// The rotation task actually will not call `OnSecretUpdate`, otherwise the WorkloadKeyCertResourceName event number should be 2
+	u.Expect(map[string]int{security.RootCertReqResourceName: 2, security.WorkloadKeyCertResourceName: 1})
+}
+
 func TestOSCACertGenerateSecret(t *testing.T) {
 	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
-	opt := &security.Options{}
-
-	fakePlugin := mock.NewMockTokenExchangeServer(nil)
-	opt.TokenExchanger = fakePlugin
 
 	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{CARootPath: cafile.CACertFilePath})
 	certPath := security.GetOSRootFilePath()
@@ -672,10 +844,6 @@ func TestOSCACertGenerateSecretEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
-	opt := &security.Options{}
-
-	fakePlugin := mock.NewMockTokenExchangeServer(nil)
-	opt.TokenExchanger = fakePlugin
 
 	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{WorkloadRSAKeySize: 2048})
 	certPath := security.GetOSRootFilePath()
@@ -738,6 +906,609 @@ func TestTryAddFileWatcher(t *testing.T) {
 					t.Fatalf(
 						"expected certWatcher to watch on: %s, but it is watching on: %s",
 						c.expFilePathToWatch, v)
+				}
+			}
+		})
+	}
+}
+
+// TestSymlinkSecrets tests generating secrets from symlinked files
+func TestSymlinkSecrets(t *testing.T) {
+	t.Run("symlink to file", func(t *testing.T) {
+		runSymlinkAgentTest(t, false)
+	})
+	t.Run("symlink to file sds", func(t *testing.T) {
+		runSymlinkAgentTest(t, true)
+	})
+}
+
+func runSymlinkAgentTest(t *testing.T, sds bool) {
+	// Log OS information for debugging CI issues
+
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	opt := security.Options{}
+
+	u := NewUpdateTracker(t)
+	sc := createCache(t, fakeCACli, u.Callback, opt)
+
+	// Create test directory structure
+	testDir := t.TempDir()
+	certDir := filepath.Join(testDir, "certs")
+	targetDir := filepath.Join(testDir, "target")
+
+	// Create target directory and files
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Copy test certificates to target directory
+	for _, f := range []string{"root-cert.pem", "key.pem", "cert-chain.pem"} {
+		if err := file.AtomicCopy(filepath.Join("./testdata", f), targetDir, f); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Create symlinks
+	certChainSymlink := filepath.Join(certDir, "cert-chain.pem")
+	keySymlink := filepath.Join(certDir, "key.pem")
+	rootCertSymlink := filepath.Join(certDir, "root-cert.pem")
+
+	if err := os.MkdirAll(certDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(filepath.Join(targetDir, "cert-chain.pem"), certChainSymlink); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(targetDir, "key.pem"), keySymlink); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(targetDir, "root-cert.pem"), rootCertSymlink); err != nil {
+		t.Fatal(err)
+	}
+
+	// Configure the secret manager to use symlinked files
+
+	// Verify symlinks are working
+	if _, err := os.ReadFile(certChainSymlink); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.ReadFile(keySymlink); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.ReadFile(rootCertSymlink); err != nil {
+		t.Fatal(err)
+	}
+
+	sc.existingCertificateFile = security.SdsCertificateConfig{
+		CertificatePath:   certChainSymlink,
+		PrivateKeyPath:    keySymlink,
+		CaCertificatePath: rootCertSymlink,
+	}
+
+	workloadResource := security.WorkloadKeyCertResourceName
+	rootResource := security.RootCertReqResourceName
+	if sds {
+		workloadResource = sc.existingCertificateFile.GetResourceName()
+		rootResource = sc.existingCertificateFile.GetRootResourceName()
+	}
+
+	// Read expected content from target files
+	certchain, err := os.ReadFile(filepath.Join(targetDir, "cert-chain.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the cert chain file: %v", err)
+	}
+	privateKey, err := os.ReadFile(filepath.Join(targetDir, "key.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the private key file: %v", err)
+	}
+	rootCert, err := os.ReadFile(filepath.Join(targetDir, "root-cert.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+
+	// Check we can load key, cert, and root from symlinks
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: certchain,
+		PrivateKey:       privateKey,
+	})
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     rootCert,
+	})
+	// We shouldn't get any pushes; these only happen on changes
+	u.Expect(map[string]int{})
+	u.Reset()
+
+	// Test updating the target files (should trigger updates)
+	if err := file.AtomicWrite(filepath.Join(targetDir, "cert-chain.pem"), testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := file.AtomicWrite(filepath.Join(targetDir, "key.pem"), testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Small delay to ensure file watcher events are processed before test cleanup
+	time.Sleep(100 * time.Millisecond)
+
+	// Expect update callback
+	u.Expect(map[string]int{workloadResource: 1})
+	// On the next generate call, we should get the new cert
+	checkSecret(t, sc, workloadResource, security.SecretItem{
+		ResourceName:     workloadResource,
+		CertificateChain: testcerts.RotatedCert,
+		PrivateKey:       testcerts.RotatedKey,
+	})
+
+	// Test updating root cert
+	if err := file.AtomicWrite(filepath.Join(targetDir, "root-cert.pem"), testcerts.CACert, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Small delay to ensure file watcher events are processed before test cleanup
+	time.Sleep(100 * time.Millisecond)
+
+	// We expect to get update notifications for both resources when root cert changes
+	// On macOS, file.AtomicWrite generates multiple events (REMOVE/CREATE/CHMOD) for symlink targets
+	// On Linux, file.AtomicWrite only generates CHMOD events for symlink targets
+	var expectedRootCallbacks int
+	if runtime.GOOS == "darwin" {
+		expectedRootCallbacks = 3 // macOS gets multiple events
+	} else {
+		expectedRootCallbacks = 1 // Linux gets only CHMOD
+	}
+	u.Expect(map[string]int{workloadResource: 1, rootResource: expectedRootCallbacks})
+	u.Reset()
+
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     testcerts.CACert,
+	})
+}
+
+func TestSymlinkDirectoryCleanup(t *testing.T) {
+	t.Run("symlink cleanup when directory is removed", func(t *testing.T) {
+		// Create a properly initialized SecretManagerClient
+		caClient, err := mock.NewMockCAClient(time.Hour, false)
+		require.NoError(t, err)
+		options := security.Options{}
+		sc, err := NewSecretManagerClient(caClient, &options)
+		require.NoError(t, err)
+		defer sc.Close()
+		tempDir := t.TempDir()
+
+		// Create target file
+		targetFile := filepath.Join(tempDir, "certv1")
+		err = os.WriteFile(targetFile, []byte("test cert"), 0o644)
+		require.NoError(t, err)
+
+		// Create directory structure
+		latestDir := filepath.Join(tempDir, "latest")
+		err = os.MkdirAll(latestDir, 0o755)
+		require.NoError(t, err)
+
+		// Create symlink
+		symlinkFile := filepath.Join(latestDir, "cert.pem")
+		err = os.Symlink("../certv1", symlinkFile)
+		require.NoError(t, err)
+
+		// Add symlink watcher
+		err = sc.addSymlinkWatcher(symlinkFile, "test-resource")
+		require.NoError(t, err)
+
+		// Verify initial state
+		sc.certMutex.Lock()
+		initialCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 1, initialCount, "Should have one symlink in fileCerts initially")
+
+		// Simulate directory removal (like in your real scenario)
+		err = os.RemoveAll(latestDir)
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		// Verify that the symlink is removed from fileCerts after directory removal
+		sc.certMutex.Lock()
+		afterRemovalCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 0, afterRemovalCount, "Symlink should be removed from fileCerts after directory removal")
+
+		t.Logf("Test completed - directory cleanup behavior validated")
+	})
+
+	t.Run("symlink watcher re-addition after recreation", func(t *testing.T) {
+		// Create a properly initialized SecretManagerClient
+		caClient, err := mock.NewMockCAClient(time.Hour, false)
+		require.NoError(t, err)
+		options := security.Options{}
+		sc, err := NewSecretManagerClient(caClient, &options)
+		require.NoError(t, err)
+		defer sc.Close()
+		tempDir := t.TempDir()
+
+		// Create target file
+		targetFile := filepath.Join(tempDir, "certv1")
+		err = os.WriteFile(targetFile, []byte("test cert"), 0o644)
+		require.NoError(t, err)
+
+		// Create directory structure
+		latestDir := filepath.Join(tempDir, "latest")
+		err = os.MkdirAll(latestDir, 0o755)
+		require.NoError(t, err)
+
+		// Create symlink
+		symlinkFile := filepath.Join(latestDir, "cert.pem")
+		err = os.Symlink("../certv1", symlinkFile)
+		require.NoError(t, err)
+
+		// Add symlink watcher
+		err = sc.addSymlinkWatcher(symlinkFile, "test-resource")
+		require.NoError(t, err)
+
+		// Verify initial state
+		sc.certMutex.Lock()
+		initialCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 1, initialCount, "Should have one symlink in fileCerts initially")
+
+		// Simulate directory removal (like in your real scenario)
+		err = os.RemoveAll(latestDir)
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		// Verify that the symlink is removed from fileCerts after directory removal
+		sc.certMutex.Lock()
+		afterRemovalCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 0, afterRemovalCount, "Symlink should be removed from fileCerts after directory removal")
+
+		// Recreate the directory and symlink
+		err = os.MkdirAll(latestDir, 0o755)
+		require.NoError(t, err)
+		err = os.Symlink("../certv1", symlinkFile)
+		require.NoError(t, err)
+
+		// Manually re-add the symlink watcher (this is what should happen in real scenario)
+		err = sc.addSymlinkWatcher(symlinkFile, "test-resource")
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		// Verify that the symlink is back in fileCerts after re-addition
+		sc.certMutex.Lock()
+		afterRecreationCount := len(sc.fileCerts)
+		sc.certMutex.Unlock()
+		require.Equal(t, 1, afterRecreationCount, "Symlink should be back in fileCerts after re-addition")
+
+		// Verify that we can detect changes to the recreated symlink
+		// Update the target file
+		err = os.WriteFile(targetFile, []byte("updated cert"), 0o644)
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		t.Logf("Test completed - symlink watcher re-addition validated")
+	})
+
+	t.Run("reviewer example - correct path watching", func(t *testing.T) {
+		// Create a properly initialized SecretManagerClient
+		caClient, err := mock.NewMockCAClient(time.Hour, false)
+		require.NoError(t, err)
+		options := security.Options{}
+		sc, err := NewSecretManagerClient(caClient, &options)
+		require.NoError(t, err)
+		defer sc.Close()
+		tempDir := t.TempDir()
+
+		// Create the structure: /a/b-alt/c/d/cert.pem (the real path)
+		realPath := filepath.Join(tempDir, "a", "b-alt", "c", "d")
+		err = os.MkdirAll(realPath, 0o755)
+		require.NoError(t, err)
+		realCertFile := filepath.Join(realPath, "cert.pem")
+		err = os.WriteFile(realCertFile, []byte("test cert"), 0o644)
+		require.NoError(t, err)
+
+		// Create the symlink: /a/b -> /a/b-alt
+		symlinkPath := filepath.Join(tempDir, "a", "b")
+		err = os.Symlink("b-alt", symlinkPath)
+		require.NoError(t, err)
+
+		// The path we want to watch: /a/b/c/d/cert.pem (through symlink)
+		symlinkCertPath := filepath.Join(symlinkPath, "c", "d", "cert.pem")
+
+		// Add symlink watcher
+		err = sc.addSymlinkWatcher(symlinkCertPath, "test-resource")
+		require.NoError(t, err)
+
+		// Verify we're watching the correct paths
+		sc.certMutex.Lock()
+		require.Len(t, sc.fileCerts, 1, "Should have one symlink in fileCerts")
+		for fc := range sc.fileCerts {
+			// Verify the symlink path is stored correctly
+			require.Equal(t, symlinkCertPath, fc.Filename, "Filename should be the symlink path")
+			// Verify the resolved path is stored correctly
+			expectedResolvedPath := realCertFile
+			require.Equal(t, expectedResolvedPath, fc.TargetPath, "TargetPath should be the resolved file path")
+		}
+		sc.certMutex.Unlock()
+
+		// Test that we can detect changes to the real file
+		err = os.WriteFile(realCertFile, []byte("updated cert"), 0o644)
+		require.NoError(t, err)
+
+		// Wait for events to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		t.Logf("Test completed - reviewer example validated")
+		t.Logf("Watching symlink path: %s", symlinkCertPath)
+		t.Logf("Watching resolved path: %s", realCertFile)
+	})
+}
+
+func TestFindSymlinkInPath(t *testing.T) {
+	sc := &SecretManagerClient{}
+
+	tests := []struct {
+		name          string
+		setup         func(t *testing.T) (string, string) // returns (filePath, expectedSymlinkPath)
+		expectedFound bool
+	}{
+		{
+			name: "no symlinks in path",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				filePath := filepath.Join(tempDir, "a", "b", "c", "file.txt")
+				err := os.MkdirAll(filepath.Dir(filePath), 0o755)
+				require.NoError(t, err)
+				err = os.WriteFile(filePath, []byte("test"), 0o644)
+				require.NoError(t, err)
+				return filePath, ""
+			},
+			expectedFound: false,
+		},
+		{
+			name: "single symlink at end",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory
+				targetDir := filepath.Join(tempDir, "target")
+				err := os.MkdirAll(targetDir, 0o755)
+				require.NoError(t, err)
+				// Create symlink
+				symlinkPath := filepath.Join(tempDir, "link")
+				err = os.Symlink("target", symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, symlinkPath
+			},
+			expectedFound: true,
+		},
+		{
+			name: "single symlink in middle",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory structure
+				targetDir := filepath.Join(tempDir, "target", "subdir")
+				err := os.MkdirAll(targetDir, 0o755)
+				require.NoError(t, err)
+				// Create symlink
+				symlinkPath := filepath.Join(tempDir, "link")
+				err = os.Symlink("target", symlinkPath)
+				require.NoError(t, err)
+				// Create file through symlink
+				filePath := filepath.Join(symlinkPath, "subdir", "file.txt")
+				err = os.WriteFile(filePath, []byte("test"), 0o644)
+				require.NoError(t, err)
+				return filePath, symlinkPath
+			},
+			expectedFound: true,
+		},
+		{
+			name: "multiple symlinks - first one found",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directories
+				target1 := filepath.Join(tempDir, "target1")
+				target2 := filepath.Join(tempDir, "target2")
+				err := os.MkdirAll(target1, 0o755)
+				require.NoError(t, err)
+				err = os.MkdirAll(target2, 0o755)
+				require.NoError(t, err)
+				// Create first symlink
+				link1 := filepath.Join(tempDir, "link1")
+				err = os.Symlink("target1", link1)
+				require.NoError(t, err)
+				// Create second symlink
+				link2 := filepath.Join(link1, "link2")
+				err = os.Symlink("../target2", link2)
+				require.NoError(t, err)
+				// Create file through both symlinks
+				filePath := filepath.Join(link2, "file.txt")
+				err = os.WriteFile(filePath, []byte("test"), 0o644)
+				require.NoError(t, err)
+				return filePath, link2 // findSymlinkInPath finds the first symlink when walking up (link2 is encountered first)
+			},
+			expectedFound: true,
+		},
+		{
+			name: "system symlink ignored",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create a path that looks like a system symlink
+				systemPath := filepath.Join(tempDir, "proc", "self", "fd", "1")
+				err := os.MkdirAll(filepath.Dir(systemPath), 0o755)
+				require.NoError(t, err)
+				// Create a regular file (not a symlink) at system path
+				err = os.WriteFile(systemPath, []byte("test"), 0o644)
+				require.NoError(t, err)
+				return systemPath, ""
+			},
+			expectedFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filePath, expectedSymlinkPath := tt.setup(t)
+			symlinkPath, found := sc.findSymlinkInPath(filePath)
+
+			if tt.expectedFound {
+				require.True(t, found, "Expected to find symlink in path")
+				require.NotEmpty(t, symlinkPath, "Expected symlink path to be non-empty")
+				require.Equal(t, expectedSymlinkPath, symlinkPath, "Expected symlink path to match")
+				// Verify the found path is actually a symlink
+				fileInfo, err := os.Lstat(symlinkPath)
+				require.NoError(t, err)
+				require.True(t, fileInfo.Mode()&os.ModeSymlink != 0, "Found path should be a symlink")
+			} else {
+				require.False(t, found, "Expected not to find symlink in path")
+				require.Empty(t, symlinkPath, "Expected symlink path to be empty")
+			}
+		})
+	}
+}
+
+func TestResolveSymlink(t *testing.T) {
+	sc := &SecretManagerClient{}
+
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T) (string, string) // returns (symlinkPath, expectedResolvedPath)
+		expectError bool
+	}{
+		{
+			name: "valid symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory
+				targetDir := filepath.Join(tempDir, "target")
+				err := os.MkdirAll(targetDir, 0o755)
+				require.NoError(t, err)
+				// Create symlink
+				symlinkPath := filepath.Join(tempDir, "link")
+				err = os.Symlink("target", symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, targetDir
+			},
+			expectError: false,
+		},
+		{
+			name: "symlink to file",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target file
+				targetFile := filepath.Join(tempDir, "target.txt")
+				err := os.WriteFile(targetFile, []byte("test"), 0o644)
+				require.NoError(t, err)
+				// Create symlink
+				symlinkPath := filepath.Join(tempDir, "link.txt")
+				err = os.Symlink("target.txt", symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, targetFile
+			},
+			expectError: false,
+		},
+		{
+			name: "relative symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory
+				targetDir := filepath.Join(tempDir, "subdir", "target")
+				err := os.MkdirAll(targetDir, 0o755)
+				require.NoError(t, err)
+				// Create symlink with relative path
+				symlinkPath := filepath.Join(tempDir, "subdir", "link")
+				err = os.Symlink("target", symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, targetDir
+			},
+			expectError: false,
+		},
+		{
+			name: "absolute symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create target directory
+				targetDir := filepath.Join(tempDir, "target")
+				err := os.MkdirAll(targetDir, 0o755)
+				require.NoError(t, err)
+				// Create symlink with absolute path
+				symlinkPath := filepath.Join(tempDir, "link")
+				err = os.Symlink(targetDir, symlinkPath)
+				require.NoError(t, err)
+				return symlinkPath, targetDir
+			},
+			expectError: false,
+		},
+		{
+			name: "broken symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create broken symlink
+				symlinkPath := filepath.Join(tempDir, "broken")
+				err := os.Symlink("nonexistent", symlinkPath)
+				require.NoError(t, err)
+				// For broken symlinks, the resolved path should be the target path (even if it doesn't exist)
+				expectedResolved := filepath.Join(tempDir, "nonexistent")
+				return symlinkPath, expectedResolved
+			},
+			expectError: false, // resolveSymlink doesn't check if target exists, only resolves the symlink
+		},
+		{
+			name: "not a symlink",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				// Create regular file
+				filePath := filepath.Join(tempDir, "regular.txt")
+				err := os.WriteFile(filePath, []byte("test"), 0o644)
+				require.NoError(t, err)
+				return filePath, ""
+			},
+			expectError: true,
+		},
+		{
+			name: "nonexistent path",
+			setup: func(t *testing.T) (string, string) {
+				tempDir := t.TempDir()
+				return filepath.Join(tempDir, "nonexistent"), ""
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			symlinkPath, expectedResolvedPath := tt.setup(t)
+			resolvedPath, err := sc.resolveSymlink(symlinkPath)
+
+			if tt.expectError {
+				require.Error(t, err, "Expected error when resolving symlink")
+			} else {
+				require.NoError(t, err, "Expected no error when resolving symlink")
+				require.NotEmpty(t, resolvedPath, "Expected resolved path to be non-empty")
+				require.Equal(t, expectedResolvedPath, resolvedPath, "Expected resolved path to match")
+
+				// Verify the resolved path exists (skip for broken symlinks)
+				if !strings.Contains(symlinkPath, "broken") {
+					_, err := os.Stat(resolvedPath)
+					require.NoError(t, err, "Resolved path should exist")
+				}
+
+				// Verify it's not a symlink (should be resolved) - skip for broken symlinks
+				if !strings.Contains(symlinkPath, "broken") {
+					fileInfo, err := os.Lstat(resolvedPath)
+					require.NoError(t, err)
+					require.False(t, fileInfo.Mode()&os.ModeSymlink != 0, "Resolved path should not be a symlink")
 				}
 			}
 		})

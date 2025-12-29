@@ -25,11 +25,11 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	raerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 // KubernetesRA integrated with an external CA using Kubernetes CSR API
@@ -43,7 +43,7 @@ type KubernetesRA struct {
 	mutex sync.RWMutex
 }
 
-var pkiRaLog = log.RegisterScope("pkira", "Istiod RA log", 0)
+var pkiRaLog = log.RegisterScope("pkira", "Istiod RA log")
 
 // NewKubernetesRA : Create a RA that interfaces with K8S CSR CA
 func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
@@ -66,7 +66,7 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 ) ([]byte, error) {
 	certSignerDomain := r.certSignerDomain
 	if certSignerDomain == "" && certSigner != "" {
-		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is requiered for signer %s", certSigner))
+		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is required for signer %s", certSigner))
 	}
 	if certSignerDomain != "" && certSigner != "" {
 		certSigner = certSignerDomain + "/" + certSigner
@@ -127,7 +127,7 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 	if len(r.GetCAKeyCertBundle().GetRootCertPem()) == 0 {
 		rootCertFromCertChain, err = util.FindRootCertFromCertificateChainBytes(cert)
 		if err != nil {
-			return nil, raerror.NewError(raerror.CSRError, fmt.Errorf("failed to find root cert from signed cert-chain (%v)", err.Error()))
+			pkiRaLog.Infof("failed to find root cert from signed cert-chain (%v)", err.Error())
 		}
 		rootCertFromMeshConfig, err = r.GetRootCertFromMeshConfig(certSigner)
 		if err != nil {
@@ -142,7 +142,7 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 			return nil, raerror.NewError(raerror.CSRError, fmt.Errorf("failed to find root cert from either signed cert-chain or mesh config"))
 		}
 		if verifyErr := util.VerifyCertificate(nil, cert, possibleRootCert, nil); verifyErr != nil {
-			return nil, raerror.NewError(raerror.CSRError, fmt.Errorf("root cert from signed cert-chain is invalid %v ", verifyErr))
+			return nil, raerror.NewError(raerror.CSRError, fmt.Errorf("root cert from signed cert-chain is invalid (%v)", verifyErr))
 		}
 		if !bytes.Equal(possibleRootCert, rootCertFromCertChain) {
 			respCertChain = append(respCertChain, string(possibleRootCert))

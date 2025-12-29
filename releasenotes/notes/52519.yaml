@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 52519
+
+releaseNotes:
+- |
+  **Fixed** DestinationRules on same host but with different ExportTo can behave inconsistently, so stop merging the destinationRules when the exportTo attributes are totally different. If you want to toggle this behavior, you can set the `ENABLE_ENHANCED_DESTINATIONRULE_MERGE` environment variable to `false` in the pilot deployment.

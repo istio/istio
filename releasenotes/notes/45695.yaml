@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** a new `istioctl dashboard proxy` command, which can be used to show the admin UI of different proxy pods, like Envoy, Ztunnel, Waypoint.

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** warning if user specifies more than one Istio labels in the same namespace. Including istio-injection, istio.io/rev, istio.io/dataplane-mode.
+- |
+  **Improved** IST0123 warning message description.

@@ -1,11 +1,11 @@
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -24,28 +24,30 @@ spec:
       namespaces:
         from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: echo
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo
   rules:
   - backendRefs:
     - name: echo
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: dual # applies to mesh and explicit gateway
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: example
   - name: gateway
     namespace: istio-system
@@ -55,14 +57,15 @@ spec:
     - name: example
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: header
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo
   rules:
   - matches:
@@ -78,3 +81,91 @@ spec:
     backendRefs:
     - name: echo
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: echo-port
+  namespace: default
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: echo-port
+    port: 80
+  rules:
+  - backendRefs:
+    - name: echo
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: multi-service
+  namespace: default
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: echo-1
+    port: 80
+  - group: ""
+    kind: Service
+    name: echo-1
+    port: 8080
+  - group: ""
+    kind: Service
+    name: echo-2
+  rules:
+  - backendRefs:
+    - name: echo
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: consumer-override
+  namespace: default
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: httpbin-apple
+    namespace: apple
+    port: 80
+  rules:
+  - backendRefs:
+    - name: httpbin-apple
+      namespace: apple
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: tcp
+  namespace: default
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: echo-1
+  rules:
+    - backendRefs:
+        - name: echo
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: tls
+  namespace: default
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: echo-1
+  rules:
+    - backendRefs:
+        - name: echo
+          port: 80
+---

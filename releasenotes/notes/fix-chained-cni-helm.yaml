@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 43632
+  - 45034
+releaseNotes:
+- |
+  **Fixed** OpenShift profile setting `sidecarInjectorWebhook` causing `k8s.v1.cni.cncf.io/networks` to be overwritten when using multiple networks. 

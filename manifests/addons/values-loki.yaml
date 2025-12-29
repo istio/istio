@@ -1,0 +1,45 @@
+# use single binary and filesystem storage for test
+# do not use in production
+loki:
+  useTestSchema: true
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: 'filesystem'
+test:
+  enabled: false
+lokiCanary:
+  enabled: false
+monitoring:
+  dashboards:
+    enabled: false
+  rules:
+    enabled: false
+    alerting: false
+  serviceMonitor:
+    enabled: false
+    metricsInstance:
+      enabled: false
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+      enableConfigReadAPI: false
+  lokiCanary:
+    enabled: false
+resultsCache:
+  enabled: false
+chunksCache:
+  enabled: false
+singleBinary:
+  replicas: 1
+deploymentMode: SingleBinary
+gateway:
+  enabled: false
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0

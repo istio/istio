@@ -32,6 +32,12 @@ spec:
                 target:
                   type: Utilization
                   averageUtilization: 444
+            - type: Resource
+              resource:
+                name: memory
+                target:
+                  type: Utilization
+                  averageUtilization: 444
         readinessProbe:
           httpGet:
             path: /ready

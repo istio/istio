@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** an environment variable for istiod `PILOT_GATEWAY_API_DEFAULT_GATEWAYCLASS_NAME` that allows overriding the name of the default `GatewayClass` Gateway API resource. The default value is `istio`.
+  **Added** an environment variable for istiod `PILOT_GATEWAY_API_CONTROLLER_NAME` that allows overriding the name of the Istio Gateway API controller as exposed in the `spec.controllerName` field in the `GatewayClass` resource. The default value is `istio.io/gateway-controller`.

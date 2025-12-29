@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -21,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
@@ -36,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -53,7 +50,6 @@ var (
 func TestRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ratelimit.envoy").
 		Run(func(t framework.TestContext) {
 			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_ratelimit.yaml")
 			defer cleanup()
@@ -64,7 +60,6 @@ func TestRateLimiting(t *testing.T) {
 func TestLocalRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ratelimit.envoy").
 		Run(func(t framework.TestContext) {
 			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit.yaml")
 			defer cleanup()
@@ -75,7 +70,6 @@ func TestLocalRateLimiting(t *testing.T) {
 func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ratelimit.envoy").
 		Run(func(t framework.TestContext) {
 			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
 			defer cleanup()
@@ -86,7 +80,6 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 func TestLocalRateLimitingServiceAccount(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.ratelimit.envoy").
 		Run(func(t framework.TestContext) {
 			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit_sa.yaml")
 			defer cleanup()
@@ -116,7 +109,7 @@ func testSetup(ctx resource.Context) (err error) {
 		Inject: true,
 	})
 	if err != nil {
-		return
+		return err
 	}
 
 	_, err = deployment.New(ctx).
@@ -140,7 +133,7 @@ func testSetup(ctx resource.Context) (err error) {
 		}).
 		Build()
 	if err != nil {
-		return
+		return err
 	}
 
 	ing = ist.IngressFor(ctx.Clusters().Default())
@@ -149,28 +142,28 @@ func testSetup(ctx resource.Context) (err error) {
 		Prefix: "istio-ratelimit",
 	})
 	if err != nil {
-		return
+		return err
 	}
 
 	err = ctx.ConfigIstio().File(ratelimitNs.Name(), "testdata/rate-limit-configmap.yaml").Apply()
 	if err != nil {
-		return
+		return err
 	}
 
 	err = ctx.ConfigIstio().File(ratelimitNs.Name(), filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).
 		Apply()
 	if err != nil {
-		return
+		return err
 	}
 
 	// Wait for redis and ratelimit service to be up.
 	fetchFn := kube.NewPodFetch(ctx.Clusters().Default(), ratelimitNs.Name(), "app=redis")
 	if _, err = kube.WaitUntilPodsAreReady(fetchFn); err != nil {
-		return
+		return err
 	}
 	fetchFn = kube.NewPodFetch(ctx.Clusters().Default(), ratelimitNs.Name(), "app=ratelimit")
 	if _, err = kube.WaitUntilPodsAreReady(fetchFn); err != nil {
-		return
+		return err
 	}
 
 	return nil
@@ -201,20 +194,12 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 
 func sendTrafficAndCheckIfRatelimited(t framework.TestContext) {
 	t.Helper()
-	retry.UntilSuccessOrFail(t, func() error {
-		t.Logf("Sending 5 requests...")
-		httpOpts := echo.CallOptions{
-			To: srv,
-			Port: echo.Port{
-				Name: "http",
-			},
-			Count: 5,
-			Retry: echo.Retry{
-				NoRetry: true,
-			},
-		}
-
-		result, err := clt.Call(httpOpts)
-		return check.TooManyRequests().Check(result, err)
-	}, retry.Delay(10*time.Second), retry.Timeout(60*time.Second))
+	clt.CallOrFail(t, echo.CallOptions{
+		To: srv,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Count: 5,
+		Check: check.TooManyRequests(),
+	})
 }

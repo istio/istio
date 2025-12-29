@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+issue:
+  - 44985
+
+releaseNotes:
+  - |
+    **Added** support for K8s controller queue metrics, enabled by setting env variable `ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS` as `true`.

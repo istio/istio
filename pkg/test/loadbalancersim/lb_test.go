@@ -1,5 +1,4 @@
 //go:build lbsim
-// +build lbsim
 
 //  Copyright Istio Authors
 //

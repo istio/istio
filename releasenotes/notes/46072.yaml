@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** output format option for `istioctl experimental pre-check` command. Valid options are `log`, `json` or `yaml`.

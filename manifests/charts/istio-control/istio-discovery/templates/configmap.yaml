@@ -9,6 +9,22 @@
     # is processed as if it were declared in the leaf namespace.
     rootNamespace: {{ .Values.meshConfig.rootNamespace | default .Values.global.istioNamespace }}
 
+  {{ $prom := include "default-prometheus" . | eq "true" }}
+  {{ $sdMetrics := include "default-sd-metrics" . | eq "true" }}
+  {{ $sdLogs := include "default-sd-logs" . | eq "true" }}
+  {{- if or $prom $sdMetrics $sdLogs }}
+    defaultProviders:
+    {{- if or $prom $sdMetrics }}
+      metrics:
+      {{ if $prom }}- prometheus{{ end }}
+      {{ if and $sdMetrics $sdLogs }}- stackdriver{{ end }}
+    {{- end }}
+    {{- if and $sdMetrics $sdLogs }}
+      accessLogging:
+      - stackdriver
+    {{- end }}
+  {{- end }}
+
     defaultConfig:
       {{- if .Values.global.meshID }}
       meshId: "{{ .Values.global.meshID }}"
@@ -17,6 +33,7 @@
       image:
         imageType: {{. | quote}}
       {{- end }}
+      {{- if not (eq .Values.global.proxy.tracer "none") }}
       tracing:
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
         lightstep:
@@ -27,37 +44,26 @@
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         zipkin:
           # Address of the Zipkin collector
-          address: {{ .Values.global.tracer.zipkin.address | default (print "zipkin." .Values.global.istioNamespace ":9411") }}
+          address: {{ ((.Values.global.tracer).zipkin).address | default (print "zipkin." .Values.global.istioNamespace ":9411") }}
       {{- else if eq .Values.global.proxy.tracer "datadog" }}
         datadog:
           # Address of the Datadog Agent
-          address: {{ .Values.global.tracer.datadog.address | default "$(HOST_IP):8126" }}
+          address: {{ ((.Values.global.tracer).datadog).address | default "$(HOST_IP):8126" }}
       {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
         stackdriver:
           # enables trace output to stdout.
-        {{- if $.Values.global.tracer.stackdriver.debug }}
-          debug: {{ $.Values.global.tracer.stackdriver.debug }}
-        {{- end }}
-        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+          debug: {{ (($.Values.global.tracer).stackdriver).debug | default "false" }}
           # The global default max number of attributes per span.
-          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes | default "200" }}
-        {{- end }}
-        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+          maxNumberOfAttributes: {{ (($.Values.global.tracer).stackdriver).maxNumberOfAttributes | default "200" }}
           # The global default max number of annotation events per span.
-          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations | default "200" }}
-        {{- end }}
-        {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+          maxNumberOfAnnotations: {{ (($.Values.global.tracer).stackdriver).maxNumberOfAnnotations | default "200" }}
           # The global default max number of message events per span.
-          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents | default "200" }}
-        {{- end }}
-      {{- else if eq .Values.global.proxy.tracer "openCensusAgent" }}
-      {{/* Fill in openCensusAgent configuration from meshConfig so it isn't overwritten below */}}
-{{ toYaml $.Values.meshConfig.defaultConfig.tracing | indent 8 }}
-      {{- else }}
-        {}
+          maxNumberOfMessageEvents: {{ (($.Values.global.tracer).stackdriver).maxNumberOfMessageEvents | default "200" }}
+      {{- end }}
       {{- end }}
       {{- if .Values.global.remotePilotAddress }}
-      {{- if .Values.pilot.enabled }}
+      {{- if and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod }}
+      #  only primary `istiod` to xds and local `istiod` injection installs.
       discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
       {{- else }}
       discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012
@@ -72,17 +78,20 @@
 {{- $originalMesh := include "mesh" . | fromYaml }}
 {{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
 
-{{- if .Values.pilot.configMap }}
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
+{{- if .Values.configMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 data:
 
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
@@ -101,4 +110,5 @@ data:
 {{- include "mesh" . }}
 {{- end }}
 ---
+{{- end }}
 {{- end }}

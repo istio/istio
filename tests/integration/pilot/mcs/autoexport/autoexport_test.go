@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -25,7 +24,7 @@ import (
 	"time"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -57,7 +56,6 @@ func TestMain(m *testing.M) {
 
 func TestAutoExport(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.autoexport").
 		Run(func(ctx framework.TestContext) {
 			serviceExportGVR := common.KubeSettings(ctx).ServiceExportGVR()
 			// Verify that ServiceExport is created automatically for services.
@@ -65,13 +63,12 @@ func TestAutoExport(t *testing.T) {
 				func(ctx framework.TestContext) {
 					serviceB := match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 					for _, cluster := range serviceB.GetMatches(echos.Instances).Clusters() {
-						cluster := cluster
 						ctx.NewSubTest(cluster.StableName()).RunParallel(func(ctx framework.TestContext) {
 							// Verify that the ServiceExport was created.
 							ctx.NewSubTest("create").Run(func(ctx framework.TestContext) {
 								retry.UntilSuccessOrFail(ctx, func() error {
 									serviceExport, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace.Name()).Get(
-										context.TODO(), common.ServiceB, v1.GetOptions{})
+										context.TODO(), common.ServiceB, metav1.GetOptions{})
 									if err != nil {
 										return err
 									}
@@ -88,14 +85,14 @@ func TestAutoExport(t *testing.T) {
 							// Delete the echo Service and verify that the ServiceExport is automatically removed.
 							ctx.NewSubTest("delete").Run(func(ctx framework.TestContext) {
 								err := cluster.Kube().CoreV1().Services(echos.Namespace.Name()).Delete(
-									context.TODO(), common.ServiceB, v1.DeleteOptions{})
+									context.TODO(), common.ServiceB, metav1.DeleteOptions{})
 								if err != nil {
 									ctx.Fatalf("failed deleting service %s/%s in cluster %s: %v",
 										echos.Namespace, common.ServiceB, cluster.Name(), err)
 								}
 								retry.UntilSuccessOrFail(t, func() error {
 									_, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace.Name()).Get(
-										context.TODO(), common.ServiceB, v1.GetOptions{})
+										context.TODO(), common.ServiceB, metav1.GetOptions{})
 
 									if err != nil && k8sErrors.IsNotFound(err) {
 										// Success! We automatically removed the ServiceExport when the Service
@@ -119,10 +116,9 @@ func TestAutoExport(t *testing.T) {
 			ctx.NewSubTest("non-exported").RunParallel(func(ctx framework.TestContext) {
 				ns := "kube-system"
 				for i, cluster := range ctx.Clusters() {
-					cluster := cluster
 					ctx.NewSubTest(strconv.Itoa(i)).RunParallel(func(ctx framework.TestContext) {
 						services, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(ns).List(
-							context.TODO(), v1.ListOptions{})
+							context.TODO(), metav1.ListOptions{})
 						if err != nil {
 							ctx.Fatal(err)
 						}

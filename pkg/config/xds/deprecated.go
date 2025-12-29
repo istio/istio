@@ -14,7 +14,7 @@
 
 package xds
 
-import "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+import "istio.io/istio/pkg/wellknown"
 
 var (
 	// DeprecatedFilterNames is to support both canonical filter names
@@ -37,11 +37,11 @@ var (
 		wellknown.HTTPRateLimit:               "envoy.rate_limit",
 		wellknown.Router:                      "envoy.router",
 		wellknown.Squash:                      "envoy.squash",
-		wellknown.HttpInspector:               "envoy.listener.http_inspector",
+		wellknown.HTTPInspector:               "envoy.listener.http_inspector",
 		wellknown.OriginalDestination:         "envoy.listener.original_dst",
 		"envoy.filters.listener.original_src": "envoy.listener.original_src",
 		wellknown.ProxyProtocol:               "envoy.listener.proxy_protocol",
-		wellknown.TlsInspector:                "envoy.listener.tls_inspector",
+		wellknown.TLSInspector:                "envoy.listener.tls_inspector",
 		wellknown.ClientSSLAuth:               "envoy.client_ssl_auth",
 		wellknown.ExternalAuthorization:       "envoy.ext_authz",
 		wellknown.HTTPConnectionManager:       "envoy.http_connection_manager",

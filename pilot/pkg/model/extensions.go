@@ -20,11 +20,13 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	envoyWasmFilterV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	envoyExtensionsWasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"google.golang.org/protobuf/types/known/anypb"
+	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
+	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	typeapi "istio.io/api/type/v1beta1"
@@ -32,7 +34,8 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/gvk"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -41,12 +44,13 @@ const (
 	fileScheme     = "file"
 	ociScheme      = "oci"
 
-	// name of environment variable at Wasm VM, which will carry the Wasm image pull secret.
-	WasmSecretEnv = "ISTIO_META_WASM_IMAGE_PULL_SECRET"
-	// name of environment variable at Wasm VM, which will carry the Wasm image pull policy.
-	WasmPolicyEnv = "ISTIO_META_WASM_IMAGE_PULL_POLICY"
-	// name of environment variable at Wasm VM, which will carry the resource version of WasmPlugin.
-	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
+	WasmSecretEnv          = pm.WasmSecretEnv
+	WasmPolicyEnv          = pm.WasmPolicyEnv
+	WasmResourceVersionEnv = pm.WasmResourceVersionEnv
+
+	// WasmPluginResourceNamePrefix is the prefix of the resource name of WasmPlugin,
+	// preventing the name collision with other resources.
+	WasmPluginResourceNamePrefix = "extensions.istio.io/wasmplugin/"
 )
 
 // This function determines if a resource is accessible to a given namespace.
@@ -54,6 +58,27 @@ const (
 // this would return true only if there was a policy allowing "foo" to access wasm-secret in
 // the "istio-system" namespace.
 type ResourceReferenceAllowed func(string, string) bool
+
+// WasmPluginType defines the type of wasm plugin
+type WasmPluginType int
+
+const (
+	WasmPluginTypeHTTP WasmPluginType = iota
+	WasmPluginTypeNetwork
+	WasmPluginTypeAny
+)
+
+func fromPluginType(pluginType extensions.PluginType) WasmPluginType {
+	switch pluginType {
+	case extensions.PluginType_HTTP:
+		return WasmPluginTypeHTTP
+	case extensions.PluginType_NETWORK:
+		return WasmPluginTypeNetwork
+	case extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE:
+		return WasmPluginTypeHTTP // Return HTTP as default for backward compatibility.
+	}
+	return WasmPluginTypeHTTP
+}
 
 func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
 	switch class {
@@ -73,21 +98,106 @@ func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.W
 type WasmPluginWrapper struct {
 	*extensions.WasmPlugin
 
-	Name         string
-	Namespace    string
-	ResourceName string
-
-	WasmExtensionConfig *envoyWasmFilterV3.Wasm
+	Name            string
+	Namespace       string
+	ResourceName    string
+	ResourceVersion string
 }
 
-func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li WasmPluginListenerInfo) bool {
-	workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(proxyLabels))
-	return workloadMatch && matchTrafficSelectors(p.Match, li)
+func (p *WasmPluginWrapper) MatchListener(matcher WorkloadPolicyMatcher, li WasmPluginListenerInfo) bool {
+	if matcher.ShouldAttachPolicy(gvk.WasmPlugin, p.NamespacedName(), p) {
+		return matchTrafficSelectors(p.Match, li)
+	}
+
+	// If it doesn't match one of the above cases, the plugin is not bound to this workload
+	return false
+}
+
+func (p *WasmPluginWrapper) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Name: p.Name, Namespace: p.Namespace}
+}
+
+func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
+	return pluginType == WasmPluginTypeAny || pluginType == fromPluginType(p.WasmPlugin.Type)
+}
+
+func (p *WasmPluginWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
+	if !(p.Type == extensions.PluginType_HTTP || p.Type == extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE) {
+		return nil
+	}
+	return &httpwasm.Wasm{
+		Config: p.buildPluginConfig(),
+	}
+}
+
+func (p *WasmPluginWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
+	if p.Type != extensions.PluginType_NETWORK {
+		return nil
+	}
+	return &networkwasm.Wasm{
+		Config: p.buildPluginConfig(),
+	}
+}
+
+func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
+	cfg := &anypb.Any{}
+	plugin := p.WasmPlugin
+	if plugin.PluginConfig != nil && len(plugin.PluginConfig.Fields) > 0 {
+		cfgJSON, err := protomarshal.ToJSON(plugin.PluginConfig)
+		if err != nil {
+			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", p.Namespace, p.Name, err)
+			return nil
+		}
+		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
+			Value: cfgJSON,
+		})
+	}
+
+	u, err := url.Parse(plugin.Url)
+	if err != nil {
+		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", p.Namespace, p.Name, err)
+		return nil
+	}
+	// when no scheme is given, default to oci://
+	if u.Scheme == "" {
+		u.Scheme = ociScheme
+	}
+
+	datasource := buildDataSource(u, plugin)
+	resourceName := p.Namespace + "." + p.Name
+
+	wasmConfig := &wasmextensions.PluginConfig{
+		Name:          resourceName,
+		RootId:        plugin.PluginName,
+		Configuration: cfg,
+		Vm:            buildVMConfig(datasource, p.ResourceVersion, plugin),
+	}
+
+	switch plugin.FailStrategy {
+	case extensions.FailStrategy_FAIL_OPEN:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
+	case extensions.FailStrategy_FAIL_CLOSE:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
+	case extensions.FailStrategy_FAIL_RELOAD:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_RELOAD
+	}
+	return wasmConfig
 }
 
 type WasmPluginListenerInfo struct {
 	Port  int
 	Class istionetworking.ListenerClass
+
+	// Service that WasmPlugins can attach to via targetRefs (optional)
+	Services []*Service
+}
+
+func (listenerInfo WasmPluginListenerInfo) WithService(service *Service) WasmPluginListenerInfo {
+	if service == nil {
+		return listenerInfo
+	}
+	listenerInfo.Services = append(listenerInfo.Services, service)
+	return listenerInfo
 }
 
 // If anyListener is used as a listener info,
@@ -142,16 +252,12 @@ func convertToWasmPluginWrapper(originPlugin config.Config, secretAllowed Resour
 		return nil
 	}
 
-	cfg := &anypb.Any{}
 	if wasmPlugin.PluginConfig != nil && len(wasmPlugin.PluginConfig.Fields) > 0 {
-		cfgJSON, err := protomarshal.ToJSON(wasmPlugin.PluginConfig)
+		_, err := protomarshal.ToJSON(wasmPlugin.PluginConfig)
 		if err != nil {
 			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
-		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
-			Value: cfgJSON,
-		})
 	}
 
 	u, err := url.Parse(wasmPlugin.Url)
@@ -165,26 +271,12 @@ func convertToWasmPluginWrapper(originPlugin config.Config, secretAllowed Resour
 	}
 	// Normalize the image pull secret to the full resource name.
 	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace, secretAllowed)
-	datasource := buildDataSource(u, wasmPlugin)
-	resourceName := plugin.Namespace + "." + plugin.Name
-	wasmExtensionConfig := &envoyWasmFilterV3.Wasm{
-		Config: &envoyExtensionsWasmV3.PluginConfig{
-			Name:          resourceName,
-			RootId:        wasmPlugin.PluginName,
-			Configuration: cfg,
-			Vm:            buildVMConfig(datasource, plugin.ResourceVersion, wasmPlugin),
-		},
-	}
-	if err != nil {
-		log.Warnf("WasmPlugin %s/%s failed to marshal to TypedExtensionConfig: %s", plugin.Namespace, plugin.Name, err)
-		return nil
-	}
 	return &WasmPluginWrapper{
-		Name:                plugin.Name,
-		Namespace:           plugin.Namespace,
-		ResourceName:        resourceName,
-		WasmPlugin:          wasmPlugin,
-		WasmExtensionConfig: wasmExtensionConfig,
+		Name:            plugin.Name,
+		Namespace:       plugin.Namespace,
+		ResourceName:    WasmPluginResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
+		WasmPlugin:      wasmPlugin,
+		ResourceVersion: plugin.ResourceVersion,
 	}
 }
 
@@ -232,9 +324,9 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *core.AsyncD
 			Remote: &core.RemoteDataSource{
 				HttpUri: &core.HttpUri{
 					Uri:     u.String(),
-					Timeout: durationpb.New(30 * time.Second),
+					Timeout: durationpb.New(30 * time.Second), // TODO: make this configurable?
 					HttpUpstreamType: &core.HttpUri_Cluster{
-						// this will be fetched by the agent anyway, so no need for a cluster
+						// the agent will fetch this anyway, so no need for a cluster
 						Cluster: "_",
 					},
 				},
@@ -248,12 +340,12 @@ func buildVMConfig(
 	datasource *core.AsyncDataSource,
 	resourceVersion string,
 	wasmPlugin *extensions.WasmPlugin,
-) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
-	cfg := &envoyExtensionsWasmV3.PluginConfig_VmConfig{
-		VmConfig: &envoyExtensionsWasmV3.VmConfig{
+) *wasmextensions.PluginConfig_VmConfig {
+	cfg := &wasmextensions.PluginConfig_VmConfig{
+		VmConfig: &wasmextensions.VmConfig{
 			Runtime: defaultRuntime,
 			Code:    datasource,
-			EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+			EnvironmentVariables: &wasmextensions.EnvironmentVariables{
 				KeyValues: map[string]string{},
 			},
 		},

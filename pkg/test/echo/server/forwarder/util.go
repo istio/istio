@@ -28,17 +28,17 @@ import (
 	"golang.org/x/net/proxy"
 
 	"istio.io/istio/pkg/hbone"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
-	"istio.io/pkg/log"
 )
 
 const (
 	hostHeader = "Host"
 )
 
-var fwLog = log.RegisterScope("forwarder", "echo clientside", 0)
+var fwLog = log.RegisterScope("forwarder", "echo clientside")
 
 func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header) {
 	for key, values := range header {
@@ -48,7 +48,35 @@ func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header)
 	}
 }
 
+type SpecificVersionDialer struct {
+	network string
+	inner   hbone.Dialer
+}
+
+func (s SpecificVersionDialer) Dial(network, addr string) (c net.Conn, err error) {
+	return s.DialContext(context.Background(), network, addr)
+}
+
+func (s SpecificVersionDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return s.inner.DialContext(ctx, s.network, address)
+}
+
+var _ hbone.Dialer = SpecificVersionDialer{}
+
 func newDialer(cfg *Config) hbone.Dialer {
+	// Double HBONE takes higher precedence than single HBONE
+	if cfg.Request.DoubleHbone.GetAddress() != "" {
+		return hbone.NewDoubleDialer(hbone.Config{
+			ProxyAddress: cfg.Request.DoubleHbone.GetAddress(),
+			Headers:      cfg.hboneHeaders,
+			TLS:          cfg.hboneTLSConfig,
+		},
+			hbone.Config{
+				ProxyAddress: cfg.Request.Hbone.GetAddress(),
+				Headers:      cfg.hboneHeaders,
+				TLS:          cfg.innerHboneTLSConfig,
+			}, cfg.innerHboneTLSConfig)
+	}
 	if cfg.Request.Hbone.GetAddress() != "" {
 		out := hbone.NewDialer(hbone.Config{
 			ProxyAddress: cfg.Request.Hbone.GetAddress(),
@@ -65,10 +93,17 @@ func newDialer(cfg *Config) hbone.Dialer {
 	out := &net.Dialer{
 		Timeout: common.ConnectionTimeout,
 	}
+
 	if cfg.forceDNSLookup {
 		out.Resolver = newResolver(common.ConnectionTimeout, "", "")
 	}
-	return out
+	if ipf := cfg.Request.ForceIpFamily; ipf != "" {
+		return proxy.FromEnvironmentUsing(SpecificVersionDialer{
+			network: ipf,
+			inner:   out,
+		}).(hbone.Dialer)
+	}
+	return proxy.FromEnvironmentUsing(out).(hbone.Dialer)
 }
 
 func newResolver(timeout time.Duration, protocol, dnsServer string) *net.Resolver {
@@ -107,20 +142,12 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 		sleepTime := time.Second / time.Duration(qps)
 		fwLog.Debugf("Sleeping %v between requests", sleepTime)
 		throttle = time.NewTicker(sleepTime)
+		defer throttle.Stop()
 	}
 
 	g := e.NewGroup()
 	for index := 0; index < cfg.count; index++ {
-		index := index
-		if throttle != nil {
-			select {
-			case <-ctx.Done():
-				break
-			case <-throttle.C:
-			}
-		}
-
-		g.Go(ctx, func() error {
+		workFn := func() error {
 			st := time.Now()
 			resp, err := doReq(ctx, cfg, index)
 			if err != nil {
@@ -134,7 +161,20 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 			responseTimes[index] = time.Since(st)
 			responsesMu.Unlock()
 			return nil
-		})
+		}
+		if throttle != nil {
+			select {
+			case <-ctx.Done():
+				break
+			case <-throttle.C:
+			}
+		}
+
+		if cfg.PropagateResponse != nil {
+			workFn() // nolint: errcheck
+		} else {
+			g.Go(ctx, workFn)
+		}
 	}
 
 	// Convert the result of the wait into a channel.

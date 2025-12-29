@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 45415
+
+releaseNotes:
+  - |
+    **Fixed** a bug where overlapping wildcard hosts in a VirtualService would produce incorrect routing configuration when wildcard services were selected (e.g. in ServiceEntries).
+
+upgradeNotes:
+  - title: Overlapping Wildcard Conflicts
+    content: |
+      This fix changes the behavior of overlapping wildcard hosts in VirtualService. Previously, the oldest VirtualService would take precedence
+      regardless of whether or not it was the most specific host match. Now, the most specific host match will take precedence. To persist the old behavior,
+      set the `PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING` environment variable to `true` on istiod.

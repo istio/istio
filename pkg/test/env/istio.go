@@ -21,8 +21,9 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -45,6 +46,10 @@ var (
 	// TAG is the Docker tag to be used for images.
 	// nolint: revive, stylecheck
 	TAG Variable = "TAG"
+
+	// VARIANT is the Docker variant to be used for images.
+	// nolint: revive, stylecheck
+	VARIANT Variable = "VARIANT"
 
 	// PULL_POLICY is the image pull policy to use when rendering templates.
 	// nolint: revive, stylecheck
@@ -75,9 +80,6 @@ var (
 
 	// OtelCollectorInstallFilePath is the OpenTelemetry installation file.
 	OtelCollectorInstallFilePath = path.Join(IstioSrc, getSampleFile("open-telemetry/otel.yaml"))
-
-	// StackdriverInstallFilePath is the stackdriver installation file.
-	StackdriverInstallFilePath = path.Join(IstioSrc, getInstallationFile("stackdriver/stackdriver.yaml"))
 
 	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
 	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("gcemetadata/gce_metadata_server.yaml"))
@@ -129,7 +131,7 @@ func CheckFileExists(path string) error {
 	return nil
 }
 
-func ReadProxySHA() (string, error) {
+func ReadDepsSHA(name string) (string, error) {
 	type DepsFile struct {
 		Name          string `json:"name"`
 		LastStableSHA string `json:"lastStableSHA"`
@@ -144,9 +146,20 @@ func ReadProxySHA() (string, error) {
 		return "", err
 	}
 	for _, d := range deps {
-		if d.Name == "PROXY_REPO_SHA" {
+		if d.Name == name {
 			return d.LastStableSHA, nil
 		}
 	}
-	return "", fmt.Errorf("PROXY_REPO_SHA not found")
+	return "", fmt.Errorf("%s not found", name)
+}
+
+// ReadVersion returns the contents of the $ROOTDIR/VERSION file
+func ReadVersion() (string, error) {
+	f := filepath.Join(IstioSrc, "VERSION")
+	v, err := os.ReadFile(f)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSuffix(string(v), "\n"), nil
 }

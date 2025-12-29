@@ -20,10 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/cni/pkg/config"
-	"istio.io/istio/cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/file"
-	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -33,16 +30,15 @@ const (
 	saToken        = "service_account_token_string"
 )
 
-func TestCreateKubeconfigFile(t *testing.T) {
+func TestCreateValidKubeconfigFile(t *testing.T) {
+	tmp := t.TempDir()
+	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
 	cases := []struct {
 		name               string
 		expectedFailure    bool
-		kubeconfigFilename string
-		kubeconfigMode     int
 		k8sServiceProtocol string
 		k8sServiceHost     string
 		k8sServicePort     string
-		saToken            string
 		kubeCAFilepath     string
 		skipTLSVerify      bool
 	}{
@@ -56,22 +52,16 @@ func TestCreateKubeconfigFile(t *testing.T) {
 			k8sServiceHost:  k8sServiceHost,
 		},
 		{
-			name:               "skip TLS verify",
-			kubeconfigFilename: "istio-cni-kubeconfig",
-			kubeconfigMode:     constants.DefaultKubeconfigMode,
-			k8sServiceHost:     k8sServiceHost,
-			k8sServicePort:     k8sServicePort,
-			saToken:            saToken,
-			skipTLSVerify:      true,
+			name:           "skip TLS verify",
+			k8sServiceHost: k8sServiceHost,
+			k8sServicePort: k8sServicePort,
+			skipTLSVerify:  true,
 		},
 		{
-			name:               "TLS verify",
-			kubeconfigFilename: "istio-cni-kubeconfig",
-			kubeconfigMode:     constants.DefaultKubeconfigMode,
-			k8sServiceHost:     k8sServiceHost,
-			k8sServicePort:     k8sServicePort,
-			saToken:            saToken,
-			kubeCAFilepath:     kubeCAFilepath,
+			name:           "TLS verify",
+			k8sServiceHost: k8sServiceHost,
+			k8sServicePort: k8sServicePort,
+			kubeCAFilepath: kubeCAFilepath,
 		},
 	}
 
@@ -81,58 +71,68 @@ func TestCreateKubeconfigFile(t *testing.T) {
 			tempDir := t.TempDir()
 
 			cfg := &config.InstallConfig{
-				MountedCNINetDir:   tempDir,
-				KubeconfigFilename: c.kubeconfigFilename,
-				KubeconfigMode:     c.kubeconfigMode,
-				KubeCAFile:         c.kubeCAFilepath,
-				K8sServiceProtocol: c.k8sServiceProtocol,
-				K8sServiceHost:     c.k8sServiceHost,
-				K8sServicePort:     c.k8sServicePort,
-				SkipTLSVerify:      c.skipTLSVerify,
+				MountedCNINetDir:      tempDir,
+				KubeCAFile:            c.kubeCAFilepath,
+				K8sServiceProtocol:    c.k8sServiceProtocol,
+				K8sServiceHost:        c.k8sServiceHost,
+				K8sServicePort:        c.k8sServicePort,
+				K8sServiceAccountPath: tmp,
+				SkipTLSVerify:         c.skipTLSVerify,
 			}
-			resultFilepath, err := createKubeconfigFile(cfg, c.saToken)
+			result, err := createKubeConfig(cfg)
 			if err != nil {
-				assert.Equal(t, resultFilepath, "")
 				if !c.expectedFailure {
 					t.Fatalf("did not expect failure: %v", err)
 				}
 				// Successful test case expecting failure
 				return
 			} else if c.expectedFailure {
-				t.Fatalf("expected failure")
+				t.Fatal("expected failure")
 			}
 
-			if len(resultFilepath) == 0 {
-				t.Fatalf("received empty filepath result, expected a kubeconfig filepath")
-			}
-
-			expectedFilepath := filepath.Join(tempDir, c.kubeconfigFilename)
-			if resultFilepath != expectedFilepath {
-				t.Fatalf("expected %s, got %s", expectedFilepath, resultFilepath)
-			}
-
-			if !file.Exists(resultFilepath) {
-				t.Fatalf("kubeconfig file does not exist: %s", resultFilepath)
-			}
-
-			info, err := os.Stat(resultFilepath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if info.Mode() != os.FileMode(c.kubeconfigMode) {
-				t.Fatalf("kubeconfig file mode incorrectly set: expected: %#o, got: %#o", os.FileMode(c.kubeconfigMode), info.Mode())
-			}
-
-			var goldenFilepath string
+			goldenFilepath := "testdata/kubeconfig-tls"
 			if c.skipTLSVerify {
 				goldenFilepath = "testdata/kubeconfig-skip-tls"
-			} else {
-				goldenFilepath = "testdata/kubeconfig-tls"
 			}
 
-			goldenConfig := testutils.ReadFile(t, goldenFilepath)
-			resultConfig := testutils.ReadFile(t, resultFilepath)
-			testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
+			testutils.CompareContent(t, []byte(result.Full), goldenFilepath)
 		})
 	}
+}
+
+func TestReplaceInvalidKubeconfigFile(t *testing.T) {
+	tmp := t.TempDir()
+	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
+	tempDir := t.TempDir()
+
+	cfg := &config.InstallConfig{
+		MountedCNINetDir:      tempDir,
+		KubeCAFile:            kubeCAFilepath,
+		K8sServiceHost:        k8sServiceHost,
+		K8sServicePort:        k8sServicePort,
+		K8sServiceAccountPath: tmp,
+	}
+	// Write out a kubeconfig with one cert
+	result, err := createKubeConfig(cfg)
+	if err != nil {
+		t.Fatalf("did not expect failure: %v", err)
+	}
+	goldenFilepath := "testdata/kubeconfig-tls"
+	testutils.CompareContent(t, []byte(result.Full), goldenFilepath)
+
+	newk8sServiceHost := "50.76.2.1"
+	newCfg := &config.InstallConfig{
+		MountedCNINetDir:      tempDir,
+		KubeCAFile:            kubeCAFilepath,
+		K8sServiceHost:        newk8sServiceHost,
+		K8sServicePort:        k8sServicePort,
+		K8sServiceAccountPath: tmp,
+	}
+	// Write out a kubeconfig with one cert
+	result, err = createKubeConfig(newCfg)
+	if err != nil {
+		t.Fatalf("did not expect failure: %v", err)
+	}
+	goldenNewFilepath := "testdata/kubeconfig-newhost"
+	testutils.CompareContent(t, []byte(result.Full), goldenNewFilepath)
 }

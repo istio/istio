@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue: [46977]
+releaseNotes:
+  - |
+    **Fixed** an issue in control plane metrics causing gauge types to emit zero values without labels in addition to the expected metrics. 

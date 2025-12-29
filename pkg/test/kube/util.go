@@ -17,7 +17,7 @@ package kube
 import (
 	"context"
 	"fmt"
-	"sort"
+	"net"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -35,10 +36,17 @@ import (
 var (
 	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
 	defaultRetryDelay   = retry.BackoffDelay(time.Millisecond * 200)
+
+	ErrNoPodsFetched = fmt.Errorf("no pods fetched")
 )
 
-// PodFetchFunc fetches pods from a k8s Client.
-type PodFetchFunc func() ([]corev1.Pod, error)
+type (
+	// PodFetchFunc fetches pods from a k8s Client.
+	PodFetchFunc func() ([]corev1.Pod, error)
+
+	// SvcFetchFunc fetches services from a k8s Client.
+	SvcFetchFunc func() ([]corev1.Service, error)
+)
 
 // NewPodFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
 func NewPodFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
@@ -98,7 +106,7 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
 
 	if len(fetched) == 0 {
 		scopes.Framework.Infof("No pods found...")
-		return nil, fmt.Errorf("no pods fetched")
+		return nil, ErrNoPodsFetched
 	}
 
 	for i, p := range fetched {
@@ -115,6 +123,17 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
 	}
 
 	return fetched, nil
+}
+
+// NewServiceFetch creates a new ServiceFetchFunction that fetches all services matching the namespace and label selectors.
+func NewServiceFetch(a istioKube.CLIClient, namespace string, selectors ...string) SvcFetchFunc {
+	return func() ([]corev1.Service, error) {
+		services, err := a.ServicesForSelector(context.TODO(), namespace, selectors...)
+		if err != nil {
+			return nil, err
+		}
+		return services.Items, nil
+	}
 }
 
 // DeleteOptionsForeground creates new delete options that will block until the operation completes.
@@ -146,6 +165,8 @@ func WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]core
 
 // WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
 // one usable endpoint.
+// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+// nolint: staticcheck
 func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name string,
 	opts ...retry.Option,
 ) (*corev1.Service, *corev1.Endpoints, error) {
@@ -179,6 +200,30 @@ func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name s
 	}
 
 	return service, endpoints, nil
+}
+
+func WaitUntilServiceLoadBalancerReady(a kubernetes.Interface, ns string, name string, opts ...retry.Option) (string, error) {
+	var addr string
+	err := retry.UntilSuccess(func() error {
+		s, err := a.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if len(s.Status.LoadBalancer.Ingress) == 0 {
+			return fmt.Errorf("no LB assigned")
+		}
+		lb := s.Status.LoadBalancer.Ingress[0]
+		if lb.IP != "" {
+			addr = lb.IP
+			return nil
+		}
+		if lb.Hostname != "" {
+			addr = lb.Hostname
+			return nil
+		}
+		return fmt.Errorf("unexpected LoadBalancer %v", lb)
+	}, newRetryOptions(opts...)...)
+	return addr, err
 }
 
 // WaitForSecretToExist waits for the given secret up to the given waitTime.
@@ -262,18 +307,12 @@ func MutatingWebhookConfigurationsExists(a kubernetes.Interface, names []string)
 		return false
 	}
 
-	if len(cfgs.Items) != len(names) {
-		return false
-	}
-
-	sort.Strings(names)
+	var existing []string
 	for _, cfg := range cfgs.Items {
-		if idx := sort.SearchStrings(names, cfg.Name); idx == len(names) {
-			return false
-		}
+		existing = append(existing, cfg.Name)
 	}
 
-	return true
+	return checkAllNamesExist(names, existing)
 }
 
 // ValidatingWebhookConfigurationsExists returns true if all the given validating webhook configs exist.
@@ -283,16 +322,64 @@ func ValidatingWebhookConfigurationsExists(a kubernetes.Interface, names []strin
 		return false
 	}
 
-	if len(cfgs.Items) != len(names) {
+	var existing []string
+	for _, cfg := range cfgs.Items {
+		existing = append(existing, cfg.Name)
+	}
+
+	return checkAllNamesExist(names, existing)
+}
+
+func checkAllNamesExist(names []string, haystack []string) bool {
+	if len(haystack) < len(names) {
 		return false
 	}
 
-	sort.Strings(names)
-	for _, cfg := range cfgs.Items {
-		if idx := sort.SearchStrings(names, cfg.Name); idx == len(names) {
+	for _, name := range names {
+		if !slices.Contains(haystack, name) {
 			return false
 		}
 	}
 
 	return true
+}
+
+// Resolve domain name and return ip address.
+// By default, return ipv4 address and if missing, return ipv6.
+func resolveHostDomainToIP(hostDomain string) (string, error) {
+	ips, err := net.LookupIP(hostDomain)
+	if err != nil {
+		return "", err
+	}
+
+	var ipv6Addr string
+
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			return ip.String(), nil
+		} else if ipv6Addr == "" {
+			ipv6Addr = ip.String()
+		}
+	}
+
+	if ipv6Addr != "" {
+		return ipv6Addr, nil
+	}
+
+	return "", fmt.Errorf("no IP address found for hostname: %s", hostDomain)
+}
+
+// When the Ingress is a domain name (in public cloud), it might take a bit of time to make it reachable.
+func WaitUntilReachableIngress(hostDomain string) (string, error) {
+	var ip string
+	err := retry.UntilSuccess(func() error {
+		ipAddr, err := resolveHostDomainToIP(hostDomain)
+		if err != nil {
+			return err
+		}
+		ip = ipAddr
+		return nil
+	}, retry.Timeout(90*time.Second), retry.BackoffDelay(1*time.Second))
+
+	return ip, err
 }

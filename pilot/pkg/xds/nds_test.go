@@ -23,14 +23,21 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestNDS(t *testing.T) {
+	// The "auto allocate" test only needs a special case for the legacy auto allocation mode, so we disable the new one here
+	// and only test the old one. The new one appears identically to manually-allocated SE from NDS perspective.
+	test.SetForTest(t, &features.EnableIPAutoallocate, false)
 	cases := []struct {
 		name     string
 		meta     model.NodeMetadata
@@ -45,7 +52,7 @@ func TestNDS(t *testing.T) {
 			expected: &dnsProto.NameTable{
 				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"random-1.host.example": {
-						Ips:      []string{"240.240.114.167"},
+						Ips:      []string{"240.240.116.21"},
 						Registry: "External",
 					},
 					"random-2.host.example": {
@@ -53,7 +60,7 @@ func TestNDS(t *testing.T) {
 						Registry: "External",
 					},
 					"random-3.host.example": {
-						Ips:      []string{"240.240.48.215"},
+						Ips:      []string{"240.240.81.100"},
 						Registry: "External",
 					},
 				},
@@ -95,7 +102,7 @@ func TestNDS(t *testing.T) {
 				return
 			}
 			if len(nt.Table) == 0 {
-				t.Fatalf("expected more than 0 entries in name table")
+				t.Fatal("expected more than 0 entries in name table")
 			}
 			if diff := cmp.Diff(nt, tt.expected, protocmp.Transform()); diff != "" {
 				t.Fatalf("name table does not match expected value:\n %v", diff)
@@ -120,20 +127,20 @@ func TestGenerate(t *testing.T) {
 		{
 			name:      "partial push with headless endpoint update",
 			proxy:     &model.Proxy{Type: model.SidecarProxy},
-			request:   &model.PushRequest{Reason: []model.TriggerReason{model.HeadlessEndpointUpdate}},
+			request:   &model.PushRequest{Reason: model.NewReasonStats(model.HeadlessEndpointUpdate), Forced: true},
 			nameTable: emptyNameTable,
 		},
 		{
 			name:      "full push",
 			proxy:     &model.Proxy{Type: model.SidecarProxy},
-			request:   &model.PushRequest{Full: true},
+			request:   &model.PushRequest{Full: true, Forced: true},
 			nameTable: emptyNameTable,
 		},
 		{
 			name:      "partial push with no headless endpoint update",
 			proxy:     &model.Proxy{Type: model.SidecarProxy},
-			request:   &model.PushRequest{},
-			nameTable: nil,
+			request:   &model.PushRequest{Forced: true},
+			nameTable: emptyNameTable,
 		},
 	}
 	for _, tt := range cases {
@@ -141,12 +148,12 @@ func TestGenerate(t *testing.T) {
 			if tt.proxy.Metadata == nil {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
-			tt.proxy.Metadata.ClusterID = "Kubernetes"
+			tt.proxy.Metadata.ClusterID = constants.DefaultClusterName
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 			gen := s.Discovery.Generators[v3.NameTableType]
 			tt.request.Start = time.Now()
-			nametable, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: tt.resources}, tt.request)
+			nametable, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: sets.New(tt.resources...)}, tt.request)
 			if len(tt.nameTable) == 0 {
 				if len(nametable) != 0 {
 					t.Errorf("unexpected nametable. want: %v, got: %v", tt.nameTable, nametable)

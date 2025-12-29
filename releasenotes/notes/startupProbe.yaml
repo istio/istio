@@ -1,0 +1,45 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 32569
+
+releaseNotes:
+  - |
+    **Added** a `startupProbe` by default for the sidecar. This optimizes startup time and minimizes load throughout the pod lifecycle. See Upgrade Notes for more information.
+
+upgradeNotes:
+  - title: StartupProbe added to sidecar by default
+    content: |
+      The sidecar container now comes with a `startupProbe` enabled by default. 
+      Startup probes run only at the start of the pod. Once the startup probe completes, readiness probes will continue.
+      
+      By using a startup probe, we can poll for the sidecar to start more aggressively, without polling as aggressively throughout
+      the entire pod's lifecycle.
+      On average, this improves pod startup time by roughly 1s.
+      
+      If the startup probe does not pass after 10 minutes, the pod will be terminated.
+      Previously, the pod would never be terminated even if it was unable to start indefinitely.
+      
+      If you do not want this feature, it can be disabled. However, you will want to tune the readiness probe with it.
+      
+      The recommended values with the startup probe enabled (the new defaults):
+      
+      ```
+      readinessInitialDelaySeconds: 0
+      readinessPeriodSeconds: 15
+      readinessFailureThreshold: 4
+      startupProbe:
+        enabled: true
+        failureThreshold: 600
+      ```
+      
+      The recommended values to disable the startup probe (reverting the behavior to match older Istio versions):
+      
+      ```
+      readinessInitialDelaySeconds: 1
+      readinessPeriodSeconds: 2
+      readinessFailureThreshold: 30
+      startupProbe:
+        enabled: false
+      ```

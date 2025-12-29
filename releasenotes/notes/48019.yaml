@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Removed** support for `policy/v1beta1` API version of `PodDisruptionBudget`.

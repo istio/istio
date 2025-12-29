@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue causing waypoints to downgrade HTTP2 traffic to HTTP/1.1 if the port was not explicitly declared as `http2`.

@@ -21,10 +21,10 @@ import (
 	"strconv"
 	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-var epLog = log.RegisterScope("endpoint", "echo serverside", 0)
+var epLog = log.RegisterScope("endpoint", "echo serverside")
 
 const (
 	requestTimeout = 15 * time.Second
@@ -103,5 +103,8 @@ func forceClose(conn net.Conn) error {
 	defer func() { _ = conn.Close() }()
 
 	// Force the connection closed (should result in sending RST)
-	return conn.(*net.TCPConn).SetLinger(0)
+	if tcp, ok := conn.(*net.TCPConn); ok {
+		return tcp.SetLinger(0)
+	}
+	return nil
 }

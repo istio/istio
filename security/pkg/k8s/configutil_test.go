@@ -15,7 +15,6 @@
 package k8s
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -31,6 +30,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/test"
 )
 
@@ -45,7 +45,6 @@ func TestUpdateDataInConfigMap(t *testing.T) {
 		Resource: "configmaps",
 		Version:  "v1",
 	}
-	testMeta := metav1.ObjectMeta{Namespace: namespaceName, Name: configMapName}
 	caBundle := "test-data"
 	testData := map[string]string{
 		constants.CACertNamespaceConfigMapDataName: "test-data",
@@ -86,21 +85,23 @@ func TestUpdateDataInConfigMap(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			client := fake.NewSimpleClientset()
+			kc := kube.NewFakeClient()
+			fake := kc.Kube().(*fake.Clientset)
+			configmaps := kclient.New[*v1.ConfigMap](kc)
 			if tc.existingConfigMap != nil {
-				if _, err := client.CoreV1().ConfigMaps(testMeta.Namespace).Create(context.TODO(), tc.existingConfigMap, metav1.CreateOptions{}); err != nil {
+				if _, err := configmaps.Create(tc.existingConfigMap); err != nil {
 					t.Errorf("failed to create configmap %v", err)
 				}
 			}
-			client.ClearActions()
-			err := updateDataInConfigMap(client.CoreV1(), tc.existingConfigMap, []byte(caBundle))
+			fake.ClearActions()
+			err := updateDataInConfigMap(configmaps, tc.existingConfigMap, constants.CACertNamespaceConfigMapDataName, []byte(caBundle))
 			if err != nil && err.Error() != tc.expectedErr {
 				t.Errorf("actual error (%s) different from expected error (%s).", err.Error(), tc.expectedErr)
 			}
 			if err == nil {
 				if tc.expectedErr != "" {
 					t.Errorf("expecting error %s but got no error", tc.expectedErr)
-				} else if err := checkActions(client.Actions(), tc.expectedActions); err != nil {
+				} else if err := checkActions(fake.Actions(), tc.expectedActions); err != nil {
 					t.Error(err)
 				}
 			}
@@ -186,6 +187,29 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			expectedErr: "",
 			clientMod:   createConfigMapNamespaceDeletingClient,
 		},
+		{
+			name:              "creation: namespace is not found",
+			existingConfigMap: nil,
+			caBundle:          caBundle,
+			meta:              metav1.ObjectMeta{Namespace: namespaceName, Name: configMapName},
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName,
+					map[string]string{dataName: "test-data"})),
+			},
+			expectedErr: "",
+			clientMod:   createConfigMapNamespaceDeletedClient,
+		},
+		{
+			name:              "creation: namespace is forbidden",
+			existingConfigMap: nil,
+			caBundle:          caBundle,
+			meta:              metav1.ObjectMeta{Namespace: constants.KubeSystemNamespace, Name: configMapName},
+			expectedActions: []ktesting.Action{
+				ktesting.NewCreateAction(gvr, constants.KubeSystemNamespace, createConfigMap(constants.KubeSystemNamespace, configMapName, testData)),
+			},
+			expectedErr: "",
+			clientMod:   createConfigMapNamespaceForbidden,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -194,16 +218,15 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			if tc.existingConfigMap != nil {
 				objs = []runtime.Object{tc.existingConfigMap}
 			}
-			client := kube.NewFakeClient(objs...)
-			fake := client.Kube().(*fake.Clientset)
+			kc := kube.NewFakeClient(objs...)
+			fake := kc.Kube().(*fake.Clientset)
+			configmaps := kclient.New[*v1.ConfigMap](kc)
 			if tc.clientMod != nil {
 				tc.clientMod(fake)
 			}
-			cmInformer := client.KubeInformer().Core().V1().ConfigMaps()
-			cmInformer.Informer() // load the informer
-			client.RunAndWait(test.NewStop(t))
+			kc.RunAndWait(test.NewStop(t))
 			fake.ClearActions()
-			err := InsertDataToConfigMap(client.Kube().CoreV1(), cmInformer.Lister(), tc.meta, tc.caBundle)
+			err := InsertDataToConfigMap(configmaps, tc.meta, constants.CACertNamespaceConfigMapDataName, tc.caBundle)
 			if err != nil && err.Error() != tc.expectedErr {
 				t.Errorf("actual error (%s) different from expected error (%s).", err.Error(), tc.expectedErr)
 			}
@@ -250,6 +273,27 @@ func createConfigMapNamespaceDeletingClient(client *fake.Clientset) {
 	})
 	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, err
+	})
+}
+
+func createConfigMapNamespaceDeletedClient(client *fake.Clientset) {
+	client.PrependReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.ConfigMap{}, errors.NewNotFound(v1.Resource("configmaps"), configMapName)
+	})
+
+	err := errors.NewNotFound(v1.Resource("namespaces"), namespaceName)
+	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.ConfigMap{}, err
+	})
+}
+
+func createConfigMapNamespaceForbidden(client *fake.Clientset) {
+	client.PrependReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.ConfigMap{}, errors.NewNotFound(v1.Resource("configmaps"), configMapName)
+	})
+	client.PrependReactor("create", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.ConfigMap{}, errors.NewForbidden(v1.Resource("configmaps"), configMapName, fmt.Errorf(
+			"User \"system:serviceaccount:istio-system:istiod\" cannot create resource \"configmaps\" in API group \"\" in the namespace \"kube-system\""))
 	})
 }
 

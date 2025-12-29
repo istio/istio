@@ -15,7 +15,11 @@
 package credentials
 
 import (
+	"strings"
 	"testing"
+
+	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 func TestParseResourceName(t *testing.T) {
@@ -31,7 +35,8 @@ func TestParseResourceName(t *testing.T) {
 			resource:         "kubernetes://cert",
 			defaultNamespace: "default",
 			expected: SecretResource{
-				Type:         KubernetesSecretType,
+				ResourceType: KubernetesSecretType,
+				ResourceKind: kind.Secret,
 				Name:         "cert",
 				Namespace:    "default",
 				ResourceName: "kubernetes://cert",
@@ -43,7 +48,8 @@ func TestParseResourceName(t *testing.T) {
 			resource:         "kubernetes://namespace/cert",
 			defaultNamespace: "default",
 			expected: SecretResource{
-				Type:         KubernetesSecretType,
+				ResourceType: KubernetesSecretType,
+				ResourceKind: kind.Secret,
 				Name:         "cert",
 				Namespace:    "namespace",
 				ResourceName: "kubernetes://namespace/cert",
@@ -55,12 +61,32 @@ func TestParseResourceName(t *testing.T) {
 			resource:         "kubernetes-gateway://namespace/cert",
 			defaultNamespace: "default",
 			expected: SecretResource{
-				Type:         KubernetesGatewaySecretType,
+				ResourceType: KubernetesGatewaySecretType,
+				ResourceKind: kind.Secret,
 				Name:         "cert",
 				Namespace:    "namespace",
 				ResourceName: "kubernetes-gateway://namespace/cert",
 				Cluster:      "config",
 			},
+		},
+		{
+			name:             "configmap",
+			resource:         "configmap://namespace/cert",
+			defaultNamespace: "default",
+			expected: SecretResource{
+				ResourceType: KubernetesConfigMapType,
+				ResourceKind: kind.ConfigMap,
+				Name:         "cert",
+				Namespace:    "namespace",
+				ResourceName: "configmap://namespace/cert",
+				Cluster:      "config",
+			},
+		},
+		{
+			name:             "configmap-without-namespace",
+			resource:         "configmap://cert",
+			defaultNamespace: "default",
+			err:              true,
 		},
 		{
 			name:             "kubernetes-gateway without namespace",
@@ -140,6 +166,82 @@ func TestToKubernetesGatewayResource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ToKubernetesGatewayResource(tt.namespace, tt.name); got != tt.want {
 				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSecretResourceKey(t *testing.T) {
+	tests := []struct {
+		name          string
+		resource      SecretResource
+		want          string
+		resource1     *SecretResource
+		resource2     *SecretResource
+		wantDifferent bool
+	}{
+		{
+			name: "kubernetes secret without namespace in resource name",
+			resource: SecretResource{
+				ResourceType: KubernetesSecretType,
+				ResourceKind: kind.Secret,
+				Name:         "bookinfo-certs",
+				Namespace:    "bookinfo",
+				ResourceName: "kubernetes://bookinfo-certs",
+				Cluster:      cluster.ID("cluster1"),
+			},
+			want: "kubernetes://bookinfo-certs/kubernetes/Secret/bookinfo-certs/bookinfo/cluster1",
+		},
+		{
+			name: "kubernetes secret with namespace in resource name",
+			resource: SecretResource{
+				ResourceType: KubernetesSecretType,
+				ResourceKind: kind.Secret,
+				Name:         "bookinfo-certs",
+				Namespace:    "bookinfo",
+				ResourceName: "kubernetes://bookinfo/bookinfo-certs",
+				Cluster:      cluster.ID("cluster1"),
+			},
+			want: "kubernetes://bookinfo/bookinfo-certs/kubernetes/Secret/bookinfo-certs/bookinfo/cluster1",
+		},
+		{
+			name: "same secret name and namespace but different resource names have different keys",
+			resource1: &SecretResource{
+				ResourceType: KubernetesSecretType,
+				ResourceKind: kind.Secret,
+				Name:         "bookinfo-certs",
+				Namespace:    "bookinfo",
+				ResourceName: "kubernetes://bookinfo-certs",
+				Cluster:      cluster.ID("cluster1"),
+			},
+			resource2: &SecretResource{
+				ResourceType: KubernetesSecretType,
+				ResourceKind: kind.Secret,
+				Name:         "bookinfo-certs",
+				Namespace:    "bookinfo",
+				ResourceName: "kubernetes://bookinfo/bookinfo-certs",
+				Cluster:      cluster.ID("cluster1"),
+			},
+			wantDifferent: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.want != "" {
+				if got := tt.resource.Key(); got != tt.want {
+					t.Fatalf("got %v, want %v", got, tt.want)
+				}
+			}
+			if tt.wantDifferent && tt.resource1 != nil && tt.resource2 != nil {
+				key1 := tt.resource1.Key()
+				key2 := tt.resource2.Key()
+				if key1 == key2 {
+					t.Fatalf("keys should be different: key1=%v, key2=%v", key1, key2)
+				}
+				// Verify that the difference is in the ResourceName part
+				if !strings.Contains(key1, "kubernetes://bookinfo-certs") || !strings.Contains(key2, "kubernetes://bookinfo/bookinfo-certs") {
+					t.Fatalf("keys should contain the ResourceName: key1=%v, key2=%v", key1, key2)
+				}
 			}
 		})
 	}

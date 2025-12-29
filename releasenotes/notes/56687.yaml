@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 56687
+releaseNotes:
+- |
+  **Fixed** ignoring the `topology.istio.io/network` label on the system namespace when `discoverySelectors` are in use.

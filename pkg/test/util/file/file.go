@@ -17,13 +17,12 @@ package file
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/mitchellh/go-homedir"
 
 	"istio.io/istio/pkg/test"
 )
@@ -101,9 +100,7 @@ func NormalizePath(originalPath string) (string, error) {
 		return "", nil
 	}
 	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
-	var err error
-	out := strings.TrimSpace(originalPath)
-	out, err = homedir.Expand(out)
+	out, err := expandHome(strings.TrimSpace(originalPath))
 	if err != nil {
 		return "", err
 	}
@@ -114,6 +111,27 @@ func NormalizePath(originalPath string) (string, error) {
 	}
 
 	return out, nil
+}
+
+func expandHome(path string) (string, error) {
+	if len(path) == 0 {
+		return path, nil
+	}
+
+	if path[0] != '~' {
+		return path, nil
+	}
+
+	if len(path) > 1 && path[1] != '/' && path[1] != '\\' {
+		return "", errors.New("cannot expand user-specific home dir")
+	}
+
+	dir, f := os.LookupEnv("HOME")
+	if !f {
+		return "", errors.New("HOME is not set")
+	}
+
+	return filepath.Join(dir, path[1:]), nil
 }
 
 // ReadTarFile reads a tar compress file from the embedded
@@ -167,9 +185,18 @@ func ReadDir(filePath string, extensions ...string) ([]string, error) {
 }
 
 func ReadDirOrFail(t test.Failer, filePath string, extensions ...string) []string {
+	t.Helper()
 	res, err := ReadDir(filePath, extensions...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return res
+}
+
+func WriteOrFail(t test.Failer, filePath string, contents []byte) {
+	t.Helper()
+	err := os.WriteFile(filePath, contents, os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
 }

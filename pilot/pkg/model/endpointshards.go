@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"sort"
 	"sync"
 
@@ -36,14 +35,14 @@ func ShardKeyFromRegistry(instance shardRegistry) ShardKey {
 	return ShardKey{Cluster: instance.Cluster(), Provider: instance.Provider()}
 }
 
-// ShardKey is the key for EndpointShards made of a key with the format "cluster/provider"
+// ShardKey is the key for EndpointShards made of a key with the format "provider/cluster"
 type ShardKey struct {
 	Cluster  cluster.ID
 	Provider provider.ID
 }
 
 func (sk ShardKey) String() string {
-	return fmt.Sprintf("%s/%s", sk.Provider, sk.Cluster)
+	return string(sk.Provider) + "/" + string(sk.Cluster) // format: %s/%s
 }
 
 // MarshalText implements the TextMarshaler interface (for json key usage)
@@ -91,6 +90,51 @@ func (es *EndpointShards) Keys() []ShardKey {
 	return keys
 }
 
+// CopyEndpoints takes a snapshot of all endpoints. As input, it takes a map of port name to number, to allow it to group
+// the results by service port number. This is a bit weird, but lets us efficiently construct the format the caller needs.
+func (es *EndpointShards) CopyEndpoints(portMap map[string]int, ports sets.Set[int]) map[int][]*IstioEndpoint {
+	es.RLock()
+	defer es.RUnlock()
+	res := map[int][]*IstioEndpoint{}
+	for _, v := range es.Shards {
+		for _, ep := range v {
+			// use the port name as the key, unless LegacyClusterPortKey is set and takes precedence
+			// In EDS we match on port *name*. But for historical reasons, we match on port number for CDS.
+			var portNum int
+			if ep.LegacyClusterPortKey != 0 {
+				if !ports.Contains(ep.LegacyClusterPortKey) {
+					continue
+				}
+				portNum = ep.LegacyClusterPortKey
+			} else {
+				pn, f := portMap[ep.ServicePortName]
+				if !f {
+					continue
+				}
+				portNum = pn
+			}
+			res[portNum] = append(res[portNum], ep)
+		}
+	}
+	return res
+}
+
+func (es *EndpointShards) DeepCopy() *EndpointShards {
+	es.RLock()
+	defer es.RUnlock()
+	res := &EndpointShards{
+		Shards:          make(map[ShardKey][]*IstioEndpoint, len(es.Shards)),
+		ServiceAccounts: es.ServiceAccounts.Copy(),
+	}
+	for k, v := range es.Shards {
+		res.Shards[k] = make([]*IstioEndpoint, 0, len(v))
+		for _, ep := range v {
+			res.Shards[k] = append(res.Shards[k], ep.DeepCopy())
+		}
+	}
+	return res
+}
+
 // EndpointIndex is a mutex protected index of endpoint shards
 type EndpointIndex struct {
 	mu sync.RWMutex
@@ -100,23 +144,15 @@ type EndpointIndex struct {
 	cache XdsCache
 }
 
-func NewEndpointIndex() *EndpointIndex {
+func NewEndpointIndex(cache XdsCache) *EndpointIndex {
 	return &EndpointIndex{
 		shardsBySvc: make(map[string]map[string]*EndpointShards),
+		cache:       cache,
 	}
-}
-
-func (e *EndpointIndex) SetCache(cache XdsCache) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.cache = cache
 }
 
 // must be called with lock
 func (e *EndpointIndex) clearCacheForService(svc, ns string) {
-	if e.cache == nil {
-		return
-	}
 	e.cache.Clear(sets.Set[ConfigKey]{{
 		Kind:      kind.ServiceEntry,
 		Name:      svc,
@@ -124,7 +160,8 @@ func (e *EndpointIndex) clearCacheForService(svc, ns string) {
 	}: {}})
 }
 
-// Shardz returns a copy of the global map of shards but does NOT copy the underlying individual EndpointShards.
+// Shardz returns a full deep copy of the global map of shards. This should be used only for testing
+// and debugging, as the cloning is expensive.
 func (e *EndpointIndex) Shardz() map[string]map[string]*EndpointShards {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -132,7 +169,7 @@ func (e *EndpointIndex) Shardz() map[string]map[string]*EndpointShards {
 	for svcKey, v := range e.shardsBySvc {
 		out[svcKey] = make(map[string]*EndpointShards, len(v))
 		for nsKey, v := range v {
-			out[svcKey][nsKey] = v
+			out[svcKey][nsKey] = v.DeepCopy()
 		}
 	}
 	return out
@@ -187,6 +224,9 @@ func (e *EndpointIndex) DeleteShard(shardKey ShardKey) {
 			e.deleteServiceInner(shardKey, svc, ns, false)
 		}
 	}
+	if e.cache == nil {
+		return
+	}
 	e.cache.ClearAll()
 }
 
@@ -210,4 +250,168 @@ func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespac
 		}
 	}
 	epShards.Unlock()
+}
+
+// PushType is an enumeration that decides what type push we should do when we get EDS update.
+type PushType int
+
+const (
+	// NoPush does not push any thing.
+	NoPush PushType = iota
+	// IncrementalPush just pushes endpoints.
+	IncrementalPush
+	// FullPush triggers full push - typically used for new services.
+	FullPush
+)
+
+// UpdateServiceEndpoints updates EndpointShards data by clusterID, hostname, IstioEndpoints.
+// It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
+// it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
+func (e *EndpointIndex) UpdateServiceEndpoints(
+	shard ShardKey,
+	hostname string,
+	namespace string,
+	istioEndpoints []*IstioEndpoint,
+	logPushType bool,
+) PushType {
+	if len(istioEndpoints) == 0 {
+		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
+		// but we should not delete the keys from EndpointIndex map - that will trigger
+		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
+		// flip flopping between 1 and 0.
+		e.DeleteServiceShard(shard, hostname, namespace, true)
+		if logPushType {
+			log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
+		} else {
+			log.Infof("Cache Update, Service %s at shard %v has no endpoints", hostname, shard)
+		}
+		return IncrementalPush
+	}
+
+	pushType := IncrementalPush
+	// Find endpoint shard for this service, if it is available - otherwise create a new one.
+	ep, created := e.GetOrCreateEndpointShard(hostname, namespace)
+	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
+	if created {
+		if logPushType {
+			log.Infof("Full push, new service %s/%s", namespace, hostname)
+		} else {
+			log.Infof("Cache Update, new service %s/%s", namespace, hostname)
+		}
+		pushType = FullPush
+	}
+
+	ep.Lock()
+	defer ep.Unlock()
+	oldIstioEndpoints := ep.Shards[shard]
+	newIstioEndpoints, needPush := endpointUpdateRequiresPush(oldIstioEndpoints, istioEndpoints)
+
+	if pushType != FullPush && !needPush {
+		log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
+		pushType = NoPush
+	}
+
+	ep.Shards[shard] = newIstioEndpoints
+
+	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
+	saUpdated := updateShardServiceAccount(ep, hostname)
+
+	// For existing endpoints, we need to do full push if service accounts change.
+	if saUpdated && pushType != FullPush {
+		// Avoid extra logging if already a full push
+		if logPushType {
+			log.Infof("Full push, service accounts changed, %v", hostname)
+		} else {
+			log.Infof("Cache Update, service accounts changed, %v", hostname)
+		}
+		pushType = FullPush
+	}
+
+	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
+	// condition is introduced where an XDS response may be generated before the update, but not
+	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
+	// v0 -> invalidate -> v1. Reverting a change we pushed violates our contract of monotonically
+	// moving forward in version. In practice, this is pretty rare and self corrects nearly
+	// immediately. However, clearing the cache here has almost no impact on cache performance as we
+	// would clear it shortly after anyways.
+	e.clearCacheForService(hostname, namespace)
+
+	return pushType
+}
+
+// endpointUpdateRequiresPush determines if an endpoint update is required.
+func endpointUpdateRequiresPush(oldIstioEndpoints []*IstioEndpoint, incomingEndpoints []*IstioEndpoint) ([]*IstioEndpoint, bool) {
+	if oldIstioEndpoints == nil {
+		// If there are no old endpoints, we should push with incoming endpoints as there is nothing to compare.
+		return incomingEndpoints, true
+	}
+	needPush := false
+	newIstioEndpoints := make([]*IstioEndpoint, 0, len(incomingEndpoints))
+	// Check if new Endpoints are ready to be pushed. This check
+	// will ensure that if a new pod comes with a non ready endpoint,
+	// we do not unnecessarily push that config to Envoy.
+	omap := make(map[string]*IstioEndpoint, len(oldIstioEndpoints))
+	nmap := make(map[string]*IstioEndpoint, len(newIstioEndpoints))
+	// Add new endpoints only if they are ever ready once to shards
+	// so that full push does not send them from shards.
+	for _, oie := range oldIstioEndpoints {
+		omap[oie.Key()] = oie
+	}
+	for _, nie := range incomingEndpoints {
+		nmap[nie.Key()] = nie
+	}
+	for _, nie := range incomingEndpoints {
+		if oie, exists := omap[nie.Key()]; exists {
+			// If endpoint exists already, we should push if it's changed.
+			// Skip this check if we already decide we need to push to avoid expensive checks
+			if !needPush && !oie.Equals(nie) {
+				needPush = true
+			}
+			newIstioEndpoints = append(newIstioEndpoints, nie)
+		} else {
+			// If the endpoint does not exist in shards that means it is a
+			// new endpoint. Always send new healthy endpoints.
+			// Also send new unhealthy endpoints when SendUnhealthyEndpoints is enabled.
+			// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
+			if nie.HealthStatus != UnHealthy || nie.SendUnhealthyEndpoints {
+				needPush = true
+			}
+			newIstioEndpoints = append(newIstioEndpoints, nie)
+		}
+	}
+	// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
+	// removal so we need to push an update.
+	if !needPush {
+		for _, oie := range oldIstioEndpoints {
+			if _, f := nmap[oie.Key()]; !f {
+				needPush = true
+				break
+			}
+		}
+	}
+
+	return newIstioEndpoints, needPush
+}
+
+// updateShardServiceAccount updates the service endpoints' sa when service/endpoint event happens.
+// Note: it is not concurrent safe.
+func updateShardServiceAccount(shards *EndpointShards, serviceName string) bool {
+	oldServiceAccount := shards.ServiceAccounts
+	serviceAccounts := sets.String{}
+	for _, epShards := range shards.Shards {
+		for _, ep := range epShards {
+			if ep.ServiceAccount != "" {
+				serviceAccounts.Insert(ep.ServiceAccount)
+			}
+		}
+	}
+
+	if !oldServiceAccount.Equals(serviceAccounts) {
+		shards.ServiceAccounts = serviceAccounts
+		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
+			serviceName, oldServiceAccount, serviceAccounts)
+		return true
+	}
+
+	return false
 }

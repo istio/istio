@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 48751
+releaseNotes:
+- |
+  **Added** `allocateLoadBalancerNodePorts` config option to the Gateway chart.

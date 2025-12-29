@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -41,7 +40,7 @@ const (
 	// The length of the example certificate chain.
 	exampleCertChainLength = 3
 
-	defaultIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+	defaultIdentityDR = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "service-b-dr"
@@ -53,7 +52,7 @@ spec:
       subjectAltNames:
       - "spiffe://cluster.local/ns/NS/sa/default"
 `
-	correctIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+	correctIdentityDR = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "service-b-dr"
@@ -65,7 +64,7 @@ spec:
       subjectAltNames:
       - "spiffe://cluster.local/ns/NS/sa/b"
 `
-	nonExistIdentityDR = `apiVersion: networking.istio.io/v1alpha3
+	nonExistIdentityDR = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "service-b-dr"
@@ -77,7 +76,7 @@ spec:
       subjectAltNames:
       - "I-do-not-exist"
 `
-	identityListDR = `apiVersion: networking.istio.io/v1alpha3
+	identityListDR = `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "service-b-dr"
@@ -104,12 +103,11 @@ spec:
 // - Secure naming information is respected in the mTLS handshake.
 func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.peer.secure-naming").
 		Run(func(t framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 
 			testNamespace := apps.EchoNamespace.Namespace
-			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+			namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 			// Check that the CA certificate in the configmap of each namespace is as expected, which
 			// is used for data plane to control plane TLS authentication.
 			retry.UntilSuccessOrFail(t, func() error {

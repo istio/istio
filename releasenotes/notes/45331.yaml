@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+    **Fixed** use defer to unlock mutex

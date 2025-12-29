@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,12 +31,15 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/tracing"
 )
 
 // TestContext is a test-level context that can be created as part of test executing tests.
 type TestContext interface {
 	resource.Context
 	test.Failer
+
+	Context() context.Context
 
 	// NewSubTest creates a new sub-test under the current running Test. The lifecycle of a sub-Test is scoped to the
 	// parent. Calls to Done() will block until all children are also Done(). When Run, sub-Tests will automatically
@@ -141,6 +145,10 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 		FileWriter: yml.NewFileWriter(workDir),
 	}
 
+	if test.topLevel {
+		ctx.scope.markTopLevel()
+	}
+
 	// Register the cleanup handler for the context.
 	goTest.Cleanup(ctx.close)
 
@@ -149,6 +157,10 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 
 func (c *testContext) Settings() *resource.Settings {
 	return c.suite.settings
+}
+
+func (c *testContext) Context() context.Context {
+	return c.test.tc
 }
 
 func (c *testContext) TrackResource(r resource.Resource) resource.ID {
@@ -248,11 +260,14 @@ func (c *testContext) NewSubTest(name string) Test {
 		panic(fmt.Sprintf("Attempting to create subtest %s before running parent", name))
 	}
 
+	tc, span := tracing.Start(c.test.tc, name)
+
 	return &testImpl{
-		name:          name,
-		parent:        c.test,
-		s:             c.test.s,
-		featureLabels: c.test.featureLabels,
+		tc:     tc,
+		ts:     span,
+		name:   name,
+		parent: c.test,
+		s:      c.test.s,
 	}
 }
 
@@ -286,11 +301,28 @@ func (c *testContext) CleanupStrategy(strategy cleanup.Strategy, fn func()) {
 	}
 }
 
+// topLevelScopes walks up the tree to find all "top level" or "container"
+// scopes. We always want to dump the resources created at the "top level" when
+// their descendant scopes fail.
+func (c *testContext) topLevelScopes() []*scope {
+	var out []*scope
+	current := c.scope.parent
+	for current != nil {
+		if current.topLevel {
+			out = append(out, current)
+		}
+		current = current.parent
+	}
+	return out
+}
+
 func (c *testContext) dump() {
 	if c.suite.RequestTestDump() {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
-		// make sure we dump suite-level resources, but don't dump sibling tests or their children
-		rt.DumpCustom(c, false)
+		// make sure we dump suite-level/top-level resources, but don't dump sibling tests or their children
+		for _, scope := range c.topLevelScopes() {
+			scope.dump(c, false)
+		}
 		c.scope.dump(c, true)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
 	} else {

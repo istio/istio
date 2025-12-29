@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 44017
+docs: []
+
+releaseNotes:
+- |
+  **Added** the ability for the user to specify the `IPFamilyPolicy` and `ipFamilies` setting in Istio Service resources either via the operator API or the helm charts.

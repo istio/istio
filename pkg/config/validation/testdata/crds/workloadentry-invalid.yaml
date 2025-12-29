@@ -1,0 +1,61 @@
+_err: 'spec: Required value'
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: no-spec
+---
+_err: Address is required
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: missing-address
+spec: {}
+---
+_err: UDS may not be a dir
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: bad-uds-dir
+spec:
+  address: unix:///dir/
+---
+_err: UDS must be an absolute path or abstract socket
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: bad-uds-relative
+spec:
+  address: unix://relative
+---
+_err: UDS may not include ports
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: uds-with-ports
+spec:
+  address: unix://@foo
+  ports:
+    "http": 80
+---
+_err: port must be between 1-65535
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: high-port
+spec:
+  address: 1.1.1.1
+  ports:
+    "http": 99999
+---
+_err: 'spec.ports: Invalid value'
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: bad-port-name
+spec:
+  address: 1.1.1.1
+  ports:
+    "@": 80
+# TODO:
+# if its not an IP it must be a valid fqdn (0..255, ValidateDNS1123Labels)
+# validate labels (k8s)

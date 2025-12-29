@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** Set `allowPrivilegeEscalation` to `true` in ztunnel - it has always been forced to `true` in reality but K8S does not properly validate this: https://github.com/kubernetes/kubernetes/issues/119568

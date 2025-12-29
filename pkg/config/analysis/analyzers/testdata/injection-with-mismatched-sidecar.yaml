@@ -21,6 +21,30 @@ spec:
   - image: docker.io/istio/proxyv2:1.3.0
     name: istio-proxy
 ---
+# Namespace 'enabled-namespace' has istio injection enabled, so will be enforced.
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: enabled-namespace-native
+---
+# Details-v1-pod-old-native is out of date and should get a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-old-native
+  namespace: enabled-namespace-native
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  initContainers:
+  - image: docker.io/istio/proxyv2:1.3.0
+    name: istio-proxy
+---
 # Details-v1-pod-new is up to date, and should be ignored.
 apiVersion: v1
 kind: Pod
@@ -34,6 +58,67 @@ spec:
   - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
     name: details
   - image: docker.io/istio/proxyv2:1.3.1
+    name: istio-proxy
+---
+# Details-v1-pod-new-native is up to date, and should be ignored.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-new-native
+  namespace: enabled-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  initContainers:
+  - image: docker.io/istio/proxyv2:1.3.1
+    name: istio-proxy
+---
+# should not match the injector version.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-old-pre
+  namespace: enabled-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.0-prerelease
+    name: istio-proxy
+---
+# should not match the injector version.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-old-pre-2
+  namespace: enabled-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.0-prerelease
+    name: istio-proxy
+---
+# should not match the injector version.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: details-v1-pod-old-pre-3
+  namespace: enabled-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.0-prerelease
     name: istio-proxy
 ---
 # details-v1-pod-overwritten-sidecar has a custom sidecar version injected and

@@ -49,6 +49,7 @@ type Config struct {
 	count                   int
 	headers                 http.Header
 	newConnectionPerRequest bool
+	PropagateResponse       func(req *http.Request, resp *http.Response)
 	forceDNSLookup          bool
 	hostHeader              string
 	urlHost                 string
@@ -56,9 +57,12 @@ type Config struct {
 	method                  string
 	secure                  bool
 
-	hboneTLSConfig    *tls.Config
-	hboneClientConfig func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
-	hboneHeaders      http.Header
+	hboneTLSConfig       *tls.Config
+	hboneClientConfig    func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	innerHboneTLSConfig  *tls.Config
+	hboneHeaders         http.Header
+	proxyProtocolVersion int
+	previousResponse     *http.Response
 }
 
 func (c *Config) fillDefaults() error {
@@ -96,14 +100,26 @@ func (c *Config) fillDefaults() error {
 	if err != nil {
 		return err
 	}
-	c.hboneClientConfig, err = getHBONEClientConfig(c.Request.Hbone)
-	if err != nil {
-		return err
-	}
 
-	c.hboneTLSConfig, err = newHBONETLSConfig(c)
-	if err != nil {
-		return err
+	if c.Request.DoubleHbone != nil && c.Request.DoubleHbone.Address != "" {
+		c.hboneClientConfig, err = getHBONEClientConfig(c.Request.DoubleHbone)
+		if err != nil {
+			return err
+		}
+		c.hboneTLSConfig, c.innerHboneTLSConfig, err = newDoubleHBONETLSConfig(c)
+		if err != nil {
+			return err
+		}
+	} else {
+		c.hboneClientConfig, err = getHBONEClientConfig(c.Request.Hbone)
+		if err != nil {
+			return err
+		}
+
+		c.hboneTLSConfig, err = newHBONETLSConfig(c)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Parse the proxy if specified.
@@ -127,6 +143,15 @@ func (c *Config) fillDefaults() error {
 	default:
 		c.newConnectionPerRequest = c.Request.NewConnectionPerRequest
 		c.forceDNSLookup = c.newConnectionPerRequest && c.Request.ForceDNSLookup
+	}
+
+	switch c.Request.ProxyProtocolVersion {
+	case proto.ProxyProtoVersion_V1:
+		c.proxyProtocolVersion = 1
+	case proto.ProxyProtoVersion_V2:
+		c.proxyProtocolVersion = 2
+	default:
+		c.proxyProtocolVersion = 0
 	}
 
 	return nil
@@ -178,7 +203,6 @@ func getClientCertificateFunc(r *proto.ForwardEchoRequest) (func(info *tls.Certi
 		}
 		// nolint: unparam
 		return func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			fwLog.Debugf("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {
 				x := &pkix.RDNSequence{}
 				if _, err := asn1.Unmarshal(ca, x); err != nil {
@@ -232,7 +256,6 @@ func getHBONEClientConfig(r *proto.HBONE) (func(info *tls.CertificateRequestInfo
 		}
 		// nolint: unparam
 		return func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			fwLog.Debugf("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {
 				x := &pkix.RDNSequence{}
 				if _, err := asn1.Unmarshal(ca, x); err != nil {
@@ -305,6 +328,63 @@ func newTLSConfig(c *Config) (*tls.Config, error) {
 		setALPNForHTTP()
 	}
 	return tlsConfig, nil
+}
+
+func newDoubleHBONETLSConfig(c *Config) (*tls.Config, *tls.Config, error) {
+	r := c.Request.DoubleHbone
+	if r == nil {
+		return nil, nil, nil
+	}
+
+	// Outer logic
+	outerTLSConfig := &tls.Config{
+		GetClientCertificate: c.hboneClientConfig,
+		MinVersion:           tls.VersionTLS12,
+	}
+	if r.CaCertFile != "" {
+		certData, err := os.ReadFile(r.CaCertFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load client certificate: %v", err)
+		}
+		r.CaCert = string(certData)
+	}
+
+	if r.InsecureSkipVerify || r.CaCert == "" {
+		outerTLSConfig.InsecureSkipVerify = true
+	} else if r.CaCert != "" {
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(r.CaCert)) {
+			return nil, nil, fmt.Errorf("failed to create cert pool")
+		}
+		outerTLSConfig.RootCAs = certPool
+	}
+
+	// Inner logic
+	innerTLSConfig := &tls.Config{
+		GetClientCertificate: c.hboneClientConfig, // use outer tunnel's cert
+		MinVersion:           tls.VersionTLS12,
+	}
+
+	rInner := c.Request.Hbone // Use the inner hbone config for CA verification and skipVerify
+	if rInner.CaCertFile != "" {
+		certData, err := os.ReadFile(rInner.CaCertFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load client certificate: %v", err)
+		}
+		rInner.CaCert = string(certData)
+	}
+
+	if rInner.InsecureSkipVerify || rInner.CaCert == "" {
+		innerTLSConfig.InsecureSkipVerify = true
+	} else if rInner.CaCert != "" {
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(rInner.CaCert)) {
+			return nil, nil, fmt.Errorf("failed to create cert pool")
+		}
+		innerTLSConfig.RootCAs = certPool
+	}
+
+	return outerTLSConfig, innerTLSConfig, nil
 }
 
 func newHBONETLSConfig(c *Config) (*tls.Config, error) {

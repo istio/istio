@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 55623
+releaseNotes:
+  - |
+    **Fixed** an issue that ReferenceGrants don't work when mTLS is enabled for a Gateway Listener.

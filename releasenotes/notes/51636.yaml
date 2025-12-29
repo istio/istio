@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 51636
+releaseNotes:
+- |
+  **Fixed** JWKS fetched from URIs may not be updated promptly when there are errors fetching other URIs

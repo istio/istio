@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Removed** `--recursive` flags and hardcode recursion to ture for `istioctl analyze`.

@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 )
 
 func TestIsClusterLocal(t *testing.T) {
@@ -142,13 +143,130 @@ func TestIsClusterLocal(t *testing.T) {
 			host:     "s.ns3.svc.cluster.local",
 			expected: false,
 		},
+		{
+			name: "global",
+			m: &meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*",
+						},
+					},
+				},
+			},
+			host:     "s.ns1.svc.cluster.local",
+			expected: true,
+		},
+		{
+			name: "global with exclusion wildcard",
+			m: &meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*",
+						},
+					},
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: false,
+						},
+						Hosts: []string{
+							"*.ns1.svc.cluster.local",
+						},
+					},
+				},
+			},
+			host:     "s.ns1.svc.cluster.local",
+			expected: false,
+		},
+		{
+			name: "global with exclusion specific",
+			m: &meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*",
+						},
+					},
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: false,
+						},
+						Hosts: []string{
+							"service.ns1.svc.cluster.local",
+						},
+					},
+				},
+			},
+			host:     "service.ns1.svc.cluster.local",
+			expected: false,
+		},
+		{
+			name: "subdomain local with global",
+			m: &meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.cluster.local",
+						},
+					},
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: false,
+						},
+						Hosts: []string{
+							"*",
+						},
+					},
+				},
+			},
+			host:     "echo.test.svc.cluster.local",
+			expected: true,
+		},
+		{
+			name: "other domain non-local global",
+			m: &meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: true,
+						},
+						Hosts: []string{
+							"*.cluster.local",
+						},
+					},
+					{
+						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: false,
+						},
+						Hosts: []string{
+							"*",
+						},
+					},
+				},
+			},
+			host:     "otherdomain",
+			expected: false,
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			env := &model.Environment{Watcher: mesh.NewFixedWatcher(c.m)}
+			env := &model.Environment{Watcher: meshwatcher.NewTestWatcher(c.m)}
 			env.Init()
 
 			clusterLocal := env.ClusterLocal().GetClusterLocalHosts().IsClusterLocal(host.Name(c.host))

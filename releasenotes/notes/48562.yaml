@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** an issue where injection failed when the name of the pod or its custom owner exceeded 63 characters.

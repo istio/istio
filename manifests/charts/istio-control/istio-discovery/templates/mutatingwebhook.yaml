@@ -1,9 +1,12 @@
+# TODO BML istiodRemote.injectionURL is invalid to set if `istiodRemote.enabled` is false, we should express that.
 {{- /* Core defines the common configuration used by all webhook segments */}}
 {{/* Copy just what we need to avoid expensive deepCopy */}}
 {{- $whv := dict
- "revision" .Values.revision
+"revision" .Values.revision
   "injectionPath" .Values.istiodRemote.injectionPath
   "injectionURL" .Values.istiodRemote.injectionURL
+  "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
+  "caBundle" .Values.istiodRemote.injectionCABundle
   "namespace" .Release.Namespace }}
 {{- define "core" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
@@ -19,6 +22,9 @@ a unique prefix to each. */}}
       path: "{{ .injectionPath }}"
       port: 443
     {{- end }}
+    {{- if .caBundle }}
+    caBundle: "{{ .caBundle }}"
+    {{- end }}
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
@@ -26,8 +32,11 @@ a unique prefix to each. */}}
     apiVersions: ["v1"]
     resources: ["pods"]
   failurePolicy: Fail
-  admissionReviewVersions: ["v1beta1", "v1"]
+  reinvocationPolicy: "{{ .reinvocationPolicy }}"
+  admissionReviewVersions: ["v1"]
 {{- end }}
+
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
 {{- if not .Values.global.operatorManageWebhooks }}
 apiVersion: admissionregistration.k8s.io/v1
@@ -39,11 +48,17 @@ metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- end }}
   labels:
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
+{{- if $.Values.sidecarInjectorWebhookAnnotations }}
+  annotations:
+{{ toYaml $.Values.sidecarInjectorWebhookAnnotations | indent 4 }}
+{{- end }}
 webhooks:
 {{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
 
@@ -148,5 +163,6 @@ webhooks:
       operator: DoesNotExist
 {{- end }}
 
+{{- end }}
 {{- end }}
 {{- end }}

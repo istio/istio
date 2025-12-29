@@ -26,8 +26,8 @@ func getWorkloadServiceEntries(ses []config.Config, wle *networking.WorkloadEntr
 	out := make(map[types.NamespacedName]*config.Config)
 	for i, cfg := range ses {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if se.WorkloadSelector != nil && labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wle.Labels) {
-			out[config.NamespacedName(cfg)] = &ses[i]
+		if se.WorkloadSelector != nil && labels.Instance(se.WorkloadSelector.Labels).Match(wle.Labels) {
+			out[cfg.NamespacedName()] = &ses[i]
 		}
 	}
 
@@ -48,4 +48,20 @@ func difference(old, curr map[types.NamespacedName]*config.Config) []types.Names
 	}
 
 	return out
+}
+
+func isDNSTypeServiceEntry(se *networking.ServiceEntry) bool {
+	if se == nil {
+		return false
+	}
+	return se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN
+}
+
+// count the number of elements in the map value. The value is []any type.
+func countSliceValue[M ~map[K][]V, K comparable, V any](m M) int {
+	n := 0
+	for _, v := range m {
+		n += len(v)
+	}
+	return n
 }

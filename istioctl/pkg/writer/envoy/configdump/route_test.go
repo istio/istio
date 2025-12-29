@@ -15,7 +15,14 @@
 package configdump
 
 import (
+	"bytes"
+	"fmt"
+	"os"
+	"path"
 	"testing"
+
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestDescribeRouteDomains(t *testing.T) {
@@ -61,6 +68,37 @@ func TestDescribeRouteDomains(t *testing.T) {
 			if got := describeRouteDomains(tt.domains); got != tt.expected {
 				t.Errorf("%s: expect %v got %v", tt.desc, tt.expected, got)
 			}
+		})
+	}
+}
+
+func TestPrintRoutesSummary(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{
+			name: "empty-gateway",
+		},
+		{
+			name: "istio-gateway-http-route-prefix",
+		},
+		{
+			name: "k8s-gateway-http-route-path-prefix",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotOut := &bytes.Buffer{}
+			cw := &ConfigWriter{Stdout: gotOut}
+			cd, _ := os.ReadFile(fmt.Sprintf("testdata/routes/%s/configdump.json", tt.name))
+			if err := cw.Prime(cd); err != nil {
+				t.Errorf("failed to parse config dump: %s", err)
+			}
+			err := cw.PrintRouteSummary(RouteFilter{Verbose: true})
+			assert.NoError(t, err)
+
+			wantOutputFile := path.Join("testdata/routes", tt.name, "output.txt")
+			util.CompareContent(t, gotOut.Bytes(), wantOutputFile)
 		})
 	}
 }

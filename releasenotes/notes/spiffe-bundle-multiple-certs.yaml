@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 44831
+releaseNotes:
+  - |
+    **Fixed** handling of remote SPIFFE trust bundles containing multiple certs.

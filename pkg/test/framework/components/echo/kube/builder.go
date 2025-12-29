@@ -17,24 +17,18 @@ package kube
 import (
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-func init() {
-	echo.RegisterFactory(cluster.Kubernetes, build)
-}
-
-func build(ctx resource.Context, configs []echo.Config) (echo.Instances, error) {
+func Build(ctx resource.Context, configs []echo.Config) (echo.Instances, error) {
 	instances := make([]echo.Instance, len(configs))
 
 	g := multierror.Group{}
 	for i, cfg := range configs {
-		i, cfg := i, cfg
 		g.Go(func() (err error) {
 			instances[i], err = newInstance(ctx, cfg)
-			return
+			return err
 		})
 	}
 

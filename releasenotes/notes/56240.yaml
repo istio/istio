@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue: [56223]
+releaseNotes:
+  - |
+    **Fixed** a panic in `istioctl manifest translate` when the IstioOperator config contains multiple gateways.

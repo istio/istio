@@ -14,8 +14,6 @@
 package schema
 
 import (
-	"fmt"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config"
@@ -23,19 +21,19 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 )
 
 // ValidationAnalyzer runs schema validation as an analyzer and reports any violations as messages
 type ValidationAnalyzer struct {
-	s collection.Schema
+	s sresource.Schema
 }
 
 var _ analysis.Analyzer = &ValidationAnalyzer{}
 
-func CollectionValidationAnalyzer(s collection.Schema) analysis.Analyzer {
+func CollectionValidationAnalyzer(s sresource.Schema) analysis.Analyzer {
 	return &ValidationAnalyzer{s: s}
 }
 
@@ -43,9 +41,9 @@ func CollectionValidationAnalyzer(s collection.Schema) analysis.Analyzer {
 // This automation comes with an assumption: that the collection names used by the schema match the metadata used by Galley components
 func AllValidationAnalyzers() []analysis.Analyzer {
 	result := make([]analysis.Analyzer, 0)
-	collections.Istio.ForEach(func(s collection.Schema) (done bool) {
+	collections.Istio.ForEach(func(s sresource.Schema) (done bool) {
 		result = append(result, &ValidationAnalyzer{s: s})
-		return
+		return done
 	})
 	return result
 }
@@ -53,21 +51,20 @@ func AllValidationAnalyzers() []analysis.Analyzer {
 // Metadata implements Analyzer
 func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.Resource().Kind()),
-		Description: fmt.Sprintf("Runs schema validation as an analyzer on '%s' resources", a.s.Resource().Kind()),
-		Inputs:      collection.Names{a.s.Name()},
+		Name:        "schema.ValidationAnalyzer." + a.s.Kind(),
+		Description: "Runs schema validation as an analyzer on '" + a.s.Kind() + "' resources",
+		Inputs:      []config.GroupVersionKind{a.s.GroupVersionKind()},
 	}
 }
 
 // Analyze implements Analyzer
 func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
-	c := a.s.Name()
-
-	ctx.ForEach(c, func(r *resource.Instance) bool {
+	gv := a.s.GroupVersionKind()
+	ctx.ForEach(gv, func(r *resource.Instance) bool {
 		ns := r.Metadata.FullName.Namespace
 		name := r.Metadata.FullName.Name
 
-		warnings, err := a.s.Resource().ValidateConfig(config.Config{
+		warnings, err := a.s.ValidateConfig(config.Config{
 			Meta: config.Meta{
 				Name:      string(name),
 				Namespace: string(ns),
@@ -77,19 +74,19 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 		if err != nil {
 			if multiErr, ok := err.(*multierror.Error); ok {
 				for _, err := range multiErr.WrappedErrors() {
-					ctx.Report(c, morePreciseMessage(r, err, true))
+					ctx.Report(gv, morePreciseMessage(r, err, true))
 				}
 			} else {
-				ctx.Report(c, morePreciseMessage(r, err, true))
+				ctx.Report(gv, morePreciseMessage(r, err, true))
 			}
 		}
 		if warnings != nil {
 			if multiErr, ok := warnings.(*multierror.Error); ok {
 				for _, err := range multiErr.WrappedErrors() {
-					ctx.Report(c, morePreciseMessage(r, err, false))
+					ctx.Report(gv, morePreciseMessage(r, err, false))
 				}
 			} else {
-				ctx.Report(c, morePreciseMessage(r, warnings, false))
+				ctx.Report(gv, morePreciseMessage(r, warnings, false))
 			}
 		}
 

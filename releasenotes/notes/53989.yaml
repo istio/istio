@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 51289
+releaseNotes:
+- |
+  **Fixed** Helm render to properly apply annotations on pilot `serviceAccount`

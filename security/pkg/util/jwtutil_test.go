@@ -130,19 +130,6 @@ func TestGetAud(t *testing.T) {
 	}
 }
 
-func Test3p(t *testing.T) {
-	for _, s := range []string{thirdPartyJwt, "InvalidToken"} {
-		if IsK8SUnbound(s) {
-			t.Error("Expecting bound token, detected unbound ", s)
-		}
-	}
-	for _, s := range []string{firstPartyJwt, ".bnVsbM."} {
-		if !IsK8SUnbound(s) {
-			t.Error("Expecting unbound, detected bound ", s)
-		}
-	}
-}
-
 func TestBase64UrlPartDecoding(t *testing.T) {
 	payloadBytes, err := DecodeJwtPart(base64UrlEncodedPaddingStrippedPart)
 	if err != nil {

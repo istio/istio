@@ -27,6 +27,9 @@ type Instance interface {
 	// Address is the IP Address of the service provided by the fake GCE
 	// Metadata Server.
 	Address() string
+	// Address is the IP Address of the service provided by the fake GCE
+	// Metadata Server to be used for "VM" instances
+	AddressVM() string
 }
 
 // Config defines the options for creating an fake GCE Metadata Server component.

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: helloworld-
+  # less than 63 characters
+  name: helloworld-helloworld
+  ownerReferences:
+    - apiVersion: foo/v1
+      controller: true
+      kind: Bar
+      # more than 63 characters
+      name: helloworld-helloworld-helloworld-helloworld-helloworld-hellowo-ld
+      uid: 12345678-1234-1234-1234-123456789012
+spec:
+  containers:
+    - name: hello
+      image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+      ports:
+        - name: http
+          containerPort: 80

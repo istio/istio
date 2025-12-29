@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -35,7 +34,6 @@ import (
 func TestRevisionTags(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
-		Features("installation.istioctl.revision_tags").
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
@@ -76,7 +74,7 @@ func TestRevisionTags(t *testing.T) {
 				},
 			}
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
 			baseArgs := []string{"tag"}
 			for _, tc := range tcs {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
@@ -102,7 +100,7 @@ func TestRevisionTags(t *testing.T) {
 
 					// Expect the specified revision to inject for the namespace with the
 					// given injection label
-					revTagNs := namespace.NewOrFail(t, t, namespace.Config{
+					revTagNs := namespace.NewOrFail(t, namespace.Config{
 						Prefix: "revision-tag",
 					})
 					nsLabelParts := strings.Split(tc.nsLabel, "=")
@@ -110,7 +108,7 @@ func TestRevisionTags(t *testing.T) {
 						t.Fatalf("invalid namespace label %s", tc.nsLabel)
 					}
 					if err := revTagNs.SetLabel(nsLabelParts[0], nsLabelParts[1]); err != nil {
-						t.Fatalf("couldn't set label %q on namespace %s: %w",
+						t.Fatalf("couldn't set label %q on namespace %s: %v",
 							tc.nsLabel, revTagNs.Name(), err)
 					}
 

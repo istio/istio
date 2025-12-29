@@ -18,12 +18,12 @@ package aggregate
 import (
 	"errors"
 
-	"github.com/hashicorp/go-multierror"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -36,12 +36,12 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStore)
 	for _, store := range stores {
 		for _, s := range store.Schemas().All() {
-			if len(storeTypes[s.Resource().GroupVersionKind()]) == 0 {
+			if len(storeTypes[s.GroupVersionKind()]) == 0 {
 				if err := union.Add(s); err != nil {
 					return nil, err
 				}
 			}
-			storeTypes[s.Resource().GroupVersionKind()] = append(storeTypes[s.Resource().GroupVersionKind()], store)
+			storeTypes[s.GroupVersionKind()] = append(storeTypes[s.GroupVersionKind()], store)
 		}
 	}
 
@@ -107,28 +107,35 @@ func (cr *store) Get(typ config.GroupVersionKind, name, namespace string) *confi
 }
 
 // List all configs in the stores.
-func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	if len(cr.stores[typ]) == 0 {
-		return nil, nil
+func (cr *store) List(typ config.GroupVersionKind, namespace string) []config.Config {
+	stores := cr.stores[typ]
+	if len(stores) == 0 {
+		return nil
 	}
-	var errs *multierror.Error
-	var configs []config.Config
-	// Used to remove duplicated config
-	configMap := sets.New[string]()
 
-	for _, store := range cr.stores[typ] {
-		storeConfigs, err := store.List(typ, namespace)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		for _, cfg := range storeConfigs {
-			key := cfg.GroupVersionKind.Kind + cfg.Namespace + cfg.Name
-			if !configMap.InsertContains(key) {
-				configs = append(configs, cfg)
-			}
-		}
+	var (
+		configs      []config.Config
+		storeConfigs = make([][]config.Config, 0, len(stores))
+		configCnt    int
+	)
+
+	for _, store := range stores {
+		curConfigs := store.List(typ, namespace)
+		storeConfigs = append(storeConfigs, curConfigs)
+		configCnt += len(curConfigs)
 	}
-	return configs, errs.ErrorOrNil()
+
+	configs = make([]config.Config, 0, configCnt)
+	// Used to remove duplicated config
+	configMap := sets.NewWithLength[types.NamespacedName](configCnt)
+	for _, curConfigs := range storeConfigs {
+		configs = append(configs, curConfigs...)
+	}
+	configs = slices.FilterInPlace[config.Config](configs, func(cfg config.Config) bool {
+		return !configMap.InsertContains(cfg.NamespacedName())
+	})
+
+	return configs
 }
 
 func (cr *store) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
@@ -159,26 +166,9 @@ func (cr *store) UpdateStatus(c config.Config) (string, error) {
 	return cr.writer.UpdateStatus(c)
 }
 
-func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	if cr.writer == nil {
-		return "", errorUnsupported
-	}
-	return cr.writer.Patch(orig, patchFn)
-}
-
 type storeCache struct {
 	model.ConfigStore
 	caches []model.ConfigStoreController
-}
-
-func (cr *storeCache) HasStarted() bool {
-	for _, cache := range cr.caches {
-		if !cache.HasStarted() {
-			return false
-		}
-	}
-
-	return true
 }
 
 func (cr *storeCache) HasSynced() bool {
@@ -196,16 +186,6 @@ func (cr *storeCache) RegisterEventHandler(kind config.GroupVersionKind, handler
 			cache.RegisterEventHandler(kind, handler)
 		}
 	}
-}
-
-func (cr *storeCache) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	var errs error
-	for _, cache := range cr.caches {
-		if err := cache.SetWatchErrorHandler(handler); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	return errs
 }
 
 func (cr *storeCache) Run(stop <-chan struct{}) {

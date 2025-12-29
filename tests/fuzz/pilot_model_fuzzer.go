@@ -23,7 +23,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/slices"
 )
 
 var protocols = []protocol.Instance{
@@ -194,14 +196,14 @@ func FuzzInitContext(data []byte) int {
 
 	env.ConfigStore = store
 	sd := memory.NewServiceDiscovery(services...)
-	sd.WantGetProxyServiceInstances = serviceInstances
+	sd.WantGetProxyServiceTargets = slices.Map(serviceInstances, model.ServiceInstanceToTarget)
 	env.ServiceDiscovery = sd
 
-	env.Watcher = mesh.NewFixedWatcher(m)
-	env.EndpointIndex = model.NewEndpointIndex()
+	env.Watcher = meshwatcher.NewTestWatcher(m)
+	env.EndpointIndex = model.NewEndpointIndex(model.DisabledCache{})
 	env.Init()
 	pc := model.NewPushContext()
-	_ = pc.InitContext(env, nil, nil)
+	pc.InitContext(env, nil, nil)
 	return 1
 }
 

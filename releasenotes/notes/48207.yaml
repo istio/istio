@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 48207
+releaseNotes:
+- |
+  **Fixed** an issue where Istio was performing additional XDS pushes for StatefulSets/headless Service endpoints while scaling.

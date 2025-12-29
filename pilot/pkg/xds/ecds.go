@@ -23,6 +23,7 @@ import (
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -31,19 +32,15 @@ import (
 
 // EcdsGenerator generates ECDS configuration.
 type EcdsGenerator struct {
-	Server           *DiscoveryServer
+	ConfigGenerator  core.ConfigGenerator
 	secretController credscontroller.MulticlusterController
 }
 
 var _ model.XdsResourceGenerator = &EcdsGenerator{}
 
-func ecdsNeedsPush(req *model.PushRequest) bool {
-	if req == nil {
-		return true
-	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
+func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return res
 	}
 	// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
 	for config := range req.ConfigsUpdated {
@@ -59,11 +56,11 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-// onlyReferencedConfigsUpdated indicates whether a referenced resource
-// is ONLY updated i.e. for example secret is updated which is referenced by
-// WASM Plugin.
+// onlyReferencedConfigsUpdated indicates whether the PushRequest
+// has ONLY referenced resource in ConfigUpdates. For example ONLY
+// secret is updated that may be referred by Wasm Plugin.
 func onlyReferencedConfigsUpdated(req *model.PushRequest) bool {
-	dependentUpdated := false
+	referencedConfigUpdated := false
 	for config := range req.ConfigsUpdated {
 		switch config.Kind {
 		case kind.EnvoyFilter:
@@ -71,27 +68,27 @@ func onlyReferencedConfigsUpdated(req *model.PushRequest) bool {
 		case kind.WasmPlugin:
 			return false
 		case kind.Secret:
-			dependentUpdated = true
+			referencedConfigUpdated = true
 		}
 	}
-	return dependentUpdated
+	return referencedConfigUpdated
 }
 
 // Generate returns ECDS resources for a given proxy.
 func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !ecdsNeedsPush(req) {
+	if !ecdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	secretResources := referencedSecrets(proxy, req.Push, w.ResourceNames)
+	wasmSecrets := referencedSecrets(proxy, req.Push, w.ResourceNames)
 
-	// When referenced configs are ONLY updated (like secret referred by WASM Plugin), we should push
-	// ONLY if the referenced config is relevant for ECDS i.e. a secret update is relevant only if it is
-	// referred via WASM plugin.
+	// When referenced configs are ONLY updated (like secret update), we should push
+	// if the referenced config is relevant for ECDS. A secret update is relevant
+	// only if it is referred via WASM plugin.
 	if onlyReferencedConfigsUpdated(req) {
 		updatedSecrets := model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 		needsPush := false
-		for _, sr := range secretResources {
+		for _, sr := range wasmSecrets {
 			if _, found := updatedSecrets[model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
 				needsPush = true
 				break
@@ -103,7 +100,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 	}
 
 	var secrets map[string][]byte
-	if len(secretResources) > 0 {
+	if len(wasmSecrets) > 0 {
 		// Generate the pull secrets first, which will be used when populating the extension config.
 		if e.secretController != nil {
 			var err error
@@ -114,11 +111,11 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 			}
 			// Inserts Wasm pull secrets in ECDS response, which will be used at xds proxy for image pull.
 			// Before forwarding to Envoy, xds proxy will remove the secret from ECDS response.
-			secrets = e.GeneratePullSecrets(proxy, secretResources, secretController)
+			secrets = e.GeneratePullSecrets(proxy, wasmSecrets, secretController)
 		}
 	}
 
-	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames, secrets)
+	ec := e.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames.UnsortedList(), secrets)
 
 	if ec == nil {
 		return nil, model.DefaultXdsLogDetails, nil
@@ -159,13 +156,12 @@ func (e *EcdsGenerator) SetCredController(creds credscontroller.MulticlusterCont
 	e.secretController = creds
 }
 
-func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceNames []string) []SecretResource {
+func referencedSecrets(proxy *model.Proxy, push *model.PushContext, watched sets.String) []SecretResource {
 	// The requirement for the Wasm pull secret:
 	// * Wasm pull secrets must be of type `kubernetes.io/dockerconfigjson`.
 	// * Secret are referenced by a WasmPlugin which applies to this proxy.
 	// TODO: we get the WasmPlugins here to get the secrets reference in order to decide whether ECDS push is needed,
 	//       and we will get it again at extension config build. Avoid getting it twice if this becomes a problem.
-	watched := sets.New(resourceNames...)
 	wasmPlugins := push.WasmPlugins(proxy)
 	referencedSecrets := sets.String{}
 	for _, wps := range wasmPlugins {
@@ -193,17 +189,17 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceName
 func parseSecretName(resourceName string, proxyCluster cluster.ID) (SecretResource, error) {
 	// The secret resource name must be formatted as kubernetes://secret-namespace/secret-name.
 	if !strings.HasPrefix(resourceName, credentials.KubernetesSecretTypeURI) {
-		return SecretResource{}, fmt.Errorf("misformed Wasm pull secret resource name %v", resourceName)
+		return SecretResource{}, fmt.Errorf("malformed Wasm pull secret resource name %v", resourceName)
 	}
 	res := strings.TrimPrefix(resourceName, credentials.KubernetesSecretTypeURI)
 	sep := "/"
 	split := strings.Split(res, sep)
 	if len(split) != 2 {
-		return SecretResource{}, fmt.Errorf("misformed Wasm pull secret resource name %v", resourceName)
+		return SecretResource{}, fmt.Errorf("malformed Wasm pull secret resource name %v", resourceName)
 	}
 	return SecretResource{
 		SecretResource: credentials.SecretResource{
-			Type:         credentials.KubernetesSecretType,
+			ResourceType: credentials.KubernetesSecretType,
 			Name:         split[1],
 			Namespace:    split[0],
 			ResourceName: resourceName,

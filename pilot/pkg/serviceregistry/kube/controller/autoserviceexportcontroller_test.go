@@ -24,14 +24,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -53,7 +53,7 @@ func TestServiceExportController(t *testing.T) {
 			},
 		},
 	}
-	env := model.Environment{Watcher: mesh.NewFixedWatcher(&m)}
+	env := model.Environment{Watcher: meshwatcher.NewTestWatcher(&m)}
 	env.Init()
 
 	sc := newAutoServiceExportController(autoServiceExportOptions{
@@ -68,12 +68,12 @@ func TestServiceExportController(t *testing.T) {
 	go sc.Run(stop)
 
 	t.Run("exportable", func(t *testing.T) {
-		createSimpleService(t, client.Kube(), "exportable-ns", "foo")
+		createSimpleService(t, client, "exportable-ns", "foo")
 		assertServiceExport(t, client, "exportable-ns", "foo", true)
 	})
 
 	t.Run("unexportable", func(t *testing.T) {
-		createSimpleService(t, client.Kube(), "unexportable-ns", "foo")
+		createSimpleService(t, client, "unexportable-ns", "foo")
 		assertServiceExport(t, client, "unexportable-ns", "foo", false)
 	})
 
@@ -89,7 +89,7 @@ func TestServiceExportController(t *testing.T) {
 				Name:      "manual-export",
 			},
 			Status: mcsapi.ServiceExportStatus{
-				Conditions: []mcsapi.ServiceExportCondition{
+				Conditions: []metav1.Condition{
 					{
 						Type: mcsapi.ServiceExportValid,
 					},
@@ -105,7 +105,7 @@ func TestServiceExportController(t *testing.T) {
 
 		// create the associated service
 		// no need for assertions, just trying to ensure no errors
-		createSimpleService(t, client.Kube(), "exportable-ns", "manual-export")
+		createSimpleService(t, client, "exportable-ns", "manual-export")
 
 		// assert that we didn't wipe out the pre-existing serviceexport status
 		assertServiceExportHasCondition(t, client, "exportable-ns", "manual-export",
@@ -113,13 +113,11 @@ func TestServiceExportController(t *testing.T) {
 	})
 }
 
-func createSimpleService(t *testing.T, client kubernetes.Interface, ns string, name string) {
+func createSimpleService(t *testing.T, client kube.Client, ns string, name string) {
 	t.Helper()
-	if _, err := client.CoreV1().Services(ns).Create(context.TODO(), &v1.Service{
+	clienttest.NewWriter[*v1.Service](t, client).Create(&v1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
-	}, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
-	}
+	})
 }
 
 func assertServiceExport(t *testing.T, client kube.Client, ns, name string, shouldBePresent bool) {
@@ -138,7 +136,7 @@ func assertServiceExport(t *testing.T, client kube.Client, ns, name string, shou
 	}, serviceExportTimeout)
 }
 
-func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name string, condition mcsapi.ServiceExportConditionType) {
+func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name string, condition string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		gotU, err := client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(ns).Get(context.TODO(), name, metav1.GetOptions{})
@@ -151,7 +149,7 @@ func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name 
 			return err
 		}
 
-		if got.Status.Conditions == nil || len(got.Status.Conditions) == 0 || got.Status.Conditions[0].Type != condition {
+		if len(got.Status.Conditions) == 0 || got.Status.Conditions[0].Type != condition {
 			return fmt.Errorf("condition incorrect or not found")
 		}
 

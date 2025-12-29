@@ -3,7 +3,7 @@ name: Feature request
 about: Suggest an idea to improve Istio
 
 ---
-(This is used to request new product features, please visit <https://discuss.istio.io> for questions on using Istio)
+(This is used to request new product features, please visit <https://github.com/istio/istio/discussions> for questions on using Istio)
 
 **Describe the feature request**
 
@@ -13,6 +13,7 @@ about: Suggest an idea to improve Istio
 
 [ ] Ambient
 [ ] Docs
+[ ] Dual Stack
 [ ] Installation
 [ ] Networking
 [ ] Performance and Scalability

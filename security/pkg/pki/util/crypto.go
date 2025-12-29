@@ -15,8 +15,10 @@
 package util
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -55,6 +57,7 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 		cb            *pem.Block
 		rootCertBytes []byte
 	)
+	certBytes = bytes.TrimSpace(certBytes)
 	for {
 		rootCertBytes = certBytes
 		cb, certBytes = pem.Decode(certBytes)
@@ -63,7 +66,7 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 		}
 		cert, err := x509.ParseCertificate(cb.Bytes)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse X.509 certificate")
+			return nil, nil, fmt.Errorf("failed to parse X.509 certificate : %v", err)
 		}
 		certs = append(certs, cert)
 		if len(certBytes) == 0 {
@@ -74,6 +77,38 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 		return nil, nil, fmt.Errorf("no PEM encoded X.509 certificates parsed")
 	}
 	return certs, rootCertBytes, nil
+}
+
+// ParseRootCerts We want to filter out certs that are invalid for whatever reason (e.g. negative serial number).
+// First return is the bytes of valid certs,
+// and the second return is a slice of errors from parsing the certs.
+func ParseRootCerts(certBytes []byte) ([]byte, []error) {
+	var (
+		cb                 *pem.Block
+		validRootCertBytes []byte
+		errs               []error
+	)
+	certBytes = bytes.TrimSpace(certBytes)
+	validRootCertBytes = make([]byte, 0, len(certBytes))
+
+	for {
+		if len(certBytes) == 0 {
+			break
+		}
+		cb, certBytes = pem.Decode(certBytes)
+		if cb == nil {
+			// give up if we have an encoding error
+			errs = append(errs, fmt.Errorf("invalid PEM encoded certificate"))
+			return validRootCertBytes, errs
+		}
+		_, err := x509.ParseCertificate(cb.Bytes)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		validRootCertBytes = append(validRootCertBytes, pem.EncodeToMemory(cb)...)
+	}
+	return validRootCertBytes, errs
 }
 
 // ParsePemEncodedCSR constructs a `x509.CertificateRequest` object using the
@@ -101,19 +136,19 @@ func ParsePemEncodedKey(keyBytes []byte) (crypto.PrivateKey, error) {
 	case blockTypeECPrivateKey:
 		key, err := x509.ParseECPrivateKey(kb.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse the ECDSA private key")
+			return nil, fmt.Errorf("failed to parse the ECDSA private key: %v", err)
 		}
 		return key, nil
 	case blockTypeRSAPrivateKey:
 		key, err := x509.ParsePKCS1PrivateKey(kb.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse the RSA private key")
+			return nil, fmt.Errorf("failed to parse the RSA private key: %v", err)
 		}
 		return key, nil
 	case blockTypePKCS8PrivateKey:
 		key, err := x509.ParsePKCS8PrivateKey(kb.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse the PKCS8 private key")
+			return nil, fmt.Errorf("failed to parse the PKCS8 private key: %v", err)
 		}
 		return key, nil
 	default:
@@ -130,14 +165,19 @@ func GetRSAKeySize(privKey crypto.PrivateKey) (int, error) {
 	return pkey.N.BitLen(), nil
 }
 
-// IsSupportedECPrivateKey is a predicate returning true if the private key is EC based
-func IsSupportedECPrivateKey(privKey *crypto.PrivateKey) bool {
-	switch (*privKey).(type) {
+// GetEllipticCurve returns the type of curve associated with the private key;
+// if ECDSA is used, then only 384 and 256 (default) are returned; if non-ECDSA
+// is used then an error is returned
+func GetEllipticCurve(privKey *crypto.PrivateKey) (elliptic.Curve, error) {
+	switch key := (*privKey).(type) {
 	// this should agree with var SupportedECSignatureAlgorithms
 	case *ecdsa.PrivateKey:
-		return true
+		if key.Curve == elliptic.P384() {
+			return key.Curve, nil
+		}
+		return elliptic.P256(), nil
 	default:
-		return false
+		return nil, fmt.Errorf("private key is not ECDSA based")
 	}
 }
 

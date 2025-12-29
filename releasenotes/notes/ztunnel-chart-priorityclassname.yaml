@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 47867
+
+releaseNotes:
+  - |
+    **Added** Set the ztunnel Daemonset priorityClassName to system-node-critical to ensure it is running on all nodes

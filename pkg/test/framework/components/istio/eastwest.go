@@ -23,9 +23,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	applyopt "istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -35,6 +38,8 @@ const (
 	eastWestIngressIstioNameLabel = "eastwestgateway"
 	eastWestIngressIstioLabel     = "istio=" + eastWestIngressIstioNameLabel
 	eastWestIngressServiceName    = "istio-" + eastWestIngressIstioNameLabel
+	eastWestGatewayName           = "istio-eastwestgateway"
+	eastWestGatewayLabel          = "gateway.istio.io/managed=" + constants.ManagedGatewayEastWestControllerLabel
 )
 
 var (
@@ -74,16 +79,32 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 	if customSettings != "" {
 		inFileNames = append(inFileNames, customSettings)
 	}
+
+	setArgs := []string{
+		"hub=" + s.Image.Hub,
+		"tag=" + s.Image.Tag,
+		"values.global.imagePullPolicy=" + s.Image.PullPolicy,
+		"values.gateways.istio-ingressgateway.autoscaleEnabled=false",
+	}
+
+	if i.cfg.SystemNamespace != "istio-system" {
+		setArgs = append(setArgs, "values.global.istioNamespace="+i.cfg.SystemNamespace)
+	}
+
+	// Include all user-specified values.
+	for k, v := range i.cfg.Values {
+		setArgs = append(setArgs, fmt.Sprintf("values.%s=%s", k, v))
+	}
+
+	for k, v := range i.cfg.OperatorOptions {
+		setArgs = append(setArgs, fmt.Sprintf("%s=%s", k, v))
+	}
+
 	if err := i.installer.Install(cluster, installArgs{
 		ComponentName: "eastwestgateway",
 		Revision:      revision,
 		Files:         inFileNames,
-		Set: []string{
-			"hub=" + s.Image.Hub,
-			"tag=" + s.Image.Tag,
-			"values.global.imagePullPolicy=" + s.Image.PullPolicy,
-			"values.gateways.istio-ingressgateway.autoscaleEnabled=false",
-		},
+		Set:           setArgs,
 	}); err != nil {
 		return err
 	}
@@ -101,9 +122,52 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 				return nil
 			}
 		}
-		return fmt.Errorf("no ready pods for " + eastWestIngressIstioLabel)
+		return fmt.Errorf("no ready pods %v for "+eastWestIngressIstioLabel, pods.Items)
 	}, componentDeployTimeout, componentDeployDelay); err != nil {
-		return fmt.Errorf("failed waiting for %s to become ready: %v", eastWestIngressServiceName, err)
+		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s with IOP file %s", eastWestIngressServiceName, err, cluster.Name(), iopFile)
+	}
+
+	return nil
+}
+
+// deployAmbientEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
+func (i *istioImpl) deployAmbientEastWestGateway(cluster cluster.Cluster) error {
+	// generate istio operator yaml
+	args := []string{
+		"--cluster", cluster.Name(),
+		"--network", cluster.NetworkName(),
+		"--mesh", meshID,
+		"--ambient",
+	}
+	if !i.env.IsMultiCluster() {
+		args = []string{"--single-cluster"}
+	}
+	cmd := exec.Command(genGatewayScript, args...)
+	gw, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed generating eastwest gateway yaml: %v: %v", err, string(gw))
+	}
+	if err = i.ctx.ConfigKube(cluster).YAML(i.cfg.SystemNamespace, string(gw)).Apply(applyopt.NoCleanup); err != nil {
+		return fmt.Errorf("failed applying eastwest gateway yaml: %v", err)
+	}
+
+	// wait east west gateway to be programmed (pods are ready)
+	if err := retry.UntilSuccess(func() error {
+		gwc, err := cluster.GatewayAPI().GatewayV1().Gateways(i.cfg.SystemNamespace).Get(context.TODO(), eastWestGatewayName, metav1.GetOptions{})
+		if err == nil {
+			// Check if gateway has Programmed condition set to true
+			for _, cond := range gwc.Status.Conditions {
+				if cond.Type == string(gateway.GatewayConditionProgrammed) && string(cond.Status) == "True" {
+					return nil
+				}
+			}
+		}
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("gateway %s status is not programmed", eastWestGatewayName)
+	}, componentDeployTimeout, componentDeployDelay); err != nil {
+		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s", eastWestGatewayName, err, cluster.Name())
 	}
 
 	return nil

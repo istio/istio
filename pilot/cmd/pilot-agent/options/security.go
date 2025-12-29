@@ -16,46 +16,50 @@ package options
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager"
-	"istio.io/pkg/log"
 )
+
+// Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra CA header.
+const caHeaderPrefix = "CA_HEADER_"
 
 func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenManagerPlugin string) (*security.Options, error) {
 	o := &security.Options{
-		CAEndpoint:                     caEndpointEnv,
-		CAProviderName:                 caProviderEnv,
-		PilotCertProvider:              features.PilotCertProvider,
-		OutputKeyCertToDir:             outputKeyCertToDir,
-		ProvCert:                       provCert,
-		ClusterID:                      clusterIDVar.Get(),
-		FileMountedCerts:               fileMountedCertsEnv,
-		WorkloadNamespace:              PodNamespaceVar.Get(),
-		ServiceAccount:                 serviceAccountVar.Get(),
-		XdsAuthProvider:                xdsAuthProvider.Get(),
-		TrustDomain:                    trustDomainEnv,
-		WorkloadRSAKeySize:             workloadRSAKeySizeEnv,
-		Pkcs8Keys:                      pkcs8KeysEnv,
-		ECCSigAlg:                      eccSigAlgEnv,
-		SecretTTL:                      secretTTLEnv,
-		FileDebounceDuration:           fileDebounceDuration,
-		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
-		STSPort:                        stsPort,
-		CertSigner:                     certSigner.Get(),
-		CARootPath:                     cafile.CACertFilePath,
-		CertChainFilePath:              security.DefaultCertChainFilePath,
-		KeyFilePath:                    security.DefaultKeyFilePath,
-		RootCertFilePath:               security.DefaultRootCertFilePath,
+		CAEndpoint:                           caEndpointEnv,
+		CAProviderName:                       caProviderEnv,
+		PilotCertProvider:                    features.PilotCertProvider,
+		OutputKeyCertToDir:                   outputKeyCertToDir,
+		ProvCert:                             provCert,
+		ClusterID:                            clusterIDVar.Get(),
+		FileMountedCerts:                     fileMountedCertsEnv,
+		WorkloadNamespace:                    PodNamespaceVar.Get(),
+		ServiceAccount:                       serviceAccountVar.Get(),
+		XdsAuthProvider:                      xdsAuthProvider.Get(),
+		TrustDomain:                          trustDomainEnv,
+		WorkloadRSAKeySize:                   workloadRSAKeySizeEnv,
+		Pkcs8Keys:                            pkcs8KeysEnv,
+		ECCSigAlg:                            eccSigAlgEnv,
+		ECCCurve:                             eccCurvEnv,
+		SecretTTL:                            secretTTLEnv,
+		FileDebounceDuration:                 fileDebounceDuration,
+		SecretRotationGracePeriodRatio:       secretRotationGracePeriodRatioEnv,
+		SecretRotationGracePeriodRatioJitter: secretRotationGracePeriodRatioJitterEnv,
+		STSPort:                              stsPort,
+		CertSigner:                           certSigner.Get(),
+		CARootPath:                           cafile.CACertFilePath,
+		CertChainFilePath:                    security.DefaultCertChainFilePath,
+		KeyFilePath:                          security.DefaultKeyFilePath,
+		RootCertFilePath:                     security.DefaultRootCertFilePath,
+		CAHeaders:                            map[string]string{},
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
@@ -64,13 +68,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		return o, err
 	}
 
-	var tokenManager security.TokenManager
-	if stsPort > 0 || xdsAuthProvider.Get() != "" {
-		// tokenManager is gcp token manager when using the default token manager plugin.
-		tokenManager, err = tokenmanager.CreateTokenManager(tokenManagerPlugin,
-			tokenmanager.Config{CredFetcher: o.CredFetcher, TrustDomain: o.TrustDomain})
-	}
-	o.TokenManager = tokenManager
+	extractCAHeadersFromEnv(o)
 
 	return o, err
 }
@@ -78,14 +76,14 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.Options, jwtPolicy,
 	credFetcherTypeEnv, credIdentityProvider string,
 ) (*security.Options, error) {
-	var jwtPath string
+	jwtPath := constants.ThirdPartyJwtPath
 	switch jwtPolicy {
 	case jwt.PolicyThirdParty:
 		log.Info("JWT policy is third-party-jwt")
-		jwtPath = constants.TrustworthyJWTPath
+		jwtPath = constants.ThirdPartyJwtPath
 	case jwt.PolicyFirstParty:
-		log.Info("JWT policy is first-party-jwt")
-		jwtPath = securityModel.K8sSAJwtFileName
+		log.Warnf("Using deprecated JWT policy 'first-party-jwt'; treating as 'third-party-jwt'")
+		jwtPath = constants.ThirdPartyJwtPath
 	default:
 		log.Info("Using existing certs")
 	}
@@ -127,17 +125,25 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	if strings.Contains(o.CAEndpoint, "googleapis.com") {
 		o.CAProviderName = security.GoogleCAProvider
 	}
-	// TODO extract this logic out to a plugin
-	if o.CAProviderName == security.GoogleCAProvider || o.CAProviderName == security.GoogleCASProvider {
-		var err error
-		o.TokenExchanger, err = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	if o.ProvCert != "" && o.FileMountedCerts {
 		return nil, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
 	}
 	return o, nil
+}
+
+// extractCAHeadersFromEnv extracts CA headers from environment variables.
+func extractCAHeadersFromEnv(o *security.Options) {
+	envs := os.Environ()
+	for _, e := range envs {
+		if !strings.HasPrefix(e, caHeaderPrefix) {
+			continue
+		}
+
+		parts := strings.SplitN(e, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		o.CAHeaders[parts[0][len(caHeaderPrefix):]] = parts[1]
+	}
 }

@@ -18,48 +18,58 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type LdsGenerator struct {
-	Server *DiscoveryServer
+	ConfigGenerator core.ConfigGenerator
 }
 
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
-var skippedLdsConfigs = map[model.NodeType]map[kind.Kind]struct{}{
-	model.Router: {
+var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
+	model.Router: sets.New(
 		// for autopassthrough gateways, we build filterchains per-dr subset
-		kind.WorkloadGroup: {},
-		kind.WorkloadEntry: {},
-		kind.Secret:        {},
-		kind.ProxyConfig:   {},
-	},
-	model.SidecarProxy: {
-		kind.Gateway:       {},
-		kind.WorkloadGroup: {},
-		kind.WorkloadEntry: {},
-		kind.Secret:        {},
-		kind.ProxyConfig:   {},
-	},
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+		kind.DNSName,
+	),
+	model.SidecarProxy: sets.New(
+		kind.Gateway,
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+		kind.DNSName,
+	),
+	model.Waypoint: sets.New(
+		kind.Gateway,
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+		kind.DNSName,
+	),
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
-	if req == nil {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return res
+	}
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
 		return true
 	}
 	if !req.Full {
-		// LDS only handles full push
 		return false
 	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
-	}
 	for config := range req.ConfigsUpdated {
-		if _, f := skippedLdsConfigs[proxy.Type][config.Kind]; !f {
+		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
 			return true
 		}
 	}
@@ -70,7 +80,7 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	if !ldsNeedsPush(proxy, req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, req.Push)
+	listeners := l.ConfigGenerator.BuildListeners(proxy, req.Push)
 	resources := model.Resources{}
 	for _, c := range listeners {
 		resources = append(resources, &discovery.Resource{

@@ -75,3 +75,13 @@ func (m Matcher) Any(i echo.Instances) bool {
 	}
 	return false
 }
+
+func (m Matcher) All(i echo.Instances) bool {
+	for _, i := range i {
+		if !m(i) {
+			return false
+		}
+	}
+
+	return true
+}

@@ -1,5 +1,5 @@
 # Attempt to use all possible fields in DestinationRule
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: destall
@@ -17,7 +17,7 @@ spec:
       ports:
         http: 7072
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: destall

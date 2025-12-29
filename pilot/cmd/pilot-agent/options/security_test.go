@@ -59,3 +59,81 @@ func TestCheckGkeWorkloadCertificate(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractCAHeadersFromEnv(t *testing.T) {
+	tests := []struct {
+		name              string
+		envVars           map[string]string
+		expectedCAHeaders map[string]string
+	}{
+		{
+			name: "no CA headers",
+			envVars: map[string]string{
+				"RANDOM_KEY": "value",
+			},
+			expectedCAHeaders: map[string]string{},
+		},
+		{
+			name: "single CA header",
+			envVars: map[string]string{
+				"CA_HEADER_FOO": "foo",
+			},
+			expectedCAHeaders: map[string]string{
+				"FOO": "foo",
+			},
+		},
+		{
+			name: "multiple CA headers",
+			envVars: map[string]string{
+				"CA_HEADER_FOO": "foo",
+				"CA_HEADER_BAR": "bar",
+			},
+			expectedCAHeaders: map[string]string{
+				"FOO": "foo",
+				"BAR": "bar",
+			},
+		},
+		{
+			name: "mixed CA and non-CA headers",
+			envVars: map[string]string{
+				"CA_HEADER_FOO":  "foo",
+				"XDS_HEADER_BAR": "bar",
+				"CA_HEADER_BAZ":  "=baz",
+			},
+			expectedCAHeaders: map[string]string{
+				"FOO": "foo",
+				"BAZ": "=baz",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set environment variables
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+			}
+			// Clean up environment variables after test
+			defer func() {
+				for k := range tt.envVars {
+					os.Unsetenv(k)
+				}
+			}()
+
+			o := &security.Options{
+				CAHeaders: map[string]string{},
+			}
+			extractCAHeadersFromEnv(o)
+
+			if len(o.CAHeaders) != len(tt.expectedCAHeaders) {
+				t.Errorf("expected %d CA headers, got %d", len(tt.expectedCAHeaders), len(o.CAHeaders))
+			}
+
+			for k, v := range tt.expectedCAHeaders {
+				if o.CAHeaders[k] != v {
+					t.Errorf("expected CA header %s to be %s, got %s", k, v, o.CAHeaders[k])
+				}
+			}
+		})
+	}
+}

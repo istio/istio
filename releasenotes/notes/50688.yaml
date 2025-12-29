@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 50688
+releaseNotes:
+- |
+  **Fixed** build EDS typed cluster endpoints with domain address.

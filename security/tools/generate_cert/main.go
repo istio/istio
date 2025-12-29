@@ -59,6 +59,7 @@ var (
 	// Enable this flag if istio mTLS is enabled and the service is running as server side
 	isServer  = flag.Bool("server", false, "Whether this certificate is for a server.")
 	ec        = flag.String("ec-sig-alg", "", "Generate an elliptical curve private key with the specified algorithm")
+	curve     = flag.String("curve", "P256", "Specify the elliptic curve to use to generate an elliptical curve private key")
 	sanFields = flag.String("san", "", "Subject Alternative Names")
 )
 
@@ -152,6 +153,7 @@ func main() {
 		RSAKeySize:   *keySize,
 		IsServer:     *isServer,
 		ECSigAlg:     util.SupportedECSignatureAlgorithms(*ec),
+		ECCCurve:     util.SupportedEllipticCurves(*curve),
 		DNSNames:     *sanFields,
 	}
 	certPem, privPem, err := util.GenCertKeyFromOptions(opts)

@@ -69,7 +69,7 @@ func newWorkloadManager(ctx resource.Context, cfg echo.Config, handler workloadH
 		}
 	}
 	if grpcInstancePort == 0 {
-		return nil, errors.New("unable fo find GRPC command port")
+		return nil, errors.New("unable to find GRPC command port")
 	}
 
 	m := &workloadManager{
@@ -102,7 +102,7 @@ func (m *workloadManager) WaitForReadyWorkloads() (out echo.Workloads, err error
 		m.mutex.Unlock()
 		return err
 	}, retry.Timeout(m.cfg.ReadinessTimeout), startDelay)
-	return
+	return out, err
 }
 
 func (m *workloadManager) readyWorkloads() (echo.Workloads, error) {
@@ -188,10 +188,11 @@ func (m *workloadManager) onPodAddOrUpdate(pod *corev1.Pod) error {
 	// Add the pod to the end of the workload list.
 	newWorkload, err := newWorkload(workloadConfig{
 		pod:        *pod,
-		hasSidecar: workloadHasSidecar(m.cfg, pod.Name),
+		hasSidecar: workloadHasSidecar(pod),
 		cluster:    m.cfg.Cluster,
 		grpcPort:   m.grpcPort,
 		tls:        m.tls,
+		stop:       m.stopCh,
 	}, m.ctx)
 	if err != nil {
 		return err
@@ -256,5 +257,5 @@ func (m *workloadManager) Close() (err error) {
 	for _, w := range workloads {
 		err = multierror.Append(err, w.Close()).ErrorOrNil()
 	}
-	return
+	return err
 }

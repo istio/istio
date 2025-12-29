@@ -20,9 +20,9 @@ import (
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wasm"
 )
@@ -30,7 +30,11 @@ import (
 // Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
 const xdsHeaderPrefix = "XDS_HEADER_"
 
-func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
+func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioagent.SDSServiceFactory) *istioagent.AgentOptions {
+	var insecureRegistries []string
+	if wasmInsecureRegistries != "" {
+		insecureRegistries = strings.Split(wasmInsecureRegistries, ",")
+	}
 	o := &istioagent.AgentOptions{
 		XDSRootCerts:             xdsRootCA,
 		CARootCerts:              caRootCA,
@@ -39,9 +43,8 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		IsIPv6:                   proxy.IsIPv6(),
 		ProxyType:                proxy.Type,
 		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
-		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
 		WASMOptions: wasm.Options{
-			InsecureRegistries:    sets.New(strings.Split(wasmInsecureRegistries, ",")...),
+			InsecureRegistries:    sets.New(insecureRegistries...),
 			ModuleExpiry:          wasmModuleExpiry,
 			PurgeInterval:         wasmPurgeInterval,
 			HTTPRequestTimeout:    wasmHTTPRequestTimeout,
@@ -56,14 +59,19 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		Platform:                    platform.Discover(proxy.SupportsIPv6()),
 		GRPCBootstrapPath:           grpcBootstrapEnv,
 		DisableEnvoy:                disableEnvoyEnv,
-		ProxyXDSDebugViaAgent:       proxyXDSDebugViaAgent,
-		ProxyXDSDebugViaAgentPort:   proxyXDSDebugViaAgentPort,
 		DNSCapture:                  DNSCaptureByAgent.Get(),
+		DNSAtGateway:                EnableDNSAtGateway.Get(),
 		DNSForwardParallel:          DNSForwardParallel.Get(),
 		DNSAddr:                     DNSCaptureAddr.Get(),
 		ProxyNamespace:              PodNamespaceVar.Get(),
 		ProxyDomain:                 proxy.DNSDomain,
 		IstiodSAN:                   istiodSAN.Get(),
+		SDSFactory:                  sds,
+		WorkloadIdentitySocketFile:  workloadIdentitySocketFile,
+		EnvoySkipDeprecatedLogs:     envoySkipDeprecatedLogsEnv,
+	}
+	if enableWDSEnvWasSet {
+		o.MetadataDiscovery = ptr.Of(enableWDSEnv)
 	}
 	extractXDSHeadersFromEnv(o)
 	return o

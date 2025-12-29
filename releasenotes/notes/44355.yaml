@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 44228
+releaseNotes:
+- |
+  **Improved** JWT claim based routing, now support using `[]` as a separator for nested claim names.

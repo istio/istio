@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 56087
+
+releaseNotes:
+  - |
+    **Added** istio-cni tolerations are now configurable via helm

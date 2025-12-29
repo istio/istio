@@ -42,57 +42,47 @@ typedConfig:
                   rules:
                   - requestedServerName:
                       exact: not-exact.com
-            - orRules:
-                rules:
-                - metadata:
-                    filter: envoy.filters.a.b
-                    path:
-                    - key: c
-                    value:
-                      stringMatch:
-                        exact: exact
+            - metadata:
+                filter: envoy.filters.a.b
+                path:
+                - key: c
+                value:
+                  stringMatch:
+                    exact: exact
             - notRule:
-                orRules:
-                  rules:
-                  - metadata:
-                      filter: envoy.filters.a.b
-                      path:
-                      - key: c
-                      value:
-                        stringMatch:
-                          exact: not-exact
+                metadata:
+                  filter: envoy.filters.a.b
+                  path:
+                  - key: c
+                  value:
+                    stringMatch:
+                      exact: not-exact
         principals:
         - andIds:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://principal
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         exact: spiffe://not-principal
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
             - orIds:
                 ids:
@@ -140,33 +130,27 @@ typedConfig:
                       prefixLen: 32
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://principal
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         exact: spiffe://not-principal
   shadowRulesStatPrefix: istio_dry_run_allow_
   statPrefix: tcp.

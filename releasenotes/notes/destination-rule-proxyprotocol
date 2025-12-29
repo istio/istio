@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for outbound traffic Proxy Protocol. By specifying proxyProtocol in a DestinationRule.trafficPolicy,
+  the sidecar will send Proxy Protocol headers to the upstream service. This feature is not supported for HBONE proxy now.

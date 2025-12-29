@@ -1,0 +1,25 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: istio.attributegen
+spec:
+  phase: STATS
+  selector:
+    matchLabels:
+      app: b
+  url: {{ .AttributeGenURL }}
+  imagePullSecret: reg-cred
+  pluginConfig:
+    attributes:
+    - output_attribute: istio_responseClass
+      match:
+      - value: 2xx
+        condition: response.code >= 200 && response.code <= 299
+    - output_attribute: istio_operationId
+      match:
+      - value: getoperation
+        condition: request.method == 'GET'
+    - output_attribute: istio_grpcResponseStatus
+      match:
+      - value: OK
+        condition: response.grpc_status == 0

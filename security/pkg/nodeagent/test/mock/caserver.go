@@ -28,14 +28,13 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/spiffe"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
-var caServerLog = log.RegisterScope("ca", "CA service debugging", 0)
+var caServerLog = log.RegisterScope("ca", "CA service debugging")
 
 // CAServer is a mock CA server.
 type CAServer struct {
@@ -55,7 +54,7 @@ type CAServer struct {
 }
 
 func NewCAServerWithKeyCert(port int, key, cert []byte, opts ...grpc.ServerOption) (*CAServer, error) {
-	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
+	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert, nil)
 	if err != nil {
 		caServerLog.Errorf("failed to create CA KeyCertBundle: %+v", err)
 		return nil, err
@@ -73,25 +72,6 @@ func NewCAServerWithKeyCert(port int, key, cert []byte, opts ...grpc.ServerOptio
 	pb.RegisterIstioCertificateServiceServer(server.GRPCServer, server)
 	ghc.RegisterHealthServer(server.GRPCServer, server)
 	return server, server.start(port)
-}
-
-// NewCAServer creates a new CA server that listens on port.
-func NewCAServer(port int, opts ...grpc.ServerOption) (*CAServer, error) {
-	// Create root cert and private key.
-	options := util.CertOptions{
-		TTL:          3650 * 24 * time.Hour,
-		Org:          spiffe.GetTrustDomain(),
-		IsCA:         true,
-		IsSelfSigned: true,
-		RSAKeySize:   2048,
-		IsDualUse:    true,
-	}
-	cert, key, err := util.GenCertKeyFromOptions(options)
-	if err != nil {
-		caServerLog.Errorf("cannot create CA cert and private key: %+v", err)
-		return nil, err
-	}
-	return NewCAServerWithKeyCert(port, key, cert, opts...)
 }
 
 func (s *CAServer) start(port int) error {
@@ -165,10 +145,8 @@ func (s *CAServer) CreateCertificate(ctx context.Context, request *pb.IstioCerti
 	}
 	id := []string{"client-identity"}
 	if len(s.Authenticators) > 0 {
-		am := security.AuthenticationManager{Authenticators: s.Authenticators}
-		caller := am.Authenticate(ctx)
-		if caller == nil {
-			caServerLog.Errorf("Failed to authenticate client from %s: %s", security.GetConnectionAddress(ctx), am.FailedMessages())
+		caller, err := security.Authenticate(ctx, s.Authenticators)
+		if caller == nil || err != nil {
 			return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 		}
 		id = caller.Identities
@@ -218,4 +196,8 @@ func (s *CAServer) Check(ctx context.Context, in *ghc.HealthCheckRequest) (*ghc.
 // Watch handles health check streams.
 func (s *CAServer) Watch(_ *ghc.HealthCheckRequest, _ ghc.Health_WatchServer) error {
 	return nil
+}
+
+func (s *CAServer) List(_ context.Context, _ *ghc.HealthListRequest) (*ghc.HealthListResponse, error) {
+	return &ghc.HealthListResponse{}, nil
 }

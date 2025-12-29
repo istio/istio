@@ -16,7 +16,6 @@ package strcase
 
 import (
 	"bytes"
-	"strings"
 )
 
 // CamelCase converts the string into camel case string
@@ -60,15 +59,6 @@ func CamelCase(s string) string {
 	return string(t)
 }
 
-// CamelCaseWithSeparator splits the given string by the separator, converts the parts to CamelCase and then re-joins them.
-func CamelCaseWithSeparator(n string, sep string) string {
-	p := strings.Split(n, sep)
-	for i := 0; i < len(p); i++ {
-		p[i] = CamelCase(p[i])
-	}
-	return strings.Join(p, "")
-}
-
 // CamelCaseToKebabCase converts "MyName" to "my-name"
 func CamelCaseToKebabCase(s string) string {
 	switch s {
@@ -78,6 +68,16 @@ func CamelCaseToKebabCase(s string) string {
 		return "http-route"
 	case "HTTPAPISpecBinding":
 		return "http-api-spec-binding"
+	case "GRPCRoute":
+		return "grpc-route"
+	case "TCPRoute":
+		return "tcp-route"
+	case "TLSRoute":
+		return "tls-route"
+	case "UDPRoute":
+		return "udp-route"
+	case "BackendTLSPolicy":
+		return "backend-tls-policy"
 	default:
 		var out bytes.Buffer
 		for i := range s {

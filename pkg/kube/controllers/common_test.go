@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -82,6 +83,43 @@ func TestEnqueueForParentHandler(t *testing.T) {
 	if got := written.Load(); got != "" {
 		t.Fatalf("unexpectedly enqueued %v", got)
 	}
+
+	handler = EnqueueForParentHandler(q, gvk.KubernetesGateway)
+	handler(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-deployment",
+			Namespace: "ns",
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: gvk.KubernetesGateway.GroupVersion(),
+				Kind:       gvk.KubernetesGateway.Kind,
+				Name:       "gateway",
+				UID:        "1234",
+			}},
+		},
+	})
+	retry.UntilOrFail(t, func() bool {
+		return written.Load() == "ns/gateway"
+	}, retry.Timeout(time.Second*5))
+	written.Store("")
+
+	gatewayv1alpha2 := gvk.KubernetesGateway
+	gatewayv1alpha2.Version = "v1alpha2"
+	handler = EnqueueForParentHandler(q, gvk.KubernetesGateway)
+	handler(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-deployment",
+			Namespace: "ns",
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: gatewayv1alpha2.GroupVersion(),
+				Kind:       gatewayv1alpha2.Kind,
+				Name:       "gateway",
+				UID:        "1234",
+			}},
+		},
+	})
+	retry.UntilOrFail(t, func() bool {
+		return written.Load() == "ns/gateway"
+	}, retry.Timeout(time.Second*5))
 }
 
 func TestExtract(t *testing.T) {

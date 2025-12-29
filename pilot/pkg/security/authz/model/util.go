@@ -22,7 +22,7 @@ import (
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
-	authn "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/xds/filters"
 )
 
 // convertToPort converts a port string to a uint32.
@@ -72,7 +72,39 @@ func extractNameInNestedBrackets(s string) ([]string, error) {
 	return claims, nil
 }
 
+func MetadataStringMatcherForJWTClaim(claim string, m *matcherpb.StringMatcher) *matcherpb.MetadataMatcher {
+	return MetadataValueMatcherForJWTClaim(claim, &matcherpb.ValueMatcher{
+		MatchPattern: &matcherpb.ValueMatcher_StringMatch{
+			StringMatch: m,
+		},
+	})
+}
+
+func MetadataValueMatcherForJWTClaim(claim string, m *matcherpb.ValueMatcher) *matcherpb.MetadataMatcher {
+	return &matcherpb.MetadataMatcher{
+		Filter: filters.EnvoyJwtFilterName,
+		Path: []*matcherpb.MetadataMatcher_PathSegment{
+			{
+				Segment: &matcherpb.MetadataMatcher_PathSegment_Key{
+					Key: filters.EnvoyJwtFilterPayload,
+				},
+			},
+			{
+				Segment: &matcherpb.MetadataMatcher_PathSegment_Key{
+					Key: claim,
+				},
+			},
+		},
+		Value: m,
+	}
+}
+
+// MetadataValueMatcherForJWTClaims for Envoy JWT
+func MetadataListValueMatcherForJWTClaims(claims []string, value *matcherpb.ValueMatcher) *matcherpb.MetadataMatcher {
+	return matcher.MetadataListValueMatcher(filters.EnvoyJwtFilterName, append([]string{filters.EnvoyJwtFilterPayload}, claims...), value, true)
+}
+
 // MetadataMatcherForJWTClaims is a convenient method for generating metadata matcher for JWT claims.
 func MetadataMatcherForJWTClaims(claims []string, value *matcherpb.StringMatcher) *matcherpb.MetadataMatcher {
-	return matcher.MetadataListMatcher(authn.AuthnFilterName, append([]string{attrRequestClaims}, claims...), value)
+	return matcher.MetadataListMatcher(filters.EnvoyJwtFilterName, append([]string{filters.EnvoyJwtFilterPayload}, claims...), value, true)
 }

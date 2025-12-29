@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/netip"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -190,8 +192,8 @@ func (c *instance) NamespaceName() string {
 	return c.cfg.NamespaceName()
 }
 
-func (c *instance) ServiceAccountName() string {
-	return c.cfg.ServiceAccountName()
+func (c *instance) SpiffeIdentity() string {
+	return c.cfg.SpiffeIdentity()
 }
 
 func (c *instance) ClusterLocalFQDN() string {
@@ -208,7 +210,7 @@ func (c *instance) Config() echo.Config {
 
 func (c *instance) WithWorkloads(wls ...echo.Workload) echo.Instance {
 	n := *c
-	c.workloadFilter = wls
+	n.workloadFilter = wls
 	return &n
 }
 
@@ -217,6 +219,10 @@ func (c *instance) Cluster() cluster.Cluster {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (echo.CallResult, error) {
+	// Setup default check. This is done here rather than in echo core package to avoid import loops
+	if opts.Check == nil {
+		opts.Check = check.OK()
+	}
 	return c.aggregateResponses(opts)
 }
 
@@ -324,15 +330,18 @@ func (c *instance) aggregateResponses(opts echo.CallOptions) (echo.CallResult, e
 	}
 	aggErr := istiomultierror.New()
 	for _, w := range workloads {
-		clusterName := w.(*workload).cluster.Name()
-		serviceName := fmt.Sprintf("%s (cluster=%s)", c.cfg.Service, clusterName)
-
-		out, err := common.ForwardEcho(serviceName, c, opts, w.(*workload).Client)
-		if err != nil {
-			aggErr = multierror.Append(aggErr, err)
-			continue
+		w := w.(*workload)
+		for _, ipf := range ipFamilies(w, opts) {
+			serviceName := fmt.Sprintf("%s (cluster=%s)", c.cfg.Service, w.cluster.Name())
+			opts = opts.DeepCopy()
+			opts.ForceIPFamily = ipf
+			out, err := common.ForwardEcho(serviceName, c, opts, w.Client)
+			if err != nil {
+				aggErr = multierror.Append(aggErr, err)
+				continue
+			}
+			resps = append(resps, out.Responses...)
 		}
-		resps = append(resps, out.Responses...)
 	}
 	if aggErr.ErrorOrNil() != nil {
 		return echo.CallResult{}, aggErr
@@ -343,4 +352,30 @@ func (c *instance) aggregateResponses(opts echo.CallOptions) (echo.CallResult, e
 		Opts:      opts,
 		Responses: resps,
 	}, nil
+}
+
+func ipFamilies(w echo.Workload, opts echo.CallOptions) []string {
+	if opts.ForceIPFamily != "" {
+		return []string{opts.ForceIPFamily}
+	}
+	if !opts.DualStack {
+		return []string{""}
+	}
+	var v4 bool
+	var v6 bool
+	for _, a := range w.Addresses() {
+		ip, err := netip.ParseAddr(a)
+		if err == nil {
+			return []string{""}
+		}
+		if ip.Is4() {
+			v4 = true
+		} else if ip.Is6() {
+			v6 = true
+		}
+	}
+	if v4 && v6 {
+		return []string{"tcp4", "tcp6"}
+	}
+	return []string{""}
 }

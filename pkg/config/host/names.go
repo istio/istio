@@ -42,7 +42,7 @@ func MoreSpecific(a, b Name) bool {
 	}
 
 	// we sort longest to shortest, alphabetically, with wildcards last
-	ai, aj := string(a[0]) == "*", string(b[0]) == "*"
+	ai, aj := strings.HasPrefix(a.String(), "*"), strings.HasPrefix(b.String(), "*")
 	if ai && !aj {
 		// h[i] is a wildcard, but h[j] isn't; therefore h[j] < h[i]
 		return false
@@ -120,13 +120,12 @@ func NewNames(hosts []string) Names {
 func NamesForNamespace(hosts []string, namespace string) Names {
 	result := make(Names, 0, len(hosts))
 	for _, host := range hosts {
-		if strings.Contains(host, "/") {
-			parts := strings.Split(host, "/")
-			if parts[0] != namespace && parts[0] != "*" {
+		if ns, name, found := strings.Cut(host, "/"); found {
+			if ns != namespace && ns != "*" {
 				continue
 			}
 			// strip the namespace
-			host = parts[1]
+			host = name
 		}
 		result = append(result, Name(host))
 	}

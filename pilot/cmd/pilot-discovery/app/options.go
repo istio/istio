@@ -16,6 +16,7 @@ package app
 
 import (
 	"crypto/tls"
+	"errors"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/config/validation"
@@ -41,6 +42,17 @@ func secureTLSCipherNames() []string {
 	return sets.SortedList(cipherKeys)
 }
 
+// validateClusterAliases validates that there's no more than one alias per clusterID.
+func validateClusterAliases(clusterAliases map[string]string) error {
+	seenClusterIDs := sets.New[string]()
+	for _, clusterID := range clusterAliases {
+		if seenClusterIDs.InsertContains(clusterID) {
+			return errors.New("More than one cluster alias for cluster id: " + clusterID)
+		}
+	}
+	return nil
+}
+
 func validateFlags(serverArgs *bootstrap.PilotArgs) error {
 	if serverArgs == nil {
 		return nil
@@ -49,6 +61,10 @@ func validateFlags(serverArgs *bootstrap.PilotArgs) error {
 	// If keepaliveMaxServerConnectionAge is negative, istiod crash
 	// https://github.com/istio/istio/issues/27257
 	if err := validation.ValidateMaxServerConnectionAge(serverArgs.KeepaliveOptions.MaxServerConnectionAge); err != nil {
+		return err
+	}
+
+	if err := validateClusterAliases(serverArgs.RegistryOptions.KubeOptions.ClusterAliases); err != nil {
 		return err
 	}
 

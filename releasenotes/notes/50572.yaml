@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 50572
+releaseNotes:
+- |
+  **Fixed** `use-waypoint` should be a label, for consistency

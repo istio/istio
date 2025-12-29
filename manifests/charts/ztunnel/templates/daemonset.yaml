@@ -1,0 +1,233 @@
+{{- if or (eq .Values.resourceScope "all") (eq .Values.resourceScope "namespace") }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "ztunnel.release-name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: ztunnel
+    {{- include "istio.labels" . | nindent 4}}
+    {{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
+  annotations:
+{{- if .Values.revision }}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
+{{- else }}
+    {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
+spec:
+  {{- with .Values.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: ztunnel
+  template:
+    metadata:
+      labels:
+        sidecar.istio.io/inject: "false"
+        istio.io/dataplane-mode: none
+        app: ztunnel
+        app.kubernetes.io/name: ztunnel
+        {{- include "istio.labels" . | nindent 8}}
+{{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+{{- if .Values.revision }}
+        istio.io/rev: {{ .Values.revision }}
+{{- end }}
+{{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+{{- if .Values.nodeSelector }}
+{{ toYaml .Values.nodeSelector | indent 8 }}
+{{- end }}
+{{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | trim | indent 8 }}
+{{- end }}
+      serviceAccountName: {{ include "ztunnel.release-name" . }}
+{{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | trim | indent 8 }}
+{{- end }}
+      containers:
+      - name: istio-proxy
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
+        image: "{{ .Values.hub }}/{{ .Values.image | default "ztunnel" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
+{{- end }}
+        ports:
+        - containerPort: 15020
+          name: ztunnel-stats
+          protocol: TCP
+        resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | trim | indent 10 }}
+{{- end }}
+{{- with .Values.imagePullPolicy }}
+        imagePullPolicy: {{ . }}
+{{- end }}
+        securityContext:
+          # K8S docs are clear that CAP_SYS_ADMIN *or* privileged: true
+          # both force this to `true`: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+          # But there is a K8S validation bug that doesn't propery catch this: https://github.com/kubernetes/kubernetes/issues/119568
+          allowPrivilegeEscalation: true
+          privileged: false
+          capabilities:
+            drop:
+            - ALL
+            add: # See https://man7.org/linux/man-pages/man7/capabilities.7.html
+            - NET_ADMIN # Required for TPROXY and setsockopt
+            - SYS_ADMIN # Required for `setns` - doing things in other netns
+            - NET_RAW # Required for RAW/PACKET sockets, TPROXY
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: false
+          runAsUser: 0
+{{- if .Values.seLinuxOptions }}
+          seLinuxOptions:
+{{ toYaml .Values.seLinuxOptions | trim | indent 12 }}
+{{- end }}
+        readinessProbe:
+          httpGet:
+            port: 15021
+            path: /healthz/ready
+        args:
+        - proxy
+        - ztunnel
+        env:
+        - name: CA_ADDRESS
+        {{- if .Values.caAddress }}
+          value: {{ .Values.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
+        {{- end }}
+        - name: XDS_ADDRESS
+        {{- if .Values.xdsAddress }}
+          value: {{ .Values.xdsAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
+        {{- end }}
+        {{- if .Values.logAsJson }}
+        - name: LOG_FORMAT
+          value: json
+        {{- end}}
+        {{- if .Values.network }}
+        - name: NETWORK
+          value: {{ .Values.network | quote }}
+        {{- end }}
+        - name: RUST_LOG
+          value: {{ .Values.logLevel | quote }}
+        - name: RUST_BACKTRACE
+          value: "1"
+        - name: ISTIO_META_CLUSTER_ID
+          value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
+        - name: INPOD_ENABLED
+          value: "true"
+        - name: TERMINATION_GRACE_PERIOD_SECONDS
+          value: "{{ .Values.terminationGracePeriodSeconds }}"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        {{- if .Values.meshConfig.defaultConfig.proxyMetadata }}
+        {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata}}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
+        - name: ZTUNNEL_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+              divisor: "1"
+        {{- with .Values.env }}
+        {{- range $key, $val := . }}
+        - name: {{ $key }}
+          value: "{{ $val }}"
+        {{- end }}
+        {{- end }}
+        {{- if .Values.peerCaCrl.enabled }}
+        - name: ENABLE_CRL
+          value: "true"
+        - name: CRL_PATH
+          value: "/var/run/secrets/istio/crl/ca-crl.pem"
+        - name: ALLOW_EXPIRED_CRL
+          value: "false"
+        {{- end }}
+        volumeMounts:
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        - mountPath: /var/run/ztunnel
+          name: cni-ztunnel-sock-dir
+        - mountPath: /tmp
+          name: tmp
+        {{- if .Values.peerCaCrl.enabled }}
+        - mountPath: /var/run/secrets/istio/crl
+          name: crl-volume
+          readOnly: true
+        {{- end }}
+        {{- with .Values.volumeMounts }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      priorityClassName: system-node-critical
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      volumes:
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: istio-ca
+      - name: istiod-ca-cert
+        {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio.io:istiod-ca:{{ .Values.trustBundleName | default "root-cert" }}
+              path: root-cert.pem
+        {{- else }}
+        configMap:
+          name: {{ .Values.trustBundleName | default "istio-ca-root-cert" }}
+        {{- end }}
+      - name: cni-ztunnel-sock-dir
+        hostPath:
+          path: /var/run/ztunnel
+          type: DirectoryOrCreate # ideally this would be a socket, but istio-cni may not have started yet.
+      # pprof needs a writable /tmp, and we don't have that thanks to `readOnlyRootFilesystem: true`, so mount one
+      - name: tmp
+        emptyDir: {}
+      {{- if .Values.peerCaCrl.enabled }}
+      # Optional CRL volume - mounts istio-ca-crl ConfigMap if it exists
+      - name: crl-volume
+        configMap:
+          name: istio-ca-crl
+          optional: true
+      {{- end }}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 6}}
+      {{- end }}
+{{- end }}

@@ -18,23 +18,12 @@ import (
 	"istio.io/istio/pkg/test/framework/config"
 )
 
-type Kind string
-
-const (
-	Kubernetes Kind = "Kubernetes"
-	Fake       Kind = "Fake"
-	Aggregate  Kind = "Aggregate"
-	StaticVM   Kind = "StaticVM"
-	Unknown    Kind = "Unknown"
-)
-
 type Config struct {
-	Kind               Kind       `yaml:"kind,omitempty"`
-	Name               string     `yaml:"clusterName,omitempty"`
-	Network            string     `yaml:"network,omitempty"`
-	HTTPProxy          string     `yaml:"httpProxy,omitempty"`
-	ProxyKubectlOnly   bool       `yaml:"proxyKubectlOnly,omitempty"`
-	PrimaryClusterName string     `yaml:"primaryClusterName,omitempty"`
-	ConfigClusterName  string     `yaml:"configClusterName,omitempty"`
-	Meta               config.Map `yaml:"meta,omitempty"`
+	Name               string     `json:"clusterName,omitempty"`
+	Network            string     `json:"network,omitempty"`
+	HTTPProxy          string     `json:"httpProxy,omitempty"`
+	ProxyKubectlOnly   bool       `json:"proxyKubectlOnly,omitempty"`
+	PrimaryClusterName string     `json:"primaryClusterName,omitempty"`
+	ConfigClusterName  string     `json:"configClusterName,omitempty"`
+	Meta               config.Map `json:"meta,omitempty"`
 }

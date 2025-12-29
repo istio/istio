@@ -1,0 +1,48 @@
+{{- if .Values.global.configValidation }}
+{{- if hasKey .Values.base.tags "default" }}
+{{- $tag := .Values.base.tags.default }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-default-validator
+  labels:
+    app: istiod
+    istio: istiod
+    istio.io/rev: {{ $tag.revision | default "default" }}
+    istio.io/tag: "default"
+    # Required to make sure this resource is removed
+    # when purging Istio resources
+    operator.istio.io/component: Pilot
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      {{- if $tag.validationURL }}
+      url: {{ $tag.validationURL }}
+      {{- else }}
+      service:
+        name: istiod{{- if not (eq $tag.revision "") }}-{{ $tag.revision }}{{- end }}
+        namespace: {{ .Values.global.istioNamespace }}
+        path: "/validate"
+      {{- end }}
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+          - telemetry.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+    objectSelector:
+      matchExpressions:
+        - key: istio.io/rev
+          operator: DoesNotExist
+---
+{{- end }}
+{{- end }}

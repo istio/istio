@@ -123,3 +123,29 @@ allowlisted_modules:
 # MIT: https://github.com/invopop/yaml/blob/v0.1.0/LICENSE
 - github.com/invopop/yaml
 
+# Simplified BSD (BSD-2-Clause): https://github.com/russross/blackfriday/blob/master/LICENSE.txt
+- github.com/russross/blackfriday
+- github.com/russross/blackfriday/v2
+
+# W3C Test Suite License, W3C 3-clause BSD License
+# gonum uses this for its some of its test files
+# gonum.org/v1/gonum/graph/formats/rdf/testdata/LICENSE.md
+- gonum.org/v1/gonum
+
+# BSD 3-clause: https://github.com/go-inf/inf/blob/v0.9.1/LICENSE
+- gopkg.in/inf.v0
+
+# BSD 3-clause: https://github.com/go-git/gcfg/blob/main/LICENSE
+- github.com/go-git/gcfg
+
+# Apache 2.0
+- github.com/aws/smithy-go
+
+# Simplified BSD License: https://github.com/gomarkdown/markdown/blob/master/LICENSE.txt
+- github.com/gomarkdown/markdown
+
+# MPL-2.0
+# https://github.com/cyphar/filepath-securejoin/blob/main/LICENSE.MPL-2.0
+# BSD
+# https://github.com/cyphar/filepath-securejoin/blob/main/LICENSE.BSD
+- github.com/cyphar/filepath-securejoin

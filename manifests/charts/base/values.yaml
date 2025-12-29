@@ -1,29 +1,45 @@
-global:
+# "_internal_defaults_do_not_set" is a workaround for Helm limitations. Users should NOT set "._internal_defaults_do_not_set" explicitly, but rather directly set the fields internally.
+# For instance, instead of `--set _internal_defaults_do_not_set.foo=bar``, just set `--set foo=bar`.
+_internal_defaults_do_not_set:
+  global:
 
-  # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
-  # to use for pulling any images in pods that reference this ServiceAccount.
-  # Must be set for any cluster configured with private docker registry.
-  imagePullSecrets: []
+    # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
+    # to use for pulling any images in pods that reference this ServiceAccount.
+    # Must be set for any cluster configured with private docker registry.
+    imagePullSecrets: []
 
-  # Used to locate istiod.
-  istioNamespace: istio-system
+    # Used to locate istiod.
+    istioNamespace: istio-system
 
-  istiod:
-    enableAnalysis: false
+    # resourceScope controls what resources will be processed by helm.
+    # This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+    # It can be one of:
+    # - all: all resources are processed
+    # - cluster: only cluster-scoped resources are processed
+    # - namespace: only namespace-scoped resources are processed
+    resourceScope: all
+  base:
+    # A list of CRDs to exclude. Requires `enableCRDTemplates` to be true.
+    # Example: `excludedCRDs: ["envoyfilters.networking.istio.io"]`.
+    # Note: when installing with `istioctl`, `enableIstioConfigCRDs=false` must also be set.
+    excludedCRDs: []
+    # Helm (as of V3) does not support upgrading CRDs, because it is not universally
+    # safe for them to support this.
+    # Istio as a project enforces certain backwards-compat guarantees that allow us
+    # to safely upgrade CRDs in spite of this, so we default to self-managing CRDs
+    # as standard K8S resources in Helm, and disable Helm's CRD management. See also:
+    # https://helm.sh/docs/chart_best_practices/custom_resource_definitions/#method-2-separate-charts
+    enableCRDTemplates: true
 
-  configValidation: true
-  externalIstiod: false
-  remotePilotAddress: ""
+    # Validation webhook configuration url
+    # For example: https://$remotePilotAddress:15017/validate
+    validationURL: ""
+    # Validation webhook caBundle value. Useful when running pilot with a well known cert
+    validationCABundle: ""
 
-base:
-  # Used for helm2 to add the CRDs to templates.
-  enableCRDTemplates: false
+    # For istioctl usage to disable istio config crds in base
+    enableIstioConfigCRDs: true
 
-  # Validation webhook configuration url
-  # For example: https://$remotePilotAddress:15017/validate
-  validationURL: ""
-
-  # For istioctl usage to disable istio config crds in base
-  enableIstioConfigCRDs: true
-
-defaultRevision: "default"
+  defaultRevision: "default"
+  experimental:
+    stableValidationPolicy: false

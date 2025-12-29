@@ -16,72 +16,77 @@ package chiron
 
 import (
 	"bytes"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"strconv"
-	"strings"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	cert "k8s.io/api/certificates/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	kt "k8s.io/client-go/testing"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
+	csrctrl "istio.io/istio/pkg/test/csrctrl/controllers"
+	"istio.io/istio/pkg/test/util/assert"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
 const (
+	// exampleCACert copied from samples/certs/ca-cert.pem
 	exampleCACert = `-----BEGIN CERTIFICATE-----
-MIIDCzCCAfOgAwIBAgIQbfOzhcKTldFipQ1X2WXpHDANBgkqhkiG9w0BAQsFADAv
-MS0wKwYDVQQDEyRhNzU5YzcyZC1lNjcyLTQwMzYtYWMzYy1kYzAxMDBmMTVkNWUw
-HhcNMTkwNTE2MjIxMTI2WhcNMjQwNTE0MjMxMTI2WjAvMS0wKwYDVQQDEyRhNzU5
-YzcyZC1lNjcyLTQwMzYtYWMzYy1kYzAxMDBmMTVkNWUwggEiMA0GCSqGSIb3DQEB
-AQUAA4IBDwAwggEKAoIBAQC6sSAN80Ci0DYFpNDumGYoejMQai42g6nSKYS+ekvs
-E7uT+eepO74wj8o6nFMNDu58+XgIsvPbWnn+3WtUjJfyiQXxmmTg8om4uY1C7R1H
-gMsrL26pUaXZ/lTE8ZV5CnQJ9XilagY4iZKeptuZkxrWgkFBD7tr652EA3hmj+3h
-4sTCQ+pBJKG8BJZDNRrCoiABYBMcFLJsaKuGZkJ6KtxhQEO9QxJVaDoSvlCRGa8R
-fcVyYQyXOZ+0VHZJQgaLtqGpiQmlFttpCwDiLfMkk3UAd79ovkhN1MCq+O5N7YVt
-eVQWaTUqUV2tKUFvVq21Zdl4dRaq+CF5U8uOqLY/4Kg9AgMBAAGjIzAhMA4GA1Ud
-DwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQCg
-oF71Ey2b1QY22C6BXcANF1+wPzxJovFeKYAnUqwh3rF7pIYCS/adZXOKlgDBsbcS
-MxAGnCRi1s+A7hMYj3sQAbBXttc31557lRoJrx58IeN5DyshT53t7q4VwCzuCXFT
-3zRHVRHQnO6LHgZx1FuKfwtkhfSXDyYU2fQYw2Hcb9krYU/alViVZdE0rENXCClq
-xO7AQk5MJcGg6cfE5wWAKU1ATjpK4CN+RTn8v8ODLoI2SW3pfsnXxm93O+pp9HN4
-+O+1PQtNUWhCfh+g6BN2mYo2OEZ8qGSxDlMZej4YOdVkW8PHmFZTK0w9iJKqM5o1
-V6g5gZlqSoRhICK09tpc
+MIIDnzCCAoegAwIBAgIJAON1ifrBZ2/BMA0GCSqGSIb3DQEBCwUAMIGLMQswCQYD
+VQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTESMBAGA1UEBwwJU3Vubnl2YWxl
+MQ4wDAYDVQQKDAVJc3RpbzENMAsGA1UECwwEVGVzdDEQMA4GA1UEAwwHUm9vdCBD
+QTEiMCAGCSqGSIb3DQEJARYTdGVzdHJvb3RjYUBpc3Rpby5pbzAgFw0xODAxMjQx
+OTE1NTFaGA8yMTE3MTIzMTE5MTU1MVowWTELMAkGA1UEBhMCVVMxEzARBgNVBAgT
+CkNhbGlmb3JuaWExEjAQBgNVBAcTCVN1bm55dmFsZTEOMAwGA1UEChMFSXN0aW8x
+ETAPBgNVBAMTCElzdGlvIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEAyzCxr/xu0zy5rVBiso9ffgl00bRKvB/HF4AX9/ytmZ6Hqsy13XIQk8/u/By9
+iCvVwXIMvyT0CbiJq/aPEj5mJUy0lzbrUs13oneXqrPXf7ir3HzdRw+SBhXlsh9z
+APZJXcF93DJU3GabPKwBvGJ0IVMJPIFCuDIPwW4kFAI7R/8A5LSdPrFx6EyMXl7K
+M8jekC0y9DnTj83/fY72WcWX7YTpgZeBHAeeQOPTZ2KYbFal2gLsar69PgFS0Tom
+ESO9M14Yit7mzB1WDK2z9g3r+zLxENdJ5JG/ZskKe+TO4Diqi5OJt/h8yspS1ck8
+LJtCole9919umByg5oruflqIlQIDAQABozUwMzALBgNVHQ8EBAMCAgQwDAYDVR0T
+BAUwAwEB/zAWBgNVHREEDzANggtjYS5pc3Rpby5pbzANBgkqhkiG9w0BAQsFAAOC
+AQEAltHEhhyAsve4K4bLgBXtHwWzo6SpFzdAfXpLShpOJNtQNERb3qg6iUGQdY+w
+A2BpmSkKr3Rw/6ClP5+cCG7fGocPaZh+c+4Nxm9suMuZBZCtNOeYOMIfvCPcCS+8
+PQ/0hC4/0J3WJKzGBssaaMufJxzgFPPtDJ998kY8rlROghdSaVt423/jXIAYnP3Y
+05n8TGERBj7TLdtIVbtUIx3JHAo3PWJywA6mEDovFMJhJERp9sDHIr1BbhXK1TFN
+Z6HNH6gInkSSMtvC4Ptejb749PTaePRPF7ID//eq/3AH8UK50F3TQcLjEqWUsJUn
+aFKltOc+RAjzDklcUPeG4Y6eMA==
 -----END CERTIFICATE-----`
 
+	// exampleIssuedCert copied from samples/certs/cert-chain.pem
 	exampleIssuedCert = `-----BEGIN CERTIFICATE-----
-MIIDGDCCAgCgAwIBAgIRAKvYcPLFqnJcwtshCGfNzTswDQYJKoZIhvcNAQELBQAw
-LzEtMCsGA1UEAxMkYTc1OWM3MmQtZTY3Mi00MDM2LWFjM2MtZGMwMTAwZjE1ZDVl
-MB4XDTE5MDgwNjE5NTU0NVoXDTI0MDgwNDE5NTU0NVowCzEJMAcGA1UEChMAMIIB
-IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyLIFJU5yJ5VXhbmizir+7Glm
-1tVEYXKGiqYbMRbfsFm7V6Z4l00D9/eHvfTXaFpqhv6HBm31MArjYB3OaaV6krvT
-whBUEPSkGBFe/eMPSFWBW27a0nw0cK2s/5yuFhTRtcUrZ9+ojJg4IS3oSm2UZ6UJ
-DuNI3qwB6OlPQOcWX8uEp4eAaolD1lIbLRQYvxYrBqnyCZBLE+MJgA1/VB3dAECB
-TxPtAqcwLFcvsM5ABys8yK8FrqRn5Bx54NiztgG+yU30W33xjdqzmEmuIIk4JjPU
-ZQRsug7XClDvQKM6lbYcYS1td2zT08hdgURFXJ9VR64ALFp00/bvglpryu8FmQID
-AQABo1MwUTAMBgNVHRMBAf8EAjAAMEEGA1UdEQQ6MDiCHHByb3RvbXV0YXRlLmlz
-dGlvLXN5c3RlbS5zdmOCGHByb3RvbXV0YXRlLmlzdGlvLXN5c3RlbTANBgkqhkiG
-9w0BAQsFAAOCAQEAhcVEZSuNMqMUJrWVb3b+6pmw9o1f7j6a51KWxOiIl6YuTYFS
-WaR0lHSW8wLesjsjm1awWO/F3QRuYWbalANy7434GMAGF53u/uc+Z8aE3EItER9o
-SpAJos6OfJqyok7JXDdOYRDD5/hBerj68R9llWzNJd27/1jZ0NF2sIE1W4QFddy/
-+8YA4+IqwkWB5/LbeRznl3EjFZDpCEJk0gg5XwAR5eIEy4QU8GueTwrDkssFdBGq
-0naco7/Es7CWQscYdKHAgYgk0UAyu8sGV235Uw3hlOrbZ/kqvyUmsSujgT8irmDV
-e+5z6MTAO6ktvHdQlSuH6ARn47bJrZOlkttAhg==
+MIIDnzCCAoegAwIBAgIJAON1ifrBZ2/BMA0GCSqGSIb3DQEBCwUAMIGLMQswCQYD
+VQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTESMBAGA1UEBwwJU3Vubnl2YWxl
+MQ4wDAYDVQQKDAVJc3RpbzENMAsGA1UECwwEVGVzdDEQMA4GA1UEAwwHUm9vdCBD
+QTEiMCAGCSqGSIb3DQEJARYTdGVzdHJvb3RjYUBpc3Rpby5pbzAgFw0xODAxMjQx
+OTE1NTFaGA8yMTE3MTIzMTE5MTU1MVowWTELMAkGA1UEBhMCVVMxEzARBgNVBAgT
+CkNhbGlmb3JuaWExEjAQBgNVBAcTCVN1bm55dmFsZTEOMAwGA1UEChMFSXN0aW8x
+ETAPBgNVBAMTCElzdGlvIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEAyzCxr/xu0zy5rVBiso9ffgl00bRKvB/HF4AX9/ytmZ6Hqsy13XIQk8/u/By9
+iCvVwXIMvyT0CbiJq/aPEj5mJUy0lzbrUs13oneXqrPXf7ir3HzdRw+SBhXlsh9z
+APZJXcF93DJU3GabPKwBvGJ0IVMJPIFCuDIPwW4kFAI7R/8A5LSdPrFx6EyMXl7K
+M8jekC0y9DnTj83/fY72WcWX7YTpgZeBHAeeQOPTZ2KYbFal2gLsar69PgFS0Tom
+ESO9M14Yit7mzB1WDK2z9g3r+zLxENdJ5JG/ZskKe+TO4Diqi5OJt/h8yspS1ck8
+LJtCole9919umByg5oruflqIlQIDAQABozUwMzALBgNVHQ8EBAMCAgQwDAYDVR0T
+BAUwAwEB/zAWBgNVHREEDzANggtjYS5pc3Rpby5pbzANBgkqhkiG9w0BAQsFAAOC
+AQEAltHEhhyAsve4K4bLgBXtHwWzo6SpFzdAfXpLShpOJNtQNERb3qg6iUGQdY+w
+A2BpmSkKr3Rw/6ClP5+cCG7fGocPaZh+c+4Nxm9suMuZBZCtNOeYOMIfvCPcCS+8
+PQ/0hC4/0J3WJKzGBssaaMufJxzgFPPtDJ998kY8rlROghdSaVt423/jXIAYnP3Y
+05n8TGERBj7TLdtIVbtUIx3JHAo3PWJywA6mEDovFMJhJERp9sDHIr1BbhXK1TFN
+Z6HNH6gInkSSMtvC4Ptejb749PTaePRPF7ID//eq/3AH8UK50F3TQcLjEqWUsJUn
+aFKltOc+RAjzDklcUPeG4Y6eMA==
 -----END CERTIFICATE-----
 `
 	DefaulCertTTL = 24 * time.Hour
 )
-
-type mockTLSServer struct {
-	httpServer *httptest.Server
-}
 
 func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
 	return func(act kt.Action) (bool, runtime.Object, error) {
@@ -89,63 +94,25 @@ func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
 	}
 }
 
-func defaultListReactionFunc(obj runtime.Object) kt.ReactionFunc {
-	return func(act kt.Action) (bool, runtime.Object, error) {
-		return true, &cert.CertificateSigningRequestList{
-			Items: []cert.CertificateSigningRequest{*(obj.(*cert.CertificateSigningRequest))},
-		}, nil
+const testSigner = "test-signer"
+
+func runTestSigner(t test.Failer) ([]csrctrl.SignerRootCert, kube.CLIClient) {
+	c := kube.NewFakeClient()
+	signers, err := csrctrl.RunCSRController(testSigner, test.NewStop(t), []kube.Client{c})
+	if err != nil {
+		t.Fatal(err)
 	}
+	return signers, c
 }
 
 func TestGenKeyCertK8sCA(t *testing.T) {
-	testCases := map[string]struct {
-		gracePeriodRatio float32
-		minGracePeriod   time.Duration
-		k8sCaCertFile    string
-		dnsNames         []string
-		secretNames      []string
-		secretNamespace  string
-		expectFail       bool
-	}{
-		"gen cert should succeed": {
-			gracePeriodRatio: 0.6,
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			dnsNames:         []string{"foo"},
-			secretNames:      []string{"istio.webhook.foo"},
-			secretNamespace:  "foo.ns",
-			expectFail:       false,
-		},
-	}
+	log.FindScope("default").SetOutputLevel(log.DebugLevel)
+	signers, client := runTestSigner(t)
+	ca := filepath.Join(t.TempDir(), "root-cert.pem")
+	os.WriteFile(ca, []byte(signers[0].Rootcert), 0o666)
 
-	for _, tc := range testCases {
-		client := fake.NewSimpleClientset()
-		csr := &cert.CertificateSigningRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "domain-cluster.local-ns--secret-mock-secret",
-			},
-			Status: cert.CertificateSigningRequestStatus{
-				Certificate: []byte(exampleIssuedCert),
-			},
-		}
-		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
-
-		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client,
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNamespace, "test-issuer")
-		if err != nil {
-			t.Errorf("failed at creating webhook controller: %v", err)
-			continue
-		}
-
-		_, _, _, err = GenKeyCertK8sCA(wc.clientset, tc.dnsNames[0], wc.k8sCaCertFile, "testSigner", true, DefaulCertTTL)
-		if tc.expectFail {
-			if err == nil {
-				t.Errorf("should have failed")
-			}
-		} else if err != nil {
-			t.Errorf("failed unexpectedly: %v", err)
-		}
-	}
+	_, _, _, err := GenKeyCertK8sCA(client.Kube(), "foo", ca, testSigner, true, DefaulCertTTL)
+	assert.NoError(t, err)
 }
 
 func TestReadCACert(t *testing.T) {
@@ -170,176 +137,23 @@ func TestReadCACert(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		cert, err := readCACert(tc.certPath)
-		if tc.shouldFail {
-			if err == nil {
-				t.Errorf("should have failed at readCACert()")
-			} else {
-				// Should fail, skip the current case.
-				continue
+		t.Run(tc.certPath, func(t *testing.T) {
+			cert, err := readCACert(tc.certPath)
+			if tc.shouldFail {
+				if err == nil {
+					t.Errorf("should have failed at readCACert()")
+				} else {
+					// Should fail, skip the current case.
+					return
+				}
+			} else if err != nil {
+				t.Errorf("failed at readCACert(): %v", err)
 			}
-		} else if err != nil {
-			t.Errorf("failed at readCACert(): %v", err)
-		}
 
-		if !bytes.Equal(tc.expectedCert, cert) {
-			t.Error("the certificate read is unexpected")
-		}
-	}
-}
-
-func TestIsTCPReachable(t *testing.T) {
-	server1 := newMockTLSServer(t)
-	defer server1.httpServer.Close()
-	server2 := newMockTLSServer(t)
-	defer server2.httpServer.Close()
-
-	host := "127.0.0.1"
-	port1, err := getServerPort(server1.httpServer)
-	if err != nil {
-		t.Fatalf("error to get the server 1 port: %v", err)
-	}
-	port2, err := getServerPort(server2.httpServer)
-	if err != nil {
-		t.Fatalf("error to get the server 2 port: %v", err)
-	}
-
-	// Server 1 should be reachable, since it is not closed.
-	if !isTCPReachable(host, port1) {
-		t.Fatal("server 1 is unreachable")
-	}
-
-	// After closing server 2, server 2 should not be reachable
-	server2.httpServer.Close()
-	if isTCPReachable(host, port2) {
-		t.Fatal("server 2 is reachable")
-	}
-}
-
-func TestReloadCACert(t *testing.T) {
-	testCases := map[string]struct {
-		gracePeriodRatio float32
-		minGracePeriod   time.Duration
-		k8sCaCertFile    string
-		dnsNames         []string
-		secretNames      []string
-		secretNamespace  string
-
-		expectFail    bool
-		expectChanged bool
-	}{
-		"reload from valid CA cert path": {
-			gracePeriodRatio: 0.6,
-			dnsNames:         []string{"foo"},
-			secretNames:      []string{"istio.webhook.foo"},
-			secretNamespace:  "foo.ns",
-			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
-			expectFail:       false,
-			expectChanged:    false,
-		},
-	}
-
-	for _, tc := range testCases {
-		client := fake.NewSimpleClientset()
-		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client, tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNamespace, "test-issuer")
-		if err != nil {
-			t.Errorf("failed at creating webhook controller: %v", err)
-			continue
-		}
-		changed, err := reloadCACert(wc)
-		if tc.expectFail {
-			if err == nil {
-				t.Errorf("should have failed at reloading CA cert")
+			if !bytes.Equal(tc.expectedCert, cert) {
+				t.Error("the certificate read is unexpected")
 			}
-			continue
-		} else if err != nil {
-			t.Errorf("failed at reloading CA cert: %v", err)
-			continue
-		}
-		if tc.expectChanged {
-			if !changed {
-				t.Error("expect changed but not changed")
-			}
-		} else {
-			if changed {
-				t.Error("expect unchanged but changed")
-			}
-		}
-	}
-}
-
-func TestCheckDuplicateCSR(t *testing.T) {
-	testCases := map[string]struct {
-		gracePeriodRatio  float32
-		minGracePeriod    time.Duration
-		k8sCaCertFile     string
-		dnsNames          []string
-		secretNames       []string
-		serviceNamespaces []string
-		csrName           string
-		secretName        string
-		secretNameSpace   string
-		expectFail        bool
-		isDuplicate       bool
-	}{
-		"fetching a CSR without a duplicate should fail": {
-			gracePeriodRatio:  0.6,
-			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
-			dnsNames:          []string{"foo"},
-			secretNames:       []string{"istio.webhook.foo"},
-			serviceNamespaces: []string{"foo.ns"},
-			secretName:        "mock-secret",
-			secretNameSpace:   "mock-secret-namespace",
-			expectFail:        true,
-			csrName:           "domain-cluster.local-ns--secret-mock-secret",
-			isDuplicate:       false,
-		},
-		"fetching a CSR with a duplicate should pass": {
-			gracePeriodRatio:  0.6,
-			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
-			dnsNames:          []string{"foo"},
-			secretNames:       []string{"istio.webhook.foo"},
-			serviceNamespaces: []string{"foo.ns"},
-			secretName:        "mock-secret",
-			secretNameSpace:   "mock-secret-namespace",
-			expectFail:        false,
-			csrName:           "domain-cluster.local-ns--secret-mock-secret",
-			isDuplicate:       true,
-		},
-	}
-
-	for tcName, tc := range testCases {
-		client := fake.NewSimpleClientset()
-		csr := &cert.CertificateSigningRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: tc.csrName,
-			},
-			Status: cert.CertificateSigningRequestStatus{
-				Certificate: []byte(exampleIssuedCert),
-			},
-		}
-		if tc.isDuplicate {
-			client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
-			client.PrependReactor("list", "certificatesigningrequests", defaultListReactionFunc(csr))
-		}
-		v1CsrReq, _ := checkDuplicateCsr(client, tc.csrName)
-		if tc.expectFail {
-			if v1CsrReq != nil {
-				t.Errorf("test case (%s) should have failed", tcName)
-			}
-		} else if v1CsrReq == nil {
-			t.Errorf("test case (%s) failed unexpectedly", tcName)
-		}
-
-		certData := readSignedCsr(client, tc.csrName, 1*time.Millisecond, 1*time.Millisecond, 1, true)
-		if tc.expectFail {
-			if len(certData) != 0 {
-				t.Errorf("test case (%s) should have failed", tcName)
-			}
-		} else if len(certData) == 0 {
-			t.Errorf("test case (%s) failed unexpectedly", tcName)
-		}
+		})
 	}
 }
 
@@ -367,43 +181,32 @@ func TestSubmitCSR(t *testing.T) {
 	}
 
 	for tcName, tc := range testCases {
-		client := fake.NewSimpleClientset()
-		csr := &cert.CertificateSigningRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "domain-cluster.local-ns--secret-mock-secret",
-			},
-			Status: cert.CertificateSigningRequestStatus{
-				Certificate: []byte(exampleIssuedCert),
-			},
-		}
-		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
-
-		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client,
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNameSpace, "test-issuer")
-		if err != nil {
-			t.Errorf("test case (%s) failed at creating webhook controller: %v", tcName, err)
-			continue
-		}
-
-		numRetries := 3
-
-		usages := []cert.KeyUsage{
-			cert.UsageDigitalSignature,
-			cert.UsageKeyEncipherment,
-			cert.UsageServerAuth,
-			cert.UsageClientAuth,
-		}
-
-		_, r, _, err := submitCSR(wc.clientset, []byte("test-pem"), "test-signer",
-			usages, numRetries, DefaulCertTTL)
-		if tc.expectFail {
-			if err == nil {
-				t.Errorf("test case (%s) should have failed", tcName)
+		t.Run(tcName, func(t *testing.T) {
+			client := fake.NewClientset()
+			csr := &cert.CertificateSigningRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "domain-cluster.local-ns--secret-mock-secret",
+				},
+				Status: cert.CertificateSigningRequestStatus{
+					Certificate: []byte(exampleIssuedCert),
+				},
 			}
-		} else if err != nil || r == nil {
-			t.Errorf("test case (%s) failed unexpectedly: %v", tcName, err)
-		}
+			client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
+
+			usages := []cert.KeyUsage{
+				cert.UsageDigitalSignature,
+				cert.UsageKeyEncipherment,
+				cert.UsageServerAuth,
+				cert.UsageClientAuth,
+			}
+			r, err := submitCSR(client, []byte("test-pem"), "test-signer",
+				usages, DefaulCertTTL)
+			if tc.expectFail {
+				assert.Error(t, err)
+			} else if err != nil || r == nil {
+				t.Errorf("test case (%s) failed unexpectedly: %v", tcName, err)
+			}
+		})
 	}
 }
 
@@ -467,21 +270,16 @@ func TestReadSignedCertificate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			log.FindScope("default").SetOutputLevel(log.DebugLevel)
 			client := initFakeKubeClient(t, tc.certificateData)
 
-			wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-				client.Kube(), tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNameSpace, "test-issuer")
-			if err != nil {
-				t.Fatalf("failed at creating webhook controller: %v", err)
-			}
-
 			// 4. Read the signed certificate
-			_, _, err = SignCSRK8s(wc.clientset, createFakeCsr(t), "fake-signer", []cert.KeyUsage{cert.UsageAny}, "fake.com",
-				wc.k8sCaCertFile, true, true, 1*time.Second)
+			_, _, err := SignCSRK8s(client.Kube(), createFakeCsr(t), "fake-signer", []cert.KeyUsage{cert.UsageAny}, "fake.com",
+				tc.k8sCaCertFile, true, true, 1*time.Second)
 
 			if tc.expectFail {
 				if err == nil {
-					t.Fatalf("should have failed at updateMutatingWebhookConfig")
+					t.Fatal("should have failed at updateMutatingWebhookConfig")
 				}
 			} else if err != nil {
 				t.Fatalf("failed at updateMutatingWebhookConfig: %v", err)
@@ -505,39 +303,6 @@ func createFakeCsr(t *testing.T) []byte {
 	return csrPEM
 }
 
-// newMockTLSServer creates a mock TLS server for testing purpose.
-func newMockTLSServer(t *testing.T) *mockTLSServer {
-	server := &mockTLSServer{}
-
-	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		t.Logf("request: %+v", *req)
-		switch req.URL.Path {
-		default:
-			t.Logf("The request contains path: %v", req.URL)
-			resp.WriteHeader(http.StatusOK)
-		}
-	})
-
-	server.httpServer = httptest.NewTLSServer(handler)
-
-	t.Logf("Serving TLS at: %v", server.httpServer.URL)
-
-	return server
-}
-
-// Get the server port from server.URL (e.g., https://127.0.0.1:36253)
-func getServerPort(server *httptest.Server) (int, error) {
-	strs := strings.Split(server.URL, ":")
-	if len(strs) < 2 {
-		return 0, fmt.Errorf("server.URL is invalid: %v", server.URL)
-	}
-	port, err := strconv.Atoi(strs[len(strs)-1])
-	if err != nil {
-		return 0, fmt.Errorf("error to extract port from URL: %v", server.URL)
-	}
-	return port, nil
-}
-
 func initFakeKubeClient(t test.Failer, certificate []byte) kube.CLIClient {
 	client := kube.NewFakeClient()
 	ctx := test.NewContext(t)
@@ -550,12 +315,34 @@ func initFakeKubeClient(t test.Failer, certificate []byte) kube.CLIClient {
 			case r := <-w.ResultChan():
 				csr := r.Object.(*cert.CertificateSigningRequest).DeepCopy()
 				if csr.Status.Certificate != nil {
+					log.Debugf("test signer skip, already signed: %v", csr.Name)
 					continue
 				}
-				csr.Status.Certificate = certificate
-				client.Kube().CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
+				if approved(csr) {
+					// This is a pretty terrible hack, but client-go fake doesn't properly support list+watch,
+					// so any updates in between the list and watch would be missed. So give some time for the watch to start
+					time.Sleep(time.Millisecond * 25)
+					csr.Status.Certificate = certificate
+					_, err := client.Kube().CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
+					log.Debugf("test signer sign %v: %v", csr.Name, err)
+				} else {
+					log.Debugf("test signer skip, not approved: %v", csr.Name)
+				}
 			}
 		}
 	}()
 	return client
+}
+
+func approved(csr *cert.CertificateSigningRequest) bool {
+	return GetCondition(csr.Status.Conditions, cert.CertificateApproved).Status == corev1.ConditionTrue
+}
+
+func GetCondition(conditions []cert.CertificateSigningRequestCondition, condition cert.RequestConditionType) cert.CertificateSigningRequestCondition {
+	for _, cond := range conditions {
+		if cond.Type == condition {
+			return cond
+		}
+	}
+	return cert.CertificateSigningRequestCondition{}
 }

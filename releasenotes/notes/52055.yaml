@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 51704
+releaseNotes:
+  - |
+    **Added** retry policy for inbound requests that automatically resets the requests that the service has not seen/processed.
+    It can be reverted by setting "ENABLE_INBOUND_RETRY_POLICY" to false.

@@ -31,7 +31,7 @@ spec:
   ports:
   - name: http
     port: 8000
-    targetPort: 80
+    targetPort: 8080
   selector:
     app: httpbin
 ---
@@ -53,8 +53,8 @@ spec:
     spec:
       serviceAccountName: httpbin
       containers:
-      - image: docker.io/kennethreitz/httpbin
+      - image: docker.io/mccutchen/go-httpbin:v2.15.0
         imagePullPolicy: IfNotPresent
         name: httpbin
         ports:
-        - containerPort: 80
+        - containerPort: 8080

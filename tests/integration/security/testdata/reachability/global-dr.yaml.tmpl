@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "default"
@@ -10,7 +10,7 @@ spec:
 ---
 # Apply a local policy to the system namespace to turn this off
 # Otherwise, the eastwest gateway will be impacted
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "eastwest-opt-out"

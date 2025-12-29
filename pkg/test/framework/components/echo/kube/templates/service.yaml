@@ -4,17 +4,40 @@ kind: ServiceAccount
 metadata:
   name: {{ .Service }}
 ---
+{{- if (and .OpenShift (eq .Service "tproxy")) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: privileged-scc-{{ .Service }}-{{ .Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+- kind: ServiceAccount
+  name: {{ .Service }}
+  namespace: {{ .Namespace }}
+---
+{{- end }}
 {{- end }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Service }}
+{{- if .ServiceLabels }}
   labels:
     app: {{ .Service }}
+{{- range $name, $value := .ServiceLabels }}
+    {{$name}}: "{{$value}}"
+{{- end }}
+{{- else}}
+  labels:
+    app: {{ .Service }}
+{{- end }}
 {{- if .ServiceAnnotations }}
   annotations:
 {{- range $name, $value := .ServiceAnnotations }}
-    {{ $name.Name }}: {{ printf "%q" $value.Value }}
+    {{ $name }}: {{ printf "%q" $value }}
 {{- end }}
 {{- end }}
 spec:

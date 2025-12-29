@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - https://github.com/istio/api/issues/3215
+
+releaseNotes:
+  - |
+    **Added** support for warmup configuration in DestinationRule's LB trafficPolicy
+
+    duration: specify the duration of warmup mode
+    minimumPercent : specifies the initial percent of origin load
+    aggression : will define the evolution of the % of traffic sent to the pods from minimumPercent to 100%
+
+docs:
+  - https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/slow_start

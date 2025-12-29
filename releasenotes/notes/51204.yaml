@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 51182
+releaseNotes:
+- |
+  **Fixed** ZDS should not pass down trust_domain

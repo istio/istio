@@ -28,6 +28,7 @@ func TestNameMatches(t *testing.T) {
 		out  bool
 	}{
 		{"empty", "", "", true},
+		{"mixed case", "a.facebook.com", "*.facebook.COM", false},
 		{"first empty", "", "foo.com", false},
 		{"second empty", "foo.com", "", false},
 
@@ -177,7 +178,7 @@ func BenchmarkNameMatch(b *testing.B) {
 		for _, test := range tests {
 			doesMatch := test.a.Matches(test.z)
 			if doesMatch != test.matches {
-				b.Fatalf("does not match")
+				b.Fatal("does not match")
 			}
 		}
 	}

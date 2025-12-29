@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 52752
+releaseNotes:
+  - |
+    **Added** support for `connection.sni` rule in `AuthorizationPolicy` applied to a waypoint.

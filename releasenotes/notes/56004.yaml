@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 55980
+releaseNotes:
+- |
+  **Fixed** during installation, `istio-revision-tag-default` MutatingWebhookConfiguration is never created when the revision is not default.

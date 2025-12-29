@@ -10,7 +10,7 @@ ISTIO_NAMESPACE ?= istio-system
 
 #------------------------------------------------------------------------
 # variables: intermediate CA
-INTERMEDIATE_DAYS ?= 730
+INTERMEDIATE_DAYS ?= 3650
 INTERMEDIATE_KEYSZ ?= 4096
 INTERMEDIATE_ORG ?= Istio
 INTERMEDIATE_CN ?= Intermediate CA

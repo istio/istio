@@ -15,14 +15,15 @@
 package envoy
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/model"
 )
 
 func TestEnvoyArgs(t *testing.T) {
@@ -42,9 +43,11 @@ func TestEnvoyArgs(t *testing.T) {
 		Concurrency:       8,
 	}
 
+	expectedArgs := []string{"-l", "trace", "--component-log-level", "misc:error"}
+
 	test := &envoy{
 		ProxyConfig: cfg,
-		extraArgs:   []string{"-l", "trace", "--component-log-level", "misc:error"},
+		extraArgs:   expectedArgs,
 	}
 
 	testProxy := NewProxy(cfg)
@@ -61,14 +64,77 @@ func TestEnvoyArgs(t *testing.T) {
 		"--file-flush-interval-msec", "1000",
 		"--disable-hot-restart",
 		"--allow-unknown-static-fields",
-		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t",
 		"-l", "trace",
 		"--component-log-level", "misc:error",
-		"--config-yaml", `{"key": "value"}`,
+		"--config-yaml", `{"key":"value"}`,
 		"--concurrency", "8",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", got, want)
+	}
+
+	// Test with setting up SkipDeprecatedLogs.
+	cfg.SkipDeprecatedLogs = true
+
+	expectedArgsWithDeprecatedLogs := append(expectedArgs, "--skip-deprecated-logs")
+
+	testWithDeprecatedLogs := &envoy{
+		ProxyConfig: cfg,
+		extraArgs:   expectedArgsWithDeprecatedLogs,
+	}
+
+	testProxyWithDeprecatedLogs := NewProxy(cfg)
+	if !reflect.DeepEqual(testProxyWithDeprecatedLogs, testWithDeprecatedLogs) {
+		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxyWithDeprecatedLogs, testWithDeprecatedLogs)
+	}
+
+	gotWithDeprecatedLogs := testWithDeprecatedLogs.args("test.json", "testdata/bootstrap.json")
+	wantWithDeprecatedLogs := []string{
+		"-c", "test.json",
+		"--drain-time-s", "45",
+		"--drain-strategy", "immediate",
+		"--local-address-ip-version", "v4",
+		"--file-flush-interval-msec", "1000",
+		"--disable-hot-restart",
+		"--allow-unknown-static-fields",
+		"-l", "trace",
+		"--component-log-level", "misc:error",
+		"--skip-deprecated-logs",
+		"--config-yaml", `{"key":"value"}`,
+		"--concurrency", "8",
+	}
+	if !reflect.DeepEqual(gotWithDeprecatedLogs, wantWithDeprecatedLogs) {
+		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", gotWithDeprecatedLogs, wantWithDeprecatedLogs)
+	}
+}
+
+func TestReadToJSONIPv4(t *testing.T) {
+	err := os.Setenv("HOST_IP", "169.254.169.254")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	got, err := readBootstrapToJSON("testdata/bootstrap.yaml")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	want := `{"ip":"[169.254.169.254]:8126","ip2":"169.254.169.254:8126","key":"value"}`
+	if got != want {
+		t.Errorf("readBootstrapToJSON() => got:\n%v,\nwant:\n%v", got, want)
+	}
+}
+
+func TestReadToJSONIPv6(t *testing.T) {
+	err := os.Setenv("HOST_IP", "dead::beef")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	got, err := readBootstrapToJSON("testdata/bootstrap.yaml")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	want := `{"ip":"[dead::beef]:8126","ip2":"[dead::beef]:8126","key":"value"}`
+	if got != want {
+		t.Errorf("readBootstrapToJSON() => got:\n%v,\nwant:\n%v", got, want)
 	}
 }
 

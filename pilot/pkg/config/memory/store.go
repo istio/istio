@@ -54,7 +54,7 @@ func newStore(schemas collection.Schemas, skipValidation bool) model.ConfigStore
 		skipValidation: skipValidation,
 	}
 	for _, s := range schemas.All() {
-		out.data[s.Resource().GroupVersionKind()] = make(map[string]map[string]any)
+		out.data[s.GroupVersionKind()] = make(map[string]map[string]any)
 	}
 	return &out
 }
@@ -92,14 +92,24 @@ func (cr *store) Get(kind config.GroupVersionKind, name, namespace string) *conf
 	return &config
 }
 
-func (cr *store) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (cr *store) List(kind config.GroupVersionKind, namespace string) []config.Config {
 	cr.mutex.RLock()
 	defer cr.mutex.RUnlock()
 	data, exists := cr.data[kind]
 	if !exists {
-		return nil, nil
+		return nil
 	}
-	out := make([]config.Config, 0, len(cr.data[kind]))
+
+	var size int
+	if namespace == "" {
+		for _, ns := range data {
+			size += len(ns)
+		}
+	} else {
+		size = len(data[namespace])
+	}
+
+	out := make([]config.Config, 0, size)
 	if namespace == "" {
 		for _, ns := range data {
 			for _, value := range ns {
@@ -109,13 +119,13 @@ func (cr *store) List(kind config.GroupVersionKind, namespace string) ([]config.
 	} else {
 		ns, exists := data[namespace]
 		if !exists {
-			return nil, nil
+			return nil
 		}
 		for _, value := range ns {
 			out = append(out, value.(config.Config))
 		}
 	}
-	return out, nil
+	return out
 }
 
 func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
@@ -148,7 +158,7 @@ func (cr *store) Create(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("unknown type %v", kind)
 	}
 	if !cr.skipValidation {
-		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+		if _, err := s.ValidateConfig(cfg); err != nil {
 			return "", err
 		}
 	}
@@ -185,7 +195,7 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 		return "", fmt.Errorf("unknown type %v", kind)
 	}
 	if !cr.skipValidation {
-		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
+		if _, err := s.ValidateConfig(cfg); err != nil {
 			return "", err
 		}
 	}
@@ -215,39 +225,6 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 
 func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
 	return cr.Update(cfg)
-}
-
-func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	cr.mutex.Lock()
-	defer cr.mutex.Unlock()
-
-	gvk := orig.GroupVersionKind
-	s, ok := cr.schemas.FindByGroupVersionKind(gvk)
-	if !ok {
-		return "", fmt.Errorf("unknown type %v", gvk)
-	}
-
-	cfg, _ := patchFn(orig)
-	if !cr.skipValidation {
-		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
-			return "", err
-		}
-	}
-
-	_, ok = cr.data[gvk]
-	if !ok {
-		return "", errNotFound
-	}
-	ns, exists := cr.data[gvk][orig.Namespace]
-	if !exists {
-		return "", errNotFound
-	}
-
-	rev := time.Now().String()
-	cfg.ResourceVersion = rev
-	ns[cfg.Name] = cfg
-
-	return rev, nil
 }
 
 // hasConflict checks if the two resources have a conflict, which will block Update calls

@@ -30,11 +30,11 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/network"
 )
@@ -61,7 +61,7 @@ func (r expectedResults) getAddrs() []string {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{NetworksWatcher: mesh.NewFixedNetworksWatcher(nil)})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{NetworksWatcher: meshwatcher.NewFixedNetworksWatcher(nil)})
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
@@ -77,7 +77,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	initRegistry(s, 4, []string{}, 4)
 
 	// Push contexts needs to be updated
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
 	time.Sleep(time.Millisecond * 200) // give time for cache to clear
 
 	tests := []struct {
@@ -251,29 +251,6 @@ func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, networ
 	}
 }
 
-// reconcileServiceShards makes up for the fact that mem registry doesn't properly populate EDS shards
-// TODO: make mem registry handle this properly.
-func reconcileServiceShards(s *xds.FakeDiscoveryServer, registry serviceregistry.Instance) {
-	// Each registry acts as a shard - we don't want to combine them because some
-	// may individually update their endpoints incrementally
-	shard := model.ShardKeyFromRegistry(registry)
-	for _, svc := range registry.Services() {
-		endpoints := make([]*model.IstioEndpoint, 0)
-		for _, port := range svc.Ports {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
-
-			// This loses track of grouping (shards)
-			for _, inst := range registry.InstancesByPort(svc, port.Port) {
-				endpoints = append(endpoints, inst.Endpoint)
-			}
-		}
-
-		s.Discovery.EDSCacheUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, endpoints)
-	}
-}
-
 // initRegistry creates and initializes a memory registry that holds a single
 // service with the provided amount of endpoints. It also creates a service for
 // the ingress with the provided external IP
@@ -282,12 +259,12 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	networkID := network.ID(fmt.Sprintf("network%d", networkNum))
 	memRegistry := memory.NewServiceDiscovery()
 	memRegistry.XdsUpdater = server.Discovery
+	memRegistry.ClusterID = clusterID
 
 	reg := serviceregistry.Simple{
-		ClusterID:        clusterID,
-		ProviderID:       provider.Mock,
-		ServiceDiscovery: memRegistry,
-		Controller:       &memory.ServiceController{},
+		ClusterID:           clusterID,
+		ProviderID:          provider.Mock,
+		DiscoveryController: memRegistry,
 	}
 	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(reg)
 
@@ -326,12 +303,13 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 				Protocol: protocol.HTTP,
 			},
 		},
+		Attributes: model.ServiceAttributes{Namespace: "default"},
 	})
 	istioEndpoints := make([]*model.IstioEndpoint, numOfEndpoints)
 	for i := 0; i < numOfEndpoints; i++ {
 		addr := fmt.Sprintf("10.%d.0.%d", networkNum, i+1)
 		istioEndpoints[i] = &model.IstioEndpoint{
-			Address:         addr,
+			Addresses:       []string{addr},
 			EndpointPort:    2080,
 			ServicePortName: "http-main",
 			Network:         networkID,
@@ -344,7 +322,6 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 		}
 	}
 	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)
-	reconcileServiceShards(server, reg)
 }
 
 func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshconfig.Network) {
@@ -358,7 +335,7 @@ func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshcon
 	}
 	// add the new one
 	c[string(id)] = network
-	server.Env().NetworksWatcher.SetNetworks(&meshconfig.MeshNetworks{Networks: c})
+	server.Env().NetworksWatcher.(meshwatcher.TestNetworksWatcher).SetNetworks(&meshconfig.MeshNetworks{Networks: c})
 }
 
 func getLbEndpointAddrs(eps []*endpoint.LbEndpoint) []string {

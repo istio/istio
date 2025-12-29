@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** trim certificate chains before parsing to avoid unnecessary parsing errors.

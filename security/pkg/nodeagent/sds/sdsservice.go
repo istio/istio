@@ -18,6 +18,10 @@ package sds
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
@@ -26,73 +30,46 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
-	"golang.org/x/time/rate"
+	"github.com/google/uuid"
+	uberatomic "go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	mesh "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/backoff"
-	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/xds"
 )
 
-var sdsServiceLog = log.RegisterScope("sds", "SDS service debugging", 0)
+var sdsServiceLog = log.RegisterScope("sds", "SDS service debugging")
 
 type sdsservice struct {
 	st security.SecretManager
 
-	XdsServer  *xds.DiscoveryServer
 	stop       chan struct{}
 	rootCaPath string
 	pkpConf    *mesh.PrivateKeyProvider
+
+	sync.Mutex
+	clients map[string]*Context
 }
 
-// Assert we implement the generator interface
-var _ model.XdsResourceGenerator = &sdsservice{}
+type Context struct {
+	BaseConnection xds.Connection
+	s              *sdsservice
+	w              *Watch
+}
 
-func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.DiscoveryServer {
-	s := xds.NewXDS(stop)
-	// No ratelimit for SDS calls in agent.
-	s.DiscoveryServer.RequestRateLimit = rate.NewLimiter(0, 1)
-	s.DiscoveryServer.Generators = map[string]model.XdsResourceGenerator{
-		v3.SecretType: gen,
-	}
-	s.DiscoveryServer.ProxyNeedsPush = func(proxy *model.Proxy, req *model.PushRequest) bool {
-		// Empty changes means "all"
-		if len(req.ConfigsUpdated) == 0 {
-			return true
-		}
-		var resources []string
-		proxy.RLock()
-		if proxy.WatchedResources[v3.SecretType] != nil {
-			resources = proxy.WatchedResources[v3.SecretType].ResourceNames
-		}
-		proxy.RUnlock()
-
-		if resources == nil {
-			return false
-		}
-
-		names := sets.New(resources...)
-		found := false
-		for name := range model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret) {
-			if names.Contains(name.Name) {
-				found = true
-				break
-			}
-		}
-		return found
-	}
-	s.DiscoveryServer.Start(stop)
-	return s.DiscoveryServer
+type Watch struct {
+	sync.Mutex
+	watch *xds.WatchedResource
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
@@ -101,12 +78,12 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 		st:      st,
 		stop:    make(chan struct{}),
 		pkpConf: pkpConf,
+		clients: make(map[string]*Context),
 	}
-	ret.XdsServer = NewXdsServer(ret.stop, ret)
 
 	ret.rootCaPath = options.CARootPath
 
-	if options.FileMountedCerts {
+	if options.FileMountedCerts || options.ServeOnlyFiles {
 		return ret
 	}
 
@@ -133,6 +110,7 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 				sdsServiceLog.Warnf("failed to warm certificate: %v", err)
 				return err
 			}
+
 			_, err = st.GenerateSecret(security.RootCertReqResourceName)
 			if err != nil {
 				sdsServiceLog.Warnf("failed to warm root certificate: %v", err)
@@ -146,8 +124,10 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 	return ret
 }
 
-func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
-	resources := model.Resources{}
+var version uberatomic.Uint64
+
+func (s *sdsservice) generate(resourceNames []string) (*discovery.DiscoveryResponse, error) {
+	resources := xds.Resources{}
 	for _, resourceName := range resourceNames {
 		secret, err := s.st.GenerateSecret(resourceName)
 		if err != nil {
@@ -166,28 +146,12 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			Resource: res,
 		})
 	}
-	return resources, nil
-}
-
-// Generate implements the XDS Generator interface. This allows the XDS server to dispatch requests
-// for SecretTypeV3 to our server to generate the Envoy response.
-func (s *sdsservice) Generate(proxy *model.Proxy, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	// updates.Full indicates we should do a complete push of all updated resources
-	// In practice, all pushes should be incremental (ie, if the `default` cert changes we won't push
-	// all file certs).
-	if updates.Full {
-		resp, err := s.generate(w.ResourceNames)
-		return resp, pushLog(w.ResourceNames), err
-	}
-	names := []string{}
-	watched := sets.New(w.ResourceNames...)
-	for i := range updates.ConfigsUpdated {
-		if i.Kind == kind.Secret && watched.Contains(i.Name) {
-			names = append(names, i.Name)
-		}
-	}
-	resp, err := s.generate(names)
-	return resp, pushLog(names), err
+	return &discovery.DiscoveryResponse{
+		TypeUrl:     model.SecretType,
+		VersionInfo: time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(version.Inc(), 10),
+		Nonce:       uuid.New().String(),
+		Resources:   xds.ResourcesToAny(resources),
+	}, nil
 }
 
 // register adds the SDS handle to the grpc server
@@ -195,9 +159,121 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
 }
 
+func (s *sdsservice) push(secretName string) {
+	s.Lock()
+	defer s.Unlock()
+	for _, client := range s.clients {
+		go func(client *Context) {
+			select {
+			case client.XdsConnection().PushCh() <- secretName:
+			case <-client.XdsConnection().StreamDone():
+			}
+		}(client)
+	}
+}
+
+func (c *Context) XdsConnection() *xds.Connection {
+	return &c.BaseConnection
+}
+
+var connectionNumber = int64(0)
+
+func (c *Context) Initialize(_ *core.Node) error {
+	id := atomic.AddInt64(&connectionNumber, 1)
+	con := c.XdsConnection()
+	con.SetID(strconv.FormatInt(id, 10))
+
+	c.s.Lock()
+	c.s.clients[con.ID()] = c
+	c.s.Unlock()
+
+	con.MarkInitialized()
+	return nil
+}
+
+func (c *Context) Close() {
+	c.s.Lock()
+	defer c.s.Unlock()
+	delete(c.s.clients, c.XdsConnection().ID())
+}
+
+func (c *Context) Watcher() xds.Watcher {
+	return c.w
+}
+
+func (w *Watch) DeleteWatchedResource(string) {
+	w.Lock()
+	defer w.Unlock()
+	w.watch = nil
+}
+
+func (w *Watch) GetWatchedResource(string) *xds.WatchedResource {
+	w.Lock()
+	defer w.Unlock()
+	return w.watch
+}
+
+func (w *Watch) NewWatchedResource(typeURL string, names []string) {
+	w.Lock()
+	defer w.Unlock()
+	w.watch = &xds.WatchedResource{TypeUrl: typeURL, ResourceNames: sets.New(names...)}
+}
+
+func (w *Watch) UpdateWatchedResource(_ string, f func(*xds.WatchedResource) *xds.WatchedResource) {
+	w.Lock()
+	defer w.Unlock()
+	w.watch = f(w.watch)
+}
+
+func (w *Watch) GetID() string {
+	// This always maps to the same local Envoy instance.
+	return ""
+}
+
+func (w *Watch) requested(secretName string) bool {
+	w.Lock()
+	defer w.Unlock()
+	if w.watch != nil {
+		return w.watch.ResourceNames.Contains(secretName)
+	}
+	return false
+}
+
+func (c *Context) Process(req *discovery.DiscoveryRequest) error {
+	shouldRespond, delta := xds.ShouldRespond(c.Watcher(), c.XdsConnection().ID(), req)
+	if !shouldRespond {
+		return nil
+	}
+	resources := req.ResourceNames
+	if !delta.IsEmpty() {
+		resources = delta.Subscribed.UnsortedList()
+	}
+	res, err := c.s.generate(resources)
+	if err != nil {
+		return err
+	}
+	return xds.Send(c, res)
+}
+
+func (c *Context) Push(ev any) error {
+	secretName := ev.(string)
+	if !c.w.requested(secretName) {
+		return nil
+	}
+	res, err := c.s.generate([]string{secretName})
+	if err != nil {
+		return err
+	}
+	return xds.Send(c, res)
+}
+
 // StreamSecrets serves SDS discovery requests and SDS push requests
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	return s.XdsServer.Stream(stream)
+	return xds.Stream(&Context{
+		BaseConnection: xds.NewConnection("", stream),
+		s:              s,
+		w:              &Watch{},
+	})
 }
 
 func (s *sdsservice) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
@@ -210,7 +286,6 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *discovery.Discov
 
 func (s *sdsservice) Close() {
 	close(s.stop)
-	s.XdsServer.Shutdown()
 }
 
 // toEnvoySecret converts a security.SecretItem to an Envoy tls.Secret
@@ -226,7 +301,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 		cfg, ok = security.SdsCertificateConfigFromResourceName(s.ResourceName)
 	}
 	if s.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
-		secret.Type = &tls.Secret_ValidationContext{
+		secretValidationContext := &tls.Secret_ValidationContext{
 			ValidationContext: &tls.CertificateValidationContext{
 				TrustedCa: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
@@ -235,6 +310,19 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 				},
 			},
 		}
+
+		if features.EnableCACRL {
+			// Check if the plugged-in CA CRL file is present and update the secretValidationContext accordingly.
+			if isCrlFileProvided() {
+				secretValidationContext.ValidationContext.Crl = &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: security.CACRLFilePath,
+					},
+				}
+			}
+		}
+
+		secret.Type = secretValidationContext
 	} else {
 		switch pkpConf.GetProvider().(type) {
 		case *mesh.PrivateKeyProvider_Cryptomb:
@@ -259,6 +347,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 						ConfigType: &tls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},
+						Fallback: crypto.GetFallback().GetValue(),
 					},
 				},
 			}
@@ -284,6 +373,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 						ConfigType: &tls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},
+						Fallback: qatConf.GetFallback().GetValue(),
 					},
 				},
 			}
@@ -307,10 +397,18 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 	return secret
 }
 
-func pushLog(names []string) model.XdsLogDetails {
-	if len(names) == 1 {
-		// For common case of single resource, show which resource it was
-		return model.XdsLogDetails{AdditionalInfo: "resource:" + names[0]}
+// isCrlFileProvided checks if the Plugged-in CA CRL file is present
+func isCrlFileProvided() bool {
+	_, err := os.Stat(security.CACRLFilePath)
+	if err == nil {
+		return true
 	}
-	return model.DefaultXdsLogDetails
+
+	if os.IsNotExist(err) {
+		sdsServiceLog.Debugf("CRL is not configured, %s does not exist", security.CACRLFilePath)
+		return false
+	}
+
+	sdsServiceLog.Errorf("Error checking for CA CRL file: %v", err)
+	return false
 }

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Removed** legacy `EnvoyFilter` implementation for telemetry. For the majority of users, this change has no impact, and
+    was already enabled in previous releases. However, the following fields are no longer respected: `prometheus.configOverride`,
+    `stackdriver.configOverride`, `stackdriver.disableOutbound`, `stackdriver.outboundAccessLogging`.

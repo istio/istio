@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 48349
+releaseNotes:
+- |
+  **Fixed** an issue if DestinationRule's exportTo includes workload's current namespace (not '.'), other namespaces are ignored from ExportTo.

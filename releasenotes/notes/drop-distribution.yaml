@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Removed** the experimental `PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING` feature flag and corresponding `istioctl experimental wait` command.

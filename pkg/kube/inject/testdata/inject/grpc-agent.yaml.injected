@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: grpc
 spec:
   selector:
@@ -12,6 +11,7 @@ spec:
     metadata:
       annotations:
         inject.istio.io/templates: grpc-agent
+        istio.io/rev: default
         kubectl.kubernetes.io/default-container: traffic
         kubectl.kubernetes.io/default-logs-container: traffic
         prometheus.io/path: /stats/prometheus
@@ -20,7 +20,6 @@ spec:
         proxy.istio.io/overrides: '{"containers":[{"name":"traffic","image":"fake.docker.io/google-samples/traffic-go-gke:1.0","resources":{},"readinessProbe":{"httpGet":{"port":80}}}]}'
         sidecar.istio.io/rewriteAppHTTPProbers: "false"
         sidecar.istio.io/status: '{"initContainers":null,"containers":["istio-proxy","traffic"],"volumes":["workload-socket","workload-certs","istio-xds","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
-      creationTimestamp: null
       labels:
         app: grpc
         service.istio.io/canonical-name: grpc
@@ -58,8 +57,6 @@ spec:
           value: grpc
         - name: OUTPUT_CERTS
           value: /var/lib/istio/data
-        - name: JWT_POLICY
-          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: CA_ADDR
@@ -125,12 +122,11 @@ spec:
           name: mesh-metrics
           protocol: TCP
         readinessProbe:
-          failureThreshold: 30
+          failureThreshold: 4
           httpGet:
             path: /healthz/ready
             port: 15020
-          initialDelaySeconds: 1
-          periodSeconds: 2
+          periodSeconds: 15
           timeoutSeconds: 3
         resources:
           limits:

@@ -19,14 +19,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FINDFILES=find . \( -path ./common-protos -o -path ./.git -o -path ./out -o -path ./.github -o -path ./licenses -o -path ./vendor \) -prune -o -type f
+FINDFILES=find . \( -path ./common-protos -o -path ./.git -o -path ./out -o -path ./.github -o -path ./licenses -o -path ./vendor $(if $(strip ${FINDFILES_IGNORE}), -o ${FINDFILES_IGNORE}) \) -prune -o -type f
+
 XARGS = xargs -0 -r
 
 lint-dockerfiles:
 	@${FINDFILES} -name 'Dockerfile*' -print0 | ${XARGS} hadolint -c ./common/config/.hadolint.yml
 
 lint-scripts:
-	@${FINDFILES} -name '*.sh' -print0 | ${XARGS} shellcheck
+	@${FINDFILES} -name '*.sh' -print0 | ${XARGS} -n 256 shellcheck
 
 lint-yaml:
 	@${FINDFILES} \( -name '*.yml' -o -name '*.yaml' \) -not -exec grep -q -e "{{" {} \; -print0 | ${XARGS} yamllint -c ./common/config/.yamllint.yml
@@ -49,7 +50,7 @@ lint-python:
 	@${FINDFILES} -name '*.py' \( ! \( -name '*_pb2.py' \) \) -print0 | ${XARGS} autopep8 --max-line-length 160 --exit-code -d
 
 lint-markdown:
-	@${FINDFILES} -name '*.md' -print0 | ${XARGS} mdl --ignore-front-matter --style common/config/mdl.rb
+	@${FINDFILES} -name '*.md' -not -path './manifests/addons/dashboards/*' -print0 | ${XARGS} mdl --ignore-front-matter --style common/config/mdl.rb
 
 lint-links:
 	@${FINDFILES} -name '*.md' -print0 | ${XARGS} awesome_bot --skip-save-results --allow_ssl --allow-timeout --allow-dupe --allow-redirect --white-list ${MARKDOWN_LINT_ALLOWLIST}
@@ -93,17 +94,24 @@ mirror-licenses: mod-download-go
 TMP := $(shell mktemp -d -u)
 UPDATE_BRANCH ?= "master"
 
+BUILD_TOOLS_ORG ?= "istio"
+
 update-common:
 	@mkdir -p $(TMP)
-	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/istio/common-files $(TMP)/common-files
+	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/$(BUILD_TOOLS_ORG)/common-files $(TMP)/common-files
 	@cd $(TMP)/common-files ; git rev-parse HEAD >files/common/.commonfiles.sha
 	@rm -fr common
+# istio/community has its own CONTRIBUTING.md file.
 	@CONTRIB_OVERRIDE=$(shell grep -l "istio/community/blob/master/CONTRIBUTING.md" CONTRIBUTING.md)
 	@if [ "$(CONTRIB_OVERRIDE)" != "CONTRIBUTING.md" ]; then\
 		rm $(TMP)/common-files/files/CONTRIBUTING.md;\
 	fi
-	@cp -a $(TMP)/common-files/files/* $(shell pwd)
+	@cp -a $(TMP)/common-files/files/* $(TMP)/common-files/files/.devcontainer $(TMP)/common-files/files/.gitattributes $(shell pwd)
 	@rm -fr $(TMP)/common-files
+	@if [ "$(AUTOMATOR_REPO)" == "proxy" ]; then\
+		sed -i -e 's/build-tools:/build-tools-proxy:/g' .devcontainer/devcontainer.json;\
+	fi
+	@$(or $(COMMONFILES_POSTPROCESS), true)
 
 check-clean-repo:
 	@common/scripts/check_clean_repo.sh

@@ -26,7 +26,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -36,7 +36,6 @@ type annotationValidationFunc func(value string) error
 var (
 	AnnotationValidation = map[string]annotationValidationFunc{
 		annotation.SidecarInterceptionMode.Name:                   validateInterceptionMode,
-		annotation.SidecarEnableCoreDump.Name:                     validateBool,
 		annotation.SidecarStatusPort.Name:                         validateStatusPort,
 		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,
 		annotation.SidecarStatusReadinessPeriodSeconds.Name:       validateUInt32,
@@ -56,7 +55,8 @@ func validateProxyConfig(value string) error {
 	if err := protomarshal.ApplyYAML(value, config); err != nil {
 		return fmt.Errorf("failed to convert to apply proxy config: %v", err)
 	}
-	return validation.ValidateMeshConfigProxyConfig(config)
+	v := agent.ValidateMeshConfigProxyConfig(config)
+	return v.Err
 }
 
 func validateAnnotations(annotations map[string]string) (err error) {
@@ -67,7 +67,7 @@ func validateAnnotations(annotations map[string]string) (err error) {
 			}
 		}
 	}
-	return
+	return err
 }
 
 func validatePortList(parameterName, ports string) error {

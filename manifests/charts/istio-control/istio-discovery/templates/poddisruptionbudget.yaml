@@ -1,29 +1,42 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
+# Not created if istiod is running remotely
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
-{{- if (semverCompare ">=1.21-0" .Capabilities.KubeVersion.GitVersion) }}
+# a workaround for https://github.com/kubernetes/kubernetes/issues/93476
+{{- if or (and .Values.autoscaleEnabled  (gt (int .Values.autoscaleMin) 1)) (and (not .Values.autoscaleEnabled) (gt (int .Values.replicaCount) 1)) }}
 apiVersion: policy/v1
-{{- else }}
-apiVersion: policy/v1beta1
-{{- end }}
 kind: PodDisruptionBudget
 metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istiod
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
     istio: pilot
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
-  minAvailable: 1
+  {{- if and .Values.pdb.minAvailable (not (hasKey .Values.pdb "maxUnavailable")) }}
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  {{- else if .Values.pdb.maxUnavailable }}
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  {{- end }}
+  {{- if .Values.pdb.unhealthyPodEvictionPolicy }}
+  unhealthyPodEvictionPolicy: {{ .Values.pdb.unhealthyPodEvictionPolicy }}
+  {{- end }}
   selector:
     matchLabels:
       app: istiod
       {{- if ne .Values.revision "" }}
-      istio.io/rev: {{ .Values.revision }}
+      istio.io/rev: {{ .Values.revision | quote }}
       {{- else }}
       istio: pilot
       {{- end }}
 ---
+{{- end }}
+{{- end }}
+{{- end }}
 {{- end }}

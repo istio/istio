@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+docs:
+- 'https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#customizing-injection'
+releaseNotes:
+- |
+    **Fixed** Custom injection of the `istio-proxy` container was not working on OpenShift because of the way OpenShift sets pod's `SecurityContext.RunAs` field.

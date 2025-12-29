@@ -20,7 +20,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	envoyExtensionsWasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
+	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -90,16 +91,16 @@ func TestBuildVMConfig(t *testing.T) {
 		desc     string
 		vm       *extensions.VmConfig
 		policy   extensions.PullPolicy
-		expected *envoyExtensionsWasmV3.PluginConfig_VmConfig
+		expected *wasmextensions.PluginConfig_VmConfig
 	}{
 		{
 			desc:   "Build VMConfig without a base VMConfig",
 			vm:     nil,
 			policy: extensions.PullPolicy_UNSPECIFIED_POLICY,
-			expected: &envoyExtensionsWasmV3.PluginConfig_VmConfig{
-				VmConfig: &envoyExtensionsWasmV3.VmConfig{
+			expected: &wasmextensions.PluginConfig_VmConfig{
+				VmConfig: &wasmextensions.VmConfig{
 					Runtime: defaultRuntime,
-					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+					EnvironmentVariables: &wasmextensions.EnvironmentVariables{
 						KeyValues: map[string]string{
 							WasmSecretEnv:          "secret-name",
 							WasmResourceVersionEnv: "dummy-resource-version",
@@ -123,10 +124,10 @@ func TestBuildVMConfig(t *testing.T) {
 				},
 			},
 			policy: extensions.PullPolicy_UNSPECIFIED_POLICY,
-			expected: &envoyExtensionsWasmV3.PluginConfig_VmConfig{
-				VmConfig: &envoyExtensionsWasmV3.VmConfig{
+			expected: &wasmextensions.PluginConfig_VmConfig{
+				VmConfig: &wasmextensions.VmConfig{
 					Runtime: defaultRuntime,
-					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+					EnvironmentVariables: &wasmextensions.EnvironmentVariables{
 						HostEnvKeys: []string{"POD_NAME"},
 						KeyValues: map[string]string{
 							"ENV1":                 "VAL1",
@@ -141,10 +142,10 @@ func TestBuildVMConfig(t *testing.T) {
 			desc:   "Build VMConfig with if-not-present pull policy",
 			vm:     nil,
 			policy: extensions.PullPolicy_IfNotPresent,
-			expected: &envoyExtensionsWasmV3.PluginConfig_VmConfig{
-				VmConfig: &envoyExtensionsWasmV3.VmConfig{
+			expected: &wasmextensions.PluginConfig_VmConfig{
+				VmConfig: &wasmextensions.VmConfig{
 					Runtime: defaultRuntime,
-					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+					EnvironmentVariables: &wasmextensions.EnvironmentVariables{
 						KeyValues: map[string]string{
 							WasmSecretEnv:          "secret-name",
 							WasmPolicyEnv:          extensions.PullPolicy_name[int32(extensions.PullPolicy_IfNotPresent)],
@@ -249,6 +250,67 @@ func TestToSecretName(t *testing.T) {
 			}
 			if sr.Namespace != tt.wantResourceNamespace {
 				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
+			}
+		})
+	}
+}
+
+func TestFailurePolicy(t *testing.T) {
+	cases := []struct {
+		desc  string
+		proxy *Proxy
+		in    *extensions.WasmPlugin
+		out   wasmextensions.FailurePolicy
+	}{
+		{
+			desc: "UNSPECIFIED",
+			in: &extensions.WasmPlugin{
+				Url: "file://fake.wasm",
+				// FailStrategy not set (zero value) defaults to FAIL_CLOSE, which maps to FAIL_CLOSED
+			},
+			out: wasmextensions.FailurePolicy_FAIL_CLOSED,
+		},
+		{
+			desc: "CLOSED",
+			in: &extensions.WasmPlugin{
+				Url:          "file://fake.wasm",
+				FailStrategy: extensions.FailStrategy_FAIL_CLOSE,
+			},
+			out: wasmextensions.FailurePolicy_FAIL_CLOSED,
+		},
+		{
+			desc: "OPEN",
+			in: &extensions.WasmPlugin{
+				Url:          "file://fake.wasm",
+				FailStrategy: extensions.FailStrategy_FAIL_OPEN,
+			},
+			out: wasmextensions.FailurePolicy_FAIL_OPEN,
+		},
+		{
+			desc: "RELOAD",
+			in: &extensions.WasmPlugin{
+				Url:          "file://fake.wasm",
+				FailStrategy: extensions.FailStrategy_FAIL_RELOAD,
+			},
+			out: wasmextensions.FailurePolicy_FAIL_RELOAD,
+		},
+	}
+	secretAllowed := func(resourceName string, namespace string) bool {
+		return false
+	}
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			out := convertToWasmPluginWrapper(config.Config{Spec: tc.in}, secretAllowed)
+			if out == nil {
+				t.Fatal("must not get nil")
+			}
+			filter := out.BuildHTTPWasmFilter()
+			if out == nil {
+				t.Fatal("filter can not be nil")
+			}
+
+			if got := filter.Config.FailurePolicy; got != tc.out {
+				t.Errorf("got %v, want %v", got, tc.out)
 			}
 		})
 	}
@@ -485,7 +547,13 @@ func TestMatchListener(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			got := tc.wasmPlugin.MatchListener(tc.proxyLabels, tc.listenerInfo)
+			opts := WorkloadPolicyMatcher{
+				WorkloadNamespace: "ns",
+				WorkloadLabels:    tc.proxyLabels,
+				IsWaypoint:        false,
+				RootNamespace:     "istio-system",
+			}
+			got := tc.wasmPlugin.MatchListener(opts, tc.listenerInfo)
 			if tc.want != got {
 				t.Errorf("MatchListener got %v want %v", got, tc.want)
 			}

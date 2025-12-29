@@ -1,5 +1,5 @@
 # Routes TCP traffic through the ingressgateway Gateway to service A.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-a

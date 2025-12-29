@@ -18,12 +18,8 @@
 #
 # Script to configure and start the Istio sidecar.
 
-set -e
+set -ea
 
-# Match pilot/docker/Dockerfile.proxyv2
-export ISTIO_META_ISTIO_VERSION="1.17.0"
-
-set -a
 # Load optional config variables
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-./var/lib/istio/envoy/sidecar.env}
 if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
@@ -60,7 +56,7 @@ fi
 if [[ ${1-} == "clean" ]] ; then
   if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
     # clean the previous Istio iptables chains.
-    "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
+    "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables --cleanup-only
   fi
   exit 0
 fi
@@ -70,7 +66,7 @@ if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
     if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then
       # clean the previous Istio iptables chains. This part is different from the init image mode,
       # where the init container runs in a fresh environment and there cannot be previous Istio chains
-      "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
+      "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables "${@}" --cleanup-only
 
       # Update iptables, based on current config. This is for backward compatibility with the init image mode.
       # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
@@ -81,7 +77,7 @@ if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
     if [[ ${1-} != "run" ]] ; then
       # clean the previous Istio iptables chains. This part is different from the init image mode,
       # where the init container runs in a fresh environment and there cannot be previous Istio chains
-      "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
+      "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables --cleanup-only
 
       # Update iptables, based on config file
       "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables
@@ -135,12 +131,6 @@ if [ "${EXEC_USER}" == "${USER:-}" ] ; then
   # redirecting stderr.
   INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} "${ISTIO_BIN_BASE}/pilot-agent" proxy "${ISTIO_AGENT_FLAGS_ARRAY[@]}"
 else
-
-# su will mess with the limits set on the process we run. This may lead to quickly exhausting the file limits
-# We will get the host limit and set it in the child as well.
-# TODO(https://superuser.com/questions/1645513/why-does-executing-a-command-in-su-change-limits) can we do better?
-currentLimit=$(ulimit -n)
-
-# Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
-exec sudo -E -u "${EXEC_USER}" -s /bin/bash -c "ulimit -n ${currentLimit}; INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS_ARRAY[*]} 2>> ${ISTIO_LOG_DIR}/istio.err.log >> ${ISTIO_LOG_DIR}/istio.log"
+  # Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
+  exec sudo -E -u "${EXEC_USER}" -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS_ARRAY[*]} 2>> ${ISTIO_LOG_DIR}/istio.err.log >> ${ISTIO_LOG_DIR}/istio.log"
 fi

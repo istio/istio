@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 47444
+releaseNotes:
+- |
+  **Added** Support alternate network namespace paths (for e.g. minikube) via `values.cni.cniNetnsDir`

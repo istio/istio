@@ -30,12 +30,10 @@ import (
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
+	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -46,13 +44,14 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
+	kubelabels "istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/proto/merge"
-	"istio.io/istio/pkg/util/strcase"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -66,18 +65,12 @@ const (
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
 	Passthrough = "allow_any"
-	// OutboundTunnel is HBONE's outbound cluster.
-	OutboundTunnel = "outbound-tunnel"
 
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
-	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
-	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
-
-	// SniClusterFilter is the name of the sni_cluster envoy filter
-	SniClusterFilter = "envoy.filters.network.sni_cluster"
+	InboundPassthroughCluster = "InboundPassthroughCluster"
 
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
@@ -93,15 +86,19 @@ const (
 	// Envoy Stateful Session Filter
 	// TODO: Move to well known.
 	StatefulSessionFilter = "envoy.filters.http.stateful_session"
+
+	// AlpnOverrideMetadataKey is the key under which metadata is added
+	// to indicate whether Istio rewrite the ALPN headers
+	AlpnOverrideMetadataKey = "alpn_override"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
-var ALPNH2Only = []string{"h2"}
+var ALPNH2Only = pm.ALPNH2Only
 
 // ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
-var ALPNInMeshH2 = []string{"istio", "h2"}
+var ALPNInMeshH2 = pm.ALPNInMeshH2
 
 // ALPNInMeshH2WithMxc advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
@@ -126,17 +123,8 @@ var ALPNHttp3OverQUIC = []string{"h3"}
 // ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
 
-// RegexEngine is the default google RE2 regex engine.
-var RegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
-
-func ListContains(haystack []string, needle string) bool {
-	for _, n := range haystack {
-		if needle == n {
-			return true
-		}
-	}
-	return false
-}
+// ALPNDownstream advertises that Proxy is going to talk either http2 or http 1.1.
+var ALPNDownstream = []string{"h2", "http/1.1"}
 
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
@@ -149,40 +137,43 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
+// AddrStrToCidrRange converts from string to CIDR prefix
+func AddrStrToPrefix(addr string) (netip.Prefix, error) {
+	if len(addr) == 0 {
+		return netip.Prefix{}, fmt.Errorf("empty address")
+	}
+
+	// Already a CIDR, just parse it.
+	if strings.Contains(addr, "/") {
+		return netip.ParsePrefix(addr)
+	}
+
+	// Otherwise it is a raw IP. Make it a /32 or /128 depending on family
+	ipa, err := netip.ParseAddr(addr)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+
+	return netip.PrefixFrom(ipa, ipa.BitLen()), nil
+}
+
+// PrefixToCidrRange converts from CIDR prefix to CIDR proto
+func PrefixToCidrRange(prefix netip.Prefix) *core.CidrRange {
+	return &core.CidrRange{
+		AddressPrefix: prefix.Addr().String(),
+		PrefixLen: &wrapperspb.UInt32Value{
+			Value: uint32(prefix.Bits()),
+		},
+	}
+}
+
 // AddrStrToCidrRange converts from string to CIDR proto
 func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
-	if len(addr) == 0 {
-		return nil, fmt.Errorf("empty address")
+	prefix, err := AddrStrToPrefix(addr)
+	if err != nil {
+		return nil, err
 	}
-
-	var (
-		ipAddr        netip.Addr
-		maxCidrPrefix int
-	)
-
-	if strings.Contains(addr, "/") {
-		ipp, err := netip.ParsePrefix(addr)
-		if err != nil {
-			return nil, err
-		}
-		ipAddr = ipp.Addr()
-		maxCidrPrefix = ipp.Bits()
-	} else {
-		ipa, err := netip.ParseAddr(addr)
-		if err != nil {
-			return nil, err
-		}
-
-		ipAddr = ipa
-		maxCidrPrefix = ipAddr.BitLen()
-	}
-
-	return &core.CidrRange{
-		AddressPrefix: ipAddr.String(),
-		PrefixLen: &wrapperspb.UInt32Value{
-			Value: uint32(maxCidrPrefix),
-		},
-	}, nil
+	return PrefixToCidrRange(prefix), nil
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
@@ -202,9 +193,9 @@ func BuildAddress(bind string, port uint32) *core.Address {
 }
 
 // BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
-func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *model.Proxy) []*listener.AdditionalAddress {
+func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32) []*listener.AdditionalAddress {
 	var additionalAddresses []*listener.AdditionalAddress
-	if len(extrAddresses) > 0 && IsIstioVersionGE116(node.IstioVersion) {
+	if len(extrAddresses) > 0 {
 		for _, exbd := range extrAddresses {
 			if exbd == "" {
 				continue
@@ -248,54 +239,9 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE114 checks whether the given Istio version is greater than or equals 1.14.
-func IsIstioVersionGE114(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 14, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE115 checks whether the given Istio version is greater than or equals 1.15.
-func IsIstioVersionGE115(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 15, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE116 checks whether the given Istio version is greater than or equals 1.16.
-func IsIstioVersionGE116(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 16, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE117 checks whether the given Istio version is greater than or equals 1.17.
-func IsIstioVersionGE117(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
-}
-
-func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForInbound && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
-}
-
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
-	if locality == "" {
-		return &core.Locality{}
-	}
-
-	region, zone, subzone := label.SplitLocalityLabel(locality)
-	return &core.Locality{
-		Region:  region,
-		Zone:    zone,
-		SubZone: subzone,
-	}
+	return pm.ConvertLocality(locality)
 }
 
 // LocalityToString converts Locality struct to '/' separated locality string.
@@ -410,17 +356,21 @@ func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
 func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Metadata {
 	if metadata == nil {
 		metadata = &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{},
+			FilterMetadata: make(map[string]*structpb.Struct, 1),
 		}
 	}
+
 	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
-	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
-		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{},
+		gvk.KebabKind(config.GroupVersionKind.Kind) + "/" + config.Name
+
+	istioMeta, ok := metadata.FilterMetadata[IstioMetadataKey]
+	if !ok {
+		istioMeta = &structpb.Struct{
+			Fields: make(map[string]*structpb.Value, 1),
 		}
+		metadata.FilterMetadata[IstioMetadataKey] = istioMeta
 	}
-	metadata.FilterMetadata[IstioMetadataKey].Fields["config"] = &structpb.Value{
+	istioMeta.Fields["config"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{
 			StringValue: s,
 		},
@@ -440,6 +390,34 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) {
 			},
 		}
 	}
+}
+
+// AddALPNOverrideToMetadata sets filter metadata `istio.alpn_override: "false"` in the given core.Metadata struct,
+// when TLS mode is SIMPLE or MUTUAL. If metadata is not initialized, builds a new metadata.
+func AddALPNOverrideToMetadata(metadata *core.Metadata, tlsMode networking.ClientTLSSettings_TLSmode) *core.Metadata {
+	if tlsMode != networking.ClientTLSSettings_SIMPLE && tlsMode != networking.ClientTLSSettings_MUTUAL {
+		return metadata
+	}
+
+	if metadata == nil {
+		metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+
+	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
+		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+
+	metadata.FilterMetadata[IstioMetadataKey].Fields["alpn_override"] = &structpb.Value{
+		Kind: &structpb.Value_StringValue{
+			StringValue: "false",
+		},
+	}
+
+	return metadata
 }
 
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
@@ -479,23 +457,17 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 	return retVal, nil
 }
 
-// BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, labels labels.Instance,
-) *core.Metadata {
-	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
-		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
-		return nil
+// AppendLbEndpointMetadata adds metadata values to a lb endpoint using the passed in metadata as base.
+func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetadata *core.Metadata,
+) {
+	if envoyMetadata.FilterMetadata == nil {
+		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
 	}
 
-	metadata := &core.Metadata{
-		FilterMetadata: map[string]*structpb.Struct{},
-	}
-
-	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
+	if istioMetadata.TLSMode != "" && istioMetadata.TLSMode != model.DisabledTLSModeLabel {
+		envoyMetadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: tlsMode}},
+				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: istioMetadata.TLSMode}},
 			},
 		}
 	}
@@ -503,68 +475,29 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 	// Add compressed telemetry metadata. Note this is a short term solution to make server workload metadata
 	// available at client sidecar, so that telemetry filter could use for metric labels. This is useful for two cases:
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
-	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
+	// Due to performance concern, telemetry metadata is compressed into a semicolon separated string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
-	if features.EndpointTelemetryLabel {
+	if features.EnableTelemetryLabel && features.EndpointTelemetryLabel {
+		// allow defaulting for non-injected cases
+		canonicalName, canonicalRevision := kubelabels.CanonicalService(istioMetadata.Labels, istioMetadata.WorkloadName)
+
+		// don't bother sending the default value in config
+		if canonicalRevision == "latest" {
+			canonicalRevision = ""
+		}
+
 		var sb strings.Builder
-		sb.WriteString(workloadname)
+		sb.WriteString(istioMetadata.WorkloadName)
 		sb.WriteString(";")
-		sb.WriteString(namespace)
+		sb.WriteString(istioMetadata.Namespace)
 		sb.WriteString(";")
-		if csn, ok := labels[model.IstioCanonicalServiceLabelName]; ok {
-			sb.WriteString(csn)
-		}
+		sb.WriteString(canonicalName)
 		sb.WriteString(";")
-		if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
-			sb.WriteString(csr)
-		}
+		sb.WriteString(canonicalRevision)
 		sb.WriteString(";")
-		sb.WriteString(clusterID.String())
-		addIstioEndpointLabel(metadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
+		sb.WriteString(istioMetadata.ClusterID.String())
+		addIstioEndpointLabel(envoyMetadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
 	}
-
-	return metadata
-}
-
-// MaybeApplyTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
-func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.LbEndpoint, bool) {
-	if ep == nil || ep.Metadata == nil {
-		return nil, false
-	}
-	epTLSMode := ""
-	if ep.Metadata.FilterMetadata != nil {
-		if _, f := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey].GetFields()[model.TunnelLabelShortName]; f {
-			// Tunnel > MTLS
-			return nil, false
-		}
-		if v, ok := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey]; ok {
-			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
-		}
-	}
-	// Normalize the tls label name before comparison. This ensure we won't falsely cloning
-	// the endpoint when they are "" and model.DisabledTLSModeLabel.
-	if epTLSMode == model.DisabledTLSModeLabel {
-		epTLSMode = ""
-	}
-	if tlsMode == model.DisabledTLSModeLabel {
-		tlsMode = ""
-	}
-	if epTLSMode == tlsMode {
-		return nil, false
-	}
-	// We make a copy instead of modifying on existing endpoint pointer directly to avoid data race.
-	// See https://github.com/istio/istio/issues/34227 for details.
-	newEndpoint := proto.Clone(ep).(*endpoint.LbEndpoint)
-	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
-		newEndpoint.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: tlsMode}},
-			},
-		}
-	} else {
-		delete(newEndpoint.Metadata.FilterMetadata, EnvoyTransportSocketMetadataKey)
-	}
-	return newEndpoint, true
 }
 
 func addIstioEndpointLabel(metadata *core.Metadata, key string, val *structpb.Value) {
@@ -585,16 +518,7 @@ func IsAllowAnyOutbound(node *model.Proxy) bool {
 }
 
 func StringToExactMatch(in []string) []*matcher.StringMatcher {
-	if len(in) == 0 {
-		return nil
-	}
-	res := make([]*matcher.StringMatcher, 0, len(in))
-	for _, s := range in {
-		res = append(res, &matcher.StringMatcher{
-			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
-		})
-	}
-	return res
+	return pm.StringToExactMatch(in)
 }
 
 func StringToPrefixMatch(in []string) []*matcher.StringMatcher {
@@ -632,41 +556,12 @@ func ConvertToEnvoyMatch(in *networking.StringMatch) *matcher.StringMatcher {
 		return &matcher.StringMatcher{
 			MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: RegexEngine,
-					Regex:      m.Regex,
+					Regex: m.Regex,
 				},
 			},
 		}
 	}
 	return nil
-}
-
-func StringSliceEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-func UInt32SliceEqual(a, b []uint32) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
 }
 
 func CidrRangeSliceEqual(a, b []*core.CidrRange) bool {
@@ -702,8 +597,36 @@ func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
-func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
 	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
+}
+
+// MeshNetworksToEnvoyInternalAddressConfig converts all of the FromCidr Endpoints into Envy internal networks.
+// Because the input is an unordered map, the output is sorted to ensure config stability.
+func MeshNetworksToEnvoyInternalAddressConfig(nets *meshconfig.MeshNetworks) *hcm.HttpConnectionManager_InternalAddressConfig {
+	if nets == nil {
+		return nil
+	}
+	prefixes := []netip.Prefix{}
+	for _, internalnetwork := range nets.Networks {
+		for _, ne := range internalnetwork.Endpoints {
+			if prefix, err := AddrStrToPrefix(ne.GetFromCidr()); err == nil {
+				prefixes = append(prefixes, prefix)
+			}
+		}
+	}
+	if len(prefixes) == 0 {
+		return nil
+	}
+	sort.Slice(prefixes, func(a, b int) bool {
+		ap, bp := prefixes[a], prefixes[b]
+		return ap.Addr().Less(bp.Addr()) || (ap.Addr() == bp.Addr() && ap.Bits() < bp.Bits())
+	})
+	iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
+	for _, prefix := range prefixes {
+		iac.CidrRanges = append(iac.CidrRanges, PrefixToCidrRange(prefix))
+	}
+	return iac
 }
 
 // ByteCount returns a human readable byte format
@@ -744,12 +667,14 @@ func BuildInternalEndpoint(dest string, meta *core.Metadata) []*endpoint.Localit
 	return llb
 }
 
+const OriginalDstMetadataKey = "envoy.filters.listener.original_dst"
+
 // BuildInternalLbEndpoint builds an lb endpoint pointing to the internal listener named dest.
-// If the metadata contains "tunnel.destination" that will become the "endpointId" to prevent deduplication.
+// If the metadata contains ORIGINAL_DST destination that will become the "endpointId" to prevent deduplication.
 func BuildInternalLbEndpoint(dest string, meta *core.Metadata) *endpoint.LbEndpoint {
 	var endpointID string
-	if tunnel, ok := meta.GetFilterMetadata()["tunnel"]; ok {
-		if dest, ok := tunnel.GetFields()["destination"]; ok {
+	if tunnel, ok := meta.GetFilterMetadata()[OriginalDstMetadataKey]; ok {
+		if dest, ok := tunnel.GetFields()["local"]; ok {
 			endpointID = dest.GetStringValue()
 		}
 	}
@@ -778,13 +703,46 @@ func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 	}
 }
 
-func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort int) *structpb.Struct {
-	st, _ := structpb.NewStruct(map[string]interface{}{
-		// ORIGINAL_DST destination address to tunnel on (usually only differs from "destination" by port)
-		"address": net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
+func GetEndpointHost(e *endpoint.LbEndpoint) string {
+	addr := e.GetEndpoint().GetAddress()
+	if host := addr.GetSocketAddress().GetAddress(); host != "" {
+		return host
+	}
+	if endpointID := addr.GetEnvoyInternalAddress().GetEndpointId(); endpointID != "" {
+		// extract host from endpoint id
+		host, _, _ := net.SplitHostPort(endpointID)
+		return host
+	}
+	return ""
+}
+
+func BuildTunnelMetadataStruct(address string, port int, waypoint string) *structpb.Struct {
+	m := map[string]interface{}{
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
-		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
-	})
+		"local": net.JoinHostPort(address, strconv.Itoa(port)),
+	}
+	if waypoint != "" {
+		m["waypoint"] = waypoint
+	}
+	st, _ := structpb.NewStruct(m)
+	return st
+}
+
+func AppendDoubleHBONEMetadata(service string, port int, envoyMetadata *core.Metadata) {
+	if envoyMetadata.FilterMetadata == nil {
+		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
+	}
+	target := buildDoubleHBONEMetadataStruct(service, port)
+	addIstioEndpointLabel(envoyMetadata, "double_hbone", structpb.NewStructValue(target))
+}
+
+func buildDoubleHBONEMetadataStruct(service string, port int) *structpb.Struct {
+	m := map[string]interface{}{
+		// the actual service domain name and port that we want to connect to, these are used
+		// in the HTTP2 CONNECT request :authority
+		"hbone_target_address": DomainName(service, port),
+	}
+	st, _ := structpb.NewStruct(m)
 	return st
 }
 
@@ -803,27 +761,148 @@ func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
 }
 
 func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
-	if features.PersistentSessionLabel == "" || svc == nil {
+	if svc == nil || !features.EnablePersistentSessionFilter.Load() {
 		return nil
 	}
 	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
-	if sessionCookie == "" {
+	sessionHeader := svc.Attributes.Labels[features.PersistentSessionHeaderLabel]
+
+	switch {
+	case sessionCookie != "":
+		cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
+		if !found {
+			cookiePath = "/"
+		}
+		// The cookie is using TTL=0, which means they are session cookies (browser is not saving the cookie, expires
+		// when the tab is closed). Most pods don't have ability (or code) to actually persist cookies, and expiration
+		// is better handled in the cookie content (and consistently in the header value - which doesn't have
+		// persistence semantics).
+		return &statefulsession.StatefulSession{
+			SessionState: &core.TypedExtensionConfig{
+				Name: "envoy.http.stateful_session.cookie",
+				TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+					Cookie: &httpv3.Cookie{
+						Path: cookiePath,
+						Name: cookieName,
+					},
+				}),
+			},
+		}
+	case sessionHeader != "":
+		return &statefulsession.StatefulSession{
+			SessionState: &core.TypedExtensionConfig{
+				Name: "envoy.http.stateful_session.header",
+				TypedConfig: protoconv.MessageToAny(&headerv3.HeaderBasedSessionState{
+					Name: sessionHeader,
+				}),
+			},
+		}
+	}
+	return nil
+}
+
+// GetPortLevelTrafficPolicy return the port level traffic policy and true if it exists.
+// Otherwise returns the original policy that applies to all destination ports.
+func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Port) (*networking.TrafficPolicy, bool) {
+	if port == nil {
+		return policy, false
+	}
+	if policy == nil {
+		return nil, false
+	}
+
+	var portTrafficPolicy *networking.TrafficPolicy_PortTrafficPolicy
+	// Check if port level overrides exist, if yes override with them.
+	for _, p := range policy.PortLevelSettings {
+		if p.Port != nil && uint32(port.Port) == p.Port.Number {
+			// per the docs, port level policies do not inherit and instead to defaults if not provided
+			portTrafficPolicy = p
+			break
+		}
+	}
+	if portTrafficPolicy == nil {
+		return policy, false
+	}
+
+	// Note that port-level settings will override the destination-level settings.
+	// Traffic settings specified at the destination-level will not be inherited when overridden by port-level settings,
+	// i.e. default values will be applied to fields omitted in port-level traffic policies.
+	return shadowCopyPortTrafficPolicy(portTrafficPolicy), true
+}
+
+// MergeSubsetTrafficPolicy merges the destination and subset level traffic policy for the given port.
+func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	// First get DR port level traffic policy
+	original, _ = GetPortLevelTrafficPolicy(original, port)
+	if subsetPolicy == nil {
+		return original
+	}
+	subsetPolicy, hasPortLevel := GetPortLevelTrafficPolicy(subsetPolicy, port)
+	if original == nil {
+		return subsetPolicy
+	}
+
+	// merge DR with subset traffic policy
+	// Override with subset values.
+	mergedPolicy := ShallowCopyTrafficPolicy(original)
+
+	return mergeTrafficPolicy(mergedPolicy, subsetPolicy, hasPortLevel)
+}
+
+// Note that port-level settings will override the destination-level settings.
+// Traffic settings specified at the destination-level will not be inherited when overridden by port-level settings,
+// i.e. default values will be applied to fields omitted in port-level traffic policies.
+func mergeTrafficPolicy(mergedPolicy, subsetPolicy *networking.TrafficPolicy, hasPortLevel bool) *networking.TrafficPolicy {
+	if subsetPolicy.ConnectionPool != nil || hasPortLevel {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+	}
+	if subsetPolicy.OutlierDetection != nil || hasPortLevel {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+	}
+	if subsetPolicy.LoadBalancer != nil || hasPortLevel {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil || hasPortLevel {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+
+	if subsetPolicy.Tunnel != nil {
+		mergedPolicy.Tunnel = subsetPolicy.Tunnel
+	}
+	if subsetPolicy.ProxyProtocol != nil {
+		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
+	}
+	return mergedPolicy
+}
+
+func shadowCopyPortTrafficPolicy(portTrafficPolicy *networking.TrafficPolicy_PortTrafficPolicy) *networking.TrafficPolicy {
+	if portTrafficPolicy == nil {
 		return nil
 	}
-	cookieName, cookiePath, found := strings.Cut(sessionCookie, ":")
-	if !found {
-		cookiePath = "/"
+	ret := &networking.TrafficPolicy{}
+	ret.ConnectionPool = portTrafficPolicy.ConnectionPool
+	ret.LoadBalancer = portTrafficPolicy.LoadBalancer
+	ret.OutlierDetection = portTrafficPolicy.OutlierDetection
+	ret.Tls = portTrafficPolicy.Tls
+	return ret
+}
+
+// ShallowCopyTrafficPolicy shallow copy a traffic policy, portLevelSettings are ignored.
+func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.TrafficPolicy {
+	if original == nil {
+		return nil
 	}
-	return &statefulsession.StatefulSession{
-		SessionState: &core.TypedExtensionConfig{
-			Name: "envoy.http.stateful_session.cookie",
-			TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
-				Cookie: &httpv3.Cookie{
-					Path: cookiePath,
-					Ttl:  &durationpb.Duration{Seconds: 120},
-					Name: cookieName,
-				},
-			}),
-		},
-	}
+	ret := &networking.TrafficPolicy{}
+	ret.ConnectionPool = original.ConnectionPool
+	ret.LoadBalancer = original.LoadBalancer
+	ret.OutlierDetection = original.OutlierDetection
+	ret.Tls = original.Tls
+	ret.Tunnel = original.Tunnel
+	ret.ProxyProtocol = original.ProxyProtocol
+	return ret
+}
+
+func DelimitedStatsPrefix(statPrefix string) string {
+	statPrefix += constants.StatPrefixDelimiter
+	return statPrefix
 }

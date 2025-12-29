@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** an issue where gateways cannot fetch JWKS from `jwksUri` in RequestAuthentication 
+    when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG` is enabled and `PILOT_JWT_ENABLE_REMOTE_JWKS` is set to hybrid/true/envoy.

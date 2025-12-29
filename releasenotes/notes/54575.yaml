@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+  - |
+    **Added** support to set reinvocationPolicy for the revision-tag webhook when installing Istio with istioctl or Helm.

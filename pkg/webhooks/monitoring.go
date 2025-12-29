@@ -15,34 +15,31 @@
 package webhooks
 
 import (
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 var (
 	// webhookConfigNameTag holds the target webhook config name for the context.
-	webhookConfigNameTag = monitoring.MustCreateLabel("name")
+	webhookConfigNameTag = monitoring.CreateLabel("name")
 
 	// reasonTag holds the error reason for the context.
-	reasonTag = monitoring.MustCreateLabel("reason")
+	reasonTag = monitoring.CreateLabel("reason")
 )
 
 var (
 	metricWebhookPatchAttempts = monitoring.NewSum(
 		"webhook_patch_attempts_total",
 		"Webhook patching attempts",
-		monitoring.WithLabels(webhookConfigNameTag),
 	)
 
 	metricWebhookPatchRetries = monitoring.NewSum(
 		"webhook_patch_retries_total",
 		"Webhook patching retries",
-		monitoring.WithLabels(webhookConfigNameTag),
 	)
 
 	metricWebhookPatchFailures = monitoring.NewSum(
 		"webhook_patch_failures_total",
 		"Webhook patching total failures",
-		monitoring.WithLabels(webhookConfigNameTag, reasonTag),
 	)
 )
 
@@ -54,14 +51,6 @@ const (
 	reasonWebhookEntryNotFound  = "webhook_entry_not_found"
 	reasonWebhookUpdateFailure  = "webhook_update_failure"
 )
-
-func init() {
-	monitoring.MustRegister(
-		metricWebhookPatchAttempts,
-		metricWebhookPatchRetries,
-		metricWebhookPatchFailures,
-	)
-}
 
 func reportWebhookPatchAttempts(webhookConfigName string) {
 	metricWebhookPatchAttempts.

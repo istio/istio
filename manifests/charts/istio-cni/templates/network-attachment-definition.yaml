@@ -1,0 +1,13 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
+{{- if eq .Values.provider "multus" }}
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: {{ template "name" . }}
+  namespace: default
+  labels:
+    operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
+{{- end }}
+{{- end }}

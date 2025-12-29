@@ -47,6 +47,7 @@ spec:
     metadata:
       labels:
         app: sleep
+        spiffe.io/spire-managed-identity: "true"
       # Injects custom sidecar template
       annotations:
         inject.istio.io/templates: "sidecar,spire"
@@ -55,7 +56,7 @@ spec:
       serviceAccountName: sleep
       containers:
       - name: sleep
-        image: curlimages/curl
+        image: docker.io/curlimages/curl:8.16.0
         command: ["/bin/sleep", "infinity"]
         imagePullPolicy: IfNotPresent
         volumeMounts:

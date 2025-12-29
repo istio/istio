@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/yaml"
 
@@ -45,7 +45,7 @@ func ApplyNamespace(yamlText, ns string) (string, error) {
 
 // ApplyPullSecrets applies the given pullsecret to the deployment resource
 func ApplyPullSecret(deploymentYaml string, pullSecret string) (string, error) {
-	var deploymentMerge v1.Deployment
+	var deploymentMerge appsv1.Deployment
 
 	mainYaml, err := yaml.YAMLToJSON([]byte(deploymentYaml))
 	if err != nil {
@@ -84,6 +84,31 @@ func MustApplyNamespace(t test.Failer, yamlText, ns string) string {
 		t.Fatalf("ApplyNamespace: %v for text %v", err, yamlText)
 	}
 	return y
+}
+
+func ApplyAnnotation(yamlText, k, v string) (string, error) {
+	m := make(map[string]any)
+	if err := yaml.Unmarshal([]byte(yamlText), &m); err != nil {
+		return "", err
+	}
+
+	meta, err := ensureChildMap(m, "metadata")
+	if err != nil {
+		return "", err
+	}
+	if meta["annotations"] != nil {
+		meta["annotations"].(map[string]string)[k] = v
+	} else {
+		an := map[string]string{k: v}
+		meta["annotations"] = an
+	}
+
+	by, err := yaml.Marshal(m)
+	if err != nil {
+		return "", err
+	}
+
+	return string(by), nil
 }
 
 func applyNamespace(yamlText, ns string) (string, error) {

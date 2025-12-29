@@ -1,0 +1,65 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
+# Created if this is not a remote istiod, OR if it is and is also a config cluster
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled (or .Values.global.configCluster .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
+{{- if .Values.experimental.stableValidationPolicy }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "stable-channel-policy{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}.istio.io"
+  labels:
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+        - security.istio.io
+        - networking.istio.io
+        - telemetry.istio.io
+        - extensions.istio.io
+      apiVersions: ["*"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["*"]
+    objectSelector:
+      matchExpressions:
+        - key: istio.io/rev
+          operator: In
+          values:
+          {{- if (eq .Values.revision "") }}
+          - "default"
+          {{- else }}
+          - "{{ .Values.revision }}"
+          {{- end }}
+  variables:
+    - name: isEnvoyFilter
+      expression: "object.kind == 'EnvoyFilter'"
+    - name: isWasmPlugin
+      expression: "object.kind == 'WasmPlugin'"
+    - name: isProxyConfig
+      expression: "object.kind == 'ProxyConfig'"
+    - name: isTelemetry
+      expression: "object.kind == 'Telemetry'"
+  validations:
+    - expression: "!variables.isEnvoyFilter"
+    - expression: "!variables.isWasmPlugin"
+    - expression: "!variables.isProxyConfig"
+    - expression: |
+        !(
+          variables.isTelemetry && (
+            (has(object.spec.tracing) ? object.spec.tracing : {}).exists(t, has(t.useRequestIdForTraceSampling)) ||
+            (has(object.spec.metrics) ? object.spec.metrics : {}).exists(m, has(m.reportingInterval)) ||
+            (has(object.spec.accessLogging) ? object.spec.accessLogging : {}).exists(l, has(l.filter))
+          )
+        )
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "stable-channel-policy-binding{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}.istio.io"
+spec:
+  policyName: "stable-channel-policy{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}.istio.io"
+  validationActions: [Deny]
+{{- end }}
+{{- end }}
+{{- end }}

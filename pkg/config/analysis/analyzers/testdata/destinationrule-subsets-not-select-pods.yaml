@@ -1,0 +1,26 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: subsets-not-select-pods
+  namespace: default
+spec:
+  host: httpbin.default.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST
+  subsets:
+  - name: fake
+    labels:
+      version: v3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 8000
+  selector:
+    app: httpbin

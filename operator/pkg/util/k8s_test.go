@@ -16,120 +16,65 @@ package util
 import (
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/version"
-	fakediscovery "k8s.io/client-go/discovery/fake"
-	"k8s.io/client-go/kubernetes/fake"
-	"sigs.k8s.io/yaml"
 
-	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
-var (
-	o1 = `
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  values:
-    global:
-      pilotCertProvider: kubernetes
-`
-	o2 = `
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  values:
-    global:
-      pilotCertProvider: istiod
-`
-	o3 = `
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  values:
-`
-)
-
-func TestValidateIOPCAConfig(t *testing.T) {
-	var err error
-
-	tests := []struct {
-		major        string
-		minor        string
-		expErr       bool
-		operatorYaml string
+func TestPrometheusPathAndPort(t *testing.T) {
+	cases := []struct {
+		pod  *v1.Pod
+		path string
+		port int
 	}{
 		{
-			major:        "1",
-			minor:        "16",
-			expErr:       false,
-			operatorYaml: o1,
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "case-1",
+					Annotations: map[string]string{
+						"prometheus.io/path": "/metrics",
+						"prometheus.io/port": "15020",
+					},
+				},
+			},
+			path: "/metrics",
+			port: 15020,
 		},
 		{
-			major:        "1",
-			minor:        "22",
-			expErr:       true,
-			operatorYaml: o1,
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "case-2",
+					Annotations: map[string]string{
+						"prometheus.io.path": "/metrics",
+						"prometheus.io.port": "15020",
+					},
+				},
+			},
+			path: "/metrics",
+			port: 15020,
 		},
 		{
-			major:        "1",
-			minor:        "23",
-			expErr:       false,
-			operatorYaml: o2,
-		},
-		{
-			major:        "1",
-			minor:        "24",
-			expErr:       false,
-			operatorYaml: o3,
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "case-3",
+					Annotations: map[string]string{
+						"prometheus-io/path": "/metrics",
+						"prometheus-io/port": "15020",
+					},
+				},
+			},
+			path: "/metrics",
+			port: 15020,
 		},
 	}
 
-	for i, tt := range tests {
-		k8sClient := kube.NewFakeClient()
-		k8sClient.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &version.Info{
-			Major: tt.major,
-			Minor: tt.minor,
-		}
-		op := &pkgAPI.IstioOperator{}
-		err = yaml.Unmarshal([]byte(tt.operatorYaml), op)
-		if err != nil {
-			t.Fatalf("Failure in test case %v. Error %s", i, err)
-		}
-		err = ValidateIOPCAConfig(k8sClient, op)
-		if !tt.expErr && err != nil {
-			t.Fatalf("Failure in test case %v. Expected No Error. Got %s", i, err)
-		} else if tt.expErr && err == nil {
-			t.Fatalf("Failure in test case %v. Expected Error. Got No error", i)
-		}
+	for _, tc := range cases {
+		t.Run(tc.pod.Name, func(t *testing.T) {
+			path, port, err := PrometheusPathAndPort(tc.pod)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.path, path)
+			assert.Equal(t, tc.port, port)
+		})
 	}
-}
-
-func TestDetectSupportedJWTPolicy(t *testing.T) {
-	cli := fake.NewSimpleClientset()
-	cli.Resources = []*metav1.APIResourceList{}
-	t.Run("first-party-jwt", func(t *testing.T) {
-		res, err := DetectSupportedJWTPolicy(cli)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if res != FirstPartyJWT {
-			t.Fatalf("unexpected jwt type, expected %s, got %s", FirstPartyJWT, res)
-		}
-	})
-	cli.Resources = []*metav1.APIResourceList{
-		{
-			APIResources: []metav1.APIResource{{Name: "serviceaccounts/token"}},
-		},
-	}
-	t.Run("third-party-jwt", func(t *testing.T) {
-		res, err := DetectSupportedJWTPolicy(cli)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if res != ThirdPartyJWT {
-			t.Fatalf("unexpected jwt type, expected %s, got %s", ThirdPartyJWT, res)
-		}
-	})
 }

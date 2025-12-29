@@ -28,14 +28,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" //  allow out of cluster authentication
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/config"
-	istioversion "istio.io/pkg/version"
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/util/sets"
+	istioversion "istio.io/istio/pkg/version"
 )
 
 var cronJobNameRegexp = regexp.MustCompile(`(.+)-\d{8,10}$`)
@@ -53,21 +56,7 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 	return SetRestDefaults(c), nil
 }
 
-// BuildClientCmd builds a client cmd config from a kubeconfig filepath and context.
-// It overrides the current context with the one provided (empty to use default).
-//
-// This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
-// difference that it loads default configs if not running in-cluster.
-func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.ConfigOverrides)) clientcmd.ClientConfig {
-	if kubeconfig != "" {
-		info, err := os.Stat(kubeconfig)
-		if err != nil || info.Size() == 0 {
-			// If the specified kubeconfig doesn't exists / empty file / any other error
-			// from file stat, fall back to default
-			kubeconfig = ""
-		}
-	}
-
+func ConfigLoadingRules(kubeconfig string) *clientcmd.ClientConfigLoadingRules {
 	// Config loading rules:
 	// 1. kubeconfig if it not empty string
 	// 2. Config(s) in KUBECONFIG environment variable
@@ -76,6 +65,16 @@ func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.Con
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
 	loadingRules.ExplicitPath = kubeconfig
+	return loadingRules
+}
+
+// BuildClientCmd builds a client cmd config from a kubeconfig filepath and context.
+// It overrides the current context with the one provided (empty to use default).
+//
+// This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
+// difference that it loads default configs if not running in-cluster.
+func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.ConfigOverrides)) clientcmd.ClientConfig {
+	loadingRules := ConfigLoadingRules(kubeconfig)
 	configOverrides := &clientcmd.ConfigOverrides{
 		ClusterDefaults: clientcmd.ClusterDefaults,
 		CurrentContext:  context,
@@ -88,26 +87,56 @@ func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.Con
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 }
 
-// CreateClientset is a helper function that builds a kubernetes Clienset from a kubeconfig
-// filepath. See `BuildClientConfig` for kubeconfig loading rules.
-func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*kubernetes.Clientset, error) {
-	c, err := BuildClientConfig(kubeconfig, context)
+// NewUntrustedRestConfig returns the rest.Config for the given kube config context.
+// This is suitable for access to remote clusters from untrusted kubeConfig inputs.
+// The kubeconfig is sanitized and unsafe auth methods are denied.
+func NewUntrustedRestConfig(kubeConfig []byte, configOverrides ...func(*rest.Config)) (*rest.Config, error) {
+	if len(kubeConfig) == 0 {
+		return nil, fmt.Errorf("kubeconfig is empty")
+	}
+	rawConfig, err := clientcmd.Load(kubeConfig)
 	if err != nil {
-		return nil, fmt.Errorf("build client config: %v", err)
+		return nil, fmt.Errorf("kubeconfig cannot be loaded: %v", err)
 	}
+	if err := clientcmd.Validate(*rawConfig); err != nil {
+		return nil, fmt.Errorf("kubeconfig is not valid: %v", err)
+	}
+	if err := sanitizeKubeConfig(*rawConfig, features.InsecureKubeConfigOptions); err != nil {
+		return nil, fmt.Errorf("kubeconfig is not allowed: %v", err)
+	}
+	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	for _, co := range configOverrides {
+		co(restConfig)
+	}
+
+	return SetRestDefaults(restConfig), nil
+}
+
+// InClusterConfig returns the rest.Config for in cluster usage.
+// Typically, DefaultRestConfig is used and this is auto detected; usage directly allows explicitly overriding to use in-cluster.
+func InClusterConfig(fns ...func(*rest.Config)) (*rest.Config, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	for _, fn := range fns {
-		fn(c)
+		fn(config)
 	}
-	return kubernetes.NewForConfig(c)
+
+	return SetRestDefaults(config), nil
 }
 
 // DefaultRestConfig returns the rest.Config for the given kube config file and context.
 func DefaultRestConfig(kubeconfig, configContext string, fns ...func(*rest.Config)) (*rest.Config, error) {
 	config, err := BuildClientConfig(kubeconfig, configContext)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to setup client: %v", err)
 	}
-	config = SetRestDefaults(config)
 
 	for _, fn := range fns {
 		fn(config)
@@ -147,7 +176,16 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 		}
 	}
 	if len(config.ContentType) == 0 {
-		config.ContentType = runtime.ContentTypeJSON
+		if features.KubernetesClientContentType == "json" {
+			config.ContentType = runtime.ContentTypeJSON
+		} else {
+			// Prefer to accept protobuf, but send JSON. This is due to some types (CRDs)
+			// not accepting protobuf.
+			// If we end up writing many core types in the future we may want to set ContentType to
+			// ContentTypeProtobuf only for the core client.
+			config.AcceptContentTypes = runtime.ContentTypeProtobuf + "," + runtime.ContentTypeJSON
+			config.ContentType = runtime.ContentTypeJSON
+		}
 	}
 	if config.NegotiatedSerializer == nil {
 		// This codec factory ensures the resources are not converted. Therefore, resources
@@ -160,6 +198,12 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 	}
 
 	return config
+}
+
+// CheckPodTerminal returns true if the pod's phase is terminal (succeeded || failed)
+// usually used to filter cron jobs.
+func CheckPodTerminal(pod *corev1.Pod) bool {
+	return pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodSucceeded
 }
 
 // CheckPodReadyOrComplete returns nil if the given pod and all of its containers are ready or terminated
@@ -180,6 +224,11 @@ func CheckPodReady(pod *corev1.Pod) error {
 	switch pod.Status.Phase {
 	case corev1.PodRunning:
 		// Wait until all containers are ready.
+		for _, containerStatus := range pod.Status.InitContainerStatuses {
+			if !containerStatus.Ready {
+				return fmt.Errorf("init container not ready: '%s'", containerStatus.Name)
+			}
+		}
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if !containerStatus.Ready {
 				return fmt.Errorf("container not ready: '%s'", containerStatus.Name)
@@ -198,16 +247,28 @@ func CheckPodReady(pod *corev1.Pod) error {
 	}
 }
 
-// GetDeployMetaFromPod heuristically derives deployment metadata from the pod spec.
-func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) {
+// GetWorkloadMetaFromPod heuristically derives workload name and type metadata from the pod spec.
+// This respects the workload-name override; to just use heuristics only use GetDeployMetaFromPod.
+func GetWorkloadMetaFromPod(pod *corev1.Pod) (types.NamespacedName, metav1.TypeMeta) {
+	name, meta := GetDeployMetaFromPod(pod)
 	if pod == nil {
-		return metav1.ObjectMeta{}, metav1.TypeMeta{}
+		return name, meta
+	}
+	if wn, f := pod.Labels[label.ServiceWorkloadName.Name]; f {
+		name.Name = wn
+	}
+	return name, meta
+}
+
+// GetDeployMetaFromPod heuristically derives deployment metadata from the pod spec.
+func GetDeployMetaFromPod(pod *corev1.Pod) (types.NamespacedName, metav1.TypeMeta) {
+	if pod == nil {
+		return types.NamespacedName{}, metav1.TypeMeta{}
 	}
 	// try to capture more useful namespace/name info for deployments, etc.
 	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
-	deployMeta := pod.ObjectMeta
-	deployMeta.ManagedFields = nil
-	deployMeta.OwnerReferences = nil
+
+	deployMeta := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
 
 	typeMetadata := metav1.TypeMeta{
 		Kind:       "Pod",
@@ -234,6 +295,13 @@ func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) 
 				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
 				deployMeta.Name = name
 				typeMetadata.Kind = "Deployment"
+			} else if typeMetadata.Kind == "ReplicaSet" && pod.Labels["rollouts-pod-template-hash"] != "" &&
+				strings.HasSuffix(controllerRef.Name, pod.Labels["rollouts-pod-template-hash"]) {
+				// Heuristic for ArgoCD Rollout
+				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["rollouts-pod-template-hash"])
+				deployMeta.Name = name
+				typeMetadata.Kind = "Rollout"
+				typeMetadata.APIVersion = "v1alpha1"
 			} else if typeMetadata.Kind == "ReplicationController" && pod.Labels["deploymentconfig"] != "" {
 				// If the pod is controlled by the replication controller, which is created by the DeploymentConfig resource in
 				// Openshift platform, set the deploy name to the deployment config's name, and the kind to 'DeploymentConfig'.
@@ -246,16 +314,14 @@ func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) 
 				// https://github.com/openshift/library-go/blob/7a65fdb398e28782ee1650959a5e0419121e97ae/pkg/apps/appsutil/const.go#L25
 				deployMeta.Name = pod.Labels["deploymentconfig"]
 				typeMetadata.Kind = "DeploymentConfig"
-				delete(deployMeta.Labels, "deploymentconfig")
 			} else if typeMetadata.Kind == "Job" {
 				// If job name suffixed with `-<digit-timestamp>`, where the length of digit timestamp is 8~10,
 				// trim the suffix and set kind to cron job.
 				if jn := cronJobNameRegexp.FindStringSubmatch(controllerRef.Name); len(jn) == 2 {
 					deployMeta.Name = jn[1]
 					typeMetadata.Kind = "CronJob"
-					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
-					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
-					typeMetadata.APIVersion = "batch/v1beta1"
+					// heuristically set cron job api version to v1 as it cannot be derived from pod metadata.
+					typeMetadata.APIVersion = "batch/v1"
 				}
 			}
 		}
@@ -292,9 +358,9 @@ func HTTPConfigReader(req *http.Request) ([]byte, error) {
 	return data, nil
 }
 
-// StripUnusedFields is the transform function for shared informers,
+// StripNodeUnusedFields is the transform function for shared node informers,
 // it removes unused fields from objects before they are stored in the cache to save memory.
-func StripUnusedFields(obj any) (any, error) {
+func StripNodeUnusedFields(obj any) (any, error) {
 	t, ok := obj.(metav1.ObjectMetaAccessor)
 	if !ok {
 		// shouldn't happen
@@ -302,32 +368,129 @@ func StripUnusedFields(obj any) (any, error) {
 	}
 	// ManagedFields is large and we never use it
 	t.GetObjectMeta().SetManagedFields(nil)
+	// Annotation is never used
+	t.GetObjectMeta().SetAnnotations(nil)
+	// OwnerReference is never used
+	t.GetObjectMeta().SetOwnerReferences(nil)
+	// only node labels and addressed are useful
+	if node := obj.(*corev1.Node); node != nil {
+		node.Status.Allocatable = nil
+		node.Status.Capacity = nil
+		node.Status.Images = nil
+		node.Status.Conditions = nil
+	}
+
 	return obj, nil
 }
 
-func SlowConvertKindsToRuntimeObjects(in []crd.IstioKind) ([]runtime.Object, error) {
-	res := make([]runtime.Object, 0, len(in))
-	for _, o := range in {
-		r, err := SlowConvertToRuntimeObject(&o)
-		if err != nil {
-			return nil, err
+// StripPodUnusedFields is the transform function for shared pod informers,
+// it removes unused fields from objects before they are stored in the cache to save memory.
+func StripPodUnusedFields(obj any) (any, error) {
+	t, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		// shouldn't happen
+		return obj, nil
+	}
+	// ManagedFields is large and we never use it
+	t.GetObjectMeta().SetManagedFields(nil)
+	// Proxy overrides are never used in the cache and can be very big
+	delete(t.GetObjectMeta().GetAnnotations(), annotation.ProxyOverrides.Name)
+	// only container ports can be used
+	if pod := obj.(*corev1.Pod); pod != nil {
+		containers := []corev1.Container{}
+		for _, c := range pod.Spec.Containers {
+			if len(c.Ports) > 0 {
+				containers = append(containers, corev1.Container{
+					Ports: c.Ports,
+				})
+			}
 		}
-		res = append(res, r)
+		oldSpec := pod.Spec
+		newSpec := corev1.PodSpec{
+			Containers:         containers,
+			ServiceAccountName: oldSpec.ServiceAccountName,
+			NodeName:           oldSpec.NodeName,
+			HostNetwork:        oldSpec.HostNetwork,
+			Hostname:           oldSpec.Hostname,
+			Subdomain:          oldSpec.Subdomain,
+		}
+		pod.Spec = newSpec
+		pod.Status.InitContainerStatuses = nil
+		pod.Status.ContainerStatuses = nil
 	}
-	return res, nil
+
+	return obj, nil
 }
 
-// SlowConvertToRuntimeObject converts an IstioKind to a runtime.Object.
-// As the name implies, it is not efficient.
-func SlowConvertToRuntimeObject(in *crd.IstioKind) (runtime.Object, error) {
-	by, err := config.ToJSON(in)
-	if err != nil {
-		return nil, err
+// sanitizeKubeConfig sanitizes a kubeconfig file to strip out insecure settings which may leak
+// confidential materials.
+// See https://github.com/kubernetes/kubectl/issues/697
+func sanitizeKubeConfig(config api.Config, allowlist sets.String) error {
+	for k, auths := range config.AuthInfos {
+		if ap := auths.AuthProvider; ap != nil {
+			// We currently are importing 5 authenticators: gcp, azure, exec, and openstack
+			switch ap.Name {
+			case "oidc":
+				// OIDC is safe as it doesn't read files or execute code.
+				// create-remote-secret specifically supports OIDC so its probably important to not break this.
+			default:
+				if !allowlist.Contains(ap.Name) {
+					// All the others - gcp, azure, exec, and openstack - are unsafe
+					return fmt.Errorf("auth provider %s is not allowed", ap.Name)
+				}
+			}
+		}
+		if auths.ClientKey != "" && !allowlist.Contains("clientKey") {
+			return fmt.Errorf("clientKey is not allowed")
+		}
+		if auths.ClientCertificate != "" && !allowlist.Contains("clientCertificate") {
+			return fmt.Errorf("clientCertificate is not allowed")
+		}
+		if auths.TokenFile != "" && !allowlist.Contains("tokenFile") {
+			return fmt.Errorf("tokenFile is not allowed")
+		}
+		if auths.Exec != nil && !allowlist.Contains("exec") {
+			return fmt.Errorf("exec is not allowed")
+		}
+		// Reconstruct the AuthInfo so if a new field is added we will not include it without review
+		config.AuthInfos[k] = &api.AuthInfo{
+			// LocationOfOrigin: Not needed
+			ClientCertificate:     auths.ClientCertificate,
+			ClientCertificateData: auths.ClientCertificateData,
+			ClientKey:             auths.ClientKey,
+			ClientKeyData:         auths.ClientKeyData,
+			Token:                 auths.Token,
+			TokenFile:             auths.TokenFile,
+			Impersonate:           auths.Impersonate,
+			ImpersonateGroups:     auths.ImpersonateGroups,
+			ImpersonateUserExtra:  auths.ImpersonateUserExtra,
+			Username:              auths.Username,
+			Password:              auths.Password,
+			AuthProvider:          auths.AuthProvider, // Included because it is sanitized above
+			Exec:                  auths.Exec,
+			// Extensions: Not needed,
+		}
+
+		// Other relevant fields that are not acted on:
+		// * Cluster.Server (and ProxyURL). This allows the user to send requests to arbitrary URLs, enabling potential SSRF attacks.
+		//   However, we don't actually know what valid URLs are, so we cannot reasonably constrain this. Instead,
+		//   we try to limit what confidential information could be exfiltrated (from AuthInfo). Additionally, the user cannot control
+		//   the paths we send requests to, limiting potential attack scope.
+		// * Cluster.CertificateAuthority. While this reads from files, the result is not attached to the request and is instead
+		//   entirely local
 	}
-	gvk := in.GetObjectKind().GroupVersionKind()
-	obj, _, err := IstioCodec.UniversalDeserializer().Decode(by, &gvk, nil)
-	if err != nil {
-		return nil, err
+	return nil
+}
+
+type Syncer interface {
+	HasSynced() bool
+}
+
+func AllSynced[T Syncer](syncers []T) bool {
+	for _, h := range syncers {
+		if !h.HasSynced() {
+			return false
+		}
 	}
-	return obj, nil
+	return true
 }

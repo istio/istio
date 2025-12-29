@@ -19,7 +19,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -39,8 +38,10 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 type testAdscRunServer struct{}
@@ -102,7 +103,7 @@ func TestADSC_Run(t *testing.T) {
 			desc:            "stream-4-uncompleted-mcp-resources",
 			initialRequests: ConfigInitialRequests(),
 			// XDS Server don't push this kind resource.
-			excludedResource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(),
+			excludedResource: gvk.ServiceEntry.String(),
 			validator: func(testCase testCase) error {
 				if testCase.inAdsc.HasSynced() {
 					return errors.New("ADSC should not be synced")
@@ -131,8 +132,8 @@ func TestADSC_Run(t *testing.T) {
 				Received:   make(map[string]*discovery.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *discovery.DiscoveryResponse),
-				RecvWg:     sync.WaitGroup{},
-				cfg: &Config{
+				cfg: &ADSConfig{
+					Config:                   Config{},
 					InitialDiscoveryRequests: desc.initialRequests,
 				},
 				VersionInfo: map[string]string{},
@@ -163,7 +164,7 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("Unable to listen with tcp err %v", err)
 				return
 			}
-			tt.inAdsc.url = l.Addr().String()
+			tt.inAdsc.cfg.Address = l.Addr().String()
 			xds := grpc.NewServer()
 			discovery.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
 			go func() {
@@ -186,7 +187,24 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("ADSC: failed running %v", err)
 				return
 			}
-			tt.inAdsc.RecvWg.Wait()
+			assert.EventuallyEqual(t, func() bool {
+				tt.inAdsc.mutex.Lock()
+				defer tt.inAdsc.mutex.Unlock()
+				rec := tt.inAdsc.Received
+
+				if rec == nil && len(rec) != len(tt.expectedADSResources.Received) {
+					return false
+				}
+				for tpe, rsrcs := range tt.expectedADSResources.Received {
+					if _, ok := rec[tpe]; !ok {
+						return false
+					}
+					if len(rsrcs.Resources) != len(rec[tpe].Resources) {
+						return false
+					}
+				}
+				return true
+			}, true, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
 
 			if tt.validator != nil {
 				if err := tt.validator(tt); err != nil {
@@ -389,7 +407,11 @@ func TestADSC_handleMCP(t *testing.T) {
 	adsc := &ADSC{
 		VersionInfo: map[string]string{},
 		Store:       memory.Make(collections.Pilot),
-		cfg:         &Config{Revision: rev},
+		cfg: &ADSConfig{
+			Config: Config{
+				Revision: rev,
+			},
+		},
 	}
 
 	patchLabel := func(lbls map[string]string, name, value string) map[string]string {
@@ -486,13 +508,8 @@ func TestADSC_handleMCP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			gvk := config.GroupVersionKind{
-				Group:   "networking.istio.io",
-				Version: "v1alpha3",
-				Kind:    "ServiceEntry",
-			}
-			adsc.handleMCP(gvk, tt.resources)
-			configs, _ := adsc.Store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(), "")
+			adsc.handleMCP(gvk.ServiceEntry, tt.resources)
+			configs := adsc.Store.List(gvk.ServiceEntry, "")
 			if len(configs) != len(tt.expectedResources) {
 				t.Errorf("expected %v got %v", len(tt.expectedResources), len(configs))
 			}

@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -23,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -85,6 +85,11 @@ type TrafficTestCase struct {
 
 	// minIstioVersion allows conditionally skipping based on required version
 	minIstioVersion string
+
+	// If set, a datapath with no L7 proxies can run this test
+	RequiresL4 bool
+	// If set, will apply config to all clusters, not just the local one
+	globalConfig bool
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -112,6 +117,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		t.Fatal("TrafficTestCase: must specify either opts or children")
 	}
 
+	if !c.RequiresL4 {
+		c.comboFilters = append(c.comboFilters, echotest.HasL7)
+	}
+
 	job := func(t framework.TestContext) {
 		echoT := echotest.New(t, apps).
 			SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
@@ -136,7 +145,11 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				// we only apply to config clusters
-				return t.ConfigIstio().YAML("", cfg).Apply()
+				scope := t.ConfigIstio()
+				if c.globalConfig {
+					scope = t.ConfigKube()
+				}
+				return scope.YAML("", cfg).Apply()
 			}).
 			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
@@ -157,6 +170,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				if c.setupOpts != nil {
 					c.setupOpts(from, &opts)
 				}
+				// If unset, assume they want to just check the request succeeds
+				if opts.Check == nil {
+					opts.Check = check.OK()
+				}
 				return opts
 			}
 			if optsSpecified {
@@ -174,6 +191,9 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				doTest(t, src, dsts)
 			})
 		} else if c.viaIngress {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/57878")
+			}
 			echoT.RunViaIngress(func(t framework.TestContext, from ingress.Instance, to echo.Target) {
 				doTest(t, from, echo.Services{to.Instances()})
 			})
@@ -202,10 +222,21 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 				t.SkipNow()
 			}
 		}
+		// we only apply to config clusters
 		if len(c.config) > 0 {
-			cfg := yml.MustApplyNamespace(t, c.config, namespace)
-			// we only apply to config clusters
-			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
+			tmplData := map[string]any{}
+			if c.templateVars != nil {
+				// we don't have echo instances so just pass nil
+				for k, v := range c.templateVars(nil, nil) {
+					tmplData[k] = v
+				}
+			}
+			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
+			scope := t.ConfigIstio()
+			if c.globalConfig {
+				scope = t.ConfigKube()
+			}
+			scope.YAML("", cfg).ApplyOrFail(t)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -229,30 +260,47 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	}
 }
 
+func skipAmbient(t framework.TestContext, reason string) skip {
+	return skip{skip: t.Settings().Ambient, reason: reason}
+}
+
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployment.SingleNamespaceView) {
 	RunCase := func(name string, f func(t TrafficContext)) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
 			f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
 		})
 	}
+	RunSkipAmbient := func(name string, f func(t TrafficContext), reason string) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			if t.Settings().Ambient {
+				t.Skipf("ambient skipped: %v", reason)
+			} else {
+				f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
+			}
+		})
+	}
 	RunCase("jwt-claim-route", jwtClaimRoute)
 	RunCase("virtualservice", virtualServiceCases)
 	RunCase("sniffing", protocolSniffingCases)
 	RunCase("selfcall", selfCallsCases)
-	RunCase("serverfirst", serverFirstTestCases)
+	RunSkipAmbient("serverfirst", serverFirstTestCases, "Expected success cases time out")
 	RunCase("gateway", gatewayCases)
 	RunCase("autopassthrough", autoPassthroughCases)
-	RunCase("loop", trafficLoopCases)
-	RunCase("tls-origination", tlsOriginationCases)
-	RunCase("instanceip", instanceIPTests)
+	RunSkipAmbient("loop", trafficLoopCases, "does not error (waypoint -> waypoint)")
+	RunSkipAmbient("tls-origination", tlsOriginationCases, "not workload agnostic")
+	RunSkipAmbient("instanceip", instanceIPTests, "not supported")
 	RunCase("services", serviceCases)
-	RunCase("host", hostCases)
-	RunCase("envoyfilter", envoyFilterCases)
+	RunSkipAmbient("externalname", externalNameCases, "Relies on X-Forwarded-Client-Cert in checker")
+	RunSkipAmbient("host", hostCases, "Relies on X-Forwarded-Client-Cert in checker")
+	RunSkipAmbient("envoyfilter", envoyFilterCases, "not supported")
 	RunCase("consistent-hash", consistentHashCases)
 	RunCase("use-client-protocol", useClientProtocolCases)
 	RunCase("destinationrule", destinationRuleCases)
 	RunCase("vm", VMTestCases(apps.VM))
-	RunCase("dns", DNSTestCases)
+	RunSkipAmbient("dns", DNSTestCases, "https://github.com/istio/istio/issues/48614")
+	RunCase("externalservice", TestExternalService)
+	RunCase("upstreamproxy", TestUpstreamProxyProtocol)
+	RunCase("service-entry-vips-resolution-none", testServiceEntryWithMultipleVIPsAndResolutionNone)
 }
 
 func ExpectString(got, expected, help string) error {

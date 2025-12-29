@@ -21,8 +21,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	v1alpha12 "istio.io/api/analysis/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Task to be performed.
@@ -92,11 +96,11 @@ func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress any) {
 }
 
 // Pop returns the first item in the queue not in exclusion, along with it's latest progress
-func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target Resource, progress map[*Controller]any) {
+func (wq *WorkQueue) Pop(exclusion sets.Set[lockResource]) (target Resource, progress map[*Controller]any) {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
 	for i := 0; i < len(wq.tasks); i++ {
-		if _, ok := exclusion[wq.tasks[i]]; !ok {
+		if !exclusion.Contains(wq.tasks[i]) {
 			// remove from tasks
 			t, ok := wq.cache[wq.tasks[i]]
 			wq.tasks = append(wq.tasks[:i], wq.tasks[i+1:]...)
@@ -126,23 +130,23 @@ type WorkerPool struct {
 	// indicates the queue is closing
 	closing bool
 	// the function which will be run for each task in queue
-	write func(*config.Config, any)
+	write func(*config.Config)
 	// the function to retrieve the initial status
 	get func(Resource) *config.Config
 	// current worker routine count
 	workerCount uint
 	// maximum worker routine count
 	maxWorkers       uint
-	currentlyWorking map[lockResource]struct{}
+	currentlyWorking sets.Set[lockResource]
 	lock             sync.Mutex
 }
 
-func NewWorkerPool(write func(*config.Config, any), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
+func NewWorkerPool(write func(*config.Config), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
 	return &WorkerPool{
 		write:            write,
 		get:              get,
 		maxWorkers:       maxWorkers,
-		currentlyWorking: make(map[lockResource]struct{}),
+		currentlyWorking: sets.New[lockResource](),
 		q: WorkQueue{
 			tasks:  make([]lockResource, 0),
 			cache:  make(map[lockResource]cacheEntry),
@@ -161,12 +165,11 @@ func (wp *WorkerPool) Push(target Resource, controller *Controller, context any)
 }
 
 func (wp *WorkerPool) Run(ctx context.Context) {
-	go func() {
-		<-ctx.Done()
+	context.AfterFunc(ctx, func() {
 		wp.lock.Lock()
 		wp.closing = true
 		wp.lock.Unlock()
-	}()
+	})
 }
 
 // maybeAddWorker adds a worker unless we are at maxWorkers.  Workers exit when there are no more tasks, except for the
@@ -191,45 +194,74 @@ func (wp *WorkerPool) maybeAddWorker() {
 			target, perControllerWork := wp.q.Pop(wp.currentlyWorking)
 
 			if target == (Resource{}) {
-				// continue or return?
-				// could have been deleted, or could be no items in queue not currently worked on.  need a way to differentiate.
+				// could have been deleted, or could be no items in queue not currently worked on
 				wp.lock.Unlock()
-				continue
+				return
 			}
 			wp.q.Delete(target)
-			wp.currentlyWorking[convert(target)] = struct{}{}
+			wp.currentlyWorking.Insert(convert(target))
 			wp.lock.Unlock()
 			// work should be done without holding the lock
 			cfg := wp.get(target)
 			if cfg != nil {
 				// Check that generation matches
 				if strconv.FormatInt(cfg.Generation, 10) == target.Generation {
-					x, err := GetOGProvider(cfg.Status)
-					if err == nil {
-						// Not all controllers user generation, so we can ignore errors
-						x.SetObservedGeneration(cfg.Generation)
-					}
+					sm := GetStatusManipulator(cfg.Status)
+					sm.SetObservedGeneration(cfg.Generation)
 					for c, i := range perControllerWork {
 						// TODO: this does not guarantee controller order.  perhaps it should?
-						x = c.fn(x, i)
+						c.fn(sm, i)
 					}
-					wp.write(cfg, x)
+					cfg.Status = sm.Unwrap()
+					wp.write(cfg)
 				}
 			}
 			wp.lock.Lock()
-			delete(wp.currentlyWorking, convert(target))
+			wp.currentlyWorking.Delete(convert(target))
 			wp.lock.Unlock()
 		}
 	}()
 }
 
-type GenerationProvider interface {
+// Manipulator gives controllers an opportunity to manipulate the status of an object.
+// This allows the controller to be generic over the types of status messages it needs to handle.
+type Manipulator interface {
 	SetObservedGeneration(int64)
+	SetValidationMessages(msgs diag.Messages)
+	SetInner(c any)
 	Unwrap() any
+}
+
+var (
+	_ Manipulator = &IstioGenerationProvider{}
+	_ Manipulator = &ServiceEntryGenerationProvider{}
+	_ Manipulator = &NopStatusManipulator{}
+)
+
+type NopStatusManipulator struct {
+	inner any
+}
+
+func (n *NopStatusManipulator) SetObservedGeneration(i int64) {
+}
+
+func (n *NopStatusManipulator) SetValidationMessages(msgs diag.Messages) {
+}
+
+func (n *NopStatusManipulator) Unwrap() any {
+	return n.inner
+}
+
+func (n *NopStatusManipulator) SetInner(c any) {
+	n.inner = c
 }
 
 type IstioGenerationProvider struct {
 	*v1alpha1.IstioStatus
+}
+
+func (i *IstioGenerationProvider) SetInner(c any) {
+	panic("not supported for this type")
 }
 
 func (i *IstioGenerationProvider) SetObservedGeneration(in int64) {
@@ -238,4 +270,36 @@ func (i *IstioGenerationProvider) SetObservedGeneration(in int64) {
 
 func (i *IstioGenerationProvider) Unwrap() any {
 	return i.IstioStatus
+}
+
+func (i *IstioGenerationProvider) SetValidationMessages(msgs diag.Messages) {
+	// zero out analysis messages, as this is the sole controller for those
+	i.ValidationMessages = []*v1alpha12.AnalysisMessageBase{}
+	for _, msg := range msgs {
+		i.ValidationMessages = append(i.ValidationMessages, msg.AnalysisMessageBase())
+	}
+}
+
+type ServiceEntryGenerationProvider struct {
+	*networking.ServiceEntryStatus
+}
+
+func (i *ServiceEntryGenerationProvider) SetInner(c any) {
+	panic("not supported for this type")
+}
+
+func (i *ServiceEntryGenerationProvider) SetObservedGeneration(in int64) {
+	i.ObservedGeneration = in
+}
+
+func (i *ServiceEntryGenerationProvider) Unwrap() any {
+	return i.ServiceEntryStatus
+}
+
+func (i *ServiceEntryGenerationProvider) SetValidationMessages(msgs diag.Messages) {
+	// zero out analysis messages, as this is the sole controller for those
+	i.ValidationMessages = []*v1alpha12.AnalysisMessageBase{}
+	for _, msg := range msgs {
+		i.ValidationMessages = append(i.ValidationMessages, msg.AnalysisMessageBase())
+	}
 }

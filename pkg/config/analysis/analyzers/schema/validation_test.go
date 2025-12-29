@@ -21,12 +21,13 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/analysis/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 )
@@ -58,7 +59,7 @@ func TestCorrectArgs(t *testing.T) {
 }
 
 func TestSchemaValidationWrapper(t *testing.T) {
-	testCol := collections.IstioNetworkingV1Alpha3Virtualservices.Name()
+	testCol := gvk.VirtualService
 
 	m1 := &v1alpha3.VirtualService{}
 	m2 := &v1alpha3.VirtualService{}
@@ -130,20 +131,28 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 }
 
-func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning, error)) collection.Schema {
-	original := collections.IstioNetworkingV1Alpha3Virtualservices
-	return collection.Builder{
-		Name: original.Name().String(),
-		Resource: resource2.Builder{
-			ClusterScoped: original.Resource().IsClusterScoped(),
-			Kind:          original.Resource().Kind(),
-			Plural:        original.Resource().Plural(),
-			Group:         original.Resource().Group(),
-			Version:       original.Resource().Version(),
-			Proto:         original.Resource().Proto(),
-			ProtoPackage:  original.Resource().ProtoPackage(),
-			ValidateProto: validateFn,
-		}.MustBuild(),
+func BenchmarkMetadata(b *testing.B) {
+	a := ValidationAnalyzer{
+		s: schemaWithValidateFn(validation.EmptyValidate),
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Metadata()
+	}
+}
+
+func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning, error)) resource2.Schema {
+	original := collections.VirtualService
+	return resource2.Builder{
+		ClusterScoped: original.IsClusterScoped(),
+		Kind:          original.Kind(),
+		Plural:        original.Plural(),
+		Group:         original.Group(),
+		Version:       original.Version(),
+		Proto:         original.Proto(),
+		ProtoPackage:  original.ProtoPackage(),
+		ValidateProto: validateFn,
 	}.MustBuild()
 }
 
@@ -154,6 +163,9 @@ func (fakeOrigin) Comparator() string            { return "myFriendlyName" }
 func (fakeOrigin) Namespace() resource.Namespace { return "myNamespace" }
 func (fakeOrigin) Reference() resource.Reference { return fakeReference{} }
 func (fakeOrigin) FieldMap() map[string]int      { return make(map[string]int) }
+func (fakeOrigin) ClusterName() cluster.ID {
+	return "cluster"
+}
 
 type fakeReference struct{}
 

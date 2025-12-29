@@ -1,0 +1,16 @@
+# This file provides some defaults for integration testing.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: install
+spec:
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        PEER_METADATA_DISCOVERY: "true"
+  values:
+    pilot:
+      env:
+        PILOT_ENABLE_AMBIENT: "true"
+        PILOT_ENABLE_AMBIENT_WAYPOINTS: "true"
+        PILOT_DISABLE_MX_ALPN: "true"

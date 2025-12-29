@@ -25,22 +25,23 @@ source "${ROOT}/prow/lib.sh"
 
 setup_gcloud_credentials
 
-# Enable emulation required for cross compiling a few images (VMs)
-docker run --rm --privileged gcr.io/istio-testing/qemu-user-static --reset -p yes
-export ISTIO_DOCKER_QEMU=true
-
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
 
 DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
+HELM_HUB=${HELM_HUB:-gcr.io/istio-testing/charts}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
+# Enable emulation required for cross compiling a few images (VMs)
+docker run --rm --privileged "${DOCKER_HUB}/qemu-user-static" --reset -p yes
+export ISTIO_DOCKER_QEMU=true
+
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=67285336fa7f822a014529ff7cbfab5061d840f9
+BUILDER_SHA=2cb0e86eb7e189578e5149980b3f42b0889dfad6
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
-NEXT_VERSION=1.17
+NEXT_VERSION=$(cat "${ROOT}/VERSION")
 TAG=$(git rev-parse HEAD)
 VERSION="${NEXT_VERSION}-alpha.${TAG}"
 
@@ -64,12 +65,9 @@ ${DEPENDENCIES:-$(cat <<EOD
   proxy:
     git: https://github.com/istio/proxy
     auto: deps
-  pkg:
-    git: https://github.com/istio/pkg
-    auto: modules
   client-go:
     git: https://github.com/istio/client-go
-    branch: master
+    auto: modules
   test-infra:
     git: https://github.com/istio/test-infra
     branch: master
@@ -79,6 +77,9 @@ ${DEPENDENCIES:-$(cat <<EOD
   release-builder:
     git: https://github.com/istio/release-builder
     sha: ${BUILDER_SHA}
+  ztunnel:
+    git: https://github.com/istio/ztunnel
+    auto: deps
 architectures: [linux/amd64, linux/arm64]
 EOD
 )}
@@ -89,6 +90,7 @@ dashboards:
   istio-workload-dashboard: 7630
   pilot-dashboard: 7645
   istio-extension-dashboard: 13277
+  ztunnel-dashboard: 21306
 ${PROXY_OVERRIDE:-}
 EOF
 )
@@ -104,6 +106,6 @@ release-builder validate --release "${WORK_DIR}/out"
 
 if [[ -z "${DRY_RUN:-}" ]]; then
   release-builder publish --release "${WORK_DIR}/out" \
-    --gcsbucket "${GCS_BUCKET}" --gcsaliases "${NEXT_VERSION}-dev,latest" \
-    --dockerhub "${DOCKER_HUB}" --dockertags "${VERSION},${NEXT_VERSION}-dev,latest"
+    --gcsbucket "${GCS_BUCKET}" --gcsaliases "${TAG},${NEXT_VERSION}-dev,latest" \
+    --dockerhub "${DOCKER_HUB}" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
 fi

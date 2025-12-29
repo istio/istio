@@ -15,32 +15,37 @@
 package validate
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
-	operator_istio "istio.io/istio/operator/pkg/apis/istio"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/util"
-	operator_validate "istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/istioctl/pkg/cli"
+	operator "istio.io/istio/operator/pkg/apis"
+	operatorvalidate "istio.io/istio/operator/pkg/apis/validation"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -57,11 +62,9 @@ Example resource specifications include:
 		"status":     {},
 	}
 
-	istioDeploymentLabel = []string{
-		"app",
-		"version",
-	}
 	serviceProtocolUDP = "UDP"
+
+	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
 
 type validator struct{}
@@ -77,12 +80,12 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace, defaultNamespace string, un *unstructured.Unstructured, writer io.Writer) (validation.Warning, error) {
-	gvk := config.GroupVersionKind{
+	g := config.GroupVersionKind{
 		Group:   un.GroupVersionKind().Group,
 		Version: un.GroupVersionKind().Version,
 		Kind:    un.GroupVersionKind().Kind,
 	}
-	schema, exists := collections.Pilot.FindByGroupVersionAliasesKind(gvk)
+	schema, exists := collections.Pilot.FindByGroupVersionAliasesKind(g)
 	if exists {
 		obj, err := convertObjectFromUnstructured(schema, un, "")
 		if err != nil {
@@ -102,7 +105,7 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 			obj.Namespace = defaultNamespace
 		}
 
-		warnings, err := schema.Resource().ValidateConfig(*obj)
+		warnings, err := schema.ValidateConfig(*obj)
 		return warnings, err
 	}
 
@@ -110,13 +113,13 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 	if un.IsList() {
 		_ = un.EachListItem(func(item runtime.Object) error {
 			castItem := item.(*unstructured.Unstructured)
-			if castItem.GetKind() == name.ServiceStr {
+			if castItem.GetKind() == gvk.Service.Kind {
 				err := v.validateServicePortPrefix(istioNamespace, castItem)
 				if err != nil {
 					errs = multierror.Append(errs, err)
 				}
 			}
-			if castItem.GetKind() == name.DeploymentStr {
+			if castItem.GetKind() == gvk.Deployment.Kind {
 				err := v.validateDeploymentLabel(istioNamespace, castItem, writer)
 				if err != nil {
 					errs = multierror.Append(errs, err)
@@ -129,32 +132,29 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 	if errs != nil {
 		return nil, errs
 	}
-	if un.GetKind() == name.ServiceStr {
+	if un.GetKind() == gvk.Service.Kind {
 		return nil, v.validateServicePortPrefix(istioNamespace, un)
 	}
 
-	if un.GetKind() == name.DeploymentStr {
+	if un.GetKind() == gvk.Deployment.Kind {
 		if err := v.validateDeploymentLabel(istioNamespace, un, writer); err != nil {
 			return nil, err
 		}
 		return nil, nil
 	}
 
-	if un.GetAPIVersion() == "install.istio.io/v1alpha1" {
-		if un.GetKind() == "IstioOperator" {
+	if un.GetAPIVersion() == operator.IstioOperatorGVK.GroupVersion().String() {
+		if un.GetKind() == operator.IstioOperatorGVK.Kind {
 			if err := checkFields(un); err != nil {
 				return nil, err
 			}
-			// IstioOperator isn't part of pkg/config/schema/collections,
-			// usual conversion not available.  Convert unstructured to string
-			// and ask operator code to check.
-			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
-			by := util.ToYAML(un)
-			iop, err := operator_istio.UnmarshalIstioOperator(by, false)
+			warnings, err := operatorvalidate.ParseAndValidateIstioOperator(un.Object, nil)
 			if err != nil {
 				return nil, err
 			}
-			return nil, operator_validate.CheckIstioOperator(iop, true)
+			if len(warnings) > 0 {
+				return validation.Warning(warnings.ToError()), nil
+			}
 		}
 	}
 
@@ -205,16 +205,14 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 	if un.GetNamespace() == handleNamespace(istioNamespace) {
 		return nil
 	}
-	labels, err := GetTemplateLabels(un)
+	objLabels, err := GetTemplateLabels(un)
 	if err != nil {
 		return err
 	}
 	url := fmt.Sprintf("See %s\n", url.DeploymentRequirements)
-	for _, l := range istioDeploymentLabel {
-		if _, ok := labels[l]; !ok {
-			fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry without label %q. "+url,
-				fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
-		}
+	if !labels.HasCanonicalServiceName(objLabels) || !labels.HasCanonicalServiceRevision(objLabels) {
+		fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry labels: %q. "+url,
+			fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), objLabels)
 	}
 	return nil
 }
@@ -233,26 +231,28 @@ func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) 
 	return nil, nil
 }
 
-func (v *validator) validateFile(istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer) (validation.Warning, error) {
-	decoder := yaml.NewDecoder(reader)
-	decoder.SetStrict(true)
+func (v *validator) validateFile(path string, istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer,
+) (validation.Warning, error) {
+	yamlReader := kubeyaml.NewYAMLReader(bufio.NewReader(reader))
 	var errs error
 	var warnings validation.Warning
 	for {
-		// YAML allows non-string keys and the produces generic keys for nested fields
-		raw := make(map[any]any)
-		err := decoder.Decode(&raw)
+		doc, err := yamlReader.Read()
 		if err == io.EOF {
 			return warnings, errs
 		}
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to decode file %s: ", path)))
 			return warnings, errs
 		}
-		if len(raw) == 0 {
+		if len(doc) == 0 {
 			continue
 		}
-		out := transformInterfaceMap(raw)
+		out := map[string]any{}
+		if err := yaml.UnmarshalStrict(doc, &out); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to decode file %s: ", path)))
+			return warnings, errs
+		}
 		un := unstructured.Unstructured{Object: out}
 		warning, err := v.validateResource(*istioNamespace, defaultNamespace, &un, writer)
 		if err != nil {
@@ -266,6 +266,11 @@ func (v *validator) validateFile(istioNamespace *string, defaultNamespace string
 	}
 }
 
+func isFileFormatValid(file string) bool {
+	ext := filepath.Ext(file)
+	return slices.Contains(fileExtensions, ext)
+}
+
 func validateFiles(istioNamespace *string, defaultNamespace string, filenames []string, writer io.Writer) error {
 	if len(filenames) == 0 {
 		return errMissingFilename
@@ -273,28 +278,77 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 
 	v := &validator{}
 
-	var errs, err error
+	var errs error
 	var reader io.ReadCloser
 	warningsByFilename := map[string]validation.Warning{}
-	for _, filename := range filenames {
-		if filename == "-" {
+
+	processFile := func(path string) {
+		var err error
+		if path == "-" {
 			reader = io.NopCloser(os.Stdin)
 		} else {
-			reader, err = os.Open(filename)
+			reader, err = os.Open(path)
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", path, err))
+				return
+			}
 		}
-		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("cannot read file %q: %v", filename, err))
-			continue
-		}
-		warning, err := v.validateFile(istioNamespace, defaultNamespace, reader, writer)
+		warning, err := v.validateFile(path, istioNamespace, defaultNamespace, reader, writer)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
 		err = reader.Close()
 		if err != nil {
-			log.Infof("file: %s is not closed: %v", filename, err)
+			log.Infof("file: %s is not closed: %v", path, err)
 		}
-		warningsByFilename[filename] = warning
+		warningsByFilename[path] = warning
+	}
+	processDirectory := func(directory string, processFile func(string)) error {
+		err := filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			if isFileFormatValid(path) {
+				processFile(path)
+			}
+
+			return nil
+		})
+		return err
+	}
+
+	processedFiles := map[string]bool{}
+	for _, filename := range filenames {
+		var isDir bool
+		if filename != "-" {
+			fi, err := os.Stat(filename)
+			if err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("cannot stat file %q: %v", filename, err))
+				continue
+			}
+			isDir = fi.IsDir()
+		}
+
+		if !isDir {
+			processFile(filename)
+			processedFiles[filename] = true
+			continue
+		}
+		if err := processDirectory(filename, func(path string) {
+			processFile(path)
+			processedFiles[path] = true
+		}); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	filenames = []string{}
+	for p := range processedFiles {
+		filenames = append(filenames, p)
 	}
 
 	if errs != nil {
@@ -331,7 +385,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 }
 
 // NewValidateCommand creates a new command for validating Istio k8s resources.
-func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra.Command {
+func NewValidateCommand(ctx cli.Context) *cobra.Command {
 	var filenames []string
 	var referential bool
 
@@ -345,6 +399,9 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
   # Validate bookinfo-gateway.yaml with shorthand syntax
   istioctl v -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
+  # Validate all yaml files under samples/bookinfo/networking directory
+  istioctl validate -f samples/bookinfo/networking
+
   # Validate current deployments under 'default' namespace within the cluster
   kubectl get deployments -o yaml | istioctl validate -f -
 
@@ -356,14 +413,16 @@ func NewValidateCommand(istioNamespace *string, defaultNamespace *string) *cobra
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateFiles(istioNamespace, *defaultNamespace, filenames, c.OutOrStderr())
+			istioNamespace := ctx.IstioNamespace()
+			defaultNamespace := ctx.NamespaceOrDefault("")
+			return validateFiles(&istioNamespace, defaultNamespace, filenames, c.OutOrStderr())
 		},
 	}
 
 	flags := c.PersistentFlags()
-	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Names of files to validate")
+	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Inputs of files to validate")
 	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
-
+	_ = flags.MarkHidden("referential")
 	return c
 }
 
@@ -384,33 +443,6 @@ func warningToString(w validation.Warning) string {
 	return w.Error()
 }
 
-func transformInterfaceArray(in []any) []any {
-	out := make([]any, len(in))
-	for i, v := range in {
-		out[i] = transformMapValue(v)
-	}
-	return out
-}
-
-func transformInterfaceMap(in map[any]any) map[string]any {
-	out := make(map[string]any, len(in))
-	for k, v := range in {
-		out[fmt.Sprintf("%v", k)] = transformMapValue(v)
-	}
-	return out
-}
-
-func transformMapValue(in any) any {
-	switch v := in.(type) {
-	case []any:
-		return transformInterfaceArray(v)
-	case map[any]any:
-		return transformInterfaceMap(v)
-	default:
-		return v
-	}
-}
-
 func servicePortPrefixed(n string) bool {
 	i := strings.IndexByte(n, '-')
 	if i >= 0 {
@@ -428,7 +460,7 @@ func handleNamespace(istioNamespace string) string {
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*config.Config, error) {
+func convertObjectFromUnstructured(schema resource.Schema, un *unstructured.Unstructured, domain string) (*config.Config, error) {
 	data, err := fromSchemaAndJSONMap(schema, un.Object["spec"])
 	if err != nil {
 		return nil, err
@@ -436,7 +468,7 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  schema.Resource().GroupVersionKind(),
+			GroupVersionKind:  schema.GroupVersionKind(),
 			Name:              un.GetName(),
 			Namespace:         un.GetNamespace(),
 			Domain:            domain,
@@ -450,13 +482,13 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndJSONMap(schema collection.Schema, data any) (config.Spec, error) {
+func fromSchemaAndJSONMap(schema resource.Schema, data any) (config.Spec, error) {
 	// Marshal to json bytes
 	str, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	out, err := schema.Resource().NewInstance()
+	out, err := schema.NewInstance()
 	if err != nil {
 		return nil, err
 	}

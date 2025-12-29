@@ -11,6 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Allow a smaller key since large keys + race detector is pretty slow
+//
+//go:debug rsa1024min=0
 package authenticate
 
 import (
@@ -26,11 +30,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
 	"google.golang.org/grpc/metadata"
-	jose "gopkg.in/square/go-jose.v2"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
@@ -75,7 +82,7 @@ func TestNewJwtAuthenticator(t *testing.T) {
 				t.Fatalf("failed at unmarshal the jwt rule (%v), err: %v",
 					tt.jwtRule, err)
 			}
-			_, err = NewJwtAuthenticator(&jwtRule, "domain-foo")
+			_, err = NewJwtAuthenticator(&jwtRule, nil)
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
@@ -138,9 +145,9 @@ func TestOIDCAuthenticate(t *testing.T) {
 	jwtRule := v1beta1.JWTRule{}
 	err = json.Unmarshal([]byte(jwtRuleStr), &jwtRule)
 	if err != nil {
-		t.Fatalf("failed at unmarshal jwt rule")
+		t.Fatal("failed at unmarshal jwt rule")
 	}
-	authenticator, err := NewJwtAuthenticator(&jwtRule, "baz.svc.id.goog")
+	authenticator, err := NewJwtAuthenticator(&jwtRule, meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "baz.svc.id.goog"}))
 	if err != nil {
 		t.Fatalf("failed to create the JWT authenticator: %v", err)
 	}
@@ -183,7 +190,7 @@ func TestOIDCAuthenticate(t *testing.T) {
 		"Valid token": {
 			token:      token,
 			expectErr:  false,
-			expectedID: fmt.Sprintf(IdentityTemplate, "baz.svc.id.goog", "bar", "foo"),
+			expectedID: spiffe.MustGenSpiffeURIForTrustDomain("baz.svc.id.goog", "bar", "foo"),
 		},
 		"Expired token": {
 			token:     expiredToken,

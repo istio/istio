@@ -24,7 +24,7 @@
       apiVersions: ["v1"]
       resources: ["pods"]
   failurePolicy: Fail
-  admissionReviewVersions: ["v1beta1", "v1"]
+  admissionReviewVersions: ["v1"]
 {{- end }}
 
 apiVersion: admissionregistration.k8s.io/v1
@@ -33,11 +33,13 @@ metadata:
   name: istio-revision-tag-default
   labels:
     istio.io/tag: "default"
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 webhooks:
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
   namespaceSelector:

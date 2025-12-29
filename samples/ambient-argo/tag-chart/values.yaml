@@ -1,0 +1,41 @@
+global:
+
+  # ImagePullSecrets for control plane ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any cluster configured with private docker registry.
+  imagePullSecrets: []
+
+  # Used to locate istiod.
+  istioNamespace: istio-system
+
+  istiod:
+    enableAnalysis: false
+
+  configValidation: true
+  externalIstiod: false
+  remotePilotAddress: ""
+
+base:
+  # Used for helm2 to add the CRDs to templates.
+  enableCRDTemplates: false
+
+  # Validation webhook configuration url
+  # For example: https://$remotePilotAddress:15017/validate
+  validationURL: ""
+
+  # For istioctl usage to disable istio config crds in base
+  enableIstioConfigCRDs: true
+
+  # Defines the mapping from revision tags to revisions.
+  #
+  # The following fields can be set for each revision tag:
+  #   (1) revision (REQUIRED): the revision to use for this revision tag.
+  #   (2) namespace: the namespace containing the istiod revision.
+  #   (3) validationURL: the URL to use for validation on this revision tag.
+  #   (4) injectionURL: the URL to for injection on this revision tag.
+  #   (5) injectionPath: the injection path to use for this tag webhook.
+  #
+  # Note that the revision tag "default" has additional semantic meaning as it
+  # controls the revision that performs validation and the revision that handles
+  # injection for default selectors ("istio-injection=enabled" and "sidecar.istio.io/inject").
+  tags: {}

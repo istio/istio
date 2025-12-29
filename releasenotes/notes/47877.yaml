@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** an issue where the default namespace of envoy and proxy dashboard command was not set to the actual default namespace.

@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 49053
+
+releaseNotes:
+  - |
+    **Added** `pprof` endpoints to profile the CNI pod (on port 9867).
+  - |
+    **Improved** CNI memory usage by avoiding keeping large files in memory.

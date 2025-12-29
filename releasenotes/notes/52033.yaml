@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** an omission in ztunnel helm charts which resulted in some Kubernetes resources being created without labels

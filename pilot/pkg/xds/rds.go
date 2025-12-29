@@ -16,42 +16,40 @@ package xds
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type RdsGenerator struct {
-	Server *DiscoveryServer
+	ConfigGenerator core.ConfigGenerator
 }
 
 var _ model.XdsResourceGenerator = &RdsGenerator{}
 
 // Map of all configs that do not impact RDS
-var skippedRdsConfigs = map[kind.Kind]struct{}{
-	kind.WorkloadEntry:         {},
-	kind.WorkloadGroup:         {},
-	kind.AuthorizationPolicy:   {},
-	kind.RequestAuthentication: {},
-	kind.PeerAuthentication:    {},
-	kind.Secret:                {},
-	kind.WasmPlugin:            {},
-	kind.Telemetry:             {},
-	kind.ProxyConfig:           {},
-}
+var skippedRdsConfigs = sets.New[kind.Kind](
+	kind.WorkloadEntry,
+	kind.WorkloadGroup,
+	kind.AuthorizationPolicy,
+	kind.RequestAuthentication,
+	kind.PeerAuthentication,
+	kind.Secret,
+	kind.WasmPlugin,
+	kind.Telemetry,
+	kind.ProxyConfig,
+	kind.DNSName,
+)
 
-func rdsNeedsPush(req *model.PushRequest) bool {
-	if req == nil {
-		return true
+func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return res
 	}
 	if !req.Full {
-		// RDS only handles full push
 		return false
 	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
-	}
 	for config := range req.ConfigsUpdated {
-		if _, f := skippedRdsConfigs[config.Kind]; !f {
+		if !skippedRdsConfigs.Contains(config.Kind) {
 			return true
 		}
 	}
@@ -59,9 +57,9 @@ func rdsNeedsPush(req *model.PushRequest) bool {
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !rdsNeedsPush(req) {
+	if !rdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	resources, logDetails := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames)
+	resources, logDetails := c.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames.UnsortedList())
 	return resources, logDetails, nil
 }

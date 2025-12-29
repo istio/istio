@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** a flag `--all` to `istioctl experimental waypoint delete` to delete all Waypoint resources in a given namespace.

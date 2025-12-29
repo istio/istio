@@ -31,5 +31,6 @@ func PilotConfigToInstance(c *config.Config, schema resource.Schema) *Instance {
 			Annotations: c.Annotations,
 		},
 		Message: c.Spec,
+		Status:  c.Status,
 	}
 }

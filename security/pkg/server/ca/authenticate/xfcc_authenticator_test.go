@@ -15,6 +15,7 @@
 package authenticate
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/netip"
@@ -23,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/alecholmes/xfccparser"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
@@ -95,14 +95,14 @@ func TestXfccAuthenticator(t *testing.T) {
 		useHttpRequest     bool //nolint
 	}{
 		{
-			name:       "No xfcc header",
-			xfccHeader: "",
-			caller:     nil,
+			name:               "No xfcc header",
+			xfccHeader:         "",
+			authenticateErrMsg: "caller from 127.0.0.1:2301 does not have Xfcc header",
 		},
 		{
 			name:               "junk xfcc header",
 			xfccHeader:         `junk xfcc header`,
-			authenticateErrMsg: `error in parsing xfcc header: invalid header format: unexpected token "junk xfcc header"`,
+			authenticateErrMsg: `error in parsing xfcc header: invalid header format: 0:16: unexpected token "<EOF>" (expected "=" <string>?)`,
 		},
 		{
 			name: "Xfcc Header single hop",
@@ -131,15 +131,15 @@ func TestXfccAuthenticator(t *testing.T) {
 			},
 		},
 		{
-			name:           "No xfcc header with http",
-			xfccHeader:     "",
-			caller:         nil,
-			useHttpRequest: true,
+			name:               "No xfcc header with http",
+			xfccHeader:         "",
+			authenticateErrMsg: "caller from 127.0.0.1:2301 does not have Xfcc header",
+			useHttpRequest:     true,
 		},
 		{
 			name:               "junk xfcc header with http",
 			xfccHeader:         `junk xfcc header`,
-			authenticateErrMsg: `error in parsing xfcc header: invalid header format: unexpected token "junk xfcc header"`,
+			authenticateErrMsg: `error in parsing xfcc header: invalid header format: 0:16: unexpected token "<EOF>" (expected "=" <string>?)`,
 			useHttpRequest:     true,
 		},
 		{
@@ -202,7 +202,7 @@ func TestXfccAuthenticator(t *testing.T) {
 				if err == nil {
 					t.Errorf("Succeeded. Error expected: %v", err)
 				} else if err.Error() != tt.authenticateErrMsg {
-					t.Errorf("Incorrect error message: want %s but got %s",
+					t.Errorf("Incorrect error message: want %q but got %q",
 						tt.authenticateErrMsg, err.Error())
 				}
 			} else if err != nil {

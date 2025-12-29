@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -20,18 +19,23 @@ package pilot
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 
-	"istio.io/istio/istioctl/cmd"
+	"istio.io/istio/istioctl/pkg/analyze"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/tests/integration/helm"
 )
 
 const (
@@ -45,7 +49,7 @@ const (
 	jsonOutput           = "-ojson"
 )
 
-var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
+var analyzerFoundIssuesError = analyze.AnalyzerFoundIssuesError{}
 
 func TestEmptyCluster(t *testing.T) {
 	// nolint: staticcheck
@@ -55,12 +59,12 @@ func TestEmptyCluster(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// For a clean istio install with injection enabled, expect no validation errors
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
@@ -77,12 +81,12 @@ func TestFileOnly(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Validation error if we have a virtual service with subset not defined.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, virtualServiceFile)
@@ -96,7 +100,7 @@ func TestFileOnly(t *testing.T) {
 		})
 }
 
-func TestDirectoryWithoutRecursion(t *testing.T) {
+func TestDirectory(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
@@ -104,41 +108,16 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
-			// Recursive is false, so we should only analyze
-			// testdata/some-dir/missing-gateway.yaml and get a
-			// SchemaValidationError (if we did recurse, we'd get a
-			// UnknownAnnotation as well).
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=false", dirWithConfig)
+			// Hardcore recursive to true, so we should see one error (SchemaValidationError).
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, dirWithConfig)
 			expectMessages(t, g, output, msg.SchemaValidationError)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-		})
-}
-
-func TestDirectoryWithRecursion(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
-
-			// Recursive is true, so we should see two errors (SchemaValidationError and UnknownAnnotation).
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
-			expectMessages(t, g, output, msg.SchemaValidationError, msg.UnknownAnnotation)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
@@ -151,12 +130,12 @@ func TestInvalidFileError(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Skip the file with invalid extension and produce no errors.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidExtensionFile)
@@ -168,7 +147,7 @@ func TestInvalidFileError(t *testing.T) {
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
-			g.Expect(err).To(MatchError(cmd.FileParseError{}))
+			g.Expect(err).To(MatchError(analyze.FileParseError{}))
 
 			// Parse error as the yaml file itself is not valid yaml, but ignore.
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile, "--ignore-unknown=true")
@@ -187,15 +166,16 @@ func TestJsonInputFile(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Validation error if we have a gateway with invalid selector.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, jsonGatewayFile)
+			applyFileOrFail(t, ns.Name(), jsonGatewayFile)
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
@@ -209,37 +189,25 @@ func TestJsonOutput(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
-			testcases := []struct {
-				name     string
-				args     []string
-				messages []*diag.MessageType
-			}{
-				{
-					name:     "no other output except analysis json output",
-					args:     []string{jsonGatewayFile, jsonOutput},
-					messages: []*diag.MessageType{msg.ReferencedResourceNotFound},
-				},
-				{
-					name:     "invalid file does not output error in stdout",
-					args:     []string{invalidExtensionFile, jsonOutput},
-					messages: []*diag.MessageType{},
-				},
-			}
+			t.NewSubTest("no other output except analysis json output").Run(func(t framework.TestContext) {
+				applyFileOrFail(t, ns.Name(), jsonGatewayFile)
+				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true, jsonOutput)
+				expectJSONMessages(t, g, stdout, msg.ReferencedResourceNotFound)
+				g.Expect(err).To(BeNil())
+			})
 
-			for _, tc := range testcases {
-				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, tc.args...)
-					expectJSONMessages(t, g, stdout, tc.messages...)
-					g.Expect(err).To(BeNil())
-				})
-			}
+			t.NewSubTest("invalid file does not output error in stdout").Run(func(t framework.TestContext) {
+				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, invalidExtensionFile, jsonOutput)
+				expectJSONMessages(t, g, stdout)
+				g.Expect(err).To(BeNil())
+			})
 		})
 }
 
@@ -251,14 +219,14 @@ func TestKubeOnly(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
 			applyFileOrFail(t, ns.Name(), gatewayFile)
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Validation error if we have a gateway with invalid selector.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
@@ -275,14 +243,14 @@ func TestFileAndKubeCombined(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
 			applyFileOrFail(t, ns.Name(), virtualServiceFile)
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Simulating applying the destination rule that defines the subset, we should
 			// fix the error and thus see no message
@@ -300,11 +268,11 @@ func TestAllNamespaces(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns1 := namespace.NewOrFail(t, t, namespace.Config{
+			ns1 := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze-1",
 				Inject: true,
 			})
-			ns2 := namespace.NewOrFail(t, t, namespace.Config{
+			ns2 := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze-2",
 				Inject: true,
 			})
@@ -312,7 +280,7 @@ func TestAllNamespaces(t *testing.T) {
 			applyFileOrFail(t, ns1.Name(), gatewayFile)
 			applyFileOrFail(t, ns2.Name(), gatewayFile)
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
 			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), true)
@@ -359,12 +327,12 @@ func TestTimeout(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// We should time out immediately.
 			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
@@ -378,16 +346,15 @@ func TestErrorLine(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
-		Features("usability.observability.analysis.line-numbers").
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "istioctl-analyze",
 				Inject: true,
 			})
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			// Validation error if we have a gateway with invalid selector.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile)
@@ -427,7 +394,7 @@ func expectJSONMessages(t test.Failer, g *GomegaWithT, output string, expected .
 
 	var j []map[string]any
 	if err := json.Unmarshal([]byte(output), &j); err != nil {
-		t.Fatal(err)
+		t.Fatal(err, output)
 	}
 
 	g.Expect(j).To(HaveLen(len(expected)))
@@ -459,7 +426,7 @@ func istioctlWithStderr(t test.Failer, i istioctl.Instance, ns string, useKube b
 	return i.Invoke(args)
 }
 
-// applyFileOrFail applys the given yaml file and deletes it during context cleanup
+// applyFileOrFail applies the given yaml file and deletes it during context cleanup
 func applyFileOrFail(t framework.TestContext, ns, filename string) {
 	t.Helper()
 	if err := t.Clusters().Default().ApplyYAMLFiles(ns, filename); err != nil {
@@ -468,4 +435,145 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 	t.Cleanup(func() {
 		_ = t.Clusters().Default().DeleteYAMLFiles(ns, filename)
 	})
+}
+
+func TestMultiClusterWithSecrets(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			if len(t.Environment().Clusters()) < 2 {
+				t.Skip("skipping test, need at least 2 clusters")
+			}
+
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			// create remote secrets for analysis
+			secrets := map[string]string{}
+			for _, c := range t.Environment().Clusters() {
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{
+					Cluster: c,
+				})
+				secret, _, err := createRemoteSecret(t, istioCtl, c.Name())
+				g.Expect(err).To(BeNil())
+				secrets[c.Name()] = secret
+			}
+			for ind, c := range t.Environment().Clusters() {
+				// apply remote secret to be used for analysis
+				for sc, secret := range secrets {
+					if c.Name() == sc {
+						continue
+					}
+					err := c.ApplyYAMLFiles(helm.IstioNamespace, secret)
+					g.Expect(err).To(BeNil())
+				}
+
+				svc := fmt.Sprintf(`
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+spec:
+  selector:
+    app: reviews
+  type: ClusterIP
+  ports:
+  - name: http-%d
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+`, ind)
+				// apply inconsistent services
+				err := c.ApplyYAMLContents(ns.Name(), svc)
+				g.Expect(err).To(BeNil())
+			}
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true)
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
+		})
+}
+
+func createRemoteSecret(t test.Failer, i istioctl.Instance, cluster string) (string, string, error) {
+	t.Helper()
+
+	args := []string{"create-remote-secret"}
+	args = append(args, "--name", cluster)
+
+	return i.Invoke(args)
+}
+
+func TestMultiClusterWithContexts(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			if len(t.Environment().Clusters()) < 2 {
+				t.Skip("skipping test, need at least 2 clusters")
+			}
+
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			for ind, c := range t.Environment().Clusters() {
+				svc := fmt.Sprintf(`
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+spec:
+  selector:
+    app: reviews
+  type: ClusterIP
+  ports:
+  - name: http-%d
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+`, ind)
+				// apply inconsistent services
+				err := c.ApplyYAMLContents(ns.Name(), svc)
+				g.Expect(err).To(BeNil())
+
+			}
+
+			mergedConfig := api.NewConfig()
+			mergedKubeconfig, err := os.CreateTemp("", "merged_kubeconfig.yaml")
+			g.Expect(err).To(BeNil(), fmt.Sprintf("Create file for storing merged kubeconfig: %v", err))
+			defer os.Remove(mergedKubeconfig.Name())
+			for _, c := range t.Environment().Clusters() {
+				filenamer, ok := c.(istioctl.Filenamer)
+				g.Expect(ok).To(BeTrue(), fmt.Sprintf("Cluster %v does not support fetching kubeconfig", c))
+				config, err := clientcmd.LoadFromFile(filenamer.Filename())
+				g.Expect(err).To(BeNil(), fmt.Sprintf("Load config from file %q: %v", filenamer.Filename(), err))
+				if mergedConfig.CurrentContext == "" {
+					mergedConfig.CurrentContext = config.CurrentContext
+				}
+				mergedConfig.Clusters = maps.MergeCopy(mergedConfig.Clusters, config.Clusters)
+				mergedConfig.AuthInfos = maps.MergeCopy(mergedConfig.AuthInfos, config.AuthInfos)
+				mergedConfig.Contexts = maps.MergeCopy(mergedConfig.Contexts, config.Contexts)
+			}
+			err = clientcmd.WriteToFile(*mergedConfig, mergedKubeconfig.Name())
+			g.Expect(err).To(BeNil(), fmt.Sprintf("Write merged kubeconfig to file %q: %v", mergedKubeconfig.Name(), err))
+			ctxArgs := []string{"--kubeconfig", mergedKubeconfig.Name()}
+			for _, ctx := range maps.Keys(mergedConfig.Contexts) {
+				if ctx == mergedConfig.CurrentContext {
+					continue
+				}
+				ctxArgs = append(ctxArgs, "--remote-contexts", ctx)
+			}
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true, ctxArgs...)
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
+		})
 }

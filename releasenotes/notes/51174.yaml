@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** Add an `ambient` umbrella chart that does nothing but wrap the baseline Istio components required for installing Istio with ambient support

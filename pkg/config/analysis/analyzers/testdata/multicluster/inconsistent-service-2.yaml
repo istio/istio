@@ -1,0 +1,96 @@
+# Same service as cluster1, should not report warning.
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: my-namespace
+spec:
+  selector:
+    app: my-service
+  ports:
+  - name: tcp-foo
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+# Service with extra port in cluster2, should generate warning.
+apiVersion: v1
+kind: Service
+metadata:
+  name: extra-port
+  namespace: my-namespace
+spec:
+  selector:
+    app: my-service
+  ports:
+  - name: tcp-foo
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+  - name: tcp-bar
+    protocol: TCP
+    port: 8081
+    targetPort: 8081
+---
+# Service with inconsistent port name, should generate warning.
+apiVersion: v1
+kind: Service
+metadata:
+  name: inconsistent-port-name
+  namespace: my-namespace
+spec:
+  selector:
+    app: my-service
+  ports:
+  - name: tcp-fake
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+# Service is mixed type, should generate warning.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mixed-type
+  namespace: my-namespace
+spec:
+  type: LoadBalancer
+  selector:
+    app: my-service
+  ports:
+  - name: tcp-foo
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+# Service is mixed mode(clusterIP and headless), should generate warning.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mixed-mode
+  namespace: my-namespace
+spec:
+  clusterIP: None
+  selector:
+    app: my-service
+  ports:
+  - name: tcp-foo
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+# Service is mixed with port protocols, should generate warning.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mixed-port-protocol
+  namespace: my-namespace
+spec:
+  type: ClusterIP
+  selector:
+    app: my-service
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: 8080

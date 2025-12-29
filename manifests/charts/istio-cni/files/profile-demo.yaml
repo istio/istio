@@ -1,0 +1,94 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
+# The demo profile enables a variety of things to try out Istio in non-production environments.
+# * Lower resource utilization.
+# * Some additional features are enabled by default; especially ones used in some tasks in istio.io.
+# * More ports enabled on the ingress, which is used in some tasks.
+meshConfig:
+  accessLogFile: /dev/stdout
+  extensionProviders:
+    - name: otel
+      envoyOtelAls:
+        service: opentelemetry-collector.observability.svc.cluster.local
+        port: 4317
+    - name: skywalking
+      skywalking:
+        service: tracing.istio-system.svc.cluster.local
+        port: 11800
+    - name: otel-tracing
+      opentelemetry:
+        port: 4317
+        service: opentelemetry-collector.observability.svc.cluster.local
+    - name: jaeger
+      opentelemetry:
+        port: 4317
+        service: jaeger-collector.istio-system.svc.cluster.local        
+
+cni:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 40Mi
+
+ztunnel:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 40Mi
+
+global:
+  proxy:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+  waypoint:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+
+pilot:
+  autoscaleEnabled: false
+  traceSampling: 100
+  resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
+
+gateways:
+  istio-egressgateway:
+    autoscaleEnabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi
+  istio-ingressgateway:
+    autoscaleEnabled: false
+    ports:
+    ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+    # Note that AWS ELB will by default perform health checks on the first port
+    # on this list. Setting this to the health check port will ensure that health
+    # checks always work. https://github.com/istio/istio/issues/12503
+    - port: 15021
+      targetPort: 15021
+      name: status-port
+    - port: 80
+      targetPort: 8080
+      name: http2
+    - port: 443
+      targetPort: 8443
+      name: https
+    - port: 31400
+      targetPort: 31400
+      name: tcp
+      # This is the port where sni routing happens
+    - port: 15443
+      targetPort: 15443
+      name: tls
+    resources:
+      requests:
+        cpu: 10m
+        memory: 40Mi

@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -5,14 +6,21 @@ metadata:
   name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
-{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" "revision" | toPrettyJson | indent 4 }}
+{{ $vals := pick .Values "global" "sidecarInjectorWebhook" "revision" -}}
+{{ $pilotVals := pick .Values "cni" "env" -}}
+{{ $vals = set $vals "pilot" $pilotVals -}}
+{{ $gatewayVals := pick .Values.gateways "securityContext" "seccompProfile" -}}
+{{ $vals = set $vals "gateways" $gatewayVals -}}
+{{ $vals | toPrettyJson | indent 4 }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
   # and istiod webhook functionality.
@@ -60,8 +68,17 @@ data:
       grpc-agent: |
 {{ .Files.Get "files/grpc-agent.yaml" | trim | indent 8 }}
 {{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "waypoint") }}
+      waypoint: |
+{{ .Files.Get "files/waypoint.yaml" | trim | indent 8 }}
+{{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "kube-gateway") }}
+      kube-gateway: |
+{{ .Files.Get "files/kube-gateway.yaml" | trim | indent 8 }}
+{{- end }}
 {{- with .Values.sidecarInjectorWebhook.templates }}
 {{ toYaml . | trim | indent 6 }}
 {{- end }}
 
+{{- end }}
 {{- end }}

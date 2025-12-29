@@ -1,5 +1,5 @@
 ARG VM_IMAGE_NAME=rockylinux
-ARG VM_IMAGE_VERSION=8
+ARG VM_IMAGE_VERSION=9
 FROM ${VM_IMAGE_NAME}:${VM_IMAGE_VERSION}
 
 # hadolint ignore=DL3005,DL3008,DL3033
@@ -7,9 +7,9 @@ RUN yum install -y \
     iptables \
     iproute \
     sudo \
-    curl \
-    netcat \
+    nmap-ncat \
     tcpdump \
+    procps \
     conntrack \
     net-tools \
     ca-certificates \

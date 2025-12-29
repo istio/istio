@@ -20,11 +20,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/security/authn"
-	"istio.io/istio/pilot/pkg/security/authn/factory"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
-var authnLog = log.RegisterScope("authn", "authn debugging", 0)
+var authnLog = log.RegisterScope("authn", "authn debugging")
 
 type Builder struct {
 	applier      authn.PolicyApplier
@@ -33,7 +32,11 @@ type Builder struct {
 }
 
 func NewBuilder(push *model.PushContext, proxy *model.Proxy) *Builder {
-	applier := factory.NewPolicyApplier(push, proxy.Metadata.Namespace, proxy.Labels)
+	return NewBuilderForService(push, proxy, nil)
+}
+
+func NewBuilderForService(push *model.PushContext, proxy *model.Proxy, svc *model.Service) *Builder {
+	applier := authn.NewPolicyApplier(push, proxy, svc)
 	trustDomains := TrustDomainsForValidation(push.Mesh)
 	return &Builder{
 		applier:      applier,
@@ -99,16 +102,11 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 		// Only applies to inbound and gateways
 		return nil
 	}
-	res := []*hcm.HttpFilter{}
-	if filter := b.applier.JwtFilter(); filter != nil {
-		res = append(res, filter)
+	filter := b.applier.JwtFilter(b.proxy.Type != model.SidecarProxy)
+	if filter != nil {
+		return []*hcm.HttpFilter{filter}
 	}
-	forSidecar := b.proxy.Type == model.SidecarProxy
-	if filter := b.applier.AuthNFilter(forSidecar); filter != nil {
-		res = append(res, filter)
-	}
-
-	return res
+	return nil
 }
 
 func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
@@ -125,8 +123,8 @@ func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
 	}
 
 	// If there is no Sidecar, check if the port is appearing in any service.
-	for _, si := range node.ServiceInstances {
-		if port == si.Endpoint.EndpointPort {
+	for _, si := range node.ServiceTargets {
+		if port == si.Port.TargetPort {
 			return false
 		}
 	}

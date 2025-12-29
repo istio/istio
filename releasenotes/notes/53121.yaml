@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 53121
+releaseNotes:
+- |
+  **Added** Add settings to stabilizew gateways for high traffic

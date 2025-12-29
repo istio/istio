@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 45677
+releaseNotes:
+- |
+  **Added** amd64 named artifacts for MacOS and Windows. The amd64 flavor of the artifacts didgit push not contain the
+  architecture in the name as we do for the other operating systems. This makes the artifact naming consistent.
+  **Deprecated** the MacOS and Windows artifacts without an architecture specified in the name
+  (ex: istio-1.18.0-osx.tar.gz). They will be removed in several releases. They have been replaced
+  by artifacts containing the architecture in the name (ex: istio-1.18.0-osx-amd64.tar.gz).

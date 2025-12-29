@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 47412
+releaseNotes:
+  - |
+    **Fixed** an issue where using a Sidecar resource using IstioIngressListener.defaultEndpoint cannot use [::1]:PORT if the default IP addressing is not IPv6.
+

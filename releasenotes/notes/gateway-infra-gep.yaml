@@ -1,0 +1,23 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** support for [In-Cluster Gateway Deployments](https://gateway-api.sigs.k8s.io/geps/gep-1762/).
+  Deployment also now has both `istio.io/gateway-name` and `gateway.networking.k8s.io/gateway-name` labels
+  just like the Pods and Services.
+
+# upgradeNotes is a markdown listing of any changes that will affect the upgrade
+# process. This will appear in the release notes.
+upgradeNotes:
+  - title: Gateway Name label modified
+    content: If you are using the [Kubernetes Gateway](https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io%2fv1beta1.Gateway)
+      to manage your istio gateways, the label key used to identify the gateway name is changing from `istio.io/gateway-name`
+      to `gateway.networking.k8s.io/gateway-name`. The old label will continue to be appended to the relevant label sets for backwards
+      compatibility, but it will be removed in a future release. Furthermore, istiod's gateway controller will automatically detect
+      and continue to use the old label for label selectors belonging to existing `Deployment` and `Service` resources. Therefore, once
+      you've completed your Istio upgrade, you can change the label selector in `Deployment` and `Service` resources whenever you are
+      ready to use the new label. Additionally, please upgrade any other policies, resources, or scripts that rely on the old label.
+

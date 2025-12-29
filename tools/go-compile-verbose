@@ -16,37 +16,69 @@
 
 # This script runs can be used to emit (readable) compile tracing info when building go packages
 
-# Before and after usage, `go clean -cache` is suggested since go seems to cache the toolexec output
-# Cleanup: rm -f /tmp/golog
+# Before usage, `go clean -cache` is suggested, otherwise you will measure cached results.
+# Cleanup: rm -f /tmp/golog; This will always append to the file so you should cleanup between each call.
 # Usage (compile all tests only): `go test -exec=true -toolexec=$PWD/tools/go-compile-verbose ./...`
-# Usage (compile binary): `go build -toolexec=true -toolexec=$PWD/tools/go-compile-verbose ./...`
+# Usage (compile binary): `go build -toolexec=$PWD/tools/go-compile-verbose ./...`
 # Results will be in /tmp/golog, as stdout gets cached and pollutes all later runs.
 START="$(date -u +%s.%N)"
 
 # Output a message, with a timestamp matching istio log format
 function log() {
   delta=$(date +%s.%N --date="$START seconds ago")
-  echo -e "$(date -u '+%Y-%m-%dT%H:%M:%S.%NZ')\t${delta}s\t$*" >&2 >> /tmp/golog
+  echo -e "$(date -u '+%Y-%m-%dT%H:%M:%S.%NZ')\t${delta}\t$*" >&2 >> /tmp/golog
 }
 
-ROOT="$(go env GOROOT)"
+GROOT="$(go env GOROOT)"
 GPATH="$(go env GOPATH)"
+GMODCACHE="$(go env GOMODCACHE)"
+ROOT="$PWD"
 
 $@
 ls="$(basename $1)"
 shift
 case "$ls" in
   link)
-    log "Finished ${ls} $(basename ${2})" ;;
+    log "${ls}\t$(basename ${2})" ;;
   compile)
     f=${@: -1}
-    pr="$(echo "/${f}" | sed "s#${GPATH}#GOPATH#g" | sed "s#${ROOT}#GOROOT#g")"
-    log "Finished ${ls} ${pr}"
+    if [[ "$f" =~ "$GMODCACHE" ]]; then
+      base="${f/"$GMODCACHE"\//}"
+      mod="$(<<< "$base" cut -d@ -f1)"
+      rest="$(<<< "$base" cut -d@ -f2 | cut -d/ -f2-)"
+      log "${ls}\t${mod}\t${rest}"
+    elif [[ "$f" =~ "$GROOT" ]]; then
+        base="${f/"$GROOT"\//}"
+        log "${ls}\tstd\t${base}"
+    elif [[ "$f" =~ "$ROOT" ]]; then
+        base="${f/"$ROOT"\//}"
+        log "${ls}\tlocal\t${base}"
+    else
+        log "${ls}\tunknown\t${f}"
+    fi
     ;;
   vet)
     # vet does not readily expose what is being vetted
-    log "Finished ${ls}" ;;
+    log "${ls}" ;;
+  asm)
+    f="${@:$#}"
+    if [[ "$f" =~ "$GMODCACHE" ]]; then
+      base="${f/"$GMODCACHE"\//}"
+      mod="$(<<< "$base" cut -d@ -f1)"
+      rest="$(<<< "$base" cut -d@ -f2 | cut -d/ -f2-)"
+      log "${ls}\t${mod}\t${rest}"
+    elif [[ "$f" =~ "$GROOT" ]]; then
+        base="${f/"$GROOT"\//}"
+        log "${ls}\tstd\t${base}"
+    elif [[ "$f" =~ "$ROOT" ]]; then
+        base="${f/"$ROOT"\//}"
+        log "${ls}\tlocal\t${base}"
+    else
+        log "${ls}\tunknown\t${f}"
+    fi
+    ;;
+  cgo)
+    log "${ls}" ;;
   *)
-    log "Finished ${ls}" ;;
+    log "${ls}\t${@:-1}" ;;
 esac
-#echo "$@"

@@ -20,28 +20,31 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -61,7 +64,7 @@ const (
 	requiredEnvoyStatsMatcherInclusionSuffixes = rbacEnvoyStatsMatcherInclusionSuffix + ",downstream_cx_active" // Needed for draining.
 
 	// required for metrics based on stat_prefix in virtual service.
-	requiredEnvoyStatsMatcherInclusionRegexes = `vhost\.*\.route\.*`
+	requiredEnvoyStatsMatcherInclusionRegexes = `vhost\..*\.route\..*`
 
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
@@ -70,9 +73,18 @@ const (
 	v2Suffix   = ",component,istio"
 )
 
+var envoyWellKnownCompressorLibrary = sets.String{
+	"gzip":   {},
+	"zstd":   {},
+	"brotli": {},
+}
+
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
+	// CompliancePolicy to decouple the environment variable dependency.
+	CompliancePolicy string
+	LogAsJSON        bool
 }
 
 // toTemplateParams creates a new template configuration for the given configuration.
@@ -86,14 +98,39 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		xdsType = "DELTA_GRPC"
 	}
 
+	// Waypoint overrides
+	metadataDiscovery := cfg.Metadata.MetadataDiscovery
+	if strings.HasPrefix(cfg.ID, "waypoint~") {
+		xdsType = "DELTA_GRPC"
+		metadataDiscovery = ptr.Of(model.StringBool(true))
+	}
+
+	var mDiscovery bool
+	if metadataDiscovery != nil && *metadataDiscovery {
+		mDiscovery = true
+	}
+	if mDiscovery && xdsType == "GRPC" {
+		log.Warnf("disabling metadata discovery; not supported on SotW XDS")
+		// Not supported on legacy SotW protocol
+		mDiscovery = false
+	}
+	customSDSPath := ""
+	if _, f := cfg.RawMetadata[security.CredentialFileMetaDataName]; f {
+		customSDSPath = security.FileCredentialNameSocketPath
+	}
 	opts = append(opts,
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
+		option.CustomFileSDSPath(customSDSPath),
+		option.ApplicationLogJSON(cfg.LogAsJSON),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
-		option.XdsType(xdsType))
+		option.XdsType(xdsType),
+		option.MetadataDiscovery(mDiscovery),
+		option.MetricsLocalhostAccessOnly(cfg.Metadata.ProxyConfig.ProxyMetadata),
+	)
 
 	// Add GCPProjectNumber to access in bootstrap template.
 	md := cfg.Metadata.PlatformMetadata
@@ -114,20 +151,60 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		}
 	}
 
+	opts = append(opts, option.WorkloadIdentitySocketFile(cfg.Metadata.WorkloadIdentitySocketFile))
+
 	// Support passing extra info from node environment as metadata
-	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
+	opts = append(opts, getNodeMetadataOptions(cfg.Node, cfg.CompliancePolicy)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+	if network.AllIPv4(cfg.Metadata.InstanceIPs) {
+		// IPv4 only
+		opts = append(opts,
+			option.Localhost(option.LocalhostIPv4),
+			option.Wildcard(option.WildcardIPv4),
+			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+	} else if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+		// IPv6 only
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
 	} else {
-		opts = append(opts,
-			option.Localhost(option.LocalhostIPv4),
-			option.Wildcard(option.WildcardIPv4),
-			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+		// Dual Stack
+		if features.EnableDualStack {
+			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
+			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
+			ipFamily, err := network.CheckIPFamilyTypeForFirstIPs(cfg.Metadata.InstanceIPs)
+			if err != nil {
+				return nil, err
+			}
+			if ipFamily == network.IPv6 {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv6),
+					option.AdditionalLocalhost(option.LocalhostIPv4),
+					option.Wildcard(option.WildcardIPv6),
+					option.AdditionalWildCard(option.WildcardIPv4),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
+			} else {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv4),
+					option.AdditionalLocalhost(option.LocalhostIPv6),
+					option.Wildcard(option.WildcardIPv4),
+					option.AdditionalWildCard(option.WildcardIPv6),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
+			}
+			opts = append(opts, option.DualStack(true))
+		} else {
+			// keep the original logic if Dual Stack is disabled
+			opts = append(opts,
+				option.Localhost(option.LocalhostIPv4),
+				option.Wildcard(option.WildcardIPv4),
+				option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+		}
+	}
+
+	if features.EnvoyStatusPortEnableProxyProtocol {
+		opts = append(opts, option.EnvoyStatusPortEnableProxyProtocol(true))
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
@@ -135,6 +212,9 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		return nil, err
 	}
 	opts = append(opts, proxyOpts...)
+
+	// Append LRS related options.
+	opts = append(opts, option.LoadStatsConfigJSONStr(cfg.Node))
 
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info
@@ -157,39 +237,6 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 		}
 	}
 	return ret
-}
-
-// DefaultStatTags for telemetry v2 tag extraction.
-var DefaultStatTags = []string{
-	"reporter",
-	"source_namespace",
-	"source_workload",
-	"source_workload_namespace",
-	"source_principal",
-	"source_app",
-	"source_version",
-	"source_cluster",
-	"destination_namespace",
-	"destination_workload",
-	"destination_workload_namespace",
-	"destination_principal",
-	"destination_app",
-	"destination_version",
-	"destination_service",
-	"destination_service_name",
-	"destination_service_namespace",
-	"destination_port",
-	"destination_cluster",
-	"request_protocol",
-	"request_operation",
-	"request_host",
-	"response_flags",
-	"grpc_response_status",
-	"connection_security_policy",
-	"source_canonical_service",
-	"destination_canonical_service",
-	"source_canonical_revision",
-	"destination_canonical_revision",
 }
 
 func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
@@ -222,9 +269,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		return substituteValues(inclusionOption, "{pod_ip}", nodeIPs)
 	}
 
-	extraStatTags := make([]string, 0, len(DefaultStatTags))
-	extraStatTags = append(extraStatTags,
-		DefaultStatTags...)
+	extraStatTags := make([]string, 0, len(config.ExtraStatTags))
 	for _, tag := range config.ExtraStatTags {
 		if tag != "" {
 			extraStatTags = append(extraStatTags, tag)
@@ -248,21 +293,70 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		inclusionSuffixes = requiredEnvoyStatsMatcherInclusionSuffixes
 	}
 
-	return []option.Instance{
+	var buckets []option.HistogramBucket
+	if bucketsAnno, ok := meta.Annotations[annotation.SidecarStatsHistogramBuckets.Name]; ok {
+		js := map[string][]float64{}
+		err := json.Unmarshal([]byte(bucketsAnno), &js)
+		if err == nil {
+			for prefix, value := range js {
+				buckets = append(buckets, option.HistogramBucket{Match: option.HistogramMatch{Prefix: prefix}, Buckets: value})
+			}
+			sort.Slice(buckets, func(i, j int) bool {
+				return buckets[i].Match.Prefix < buckets[j].Match.Prefix
+			})
+		} else {
+			log.Warnf("Failed to unmarshal histogram buckets %v: %v", bucketsAnno, err)
+		}
+	}
+
+	var compression string
+	if statsCompression, ok := meta.Annotations[annotation.SidecarStatsCompression.Name]; ok &&
+		envoyWellKnownCompressorLibrary.Contains(statsCompression) {
+		compression = statsCompression
+	}
+
+	options := []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
 		option.EnvoyStatsMatcherInclusionSuffix(parseOption(suffixAnno,
 			inclusionSuffixes, proxyConfigSuffixes)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
+		option.EnvoyHistogramBuckets(buckets),
+		option.EnvoyStatsCompression(compression),
 	}
+
+	statsFlushInterval := 5 * time.Second // Default value is 5s.
+	if v, exits := meta.Annotations[annotation.SidecarStatsFlushInterval.Name]; exits {
+		d, err := time.ParseDuration(v)
+		if err == nil {
+			statsFlushInterval = d
+			options = append(options, option.EnvoyStatsFlushInterval(statsFlushInterval))
+		} else {
+			log.Warnf("Failed to parse stats flush interval %v: %v", v, err)
+		}
+	}
+
+	if eviction, exits := meta.Annotations[annotation.SidecarStatsEvictionInterval.Name]; exits {
+		statsEvictionInterval, err := time.ParseDuration(eviction)
+		if err != nil {
+			log.Warnf("Failed to parse stats eviction interval %v: %v", eviction, err)
+		} else if statsEvictionInterval%statsFlushInterval != 0 {
+			log.Warnf("StatsEvictionInterval must be a multiple of the StatsFlushInterval")
+		} else {
+			duration := &durationpb.Duration{Seconds: int64(statsEvictionInterval.Seconds())}
+			options = append(options, option.EnvoyStatsEvictionInterval(duration))
+		}
+	}
+
+	return options
 }
 
 func lightstepAccessTokenFile(config string) string {
 	return path.Join(config, lightstepAccessTokenBase)
 }
 
-func getNodeMetadataOptions(node *model.Node) []option.Instance {
+func getNodeMetadataOptions(node *model.Node, policy string) []option.Instance {
 	// Add locality options.
 	opts := getLocalityOptions(node.Locality)
 
@@ -270,7 +364,7 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 	opts = append(opts,
 		option.NodeMetadata(node.Metadata, node.RawMetadata),
-		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig)),
+		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig, policy)),
 		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
@@ -278,14 +372,17 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
-func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
+func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig, policy string) map[string]any {
 	// Setup defaults
-	runtimeFlags := map[string]string{
-		"overload.global_downstream_max_connections":                                                           "2147483647",
-		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
-		"re2.max_program_size.error_level":                                                                     "32768",
-		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
-		"envoy.reloadable_features.no_extension_lookup_by_name":                                                "false",
+	runtimeFlags := map[string]any{
+		"re2.max_program_size.error_level": "32768",
+		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
+		"envoy.reloadable_features.fixed_heap_use_allocated":                                                   true,
+	}
+	if policy == common_features.FIPS_140_2 {
+		// This flag limits google_grpc client in Envoy to TLSv1.2 as the maximum version.
+		runtimeFlags["envoy.reloadable_features.google_grpc_disable_tls_13"] = true
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
@@ -297,7 +394,17 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 			delete(runtimeFlags, k)
 			continue
 		}
-		runtimeFlags[k] = v
+		// Envoy used to allow everything as string but stopped in https://github.com/envoyproxy/envoy/issues/27434
+		// However, our API always takes in strings.
+		// Convert strings to bools for backwards compat.
+		switch v {
+		case "false":
+			runtimeFlags[k] = false
+		case "true":
+			runtimeFlags[k] = true
+		default:
+			runtimeFlags[k] = v
+		}
 	}
 	return runtimeFlags
 }
@@ -377,6 +484,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 			isH2 = true
 			// Write the token file.
 			lightstepAccessTokenPath := lightstepAccessTokenFile(config.ConfigPath)
+			//nolint: staticcheck  // Lightstep deprecated
 			err := os.WriteFile(lightstepAccessTokenPath, []byte(tracer.Lightstep.AccessToken), 0o666)
 			if err != nil {
 				return nil, err
@@ -397,10 +505,6 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 				option.StackDriverMaxAnnotations(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAnnotations, 200)),
 				option.StackDriverMaxAttributes(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfAttributes, 200)),
 				option.StackDriverMaxEvents(getInt64ValueOrDefault(tracer.Stackdriver.MaxNumberOfMessageEvents, 200)))
-		case *meshAPI.Tracing_OpenCensusAgent_:
-			c := tracer.OpenCensusAgent.Context
-			opts = append(opts, option.OpenCensusAgentAddress(tracer.OpenCensusAgent.Address),
-				option.OpenCensusAgentContexts(c))
 		}
 
 		opts = append(opts, option.TracingTLS(config.Tracing.TlsSettings, metadata, isH2))
@@ -471,7 +575,7 @@ func jsonStringToMap(jsonStr string) (m map[string]string) {
 	if err != nil {
 		log.Warnf("Env variable with value %q failed json unmarshal: %v", jsonStr, err)
 	}
-	return
+	return m
 }
 
 func extractAttributesMetadata(envVars []string, plat platform.Environment, meta *model.BootstrapNodeMetadata) {
@@ -507,12 +611,16 @@ type MetadataOptions struct {
 	ProxyConfig                 *meshAPI.ProxyConfig
 	PilotSubjectAltName         []string
 	CredentialSocketExists      bool
+	CustomCredentialsFileExists bool
 	XDSRootCert                 string
 	OutlierLogPath              string
 	annotationFilePath          string
 	EnvoyStatusPort             int
 	EnvoyPrometheusPort         int
 	ExitOnZeroActiveConnections bool
+	MetadataDiscovery           *bool
+	EnvoySkipDeprecatedLogs     bool
+	WorkloadIdentitySocketFile  string
 }
 
 const (
@@ -556,6 +664,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		return nil, err
 	}
 
+	meta = SetIstioVersion(meta)
+
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
 
@@ -566,6 +676,14 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.EnvoyStatusPort = options.EnvoyStatusPort
 	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
 	meta.ExitOnZeroActiveConnections = model.StringBool(options.ExitOnZeroActiveConnections)
+	if options.MetadataDiscovery == nil {
+		meta.MetadataDiscovery = nil
+	} else {
+		meta.MetadataDiscovery = ptr.Of(model.StringBool(*options.MetadataDiscovery))
+	}
+	meta.EnvoySkipDeprecatedLogs = model.StringBool(options.EnvoySkipDeprecatedLogs)
+
+	meta.WorkloadIdentitySocketFile = options.WorkloadIdentitySocketFile
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
@@ -615,17 +733,18 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}
 
 	var l *core.Locality
-	if meta.Labels[model.LocalityLabel] == "" && options.Platform != nil {
+	localityLabel := model.GetLocalityLabel(meta.Labels)
+	if localityLabel == "" && options.Platform != nil {
 		// The locality string was not set, try to get locality from platform
 		l = options.Platform.Locality()
 	} else {
 		// replace "." with "/"
-		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
+		localityString := model.SanitizeLocalityLabel(localityLabel)
 		if localityString != "" {
 			// override the label with the sanitized value
 			meta.Labels[model.LocalityLabel] = localityString
 		}
-		l = util.ConvertLocality(localityString)
+		l = model.ConvertLocality(localityString)
 	}
 
 	meta.PilotSubjectAltName = options.PilotSubjectAltName
@@ -633,6 +752,15 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.OutlierLogPath = options.OutlierLogPath
 	if options.CredentialSocketExists {
 		untypedMeta[security.CredentialMetaDataName] = "true"
+	}
+	if options.CustomCredentialsFileExists {
+		untypedMeta[security.CredentialFileMetaDataName] = "true"
+	}
+
+	if meta.MetadataDiscovery == nil {
+		// If it's disabled, set it if ambient is enabled
+		meta.MetadataDiscovery = ptr.Of(meta.EnableHBONE)
+		log.Debugf("metadata discovery is disabled, setting it to %s based on if ambient HBONE is enabled", meta.EnableHBONE)
 	}
 
 	return &model.Node{
@@ -643,60 +771,11 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}, nil
 }
 
-// ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.
-func ConvertNodeToXDSNode(node *model.Node) *core.Node {
-	// First pass translates typed metadata
-	js, err := json.Marshal(node.Metadata)
-	if err != nil {
-		log.Warnf("Failed to marshal node metadata to JSON %#v: %v", node.Metadata, err)
+func SetIstioVersion(meta *model.BootstrapNodeMetadata) *model.BootstrapNodeMetadata {
+	if meta.IstioVersion == "" {
+		meta.IstioVersion = version.Info.Version
 	}
-	pbst := &structpb.Struct{}
-	if err = protomarshal.Unmarshal(js, pbst); err != nil {
-		log.Warnf("Failed to unmarshal node metadata from JSON %#v: %v", node.Metadata, err)
-	}
-	// Second pass translates untyped metadata for "unknown" fields
-	for k, v := range node.RawMetadata {
-		if _, f := pbst.Fields[k]; !f {
-			fjs, err := json.Marshal(v)
-			if err != nil {
-				log.Warnf("Failed to marshal field metadata to JSON %#v: %v", k, err)
-			}
-			pbv := &structpb.Value{}
-			if err = protomarshal.Unmarshal(fjs, pbv); err != nil {
-				log.Warnf("Failed to unmarshal field metadata from JSON %#v: %v", k, err)
-			}
-			pbst.Fields[k] = pbv
-		}
-	}
-	return &core.Node{
-		Id:       node.ID,
-		Cluster:  getServiceCluster(node.Metadata),
-		Locality: node.Locality,
-		Metadata: pbst,
-	}
-}
-
-// ConvertXDSNodeToNode parses Istio node descriptor from an Envoy node descriptor, using only typed metadata.
-func ConvertXDSNodeToNode(node *core.Node) *model.Node {
-	b, err := protomarshal.MarshalProtoNames(node.Metadata)
-	if err != nil {
-		log.Warnf("Failed to marshal node metadata to JSON %q: %v", node.Metadata, err)
-	}
-	metadata := &model.BootstrapNodeMetadata{}
-	err = json.Unmarshal(b, metadata)
-	if err != nil {
-		log.Warnf("Failed to unmarshal node metadata from JSON %q: %v", node.Metadata, err)
-	}
-	if metadata.ProxyConfig == nil {
-		metadata.ProxyConfig = &model.NodeMetaProxyConfig{}
-		metadata.ProxyConfig.ClusterName = &meshAPI.ProxyConfig_ServiceCluster{ServiceCluster: node.Cluster}
-	}
-
-	return &model.Node{
-		ID:       node.Id,
-		Locality: node.Locality,
-		Metadata: metadata,
-	}
+	return meta
 }
 
 // Extracts instance labels for the platform into model.NodeMetadata.Labels

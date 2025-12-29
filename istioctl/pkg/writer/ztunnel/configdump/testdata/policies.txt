@@ -1,0 +1,3 @@
+NAMESPACE POLICY NAME    ACTION SCOPE
+default   allow-nothing  Allow  Namespace
+default   allow-waypoint Allow  WorkloadSelector

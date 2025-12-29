@@ -52,7 +52,7 @@ func (pq *priorityQueue) Push(x any) {
 	*pq = append(*pq, entry)
 }
 
-// Pop implements heap.Interface for poping an item from the heap
+// Pop implements heap.Interface for popping an item from the heap
 func (pq *priorityQueue) Pop() any {
 	old := *pq
 	n := len(old)

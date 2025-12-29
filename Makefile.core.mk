@@ -35,10 +35,21 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.17-dev
+# Version can be defined:
+# (1) in a $VERSION shell variable, which takes precedence; or
+# (2) in the VERSION file, in which we will append "-dev" to it
+ifeq ($(VERSION),)
+VERSION_FROM_FILE := $(shell cat VERSION)
+ifeq ($(VERSION_FROM_FILE),)
+$(error VERSION not detected. Make sure it's stored in the VERSION file or defined in VERSION variable)
+endif
+VERSION := $(VERSION_FROM_FILE)-dev
+endif
+
+export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2023-01-06T19-01-36
+BASE_VERSION ?= master-2025-12-19T11-36-10
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -82,7 +93,7 @@ endif
 -include .istiorc.mk
 
 # Environment for tests, the directory containing istio and deps binaries.
-# Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
+# Typically same as GOPATH/bin, so tests work seamlessly with IDEs.
 
 export ISTIO_BIN=$(GOBIN)
 
@@ -115,20 +126,13 @@ ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
-# For dockerx builds, allow HUBS which is a space seperated list of hubs. Default to HUB.
+# For dockerx builds, allow HUBS which is a space separated list of hubs. Default to HUB.
 HUBS ?= $(HUB)
 
 # If tag not explicitly set in users' .istiorc.mk or command line, default to the git sha.
 TAG ?= $(shell git rev-parse --verify HEAD)
 ifeq ($(TAG),)
   $(error "TAG cannot be empty")
-endif
-
-VARIANT :=
-ifeq ($(VARIANT),)
-  TAG_VARIANT:=${TAG}
-else
-  TAG_VARIANT:=${TAG}-${VARIANT}
 endif
 
 PULL_POLICY ?= IfNotPresent
@@ -148,7 +152,7 @@ default: init build test
 
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-init: $(TARGET_OUT)/istio_is_init
+init: $(TARGET_OUT)/istio_is_init init-ztunnel-rs
 	@mkdir -p ${TARGET_OUT}/logs
 	@mkdir -p ${TARGET_OUT}/release
 
@@ -160,6 +164,10 @@ $(TARGET_OUT)/istio_is_init: bin/init.sh istio.deps | $(TARGET_OUT)
 	@# Like `curl: (56) OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 104`
 	TARGET_OUT=$(TARGET_OUT) ISTIO_BIN=$(ISTIO_BIN) GOOS_LOCAL=$(GOOS_LOCAL) bin/retry.sh SSL_ERROR_SYSCALL bin/init.sh
 	touch $(TARGET_OUT)/istio_is_init
+
+.PHONY: init-ztunnel-rs
+init-ztunnel-rs:
+	TARGET_OUT=$(TARGET_OUT) bin/build_ztunnel.sh
 
 # Pull dependencies such as envoy
 depend: init | $(TARGET_OUT)
@@ -198,25 +206,38 @@ endif
 # List of all binaries to build
 # We split the binaries into "agent" binaries and standard ones. This corresponds to build "agent".
 # This allows conditional compilation to avoid pulling in costly dependencies to the agent, such as XDS and k8s.
-AGENT_BINARIES:=./pilot/cmd/pilot-agent ./cni/cmd/istio-cni
+AGENT_BINARIES:=./pilot/cmd/pilot-agent
 STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
-  ./samples/extauthz/cmd/extauthz \
-  ./operator/cmd/operator \
-  ./cni/cmd/istio-cni-taint \
-  ./cni/cmd/install-cni \
-  ./tools/bug-report
-BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)
+  ./samples/extauthz/cmd/extauthz
 
-# List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
+CNI_BINARIES:=./cni/cmd/istio-cni \
+	./cni/cmd/install-cni
+# These are binaries that require Linux to build, and should
+# be skipped on other platforms. Notably this includes the current Linux-only Istio CNI plugin
+LINUX_AGENT_BINARIES:=$(CNI_BINARIES) \
+  $(AGENT_BINARIES)
+
+BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES)
+
+# List of binaries that have their size tested
+RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl envoy ztunnel client server
+
+# agent: enables agent-specific files. Usually this is used to trim dependencies where they would be hard to trim through standard refactoring
+# disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
+# not set vtprotobuf: this adds some performance improvement, but at a binary cost increase that is not worth it for the agent
+# notrace: helps with https://github.com/istio/istio/issues/56636 and reduces binary size
+AGENT_TAGS=agent,disable_pgv,grpcnotrace,retrynotrace
+# disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
+# vtprotobuf: enables optimized protobuf marshalling.
+STANDARD_TAGS=vtprotobuf,disable_pgv
 
 .PHONY: build
 build: depend ## Builds all go binaries.
-	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ $(STANDARD_BINARIES)
-	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(AGENT_TAGS) $(AGENT_BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
 # This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
@@ -224,8 +245,12 @@ build: depend ## Builds all go binaries.
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ $(STANDARD_BINARIES)
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(AGENT_TAGS) $(LINUX_AGENT_BINARIES)
+
+.PHONY: build-cni
+build-cni: depend
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(AGENT_TAGS) $(CNI_BINARIES)
 
 # Create targets for TARGET_OUT_LINUX/binary
 # There are two use cases here:
@@ -243,8 +268,8 @@ $(TARGET_OUT_LINUX)/$(shell basename $(1)): $(TARGET_OUT_LINUX)
 endif
 endef
 
-$(foreach bin,$(STANDARD_BINARIES),$(eval $(call build-linux,$(bin),"")))
-$(foreach bin,$(AGENT_BINARIES),$(eval $(call build-linux,$(bin),"agent")))
+$(foreach bin,$(STANDARD_BINARIES),$(eval $(call build-linux,$(bin),$(STANDARD_TAGS))))
+$(foreach bin,$(LINUX_AGENT_BINARIES),$(eval $(call build-linux,$(bin),$(AGENT_TAGS))))
 
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything
@@ -269,17 +294,19 @@ go-gen:
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 refresh-goldens:
-	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
+	REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
 		./pkg/bootstrap/... \
 		./pkg/kube/inject/... \
+		./pilot/pkg/config/kube/gateway/... \
 		./pilot/pkg/security/authz/builder/... \
-		./cni/pkg/plugin/...
+		./pilot/pkg/serviceregistry/kube/controller/ambient/... \
+		./cni/pkg/iptables/... \
+		./cni/pkg/plugin/... \
+		./istioctl/pkg/workload/... \
+		./istioctl/pkg/writer/envoy/configdump/... \
+		./istioctl/pkg/writer/ztunnel/configdump/...
 
 update-golden: refresh-goldens
-
-# Keep dummy target since some build pipelines depend on this
-gen-charts:
-	@echo "This target is no longer required and will be removed in the future"
 
 gen-addons:
 	manifests/addons/gen.sh
@@ -292,72 +319,55 @@ gen: \
 	update-crds \
 	proto \
 	copy-templates \
-	gen-kustomize \
 	gen-addons \
 	update-golden ## Update all generated code.
 
 gen-check: gen check-clean-repo
 
+CHARTS = gateway default ztunnel base "gateways/istio-ingress" "gateways/istio-egress" "istio-control/istio-discovery" istio-cni
 copy-templates:
-	rm manifests/charts/istiod-remote/templates/*
 	rm manifests/charts/gateways/istio-egress/templates/*
 
 	# gateway charts
 	cp -r manifests/charts/gateways/istio-ingress/templates/* manifests/charts/gateways/istio-egress/templates
-	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/ingress/egress/g' {} \;
-	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/Ingress/Egress/g' {} \;
-
-	# external istiod remote cluster charts
-	cp manifests/charts/base/templates/services.yaml manifests/charts/istiod-remote/templates
-	cp manifests/charts/base/templates/endpoints.yaml manifests/charts/istiod-remote/templates
-	cp manifests/charts/base/templates/reader-serviceaccount.yaml manifests/charts/istiod-remote/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml manifests/charts/istiod-remote/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/reader-clusterrole.yaml manifests/charts/istiod-remote/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/reader-clusterrolebinding.yaml manifests/charts/istiod-remote/templates
-
-	# external istiod config cluster charts
-	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files
-	cp manifests/charts/istio-control/istio-discovery/files/gateway-injection-template.yaml manifests/charts/istiod-remote/files
-	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_*.yaml manifests/charts/istiod-remote/templates
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-all.gen.yaml > manifests/charts/istiod-remote/templates/crd-all.gen.yaml
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-operator.yaml > manifests/charts/istiod-remote/templates/crd-operator.yaml
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/templates/default.yaml > manifests/charts/istiod-remote/templates/default.yaml
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml > manifests/charts/istiod-remote/templates/validatingwebhookconfiguration.yaml
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/serviceaccount.yaml > manifests/charts/istiod-remote/templates/serviceaccount.yaml
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/role.yaml > manifests/charts/istiod-remote/templates/role.yaml
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/rolebinding.yaml > manifests/charts/istiod-remote/templates/rolebinding.yaml
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/clusterrole.yaml > manifests/charts/istiod-remote/templates/clusterrole.yaml
-	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml > manifests/charts/istiod-remote/templates/clusterrolebinding.yaml
+	find ./manifests/charts/gateways/istio-egress/templates -type f -name "*.yaml" ! -name "networkpolicy.yaml" -exec sed -i -e 's/ingress/egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f -name "*.yaml" ! -name "networkpolicy.yaml" -exec sed -i -e 's/Ingress/Egress/g' {} \;
+	if [ -f ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml ]; then \
+		sed -i -e 's/"IngressGateways"/"EgressGateways"/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/istio-ingress/istio-egress/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/app: istio-ingress/app: istio-egress/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/istio: ingressgateway/istio: egressgateway/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+	fi
 
 	# copy istio-discovery values, but apply some local customizations
-	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
-	yq -i '.telemetry.enabled=false | .global.externalIstiod=true | .global.omitSidecarInjectorConfigMap=true | .pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
-# Generate kustomize templates.
-gen-kustomize:
-	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
-	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
-		> manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
-	helm3 template operator --namespace istio-operator manifests/charts/istio-operator \
-		--set hub=gcr.io/istio-testing --set tag=${VERSION} > manifests/charts/istio-operator/files/gen-operator.yaml
+	warning=$$(cat manifests/helm-profiles/warning-edit.txt | sed ':a;N;$$!ba;s/\n/\\n/g') ; \
+	for chart in $(CHARTS) ; do \
+	    rm -rf manifests/charts/$$chart/files/profile-*.yaml ; \
+		for profile in manifests/helm-profiles/*.yaml ; do \
+			sed "1s|^|$${warning}\n\n|" $$profile > manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
+		done; \
+		[[ "$$chart" == "ztunnel" ]] || [[ "$$chart" == "gateway" ]] && flatten="true" || flatten="false" ; \
+		cat manifests/zzz_profile.yaml | \
+		  sed "s/FLATTEN_GLOBALS_REPLACEMENT/$${flatten}/g" \
+		  > manifests/charts/$$chart/templates/zzz_profile.yaml ; \
+	done
 
 #-----------------------------------------------------------------------------
 # Target: go build
 #-----------------------------------------------------------------------------
 
 # Non-static istioctl targets. These are typically a build artifact.
-${TARGET_OUT}/release/istioctl-linux-amd64: depend
+${TARGET_OUT}/release/istioctl-linux-amd64:
 	GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-linux-armv7: depend
+${TARGET_OUT}/release/istioctl-linux-armv7:
 	GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-linux-arm64: depend
+${TARGET_OUT}/release/istioctl-linux-arm64:
 	GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-osx: depend
+${TARGET_OUT}/release/istioctl-osx:
 	GOOS=darwin GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-osx-arm64: depend
+${TARGET_OUT}/release/istioctl-osx-arm64:
 	GOOS=darwin GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${TARGET_OUT}/release/istioctl-win.exe: depend
+${TARGET_OUT}/release/istioctl-win.exe:
 	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
@@ -369,7 +379,7 @@ ${TARGET_OUT}/release/_istioctl: ${LOCAL_OUT}/istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_SIZE_TEST_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -408,9 +418,10 @@ test: racetest ## Runs all unit tests
 # For now, keep a minimal subset. This can be expanded in the future.
 BENCH_TARGETS ?= ./pilot/...
 
+PKG ?= ./...
 .PHONY: racetest
 racetest: $(JUNIT_REPORT)
-	go test ${GOBUILDFLAGS} ${T} -race ./... 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	go test ${GOBUILDFLAGS} ${T} -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
@@ -471,5 +482,22 @@ include tools/packaging/packaging.mk
 # Target: integration tests
 #-----------------------------------------------------------------------------
 include tests/integration/tests.mk
+
+#-----------------------------------------------------------------------------
+# Target: bookinfo sample
+#-----------------------------------------------------------------------------
+
+export BOOKINFO_VERSION ?= 1.18.0
+
+.PHONY: bookinfo.build bookinfo.push
+
+bookinfo.build:
+	@prow/buildx-create
+	@BOOKINFO_TAG=${BOOKINFO_VERSION} BOOKINFO_HUB=${HUB} samples/bookinfo/src/build-services.sh
+
+bookinfo.push: MULTI_ARCH=true
+bookinfo.push:
+	@prow/buildx-create
+	@BOOKINFO_TAG=${BOOKINFO_VERSION} BOOKINFO_HUB=${HUB} samples/bookinfo/src/build-services.sh --push
 
 include common/Makefile.common.mk

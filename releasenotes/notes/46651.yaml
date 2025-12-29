@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 46524
+releaseNotes:
+- |
+  **Removed** support for installing `ambient` profile with in-cluster operator.

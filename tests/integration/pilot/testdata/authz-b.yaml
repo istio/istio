@@ -6,7 +6,7 @@ spec:
   action: ALLOW
   selector:
     matchLabels:
-      "istio": "ingressgateway"
+      "istio": {{.GatewayIstioLabel | default "ingressgateway"}}
   rules:
   - to:
     - operation:
@@ -20,7 +20,7 @@ spec:
   action: DENY
   selector:
     matchLabels:
-      "istio": "ingressgateway"
+      "istio": {{.GatewayIstioLabel | default "ingressgateway"}}
   rules:
   - to:
     - operation:
@@ -30,13 +30,13 @@ spec:
         ports: ["100"]
 ---
 # Make sure listener has a least one listener, otherwise there may be no policies
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
 spec:
   selector:
-    istio: ingressgateway
+    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 18080
