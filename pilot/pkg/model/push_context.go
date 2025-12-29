@@ -197,7 +197,6 @@ func newGatewayIndex() gatewayIndex {
 type serviceAccountKey struct {
 	hostname  host.Name
 	namespace string
-	port      int
 }
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -2621,10 +2620,9 @@ func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceNa
 	return false
 }
 
-func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, port int) []string {
+func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string) []string {
 	return ps.serviceAccounts[serviceAccountKey{
 		hostname:  hostname,
 		namespace: namespace,
-		port:      port,
 	}]
 }
