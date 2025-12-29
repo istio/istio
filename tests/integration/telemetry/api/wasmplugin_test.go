@@ -17,6 +17,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
@@ -412,4 +414,84 @@ func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restart
 		SendTrafficOrFail(t, to)
 		t.Log("echo server still returns ok after bad wasm(FAIL_OPEN) filter is applied.")
 	}
+}
+
+// TestWasmPluginReferenceGrant tests that WasmPlugin can reference secrets in other namespaces
+// when a ReferenceGrant allows it.
+func TestWasmPluginReferenceGrant(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			crd.DeployGatewayAPIOrSkip(t)
+
+			// Get istio-system namespace
+			istioCfg := istio.DefaultConfigOrFail(t, t)
+			systemNS := istioCfg.SystemNamespace
+
+			// Create a secret in istio-system namespace
+			secretName := "wasm-cross-ns-secret"
+			secretData := base64.StdEncoding.EncodeToString(
+				[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address())),
+			)
+
+			// Create the secret in istio-system namespace
+			t.ConfigIstio().YAML(systemNS, fmt.Sprintf(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: %s
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: %s
+`, secretName, secretData)).ApplyOrFail(t)
+
+			// Create a ReferenceGrant in istio-system namespace allowing WasmPlugin from test namespace to access secrets
+			t.ConfigIstio().YAML(systemNS, fmt.Sprintf(`
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-wasm-secrets
+spec:
+  from:
+  - group: extensions.istio.io
+    kind: WasmPlugin
+    namespace: %s
+  to:
+  - group: ""
+    kind: Secret
+`, apps.Namespace.Name())).ApplyOrFail(t)
+
+			// Create a WasmPlugin in the test namespace that references the secret in istio-system
+			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
+			mapTagToVersionOrFail(t, tag, "0.0.1")
+			wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), imageName, tag)
+
+			args := map[string]any{
+				"WasmPluginName":    "wasm-refgrant-test",
+				"TestWasmModuleURL": wasmModuleURL,
+				"WasmPluginVersion": "g-refgrant",
+				"TargetAppName":     GetTarget().(echo.Instances).NamespacedName().Name,
+				"CrossNsSecret":     fmt.Sprintf("kubernetes://%s/%s", systemNS, secretName),
+			}
+
+			// Apply WasmPlugin with cross-namespace secret reference
+			t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/wasm-filter-refgrant.yaml").ApplyOrFail(t)
+
+			// Verify the WasmPlugin works by sending traffic and checking for the injected header
+			sendTraffic(t, check.ResponseHeader(injectedHeader, "0.0.1"))
+
+			// Cleanup
+			t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/wasm-filter-refgrant.yaml").DeleteOrFail(t)
+			t.ConfigIstio().YAML(systemNS, `
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-wasm-secrets
+`).DeleteOrFail(t)
+			t.ConfigIstio().YAML(systemNS, fmt.Sprintf(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: %s
+`, secretName)).DeleteOrFail(t)
+		})
 }

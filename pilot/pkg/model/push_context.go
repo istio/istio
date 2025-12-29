@@ -32,6 +32,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -2143,7 +2144,10 @@ func (ps *PushContext) initWasmPlugins(env *Environment) {
 	sortConfigByCreationTime(wasmplugins)
 	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
 	for _, plugin := range wasmplugins {
-		if pluginWrapper := convertToWasmPluginWrapper(plugin, ps.secretAllowed); pluginWrapper != nil {
+		secretAllowed := func(resourceName string, namespace string) bool {
+			return ps.ReferenceAllowed(gvk.WasmPlugin, resourceName, namespace)
+		}
+		if pluginWrapper := convertToWasmPluginWrapper(plugin, secretAllowed); pluginWrapper != nil {
 			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
 		}
 	}
@@ -2597,26 +2601,22 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 	}
 }
 
-// SecretAllowed determines if a given resource (of type `Secret` and name `resourceName`) can be
-// accessed by `namespace`, based of specific reference policies.
-// Note: this function only determines if a reference is *explicitly* allowed; the reference may not require
-// explicit authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
-// secret access.
+// ReferenceAllowed determines if a given resource can be accessed by a namespace, based on ReferenceGrant policies.
+// The `kind` parameter specifies the type of resource making the request (e.g., WasmPlugin, KubernetesGateway).
+// The `resourceName` is parsed to determine the type of resource being requested (e.g., Secret).
+// Currently, only Secret resources are supported via ReferenceGrant.
 func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceName string, namespace string) bool {
-	// Currently, only Secret has reference policy, and only implemented by Gateway API controller.
-	// The kind parameter can be KubernetesGateway or XListenerSet (the gateway type making the request),
-	// but the actual resource being referenced is always a Secret.
-	switch kind {
-	case gvk.Secret, gvk.KubernetesGateway, gvk.XListenerSet:
-		return ps.secretAllowed(resourceName, namespace)
-	default:
+	if ps.GatewayAPIController == nil {
+		return false
 	}
-	return false
-}
-
-func (ps *PushContext) secretAllowed(resourceName string, namespace string) bool {
-	if ps.GatewayAPIController != nil {
-		return ps.GatewayAPIController.SecretAllowed(gvk.Secret, resourceName, namespace)
+	// Parse the resource name to determine what type of resource is being requested
+	p, err := credentials.ParseResourceName(resourceName, "", "", "")
+	if err != nil {
+		return false
+	}
+	// Currently, only Secret resources are supported via ReferenceGrant
+	if p.ResourceKind.String() == "Secret" {
+		return ps.GatewayAPIController.SecretAllowed(kind, resourceName, namespace)
 	}
 	return false
 }
