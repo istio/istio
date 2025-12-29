@@ -69,6 +69,8 @@ var (
 	// output format (json, yaml or short)
 	outputFormat string
 
+	withHeaders bool
+
 	proxyAdminPort int
 
 	configDumpFile string
@@ -525,6 +527,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 						Cluster: clusterName,
 						Status:  status,
 					},
+					withHeaders,
 				)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
@@ -535,6 +538,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 	}
 
 	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	allConfigCmd.PersistentFlags().BoolVar(&withHeaders, "with-headers", false, "Print summary with headers")
 	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump file")
 	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")

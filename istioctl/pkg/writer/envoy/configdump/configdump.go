@@ -120,27 +120,41 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 	return secretWriter.PrintSecretItems(secretItems)
 }
 
-func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter, epf EndpointFilter) error {
+func (c *ConfigWriter) printHeaders(summary string, withHeaders bool) {
+	if withHeaders {
+		_, _ = c.Stdout.Write([]byte("------ "))
+		_, _ = c.Stdout.Write([]byte(summary))
+		_, _ = c.Stdout.Write([]byte(" ------\n\n"))
+	}
+}
+
+func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter, epf EndpointFilter, withHeaders bool) error {
+	c.printHeaders("BOOTSTRAP INFO", withHeaders)
 	if err := c.PrintBootstrapSummary(); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("CLUSTER INFO", withHeaders)
 	if err := c.PrintClusterSummary(cf); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("LISTENER INFO", withHeaders)
 	if err := c.PrintListenerSummary(lf); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("ROUTE INFO", withHeaders)
 	if err := c.PrintRouteSummary(rf); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("SECRET INFO", withHeaders)
 	if err := c.PrintSecretSummary(); err != nil {
 		return err
 	}
 	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("ENDPOINTS INFO", withHeaders)
 	if err := c.PrintEndpointsSummary(epf); err != nil {
 		return err
 	}
