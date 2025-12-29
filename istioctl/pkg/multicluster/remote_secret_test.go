@@ -77,7 +77,7 @@ func makeServiceAccount(secrets ...string) *v1.ServiceAccount {
 }
 
 func makeSecret(name, caData, token string) *v1.Secret {
-	out := &v1.Secret{
+	out := kube.EnsureTypeMeta(&v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   testNamespace,
@@ -85,7 +85,7 @@ func makeSecret(name, caData, token string) *v1.Secret {
 		},
 		Data: map[string][]byte{},
 		Type: v1.SecretTypeServiceAccountToken,
-	}
+	})
 	if len(caData) > 0 {
 		out.Data[v1.ServiceAccountRootCAKey] = []byte(caData)
 	}

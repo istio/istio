@@ -76,6 +76,19 @@ func GvkFromObject(obj runtime.Object) config.GroupVersionKind {
 	panic("unknown kind: " + obj.GetObjectKind().GroupVersionKind().String())
 }
 
+type TypeMetaSetGVK interface {
+	runtime.Object
+	SetGroupVersionKind(gvk schema.GroupVersionKind)
+}
+
+func EnsureTypeMeta[T TypeMetaSetGVK](t T) T {
+	if t.GetObjectKind().GroupVersionKind().Empty() {
+		gvk := MustGVKFromType[T]()
+		t.SetGroupVersionKind(gvk.Kubernetes())
+	}
+	return t
+}
+
 var registeredTypes = typemap.NewTypeMap()
 
 func Register[T runtime.Object](reg RegisterType[T]) {
