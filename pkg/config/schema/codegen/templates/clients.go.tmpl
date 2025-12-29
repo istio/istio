@@ -109,7 +109,7 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 					options.LabelSelector = opts.LabelSelector
 					return w(options)
 				},
-			}, c.{{.ClientGetter}}()),
+			}, c),
 			gvrToObject(g),
 			0,
 			cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
