@@ -55,7 +55,7 @@ import (
 func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
 	wdsSvc := protomarshal.ShallowClone(se.Service)
 	wdsSvc.Canonical = true
-	return model.ServiceInfo{
+	return precomputeService(model.ServiceInfo{
 		Service:          wdsSvc,
 		LabelSelector:    se.LabelSelector,
 		PortNames:        se.PortNames,
@@ -65,7 +65,7 @@ func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
 		MarshaledAddress: se.MarshaledAddress,
 		AsAddress:        se.AsAddress,
 		CreationTime:     se.CreationTime,
-	}
+	})
 }
 
 func (a Builder) ServicesCollection(
@@ -108,7 +108,7 @@ func (a Builder) ServicesCollection(
 				return nil
 			}
 
-			s := krt.FetchOne(ctx, ServicesInfo, krt.FilterIndex(serviceByHostname, se.Objects[0].Service.Hostname))
+			s := krt.FetchOne(ctx, ServicesInfo, krt.FilterIndex(serviceByHostname, se.Key))
 			servicePresent := s != nil
 			var serviceNamespace string
 			if servicePresent {
@@ -127,7 +127,7 @@ func (a Builder) ServicesCollection(
 				if !found || o.CreationTime.Before(oldest.CreationTime) {
 					oldestByNamespace[seNamespace] = o.ServiceInfo
 				}
-				if canonical == nil || o.CreationTime.Before(canonical.CreationTime) {
+				if !servicePresent && (canonical == nil || o.CreationTime.Before(canonical.CreationTime)) {
 					// partially correct, we need should have some concept of a "preferred namespace" since ztunnel can
 					// presently do this
 					canonical = &o.ServiceInfo
@@ -493,6 +493,7 @@ func serviceEntriesInfo(
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
+	// Should we actually precomupute here, or should we deduplicate first?
 	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
