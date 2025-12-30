@@ -797,7 +797,7 @@ func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	enrolledNotRedirected := &corev1.Pod{
+	enrolledNotRedirected := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "enrolled-not-redirected",
 			Namespace: "test",
@@ -810,8 +810,8 @@ func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) 
 		Status: corev1.PodStatus{
 			PodIP: "11.1.1.12",
 		},
-	}
-	redirectedNotEnrolled := &corev1.Pod{
+	})
+	redirectedNotEnrolled := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "redirected-not-enrolled",
 			Namespace:   "test",
@@ -824,7 +824,7 @@ func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) 
 		Status: corev1.PodStatus{
 			PodIP: "11.1.1.13",
 		},
-	}
+	})
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test",

@@ -160,6 +160,9 @@ type Client interface {
 
 	// ClusterID returns the cluster this client is connected to
 	ClusterID() cluster.ID
+
+	// IsWatchListSemanticsUnSupported is used by internal client-go libraries to tell if the client is a fake client (more or less)
+	IsWatchListSemanticsUnSupported() bool
 }
 
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
@@ -372,6 +375,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	}
 
 	c.fastSync = true
+	c.isFake = true
 
 	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
 
@@ -409,6 +413,8 @@ type client struct {
 	istio               istioclient.Interface
 	gatewayapi          gatewayapiclient.Interface
 	gatewayapiinference gatewayapiinferenceclient.Interface
+
+	isFake bool
 
 	started atomic.Bool
 	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
@@ -698,6 +704,10 @@ func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 
 func (c *client) ClusterID() cluster.ID {
 	return c.clusterID
+}
+
+func (c *client) IsWatchListSemanticsUnSupported() bool {
+	return c.isFake
 }
 
 // Wait for cache sync immediately, rather than with 100ms delay which slows tests

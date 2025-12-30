@@ -38,6 +38,7 @@ var log = istiolog.RegisterScope("controllers", "common controller logic")
 // Object is a union of runtime + meta objects. Essentially every k8s object meets this interface.
 // and certainly all that we care about.
 type Object interface {
+	SetGroupVersionKind(gvk schema.GroupVersionKind)
 	metav1.Object
 	runtime.Object
 }
