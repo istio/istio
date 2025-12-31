@@ -76,6 +76,8 @@ var (
 		"ENABLE_LAYERED_WAYPOINT_AUTHORIZATION_POLICIES",
 		false,
 		"If enabled, selector based authorization policies will be enforced as L4 policies in front of the waypoint.").Get()
+
+	EnableWdsDryRunAuthzPol = registerAmbient("AMBIENT_ENABLE_DRY_RUN_AUTHORIZATION_POLICY", false, false, "TODO")
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set
