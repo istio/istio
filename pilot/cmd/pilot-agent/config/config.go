@@ -34,7 +34,7 @@ import (
 )
 
 // ConstructProxyConfig returns proxyConfig
-func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int) (*meshconfig.ProxyConfig, *meshconfig.MeshConfig, error) {
+func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int) (*meshconfig.ProxyConfig, error) {
 	annotations, err := bootstrap.ReadPodAnnotations("")
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -47,13 +47,13 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	if fileExists(meshConfigFile) {
 		contents, err := os.ReadFile(meshConfigFile)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to read mesh config file %v: %v", meshConfigFile, err)
+			return nil, fmt.Errorf("failed to read mesh config file %v: %v", meshConfigFile, err)
 		}
 		fileMeshContents = string(contents)
 	}
 	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name], proxyConfigEnv)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	proxyConfig := mesh.DefaultProxyConfig()
 	if meshConfig.DefaultConfig != nil {
@@ -100,9 +100,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	}
 	validation := agent.ValidateMeshConfigProxyConfig(proxyConfig)
 	if validation.Err != nil {
-		return nil, nil, validation.Err
+		return nil, validation.Err
 	}
-	return applyAnnotations(proxyConfig, annotations), meshConfig, nil
+	return applyAnnotations(proxyConfig, annotations), nil
 }
 
 // getMeshConfig gets the mesh config to use for proxy configuration

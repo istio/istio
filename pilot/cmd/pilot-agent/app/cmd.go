@@ -106,7 +106,7 @@ func newProxyCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proxyConfig, meshConfig, err := config.ConstructProxyConfig(proxyArgs.MeshConfigFile, proxyArgs.ServiceCluster, options.ProxyConfigEnv, proxyArgs.Concurrency)
+			proxyConfig, err := config.ConstructProxyConfig(proxyArgs.MeshConfigFile, proxyArgs.ServiceCluster, options.ProxyConfigEnv, proxyArgs.Concurrency)
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -133,8 +133,8 @@ func newProxyCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 				NodeIPs:              proxyArgs.IPAddresses,
 				Sidecar:              proxyArgs.Type == model.SidecarProxy,
 				OutlierLogPath:       proxyArgs.OutlierLogPath,
-				FileFlushIntervalSec: meshConfig.FileFlushInterval,
-				FileFlushMinSizeKB:   meshConfig.FileFlushMinSize,
+				FileFlushIntervalSec: proxyConfig.FileFlushInterval,
+				FileFlushMinSizeKB:   proxyConfig.FileFlushMinSize,
 			}
 			agentOptions := options.NewAgentOptions(&proxyArgs, proxyConfig, sds)
 			agent := istioagent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
