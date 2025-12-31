@@ -68,6 +68,7 @@ const (
 	gatewayClassDefaults       = "gateway.istio.io/defaults-for-class"
 	gatewayTLSCipherSuites     = "gateway.istio.io/tls-cipher-suites"
 )
+
 // NOTE: This ordering ensures deterministic behavior when multiple configs
 // share identical creation timestamps. This addresses one known source of
 // nondeterminism, but may not eliminate all flakiness.
