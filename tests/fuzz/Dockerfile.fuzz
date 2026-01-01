@@ -24,6 +24,7 @@ RUN apt-get update && \
     /var/lib/dpkg/*-old \
     /var/cache/debconf/*-old
 
+# hadolint ignore=DL3062
 RUN go get -u github.com/dvyukov/go-fuzz/go-fuzz \
     github.com/dvyukov/go-fuzz/go-fuzz-dep \
     github.com/dvyukov/go-fuzz/go-fuzz-build
