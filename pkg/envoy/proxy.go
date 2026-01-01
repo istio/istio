@@ -46,14 +46,14 @@ type ProxyConfig struct {
 	OutlierLogPath     string
 	SkipDeprecatedLogs bool
 
-	BinaryPath           string
-	ConfigPath           string
-	ConfigCleanup        bool
-	AdminPort            int32
-	DrainDuration        *durationpb.Duration
-	Concurrency          int32
-	FileFlushIntervalSec uint32
-	FileFlushMinSizeKB   uint32
+	BinaryPath         string
+	ConfigPath         string
+	ConfigCleanup      bool
+	AdminPort          int32
+	DrainDuration      *durationpb.Duration
+	Concurrency        int32
+	FileFlushInterval  uint32
+	FileFlushMinSizeKB uint32
 
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
 	TestOnly    bool
@@ -129,8 +129,8 @@ func (e *envoy) args(fname string, overrideFname string) []string {
 		proxyLocalAddressType = "v6"
 	}
 	fileFlushInterval := "1000" // Default 1s
-	if e.FileFlushIntervalSec > 0 {
-		fileFlushInterval = fmt.Sprint(e.FileFlushIntervalSec)
+	if e.FileFlushInterval > 0 {
+		fileFlushInterval = fmt.Sprint(e.FileFlushInterval)
 	}
 
 	startupArgs := []string{
