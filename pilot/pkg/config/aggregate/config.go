@@ -18,22 +18,20 @@ package aggregate
 import (
 	"errors"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/kube/krt"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
 
 // makeStore creates an aggregate config store from several config stores and
 // unifies their descriptors
-func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.ConfigStore, error) {
+func makeStore(stores []model.ConfigStoreController, writer model.ConfigStoreController) (*store, error) {
+	stop := make(chan struct{})
 	union := collection.NewSchemasBuilder()
-	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStore)
+	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStoreController)
 	for _, store := range stores {
 		for _, s := range store.Schemas().All() {
 			if len(storeTypes[s.GroupVersionKind()]) == 0 {
@@ -49,10 +47,33 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 	if err := schemas.Validate(); err != nil {
 		return nil, err
 	}
+
+	kopts := krt.NewOptionsBuilder(stop, "aggregate", krt.GlobalDebugHandler)
+	kindStores := make(map[config.GroupVersionKind]kindStore)
+	for _, schema := range schemas.All() {
+		gvk := schema.GroupVersionKind()
+		schemaCollections := make([]krt.Collection[config.Config], 0, len(storeTypes[gvk]))
+		for _, store := range storeTypes[gvk] {
+			collection := store.KrtCollection(gvk)
+			if collection != nil {
+				schemaCollections = append(schemaCollections, collection)
+			}
+		}
+		if len(schemaCollections) != 0 {
+			collection := krt.JoinCollection(schemaCollections, kopts.WithName(gvk.Kind)...)
+			kindStores[gvk] = kindStore{
+				collection: collection,
+				index:      krt.NewNamespaceIndex(collection),
+			}
+		}
+	}
+
 	result := &store{
-		schemas: schemas,
-		stores:  storeTypes,
-		writer:  writer,
+		schemas:    schemas,
+		stores:     storeTypes,
+		kindStores: kindStores,
+		writer:     writer,
+		stop:       stop,
 	}
 
 	return result, nil
@@ -60,18 +81,14 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 
 // MakeWriteableCache creates an aggregate config store cache from several config store caches. An additional
 // `writer` config store is passed, which may or may not be part of `caches`.
-func MakeWriteableCache(caches []model.ConfigStoreController, writer model.ConfigStore) (model.ConfigStoreController, error) {
-	stores := make([]model.ConfigStore, 0, len(caches))
-	for _, cache := range caches {
-		stores = append(stores, cache)
-	}
-	store, err := makeStore(stores, writer)
+func MakeWriteableCache(caches []model.ConfigStoreController, writer model.ConfigStoreController) (model.ConfigStoreController, error) {
+	store, err := makeStore(caches, writer)
 	if err != nil {
 		return nil, err
 	}
 	return &storeCache{
-		ConfigStore: store,
-		caches:      caches,
+		store:  store,
+		caches: caches,
 	}, nil
 }
 
@@ -86,9 +103,17 @@ type store struct {
 	schemas collection.Schemas
 
 	// stores is a mapping from config type to a store
-	stores map[config.GroupVersionKind][]model.ConfigStore
+	stores map[config.GroupVersionKind][]model.ConfigStoreController
 
-	writer model.ConfigStore
+	kindStores map[config.GroupVersionKind]kindStore
+
+	writer model.ConfigStoreController
+	stop   chan struct{}
+}
+
+type kindStore struct {
+	collection krt.Collection[config.Config]
+	index      krt.Index[string, config.Config]
 }
 
 func (cr *store) Schemas() collection.Schemas {
@@ -97,45 +122,28 @@ func (cr *store) Schemas() collection.Schemas {
 
 // Get the first config found in the stores.
 func (cr *store) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
-	for _, store := range cr.stores[typ] {
-		config := store.Get(typ, name, namespace)
-		if config != nil {
-			return config
+	if kindStore, ok := cr.kindStores[typ]; ok {
+		key := name
+		if len(namespace) > 0 {
+			key = namespace + "/" + name
 		}
+
+		return kindStore.collection.GetKey(key)
 	}
+
 	return nil
 }
 
 // List all configs in the stores.
 func (cr *store) List(typ config.GroupVersionKind, namespace string) []config.Config {
-	stores := cr.stores[typ]
-	if len(stores) == 0 {
-		return nil
+	if kindStore, ok := cr.kindStores[typ]; ok {
+		if namespace == model.NamespaceAll {
+			return kindStore.collection.List()
+		}
+		return kindStore.index.Lookup(namespace)
 	}
 
-	var (
-		configs      []config.Config
-		storeConfigs = make([][]config.Config, 0, len(stores))
-		configCnt    int
-	)
-
-	for _, store := range stores {
-		curConfigs := store.List(typ, namespace)
-		storeConfigs = append(storeConfigs, curConfigs)
-		configCnt += len(curConfigs)
-	}
-
-	configs = make([]config.Config, 0, configCnt)
-	// Used to remove duplicated config
-	configMap := sets.NewWithLength[types.NamespacedName](configCnt)
-	for _, curConfigs := range storeConfigs {
-		configs = append(configs, curConfigs...)
-	}
-	configs = slices.FilterInPlace[config.Config](configs, func(cfg config.Config) bool {
-		return !configMap.InsertContains(cfg.NamespacedName())
-	})
-
-	return configs
+	return nil
 }
 
 func (cr *store) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
@@ -167,7 +175,7 @@ func (cr *store) UpdateStatus(c config.Config) (string, error) {
 }
 
 type storeCache struct {
-	model.ConfigStore
+	*store
 	caches []model.ConfigStoreController
 }
 
@@ -177,6 +185,13 @@ func (cr *storeCache) HasSynced() bool {
 			return false
 		}
 	}
+
+	for _, kindStore := range cr.kindStores {
+		if !kindStore.collection.HasSynced() {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -193,4 +208,13 @@ func (cr *storeCache) Run(stop <-chan struct{}) {
 		go cache.Run(stop)
 	}
 	<-stop
+	close(cr.stop)
+}
+
+func (cr *storeCache) KrtCollection(gvk config.GroupVersionKind) krt.Collection[config.Config] {
+	if kindStore, ok := cr.store.kindStores[gvk]; ok {
+		return kindStore.collection
+	}
+
+	return nil
 }
