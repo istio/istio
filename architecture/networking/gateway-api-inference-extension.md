@@ -1,6 +1,6 @@
 # Gateway API Inference Extension (GIE)
 
-This package contains integration tests for Istio's support of the [Gateway API Inference Extension](https://gateway-api-inference-extension.sigs.k8s.io/).
+This document describes Istio's support for the [Gateway API Inference Extension](https://gateway-api-inference-extension.sigs.k8s.io/).
 
 ## Overview
 
@@ -90,6 +90,8 @@ spec:
 ```
 
 ## Running Tests
+
+The integration tests live in `tests/integration/pilot/gie`.
 
 To run the GIE integration tests:
 
