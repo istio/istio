@@ -384,14 +384,13 @@ func getNodeMetadataOptions(node *model.Node, policy string) []option.Instance {
 		}
 	}
 	if !metadataExists {
-		// If the runtime flag overload.global_downstream_max_connections is set, honour it
+		// If the runtime flag overload.global_downstream_max_connections is set, honor it
 		// for backwards compatibility. This will be removed in a future release.
 		globalDownstreamMaxConnectionsRuntime := globalDownstreamMaxConnectionsRuntimeFlag(node.Metadata.ProxyConfig)
 		if globalDownstreamMaxConnectionsRuntime != "" {
 			if maxConnections, err := strconv.Atoi(globalDownstreamMaxConnectionsRuntime); err == nil {
 				globalDownstreamMaxConnections = maxConnections
 			}
-
 		}
 	}
 	opts = append(opts, option.GlobalDownstreamMaxConnections(globalDownstreamMaxConnections))
