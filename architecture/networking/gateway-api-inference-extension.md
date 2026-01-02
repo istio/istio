@@ -47,10 +47,10 @@ For each InferencePool, Istio automatically creates an internal "shadow" Service
 - Named pattern: `<pool-name>-ip-<hash>` (e.g., `test-pool-ip-a1b2c3d4`)
 - Headless service (ClusterIP: None)
 - Labels for EPP configuration:
-  - `istio.io/inferencepool-name`: Pool name
-  - `istio.io/inferencepool-extension-service`: EPP service name
-  - `istio.io/inferencepool-extension-port`: EPP service port
-  - `istio.io/inferencepool-extension-failure-mode`: Failure mode (FailOpen/FailClose)
+    - `istio.io/inferencepool-name`: Pool name
+    - `istio.io/inferencepool-extension-service`: EPP service name
+    - `istio.io/inferencepool-extension-port`: EPP service port
+    - `istio.io/inferencepool-extension-failure-mode`: Failure mode (FailOpen/FailClose)
 
 ## How It Works
 
@@ -77,7 +77,7 @@ For each InferencePool, Istio automatically creates an internal "shadow" Service
 The Gateway API Inference Extension is disabled by default. To enable it:
 
 1. Ensure `PILOT_ENABLE_GATEWAY_API=true` (required)
-2. Set `ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true` on istiod
+1. Set `ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true` on istiod
 
 Example:
 
