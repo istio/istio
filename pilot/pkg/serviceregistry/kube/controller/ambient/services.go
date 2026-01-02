@@ -43,11 +43,30 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/workloadapi"
 )
+
+// setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo
+func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
+	wdsSvc := protomarshal.ShallowClone(se.Service)
+	wdsSvc.Canonical = true
+	return precomputeService(model.ServiceInfo{
+		Service:          wdsSvc,
+		LabelSelector:    se.LabelSelector,
+		PortNames:        se.PortNames,
+		Source:           se.Source,
+		Scope:            se.Scope,
+		Waypoint:         se.Waypoint,
+		MarshaledAddress: se.MarshaledAddress,
+		AsAddress:        se.AsAddress,
+		CreationTime:     se.CreationTime,
+	})
+}
 
 func (a Builder) ServicesCollection(
 	clusterID cluster.ID,
@@ -75,33 +94,53 @@ func (a Builder) ServicesCollection(
 			}),
 		)...)
 	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []string {
-		return []string{fmt.Sprintf("%s/%s", se.Service.Namespace, se.Service.Hostname)}
+		return []string{se.Service.Hostname}
 	})
 
 	serviceByHostname := krt.NewIndex(ServicesInfo, "serviceByHostname", func(s model.ServiceInfo) []string {
 		return []string{s.Service.Hostname}
 	})
 
-	DedupedServiceEntriesInfo := krt.NewCollection(
+	DedupedServiceEntriesInfo := krt.NewManyCollection(
 		serviceEntryByHostname.AsCollection(),
-		func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) *model.ServiceInfo {
+		func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) []model.ServiceInfo {
 			if len(se.Objects) == 0 {
 				return nil
 			}
 
-			s := krt.FetchOne(ctx, ServicesInfo, krt.FilterIndex(serviceByHostname, se.Objects[0].Service.Hostname))
-			if s != nil {
-				// if we have a hostname conflict with a kubernetes service, we should eliminate all the ServiceEntry ServiceInfos for this hostname
-				return nil
+			s := krt.FetchOne(ctx, ServicesInfo, krt.FilterIndex(serviceByHostname, se.Key))
+			servicePresent := s != nil
+			var serviceNamespace string
+			if servicePresent {
+				serviceNamespace = s.GetNamespace()
 			}
 
-			var oldest *model.ServiceInfo
+			oldestByNamespace := make(map[string]model.ServiceInfo)
+			var canonical *model.ServiceInfo
 			for _, o := range se.Objects {
-				if oldest == nil || o.CreationTime.Before(oldest.CreationTime) {
-					oldest = &o.ServiceInfo
+				seNamespace := o.GetNamespace()
+				if servicePresent && serviceNamespace == seNamespace {
+					// this would be a conflict of namespace/hostname, skip
+					continue
+				}
+				oldest, found := oldestByNamespace[seNamespace]
+				if !found || o.CreationTime.Before(oldest.CreationTime) {
+					oldestByNamespace[seNamespace] = o.ServiceInfo
+				}
+				if !servicePresent && (canonical == nil || o.CreationTime.Before(canonical.CreationTime)) {
+					// partially correct, we need should have some concept of a "preferred namespace" since ztunnel can
+					// presently do this
+					canonical = &o.ServiceInfo
 				}
 			}
-			return oldest
+
+			// make a copy and then set canonical
+			if canonical != nil {
+				oldestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
+			}
+
+			// convert map into slice and return
+			return maps.Values(oldestByNamespace)
 		}, append(
 			opts.WithName("DedupedServiceEntriesInfo"),
 			krt.WithMetadata(krt.Metadata{
@@ -454,6 +493,7 @@ func serviceEntriesInfo(
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
+	// Should we actually precomupute here, or should we deduplicate first?
 	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
@@ -633,6 +673,9 @@ func constructService(
 		Waypoint:      w.GetAddress(),
 		LoadBalancing: lb,
 		IpFamilies:    ipFamily,
+		// A kubernetes service is always considered to be canonical, overrides for this host must be namespace-local
+		// to the client workload
+		Canonical: true,
 	}
 }
 

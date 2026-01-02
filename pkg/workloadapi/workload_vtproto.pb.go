@@ -182,6 +182,9 @@ func (this *Service) EqualVT(that *Service) bool {
 			}
 		}
 	}
+	if this.Canonical != that.Canonical {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -734,6 +737,16 @@ func (m *Service) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.Canonical {
+		i--
+		if m.Canonical {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x58
 	}
 	if len(m.Extensions) > 0 {
 		for iNdEx := len(m.Extensions) - 1; iNdEx >= 0; iNdEx-- {
@@ -1691,6 +1704,9 @@ func (m *Service) SizeVT() (n int) {
 			l = e.SizeVT()
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
+	}
+	if m.Canonical {
+		n += 2
 	}
 	n += len(m.unknownFields)
 	return n

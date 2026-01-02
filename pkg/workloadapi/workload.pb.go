@@ -722,7 +722,10 @@ type Service struct {
 	// IP families provides configuration about the IP families this service supports.
 	IpFamilies IPFamilies `protobuf:"varint,9,opt,name=ip_families,json=ipFamilies,proto3,enum=istio.workload.IPFamilies" json:"ip_families,omitempty"`
 	// Extension provides a mechanism to attach arbitrary additional configuration to an object.
-	Extensions    []*Extension `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
+	Extensions []*Extension `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
+	// canonical marks this service as being the definition for a hostname, if there is no override of that hostname
+	// from within the namespace the client resides in
+	Canonical     bool `protobuf:"varint,11,opt,name=canonical,proto3" json:"canonical,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -825,6 +828,13 @@ func (x *Service) GetExtensions() []*Extension {
 		return x.Extensions
 	}
 	return nil
+}
+
+func (x *Service) GetCanonical() bool {
+	if x != nil {
+		return x.Canonical
+	}
+	return false
 }
 
 type LoadBalancing struct {
@@ -1695,7 +1705,7 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\aAddress\x126\n" +
 	"\bworkload\x18\x01 \x01(\v2\x18.istio.workload.WorkloadH\x00R\bworkload\x123\n" +
 	"\aservice\x18\x02 \x01(\v2\x17.istio.workload.ServiceH\x00R\aserviceB\x06\n" +
-	"\x04type\"\xe7\x03\n" +
+	"\x04type\"\x85\x04\n" +
 	"\aService\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1a\n" +
@@ -1710,7 +1720,8 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\n" +
 	"extensions\x18\n" +
 	" \x03(\v2\x19.istio.workload.ExtensionR\n" +
-	"extensions\"\xcd\x03\n" +
+	"extensions\x12\x1c\n" +
+	"\tcanonical\x18\v \x01(\bR\tcanonical\"\xcd\x03\n" +
 	"\rLoadBalancing\x12R\n" +
 	"\x12routing_preference\x18\x01 \x03(\x0e2#.istio.workload.LoadBalancing.ScopeR\x11routingPreference\x126\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\".istio.workload.LoadBalancing.ModeR\x04mode\x12O\n" +
