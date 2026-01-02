@@ -17,6 +17,7 @@ The `InferencePool` is a Kubernetes CRD from the `inference.networking.k8s.io/v1
 - `endpointPickerRef`: Reference to an external service that provides endpoint selection logic
 
 Example:
+
 ```yaml
 apiVersion: inference.networking.k8s.io/v1
 kind: InferencePool
@@ -54,21 +55,22 @@ For each InferencePool, Istio automatically creates an internal "shadow" Service
 ## How It Works
 
 1. An HTTPRoute references an InferencePool as a backend:
+
    ```yaml
    backendRefs:
-   - group: inference.networking.k8s.io
-     kind: InferencePool
-     name: my-inference-pool
-     port: 80
+     - group: inference.networking.k8s.io
+       kind: InferencePool
+       name: my-inference-pool
+       port: 80
    ```
 
-2. The Gateway controller detects this and creates a shadow Service
+1. The Gateway controller detects this and creates a shadow Service
 
-3. During route conversion, the ext_proc filter is attached with EPP service details
+1. During route conversion, the ext_proc filter is attached with EPP service details
 
-4. At runtime, Envoy uses ext_proc to query the EPP service for endpoint selection
+1. At runtime, Envoy uses ext_proc to query the EPP service for endpoint selection
 
-5. Requests are routed to the selected pod:port combination
+1. Requests are routed to the selected pod:port combination
 
 ## Enabling the Feature
 
@@ -78,6 +80,7 @@ The Gateway API Inference Extension is disabled by default. To enable it:
 2. Set `ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true` on istiod
 
 Example:
+
 ```yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
@@ -100,6 +103,7 @@ go test -tags=integ ./tests/integration/pilot/gie/... -v
 ```
 
 The tests require:
+
 - A Kubernetes cluster with Istio installed
 - Gateway API CRDs installed
 - Gateway API Inference Extension CRDs installed
@@ -109,6 +113,7 @@ The tests require:
 ### TestInferencePoolMultipleTargetPorts
 
 This test verifies:
+
 - InferencePools with multiple targetPorts create a single shadow service
 - The shadow service has correct labels and is headless
 - EPP endpoint selection works correctly for all configured ports
