@@ -77,7 +77,10 @@ var (
 		false,
 		"If enabled, selector based authorization policies will be enforced as L4 policies in front of the waypoint.").Get()
 
-	EnableWdsDryRunAuthzPol = registerAmbient("AMBIENT_ENABLE_DRY_RUN_AUTHORIZATION_POLICY", false, false, "TODO")
+	EnableWdsDryRunAuthzPol = registerAmbient("AMBIENT_ENABLE_DRY_RUN_AUTHORIZATION_POLICY", false, false,
+		"If enabled, ztunnel will be configured with dry-run authorizationPolicies. "+
+			"Ensure ztunnel is 1.29 or above before enabling this feature. "+
+			"Older ztunnel will accept dry-run policies, but enforce them instead of only logging.")
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set
