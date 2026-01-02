@@ -791,7 +791,6 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 	server *networking.Server, listenerPort uint32,
 	gatewayName string, tlsHostsByPort map[uint32]map[string]string,
 ) []*filterChainOpts {
-
 	filterChains := make([]*filterChainOpts, 0)
 	port := &model.Port{
 		Name:     server.Port.Name,
@@ -852,7 +851,6 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(
 	port *model.Port,
 	gatewayServerHosts sets.Set[host.Name],
 ) []*listener.Filter {
-
 	for _, v := range virtualServices {
 		vsvc := v.Spec.(*networking.VirtualService)
 		// We have two cases here:
@@ -893,7 +891,6 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLS(
 	port *model.Port,
 	gatewayServerHosts sets.Set[host.Name],
 ) []*filterChainOpts {
-
 	if server.Tls != nil && server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 		return builtAutoPassthroughFilterChains(lb.push, lb.node, lb.node.MergedGateway.TLSServerInfo[server].SNIHosts)
 	}
@@ -980,7 +977,6 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLS(
 					}
 				}
 			}
-
 		}
 
 	}
