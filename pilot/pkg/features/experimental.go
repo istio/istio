@@ -29,6 +29,10 @@ var (
 	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
 		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
+	EnableAgentgateway = env.Register("PILOT_ENABLE_AGENTGATEWAY",
+		false,
+		"If enabled, the istio-agentgateway GatewayClass will be enabled.").Get()
+
 	// GlobalSendUnhealthyEndpoints contains the raw setting on GlobalSendUnhealthyEndpoints. This should be checked per-service
 	GlobalSendUnhealthyEndpoints = atomic.NewBool(env.Register(
 		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
