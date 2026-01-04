@@ -259,11 +259,11 @@ func (c *Config) fillDefaults(ctx resource.Context) {
 // Indent indents a block of text with an indent string
 func Indent(text, indent string) string {
 	if text[len(text)-1:] == "\n" {
-		result := ""
+		var result strings.Builder
 		for _, j := range strings.Split(text[:len(text)-1], "\n") {
-			result += indent + j + "\n"
+			result.WriteString(indent + j + "\n")
 		}
-		return result
+		return result.String()
 	}
 	result := ""
 	for _, j := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
