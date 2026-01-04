@@ -59,6 +59,7 @@ The available features and the components that comprise each feature are as foll
 CRDs, and other cluster wide configs | Base
 Traffic Management | Pilot
 Security | Pilot
+ClusterTrustBundle | Pilot
 Configuration management | Pilot
 AutoInjection | Pilot
 Gateways | Ingress gateway
