@@ -139,9 +139,15 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 ) {
 	t.Helper()
 
-	t.CleanupConditionally(func() {
-		deleteKubeSecret(t, credName)
-	})
+	// Don't cleanup secrets in multicluster environments as they may be referenced by
+	// generated Gateway configs that persist across test boundaries. The secrets will
+	// be cleaned up when the namespace is deleted at test suite completion.
+	// In single cluster environments, cleanup as before to avoid test pollution.
+	if len(clusters) <= 1 && len(t.Clusters()) <= 1 {
+		t.CleanupConditionally(func() {
+			deleteKubeSecret(t, credName)
+		})
+	}
 
 	// Create Kubernetes secret for ingress gateway
 	wg := multierror.Group{}
