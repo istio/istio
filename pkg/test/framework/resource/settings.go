@@ -252,6 +252,39 @@ func DefaultSettings() *Settings {
 	}
 }
 
+// Dynamic Revision Management
+// activeSettingsRegistry holds references to Settings instances that need revision updates
+var activeSettingsRegistry []*Settings
+
+// SetDetectedRevisions updates the revisions for this Settings instance if no command line revisions were provided.
+// This allows dynamic updating of revisions after Settings creation.
+func (s *Settings) SetDetectedRevisions(revisions RevVerMap) {
+	if len(s.Revisions) == 0 { // Only update if no command line flag was provided
+		fmt.Printf("Settings.SetDetectedRevisions updating from %v to %v\n", s.Revisions, revisions)
+		s.Revisions = revisions
+	} else {
+		fmt.Printf("Settings.SetDetectedRevisions skipping update - command line revisions present: %v\n", s.Revisions)
+	}
+}
+
+// RegisterForRevisionUpdates registers a Settings instance to receive revision updates when versions are detected.
+func RegisterForRevisionUpdates(s *Settings) {
+	fmt.Printf("RegisterForRevisionUpdates called for Settings with revisions: %v\n", s.Revisions)
+	activeSettingsRegistry = append(activeSettingsRegistry, s)
+}
+
+// NotifyDetectedRevisions updates all registered Settings instances with detected revisions.
+// This should be called by the Istio framework when versions are detected from running pods.
+func NotifyDetectedRevisions(revisions RevVerMap) {
+	fmt.Printf("NotifyDetectedRevisions called with: %v\n", revisions)
+	fmt.Printf("Updating %d registered Settings instances\n", len(activeSettingsRegistry))
+
+	for i, settings := range activeSettingsRegistry {
+		fmt.Printf("Updating Settings instance %d\n", i)
+		settings.SetDetectedRevisions(revisions)
+	}
+}
+
 // String implements fmt.Stringer
 func (s *Settings) String() string {
 	result := ""
