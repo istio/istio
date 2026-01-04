@@ -432,6 +432,28 @@ report-benchtest:
 	prow/benchtest.sh report
 
 #-----------------------------------------------------------------------------
+# Target: vulnerability scanning
+#-----------------------------------------------------------------------------
+.PHONY: vuln-check vuln-check-json install-govulncheck
+
+# Install govulncheck if not already installed
+install-govulncheck:
+	@which govulncheck > /dev/null || { \
+		echo "$(H) Installing govulncheck..."; \
+		go install golang.org/x/vuln/cmd/govulncheck@latest; \
+	}
+
+# Run vulnerability check on the entire codebase
+vuln-check: install-govulncheck ## Runs govulncheck to detect known vulnerabilities
+	@echo "$(H) Running vulnerability check..."
+	govulncheck ./...
+
+# Run vulnerability check with JSON output for CI integration
+vuln-check-json: install-govulncheck
+	@echo "$(H) Running vulnerability check with JSON output..."
+	govulncheck -json ./...
+
+#-----------------------------------------------------------------------------
 # Target: clean
 #-----------------------------------------------------------------------------
 .PHONY: clean
