@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+
+area: installation
+
+issue:
+  - https://github.com/istio/istio/issues/54721
+
+releaseNotes:
+- |
+  **Added** value `useAppArmorAnnotation` to istio-cni helm chart. Defaults to `true`.
+  When it is `true`, appArmor profile is set with `container.apparmor.security.beta.kubernetes.io` annotation (deprecated in Kubernetes 1.30).
+  Otherwise, `appArmorProfile` field in `securityContext` is used.
