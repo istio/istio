@@ -917,12 +917,27 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLS(
 		}
 
 		if len(vsvc.Tcp) > 0 {
-			// in case we've found tls on another service, or on this one we should
-			// ignore this service
-			if len(vsvc.Tls) > 0 || foundTLS {
-				// If another vsvc was found with TLS, avoid mixing it for now
-				// TODO: clarify if we want this behavior
-				log.Warnf("mixed TLS/TCP support not supported, gateway %s", gatewayName)
+			// Check if TLS blocks exist for THIS gateway before rejecting mixed TLS/TCP.
+			// VirtualServices can have TLS blocks for one gateway (e.g., mesh) and TCP blocks
+			// for another gateway (e.g., egress gateway) in multi-gateway routing scenarios.
+			hasTLSForThisGateway := false
+			if len(vsvc.Tls) > 0 {
+				for _, tls := range vsvc.Tls {
+					for _, match := range tls.Match {
+						if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
+							hasTLSForThisGateway = true
+							break
+						}
+					}
+					if hasTLSForThisGateway {
+						break
+					}
+				}
+			}
+
+			if hasTLSForThisGateway || foundTLS {
+				// If TLS was found for THIS gateway, avoid mixing TLS and TCP for the same gateway
+				log.Warnf("mixed TLS/TCP support not supported for the same gateway, gateway %s", gatewayName)
 				return []*filterChainOpts{}
 			}
 			// ensure we satisfy the rule's l4 match conditions, if any exist
