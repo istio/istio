@@ -26,6 +26,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/cluster"
@@ -90,6 +91,36 @@ func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *mul
 	}
 	client.RunAndWait(stop)
 	return sc
+}
+
+func TestNamespaceControllerElectionID(t *testing.T) {
+	cases := []struct {
+		name     string
+		revision string
+		want     string
+	}{
+		{
+			name:     "empty revision uses default election",
+			revision: "",
+			want:     leaderelection.NamespaceController,
+		},
+		{
+			name:     "default revision uses default election",
+			revision: "default",
+			want:     leaderelection.NamespaceController,
+		},
+		{
+			name:     "non-default revision gets suffix",
+			revision: "1-22",
+			want:     leaderelection.NamespaceController + "-1-22",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, namespaceControllerElectionID(tc.revision), tc.want)
+		})
+	}
 }
 
 func Test_KubeSecretController(t *testing.T) {

@@ -168,6 +168,13 @@ func (m *Multicluster) getMeshConfigMapName() string {
 	return name + "-" + m.revision
 }
 
+func namespaceControllerElectionID(revision string) string {
+	if revision == "" || revision == "default" {
+		return leaderelection.NamespaceController
+	}
+	return leaderelection.NamespaceController + "-" + revision
+}
+
 // initializeCluster initializes the cluster by setting various handlers.
 func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeController *kubeController, kubeRegistry *Controller,
 	options Options, configCluster bool, clusterStopCh <-chan struct{},
@@ -239,7 +246,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 					log.Infof("joining leader-election for %s in %s on cluster %s",
 						leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 					election := leaderelection.
-						NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
+						NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, namespaceControllerElectionID(m.revision), m.revision, !configCluster, client).
 						AddRunFunction(func(leaderStop <-chan struct{}) {
 							log.Infof("starting namespace controller for cluster %s", cluster.ID)
 							nc := NewNamespaceController(client, m.caBundleWatcher)
