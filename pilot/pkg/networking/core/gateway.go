@@ -868,7 +868,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gatewayName) {
-				includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
+				includeMx := server.Tls != nil && server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL
 				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
 			}
 		}
@@ -945,7 +945,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLS(
 			// based on the match port/server port and the gateway name
 			for _, tcp := range vsvc.Tcp {
 				if l4MultiMatch(tcp.Match, server, gatewayName) {
-					includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
+					includeMx := server.Tls != nil && server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL
 					filters := lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
 					if len(filters) == 0 {
 						log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
