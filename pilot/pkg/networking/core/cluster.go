@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
+	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -335,8 +336,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
+			var wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
 			if clusterKey.endpointBuilder != nil {
 				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
+				istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
+				wrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
+					IstioEndpoints:      istioEndpoints,
+					LocalityLbEndpoints: lbEndpoints[0],
+				}
 			}
 
 			// create default cluster
@@ -345,6 +352,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			if defaultCluster == nil {
 				continue
 			}
+			defaultCluster.wrappedLocalityLbEndpoints = wrappedLocalityLbEndpoints
 
 			// if the service uses persistent sessions, override status allows
 			// DRAINING endpoints to be kept as 'UNHEALTHY' coarse status in envoy.

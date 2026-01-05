@@ -836,6 +836,65 @@ func TestApplyLocalitySetting(t *testing.T) {
 		}
 	})
 
+	t.Run("FailoverPriority with DNS service instances", func(t *testing.T) {
+		g := NewWithT(t)
+		locality := &core.Locality{
+			Region:  "region1",
+			Zone:    "zone1",
+			SubZone: "subzone1",
+		}
+
+		// Build cluster with DNS endpoints (hostnames instead of IPs)
+		cluster := buildDNSClusterWithFailoverPriority()
+		wrappedEndpoints := buildWrappedLocalityLbEndpointsForDNS()
+
+		// Build environment with failoverPriority label "priority"
+		env := buildEnvForClustersWithFailoverPriority([]string{"priority"})
+		proxyLabels := map[string]string{
+			"priority": "1",
+		}
+
+		// Apply locality load balancer
+		ApplyLocalityLoadBalancer(cluster.LoadAssignment, wrappedEndpoints, locality, proxyLabels, env.Mesh().LocalityLbSetting, true)
+
+		// Validate priorities:
+		// The applyFailoverPriorityPerLocality function splits endpoints into separate locality groups
+		// - www.google.com has priority=1 label, matches proxy label -> Priority 0 (highest)
+		// - www.salesforce.com has priority=2 label, doesn't match -> Priority 1 (lower)
+		if len(cluster.LoadAssignment.Endpoints) != 2 {
+			t.Fatalf("expected 2 endpoint groups (split by priority) but got %d", len(cluster.LoadAssignment.Endpoints))
+		}
+
+		// Find endpoints by hostname and validate priorities
+		var googleEndpointGroup, salesforceEndpointGroup *endpoint.LocalityLbEndpoints
+		for _, epGroup := range cluster.LoadAssignment.Endpoints {
+			if len(epGroup.LbEndpoints) == 0 {
+				continue
+			}
+			addr := epGroup.LbEndpoints[0].GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
+			if addr == "www.google.com" {
+				googleEndpointGroup = epGroup
+			} else if addr == "www.salesforce.com" {
+				salesforceEndpointGroup = epGroup
+			}
+		}
+
+		if googleEndpointGroup == nil {
+			t.Fatal("could not find www.google.com endpoint group")
+		}
+		if salesforceEndpointGroup == nil {
+			t.Fatal("could not find www.salesforce.com endpoint group")
+		}
+
+		// Validate that google.com endpoint has priority 0 (matches failoverPriority)
+		g.Expect(googleEndpointGroup.Priority).To(Equal(uint32(0)), "www.google.com endpoint should have priority 0 (matches failoverPriority label)")
+		g.Expect(len(googleEndpointGroup.LbEndpoints)).To(Equal(1), "www.google.com should have 1 endpoint")
+
+		// Validate that salesforce.com endpoint has priority 1 (doesn't match failoverPriority)
+		g.Expect(salesforceEndpointGroup.Priority).To(Equal(uint32(1)), "www.salesforce.com endpoint should have priority 1 (doesn't match failoverPriority label)")
+		g.Expect(len(salesforceEndpointGroup.LbEndpoints)).To(Equal(1), "www.salesforce.com should have 1 endpoint")
+	})
+
 	t.Run("FailoverPriority with Failover", func(t *testing.T) {
 		tests := []struct {
 			name             string
@@ -1831,6 +1890,81 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[5],
+		},
+	}
+}
+
+func buildEndpointWithHostname(hostname string) *endpoint.LbEndpoint_Endpoint {
+	return &endpoint.LbEndpoint_Endpoint{
+		Endpoint: &endpoint.Endpoint{
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: hostname,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 443,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func buildDNSClusterWithFailoverPriority() *cluster.Cluster {
+	return &cluster.Cluster{
+		Name: "outbound|443||dns-service.example.org",
+		LoadAssignment: &endpoint.ClusterLoadAssignment{
+			ClusterName: "outbound|443||dns-service.example.org",
+			Endpoints: []*endpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: buildEndpointWithHostname("www.google.com"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+						{
+							HostIdentifier: buildEndpointWithHostname("www.salesforce.com"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 2,
+					},
+				},
+			},
+		},
+	}
+}
+
+func buildWrappedLocalityLbEndpointsForDNS() []*WrappedLocalityLbEndpoints {
+	cluster := buildDNSClusterWithFailoverPriority()
+	return []*WrappedLocalityLbEndpoints{
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
+				{
+					Labels: map[string]string{
+						"priority": "1",
+					},
+					Addresses: []string{"www.google.com"},
+				},
+				{
+					Labels: map[string]string{
+						"priority": "2",
+					},
+					Addresses: []string{"www.salesforce.com"},
+				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[0],
 		},
 	}
 }

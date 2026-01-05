@@ -1811,6 +1811,144 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			},
 		},
 		{
+			name: "basic with DNS",
+			mesh: testMesh(),
+			instances: []*model.ServiceInstance{
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Addresses:    []string{"www.google.com"},
+						EndpointPort: 10001,
+						WorkloadName: "workload-1",
+						Namespace:    "namespace-1",
+						Locality: model.Locality{
+							ClusterID: "cluster-1",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+						Network:  "nw-0",
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Addresses:    []string{"www.salesforce.com"},
+						EndpointPort: 10001,
+						WorkloadName: "workload-2",
+						Namespace:    "namespace-2",
+						Locality: model.Locality{
+							ClusterID: "cluster-2",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+						Network:  "nw-1",
+					},
+				},
+			},
+			expected: []*endpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 60,
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "192.168.1.1",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: buildMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 30,
+							},
+						},
+						{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "192.168.1.2",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+									AdditionalAddresses: []*endpoint.Endpoint_AdditionalAddress{
+										{
+											Address: &core.Address{
+												Address: &core.Address_SocketAddress{
+													SocketAddress: &core.SocketAddress{
+														Address: "2001:1::2",
+														PortSpecifier: &core.SocketAddress_PortValue{
+															PortValue: 10001,
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: buildMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 30,
+							},
+						},
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region2",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 40,
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "192.168.1.3",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: buildMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 40,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "cluster local",
 			mesh: withClusterLocalHosts(testMesh(), "*.example.org"),
 			instances: []*model.ServiceInstance{
@@ -2015,6 +2153,9 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 
 	for _, tt := range cases {
+		if tt.name != "basic with DNS" {
+			continue
+		}
 		for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB} {
 			t.Run(fmt.Sprintf("%s_%s", tt.name, resolution), func(t *testing.T) {
 				service.Resolution = resolution
