@@ -369,13 +369,13 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 }
 
 func TestAmbientIndex_ServiceOverlap(t *testing.T) {
-	addServiceEntry := func(s *ambientTestServer, i int, host string) {
+	addServiceEntry := func(s *ambientTestServer, i int, host string, namespace string) {
 		s.addServiceEntry(
 			t,
 			host,
 			[]string{fmt.Sprintf("10.255.0.%d", i)},
 			fmt.Sprintf("se-%d", i),
-			testNS,
+			namespace,
 			map[string]string{},
 			[]string{fmt.Sprintf("10.10.0.%d", i)},
 		)
@@ -398,8 +398,18 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 	t.Run("serviceentry overlap", func(t *testing.T) {
 		s := newAmbientTestServer(t, testC, testNW, "")
 
-		// initial SE
-		addServiceEntry(s, 1, "foo.com")
+		// initial foo.com created in namespace original, this one should be canonical until deleted
+		// for now we'll just number it "11"
+		addServiceEntry(s, 11, "foo.com", "original")
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com", "original"),
+			s.seIPXdsNameForCluster("se-11", "10.10.0.11", s.ClusterID, "original"),
+		)
+		s.assertAddresses(t, testNW+"/10.255.0.11", "se-11")
+		s.assertCanonicalService(t, "foo.com", "se-11")
+		s.assertNoEvent(t)
+
+		// first SE in testNS
+		addServiceEntry(s, 1, "foo.com", testNS)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com"),
 			s.seIPXdsName("se-1", "10.10.0.1"),
 		)
@@ -407,25 +417,47 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		s.assertNoEvent(t)
 
 		// overlapping SE - the old one takes precedence, new one is not in indexes
-		addServiceEntry(s, 2, "foo.com")
+		addServiceEntry(s, 2, "foo.com", testNS)
 		s.assertNoEvent(t)
 		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
 		s.assertAddresses(t, testNW+"/10.255.0.2")
 		s.assertNoEvent(t)
 
-		// the original one goes away, the new one takes over
+		// remove the existing canonical from "original" namespace
+		s.deleteServiceEntry(t, "se-11", "original")
+		// expecting 2 delete events and also an event for marking se-1 canonical
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com", "original"),
+			s.seIPXdsNameForCluster("se-11", "10.10.0.11", s.ClusterID, "original"),
+			s.xdsNamespacedHostname("foo.com", testNS),
+		)
+		s.assertNoEvent(t)
+		// assert that se-1 became canonical
+		s.assertCanonicalService(t, "foo.com", "se-1")
+
+		// the original in testNS goes away, the new one takes over
 		deleteServiceEntry(s, 1)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com"),
 			s.seIPXdsName("se-2", "10.10.0.2"),
 			s.seIPXdsName("se-1", "10.10.0.1"))
 		s.assertAddresses(t, testNW+"/10.255.0.1")
 		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+		s.assertCanonicalService(t, "foo.com", "se-2")
 	})
 	t.Run("wildcard serviceentry overlap", func(t *testing.T) {
 		s := newAmbientTestServer(t, testC, testNW, "")
 
-		// initial SE
-		addServiceEntry(s, 1, "*.foo.com")
+		// initial *.foo.com created in namespace original, this one should be canonical until deleted
+		// for now we'll just number it "11"
+		addServiceEntry(s, 11, "*.foo.com", "original")
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com", "original"),
+			s.seIPXdsNameForCluster("se-11", "10.10.0.11", s.ClusterID, "original"),
+		)
+		s.assertAddresses(t, testNW+"/10.255.0.11", "se-11")
+		s.assertCanonicalService(t, "*.foo.com", "se-11")
+		s.assertNoEvent(t)
+
+		// first SE in testNS
+		addServiceEntry(s, 1, "*.foo.com", testNS)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com"),
 			s.seIPXdsName("se-1", "10.10.0.1"),
 		)
@@ -433,19 +465,31 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		s.assertNoEvent(t)
 
 		// overlapping SE - the old one takes precedence, new one is not in indexes
-		addServiceEntry(s, 2, "*.foo.com")
+		addServiceEntry(s, 2, "*.foo.com", testNS)
 		s.assertNoEvent(t)
 		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
 		s.assertAddresses(t, testNW+"/10.255.0.2")
 		s.assertNoEvent(t)
 
-		// the original one goes away, the new one takes over
+		// remove the existing canonical from "original" namespace
+		s.deleteServiceEntry(t, "se-11", "original")
+		// expecting 2 delete events and also an event for marking se-1 canonical
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com", "original"),
+			s.seIPXdsNameForCluster("se-11", "10.10.0.11", s.ClusterID, "original"),
+			s.xdsNamespacedHostname("*.foo.com", testNS),
+		)
+		s.assertNoEvent(t)
+		// assert that se-1 became canonical
+		s.assertCanonicalService(t, "*.foo.com", "se-1")
+
+		// the original in testNS goes away, the new one takes over
 		deleteServiceEntry(s, 1)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com"),
 			s.seIPXdsName("se-2", "10.10.0.2"),
 			s.seIPXdsName("se-1", "10.10.0.1"))
 		s.assertAddresses(t, testNW+"/10.255.0.1")
 		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+		s.assertCanonicalService(t, "*.foo.com", "se-2")
 	})
 
 	t.Run("serviceentry and service overlap", func(t *testing.T) {
@@ -455,19 +499,24 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		addService(s, 1, "svc1")
 		s.assertEvent(t, s.svcXdsName("svc1"))
 		s.assertAddresses(t, testNW+"/10.255.255.1", "svc1")
+		s.assertCanonicalService(t, "svc1.ns1.svc.company.com", "svc1")
 		s.assertNoEvent(t)
 
 		// overlapping SE - the old one takes precedence, new one is not in indexes
-		addServiceEntry(s, 2, "svc1.ns1.svc.company.com")
+		addServiceEntry(s, 2, "svc1.ns1.svc.company.com", testNS)
 		s.assertNoEvent(t) // this should be totally filtered as duplicate with a Kubernetes Service
 		s.assertAddresses(t, testNW+"/10.255.255.1", "svc1")
 		s.assertAddresses(t, testNW+"/10.255.0.2")
+		// the kube service should still be canonical
+		s.assertCanonicalService(t, "svc1.ns1.svc.company.com", "svc1")
 
 		// the original one goes away, the new one takes over
 		s.deleteService(t, "svc1")
 		s.assertUnorderedEvent(t, s.svcXdsName("svc1"), s.seIPXdsName("se-2", "10.10.0.2"))
 		s.assertAddresses(t, testNW+"/10.255.255.1")
 		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+		// with the kubernetes service deleted, se-2 should be canonical
+		s.assertCanonicalService(t, "svc1.ns1.svc.company.com", "se-2")
 		s.assertNoEvent(t)
 	})
 }
@@ -2616,13 +2665,45 @@ func generateServiceEntry(host string, addresses []string, labels map[string]str
 	}
 }
 
-func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name string) {
-	s.deleteServiceEntryForClient(t, name, testNS, s.se)
+func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name string, rest ...string) {
+	l := len(rest)
+	if l > 1 {
+		t.Fatalf("deleteServiceEntry failed, too many args: %d", l)
+	}
+	ns := testNS
+	if l == 1 {
+		ns = rest[0]
+	}
+	s.deleteServiceEntryForClient(t, name, ns, s.se)
 }
 
 func (s *ambientTestServer) deleteServiceEntryForClient(t *testing.T, name, ns string, se clienttest.TestWriter[*apiv1alpha3.ServiceEntry]) {
 	t.Helper()
 	se.Delete(name, ns)
+}
+
+// assert that the one, and only one, canonical service for a given hostname is the desired service (by name of the resource)
+func (s *ambientTestServer) assertCanonicalService(t *testing.T, key, want string) {
+	t.Helper()
+	var have, found string
+	all := s.services.List()
+	for _, si := range all {
+		found = ""
+		if si.Service.Hostname != key {
+			// not the hostname we are looking for
+			continue
+		}
+		if si.Service.Canonical {
+			found = si.Service.Name
+		}
+		if have != "" && found != "" {
+			t.Fatalf("found more that one canonical service for the same key(%s)", key)
+		}
+		if have == "" && found != "" {
+			have = found
+		}
+	}
+	assert.Equal(t, have, want)
 }
 
 func (s *ambientTestServer) assertAddresses(t *testing.T, lookup string, names ...string) {
@@ -2834,8 +2915,12 @@ func (s *ambientTestServer) hostnameForService(serviceName string) string {
 	return fmt.Sprintf("%s.%s.svc.company.com", serviceName, testNS)
 }
 
-func (s *ambientTestServer) xdsNamespacedHostname(hostname string) string {
-	return fmt.Sprintf("%s/%s", testNS, hostname)
+func (s *ambientTestServer) xdsNamespacedHostname(hostname string, rest ...string) string {
+	ns := testNS
+	if len(rest) >= 1 {
+		ns = rest[0]
+	}
+	return fmt.Sprintf("%s/%s", ns, hostname)
 }
 
 // Returns the XDS resource name for the given WorkloadEntry.
@@ -2853,9 +2938,13 @@ func (s *ambientTestServer) seIPXdsName(name string, ip string) string {
 	return s.seIPXdsNameForCluster(name, ip, s.clusterID)
 }
 
-func (s *ambientTestServer) seIPXdsNameForCluster(name string, ip string, clusterID cluster.ID) string {
+func (s *ambientTestServer) seIPXdsNameForCluster(name string, ip string, clusterID cluster.ID, rest ...string) string {
+	ns := testNS
+	if len(rest) >= 1 {
+		ns = rest[0]
+	}
 	return fmt.Sprintf("%s/networking.istio.io/ServiceEntry/%s/%s/%s",
-		clusterID, testNS, name, ip)
+		clusterID, ns, name, ip)
 }
 
 func generatePod(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string) *corev1.Pod {
