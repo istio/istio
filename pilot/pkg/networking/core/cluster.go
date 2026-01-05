@@ -340,9 +340,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			if clusterKey.endpointBuilder != nil {
 				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
 				istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
-				wrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
-					IstioEndpoints:      istioEndpoints,
-					LocalityLbEndpoints: lbEndpoints[0],
+				if len(lbEndpoints) > 0 {
+					wrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
+						IstioEndpoints:      istioEndpoints,
+						LocalityLbEndpoints: lbEndpoints[0],
+					}
 				}
 			}
 

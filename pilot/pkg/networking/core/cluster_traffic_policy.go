@@ -327,7 +327,8 @@ func applyLocalityLoadBalancer(
 	}
 
 	if c.LoadAssignment != nil {
-		loadbalancer.ApplyLocalityLoadBalancer(c.LoadAssignment, []*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}, locality, proxyLabels, localityLB, enableFailover)
+		loadbalancer.ApplyLocalityLoadBalancer(c.LoadAssignment,
+			[]*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}, locality, proxyLabels, localityLB, enableFailover)
 	}
 }
 

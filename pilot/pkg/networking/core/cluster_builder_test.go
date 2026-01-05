@@ -1818,7 +1818,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Addresses:    []string{"www.google.com"},
+						Addresses:    []string{"www.foo.com"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-1",
 						Namespace:    "namespace-1",
@@ -1834,7 +1834,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Addresses:    []string{"www.salesforce.com"},
+						Addresses:    []string{"www.bar.com"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-2",
 						Namespace:    "namespace-2",
@@ -1864,7 +1864,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									Address: &core.Address{
 										Address: &core.Address_SocketAddress{
 											SocketAddress: &core.SocketAddress{
-												Address: "192.168.1.1",
+												Address: "www.foo.com",
 												PortSpecifier: &core.SocketAddress_PortValue{
 													PortValue: 10001,
 												},
@@ -1884,23 +1884,9 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									Address: &core.Address{
 										Address: &core.Address_SocketAddress{
 											SocketAddress: &core.SocketAddress{
-												Address: "192.168.1.2",
+												Address: "www.bar.com",
 												PortSpecifier: &core.SocketAddress_PortValue{
 													PortValue: 10001,
-												},
-											},
-										},
-									},
-									AdditionalAddresses: []*endpoint.Endpoint_AdditionalAddress{
-										{
-											Address: &core.Address{
-												Address: &core.Address_SocketAddress{
-													SocketAddress: &core.SocketAddress{
-														Address: "2001:1::2",
-														PortSpecifier: &core.SocketAddress_PortValue{
-															PortValue: 10001,
-														},
-													},
 												},
 											},
 										},
@@ -1910,38 +1896,6 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 							Metadata: buildMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
-							},
-						},
-					},
-				},
-				{
-					Locality: &core.Locality{
-						Region:  "region2",
-						Zone:    "zone1",
-						SubZone: "subzone1",
-					},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 40,
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{
-						{
-							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-								Endpoint: &endpoint.Endpoint{
-									Address: &core.Address{
-										Address: &core.Address_SocketAddress{
-											SocketAddress: &core.SocketAddress{
-												Address: "192.168.1.3",
-												PortSpecifier: &core.SocketAddress_PortValue{
-													PortValue: 10001,
-												},
-											},
-										},
-									},
-								},
-							},
-							Metadata: buildMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
-							LoadBalancingWeight: &wrappers.UInt32Value{
-								Value: 40,
 							},
 						},
 					},
@@ -2153,9 +2107,6 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		if tt.name != "basic with DNS" {
-			continue
-		}
 		for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB} {
 			t.Run(fmt.Sprintf("%s_%s", tt.name, resolution), func(t *testing.T) {
 				service.Resolution = resolution

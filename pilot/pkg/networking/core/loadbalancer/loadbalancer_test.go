@@ -859,40 +859,40 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 		// Validate priorities:
 		// The applyFailoverPriorityPerLocality function splits endpoints into separate locality groups
-		// - www.google.com has priority=1 label, matches proxy label -> Priority 0 (highest)
-		// - www.salesforce.com has priority=2 label, doesn't match -> Priority 1 (lower)
+		// - www.foo.com has priority=1 label, matches proxy label -> Priority 0 (highest)
+		// - www.bar.com has priority=2 label, doesn't match -> Priority 1 (lower)
 		if len(cluster.LoadAssignment.Endpoints) != 2 {
 			t.Fatalf("expected 2 endpoint groups (split by priority) but got %d", len(cluster.LoadAssignment.Endpoints))
 		}
 
 		// Find endpoints by hostname and validate priorities
-		var googleEndpointGroup, salesforceEndpointGroup *endpoint.LocalityLbEndpoints
+		var fooEndpointGroup, barEndpointGroup *endpoint.LocalityLbEndpoints
 		for _, epGroup := range cluster.LoadAssignment.Endpoints {
 			if len(epGroup.LbEndpoints) == 0 {
 				continue
 			}
 			addr := epGroup.LbEndpoints[0].GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
-			if addr == "www.google.com" {
-				googleEndpointGroup = epGroup
-			} else if addr == "www.salesforce.com" {
-				salesforceEndpointGroup = epGroup
+			if addr == "www.foo.com" {
+				fooEndpointGroup = epGroup
+			} else if addr == "www.bar.com" {
+				barEndpointGroup = epGroup
 			}
 		}
 
-		if googleEndpointGroup == nil {
-			t.Fatal("could not find www.google.com endpoint group")
+		if fooEndpointGroup == nil {
+			t.Fatal("could not find www.foo.com endpoint group")
 		}
-		if salesforceEndpointGroup == nil {
-			t.Fatal("could not find www.salesforce.com endpoint group")
+		if barEndpointGroup == nil {
+			t.Fatal("could not find www.bar.com endpoint group")
 		}
 
-		// Validate that google.com endpoint has priority 0 (matches failoverPriority)
-		g.Expect(googleEndpointGroup.Priority).To(Equal(uint32(0)), "www.google.com endpoint should have priority 0 (matches failoverPriority label)")
-		g.Expect(len(googleEndpointGroup.LbEndpoints)).To(Equal(1), "www.google.com should have 1 endpoint")
+		// Validate that foo.com endpoint has priority 0 (matches failoverPriority)
+		g.Expect(fooEndpointGroup.Priority).To(Equal(uint32(0)), "www.foo.com endpoint should have priority 0 (matches failoverPriority label)")
+		g.Expect(len(fooEndpointGroup.LbEndpoints)).To(Equal(1), "www.foo.com should have 1 endpoint")
 
-		// Validate that salesforce.com endpoint has priority 1 (doesn't match failoverPriority)
-		g.Expect(salesforceEndpointGroup.Priority).To(Equal(uint32(1)), "www.salesforce.com endpoint should have priority 1 (doesn't match failoverPriority label)")
-		g.Expect(len(salesforceEndpointGroup.LbEndpoints)).To(Equal(1), "www.salesforce.com should have 1 endpoint")
+		// Validate that bar.com endpoint has priority 1 (doesn't match failoverPriority)
+		g.Expect(barEndpointGroup.Priority).To(Equal(uint32(1)), "www.bar.com endpoint should have priority 1 (doesn't match failoverPriority label)")
+		g.Expect(len(barEndpointGroup.LbEndpoints)).To(Equal(1), "www.bar.com should have 1 endpoint")
 	})
 
 	t.Run("FailoverPriority with Failover", func(t *testing.T) {
@@ -1925,13 +1925,13 @@ func buildDNSClusterWithFailoverPriority() *cluster.Cluster {
 					},
 					LbEndpoints: []*endpoint.LbEndpoint{
 						{
-							HostIdentifier: buildEndpointWithHostname("www.google.com"),
+							HostIdentifier: buildEndpointWithHostname("www.foo.com"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 1,
 							},
 						},
 						{
-							HostIdentifier: buildEndpointWithHostname("www.salesforce.com"),
+							HostIdentifier: buildEndpointWithHostname("www.bar.com"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 1,
 							},
@@ -1955,13 +1955,13 @@ func buildWrappedLocalityLbEndpointsForDNS() []*WrappedLocalityLbEndpoints {
 					Labels: map[string]string{
 						"priority": "1",
 					},
-					Addresses: []string{"www.google.com"},
+					Addresses: []string{"www.foo.com"},
 				},
 				{
 					Labels: map[string]string{
 						"priority": "2",
 					},
-					Addresses: []string{"www.salesforce.com"},
+					Addresses: []string{"www.bar.com"},
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[0],
