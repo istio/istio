@@ -119,9 +119,9 @@ func NewDiscoveryNamespacesFilter(
 	return newDiscoveryNamespacesFilter(namespaces, mesh, stop, true)
 }
 
-// NewDiscoveryNamespacesFilterNoWait creates the filter without blocking to wait on the initial sync.
+// NewNonBlockingDiscoveryNamespacesFilter creates the filter without blocking to wait on the initial sync.
 // Use the returned ManualSyncWaiter to wait for the initial sync when desired.
-func NewDiscoveryNamespacesFilterNoWait(
+func NewNonBlockingDiscoveryNamespacesFilter(
 	namespaces kclient.Client[*corev1.Namespace],
 	mesh mesh.Watcher,
 	stop <-chan struct{},

@@ -49,7 +49,12 @@ func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Clus
 		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
 	}
 	c.remoteClusters[secretKey][clusterID] = value
-	c.clusters.Insert(string(clusterID))
+	exists := c.clusters.InsertContains(string(clusterID))
+	if exists && c.clustersAwaitingSync.Contains(clusterID) {
+		// If there was an old version of this cluster that existed and was waiting for sync,
+		// we can remove it from the awaiting set since we have a new version now.
+		c.clustersAwaitingSync.Delete(clusterID)
+	}
 	c.TriggerRecomputation()
 }
 
@@ -58,6 +63,9 @@ func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
 	defer c.Unlock()
 	delete(c.remoteClusters[secretKey], clusterID)
 	c.clusters.Delete(string(clusterID))
+	if c.clustersAwaitingSync.Contains(clusterID) {
+		c.clustersAwaitingSync.Delete(clusterID)
+	}
 	if len(c.remoteClusters[secretKey]) == 0 {
 		delete(c.remoteClusters, secretKey)
 	}
@@ -163,6 +171,11 @@ func (c *ClusterStore) TriggerRecomputeOnSync(id cluster.ID) {
 		if cluster.WaitUntilSynced(cluster.stop) && !cluster.Closed() && !cluster.SyncDidTimeout() && c.GetByID(id) != nil {
 			// Let dependent krt collections know that this cluster is ready to use
 			c.TriggerRecomputation()
+			// And clean up our tracking set
+			c.Lock()
+			c.clustersAwaitingSync.Delete(id)
+			c.Unlock()
+			log.Debugf("remote cluster %s informers synced, triggering recompute", id)
 		}
 	}()
 }

@@ -115,7 +115,6 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 			}
 			// stop previous remote cluster
 			prev.Stop()
-			prev.Client.Shutdown()
 			log.Debugf("Shutdown previous remote cluster %s for secret %s due to update", clusterID, secretKey)
 		} else if a.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.

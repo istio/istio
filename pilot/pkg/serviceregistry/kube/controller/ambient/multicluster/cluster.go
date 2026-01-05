@@ -208,7 +208,8 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		namespaces.ShutdownHandlers()
 	}()
 	// This will start a namespace informer but DON'T wait for it to be ready because that will block
-	filter, syncWaiter := filter.NewDiscoveryNamespacesFilterNoWait(namespaces, localMeshConfig, c.stop)
+	// assignment of all of the collection fields (leading to races and panics).
+	filter, syncWaiter := filter.NewNonBlockingDiscoveryNamespacesFilter(namespaces, localMeshConfig, c.stop)
 	kube.SetObjectFilter(c.Client, filter)
 	// Register all of the informers before starting the client
 	defaultFilter := kclient.Filter{
@@ -304,9 +305,10 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 }
 
 func (c *Cluster) HasSynced() bool {
-	// It could happen when a wrong credential provide, this cluster has no chance to run.
-	// In this case, the `initialSyncTimeout` will never be set
-	// In order not block istiod start up, check close as well.
+	// It could happen that, when a wrong credential is provided,
+	// this cluster has no chance to run fully and gets prematurely closed.
+	// In this case, the `initialSyncTimeout` will never be set.
+	// In order not block istiod start up, check Closed() as well.
 	if c.Closed() {
 		return true
 	}
@@ -333,6 +335,7 @@ func (c *Cluster) Stop() {
 		return
 	default:
 		close(c.stop)
+		c.Client.Shutdown()
 	}
 }
 
