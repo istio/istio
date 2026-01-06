@@ -281,6 +281,24 @@ func TestConfigureIstioGateway(t *testing.T) {
   network: network-2`,
 		},
 		{
+			name: "agentgateway",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+		},
+		{
 			name: "waypoint-no-network-label",
 			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1134,6 +1152,7 @@ global:
 	tmpl, err := inject.ParseTemplates(map[string]string{
 		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),
 		"waypoint":     file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml")),
+		"agentgateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/agentgateway.yaml")),
 	})
 	if err != nil {
 		t.Fatal(err)
