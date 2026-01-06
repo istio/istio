@@ -334,6 +334,11 @@ var (
 			"Comma separated list of IPs that are blocked in JWKS URIs.").Get()
 		return sets.New(strings.Split(v, ",")...)
 	}()
+
+	BlockedCIDRsInJWKURIs = env.Register(
+		"BLOCKED_CIDRS_IN_JWKS_URIS",
+		"",
+		"Comma separated list of CIDR ranges that are blocked in JWKS URIs (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
