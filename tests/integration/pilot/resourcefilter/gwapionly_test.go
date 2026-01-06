@@ -66,7 +66,7 @@ spec:
 	// BackendTLSPolicy is explicitly ignored and should fail. In case of a failure
 	// to establish a connection to a TLS backend, the gateway returns code 400
 	t.NewSubTest("backend-tls-should-pass").Run(func(t framework.TestContext) {
-		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/cert.crt"))
+		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem"))
 		t.ConfigIstio().Eval(apps.Namespace.Name(), ca, `
 apiVersion: v1
 kind: ConfigMap
