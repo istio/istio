@@ -404,7 +404,8 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 	}
 
 	if dryRun && !features.EnableWdsDryRunAuthzPol {
-		msg := fmt.Sprintf("found policy \"%s/%s\" using dry-run annotation, but support for ambient dry-run authorizationPolicies isn't enabled", obj.Namespace, obj.Name)
+		msg := fmt.Sprintf("found policy \"%s/%s\" using dry-run annotation, but support for ambient dry-run authorizationPolicies isn't enabled",
+			obj.Namespace, obj.Name)
 		log.Debug(msg)
 		return nil, &model.StatusMessage{
 			Reason:  "UnsupportedValue",
