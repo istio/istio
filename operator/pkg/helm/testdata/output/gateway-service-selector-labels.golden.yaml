@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress
+  namespace: istio-ingress
+  labels:
+    app.kubernetes.io/name: istio-ingress
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istio-ingress"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: istio-ingress
+    istio: ingress
+    "istio.io/dataplane-mode": "none"
+  annotations:
+    {}
+spec:
+  type: LoadBalancer
+  ports:
+    - name: status-port
+      port: 15021
+      protocol: TCP
+      targetPort: 15021
+    - name: http2
+      port: 80
+      protocol: TCP
+      targetPort: 80
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 443
+  selector:
+    app: istio-ingress
+    istio: ingress
+    custom-label: custom-value
+    istio.io/rev: canary
