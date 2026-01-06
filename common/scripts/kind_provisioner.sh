@@ -190,11 +190,6 @@ function setup_kind_cluster() {
     kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" ${KIND_WAIT_FLAG:+"$KIND_WAIT_FLAG"} --config -); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
 
-# TODO: @dhawton REMOVE ME -- this is so I can exec in and try to look at kubelet's logs
-    if [[ "${JOB_NAME:-}" == "integ-ambient_istio" ]]; then
-      sleep 1h
-    fi
-
     return 9
     # kubectl config set clusters.kind-istio-testing.server https://istio-testing-control-plane:6443
   fi
