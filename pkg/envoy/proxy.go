@@ -52,7 +52,7 @@ type ProxyConfig struct {
 	AdminPort          int32
 	DrainDuration      *durationpb.Duration
 	Concurrency        int32
-	FileFlushInterval  uint32
+	FileFlushInterval  *durationpb.Duration
 	FileFlushMinSizeKB uint32
 
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
@@ -129,8 +129,8 @@ func (e *envoy) args(fname string, overrideFname string) []string {
 		proxyLocalAddressType = "v6"
 	}
 	fileFlushInterval := "1000" // Default 1s
-	if e.FileFlushInterval > 0 {
-		fileFlushInterval = fmt.Sprint(e.FileFlushInterval)
+	if e.FileFlushInterval != nil {
+		fileFlushInterval = fmt.Sprint(e.FileFlushInterval.AsDuration().Milliseconds())
 	}
 
 	startupArgs := []string{

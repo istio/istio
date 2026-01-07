@@ -134,7 +134,7 @@ func newProxyCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 				Sidecar:            proxyArgs.Type == model.SidecarProxy,
 				OutlierLogPath:     proxyArgs.OutlierLogPath,
 				FileFlushInterval:  proxyConfig.FileFlushInterval,
-				FileFlushMinSizeKB: proxyConfig.FileFlushMinSize,
+				FileFlushMinSizeKB: proxyConfig.FileFlushMinSizeKb,
 			}
 			agentOptions := options.NewAgentOptions(&proxyArgs, proxyConfig, sds)
 			agent := istioagent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
