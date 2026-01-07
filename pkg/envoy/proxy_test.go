@@ -18,8 +18,10 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -109,7 +111,7 @@ func TestEnvoyArgs(t *testing.T) {
 				DrainDuration:      proxyConfig.DrainDuration,
 				Concurrency:        8,
 				FileFlushMinSizeKB: 128,
-				FileFlushInterval:  10000,
+				FileFlushInterval:  durationpb.New(time.Second * 10),
 			},
 			extraArgs: []string{"-l", "trace", "--component-log-level", "misc:error"},
 			want: []string{
