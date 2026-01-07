@@ -752,6 +752,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 		skipIstioMXHeaders:        ph.SkipIstioMXHeaders,
 		protocol:                  opts.port.Protocol,
 		class:                     istionetworking.ListenerClassSidecarOutbound,
+		policySvc:                 opts.service,
 	}
 
 	if features.HTTP10 || enableHTTP10(opts.proxy.Metadata.HTTP10) {
