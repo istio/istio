@@ -382,29 +382,11 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 	}
 
 	// If blocked IPs or CIDRs are configured, use a custom dialer to check resolved IPs after DNS lookup
-	if len(features.BlockedIpsInJWKURIs) > 0 || features.BlockedCIDRsInJWKURIs != "" {
+	if len(features.BlockedIpsInJWKURIs) > 0 || len(features.BlockedCIDRsInJWKURIs) > 0 {
 		transport := client.Transport.(*http.Transport).Clone()
 		defaultDialer := &net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
-		}
-
-		// Parse blocked CIDR ranges once
-		var blockedCIDRs []*net.IPNet
-		if features.BlockedCIDRsInJWKURIs != "" {
-			cidrs := strings.Split(features.BlockedCIDRsInJWKURIs, ",")
-			for _, cidr := range cidrs {
-				cidr = strings.TrimSpace(cidr)
-				if cidr == "" {
-					continue
-				}
-				_, ipNet, err := net.ParseCIDR(cidr)
-				if err != nil {
-					log.Warnf("Failed to parse CIDR range %q: %v", cidr, err)
-					continue
-				}
-				blockedCIDRs = append(blockedCIDRs, ipNet)
-			}
 		}
 
 		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -427,7 +409,7 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 					return nil, fmt.Errorf("jwksURI %q resolved to blocked IP %q", uri, ipStr)
 				}
 				// Check CIDR ranges
-				for _, cidr := range blockedCIDRs {
+				for _, cidr := range features.BlockedCIDRsInJWKURIs {
 					if cidr.Contains(ip) {
 						return nil, fmt.Errorf("jwksURI %q resolved to IP %q which is in blocked CIDR range %s", uri, ipStr, cidr.String())
 					}
