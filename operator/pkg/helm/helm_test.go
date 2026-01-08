@@ -68,6 +68,13 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Deployment:*:istio-ingress",
 		},
 		{
+			desc:        "gateway-service-selector-labels",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Service:*:istio-ingress",
+		},
+		{
 			desc:        "istiod-traffic-distribution",
 			releaseName: "istiod",
 			namespace:   "istio-system",
