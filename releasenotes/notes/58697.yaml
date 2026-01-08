@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue: 
+  - https://github.com/istio/istio/issues/58697
+releaseNotes:
+  - |
+    **Added** new path `/stats/prometheus/agent` to the Istio Proxy Telemetry endpoint to enable compression of app and sidecar metrics.
