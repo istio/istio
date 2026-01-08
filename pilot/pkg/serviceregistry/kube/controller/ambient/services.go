@@ -258,7 +258,13 @@ func serviceServiceBuilder(
 		}
 		waypointStatus.Error = wperr
 
-		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
+		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
+		var nsAnnotations map[string]string
+		if ns != nil {
+			nsAnnotations = (*ns).Annotations
+		}
+
+		svc := constructService(ctx, s, waypoint, domainSuffix, nsAnnotations, networkGetter)
 
 		svcInfo := &model.ServiceInfo{
 			Service:       svc,
@@ -513,7 +519,8 @@ func constructServiceEntries(
 			HealthPolicy: workloadapi.LoadBalancing_ALLOW_ALL,
 		}
 	} else {
-		trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations)
+		// ServiceEntry uses annotation directly, no namespace inheritance
+		trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations, nil)
 		switch trafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
 			lb = preferSameZoneLoadBalancer
@@ -563,6 +570,7 @@ func constructService(
 	svc *v1.Service,
 	w *Waypoint,
 	domainSuffix string,
+	nsAnnotations map[string]string,
 	networkGetter func(krt.HandlerContext) network.ID,
 ) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
@@ -594,8 +602,8 @@ func constructService(
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
 	} else {
-		// Check traffic distribution.
-		trafficDistribution := model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
+		// Check traffic distribution with namespace inheritance
+		trafficDistribution := model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations, nsAnnotations)
 		switch trafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
 			lb = preferSameZoneLoadBalancer

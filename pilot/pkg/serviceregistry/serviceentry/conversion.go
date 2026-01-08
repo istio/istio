@@ -183,7 +183,8 @@ func convertServices(cfg config.Config) []*model.Service {
 		resolution = model.DynamicDNS
 	}
 
-	trafficDistribution := model.GetTrafficDistribution(nil, cfg.Annotations)
+	// ServiceEntry doesn't have namespace-level inheritance for traffic distribution
+	trafficDistribution := model.GetTrafficDistribution(nil, cfg.Annotations, nil)
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
 	var portOverrides map[uint32]uint32
