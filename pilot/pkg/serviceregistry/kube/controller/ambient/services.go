@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
@@ -50,23 +51,6 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/workloadapi"
 )
-
-// setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo
-func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
-	wdsSvc := protomarshal.ShallowClone(se.Service)
-	wdsSvc.Canonical = true
-	return precomputeService(model.ServiceInfo{
-		Service:          wdsSvc,
-		LabelSelector:    se.LabelSelector,
-		PortNames:        se.PortNames,
-		Source:           se.Source,
-		Scope:            se.Scope,
-		Waypoint:         se.Waypoint,
-		MarshaledAddress: se.MarshaledAddress,
-		AsAddress:        se.AsAddress,
-		CreationTime:     se.CreationTime,
-	})
-}
 
 func (a Builder) ServicesCollection(
 	clusterID cluster.ID,
@@ -93,71 +77,69 @@ func (a Builder) ServicesCollection(
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...)
-	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []string {
-		return []string{se.Service.Hostname}
+
+	allTypedServiceInfos := krt.JoinCollection([]krt.Collection[TypedServiceInfo]{ServicesInfo, ServiceEntriesInfo},
+		append(opts.WithName("AllTypedServiceInfo"), krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: clusterID,
+		}))...)
+
+	allTypedServiceInfosByHostname := krt.NewIndex(allTypedServiceInfos, "TypedServiceInfosByHostname", func(ts TypedServiceInfo) []string {
+		return []string{ts.Service.Hostname}
 	})
 
-	serviceByHostname := krt.NewIndex(ServicesInfo, "serviceByHostname", func(s model.ServiceInfo) []string {
-		return []string{s.Service.Hostname}
-	})
-
-	DedupedServiceEntriesInfo := krt.NewManyCollection(
-		serviceEntryByHostname.AsCollection(),
-		func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) []model.ServiceInfo {
-			if len(se.Objects) == 0 {
+	WorkloadServices := krt.NewManyCollection(
+		allTypedServiceInfosByHostname.AsCollection(),
+		func(ctx krt.HandlerContext, ios krt.IndexObject[string, TypedServiceInfo]) []model.ServiceInfo {
+			if len(ios.Objects) == 0 {
 				return nil
 			}
 
-			s := krt.FetchOne(ctx, ServicesInfo, krt.FilterIndex(serviceByHostname, se.Key))
-			servicePresent := s != nil
-			var serviceNamespace string
-			if servicePresent {
-				serviceNamespace = s.GetNamespace()
-			}
+			typedServiceInfos := ios.Objects
 
-			oldestByNamespace := make(map[string]model.ServiceInfo)
+			bestByNamespace := make(map[string]model.ServiceInfo)
+
+			// check if a is a better ServiceInfo than b
+			// better meaning both:
+			//     a is older than b
+			//     b is not a Kubernetes Service
+			isBetter := func(a, b model.ServiceInfo) bool {
+				return a.CreationTime.Before(b.CreationTime) && b.Source.Kind != kind.Service
+			}
 			var canonical *model.ServiceInfo
-			for _, o := range se.Objects {
-				seNamespace := o.GetNamespace()
-				if servicePresent && serviceNamespace == seNamespace {
-					// this would be a conflict of namespace/hostname, skip
+			for _, tsi := range typedServiceInfos {
+				tsiNamespace := tsi.GetNamespace()
+				if tsi.Source.Kind == kind.Service {
+					// A Kubernetes Service is always used, and canonical
+					bestByNamespace[tsiNamespace] = tsi.ServiceInfo
+					canonical = &tsi.ServiceInfo
 					continue
 				}
-				oldest, found := oldestByNamespace[seNamespace]
-				if !found || o.CreationTime.Before(oldest.CreationTime) {
-					oldestByNamespace[seNamespace] = o.ServiceInfo
+				currentBest, found := bestByNamespace[tsiNamespace]
+				if !found || isBetter(tsi.ServiceInfo, currentBest) {
+					bestByNamespace[tsiNamespace] = tsi.ServiceInfo
+				} else {
+					// if we are not the best for our namespace, then we don't need to worry about being canonical
+					continue
 				}
-				if !servicePresent && (canonical == nil || o.CreationTime.Before(canonical.CreationTime)) {
-					// partially correct, we need should have some concept of a "preferred namespace" since ztunnel can
-					// presently do this
-					canonical = &o.ServiceInfo
+				if canonical == nil || isBetter(tsi.ServiceInfo, *canonical) {
+					canonical = &tsi.ServiceInfo
 				}
 			}
 
 			// make a copy and then set canonical
 			if canonical != nil {
-				oldestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
+				bestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
 			}
 
 			// convert map into slice and return
-			return maps.Values(oldestByNamespace)
+			return maps.Values(bestByNamespace)
 		}, append(
-			opts.WithName("DedupedServiceEntriesInfo"),
+			opts.WithName("WorkloadServices"),
 			krt.WithMetadata(krt.Metadata{
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...,
 	)
-	WorkloadServices := krt.JoinCollection(
-		[]krt.Collection[model.ServiceInfo]{
-			ServicesInfo,
-			DedupedServiceEntriesInfo,
-		},
-		append(opts.WithName("WorkloadServices"), krt.WithMetadata(
-			krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: clusterID,
-			},
-		))...)
 	return WorkloadServices
 }
 
@@ -230,8 +212,8 @@ func GlobalMergedWorkloadServicesCollection(
 
 			servicesInfoWithCluster := krt.MapCollection(
 				servicesInfo,
-				func(o model.ServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
-					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
+				func(o TypedServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
+					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o.ServiceInfo}
 				},
 				append(
 					opts,
@@ -254,8 +236,8 @@ func serviceServiceBuilder(
 	checkServiceScope bool,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 	precompute bool,
-) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
-	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
+) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
+	return func(ctx krt.HandlerContext, s *v1.Service) *TypedServiceInfo {
 		serviceScope := model.Local
 		if checkServiceScope {
 			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
@@ -299,7 +281,7 @@ func serviceServiceBuilder(
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
 
-		svcInfo := &model.ServiceInfo{
+		svcInfo := model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
@@ -309,10 +291,10 @@ func serviceServiceBuilder(
 			CreationTime:  s.CreationTimestamp.Time,
 		}
 		if precompute {
-			return precomputeServicePtr(svcInfo)
+			return &TypedServiceInfo{precomputeService(svcInfo)}
 		}
 
-		return svcInfo
+		return &TypedServiceInfo{svcInfo}
 	}
 }
 
@@ -409,7 +391,7 @@ func (a Builder) serviceServiceBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
 	precompute bool,
-) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
+) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
 	return serviceServiceBuilder(
 		waypoints,
 		namespaces,
@@ -432,31 +414,30 @@ func MakeSource(o controllers.Object) model.TypedObject {
 	}
 }
 
-// ServiceEntryInfo is a wrapper around ServiceInfo that handles key conflicts
-// on hostname.
-type ServiceEntryInfo struct {
+// TypedServiceInfo is a wrapper around ServiceInfo to avoid key conflicts during processing
+type TypedServiceInfo struct {
 	model.ServiceInfo
 }
 
-func (s ServiceEntryInfo) ResourceName() string {
-	return s.GetNamespace() + "/" + s.GetName() + "/" + s.Service.GetHostname()
+func (t TypedServiceInfo) ResourceName() string {
+	return t.Source.Kind.String() + "/" + t.GetNamespace() + "/" + t.GetName() + "/" + t.Service.GetHostname()
 }
 
-func (s ServiceEntryInfo) Equals(other ServiceEntryInfo) bool {
-	return s.ServiceInfo.Equals(other.ServiceInfo)
+func (t TypedServiceInfo) Equals(other TypedServiceInfo) bool {
+	return t.ServiceInfo.Equals(other.ServiceInfo)
 }
 
 func (a Builder) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
-) krt.TransformationMulti[*networkingclient.ServiceEntry, ServiceEntryInfo] {
-	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []ServiceEntryInfo {
+) krt.TransformationMulti[*networkingclient.ServiceEntry, TypedServiceInfo] {
+	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		})
-		return slices.Map(serviceInfos, func(si model.ServiceInfo) ServiceEntryInfo {
-			return ServiceEntryInfo{ServiceInfo: si}
+		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
+			return TypedServiceInfo{ServiceInfo: si}
 		})
 	}
 }
@@ -727,4 +708,21 @@ func precomputeService(w model.ServiceInfo) model.ServiceInfo {
 		Marshaled: w.MarshaledAddress,
 	}
 	return w
+}
+
+// setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo
+func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
+	wdsSvc := protomarshal.ShallowClone(se.Service)
+	wdsSvc.Canonical = true
+	return precomputeService(model.ServiceInfo{
+		Service:          wdsSvc,
+		LabelSelector:    se.LabelSelector,
+		PortNames:        se.PortNames,
+		Source:           se.Source,
+		Scope:            se.Scope,
+		Waypoint:         se.Waypoint,
+		MarshaledAddress: se.MarshaledAddress,
+		AsAddress:        se.AsAddress,
+		CreationTime:     se.CreationTime,
+	})
 }

@@ -686,7 +686,7 @@ func TestServiceEntryServices(t *testing.T) {
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
-			res := slices.Map(wrapper, func(e ServiceEntryInfo) *workloadapi.Service {
+			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {
 				return e.Service
 			})
 			assert.Equal(t, res, tt.result)
