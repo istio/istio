@@ -90,8 +90,8 @@ message Service {
   // Extension provides a mechanism to attach arbitrary additional configuration to an object.
   repeated Extension extensions = 10;
 
-  // canonical marks this service as being the definition for a hostname, if there is no override of that hostname
-  // from within the namespace the client resides in
+  // canonical marks this Service as taking priority during hostname lookups,
+  // when there is not a match in the namespace of the client.
   bool canonical = 11;
 }
 

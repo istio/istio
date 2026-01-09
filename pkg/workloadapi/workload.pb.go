@@ -723,8 +723,8 @@ type Service struct {
 	IpFamilies IPFamilies `protobuf:"varint,9,opt,name=ip_families,json=ipFamilies,proto3,enum=istio.workload.IPFamilies" json:"ip_families,omitempty"`
 	// Extension provides a mechanism to attach arbitrary additional configuration to an object.
 	Extensions []*Extension `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
-	// canonical marks this service as being the definition for a hostname, if there is no override of that hostname
-	// from within the namespace the client resides in
+	// canonical marks this Service as taking priority during hostname lookups,
+	// when there is not a match in the namespace of the client.
 	Canonical     bool `protobuf:"varint,11,opt,name=canonical,proto3" json:"canonical,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
