@@ -2328,7 +2328,11 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 	t.Cleanup(func() {
 		if t.Failed() {
-			b, _ := yaml.Marshal(debugger)
+			b, err := yaml.Marshal(debugger)
+			// It's really annoying if a Marshal error causes us to silenty get no debug info.
+			if err != nil {
+				t.Log(err.Error())
+			}
 			t.Log(string(b))
 		}
 	})
