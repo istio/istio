@@ -1352,7 +1352,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Services: exampleService,
 		})
 		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
-			[]config.Config{}, 8080, map[host.Name]types.NamespacedName{},
+			[]*config.Config{}, 8080, map[host.Name]types.NamespacedName{},
 		)
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(BeNil())
 	})
@@ -1372,7 +1372,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Services: exampleService,
 		})
 		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
-			[]config.Config{}, 8080, map[host.Name]types.NamespacedName{},
+			[]*config.Config{}, 8080, map[host.Name]types.NamespacedName{},
 		)
 
 		hashPolicy := &envoyroute.RouteAction_HashPolicy{
@@ -1408,10 +1408,10 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 
 		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
-			[]config.Config{
-				virtualServiceWithWildcardHost,
-				virtualServiceWithNestedWildcardHost,
-				virtualServiceWithGoogleWildcardHost,
+			[]*config.Config{
+				&virtualServiceWithWildcardHost,
+				&virtualServiceWithNestedWildcardHost,
+				&virtualServiceWithGoogleWildcardHost,
 			}, 8080,
 			wildcardIndex,
 		)
@@ -1498,7 +1498,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 
 		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
-			[]config.Config{virtualServiceWithGoogleWildcardHost}, 80, wildcardIndex,
+			[]*config.Config{&virtualServiceWithGoogleWildcardHost}, 80, wildcardIndex,
 		)
 		// The service hosts (*.example.org and goodbye.hello.example.org) and the unattached VS host (*.google.com)
 		g.Expect(vhosts).To(HaveLen(3))

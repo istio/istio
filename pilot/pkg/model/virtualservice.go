@@ -16,7 +16,6 @@ package model
 
 import (
 	"strings"
-	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -32,39 +31,30 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// vsSetPool is a pool for reusing sets of NamespacedName in SelectVirtualServices.
-// This reduces allocations in the hot path of virtual service selection.
-var vsSetPool = sync.Pool{
-	New: func() any {
-		return sets.New[types.NamespacedName]()
-	},
-}
-
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
-func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
+// Returns pointers to configs in the index to avoid copying config.Config structs.
+func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []*config.Config {
 	// Estimate capacity based on input sizes to reduce slice growth allocations
 	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
 	estimatedCap := len(vsidx.privateByNamespaceAndGateway[n]) +
 		len(vsidx.exportedToNamespaceByGateway[n]) +
 		len(vsidx.publicByGateway[constants.IstioMeshGateway])
-	importedVirtualServices := make([]config.Config, 0, estimatedCap)
+	importedVirtualServices := make([]*config.Config, 0, estimatedCap)
+	vsset := sets.New[types.NamespacedName]()
 
-	// Get set from pool and clear it for reuse
-	vsset := vsSetPool.Get().(sets.Set[types.NamespacedName])
-	clear(vsset)
-	defer vsSetPool.Put(vsset)
-
-	addVirtualService := func(vs config.Config, hc hostClassification) {
+	// addVirtualService uses a pointer to avoid copying config.Config (~200+ bytes).
+	// The pointer references elements in the index slices which are stable during selection.
+	addVirtualService := func(vs *config.Config, hc hostClassification, useGatewaySemantics bool) {
 		key := vs.NamespacedName()
 		if vsset.Contains(key) {
 			return
 		}
 
 		rule := vs.Spec.(*networking.VirtualService)
-		useGatewaySemantics := UseGatewaySemantics(vs)
 		for _, vh := range rule.Hosts {
 			if hc.VSMatches(host.Name(vh), useGatewaySemantics) {
+				// Store pointer directly - no copy needed
 				importedVirtualServices = append(importedVirtualServices, vs)
 				vsset.Insert(key)
 				return
@@ -77,25 +67,28 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	if features.UnifiedSidecarScoping {
 		loopAndAdd = func(vses []config.Config) {
 			for _, gwMatch := range []bool{true, false} {
-				for _, c := range vses {
-					gwExact := UseGatewaySemantics(c) && c.Namespace == configNamespace
+				// Use index-based iteration to get stable pointers to slice elements
+				for i := range vses {
+					c := &vses[i]
+					useGatewaySemantics := UseGatewaySemantics(*c)
+					gwExact := useGatewaySemantics && c.Namespace == configNamespace
 					if gwMatch != gwExact {
 						continue
 					}
-					configNamespace := c.Namespace
+					vsNamespace := c.Namespace
 					// Selection algorithm:
 					// virtualservices have a list of hosts in the API spec
 					// if any host in the list matches one service hostname, select the virtual service
 					// and break out of the loop.
 
 					// Check if there is an explicit import of form ns/* or ns/host
-					if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-						addVirtualService(c, importedHosts)
+					if importedHosts, nsFound := hostsByNamespace[vsNamespace]; nsFound {
+						addVirtualService(c, importedHosts, useGatewaySemantics)
 					}
 
 					// Check if there is an import of form */host or */*
 					if wnsFound {
-						addVirtualService(c, wnsImportedHosts)
+						addVirtualService(c, wnsImportedHosts, useGatewaySemantics)
 					}
 				}
 			}
@@ -103,21 +96,24 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	} else {
 		// Legacy path
 		loopAndAdd = func(vses []config.Config) {
-			for _, c := range vses {
-				configNamespace := c.Namespace
+			// Use index-based iteration to get stable pointers to slice elements
+			for i := range vses {
+				c := &vses[i]
+				vsNamespace := c.Namespace
+				useGatewaySemantics := UseGatewaySemantics(*c)
 				// Selection algorithm:
 				// virtualservices have a list of hosts in the API spec
 				// if any host in the list matches one service hostname, select the virtual service
 				// and break out of the loop.
 
 				// Check if there is an explicit import of form ns/* or ns/host
-				if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-					addVirtualService(c, importedHosts)
+				if importedHosts, nsFound := hostsByNamespace[vsNamespace]; nsFound {
+					addVirtualService(c, importedHosts, useGatewaySemantics)
 				}
 
 				// Check if there is an import of form */host or */*
 				if wnsFound {
-					addVirtualService(c, wnsImportedHosts)
+					addVirtualService(c, wnsImportedHosts, useGatewaySemantics)
 				}
 			}
 		}

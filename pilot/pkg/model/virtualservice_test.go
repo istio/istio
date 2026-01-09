@@ -2471,3 +2471,131 @@ func BenchmarkSelectVirtualServices(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkSelectVirtualServicesProduction simulates production scenario where
+// SelectVirtualServices is called once per sidecar scope (per namespace/workload).
+// This mimics convertSidecarScopes calling it for many namespaces.
+func BenchmarkSelectVirtualServicesProduction(b *testing.B) {
+	scenarios := []struct {
+		name          string
+		numNamespaces int
+		numVSPerNS    int
+		numServices   int
+	}{
+		{"50ns_100vs_500svc", 50, 100, 500},
+		{"100ns_200vs_1000svc", 100, 200, 1000},
+		{"200ns_500vs_2000svc", 200, 500, 2000},
+	}
+
+	for _, sc := range scenarios {
+		b.Run(sc.name, func(b *testing.B) {
+			// Create namespaces
+			namespaces := make([]string, sc.numNamespaces)
+			for i := 0; i < sc.numNamespaces; i++ {
+				namespaces[i] = fmt.Sprintf("ns-%d", i)
+			}
+
+			// Build services across namespaces
+			services := make([]*Service, 0, sc.numServices)
+			for i := 0; i < sc.numServices; i++ {
+				ns := namespaces[i%sc.numNamespaces]
+				hostname := fmt.Sprintf("service-%d.%s.svc.cluster.local", i, ns)
+				services = append(services, buildHTTPService(hostname, visibility.Public, wildcardIP, ns, 8080))
+			}
+
+			// Build hostsByNamespace for each namespace (simulating wildcard import */*)
+			hostsByNamespacePerNS := make([]map[string]hostClassification, sc.numNamespaces)
+			for i, ns := range namespaces {
+				hostsByNamespace := make(map[string]hostClassification)
+				// Add wildcard namespace entry (simulates "*/*" import)
+				hc := hostClassification{
+					exactHosts: sets.New[host.Name](),
+					allHosts:   make([]host.Name, 0, sc.numServices),
+				}
+				for _, svc := range services {
+					hc.allHosts = append(hc.allHosts, svc.Hostname)
+					if !svc.Hostname.IsWildCarded() {
+						hc.exactHosts.Insert(svc.Hostname)
+					}
+				}
+				hostsByNamespace["*"] = hc
+
+				// Also add the namespace's own hosts
+				nsHc := hostClassification{
+					exactHosts: sets.New[host.Name](),
+					allHosts:   make([]host.Name, 0),
+				}
+				for _, svc := range services {
+					if svc.Attributes.Namespace == ns {
+						nsHc.allHosts = append(nsHc.allHosts, svc.Hostname)
+						if !svc.Hostname.IsWildCarded() {
+							nsHc.exactHosts.Insert(svc.Hostname)
+						}
+					}
+				}
+				hostsByNamespace[ns] = nsHc
+				hostsByNamespacePerNS[i] = hostsByNamespace
+			}
+
+			// Build virtual services spread across namespaces
+			virtualServices := make([]config.Config, 0, sc.numVSPerNS*sc.numNamespaces)
+			for i := 0; i < sc.numVSPerNS*sc.numNamespaces; i++ {
+				ns := namespaces[i%sc.numNamespaces]
+				// Some VS match services, some don't
+				var vsHost string
+				if i%3 == 0 && sc.numServices > 0 {
+					svcIdx := i % sc.numServices
+					svcNs := namespaces[svcIdx%sc.numNamespaces]
+					vsHost = fmt.Sprintf("service-%d.%s.svc.cluster.local", svcIdx, svcNs)
+				} else if i%3 == 1 {
+					vsHost = fmt.Sprintf("*.%s.svc.cluster.local", ns) // wildcard
+				} else {
+					vsHost = fmt.Sprintf("external-%d.example.com", i)
+				}
+				vs := config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.VirtualService,
+						Name:             fmt.Sprintf("vs-%d", i),
+						Namespace:        ns,
+					},
+					Spec: &networking.VirtualService{
+						Hosts:    []string{vsHost},
+						Gateways: []string{"mesh"},
+						Http: []*networking.HTTPRoute{
+							{
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "destination.default.svc.cluster.local",
+											Port: &networking.PortSelector{Number: 80},
+										},
+										Weight: 100,
+									},
+								},
+							},
+						},
+					},
+				}
+				virtualServices = append(virtualServices, vs)
+			}
+
+			index := virtualServiceIndex{
+				publicByGateway: map[string][]config.Config{
+					constants.IstioMeshGateway: virtualServices,
+				},
+				privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
+				exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
+			}
+
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				// Simulate calling SelectVirtualServices for each namespace (like convertSidecarScopes does)
+				for j, ns := range namespaces {
+					_ = SelectVirtualServices(index, ns, hostsByNamespacePerNS[j])
+				}
+			}
+		})
+	}
+}

@@ -765,10 +765,10 @@ func buildSidecarOutboundHTTPListenerOpts(
 	}}
 }
 
-func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []config.Config) []*filterChainOpts {
+func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []*config.Config) []*filterChainOpts {
 	meshGateway := sets.New(constants.IstioMeshGateway)
 	out := make([]*filterChainOpts, 0)
-	var svcConfigs []config.Config
+	var svcConfigs []*config.Config
 	if opts.service != nil {
 		// Do not filter namespace for now.
 		// TODO(https://github.com/istio/istio/issues/46146) we may need to, or something more sophisticated
@@ -790,7 +790,7 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
 func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundListenerOpts,
-	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []config.Config, actualWildcards []string,
+	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []*config.Config, actualWildcards []string,
 ) {
 	// Alias services do not get listeners generated
 	if listenerOpts.service.Resolution == model.Alias {
