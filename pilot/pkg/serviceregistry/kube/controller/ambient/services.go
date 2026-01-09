@@ -186,7 +186,7 @@ func GlobalMergedWorkloadServicesCollection(
 			waypoints := *waypointsPtr
 			namespaces := cluster.Namespaces()
 			// N.B Never precompute the service info for remote clusters; the merge function will do that
-			servicesInfo := krt.NewCollection(services, unwrappedServiceServiceBuilder(
+			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(
 				waypoints,
 				namespaces,
 				meshConfig,
@@ -227,8 +227,7 @@ func GlobalMergedWorkloadServicesCollection(
 	)
 }
 
-// TODO: This is a terrible hack
-func unwrappedServiceServiceBuilder(
+func serviceServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
@@ -299,7 +298,7 @@ func unwrappedServiceServiceBuilder(
 	}
 }
 
-func serviceServiceBuilder(
+func typedServiceServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
@@ -310,63 +309,18 @@ func serviceServiceBuilder(
 	precompute bool,
 ) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
 	return func(ctx krt.HandlerContext, s *v1.Service) *TypedServiceInfo {
-		serviceScope := model.Local
-		if checkServiceScope {
-			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-			if meshCfg != nil {
-				serviceScope = matchServiceScope(ctx, meshCfg, namespaces, s)
-			}
-			if !localCluster && serviceScope != model.Global {
-				// If this is a remote service, we only want to return it if it is globally scoped.
-				// This is because we do not want to expose local services from other clusters.
-				log.Debugf("Skipping non-global service %s/%s in remote cluster", s.Namespace, s.Name)
-				return nil
-			}
-		}
-		if s.Spec.Type == v1.ServiceTypeExternalName {
-			// ExternalName services are not implemented by ambient (but will still work).
-			// The DNS requests will forward to the upstream DNS server, then Ztunnel can handle the request based on the target
-			// hostname.
-			// In theory we could add support for native 'DNS alias' into Ztunnel's DNS proxy. This would give the same behavior
-			// but let the DNS proxy handle it instead of forwarding upstream. However, at this time we do not do so.
+		svcInfo := serviceServiceBuilder(waypoints,
+			namespaces,
+			meshConfig,
+			domainSuffix,
+			localCluster,
+			checkServiceScope,
+			networkGetter,
+			precompute)(ctx, s)
+		if svcInfo == nil {
 			return nil
 		}
-		portNames := map[int32]model.ServicePortName{}
-		for _, p := range s.Spec.Ports {
-			portNames[p.Port] = model.ServicePortName{
-				PortName:       p.Name,
-				TargetPortName: p.TargetPort.StrVal,
-			}
-		}
-		waypointStatus := model.WaypointBindingStatus{}
-		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		if waypoint != nil {
-			waypointStatus.ResourceName = waypoint.ResourceName()
-
-			// TODO: add this label to the istio api labels so we have constants to use
-			if val, ok := s.Labels["istio.io/ingress-use-waypoint"]; ok {
-				waypointStatus.IngressLabelPresent = true
-				waypointStatus.IngressUseWaypoint = strings.EqualFold(val, "true")
-			}
-		}
-		waypointStatus.Error = wperr
-
-		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
-
-		svcInfo := model.ServiceInfo{
-			Service:       svc,
-			PortNames:     portNames,
-			LabelSelector: model.NewSelector(s.Spec.Selector),
-			Source:        MakeSource(s),
-			Waypoint:      waypointStatus,
-			Scope:         serviceScope,
-			CreationTime:  s.CreationTimestamp.Time,
-		}
-		if precompute {
-			return &TypedServiceInfo{precomputeService(svcInfo)}
-		}
-
-		return &TypedServiceInfo{svcInfo}
+		return &TypedServiceInfo{ServiceInfo: *svcInfo}
 	}
 }
 
@@ -464,7 +418,7 @@ func (a Builder) serviceServiceBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	precompute bool,
 ) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
-	return serviceServiceBuilder(
+	return typedServiceServiceBuilder(
 		waypoints,
 		namespaces,
 		meshConfig,
