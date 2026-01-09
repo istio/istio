@@ -2329,7 +2329,7 @@ func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 	t.Cleanup(func() {
 		if t.Failed() {
 			b, err := yaml.Marshal(debugger)
-			// It's really annoying if a Marshal error causes us to silenty get no debug info.
+			// See if we have an error and print it so that Marshal problems are not silent
 			if err != nil {
 				t.Log(err.Error())
 			}
