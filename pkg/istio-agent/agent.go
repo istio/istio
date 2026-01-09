@@ -428,19 +428,15 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			return nil, fmt.Errorf("failed to initialize envoy agent: %v", err)
 		}
 
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
+		a.wg.Go(func() {
 			// This is a blocking call for graceful termination.
 			a.envoyAgent.Run(ctx)
-		}()
+		})
 	} else if a.WaitForSigterm() {
 		// wait for SIGTERM and perform graceful shutdown
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
+		a.wg.Go(func() {
 			<-ctx.Done()
-		}()
+		})
 	}
 	return a.wg.Wait, nil
 }

@@ -164,11 +164,9 @@ func DumpPods(ctx resource.Context, workDir, namespace string, selectors []strin
 			continue
 		}
 		for _, dump := range dumpers {
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				dump(ctx, c, workDir, namespace, pods.Items...)
-				wg.Done()
-			}()
+			})
 		}
 	}
 	wg.Wait()

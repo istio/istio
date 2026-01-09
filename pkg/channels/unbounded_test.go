@@ -48,26 +48,22 @@ func TestSingleWriter(t *testing.T) {
 	reads := []int{}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ch := ub.Get()
 		for i := 0; i < numWriters*numWrites; i++ {
 			r := <-ch
 			reads = append(reads, r)
 			ub.Load()
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for i := 0; i < numWriters; i++ {
 			for j := 0; j < numWrites; j++ {
 				ub.Put(i)
 			}
 		}
-	}()
+	})
 
 	wg.Wait()
 	if !reflect.DeepEqual(reads, wantReads) {
@@ -82,16 +78,14 @@ func TestMultipleWriters(t *testing.T) {
 	reads := []int{}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ch := ub.Get()
 		for i := 0; i < numWriters*numWrites; i++ {
 			r := <-ch
 			reads = append(reads, r)
 			ub.Load()
 		}
-	}()
+	})
 
 	wg.Add(numWriters)
 	for i := 0; i < numWriters; i++ {

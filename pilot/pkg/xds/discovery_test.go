@@ -289,11 +289,9 @@ func TestDebounce(t *testing.T) {
 			}
 			updateSent := uatomic.NewInt64(0)
 
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				debounce(updateCh, stopCh, opts, fakePush, updateSent)
-				wg.Done()
-			}()
+			})
 
 			expect := func(expectedPartial, expectedFull int32) {
 				t.Helper()

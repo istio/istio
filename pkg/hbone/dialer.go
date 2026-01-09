@@ -134,14 +134,12 @@ func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2
 	}
 
 	if shouldCopy {
-		wg.Add(1)
 
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			// Copy from conn into the pipe, which will then be sent as part of the request
 			// handle upstream (hbone server) <-- downstream (app)
 			copyBuffered(pw, conn, log.WithLabels("name", "conn to pipe"))
-		}()
+		})
 	}
 	log.WithLabels("host", r.Host, "remote", remoteID).Info("CONNECT established")
 
@@ -150,12 +148,10 @@ func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2
 			defer conn.Close()
 			defer resp.Body.Close()
 
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				// handle upstream (hbone server) --> downstream (app)
 				copyBuffered(conn, resp.Body, log.WithLabels("name", "body to conn"))
-				wg.Done()
-			}()
+			})
 
 			wg.Wait()
 			log.Infof("stream closed in %v", time.Since(t0))

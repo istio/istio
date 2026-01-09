@@ -274,9 +274,7 @@ func waitForMetadataSuppliers(suppliers []metadataSupplier, md map[string]string
 			// We already have this property, we can skip it
 			continue
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if result, err := supplierFunction(); err == nil {
 				mx.Lock()
 				md[property] = result
@@ -285,7 +283,7 @@ func waitForMetadataSuppliers(suppliers []metadataSupplier, md map[string]string
 				// Log at debug level as these are often missing (when using GKE metadata server)
 				log.Debugf("Error fetching GCP Metadata property %s: %v", property, err)
 			}
-		}()
+		})
 	}
 	return &wg
 }

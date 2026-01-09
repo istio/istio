@@ -152,11 +152,9 @@ func TestProxyQueue(t *testing.T) {
 		defer p.ShutDown()
 
 		wg := &sync.WaitGroup{}
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			ExpectDequeue(t, p, proxies[0])
-			wg.Done()
-		}()
+		})
 		time.Sleep(time.Millisecond * 50)
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		wg.Wait()

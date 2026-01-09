@@ -184,11 +184,9 @@ func (f *informerFactory) startOne(stopCh <-chan struct{}, informerType informer
 		panic(fmt.Sprintf("bug: informer key %+v not found", informerType))
 	}
 	if !f.startedInformers.Contains(informerType) {
-		f.wg.Add(1)
-		go func() {
-			defer f.wg.Done()
+		f.wg.Go(func() {
 			informer.informer.Run(stopCh)
-		}()
+		})
 		f.startedInformers.Insert(informerType)
 	}
 }

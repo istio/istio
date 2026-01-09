@@ -154,14 +154,12 @@ func (i *instance) RunComponentAsync(name string, task Component) {
 
 func (i *instance) RunComponentAsyncAndWait(name string, task Component) {
 	i.RunComponent(name, func(stop <-chan struct{}) error {
-		i.requiredTerminations.Add(1)
-		go func() {
+		i.requiredTerminations.Go(func() {
 			err := task(stop)
 			if err != nil {
 				logComponentError(name, err)
 			}
-			i.requiredTerminations.Done()
-		}()
+		})
 		return nil
 	})
 }

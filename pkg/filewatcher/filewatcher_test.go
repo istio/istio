@@ -114,11 +114,9 @@ func TestWatchFile(t *testing.T) {
 		events := w.Events(watchFile)
 
 		wg := sync.WaitGroup{}
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			<-events
-			wg.Done()
-		}()
+		})
 
 		// Overwriting the file and waiting its event to be received.
 		err = os.WriteFile(watchFile, []byte("foo: baz\n"), 0o640)
@@ -142,11 +140,9 @@ func TestWatchFile(t *testing.T) {
 		events := w.Events(watchFile)
 
 		wg := sync.WaitGroup{}
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			<-events
-			wg.Done()
-		}()
+		})
 
 		// Link to another `test.conf` file
 		dataDir2 := path.Join(watchDir, "data2")
@@ -178,11 +174,9 @@ func TestWatchFile(t *testing.T) {
 		events := w.Events(watchFile)
 
 		wg := sync.WaitGroup{}
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			<-events
-			wg.Done()
-		}()
+		})
 
 		// Overwriting the file and waiting its event to be received.
 		err := os.WriteFile(watchFile, []byte("foo: baz\n"), 0o640)
