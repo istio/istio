@@ -35,7 +35,6 @@ import (
 // This function is used by sidecar converter.
 // Returns pointers to configs in the index to avoid copying config.Config structs.
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []*config.Config {
-	// Estimate capacity based on input sizes to reduce slice growth allocations
 	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
 	estimatedCap := len(vsidx.privateByNamespaceAndGateway[n]) +
 		len(vsidx.exportedToNamespaceByGateway[n]) +
@@ -43,8 +42,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	importedVirtualServices := make([]*config.Config, 0, estimatedCap)
 	vsset := sets.New[types.NamespacedName]()
 
-	// addVirtualService uses a pointer to avoid copying config.Config (~200+ bytes).
-	// The pointer references elements in the index slices which are stable during selection.
 	addVirtualService := func(vs *config.Config, hc hostClassification, useGatewaySemantics bool) {
 		key := vs.NamespacedName()
 		if vsset.Contains(key) {
@@ -54,7 +51,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		rule := vs.Spec.(*networking.VirtualService)
 		for _, vh := range rule.Hosts {
 			if hc.VSMatches(host.Name(vh), useGatewaySemantics) {
-				// Store pointer directly - no copy needed
 				importedVirtualServices = append(importedVirtualServices, vs)
 				vsset.Insert(key)
 				return
@@ -67,7 +63,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	if features.UnifiedSidecarScoping {
 		loopAndAdd = func(vses []config.Config) {
 			for _, gwMatch := range []bool{true, false} {
-				// Use index-based iteration to get stable pointers to slice elements
 				for i := range vses {
 					c := &vses[i]
 					useGatewaySemantics := UseGatewaySemantics(*c)
@@ -96,7 +91,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	} else {
 		// Legacy path
 		loopAndAdd = func(vses []config.Config) {
-			// Use index-based iteration to get stable pointers to slice elements
 			for i := range vses {
 				c := &vses[i]
 				vsNamespace := c.Namespace
