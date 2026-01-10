@@ -34,7 +34,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -206,20 +205,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		connectionPool.Http = nil
 		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
-		var wrappedEndpoints *loadbalancer.WrappedLocalityLbEndpoints
-		if localCluster.wrappedLocalityLbEndpoints != nil {
-			wrappedEndpoints = localCluster.wrappedLocalityLbEndpoints
-		} else if endpointBuilder != nil {
-			lbEndpoints := endpointBuilder.FromServiceEndpoints()
-			istioEndpoints := endpointBuilder.IstioEndpoints()
-			if len(lbEndpoints) > 0 {
-				wrappedEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
-					IstioEndpoints:      istioEndpoints,
-					LocalityLbEndpoints: lbEndpoints[0],
-				}
-			}
-		}
-		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, wrappedEndpoints)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil)
 		// TODO: Decide if we want to support this
 		if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
 			log.Warnf("Passthrough on the east/west gateway isn't expected")
@@ -239,20 +225,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// Unless the svc resolution type is DynamicDNS, we apply the LB settings
 	if svc.Resolution != model.DynamicDNS {
-		var wrappedEndpoints *loadbalancer.WrappedLocalityLbEndpoints
-		if localCluster.wrappedLocalityLbEndpoints != nil {
-			wrappedEndpoints = localCluster.wrappedLocalityLbEndpoints
-		} else if endpointBuilder != nil {
-			lbEndpoints := endpointBuilder.FromServiceEndpoints()
-			istioEndpoints := endpointBuilder.IstioEndpoints()
-			if len(lbEndpoints) > 0 {
-				wrappedEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
-					IstioEndpoints:      istioEndpoints,
-					LocalityLbEndpoints: lbEndpoints[0],
-				}
-			}
-		}
-		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, wrappedEndpoints)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil)
 	}
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result

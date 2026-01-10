@@ -338,11 +338,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
 			var wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
 			if clusterKey.endpointBuilder != nil {
+				// This is set only for DNS clusters.
 				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
-				istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
 				if len(lbEndpoints) > 0 {
+					istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
 					wrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
-						IstioEndpoints:      istioEndpoints,
+						IstioEndpoints: istioEndpoints,
+						// For DNS clusters, we only have one locality lb endpoint
+						// with multiple LbEndpoints.
 						LocalityLbEndpoints: lbEndpoints[0],
 					}
 				}

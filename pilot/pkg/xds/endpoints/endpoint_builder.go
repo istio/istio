@@ -349,8 +349,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
 }
 
-// FromServiceEndpoints builds LocalityLbEndpoints from the PushContext's snapshotted ServiceIndex.
-// Used for CDS (ClusterLoadAssignment constructed elsewhere).
+// IstioEndpoints returns IstioEndpoints from the PushContext's snapshotted ServiceIndex.
 func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
 	if b == nil {
 		return nil
