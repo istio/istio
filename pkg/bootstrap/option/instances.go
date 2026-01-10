@@ -199,6 +199,10 @@ func EnvoyMetricsServiceTCPKeepalive(value *networkingAPI.ConnectionPoolSettings
 	return newTCPKeepaliveOption("envoy_metrics_service_tcp_keepalive", value)
 }
 
+func EnvoyMetricsStatsCompression(value bool) Instance {
+	return newOption("envoy_metrics_stats_compression", value)
+}
+
 func EnvoyAccessLogServiceAddress(value string) Instance {
 	return newOptionOrSkipIfZero("envoy_accesslog_service_address", value).withConvert(addressConverter(value))
 }
@@ -302,10 +306,6 @@ type HistogramBucket struct {
 
 func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
 	return newOption("histogram_buckets", value)
-}
-
-func EnvoyStatsCompression(value string) Instance {
-	return newOption("stats_compression", value)
 }
 
 func EnvoyStatsFlushInterval(interval time.Duration) Instance {
