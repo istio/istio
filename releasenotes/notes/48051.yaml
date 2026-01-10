@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 48051
+releaseNotes:
+  - |
+    **Added** always offer compression for the Envoy stats endpoint, support `brotli`, `gzip` and `zstd`.
+    **Deprecated** this change removes the `sidecar.istio.io/statsCompression` annotation, which is no longer needed.

@@ -73,12 +73,6 @@ const (
 	v2Suffix   = ",component,istio"
 )
 
-var envoyWellKnownCompressorLibrary = sets.String{
-	"gzip":   {},
-	"zstd":   {},
-	"brotli": {},
-}
-
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
@@ -309,12 +303,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		}
 	}
 
-	var compression string
-	if statsCompression, ok := meta.Annotations[annotation.SidecarStatsCompression.Name]; ok &&
-		envoyWellKnownCompressorLibrary.Contains(statsCompression) {
-		compression = statsCompression
-	}
-
 	options := []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -323,7 +311,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 		option.EnvoyHistogramBuckets(buckets),
-		option.EnvoyStatsCompression(compression),
 	}
 
 	statsFlushInterval := 5 * time.Second // Default value is 5s.
