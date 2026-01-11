@@ -3562,13 +3562,13 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		virtualServices []config.Config
+		virtualServices []*config.Config
 		services        []*Service
 		expectedIndex   map[host.Name]types.NamespacedName
 	}{
 		{
 			name:            "most specific",
-			virtualServices: virtualServices,
+			virtualServices: configsToPointers(virtualServices),
 			services:        services,
 			expectedIndex: map[host.Name]types.NamespacedName{
 				"foo.example.com":     {Name: "foo", Namespace: "default"},
@@ -3587,4 +3587,13 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 			}
 		})
 	}
+}
+
+// helper function to convert []config.Config to []*config.Config for tests
+func configsToPointers(configs []config.Config) []*config.Config {
+	result := make([]*config.Config, len(configs))
+	for i := range configs {
+		result[i] = &configs[i]
+	}
+	return result
 }

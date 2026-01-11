@@ -1104,25 +1104,32 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 // listener, we don't call this function to copy configs for performance issues.
 // Instead, we pass the virtualServiceIndex directly into SelectVirtualServices
 // function.
-func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string) []config.Config {
+func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string) []*config.Config {
 	name := types.NamespacedName{
 		Namespace: proxyNamespace,
 		Name:      gateway,
 	}
-	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name])+
+	res := make([]*config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name])+
 		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name])+
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
-	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
-	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
+	// Use index-based iteration to get stable pointers to slice elements
+	for i := range ps.virtualServiceIndex.privateByNamespaceAndGateway[name] {
+		res = append(res, &ps.virtualServiceIndex.privateByNamespaceAndGateway[name][i])
+	}
+	for i := range ps.virtualServiceIndex.exportedToNamespaceByGateway[name] {
+		res = append(res, &ps.virtualServiceIndex.exportedToNamespaceByGateway[name][i])
+	}
 	// Favor same-namespace Gateway routes, to give the "consumer override" preference.
 	// We do 2 iterations here to avoid extra allocations.
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		if UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace {
+	for i := range ps.virtualServiceIndex.publicByGateway[gateway] {
+		vs := &ps.virtualServiceIndex.publicByGateway[gateway][i]
+		if UseGatewaySemantics(*vs) && vs.Namespace == proxyNamespace {
 			res = append(res, vs)
 		}
 	}
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		if !(UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace) {
+	for i := range ps.virtualServiceIndex.publicByGateway[gateway] {
+		vs := &ps.virtualServiceIndex.publicByGateway[gateway][i]
+		if !(UseGatewaySemantics(*vs) && vs.Namespace == proxyNamespace) {
 			res = append(res, vs)
 		}
 	}
@@ -1131,7 +1138,7 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 }
 
 // DelegateVirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
-func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHash {
+func (ps *PushContext) DelegateVirtualServices(vses []*config.Config) []ConfigHash {
 	var out []ConfigHash
 	for _, vs := range vses {
 		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {

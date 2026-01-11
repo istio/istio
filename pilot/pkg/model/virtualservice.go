@@ -33,18 +33,22 @@ import (
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
-func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
-	importedVirtualServices := make([]config.Config, 0)
+// Returns pointers to configs in the index to avoid copying config.Config structs.
+func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []*config.Config {
+	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
+	estimatedCap := len(vsidx.privateByNamespaceAndGateway[n]) +
+		len(vsidx.exportedToNamespaceByGateway[n]) +
+		len(vsidx.publicByGateway[constants.IstioMeshGateway])
+	importedVirtualServices := make([]*config.Config, 0, estimatedCap)
 	vsset := sets.New[types.NamespacedName]()
 
-	addVirtualService := func(vs config.Config, hc hostClassification) {
+	addVirtualService := func(vs *config.Config, hc hostClassification, useGatewaySemantics bool) {
 		key := vs.NamespacedName()
 		if vsset.Contains(key) {
 			return
 		}
 
 		rule := vs.Spec.(*networking.VirtualService)
-		useGatewaySemantics := UseGatewaySemantics(vs)
 		for _, vh := range rule.Hosts {
 			if hc.VSMatches(host.Name(vh), useGatewaySemantics) {
 				importedVirtualServices = append(importedVirtualServices, vs)
@@ -59,25 +63,27 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	if features.UnifiedSidecarScoping {
 		loopAndAdd = func(vses []config.Config) {
 			for _, gwMatch := range []bool{true, false} {
-				for _, c := range vses {
-					gwExact := UseGatewaySemantics(c) && c.Namespace == configNamespace
+				for i := range vses {
+					c := &vses[i]
+					useGatewaySemantics := UseGatewaySemantics(*c)
+					gwExact := useGatewaySemantics && c.Namespace == configNamespace
 					if gwMatch != gwExact {
 						continue
 					}
-					configNamespace := c.Namespace
+					vsNamespace := c.Namespace
 					// Selection algorithm:
 					// virtualservices have a list of hosts in the API spec
 					// if any host in the list matches one service hostname, select the virtual service
 					// and break out of the loop.
 
 					// Check if there is an explicit import of form ns/* or ns/host
-					if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-						addVirtualService(c, importedHosts)
+					if importedHosts, nsFound := hostsByNamespace[vsNamespace]; nsFound {
+						addVirtualService(c, importedHosts, useGatewaySemantics)
 					}
 
 					// Check if there is an import of form */host or */*
 					if wnsFound {
-						addVirtualService(c, wnsImportedHosts)
+						addVirtualService(c, wnsImportedHosts, useGatewaySemantics)
 					}
 				}
 			}
@@ -85,27 +91,28 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	} else {
 		// Legacy path
 		loopAndAdd = func(vses []config.Config) {
-			for _, c := range vses {
-				configNamespace := c.Namespace
+			for i := range vses {
+				c := &vses[i]
+				vsNamespace := c.Namespace
+				useGatewaySemantics := UseGatewaySemantics(*c)
 				// Selection algorithm:
 				// virtualservices have a list of hosts in the API spec
 				// if any host in the list matches one service hostname, select the virtual service
 				// and break out of the loop.
 
 				// Check if there is an explicit import of form ns/* or ns/host
-				if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-					addVirtualService(c, importedHosts)
+				if importedHosts, nsFound := hostsByNamespace[vsNamespace]; nsFound {
+					addVirtualService(c, importedHosts, useGatewaySemantics)
 				}
 
 				// Check if there is an import of form */host or */*
 				if wnsFound {
-					addVirtualService(c, wnsImportedHosts)
+					addVirtualService(c, wnsImportedHosts, useGatewaySemantics)
 				}
 			}
 		}
 	}
 
-	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
 	loopAndAdd(vsidx.privateByNamespaceAndGateway[n])
 	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
 	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
