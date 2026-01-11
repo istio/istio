@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"sort"
@@ -53,6 +54,9 @@ const (
 
 	// IstioMetaJSONPrefix is used to pass annotations and similar environment info.
 	IstioMetaJSONPrefix = "ISTIO_METAJSON_"
+
+	// GlobalDownstreamMaxConnections is the metadata key for global downstream max connections.
+	GlobalDownstreamMaxConnections = "ISTIO_META_GLOBAL_DOWNSTREAM_MAX_CONNECTIONS"
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
@@ -367,6 +371,29 @@ func getNodeMetadataOptions(node *model.Node, policy string) []option.Instance {
 		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig, policy)),
 		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
+	// Default value of max connections is the maximum integer value.
+	globalDownstreamMaxConnections := math.MaxInt32
+	// If proxy metadata is set, use it to set the global downstream max connections.
+	// If not set, use the default value of max connections.
+	// TODO: Consider moving this to proxy config A
+	metadataExists := false
+	if node.Metadata.ProxyConfig.ProxyMetadata != nil {
+		if maxConnections, err := strconv.Atoi(node.Metadata.ProxyConfig.ProxyMetadata[GlobalDownstreamMaxConnections]); err == nil {
+			globalDownstreamMaxConnections = maxConnections
+			metadataExists = true
+		}
+	}
+	if !metadataExists {
+		// If the runtime flag overload.global_downstream_max_connections is set, honor it
+		// for backwards compatibility. This will be removed in a future release.
+		globalDownstreamMaxConnectionsRuntime := globalDownstreamMaxConnectionsRuntimeFlag(node.Metadata.ProxyConfig)
+		if globalDownstreamMaxConnectionsRuntime != "" {
+			if maxConnections, err := strconv.Atoi(globalDownstreamMaxConnectionsRuntime); err == nil {
+				globalDownstreamMaxConnections = maxConnections
+			}
+		}
+	}
+	opts = append(opts, option.GlobalDownstreamMaxConnections(globalDownstreamMaxConnections))
 	return opts
 }
 
@@ -407,6 +434,15 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig, policy string) map[stri
 		}
 	}
 	return runtimeFlags
+}
+
+func globalDownstreamMaxConnectionsRuntimeFlag(cfg *model.NodeMetaProxyConfig) string {
+	for k, v := range cfg.RuntimeValues {
+		if k == "overload.global_downstream_max_connections" {
+			return v
+		}
+	}
+	return ""
 }
 
 func getLocalityOptions(l *core.Locality) []option.Instance {
