@@ -59,6 +59,9 @@ The command also supports reading from a standalone config dump file with flag -
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("check requires only <pod-name>[.<pod-namespace>]")
 			}
+			if err := util.ValidatePort(proxyAdminPort); err != nil {
+				return err
+			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
