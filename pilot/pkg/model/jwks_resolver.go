@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -229,6 +230,7 @@ var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
 func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.Duration) (string, error) {
 	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
+
 	if val, found := r.keyEntries.Load(key); found {
 		e := val.(jwtPubKeyEntry)
 
@@ -377,6 +379,47 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 		}
 
 		client = r.secureHTTPClient
+	}
+
+	// If blocked IPs or CIDRs are configured, use a custom dialer to check resolved IPs after DNS lookup
+	if len(features.BlockedCIDRsInJWKURIs) > 0 {
+		transport := client.Transport.(*http.Transport).Clone()
+		defaultDialer := &net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}
+
+		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+
+			// Resolve the hostname to get IP addresses
+			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			if err != nil {
+				return nil, err
+			}
+
+			// Check if any resolved IP is in the blocked list
+			for _, ip := range ips {
+				ipStr := ip.String()
+				// Check CIDR ranges
+				for _, cidr := range features.BlockedCIDRsInJWKURIs {
+					if cidr.Contains(ip) {
+						return nil, fmt.Errorf("jwksURI %q resolved to IP %q which is in blocked CIDR range %s", uri, ipStr, cidr.String())
+					}
+				}
+			}
+
+			// Proceed with the actual connection
+			return defaultDialer.DialContext(ctx, network, addr)
+		}
+
+		client = &http.Client{
+			Transport: transport,
+			Timeout:   timeout,
+		}
 	}
 
 	getPublicKey := func() (b []byte, e error) {
