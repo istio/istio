@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** an issue where HTTPRoute `RegularExpression` path matches were not prioritized over `PathPrefix` matches, causing incorrect route selection when both match types could match the same path. RegularExpression matches are now correctly evaluated before PathPrefix matches, ensuring more specific routes are matched first.
+
