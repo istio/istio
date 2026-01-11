@@ -522,11 +522,9 @@ func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 
 		oldPubKey := e.pubKey
 		// Increment the WaitGroup counter.
-		wg.Add(1)
 
-		go func() {
+		wg.Go(func() {
 			// Decrement the counter when the goroutine completes.
-			defer wg.Done()
 			jwksURI := k.jwksURI
 			if jwksURI == "" {
 				var err error
@@ -583,7 +581,7 @@ func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 				hasChange.Store(true)
 				log.Infof("Updated cached JWT public key from %q", jwksURI)
 			}
-		}()
+		})
 
 		return true
 	})

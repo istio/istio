@@ -1974,9 +1974,7 @@ func (ps *PushContext) concurrentConvertToSidecarScope(sidecarConfigs []config.C
 	taskItems := make(chan taskItem)
 	sidecarScopes := make([]*SidecarScope, len(sidecarConfigs))
 	for i := 0; i < features.ConvertSidecarScopeConcurrency; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for {
 				item, ok := <-taskItems
 				if !ok {
@@ -1985,7 +1983,7 @@ func (ps *PushContext) concurrentConvertToSidecarScope(sidecarConfigs []config.C
 				sc := convertToSidecarScope(ps, &item.cfg, item.cfg.Namespace)
 				sidecarScopes[item.idx] = sc
 			}
-		}()
+		})
 	}
 
 	// note: sidecarScopes order matters and needs to be kept in the same order as sidecarConfigs.
