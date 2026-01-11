@@ -171,16 +171,16 @@ func printMeshVersion(meshInfo *MeshInfo, kind outputKind) string {
 		return string(res)
 	}
 
-	res := ""
+	var res strings.Builder
 	for _, info := range *meshInfo {
 		switch kind {
 		case rawOutputMock:
-			res += fmt.Sprintf("%s version: %#v\n", info.Component, info.Info)
+			res.WriteString(fmt.Sprintf("%s version: %#v\n", info.Component, info.Info))
 		case shortOutputMock:
-			res += fmt.Sprintf("%s version: %s\n", info.Component, info.Info.Version)
+			res.WriteString(fmt.Sprintf("%s version: %s\n", info.Component, info.Info.Version))
 		}
 	}
-	return res
+	return res.String()
 }
 
 func TestVersion(t *testing.T) {
