@@ -27,8 +27,9 @@ import (
 type ClusterStore struct {
 	sync.RWMutex
 	// keyed by secret key(ns/name)->clusterID
-	remoteClusters map[string]map[cluster.ID]*Cluster
-	clusters       sets.String
+	remoteClusters       map[string]map[cluster.ID]*Cluster
+	clusters             sets.String
+	clustersAwaitingSync sets.Set[cluster.ID]
 	*krt.RecomputeTrigger
 }
 
@@ -48,7 +49,12 @@ func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Clus
 		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
 	}
 	c.remoteClusters[secretKey][clusterID] = value
-	c.clusters.Insert(string(clusterID))
+	exists := c.clusters.InsertContains(string(clusterID))
+	if exists && c.clustersAwaitingSync.Contains(clusterID) {
+		// If there was an old version of this cluster that existed and was waiting for sync,
+		// we can remove it from the awaiting set since we have a new version now.
+		c.clustersAwaitingSync.Delete(clusterID)
+	}
 	c.TriggerRecomputation()
 }
 
@@ -57,6 +63,9 @@ func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
 	defer c.Unlock()
 	delete(c.remoteClusters[secretKey], clusterID)
 	c.clusters.Delete(string(clusterID))
+	if c.clustersAwaitingSync.Contains(clusterID) {
+		c.clustersAwaitingSync.Delete(clusterID)
+	}
 	if len(c.remoteClusters[secretKey]) == 0 {
 		delete(c.remoteClusters, secretKey)
 	}
@@ -142,4 +151,31 @@ func (c *ClusterStore) HasSynced() bool {
 	}
 
 	return true
+}
+
+func (c *ClusterStore) TriggerRecomputeOnSync(id cluster.ID) {
+	cluster := c.GetByID(id)
+	if cluster == nil {
+		log.Debugf("cluster %s not found in store to trigger recompute", id)
+		return
+	}
+	c.Lock()
+	c.clustersAwaitingSync.Insert(id)
+	c.Unlock()
+
+	go func() {
+		// Wait until the cluster is synced. If it's deleted from the store before
+		// it's fully synced, this will return because of the stop.
+		// Double check to make sure this cluster is still in the store
+		// and that it wasn't closed/timed out (we don't want to send an event for bad clusters)
+		if cluster.WaitUntilSynced(cluster.stop) && !cluster.Closed() && !cluster.SyncDidTimeout() && c.GetByID(id) != nil {
+			// Let dependent krt collections know that this cluster is ready to use
+			c.TriggerRecomputation()
+			// And clean up our tracking set
+			c.Lock()
+			c.clustersAwaitingSync.Delete(id)
+			c.Unlock()
+			log.Debugf("remote cluster %s informers synced, triggering recompute", id)
+		}
+	}()
 }

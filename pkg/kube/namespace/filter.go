@@ -36,6 +36,8 @@ import (
 
 type DiscoveryFilter func(obj any) bool
 
+type ManualSyncWaiter func(stop <-chan struct{})
+
 type discoveryNamespacesFilter struct {
 	lock                sync.RWMutex
 	namespaces          kclient.Client[*corev1.Namespace]
@@ -44,11 +46,12 @@ type discoveryNamespacesFilter struct {
 	handlers            []func(added, removed sets.String)
 }
 
-func NewDiscoveryNamespacesFilter(
+func newDiscoveryNamespacesFilter(
 	namespaces kclient.Client[*corev1.Namespace],
 	mesh mesh.Watcher,
 	stop <-chan struct{},
-) kubetypes.DynamicObjectFilter {
+	wait bool,
+) *discoveryNamespacesFilter {
 	// convert LabelSelectors to Selectors
 	f := &discoveryNamespacesFilter{
 		namespaces:          namespaces,
@@ -101,9 +104,33 @@ func NewDiscoveryNamespacesFilter(
 	})
 	// Start namespaces and wait for it to be ready now. This is required for subsequent users, so we want to block
 	namespaces.Start(stop)
-	kube.WaitForCacheSync("discovery filter", stop, namespaces.HasSynced)
-	f.selectorsChanged(mesh.Mesh().GetDiscoverySelectors(), false)
+	if wait {
+		kube.WaitForCacheSync("discovery filter", stop, namespaces.HasSynced)
+		f.selectorsChanged(mesh.Mesh().GetDiscoverySelectors(), false)
+	}
 	return f
+}
+
+func NewDiscoveryNamespacesFilter(
+	namespaces kclient.Client[*corev1.Namespace],
+	mesh mesh.Watcher,
+	stop <-chan struct{},
+) kubetypes.DynamicObjectFilter {
+	return newDiscoveryNamespacesFilter(namespaces, mesh, stop, true)
+}
+
+// NewNonBlockingDiscoveryNamespacesFilter creates the filter without blocking to wait on the initial sync.
+// Use the returned ManualSyncWaiter to wait for the initial sync when desired.
+func NewNonBlockingDiscoveryNamespacesFilter(
+	namespaces kclient.Client[*corev1.Namespace],
+	mesh mesh.Watcher,
+	stop <-chan struct{},
+) (kubetypes.DynamicObjectFilter, ManualSyncWaiter) {
+	f := newDiscoveryNamespacesFilter(namespaces, mesh, stop, false)
+	return f, func(stop <-chan struct{}) {
+		kube.WaitForCacheSync("discovery filter", stop, namespaces.HasSynced)
+		f.selectorsChanged(mesh.Mesh().GetDiscoverySelectors(), false)
+	}
 }
 
 func (d *discoveryNamespacesFilter) notifyHandlers(added sets.Set[string], removed sets.String) {
