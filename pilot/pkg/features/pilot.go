@@ -157,12 +157,6 @@ var (
 		false,
 		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.").Get()
 
-	EnvoyHBONEIdleTimeout = env.Register(
-		"PILOT_ENVOY_HBONE_IDLE_TIMEOUT",
-		3600*time.Second,
-		"Idle timeout for HBONE connections to ztunnel. "+
-			"Default is 1h. Lower the value appropriately to mitigate stale connection reuse when target pod IPs are recycled.").Get()
-
 	EnableIPAutoallocate = env.Register(
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,
