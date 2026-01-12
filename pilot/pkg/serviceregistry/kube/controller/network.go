@@ -473,13 +473,16 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 				nodeAddresses = append(nodeAddresses, n.address)
 			}
 		}
-		if svc.Attributes.ClusterExternalAddresses == nil {
-			svc.Attributes.ClusterExternalAddresses = &model.AddressMap{}
-		}
+		svc := svc.ShallowCopy()
 		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), nodeAddresses)
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)
 	}
+	c.Lock()
+	for _, svc := range svcs {
+		c.servicesMap[svc.Hostname] = svc
+	}
+	c.Unlock()
 	return true
 }
 

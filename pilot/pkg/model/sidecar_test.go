@@ -31,11 +31,13 @@ import (
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
@@ -3584,6 +3586,242 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 			index := computeWildcardHostVirtualServiceIndex(tt.virtualServices, tt.services)
 			if !reflect.DeepEqual(tt.expectedIndex, index) {
 				t.Errorf("Expected index %v, got %v", tt.expectedIndex, index)
+			}
+		})
+	}
+}
+
+// createBenchmarkService creates a service with realistic attributes for benchmarking
+func createBenchmarkService(numPorts int, numAliases int) *Service {
+	ports := make([]*Port, numPorts)
+	for i := 0; i < numPorts; i++ {
+		ports[i] = &Port{
+			Name:     "http-" + string(rune('0'+i)),
+			Port:     8080 + i,
+			Protocol: protocol.HTTP,
+		}
+	}
+
+	aliases := make([]NamespacedHostname, numAliases)
+	for i := 0; i < numAliases; i++ {
+		aliases[i] = NamespacedHostname{
+			Hostname:  host.Name("alias" + string(rune('0'+i)) + ".example.com"),
+			Namespace: "default",
+		}
+	}
+
+	labels := map[string]string{
+		"app":     "test",
+		"version": "v1",
+		"env":     "prod",
+	}
+
+	labelSelectors := map[string]string{
+		"app": "test",
+	}
+
+	clusterVIPs := AddressMap{
+		Addresses: map[cluster.ID][]string{
+			"cluster-1": {"10.0.0.1"},
+			"cluster-2": {"10.0.0.2"},
+		},
+	}
+
+	return &Service{
+		Hostname: "test.default.svc.cluster.local",
+		Ports:    ports,
+		Attributes: ServiceAttributes{
+			ServiceRegistry: provider.Kubernetes,
+			Name:            "test",
+			Namespace:       "default",
+			Labels:          labels,
+			LabelSelectors:  labelSelectors,
+			Aliases:         aliases,
+		},
+		ServiceAccounts: []string{
+			"spiffe://cluster.local/ns/default/sa/test",
+		},
+		ClusterVIPs: *clusterVIPs.DeepCopy(),
+	}
+}
+
+func BenchmarkServiceMatchingListenerPort(b *testing.B) {
+	ilw := &IstioEgressListenerWrapper{
+		IstioListener: &networking.IstioEgressListener{
+			Port: &networking.SidecarPort{
+				Number: 8081,
+			},
+		},
+	}
+
+	benchmarks := []struct {
+		name       string
+		numPorts   int
+		numAliases int
+	}{
+		{"single-port", 1, 5},
+		{"few-ports", 3, 5},
+		{"many-ports", 10, 5},
+		{"many-ports-many-aliases", 10, 20},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				result := serviceMatchingListenerPort(svc, ilw)
+				if result == nil && bm.numPorts > 1 {
+					b.Fatal("expected non-nil result")
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkServiceMatchingVirtualServicePorts(b *testing.B) {
+	benchmarks := []struct {
+		name       string
+		numPorts   int
+		numAliases int
+		vsPorts    []int
+	}{
+		{"match-all", 5, 5, []int{0}}, // sentinel value means all ports
+		{"match-one", 5, 5, []int{8081}},
+		{"match-multiple", 10, 5, []int{8081, 8082, 8083}},
+		{"match-many-aliases", 10, 20, []int{8081, 8082}},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			vsPorts := sets.New(bm.vsPorts...)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				result := serviceMatchingVirtualServicePorts(svc, vsPorts)
+				if result == nil {
+					b.Fatal("expected non-nil result")
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkMatchingAliasService(b *testing.B) {
+	benchmarks := []struct {
+		name         string
+		numPorts     int
+		numAliases   int
+		matchPattern string
+	}{
+		{"match-all", 5, 5, "*"},
+		{"match-subset", 5, 10, "alias[0-4]*"},
+		{"match-many", 5, 20, "alias*"},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			// Create a host classification that matches the pattern
+			hc := hostClassification{
+				exactHosts: sets.New[host.Name](),
+				allHosts:   []host.Name{host.Name(bm.matchPattern)},
+			}
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				result := matchingAliasService(hc, svc)
+				if result == nil {
+					b.Fatal("expected non-nil result")
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkAppendSidecarServicesMerge(b *testing.B) {
+	benchmarks := []struct {
+		name          string
+		existingPorts int
+		newPorts      int
+		numAliases    int
+	}{
+		{"merge-few-ports", 3, 2, 5},
+		{"merge-many-ports", 10, 5, 5},
+		{"merge-many-aliases", 5, 3, 20},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				// Setup: create a SidecarScope with an existing service
+				sc := &SidecarScope{
+					services:           make([]*Service, 0),
+					servicesByHostname: make(map[host.Name]*Service),
+				}
+				servicesAdded := make(map[host.Name]sidecarServiceIndex)
+
+				existing := createBenchmarkService(bm.existingPorts, bm.numAliases)
+				sc.appendSidecarServices(servicesAdded, existing)
+
+				// Create a new service with different ports to merge
+				newSvc := createBenchmarkService(bm.newPorts, bm.numAliases)
+				newSvc.Hostname = existing.Hostname // Same hostname to trigger merge
+				// Give it different port numbers to avoid duplicate detection
+				for j, port := range newSvc.Ports {
+					port.Port = 9000 + j
+				}
+
+				b.StartTimer()
+				sc.appendSidecarServices(servicesAdded, newSvc)
+			}
+		})
+	}
+}
+
+// Benchmark comparison between old DeepCopy approach and new shallow copy approach
+func BenchmarkServiceCopyComparison(b *testing.B) {
+	benchmarks := []struct {
+		name       string
+		numPorts   int
+		numAliases int
+	}{
+		{"small-service", 3, 5},
+		{"medium-service", 10, 10},
+		{"large-service", 20, 30},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name+"-DeepCopy", func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				copied := svc.DeepCopy()
+				if copied == nil {
+					b.Fatal("expected non-nil copy")
+				}
+			}
+		})
+
+		b.Run(bm.name+"-ShallowCopyWithPorts", func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				// Simulate what serviceMatchingListenerPort does
+				sc := svc.ShallowCopy()
+				sc.Ports = []*Port{
+					{
+						Name:     svc.Ports[0].Name,
+						Port:     svc.Ports[0].Port,
+						Protocol: svc.Ports[0].Protocol,
+					},
+				}
 			}
 		})
 	}
