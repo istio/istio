@@ -237,29 +237,6 @@
   "static_resources": {
     "clusters": [
       {
-        "name": "prometheus_stats",
-        "alt_stat_name": "prometheus_stats;",
-        "type": "STATIC",
-        "connect_timeout": "0.250s",
-        "lb_policy": "ROUND_ROBIN",
-        "load_assignment": {
-          "cluster_name": "prometheus_stats",
-          "endpoints": [{
-            "lb_endpoints": [{
-              "endpoint": {
-                "address":{
-                  "socket_address": {
-                    "protocol": "TCP",
-                    "address": "{{ .localhost }}",
-                    "port_value": {{ .config.ProxyAdminPort }}
-                  }
-                }
-              }
-            }]
-          }]
-        }
-      },
-      {
         "name": "agent",
         "alt_stat_name": "agent;",
         "type": "STATIC",
@@ -617,7 +594,7 @@
                               "prefix": "/stats/prometheus"
                             },
                             "route": {
-                              "cluster": "prometheus_stats"
+                              "cluster": "agent"
                             }
                           }
                         ]
