@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeclient "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/filesecrets"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
@@ -131,6 +132,7 @@ type index struct {
 	cs                          *multicluster.ClusterStore
 	clientBuilder               multicluster.ClientBuilder
 	secrets                     krt.Collection[*corev1.Secret]
+	kubeconfigs                 krt.Collection[filesecrets.KubeconfigEntry]
 	remoteClusters              krt.Collection[*multicluster.Cluster]
 	meshConfig                  meshwatcher.WatcherCollection
 	remoteClientConfigOverrides []func(*rest.Config)
