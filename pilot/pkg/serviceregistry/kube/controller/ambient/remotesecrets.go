@@ -244,26 +244,10 @@ func (a *index) buildRemoteClustersCollection(
 
 	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*multicluster.Cluster {
 		a.cs.MarkDependant(ctx) // Subscribe to updates from the clusterStore
-		// Wait for the clusterStore to be synced
-		if !kube.WaitForCacheSync("multicluster remote secrets", a.stop, a.cs.HasSynced) {
-			log.Warnf("remote cluster cache sync failed")
-		}
-		remoteClustersBySecretThenID := a.cs.All()
+		remoteClustersBySecretThenID := a.cs.AllReady()
 		var remoteClusters []*multicluster.Cluster
 		for _, clusters := range remoteClustersBySecretThenID {
 			for _, cluster := range clusters {
-				// Don't return closed or timed out clusters
-				if cluster.Closed() || cluster.SyncDidTimeout() {
-					log.Warnf("remote cluster %s is closed or timed out, omitting it from the clusters collection", cluster.ID)
-					continue
-				}
-				// Don't return clusters that aren't fully synced
-				// We'll trigger recompute when they do sync (if they're healthy and still part of the store)
-				if !cluster.HasSynced() {
-					log.Debugf("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cluster.ID)
-					a.cs.TriggerRecomputeOnSync(cluster.ID)
-					continue
-				}
 				remoteClusters = append(remoteClusters, cluster)
 			}
 		}

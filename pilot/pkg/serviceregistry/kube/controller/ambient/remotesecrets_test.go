@@ -596,6 +596,7 @@ func TestSecretController(t *testing.T) {
 		delete          *corev1.Secret
 		want            []result
 		wantClientError bool
+		afterTestDelay  time.Duration
 	}{
 		{
 			name:            "Create secret s0 with bad kubeconfig for cluster c0, which will lead to the cluster object being unsynced and timing out",
@@ -771,7 +772,7 @@ func TestSecretController(t *testing.T) {
 				})
 				return res
 			}, step.want)
-			if step.wantClientError {
+			if step.afterTestDelay > 0 {
 				// Wait for the cluster to time out to confirm we don't segfault
 				time.Sleep(features.RemoteClusterTimeout + 500*time.Millisecond)
 			}
