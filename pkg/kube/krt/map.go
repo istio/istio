@@ -45,6 +45,9 @@ func (m *mappedIndexer[T, U]) Lookup(k string) []U {
 	keys := m.indexer.Lookup(k)
 	res := make([]U, 0, len(keys))
 	for _, obj := range keys {
+		if EnableAssertions {
+			assertKeyMatch(obj, m.mapFunc(obj))
+		}
 		res = append(res, m.mapFunc(obj))
 	}
 	return res
@@ -52,6 +55,9 @@ func (m *mappedIndexer[T, U]) Lookup(k string) []U {
 
 func (m *mapCollection[T, U]) GetKey(k string) *U {
 	if obj := m.collection.GetKey(k); obj != nil {
+		if EnableAssertions {
+			assertKeyMatch(*obj, m.mapFunc(*obj))
+		}
 		return ptr.Of(m.mapFunc(*obj))
 	}
 	return nil
@@ -65,11 +71,7 @@ func (m *mapCollection[T, U]) List() []U {
 	}
 	if EnableAssertions {
 		for _, obj := range vals {
-			ok := GetKey(obj)
-			nk := GetKey(m.mapFunc(obj))
-			if nk != ok {
-				panic(fmt.Sprintf("Input and output key must be the same for MapCollection %q %q", ok, nk))
-			}
+			assertKeyMatch(obj, m.mapFunc(obj))
 		}
 	}
 	return res
@@ -168,4 +170,20 @@ func MapCollection[T, U any](
 	}
 	maybeRegisterCollectionForDebugging[U](m, o.debugger)
 	return m
+}
+
+// Used only to make assertions internally about Collection invariants
+// Will panic on violation. Ensure calls are wrapped by a check for `krt.EnableAssertions`
+func assertKeyMatch[T, U any](original T, mapped U) {
+	originalKey := GetKey(original)
+	mappedKey := GetKey(mapped)
+	if originalKey != mappedKey {
+		msg := fmt.Sprintf("MapCollection invariant violation: T and U must have matching keys: (%T)%s != (%T)%s",
+			original,
+			originalKey,
+			mapped,
+			mappedKey,
+		)
+		panic(msg)
+	}
 }
