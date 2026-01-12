@@ -264,7 +264,7 @@ spec:
 	}
 
 	t.NewSubTest("backend-tls").Run(func(t framework.TestContext) {
-		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/cert.crt"))
+		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem"))
 		t.ConfigIstio().Eval(apps.Namespace.Name(), ca, `
 apiVersion: v1
 kind: ConfigMap
@@ -317,7 +317,7 @@ spec:
 		})
 	})
 	t.NewSubTest("backend-tls-section-name").Run(func(t framework.TestContext) {
-		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/cert.crt"))
+		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem"))
 		t.ConfigIstio().Eval(apps.Namespace.Name(), ca, `
 apiVersion: v1
 kind: ConfigMap

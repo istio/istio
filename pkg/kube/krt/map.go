@@ -143,6 +143,8 @@ func (m *mapCollection[T, U]) WaitUntilSynced(stop <-chan struct{}) bool {
 	return m.collection.WaitUntilSynced(stop)
 }
 
+// MapCollection creates a new collection to map Collection[T] -> Collection[U]
+// Warning: It is not OK to use a mapFunc which changes how the Collection is keyed.
 func MapCollection[T, U any](
 	collection Collection[T],
 	mapFunc func(T) U,

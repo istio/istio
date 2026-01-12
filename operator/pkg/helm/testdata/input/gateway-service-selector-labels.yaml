@@ -1,0 +1,6 @@
+spec:
+  values:
+    service:
+      selectorLabels:
+        istio.io/rev: canary
+        custom-label: custom-value

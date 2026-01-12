@@ -33,8 +33,8 @@ GRAFANA_VERSION=${GRAFANA_VERSION:-"9.2.2"}
 {
 helm template kiali-server \
   --namespace istio-system \
-  --version 2.19.0 \
-  --set deployment.image_version=v2.19 \
+  --version 2.20.0 \
+  --set deployment.image_version=v2.20 \
   --include-crds \
   kiali-server \
   --repo https://kiali.org/helm-charts \
@@ -44,7 +44,7 @@ helm template kiali-server \
 # Set up prometheus
 helm template prometheus prometheus \
   --namespace istio-system \
-  --version 27.50.1 \
+  --version 28.0.0 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"

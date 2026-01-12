@@ -179,10 +179,6 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
 	}
 
-	if configCluster && m.serviceEntryController != nil {
-		kubeRegistry.AppendNamespaceDiscoveryHandlers(m.serviceEntryController.NamespaceDiscoveryHandler)
-	}
-
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		if m.serviceEntryController != nil && configCluster {
@@ -200,16 +196,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 			// ServiceEntry selects WorkloadEntry from remote cluster
 			kubeController.workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
-			kubeRegistry.AppendNamespaceDiscoveryHandlers(kubeController.workloadEntryController.NamespaceDiscoveryHandler)
-			if cluster.Action == multicluster.Update {
-				// For updates, wait for sync then replace
-				go func() {
-					<-cluster.SyncedCh
-					m.opts.MeshServiceController.UpdateRegistry(kubeController.workloadEntryController, clusterStopCh)
-				}()
-			} else {
-				m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
-			}
+			m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
 			go configStore.Run(clusterStopCh)
 		}
 	}

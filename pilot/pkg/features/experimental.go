@@ -29,6 +29,10 @@ var (
 	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
 		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
+	EnableAgentgateway = env.Register("PILOT_ENABLE_AGENTGATEWAY",
+		false,
+		"If enabled, the istio-agentgateway GatewayClass will be enabled.").Get()
+
 	// GlobalSendUnhealthyEndpoints contains the raw setting on GlobalSendUnhealthyEndpoints. This should be checked per-service
 	GlobalSendUnhealthyEndpoints = atomic.NewBool(env.Register(
 		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
@@ -208,4 +212,20 @@ var (
 		"If enabled, ServiceEntries with wildcard hosts and dynamic dns resolution will be allowed for TLS traffic. "+
 			"This is a security risk, susceptible to SNI spoofing, and should be used with caution. "+
 			"Only consider using this feature if the client is trusted and you understand the risks.").Get()
+
+	PilotIgnoreResourcesEnv = env.Register(
+		"PILOT_IGNORE_RESOURCES",
+		"",
+		"If set, the resources set on this list will be ignored and never reconciled."+
+			"This value should be a comma-separated list of resources names."+
+			"Items on this list can be prefixed with a '*.' meaning a whole group should be ignored.",
+	).Get()
+
+	PilotIncludeResourcesEnv = env.Register(
+		"PILOT_INCLUDE_RESOURCES",
+		"",
+		"If set, and combined with 'PILOT_IGNORE_RESOURCES' the resources set on this list will not be ignored."+
+			"This value should be a comma-separated list of resources names."+
+			"Items on this list can be prefixed with a '*.' meaning a whole group should be included regardless of the ignore list.",
+	).Get()
 )

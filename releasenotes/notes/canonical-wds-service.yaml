@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- https://github.com/istio/istio/pull/58576
+releaseNotes:
+- |
+  **Added** logic to designate a Workload Discovery (WDS) Service as canonical. A canonical WDS Service is used by ztunnel during name resolution unless another WDS Service in the same namespace as the client exists to override. A canonical service will be configured from either (1) a Kubernetes Service resource or (2) the oldest Istio ServiceEntry resource which specifies that hostname.

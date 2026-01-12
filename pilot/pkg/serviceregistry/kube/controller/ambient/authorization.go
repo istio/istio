@@ -20,8 +20,10 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/api/annotation"
 	"istio.io/api/security/v1beta1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
@@ -395,6 +397,22 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 func convertAuthorizationPolicy(rootns string, obj *securityclient.AuthorizationPolicy) (*security.Authorization, *model.StatusMessage) {
 	pol := &obj.Spec
 
+	dryRun, convErr := strconv.ParseBool(obj.Annotations[annotation.IoIstioDryRun.Name])
+	if convErr != nil {
+		// proceed anyway?
+		log.Errorf("Unable to parse dry run annotation, encountered error %v", convErr)
+	}
+
+	if dryRun && !features.EnableWdsDryRunAuthzPol {
+		msg := fmt.Sprintf("found policy \"%s/%s\" using dry-run annotation, but support for ambient dry-run authorizationPolicies isn't enabled",
+			obj.Namespace, obj.Name)
+		log.Debug(msg)
+		return nil, &model.StatusMessage{
+			Reason:  "UnsupportedValue",
+			Message: msg,
+		}
+	}
+
 	polTargetRef := model.GetTargetRefs(pol)
 	if len(polTargetRef) > 0 {
 		// TargetRef is not intended for ztunnel
@@ -428,6 +446,7 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		Scope:     scope,
 		Action:    action,
 		Groups:    nil,
+		DryRun:    dryRun,
 	}
 
 	rulesWithL7 := sets.New[string]()

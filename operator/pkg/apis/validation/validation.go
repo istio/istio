@@ -27,6 +27,8 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"google.golang.org/protobuf/types/known/structpb"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -145,6 +147,7 @@ func detectCniIncompatibility(client kube.Client, cniEnabled bool, ztunnelEnable
 	return errs
 }
 
+// nolint: staticcheck
 func validateValues(raw *apis.IstioOperator) (Warnings, util.Errors) {
 	values := &apis.Values{}
 	if err := yaml.Unmarshal(raw.Spec.Values, values); err != nil {
@@ -172,8 +175,76 @@ func validateValues(raw *apis.IstioOperator) (Warnings, util.Errors) {
 	run(values.GetGlobal().GetProxy().GetExcludeIPRanges(), validateIPRangesOrStar, "global.proxy.excludeIPRanges")
 	run(values.GetGlobal().GetProxy().GetIncludeInboundPorts(), validateStringList(validatePortNumberString), "global.proxy.includeInboundPorts")
 	run(values.GetGlobal().GetProxy().GetExcludeInboundPorts(), validateStringList(validatePortNumberString), "global.proxy.excludeInboundPorts")
-
+	runKube := func(a *structpb.Struct, b any, hint string) {
+		if a == nil {
+			return
+		}
+		if err := validateKubernetes(a, b); err != nil {
+			errs = util.AppendErr(errs, fmt.Errorf("invalid schema for %v: %v", hint, err))
+		}
+	}
+	runKubeList := func(a []*structpb.Struct, b any, hint string) {
+		for _, v := range a {
+			if err := validateKubernetes(v, b); err != nil {
+				errs = util.AppendErr(errs, fmt.Errorf("invalid schema for %v: %v", hint, err))
+			}
+		}
+	}
+	runKube(values.GetCni().GetAffinity(), &corev1.Affinity{}, "cni.affinity")
+	runKube(values.GetCni().GetSeccompProfile(), &corev1.SeccompProfile{}, "cni.seccompProfile")
+	runKubeList(values.GetGateways().GetIstioEgressgateway().GetPodAntiAffinityLabelSelector(), &metav1.LabelSelector{},
+		"gateways.istio-egressgateway.podAntiAffinityLabelSelector")
+	runKubeList(values.GetGateways().GetIstioEgressgateway().GetPodAntiAffinityTermLabelSelector(), &metav1.LabelSelector{},
+		"gateways.istio-egressgateway.podAntiAffinityTermLabelSelector")
+	runKubeList(values.GetGateways().GetIstioEgressgateway().GetTolerations(), &corev1.Toleration{},
+		"gateways.istio-egressgateway.tolerations")
+	runKubeList(values.GetGlobal().GetDefaultTolerations(), &corev1.Toleration{},
+		"global.defaultTolerations")
+	runKubeList(values.GetGateways().GetIstioIngressgateway().GetPodAntiAffinityLabelSelector(), &metav1.LabelSelector{},
+		"gateways.istio-ingressgateway.podAntiAffinityLabelSelector")
+	runKubeList(values.GetGateways().GetIstioIngressgateway().GetPodAntiAffinityTermLabelSelector(), &metav1.LabelSelector{},
+		"gateways.istio-ingressgateway.podAntiAffinityTermLabelSelector")
+	runKubeList(values.GetGateways().GetIstioIngressgateway().GetTolerations(), &corev1.Toleration{},
+		"gateways.istio-ingressgateway.tolerations")
+	runKubeList(values.GetPilot().GetTolerations(), &corev1.Toleration{},
+		"pilot.tolerations")
+	runKube(values.GetPilot().GetAffinity(), &corev1.Affinity{},
+		"pilot.affinity")
+	runKube(values.GetPilot().GetSeccompProfile(), &corev1.SeccompProfile{},
+		"pilot.seccompProfile")
+	runKubeList(values.GetPilot().GetTopologySpreadConstraints(), &corev1.TopologySpreadConstraint{},
+		"pilot.topologySpreadConstraints")
+	runKubeList(values.GetPilot().GetVolumeMounts(), &corev1.VolumeMount{},
+		"pilot.volumeMounts")
+	runKubeList(values.GetPilot().GetVolumes(), &corev1.Volume{},
+		"pilot.volumes")
+	runKube(values.GetGlobal().GetProxy().GetSeccompProfile(), &corev1.SeccompProfile{},
+		"global.proxy.seccompProfile")
+	runKube(values.GetGlobal().GetProxy().GetLifecycle(), &corev1.Lifecycle{},
+		"global.proxy.lifecycle")
+	runKubeList(values.GetSidecarInjectorWebhook().GetNeverInjectSelector(), &metav1.LabelSelector{},
+		"sidecarInjectorWebhook.neverInjectSelector")
+	runKubeList(values.GetSidecarInjectorWebhook().GetAlwaysInjectSelector(), &metav1.LabelSelector{},
+		"sidecarInjectorWebhook.alwaysInjectSelector")
+	runKube(values.GetGlobal().GetWaypoint().GetAffinity(), &corev1.Affinity{},
+		"global.waypoint.affinity")
+	runKubeList(values.GetGlobal().GetWaypoint().GetTopologySpreadConstraints(), &corev1.TopologySpreadConstraint{},
+		"global.waypoint.topologySpreadConstraints")
+	runKube(values.GetGlobal().GetWaypoint().GetNodeSelector(), &corev1.NodeSelector{}, "global.waypoint.nideSelector")
+	runKubeList(values.GetGlobal().GetWaypoint().GetToleration(), &corev1.Toleration{}, "global.waypoint.toleration")
 	return warnings, errs
+}
+
+func validateKubernetes(pb *structpb.Struct, c any) error {
+	j, err := protomarshal.Marshal(pb)
+	if err != nil {
+		return err
+	}
+
+	if err := yaml.UnmarshalStrict(j, c); err != nil {
+		return err
+	}
+	return nil
 }
 
 func validateMeshConfig(contents string) (Warnings, util.Errors) {

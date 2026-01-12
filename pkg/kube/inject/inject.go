@@ -341,6 +341,29 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	return imageURL(global.GetHub(), imageName, tag, imageType)
 }
 
+// AgentgatewayImage constructs image url
+func AgentgatewayImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
+	imageName := "agentgateway"
+	global := values.GetGlobal()
+
+	tag := ""
+	if global.GetTag() != nil { // Tag is an interface but we need the string form.
+		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
+	}
+
+	// Agentgateway does not use variants, but we still publish them for consistency so use it
+	imageType := global.GetVariant()
+	if image != nil {
+		imageType = image.ImageType
+	}
+
+	if it, ok := annotations["gateway.istio.io/agentgatewayImage"]; ok {
+		imageType = it
+	}
+
+	return imageURL(global.GetHub(), imageName, tag, imageType)
+}
+
 func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
 	switch meshConfig.GetInboundTrafficPolicy().GetMode() {
 	case meshconfig.MeshConfig_InboundTrafficPolicy_LOCALHOST:

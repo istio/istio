@@ -16,43 +16,36 @@ spec:
         sidecar.istio.io/inject: "false"
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "14269"
+        prometheus.io/port: "8888"
     spec:
       containers:
         - name: jaeger
-          image: "docker.io/jaegertracing/all-in-one:1.70.0"
-          env:
-            - name: BADGER_EPHEMERAL
-              value: "false"
-            - name: SPAN_STORAGE_TYPE
-              value: "badger"
-            - name: BADGER_DIRECTORY_VALUE
-              value: "/badger/data"
-            - name: BADGER_DIRECTORY_KEY
-              value: "/badger/key"
-            - name: COLLECTOR_ZIPKIN_HOST_PORT
-              value: ":9411"
-            - name: MEMORY_MAX_TRACES
-              value: "50000"
-            - name: QUERY_BASE_PATH
-              value: /jaeger
+          image: "docker.io/jaegertracing/jaeger:2.14.0"
+          args:
+            - "--config"
+            - "/jaeger-configuration/config.yaml"
           livenessProbe:
             httpGet:
-              path: /
-              port: 14269
+              path: /status
+              port: 13133
           readinessProbe:
             httpGet:
-              path: /
-              port: 14269
+              path: /status
+              port: 13133
           volumeMounts:
             - name: data
               mountPath: /badger
+            - name: jaeger-configuration
+              mountPath: "/jaeger-configuration"
           resources:
             requests:
               cpu: 10m
       volumes:
         - name: data
           emptyDir: {}
+        - name: jaeger-configuration
+          configMap:
+            name: jaeger
 ---
 apiVersion: v1
 kind: Service
@@ -75,6 +68,114 @@ spec:
       targetPort: 16685
   selector:
     app: jaeger
+---
+# Source: kiali-server/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger
+  namespace: istio-system
+  labels:
+    app: jaeger
+data:
+  # Combination of
+  # * https://github.com/jaegertracing/jaeger/blob/v2.13.0/cmd/jaeger/config-badger.yaml
+  # * https://github.com/jaegertracing/jaeger/blob/v2.13.0/cmd/jaeger/internal/all-in-one.yaml
+  config.yaml: |
+    service:
+      extensions: [jaeger_storage, jaeger_query, remote_sampling, healthcheckv2, expvar, zpages]
+      pipelines:
+        traces:
+          receivers: [otlp, jaeger, zipkin]
+          processors: [batch]
+          exporters: [jaeger_storage_exporter]
+      telemetry:
+        resource:
+          service.name: jaeger
+        metrics:
+          level: detailed
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: "0.0.0.0"
+                    port: 8888
+        logs:
+          level: info
+        # TODO Initialize telemetry tracer once OTEL released new feature.
+        # https://github.com/open-telemetry/opentelemetry-collector/issues/10663
+
+    extensions:
+      jaeger_query:
+        base_path: /jaeger
+        storage:
+          traces: badger_storage
+
+      jaeger_storage:
+        backends:
+          badger_storage:
+            badger:
+              ephemeral: false
+              directories:
+                keys: "/badger/key"
+                values: "/badger/data/"
+
+      remote_sampling:
+        # We can either use file or adaptive sampling strategy in remote_sampling
+        file:
+          path:
+          default_sampling_probability: 1
+          reload_interval: 1s
+        # adaptive:
+        #   sampling_store: some_store
+        #   initial_sampling_probability: 0.1
+        http:
+          endpoint: "0.0.0.0:5778"
+        grpc:
+          endpoint: "0.0.0.0:5779"
+
+      healthcheckv2:
+        use_v2: true
+        http:
+          endpoint: "0.0.0.0:13133"
+        grpc:
+
+      expvar:
+        endpoint: "0.0.0.0:27777"
+
+      zpages:
+        # for some reason the official extension listens on ephemeral port 55679
+        # so we override it with a normal port
+        endpoint: "0.0.0.0:27778"
+
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:4318"
+
+      jaeger:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:14250"
+          thrift_http:
+            endpoint: "0.0.0.0:14268"
+          thrift_binary:
+            endpoint: "0.0.0.0:6832"
+          thrift_compact:
+            endpoint: "0.0.0.0:6831"
+
+      zipkin:
+        endpoint: "0.0.0.0:9411"
+
+    processors:
+      batch:
+
+    exporters:
+      jaeger_storage_exporter:
+        trace_storage: badger_storage
 ---
 # Jaeger implements the Zipkin API. To support swapping out the tracing backend, we use a Service named Zipkin.
 apiVersion: v1

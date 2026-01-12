@@ -37,6 +37,8 @@ images:
   dockerfile: pilot/docker/Dockerfile.pilot
   targets:
   - ${TARGET_OUT_LINUX}/pilot-discovery
+- name: agentgateway
+  dockerfile: pilot/docker/Dockerfile.agentgateway
 
 - name: istioctl
   dockerfile: istioctl/docker/Dockerfile.istioctl
@@ -58,7 +60,7 @@ images:
 - name: app
   dockerfile: pkg/test/echo/docker/Dockerfile.app
   files:
-  - tests/testdata/certs
+  - tests/testdata/certs/dns
   targets:
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
