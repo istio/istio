@@ -68,6 +68,9 @@ func (a ACTION) String() string {
 func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
+			if c.Closed() {
+				log.Debugf("remote cluster %s was stopped before hitting the sync timeout", c.ID)
+			}
 			if !c.initialSync.Load() {
 				log.Errorf("remote cluster %s failed to sync after %v", c.ID, features.RemoteClusterTimeout)
 				timeouts.With(clusterLabel.Value(string(c.ID))).Increment()
