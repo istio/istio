@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
@@ -36,8 +35,8 @@ const (
 	getKeyType       indexedDependencyType = iota
 )
 
-// EnableAssertions, if true, will enable assertions. These typically are violations of the krt collection requirements.
-var EnableAssertions = features.EnableUnsafeAssertions
+// EnableAssertions, if tr will enable assertions. These typically are violations of the krt collection requirements.
+// const EnableAssertions = false
 
 type dependencyState[I any] struct {
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
