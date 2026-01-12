@@ -1,6 +1,6 @@
 # The following policy denies access to path /allow/admin.
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy-{{ .To.ServiceName }}-deny
@@ -16,7 +16,7 @@ spec:
 ---
 # The following policy allows access to path with prefix /allow.
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy-{{ .To.ServiceName }}-allow

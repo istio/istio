@@ -16,6 +16,7 @@ package health
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +24,10 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"istio.io/api/networking/v1alpha3"
 )
@@ -64,7 +69,7 @@ func TestHttpProber(t *testing.T) {
 					Port:   port,
 					Host:   "127.0.0.1",
 					Scheme: "http",
-				}, false)
+				}, "localhost", false)
 
 			if tt.statusCode == -1 {
 				server.Close()
@@ -72,6 +77,99 @@ func TestHttpProber(t *testing.T) {
 
 			got, err := httpProber.Probe(time.Second)
 			if got != tt.expectedProbeResult || (err == nil && tt.expectedError != nil) || (err != nil && tt.expectedError == nil) {
+				t.Errorf("%s: got: %v, expected: %v, got error: %v, expected error %v", tt.desc, got, tt.expectedProbeResult, err, tt.expectedError)
+			}
+		})
+	}
+}
+
+func TestGrpcProber(t *testing.T) {
+	tests := []struct {
+		desc                string
+		service             string
+		port                uint32
+		servingStatus       grpc_health_v1.HealthCheckResponse_ServingStatus
+		expectedProbeResult ProbeResult
+		expectedError       error
+	}{
+		{
+			desc:                "Healthy - Serving status",
+			service:             "grpc.health.v1.Health",
+			port:                50051,
+			servingStatus:       grpc_health_v1.HealthCheckResponse_SERVING,
+			expectedProbeResult: Healthy,
+			expectedError:       nil,
+		},
+		{
+			desc:                "Unhealthy - Not Serving status",
+			service:             "grpc.health.v1.Health",
+			port:                50051,
+			servingStatus:       grpc_health_v1.HealthCheckResponse_NOT_SERVING,
+			expectedProbeResult: Unhealthy,
+			expectedError:       nil,
+		},
+		{
+			desc:                "Unhealthy - Unknown Serving status",
+			service:             "grpc.health.v1.Health",
+			port:                50051,
+			servingStatus:       grpc_health_v1.HealthCheckResponse_UNKNOWN,
+			expectedProbeResult: Unhealthy,
+			expectedError:       nil,
+		},
+		{
+			desc:                "Unhealthy - Unknown service Serving status",
+			service:             "grpc.health.v1.Health",
+			port:                50051,
+			servingStatus:       grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN,
+			expectedProbeResult: Unhealthy,
+			expectedError:       nil,
+		},
+		{
+			desc:                "Unhealthy - wrong service port",
+			service:             "grpc.health.v1.Health",
+			port:                50052,
+			servingStatus:       grpc_health_v1.HealthCheckResponse_SERVING,
+			expectedProbeResult: Unhealthy,
+			expectedError:       fmt.Errorf("failed to connect health check grpc service on port 50052: context deadline exceeded"),
+		},
+		{
+			desc:                "Unhealthy - incorrect service name",
+			service:             "grpc.unknown.service",
+			port:                50051,
+			servingStatus:       grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN,
+			expectedProbeResult: Unhealthy,
+			expectedError:       fmt.Errorf("health rpc probe failed with status NotFound: rpc error: code = NotFound desc = unknown service"),
+		},
+		{
+			desc:                "Unknown - nil grpc config",
+			servingStatus:       grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN,
+			expectedProbeResult: Unknown,
+			expectedError:       fmt.Errorf("grpc health check config is nil"),
+		},
+	}
+
+	server := grpc.NewServer()
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(server, healthServer)
+	err := startGrpcServer(server)
+	if err != nil {
+		t.Error("test grpc server failed to start on port")
+	}
+	defer server.GracefulStop()
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			healthServer.SetServingStatus("grpc.health.v1.Health", tt.servingStatus)
+			grpcProber := &GRPCProber{}
+			if tt.service != "" {
+				grpcProber = NewGRPCProber(
+					&v1alpha3.GrpcHealthCheckConfig{
+						Port:    tt.port,
+						Service: tt.service,
+					}, "localhost")
+			}
+			got, err := grpcProber.Probe(time.Second)
+			if got != tt.expectedProbeResult || (err == nil && tt.expectedError != nil) || (err != nil && tt.expectedError == nil) ||
+				(err != nil && tt.expectedError != nil && err.Error() != tt.expectedError.Error()) {
 				t.Errorf("%s: got: %v, expected: %v, got error: %v, expected error %v", tt.desc, got, tt.expectedProbeResult, err, tt.expectedError)
 			}
 		})
@@ -181,4 +279,17 @@ func createHTTPServer(statusCode int) (*httptest.Server, uint32) {
 	port, _ := strconv.ParseUint(p, 10, 32)
 
 	return server, uint32(port)
+}
+
+func startGrpcServer(server *grpc.Server) error {
+	listener, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		return err
+	}
+	go func() {
+		if serverErr := server.Serve(listener); serverErr != nil {
+			err = serverErr
+		}
+	}()
+	return err
 }

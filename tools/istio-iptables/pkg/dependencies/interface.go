@@ -14,12 +14,23 @@
 
 package dependencies
 
-import "io"
+import (
+	"bytes"
+	"io"
+
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
+)
 
 // Dependencies is used as abstraction for the commands used from the operating system
 type Dependencies interface {
 	// Run runs a command
-	Run(cmd string, stdin io.ReadSeeker, args ...string) error
-	// RunQuietlyAndIgnore runs a command quietly and ignores errors
-	RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string)
+	Run(log *istiolog.Scope, quietLogging bool, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error)
+
+	// DetectIptablesVersion consults the available binaries and in-use tables to determine
+	// which iptables variant (legacy, nft, v6, v4) we should use in the current context.
+	// NOTE that this uses existing rules as part of its heuristic when choosing which binary
+	// to use, so detection should typically happen *once-per-netns*, or different results
+	// might be returned on subsequent calls if the rules in the netnamespace have changed.
+	DetectIptablesVersion(ipV6 bool) (IptablesVersion, error)
 }

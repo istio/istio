@@ -15,10 +15,10 @@
 package test
 
 import (
+	"context"
 	"os"
 
 	"go.uber.org/atomic"
-	"golang.org/x/net/context"
 )
 
 // SetForTest sets a variable for the duration of a test, then resets it once the test is complete.

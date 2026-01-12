@@ -61,7 +61,7 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 		}
 
 		ec.serviceExports = kclient.NewDelayedInformer[controllers.Object](ec.client, mcs.ServiceExportGVR, kubetypes.DynamicInformer, kclient.Filter{
-			ObjectFilter: ec.opts.GetFilter(),
+			ObjectFilter: ec.client.ObjectFilter(),
 		})
 		// Register callbacks for events.
 		registerHandlers(ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)

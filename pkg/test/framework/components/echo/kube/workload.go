@@ -131,7 +131,7 @@ func (w *workload) Client() (c *echoClient.Client, err error) {
 			w.pod.Namespace, w.pod.Name, w.cluster.Name())
 	}
 	w.mutex.Unlock()
-	return
+	return c, err
 }
 
 func (w *workload) Update(pod corev1.Pod) error {

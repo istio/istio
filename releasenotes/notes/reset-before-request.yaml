@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- https://github.com/istio/istio/issues/51704
+releaseNotes:
+  - |
+    **Added** support for the new reset-before-request retry policy added in Envoy 1.31

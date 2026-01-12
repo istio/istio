@@ -1,6 +1,6 @@
 # The following policy selects workloads for the service in all namespaces
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy-system-{{ .To.ServiceName }}

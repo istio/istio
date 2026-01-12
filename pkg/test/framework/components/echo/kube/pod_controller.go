@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"context"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -54,6 +55,7 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 			options.LabelSelector += s.String()
 		})
 	q := queue.NewQueue(1 * time.Second)
+	// nolint: staticcheck
 	_, informer := cache.NewInformer(podListWatch, &corev1.Pod{}, 0, controllers.EventHandler[*corev1.Pod]{
 		AddFunc: func(pod *corev1.Pod) {
 			q.Push(func() error {
@@ -79,6 +81,12 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 		q:        q,
 		informer: informer,
 	}
+}
+
+func (c *podController) RunWithContext(ctx context.Context) {
+	go c.informer.RunWithContext(ctx)
+	kube.WaitForCacheSync("pod controller", ctx.Done(), c.informer.HasSynced)
+	c.q.Run(ctx.Done())
 }
 
 func (c *podController) Run(stop <-chan struct{}) {

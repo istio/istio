@@ -15,35 +15,21 @@
 package capture
 
 import (
-	"net/netip"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
 	testutil "istio.io/istio/pilot/test/util"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/common/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
-func constructTestConfig() *config.Config {
-	return &config.Config{
-		ProxyPort:               "15001",
-		InboundCapturePort:      "15006",
-		InboundTunnelPort:       "15008",
-		ProxyUID:                constants.DefaultProxyUID,
-		ProxyGID:                constants.DefaultProxyUID,
-		InboundTProxyMark:       "1337",
-		InboundTProxyRouteTable: "133",
-		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
-		HostIPv4LoopbackCidr:    constants.HostIPv4LoopbackCidr.DefaultValue,
-		RestoreFormat:           true,
-	}
-}
-
-func TestIptables(t *testing.T) {
-	cases := []struct {
+func getCommonTestCases() []struct {
+	name   string
+	config func(cfg *config.Config)
+} {
+	return []struct {
 		name   string
 		config func(cfg *config.Config)
 	}{
@@ -51,7 +37,7 @@ func TestIptables(t *testing.T) {
 			"ipv6-empty-inbound-ports",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = ""
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
@@ -61,7 +47,7 @@ func TestIptables(t *testing.T) {
 				cfg.OutboundIPRangesInclude = "9.9.0.0/16"
 				cfg.DryRun = true
 				cfg.RedirectDNS = true
-				cfg.EnableInboundIPv6 = false
+				cfg.EnableIPv6 = false
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
 				cfg.DNSServersV4 = []string{"127.0.0.53"}
@@ -70,7 +56,7 @@ func TestIptables(t *testing.T) {
 		{
 			"tproxy",
 			func(cfg *config.Config) {
-				cfg.InboundInterceptionMode = constants.TPROXY
+				cfg.InboundInterceptionMode = "TPROXY"
 				cfg.InboundPortsInclude = "*"
 				cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 				cfg.OutboundIPRangesInclude = "9.9.0.0/16"
@@ -80,22 +66,22 @@ func TestIptables(t *testing.T) {
 				cfg.ProxyGID = "1337"
 				cfg.ProxyUID = "1337"
 				cfg.ExcludeInterfaces = "not-istio-nic"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
 			"ipv6-inbound-ports",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
 			"ipv6-virt-interfaces",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
-				cfg.KubeVirtInterfaces = "eth0,eth1"
-				cfg.EnableInboundIPv6 = true
+				cfg.RerouteVirtualInterfaces = "eth0,eth1"
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
@@ -103,10 +89,10 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
 				cfg.InboundPortsExclude = "6000,7000,"
-				cfg.KubeVirtInterfaces = "eth0,eth1"
+				cfg.RerouteVirtualInterfaces = "eth0,eth1"
 				cfg.OutboundIPRangesExclude = "2001:db8::/32"
 				cfg.OutboundIPRangesInclude = "2001:db8::/32"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
@@ -114,10 +100,10 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
 				cfg.InboundPortsExclude = "6000,7000"
-				cfg.KubeVirtInterfaces = "eth0,eth1"
+				cfg.RerouteVirtualInterfaces = "eth0,eth1"
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 				cfg.OutboundIPRangesExclude = "2001:db8::/32"
 				cfg.OutboundIPRangesInclude = "2001:db8::/32"
 			},
@@ -127,7 +113,7 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = ""
 				cfg.OutboundPortsInclude = "32000,31000"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
@@ -137,7 +123,7 @@ func TestIptables(t *testing.T) {
 		{
 			"kube-virt-interfaces",
 			func(cfg *config.Config) {
-				cfg.KubeVirtInterfaces = "eth1,eth2"
+				cfg.RerouteVirtualInterfaces = "eth1,eth2"
 				cfg.OutboundIPRangesInclude = "*"
 			},
 		},
@@ -150,7 +136,7 @@ func TestIptables(t *testing.T) {
 		{
 			"ipnets-with-kube-virt-interfaces",
 			func(cfg *config.Config) {
-				cfg.KubeVirtInterfaces = "eth1,eth2"
+				cfg.RerouteVirtualInterfaces = "eth1,eth2"
 				cfg.OutboundIPRangesInclude = "10.0.0.0/8"
 			},
 		},
@@ -170,14 +156,14 @@ func TestIptables(t *testing.T) {
 			"inbound-ports-tproxy",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "32000,31000"
-				cfg.InboundInterceptionMode = constants.TPROXY
+				cfg.InboundInterceptionMode = "TPROXY"
 			},
 		},
 		{
 			"inbound-ports-wildcard-tproxy",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "*"
-				cfg.InboundInterceptionMode = constants.TPROXY
+				cfg.InboundInterceptionMode = "TPROXY"
 			},
 		},
 		{
@@ -188,13 +174,13 @@ func TestIptables(t *testing.T) {
 				cfg.DNSServersV6 = []string{"::127.0.0.53"}
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 			},
 		},
 		{
 			"ipv6-dns-uid-gid",
 			func(cfg *config.Config) {
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 				cfg.RedirectDNS = true
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
@@ -215,7 +201,7 @@ func TestIptables(t *testing.T) {
 		{
 			"ipv6-dns-outbound-owner-groups",
 			func(cfg *config.Config) {
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 				cfg.RedirectDNS = true
 				cfg.OwnerGroupsInclude = "java,202"
 			},
@@ -223,7 +209,7 @@ func TestIptables(t *testing.T) {
 		{
 			"ipv6-dns-outbound-owner-groups-exclude",
 			func(cfg *config.Config) {
-				cfg.EnableInboundIPv6 = true
+				cfg.EnableIPv6 = true
 				cfg.RedirectDNS = true
 				cfg.OwnerGroupsExclude = "888,ftp"
 			},
@@ -241,7 +227,7 @@ func TestIptables(t *testing.T) {
 				cfg.DryRun = true
 				cfg.RedirectDNS = true
 				cfg.DNSServersV4 = []string{"127.0.0.53"}
-				cfg.EnableInboundIPv6 = false
+				cfg.EnableIPv6 = false
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
 			},
@@ -250,12 +236,6 @@ func TestIptables(t *testing.T) {
 			"basic-exclude-nic",
 			func(cfg *config.Config) {
 				cfg.ExcludeInterfaces = "not-istio-nic"
-			},
-		},
-		{
-			"logging",
-			func(cfg *config.Config) {
-				cfg.TraceLogging = true
 			},
 		},
 		{
@@ -271,71 +251,19 @@ func TestIptables(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := constructTestConfig()
-			tt.config(cfg)
-			iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
-			iptConfigurator.Run()
-			v4Rules := iptConfigurator.iptables.BuildV4()
-			v6Rules := iptConfigurator.iptables.BuildV6()
-			allRules := append(v4Rules, v6Rules...)
-			actual := FormatIptablesCommands(allRules)
-			compareToGolden(t, tt.name, actual)
-		})
-	}
 }
 
-func TestSeparateV4V6(t *testing.T) {
-	mkIPList := func(ips ...string) []netip.Prefix {
-		ret := []netip.Prefix{}
-		for _, ip := range ips {
-			ipp, err := netip.ParsePrefix(ip)
-			if err != nil {
-				panic(err.Error())
-			}
-			ret = append(ret, ipp)
-		}
-		return ret
-	}
-	cases := []struct {
-		name string
-		cidr string
-		v4   NetworkRange
-		v6   NetworkRange
-	}{
-		{
-			name: "wildcard",
-			cidr: "*",
-			v4:   NetworkRange{IsWildcard: true},
-			v6:   NetworkRange{IsWildcard: true},
-		},
-		{
-			name: "v4 only",
-			cidr: "10.0.0.0/8,172.16.0.0/16",
-			v4:   NetworkRange{CIDRs: mkIPList("10.0.0.0/8", "172.16.0.0/16")},
-		},
-		{
-			name: "v6 only",
-			cidr: "fd04:3e42:4a4e:3381::/64,ffff:ffff:ac10:ac10::/64",
-			v6:   NetworkRange{CIDRs: mkIPList("fd04:3e42:4a4e:3381::/64", "ffff:ffff:ac10:ac10::/64")},
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := constructTestConfig()
-			iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
-			v4Range, v6Range, err := iptConfigurator.separateV4V6(tt.cidr)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !reflect.DeepEqual(v4Range, tt.v4) {
-				t.Fatalf("expected %v, got %v", tt.v4, v4Range)
-			}
-			if !reflect.DeepEqual(v6Range, tt.v6) {
-				t.Fatalf("expected %v, got %v", tt.v6, v6Range)
-			}
-		})
+func constructTestConfig() *config.Config {
+	return &config.Config{
+		ProxyPort:               "15001",
+		InboundCapturePort:      "15006",
+		InboundTunnelPort:       "15008",
+		ProxyUID:                constants.DefaultProxyUID,
+		ProxyGID:                constants.DefaultProxyUID,
+		InboundTProxyMark:       "1337",
+		InboundTProxyRouteTable: "133",
+		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
+		HostIPv4LoopbackCidr:    constants.HostIPv4LoopbackCidr.DefaultValue,
 	}
 }
 
@@ -344,4 +272,21 @@ func compareToGolden(t *testing.T, name string, actual []string) {
 	gotBytes := []byte(strings.Join(actual, "\n"))
 	goldenFile := filepath.Join("testdata", name+".golden")
 	testutil.CompareContent(t, gotBytes, goldenFile)
+}
+
+func TestIptables(t *testing.T) {
+	for _, tt := range getCommonTestCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := constructTestConfig()
+			tt.config(cfg)
+
+			ext := &dep.DependenciesStub{}
+			iptConfigurator, _ := NewIptablesConfigurator(cfg, ext)
+			err := iptConfigurator.Run()
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareToGolden(t, tt.name, ext.ExecutedAll)
+		})
+	}
 }

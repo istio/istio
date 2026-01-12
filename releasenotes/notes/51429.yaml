@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** K8S job pod IPs may not be fully unenrolled from ambient despite being in a terminated state

@@ -32,7 +32,10 @@ set -x
 ####################################################################
 
 # DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
-DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.28.4"
+DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.35.0"
+
+# the default kind cluster should be ipv4 if not otherwise specified
+KIND_IP_FAMILY="${KIND_IP_FAMILY:-ipv4}"
 
 # COMMON_SCRIPTS contains the directory this file is in.
 COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
@@ -144,7 +147,7 @@ function setup_kind_cluster_retry() {
 # 1. NAME: Name of the Kind cluster (optional)
 # 2. IMAGE: Node image used by KinD (optional)
 # 3. CONFIG: KinD cluster configuration YAML file. If not specified then DEFAULT_CLUSTER_YAML is used
-# 4. NOMETALBINSTALL: Dont install matllb if set.
+# 4. NOMETALBINSTALL: Dont install metalb if set.
 # This function returns 0 when everything goes well, or 1 otherwise
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
@@ -172,23 +175,52 @@ function setup_kind_cluster() {
   if [[ -z "${CONFIG}" ]]; then
     # Kubernetes 1.15+
     CONFIG=${DEFAULT_CLUSTER_YAML}
-    # Configure the cluster IP Family only for default configs
-    if [ "${IP_FAMILY}" != "ipv4" ]; then
-      grep "ipFamily: ${IP_FAMILY}" "${CONFIG}" || \
-      cat <<EOF >> "${CONFIG}"
-networking:
-  ipFamily: ${IP_FAMILY}
-EOF
-    fi
+  fi
+
+  KIND_WAIT_FLAG="--wait=180s"
+  KIND_DISABLE_CNI="false"
+  if [[ -n "${KUBERNETES_CNI:-}" ]]; then
+    unset KIND_WAIT_FLAG
+    KIND_DISABLE_CNI="true"
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v4 --retain --image "${IMAGE}" --wait=180s); then
+  if ! (yq eval "${CONFIG}" --expression ".networking.disableDefaultCNI = ${KIND_DISABLE_CNI}" \
+    --expression ".networking.ipFamily = \"${KIND_IP_FAMILY}\"" | \
+    kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" ${KIND_WAIT_FLAG:+"$KIND_WAIT_FLAG"} --config -); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     return 9
+    # kubectl config set clusters.kind-istio-testing.server https://istio-testing-control-plane:6443
   fi
+
+  if [[ -n "${DEVCONTAINER:-}" ]]; then
+    # identify our docker container id using proc and regex
+    containerid=$(grep 'resolv.conf' /proc/self/mountinfo | sed 's/.*\/docker\/containers\/\([0-9a-f]*\).*/\1/')
+    docker network connect kind "$containerid"
+    kind export kubeconfig --name="${NAME}" --internal
+  fi
+
   # Workaround kind issue causing taints to not be removed in 1.24
-  kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- || true
+  kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- 2>/dev/null || true
+
+  # Determine what CNI to install
+  case "${KUBERNETES_CNI:-}" in
+
+    "calico")
+      echo "Installing Calico CNI"
+      install_calico "" "$(dirname "$CONFIG")"
+      ;;
+
+    "")
+      # perfectly fine, we accepted the default KinD CNI
+      ;;
+
+    *)
+      # we don't know what to do but we've got no CNI, return non-zero
+      echo "${KUBERNETES_CNI} is not recognized. Supported options are \"calico\" or do not set the variable to use default."
+      return 1
+      ;;
+  esac
 
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
@@ -207,7 +239,7 @@ EOF
   # https://github.com/coredns/coredns/issues/2494#issuecomment-457215452
   # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
   # otherwise pods stops trying to resolve the domain.
-  if [ "${IP_FAMILY}" = "ipv6" ] || [ "${IP_FAMILY}" = "dual" ]; then
+  if [ "${KIND_IP_FAMILY}" = "ipv6" ] || [ "${KIND_IP_FAMILY}" = "dual" ]; then
     # Get the current config
     original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
     echo "Original CoreDNS config:"
@@ -244,14 +276,14 @@ function cleanup_kind_clusters() {
 # setup_kind_clusters sets up a given number of kind clusters with given topology
 # as specified in cluster topology configuration file.
 # 1. IMAGE = docker image used as node by KinD
-# 2. IP_FAMILY = either ipv4 or ipv6
+# 2. KIND_IP_FAMILY = either ipv4 or ipv6 or dual
 #
 # NOTE: Please call load_cluster_topology before calling this method as it expects
 # cluster topology information to be loaded in advance
 function setup_kind_clusters() {
   IMAGE="${1:-"${DEFAULT_KIND_IMAGE}"}"
   KUBECONFIG_DIR="${ARTIFACTS:-$(mktemp -d)}/kubeconfig"
-  IP_FAMILY="${2:-ipv4}"
+  KIND_IP_FAMILY="${2:-ipv4}"
 
   check_default_cluster_yaml
 
@@ -362,10 +394,21 @@ function connect_kind_clusters() {
   fi
 }
 
+function install_calico {
+  local KUBECONFIG="${1}"
+  local CONFIG_DIR="${2}"
+
+  echo "Setting up ambient cluster, Calico CNI will be used."
+  kubectl --kubeconfig="$KUBECONFIG" apply -f "${CONFIG_DIR}"/calico.yaml
+
+  kubectl --kubeconfig="$KUBECONFIG" wait --for condition=ready -n kube-system pod -l k8s-app=calico-node --timeout 90s
+  kubectl --kubeconfig="$KUBECONFIG" wait --for condition=ready -n kube-system pod -l k8s-app=calico-kube-controllers --timeout 90s
+}
+
 function install_metallb() {
   KUBECONFIG="${1}"
   kubectl --kubeconfig="$KUBECONFIG" apply -f "${COMMON_SCRIPTS}/metallb-native.yaml"
-  kubectl --kubeconfig="$KUBECONFIG" wait -n metallb-system pod -l app=metallb --for=condition=Ready
+  kubectl --kubeconfig="$KUBECONFIG" wait -n metallb-system pod --timeout=120s -l app=metallb --for=condition=Ready
 
   if [ -z "${METALLB_IPS4+x}" ]; then
     # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs

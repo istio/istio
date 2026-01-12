@@ -1,0 +1,6 @@
+* table
+-N chain
+-A chain -f foo -b bar
+-A chain -f fu -b bar
+-A chain -f foo -b baz
+COMMIT

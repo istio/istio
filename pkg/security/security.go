@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -45,14 +46,25 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
-	// WorkloadIdentitySocketPath is the well-known path to the Unix Domain Socket for SDS.
-	WorkloadIdentitySocketPath = "./var/run/secrets/workload-spiffe-uds/socket"
+	// WorkloadIdentityPath is the well-known path to the Unix Domain Socket for SDS.
+	WorkloadIdentityPath = "./var/run/secrets/workload-spiffe-uds"
+
+	// WorkloadIdentitySocketFile is the name of the UDS socket file
+	// Istio's internal SDS server uses.
+	DefaultWorkloadIdentitySocketFile = "socket"
 
 	// CredentialNameSocketPath is the well-known path to the Unix Domain Socket for Credential Name.
 	CredentialNameSocketPath = "./var/run/secrets/credential-uds/socket"
 
+	// FileCredentialNameSocketPath is the well-known path to the Unix Domain Socket used for loading files.
+	// This is only used when there is a custom SDS server, otherwise WorkloadIdentityPath is used.
+	FileCredentialNameSocketPath = "./var/run/secrets/credential-uds/files-socket"
+
 	// CredentialMetaDataName is the name in node meta data.
 	CredentialMetaDataName = "credential"
+	// CredentialFileMetaDataName is the name in node metadata indicating we should use a custom SDS cluster, sds-files-grpc,
+	// for file-based certificates.
+	CredentialFileMetaDataName = "file-credential"
 
 	// SDSExternalClusterName is the name of the cluster for external SDS connections which is defined via CredentialNameSocketPath
 	SDSExternalClusterName = "sds-external"
@@ -113,18 +125,15 @@ const (
 
 	// FileRootSystemCACert is a unique resource name signaling that the system CA certificate should be used
 	FileRootSystemCACert = "file-root:system"
+
+	// CACRLFilePath is the well-known path for the plugged-in CA's CRL file
+	CACRLFilePath = "/var/run/secrets/istio/crl/ca-crl.pem"
 )
 
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,
 // they should be dynamic to allow migrations without restart.
 // Both are critical.
 var (
-	// Require3PToken disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
-	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
-	// the Apiserver.
-	Require3PToken = env.Register("REQUIRE_3P_TOKEN", false,
-		"Reject k8s default tokens, without audience. If false, default K8S token will be accepted")
-
 	// TokenAudiences specifies a list of audiences for SDS trustworthy JWT. This is to make sure that the CSR requests
 	// contain the JWTs intended for Citadel.
 	TokenAudiences = strings.Split(env.Register("TOKEN_AUDIENCES", "istio-ca",
@@ -200,12 +209,18 @@ type Options struct {
 	// well-known ./etc/certs location.
 	FileMountedCerts bool
 
+	// ServeOnlyFiles indicates we should run the local SDS server, but only to serve file certificates.
+	// This is used when an external SDS server is used only for mTLS certificates.
+	ServeOnlyFiles bool
+
 	// PilotCertProvider is the provider of the Pilot certificate (PILOT_CERT_PROVIDER env)
 	// Determines the root CA file to use for connecting to CA gRPC:
 	// - istiod
-	// - kubernetes
-	// - custom
+	// - k8s.io/NAME
+	// - custom - requires Istiod TLS certs to be available as files
 	// - none
+	//
+	// This is used only in agent.
 	PilotCertProvider string
 
 	// secret TTL.
@@ -215,14 +230,13 @@ type Options struct {
 	// we would refresh 6 minutes before expiration.
 	SecretRotationGracePeriodRatio float64
 
+	// The amount of randomness to add to SecretRotationGracePeriodRatio. This is used
+	// to prevent spikes in resource consumption when large fleets of proxies try to renew
+	// their certs simultaneously.
+	SecretRotationGracePeriodRatioJitter float64
+
 	// STS port
 	STSPort int
-
-	// authentication provider specific plugins, will exchange the token
-	// For example exchange long lived refresh with access tokens.
-	// Used by the secret fetcher when signing CSRs.
-	// Optional; if not present the token will be used directly
-	TokenExchanger TokenExchanger
 
 	// credential fetcher.
 	CredFetcher CredFetcher
@@ -238,9 +252,6 @@ type Options struct {
 
 	// XDS auth provider
 	XdsAuthProvider string
-
-	// Token manager for the token exchange of XDS
-	TokenManager TokenManager
 
 	// Cert signer info
 	CertSigner string
@@ -258,48 +269,9 @@ type Options struct {
 	KeyFilePath string
 	// The path for an existing root certificate bundle
 	RootCertFilePath string
-}
 
-// TokenManager contains methods for generating token.
-type TokenManager interface {
-	// GenerateToken takes STS request parameters and generates token. Returns
-	// StsResponseParameters in JSON.
-	GenerateToken(parameters StsRequestParameters) ([]byte, error)
-	// DumpTokenStatus dumps status of all generated tokens and returns status in JSON.
-	DumpTokenStatus() ([]byte, error)
-	// GetMetadata returns the metadata headers related to the token
-	GetMetadata(forCA bool, xdsAuthProvider, token string) (map[string]string, error)
-}
-
-// StsRequestParameters stores all STS request attributes defined in
-// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.1
-type StsRequestParameters struct {
-	// REQUIRED. The value "urn:ietf:params:oauth:grant-type:token- exchange"
-	// indicates that a token exchange is being performed.
-	GrantType string
-	// OPTIONAL. Indicates the location of the target service or resource where
-	// the client intends to use the requested security token.
-	Resource string
-	// OPTIONAL. The logical name of the target service where the client intends
-	// to use the requested security token.
-	Audience string
-	// OPTIONAL. A list of space-delimited, case-sensitive strings, that allow
-	// the client to specify the desired Scope of the requested security token in the
-	// context of the service or Resource where the token will be used.
-	Scope string
-	// OPTIONAL. An identifier, for the type of the requested security token.
-	RequestedTokenType string
-	// REQUIRED. A security token that represents the identity of the party on
-	// behalf of whom the request is being made.
-	SubjectToken string
-	// REQUIRED. An identifier, that indicates the type of the security token in
-	// the "subject_token" parameter.
-	SubjectTokenType string
-	// OPTIONAL. A security token that represents the identity of the acting party.
-	ActorToken string
-	// An identifier, that indicates the type of the security token in the
-	// "actor_token" parameter.
-	ActorTokenType string
+	// Extra headers to add to the CA connection.
+	CAHeaders map[string]string
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -324,13 +296,7 @@ type SecretManager interface {
 	GenerateSecret(resourceName string) (*SecretItem, error)
 }
 
-// TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
-type TokenExchanger interface {
-	// ExchangeToken provides a common interface to exchange an existing token for a new one.
-	ExchangeToken(serviceAccountToken string) (string, error)
-}
-
-// SecretItem is the cached item in in-memory secret store.
+// SecretItem is the cached item in an in-memory secret store.
 type SecretItem struct {
 	CertificateChain []byte
 	PrivateKey       []byte
@@ -534,6 +500,21 @@ func CheckWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath s
 		return false
 	}
 	return true
+}
+
+// This is the fixed-path, configurable filename location where the Istio agent will
+// look for a SDS workload identity server socket.
+//
+// If we are using Istio's SDS server, the SDS socket listen path == the serve path
+// If we are not using Istio's SDS server, the SDS socket listen path may != the Istio SDS serve path
+func GetWorkloadSDSSocketListenPath(sockfile string) string {
+	return filepath.Join(WorkloadIdentityPath, sockfile)
+}
+
+// This is the fixed-path, fixed-filename location where Istio's default SDS workload identity server
+// will put its socket.
+func GetIstioSDSServerSocketPath() string {
+	return filepath.Join(WorkloadIdentityPath, DefaultWorkloadIdentitySocketFile)
 }
 
 type SdsCertificateConfig struct {

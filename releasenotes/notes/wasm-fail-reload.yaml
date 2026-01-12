@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: extensibility
+releaseNotes:
+- |
+  **Added** an option to reload the wasm VM on new requests if the VM has failed.

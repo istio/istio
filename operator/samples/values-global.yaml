@@ -1,7 +1,0 @@
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  values:
-    global:
-      logging:
-        level: "default:warning" # override from info

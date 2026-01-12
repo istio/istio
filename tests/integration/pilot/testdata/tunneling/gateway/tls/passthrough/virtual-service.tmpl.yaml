@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: mesh-route-outbound-traffic-to-external-svc-via-egress-gw
@@ -27,7 +27,7 @@ spec:
         port:
           number: 443
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: egress-gw-route-outbound-traffic-to-external-svc-via-external-forward-proxy

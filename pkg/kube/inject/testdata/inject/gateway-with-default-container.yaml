@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ingressgateway
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  template:
+    metadata:
+      labels:
+        istio: ingressgateway
+      annotations:
+        kubectl.kubernetes.io/default-container: istio-proxy
+        kubectl.kubernetes.io/default-logs-container: istio-proxy
+        inject.istio.io/templates: gateway
+    spec:
+      # Ensure we can have istio-proxy as the only container. This isn't particularly useful as a sidecar
+      # but will be used when we have a dedicated template to run a pod as a Gateway
+      containers:
+      - command:
+          - gunicorn
+          - -b
+          - 0.0.0.0:8080
+          - httpbin:app
+          - -k
+          - gevent
+        env:
+          - name: WORKON_HOME
+            value: /tmp
+        image: kennethreitz/httpbin
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        ports:
+          - containerPort: 8080
+            protocol: TCP
+        resources:
+          limits:
+            cpu: 50m
+            memory: 80Mi
+          requests:
+            cpu: 20m
+            memory: 80Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      - name: istio-proxy
+        image: auto
+        imagePullPolicy: IfNotPresent

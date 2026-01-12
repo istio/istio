@@ -280,5 +280,5 @@ func (d *delayQueue) work(stop <-chan struct{}) (stopped chan struct{}) {
 			}
 		}
 	}()
-	return
+	return stopped
 }

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 54672
+releaseNotes:
+  - |
+    **Fixed** an issue that access log order instability causing connection draining.

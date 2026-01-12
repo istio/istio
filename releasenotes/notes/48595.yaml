@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** injector list has duplicated namespace shown for the same injector hook.

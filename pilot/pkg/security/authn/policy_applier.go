@@ -25,8 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	authn_alpha "istio.io/api/authentication/v1alpha1"
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -41,6 +39,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // MTLSSettings describes the mTLS options for a filter chain
@@ -95,88 +94,18 @@ func newPolicyApplier(rootNamespace string,
 	}
 }
 
-func (a policyApplier) JwtFilter(useExtendedJwt, clearRouteCache bool) *hcm.HttpFilter {
+func (a policyApplier) JwtFilter(clearRouteCache bool) *hcm.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
 		return nil
 	}
 
-	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules, a.push, useExtendedJwt, clearRouteCache)
+	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules, a.push, clearRouteCache)
 
 	if filterConfigProto == nil {
 		return nil
 	}
 	return &hcm.HttpFilter{
 		Name:       authn_model.EnvoyJwtFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
-	}
-}
-
-func defaultAuthnFilter() *authn_filter.FilterConfig {
-	return &authn_filter.FilterConfig{
-		Policy: &authn_alpha.Policy{},
-		// we can always set this field, it's no-op if mTLS is not used.
-		SkipValidateTrustDomain: true,
-	}
-}
-
-func (a policyApplier) setAuthnFilterForRequestAuthn(config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
-	if len(a.processedJwtRules) == 0 {
-		// (beta) RequestAuthentication is not set for workload, do nothing.
-		authnLog.Debug("AuthnFilter: RequestAuthentication (beta policy) not found, keep settings with alpha API")
-		return config
-	}
-
-	if config == nil {
-		config = defaultAuthnFilter()
-	}
-
-	// This is obsoleted and not needed (payload is extracted from metadata). Reset the field to remove
-	// any artifacts from alpha applier.
-	config.JwtOutputPayloadLocations = nil
-	p := config.Policy
-	// Reset origins to use with beta API
-	// nolint: staticcheck
-	p.Origins = []*authn_alpha.OriginAuthenticationMethod{}
-	// Always set to true for beta API, as it doesn't doe rejection on missing token.
-	// nolint: staticcheck
-	p.OriginIsOptional = true
-
-	// Always bind request.auth.principal from JWT origin. In v2 policy, authorization config specifies what principal to
-	// choose from instead, rather than in authn config.
-	// nolint: staticcheck
-	p.PrincipalBinding = authn_alpha.PrincipalBinding_USE_ORIGIN
-	// nolint: staticcheck
-	for _, jwt := range a.processedJwtRules {
-		p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
-			Jwt: &authn_alpha.Jwt{
-				// used for getting the filter data, and all other fields are irrelevant.
-				Issuer: jwt.GetIssuer(),
-			},
-		})
-	}
-	return config
-}
-
-// AuthNFilter returns the Istio authn filter config:
-// - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
-// - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a policyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
-	var filterConfigProto *authn_filter.FilterConfig
-
-	// Override the config with request authentication, if applicable.
-	filterConfigProto = a.setAuthnFilterForRequestAuthn(filterConfigProto)
-
-	if filterConfigProto == nil {
-		return nil
-	}
-	// disable clear route cache for sidecars because the JWT claim based routing is only supported on gateways.
-	filterConfigProto.DisableClearRouteCache = forSidecar
-
-	// Note: in previous Istio versions, the authn filter also handled PeerAuthentication, to extract principal.
-	// This has been modified to rely on the TCP filter
-
-	return &hcm.HttpFilter{
-		Name:       filters.AuthnFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
 	}
 }
@@ -215,7 +144,7 @@ func (a policyApplier) InboundMTLSSettings(
 // Each rule is expected corresponding to one JWT issuer (provider).
 // The behavior of the filter should reject all requests with invalid token. On the other hand,
 // if no token provided, the request is allowed.
-func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext, useExtendedJwt, clearRouteCache bool) *envoy_jwt.JwtAuthentication {
+func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext, clearRouteCache bool) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
 	}
@@ -236,14 +165,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			Audiences:            jwtRule.Audiences,
 			Forward:              jwtRule.ForwardOriginalToken,
 			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
-			PayloadInMetadata:    jwtRule.Issuer,
-		}
-		if useExtendedJwt {
-			provider.PayloadInMetadata = filters.EnvoyJwtFilterPayload
-			provider.NormalizePayloadInMetadata = &envoy_jwt.JwtProvider_NormalizePayload{
-				SpaceDelimitedClaims: []string{"scope", "permission"},
-			}
-			provider.ClearRouteCache = clearRouteCache
+			PayloadInMetadata:    filters.EnvoyJwtFilterPayload,
+			NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+				SpaceDelimitedClaims: buildSpaceDelimitedClaims(jwtRule.SpaceDelimitedClaims),
+			},
+			ClearRouteCache: clearRouteCache,
 		}
 
 		for _, claimAndHeader := range jwtRule.OutputClaimToHeaders {
@@ -263,6 +189,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		provider.FromCookies = jwtRule.FromCookies
 
 		authnLog.Debugf("JwksFetchMode is set to: %v", features.JwksFetchMode)
+
+		timeout := &durationpb.Duration{Seconds: 5}
+		if jwtRule.Timeout != nil {
+			timeout = jwtRule.Timeout
+		}
 
 		// Use Envoy remote jwks if jwksUri is not empty and JwksFetchMode not Istiod. Parse the jwksUri to get the
 		// cluster name, generate the jwt filter config using remote Jwks.
@@ -285,13 +216,13 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 							HttpUpstreamType: &core.HttpUri_Cluster{
 								Cluster: cluster,
 							},
-							Timeout: &durationpb.Duration{Seconds: 5},
+							Timeout: timeout,
 						},
 						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 					},
 				}
 			} else if features.JwksFetchMode == jwt.Hybrid {
-				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
+				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "", timeout.AsDuration())
 			} else {
 				model.IncLookupClusterFailures("jwks")
 				// Log error and create remote JWKs with fake cluster
@@ -305,7 +236,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 							HttpUpstreamType: &core.HttpUri_Cluster{
 								Cluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", jwksInfo.Hostname, jwksInfo.Port),
 							},
-							Timeout: &durationpb.Duration{Seconds: 5},
+							Timeout: timeout,
 						},
 						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 					},
@@ -313,7 +244,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			}
 		} else {
 			// Use inline jwks as existing flow, either jwtRule.jwks is empty or let istiod to fetch the jwtRule.jwksUri
-			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks)
+			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks, timeout.AsDuration())
 		}
 
 		name := fmt.Sprintf("origins-%d", i)
@@ -398,6 +329,38 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		Providers:           providers,
 		BypassCorsPreflight: true,
 	}
+}
+
+// buildSpaceDelimitedClaims constructs a list of JWT claim names that should be treated
+// as space-delimited strings by the Envoy JWT filter.
+// The default claims ("scope" and "permission") are always included while allowing users
+// to specify additional custom claims.
+// Parameters:
+//   - spaceDelimitedClaimsList: A slice of custom JWT claim names that should be treated
+//     as space-delimited. Can be nil or empty.
+//
+// Returns:
+//   - A slice of strings containing all claim names that should be treated as space-delimited.
+//     The default claims "scope" and "permission" are always included.
+//
+// Example:
+//   - If spaceDelimitedClaimsList is nil, the function returns ["permission", "scope"].
+//   - If spaceDelimitedClaimsList is ["customClaim1", "customClaim2"], the function returns
+//     ["customClaim1", "customClaim2", "permission", "scope"].
+func buildSpaceDelimitedClaims(spaceDelimitedClaimsList []string) []string {
+	// Default claims that are always space-delimited
+	defaultClaims := []string{"permission", "scope"}
+
+	// If input is nil, return the default list
+	if spaceDelimitedClaimsList == nil {
+		return defaultClaims
+	}
+
+	// Use sets to deduplicate and merge claims, then return sorted list for deterministic output
+	// Note: This sorting does not affect JWT processing functionality - Envoy treats
+	// all claims in the list equally regardless of order. The sorting is purely for
+	// consistent test results and implementation predictability.
+	return sets.SortedList(sets.New(spaceDelimitedClaimsList...).InsertAll(defaultClaims...))
 }
 
 func (a policyApplier) PortLevelSetting() map[uint32]model.MutualTLSMode {

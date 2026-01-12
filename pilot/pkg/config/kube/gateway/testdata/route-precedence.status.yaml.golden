@@ -1,9 +1,7 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -13,10 +11,9 @@ status:
     status: "True"
     type: Accepted
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -65,15 +62,29 @@ status:
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http
   namespace: allowed-1
 spec: null
 status:
   parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
@@ -106,26 +117,10 @@ status:
       group: ""
       kind: Service
       name: a-example
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http
   namespace: allowed-2
 spec: null
@@ -144,9 +139,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      group: ""
-      kind: Service
-      name: a-example
+      name: gateway
+      namespace: istio-system
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
@@ -160,13 +154,13 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      name: gateway
-      namespace: istio-system
+      group: ""
+      kind: Service
+      name: a-example
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: http
   namespace: default
 spec: null

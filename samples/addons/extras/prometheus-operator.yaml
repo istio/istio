@@ -43,7 +43,7 @@ spec:
       targetLabel: namespace
     - sourceLabels: [__meta_kubernetes_pod_name]
       action: replace
-      targetLabel: pod_name
+      targetLabel: pod
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

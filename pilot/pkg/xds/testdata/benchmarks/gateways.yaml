@@ -1,5 +1,5 @@
 # Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: proxy-service-instance
@@ -20,7 +20,7 @@ spec:
       istio.io/benchmark: "true"
 ---
 {{- range $i := until .Services }}
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs-{{$i}}
@@ -40,7 +40,7 @@ spec:
     - destination:
         host: random-{{$i}}.host.example
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway-{{$i}}
@@ -68,7 +68,7 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-{{$i}}

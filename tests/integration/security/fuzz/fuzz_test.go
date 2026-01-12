@@ -1,5 +1,4 @@
 //go:build integfuzz
-// +build integfuzz
 
 // Copyright Istio Authors
 //
@@ -206,10 +205,9 @@ func runFuzzer(t framework.TestContext, fuzzer, ns, server string) {
 
 func TestFuzzAuthorization(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.fuzz.authorization").
 		Run(func(t framework.TestContext) {
 			ns := "fuzz-authz"
-			namespace.ClaimOrFail(t, t, ns)
+			namespace.ClaimOrFail(t, ns)
 
 			t.ConfigIstio().YAML(ns, authzDenyPolicy).ApplyOrFail(t)
 			t.Logf("authorization policy applied")
@@ -265,7 +263,7 @@ func runJwtToolTest(t framework.TestContext, ns, server, jwtToken string) {
 	t.Logf("jwttool fuzz test completed for %s", server)
 
 	if !strings.Contains(stdout, "Prescan: original token Response Code: 200") {
-		t.Fatalf("could not find prescan check, please make sure the jwt_tool.py completed successfully")
+		t.Fatal("could not find prescan check, please make sure the jwt_tool.py completed successfully")
 	}
 	errCases := []string{}
 	scanStarted := false
@@ -291,10 +289,9 @@ func runJwtToolTest(t framework.TestContext, ns, server, jwtToken string) {
 
 func TestRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.fuzz.jwt").
 		Run(func(t framework.TestContext) {
 			ns := "fuzz-jwt"
-			namespace.ClaimOrFail(t, t, ns)
+			namespace.ClaimOrFail(t, ns)
 
 			t.ConfigIstio().YAML(ns, requestAuthnPolicy).ApplyOrFail(t)
 			t.Logf("request authentication policy applied")

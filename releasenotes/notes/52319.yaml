@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 52319
+releaseNotes:
+- |
+  **Fixed** persistent IP autoallocation for service entry to allocate per-host rather than per-servicenEntry

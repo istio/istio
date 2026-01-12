@@ -73,10 +73,9 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 
 // WithDefaultFilters applies common filters that work for most tests.
 // Example:
-//   - The full set of apps is a, b, c, d, e, headless, naked, and vm (one simple pod).
-//   - Only a, d, e, headless, naked and vm are used as sources. (d and e applicable are only for dual-stack mode)
+//   - The full set of apps is a, b, c, d (dualStack), e (IPv6), headless, naked, and vm (one simple pod).
+//   - Services d and e are used only when dualStack mode is enabled as part of the tests.
 //   - Subtests are generated only for reachable destinations.
-//   - Pod a will not be in destinations, but b will (one simpe pod not in sources)
 func (t *T) WithDefaultFilters(minimumFrom, minimumTo int) *T {
 	return t.
 		From(FilterMatch(match.NotExternal)).
@@ -102,10 +101,10 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 //   - This filter would result in a, d, e, headless, naked and vm.
 //
 // TODO this name is not good
-func SimplePodServiceAndAllSpecial(min int, exclude ...echo.Instance) Filter {
+func SimplePodServiceAndAllSpecial(minimum int, exclude ...echo.Instance) Filter {
 	return func(instances echo.Instances) echo.Instances {
 		nonRegular := notRegularPods()(instances)
-		needed := min - len(nonRegular)
+		needed := minimum - len(nonRegular)
 		if needed <= 0 {
 			needed = 1
 		}
@@ -176,7 +175,8 @@ var HasL7 CombinationFilter = func(from echo.Instance, to echo.Instances) echo.I
 	}
 	// otherwise give only serverside l7 endpoints
 	return match.Matcher(func(instance echo.Instance) bool {
-		return instance.Config().HasWaypointProxy()
+		return instance.Config().HasServiceAddressedWaypointProxy() ||
+			instance.Config().HasWorkloadAddressedWaypointProxy()
 	}).GetMatches(to)
 }
 
@@ -190,8 +190,17 @@ var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.I
 		reachableFromVM(from),
 		reachableFromProxylessGRPC(from),
 		reachableNakedDestinations(from),
-		reachableHeadlessDestinations(from)).
+		reachableHeadlessDestinations(from),
+		reachableWaypoints(from)).
 		GetMatches(to)
+}
+
+// reachableWaypoints removes waypointed targets when the client doesn't
+func reachableWaypoints(from echo.Instance) match.Matcher {
+	if from.Config().WaypointClient() {
+		return match.Any
+	}
+	return match.NotWaypoint
 }
 
 // reachableHeadlessDestinations filters out headless services that aren't in the same cluster

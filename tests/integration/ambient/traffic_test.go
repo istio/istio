@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -27,12 +26,12 @@ import (
 
 func TestTraffic(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
+		TopLevel().
 		Run(func(t framework.TestContext) {
-			apps := deployment.NewOrFail(t, t, deployment.Config{
-				NoExternalNamespace: true,
-				IncludeExtAuthz:     false,
+			deployments := deployment.NewOrFail(t, deployment.Config{
+				IncludeExtAuthz: false,
 			})
-			common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
+			SetWaypointServiceEntry(t, "external-service", deployments.NS[0].Namespace.Name(), "waypoint")
+			common.RunAllTrafficTests(t, i, deployments.SingleNamespaceView())
 		})
 }

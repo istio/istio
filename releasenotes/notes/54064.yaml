@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 54056
+releaseNotes:
+- |
+  **Fixed** `istioctl waypoint delete --all` deletes gateway resources that are not waypoints.

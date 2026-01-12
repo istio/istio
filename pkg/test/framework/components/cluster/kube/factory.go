@@ -31,11 +31,7 @@ const (
 	vmSupportMetaKey  = "fakeVM"
 )
 
-func init() {
-	cluster.RegisterFactory(cluster.Kubernetes, buildKube)
-}
-
-func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Cluster, error) {
+func BuildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Cluster, error) {
 	cfg, err := validConfig(origCfg)
 	if err != nil {
 		return nil, err
@@ -94,7 +90,7 @@ func buildClient(kubeconfig string) (istioKube.CLIClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return istioKube.NewCLIClient(istioKube.NewClientConfigForRestConfig(rc), "")
+	return istioKube.NewCLIClient(istioKube.NewClientConfigForRestConfig(rc))
 }
 
 func buildClientWithProxy(kubeconfig string, proxyURL *url.URL) (istioKube.CLIClient, error) {
@@ -106,5 +102,5 @@ func buildClientWithProxy(kubeconfig string, proxyURL *url.URL) (istioKube.CLICl
 		return nil, err
 	}
 	rc.Proxy = http.ProxyURL(proxyURL)
-	return istioKube.NewCLIClient(istioKube.NewClientConfigForRestConfig(rc), "")
+	return istioKube.NewCLIClient(istioKube.NewClientConfigForRestConfig(rc))
 }

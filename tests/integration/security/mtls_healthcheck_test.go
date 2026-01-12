@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 //  Copyright Istio Authors
 //
@@ -19,9 +18,11 @@ package security
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -35,9 +36,8 @@ import (
 // on Minikube. For more details, see https://github.com/istio/istio/issues/12754.
 func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.healthcheck").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "healthcheck", Inject: true})
+			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "healthcheck", Inject: true})
 			for _, testCase := range []struct {
 				name    string
 				rewrite bool
@@ -56,7 +56,7 @@ func runHealthCheckDeployment(ctx framework.TestContext, ns namespace.Instance, 
 ) {
 	ctx.Helper()
 	wantSuccess := rewrite
-	policyYAML := fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+	policyYAML := fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: "mtls-strict-for-%v"
@@ -81,7 +81,7 @@ spec:
 		}},
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),
+				Annotations: map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: strconv.FormatBool(rewrite)},
 			},
 		},
 	}

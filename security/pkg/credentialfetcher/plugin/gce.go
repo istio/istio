@@ -17,6 +17,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -139,7 +140,7 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 		return "", fmt.Errorf("jwtPath is unset")
 	}
 	uri := fmt.Sprintf("instance/service-accounts/default/identity?audience=%s&format=full", p.aud)
-	token, err := metadata.Get(uri)
+	token, err := metadata.GetWithContext(context.TODO(), uri)
 	if err != nil {
 		gcecredLog.Errorf("Failed to get vm identity token from metadata server: %v", err)
 		return "", err

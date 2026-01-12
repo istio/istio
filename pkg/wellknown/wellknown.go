@@ -55,6 +55,12 @@ const (
 	HTTPGRPCStats = "envoy.filters.http.grpc_stats"
 	// HTTP WASM filter
 	HTTPWasm = "envoy.extensions.filters.http.wasm.v3.Wasm"
+	// HTTPExternalProcessing HTTP filter
+	HTTPExternalProcessing = "envoy.filters.http.ext_proc"
+	// OVERRIDE_HOST envoy lb policy
+	EnvoyOverrideHostLbPolicy = "envoy.load_balancing_policies.override_host"
+	// ROUND_ROBIN envoy lb policy
+	EnvoyRoundRobinLbPolicy = "envoy.load_balancing_policies.round_robin"
 )
 
 // Network filter names
@@ -81,6 +87,8 @@ const (
 	ExternalAuthorization = "envoy.filters.network.ext_authz"
 	// RoleBasedAccessControl network filter
 	RoleBasedAccessControl = "envoy.filters.network.rbac"
+	// SNIDynamicForwardProxy network filter
+	SNIDynamicForwardProxy = "envoy.extensions.filters.network.sni_dynamic_forward_proxy"
 )
 
 // Listener filter names
@@ -113,4 +121,6 @@ const (
 	TransportSocketTLS = "envoy.transport_sockets.tls"
 	// TransportSocket Quic
 	TransportSocketQuic = "envoy.transport_sockets.quic"
+	// TransportSocketPROXY indicates upstream HA-PROXY protocol
+	TransportSocketPROXY = "envoy.transport_sockets.upstream_proxy_protocol"
 )

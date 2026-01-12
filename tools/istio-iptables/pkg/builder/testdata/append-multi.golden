@@ -1,0 +1,4 @@
+-t table -N chain
+-t table -A chain -f foo -b bar
+-t table -A chain -f fu -b bar
+-t table -A chain -f foo -b baz

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 55409
+releaseNotes:
+- |
+  **Fixed** validation webhook rejecting an otherwise valid connectionPool.tcp.IdleTimeout=0s

@@ -38,8 +38,12 @@ type Response struct {
 	Method string
 	// Protocol used for the request.
 	Protocol string
-	// Alpn value (for HTTP).
+	// Alpn value (for TLS).
 	Alpn string
+	// SNI value (for TLS).
+	SNI string
+	// ProxyProtocol value.
+	ProxyProtocol string
 	// RawContent is the original unparsed content for this response
 	RawContent string
 	// ID is a unique identifier of the resource in the response
@@ -60,12 +64,18 @@ type Response struct {
 	Cluster string
 	// IstioVersion for the Istio sidecar.
 	IstioVersion string
-	// IP is the requester's ip address
+	// IP is the client IP, as seen by the server.
 	IP string
-	// rawBody gives a map of all key/values in the body of the response.
-	rawBody         map[string]string
+	// SourceIP is the client's source IP. This can differ from IP when there are multiple hops.
+	SourceIP string
+	// RawBody gives a map of all key/values in the body of the response.
+	RawBody         map[string]string
 	RequestHeaders  http.Header
 	ResponseHeaders http.Header
+	// ClientCertSubject is the subject of the client certificate.
+	ClientCertSubject string
+	// ClientCertSerialNumber is the serial number of the client certificate.
+	ClientCertSerialNumber string
 }
 
 // Count occurrences of the given text within the body of this response.
@@ -91,8 +101,8 @@ func (r Response) Body() []string {
 		k, v string
 	}
 	var keyValues []keyValue
-	// rawBody is in random order, so get the order back via sorting.
-	for k, v := range r.rawBody {
+	// RawBody is in random order, so get the order back via sorting.
+	for k, v := range r.RawBody {
 		keyValues = append(keyValues, keyValue{k, v})
 	}
 	sort.Slice(keyValues, func(i, j int) bool {

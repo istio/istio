@@ -17,22 +17,18 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
-
-// newKubeClient is a unit test override variable for interface create.
-var newKubeClient = newK8sClient
-
-// getKubePodInfo is a unit test override variable for interface create.
-var getKubePodInfo = getK8sPodInfo
 
 type PodInfo struct {
 	Containers        sets.String
@@ -45,9 +41,9 @@ type PodInfo struct {
 }
 
 // newK8sClient returns a Kubernetes client
-func newK8sClient(conf Config) (*kubernetes.Clientset, error) {
+func newK8sClient(conf Config) (kubernetes.Interface, error) {
 	// Some config can be passed in a kubeconfig file
-	kubeconfig := conf.Kubernetes.Kubeconfig
+	kubeconfig := filepath.Join(conf.CNIAgentRunDir, constants.CNIPluginKubeconfName)
 
 	config, err := kube.DefaultRestConfig(kubeconfig, "")
 	if err != nil {
@@ -57,12 +53,12 @@ func newK8sClient(conf Config) (*kubernetes.Clientset, error) {
 
 	log.Debugf("istio-cni set up kubernetes client with kubeconfig %s", kubeconfig)
 
-	// Create the clientset
+	// Create the client
 	return kubernetes.NewForConfig(config)
 }
 
 // getK8sPodInfo returns information of a POD
-func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (*PodInfo, error) {
+func getK8sPodInfo(client kubernetes.Interface, podName, podNamespace string) (*PodInfo, error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err

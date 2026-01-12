@@ -50,7 +50,7 @@ lint-python:
 	@${FINDFILES} -name '*.py' \( ! \( -name '*_pb2.py' \) \) -print0 | ${XARGS} autopep8 --max-line-length 160 --exit-code -d
 
 lint-markdown:
-	@${FINDFILES} -name '*.md' -print0 | ${XARGS} mdl --ignore-front-matter --style common/config/mdl.rb
+	@${FINDFILES} -name '*.md' -not -path './manifests/addons/dashboards/*' -print0 | ${XARGS} mdl --ignore-front-matter --style common/config/mdl.rb
 
 lint-links:
 	@${FINDFILES} -name '*.md' -print0 | ${XARGS} awesome_bot --skip-save-results --allow_ssl --allow-timeout --allow-dupe --allow-redirect --white-list ${MARKDOWN_LINT_ALLOWLIST}
@@ -101,12 +101,16 @@ update-common:
 	@git clone -q --depth 1 --single-branch --branch $(UPDATE_BRANCH) https://github.com/$(BUILD_TOOLS_ORG)/common-files $(TMP)/common-files
 	@cd $(TMP)/common-files ; git rev-parse HEAD >files/common/.commonfiles.sha
 	@rm -fr common
+# istio/community has its own CONTRIBUTING.md file.
 	@CONTRIB_OVERRIDE=$(shell grep -l "istio/community/blob/master/CONTRIBUTING.md" CONTRIBUTING.md)
 	@if [ "$(CONTRIB_OVERRIDE)" != "CONTRIBUTING.md" ]; then\
 		rm $(TMP)/common-files/files/CONTRIBUTING.md;\
 	fi
 	@cp -a $(TMP)/common-files/files/* $(TMP)/common-files/files/.devcontainer $(TMP)/common-files/files/.gitattributes $(shell pwd)
 	@rm -fr $(TMP)/common-files
+	@if [ "$(AUTOMATOR_REPO)" == "proxy" ]; then\
+		sed -i -e 's/build-tools:/build-tools-proxy:/g' .devcontainer/devcontainer.json;\
+	fi
 	@$(or $(COMMONFILES_POSTPROCESS), true)
 
 check-clean-repo:

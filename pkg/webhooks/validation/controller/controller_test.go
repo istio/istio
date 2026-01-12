@@ -28,7 +28,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	"istio.io/api/label"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
@@ -191,9 +191,9 @@ func setupGatewayError(c kube.Client) *atomic.Pointer[error] {
 	c.Istio().(*istiofake.Clientset).PrependReactor("*", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
 		e := gatewayError.Load()
 		if e == nil {
-			return true, &v1alpha3.Gateway{}, nil
+			return true, &clientnetworking.Gateway{}, nil
 		}
-		return true, &v1alpha3.Gateway{}, *e
+		return true, &clientnetworking.Gateway{}, *e
 	})
 	return gatewayError
 }
@@ -307,7 +307,7 @@ func TestCABundleChange(t *testing.T) {
 
 // LongRetry is used when comparing webhook values. Apparently the values are so large that with -race
 // on the comparison can take a few seconds, meaning we never retry with the default settings.
-var LongRetry = retry.Timeout(time.Second * 1)
+var LongRetry = retry.Timeout(time.Second * 20)
 
 func TestLoadCaCertPem(t *testing.T) {
 	cases := []struct {

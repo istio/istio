@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+
+# issue is a list of GitHub issues resolved in this note.
+issue: []
+
+docs: []
+
+releaseNotes:
+- |
+  **Fixed** Added the metrics port in the kube-gateway containers spec of the istio-discovery chart.
+
+upgradeNotes: []
+
+securityNotes: []

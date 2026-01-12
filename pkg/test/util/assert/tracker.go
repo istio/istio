@@ -55,7 +55,7 @@ func (t *Tracker[T]) Empty() {
 // WaitOrdered waits for an event to happen, in order
 func (t *Tracker[T]) WaitOrdered(events ...T) {
 	t.t.Helper()
-	for _, event := range events {
+	for i, event := range events {
 		var err error
 		retry.UntilSuccessOrFail(t.t, func() error {
 			t.mu.Lock()
@@ -65,7 +65,7 @@ func (t *Tracker[T]) WaitOrdered(events ...T) {
 			}
 			if t.events[0] != event {
 				// Exit early instead of continuing to retry
-				err = fmt.Errorf("got events %v, want %v", t.events, event)
+				err = fmt.Errorf("got events %v, want %v (%d)", t.events, event, i)
 				return nil
 			}
 			// clear the event
@@ -78,6 +78,12 @@ func (t *Tracker[T]) WaitOrdered(events ...T) {
 		}
 	}
 	t.Empty()
+}
+
+func (t *Tracker[T]) Events() []T {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.events
 }
 
 // WaitUnordered waits for an event to happen, in any order

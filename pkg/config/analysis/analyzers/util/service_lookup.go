@@ -36,12 +36,12 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 		exportsToAll := false
 		for _, h := range s.GetHosts() {
 			// ExportToAll scenario
-			if len(s.ExportTo) == 0 || exportsToAll {
+			if len(s.GetExportTo()) == 0 || exportsToAll {
 				result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h)] = s
 				continue // If exports to all, we can skip adding to each namespace
 			}
 
-			for _, ns := range s.ExportTo {
+			for _, ns := range s.GetExportTo() {
 				switch ns {
 				case ExportToAllNamespaces:
 					result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h)] = s
@@ -95,6 +95,7 @@ func getVisibleNamespacesFromExportToAnno(anno, resourceNamespace string) []stri
 		scopes = append(scopes, ExportToAllNamespaces)
 	} else {
 		for _, ns := range strings.Split(anno, ",") {
+			ns = strings.TrimSpace(ns)
 			if ns == ExportToNamespaceLocal {
 				scopes = append(scopes, resourceNamespace)
 			} else {

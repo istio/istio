@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** `--force-apply` to override the idempotency logic if detection incorrectly assumes rules are already applied.

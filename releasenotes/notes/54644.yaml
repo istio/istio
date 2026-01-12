@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 54644
+releaseNotes:
+- |
+  **Fixed** excessive iptables info-level log entries for rule checks and deletions.
+  Detailed logging can be re-enabled by switching to debug-level logs if necessary.

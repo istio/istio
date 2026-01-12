@@ -19,12 +19,12 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/cmd/pilot-agent/options"
 )
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	g := NewWithT(t)
-	role := &model.Proxy{}
+	role := &options.ProxyArgs{}
 	role.DNSDomain = ""
 
 	domain := getDNSDomain("default", role.DNSDomain)

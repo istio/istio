@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -296,5 +296,5 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.MCSAPIGroup, "istio.test.kube.mcs.apiGroup", "multicluster.x-k8s.io",
 		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.")
 	flag.StringVar(&settingsFromCommandLine.MCSAPIVersion, "istio.test.kube.mcs.apiVersion", "v1alpha1",
-		"The version to be used for the Kubernets Multi-Cluster Services (MCS) API.")
+		"The version to be used for the Kubernetes Multi-Cluster Services (MCS) API.")
 }

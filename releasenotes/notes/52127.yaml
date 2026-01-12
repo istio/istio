@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+releaseNotes:
+  - |
+    **Fixed** netlink error may not be correctly parsed, leading to `istio-cni` not properly ignoring leftover ipset.

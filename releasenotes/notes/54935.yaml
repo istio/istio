@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 49829
+releaseNotes:
+- |
+    **Added** `ambient.istio.io/dns-capture` annotation. May be unset, or set to `true` or `false`.
+    When specified on a `Pod` enrolled in ambient mesh, controls whether DNS traffic (TCP and UDP on port 53) will be captured and proxied in ambient.
+    This pod-level annotation, if present on a pod, will override the global `istio-cni` `AMBIENT_DNS_CAPTURE` setting, which as of 1.25 defaults to `true`.
+    Note that setting this to `false` will break some Istio features, such as ServiceEntries and egress waypoints, but may be desirable for workloads that interact poorly with DNS proxies.

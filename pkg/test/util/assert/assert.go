@@ -134,7 +134,7 @@ func ChannelHasItem[T any](t test.Failer, c <-chan T) T {
 	case r := <-c:
 		return r
 	case <-time.After(time.Second * 5):
-		t.Fatalf("failed to receive event after 5s")
+		t.Fatal("failed to receive event after 5s")
 	}
 	// Not reachable
 	return ptr.Empty[T]()
@@ -147,5 +147,18 @@ func ChannelIsEmpty[T any](t test.Failer, c <-chan T) {
 	case r := <-c:
 		t.Fatalf("channel had element, expected empty: %v", r)
 	case <-time.After(time.Millisecond * 20):
+	}
+}
+
+// ChannelIsClosed asserts a channel is closed
+func ChannelIsClosed[T any](t test.Failer, c <-chan T) {
+	t.Helper()
+	select {
+	case obj, ok := <-c:
+		if ok {
+			t.Fatalf("channel had element, expected closed: %v", obj)
+		}
+	default:
+		t.Fatalf("channel was not closed")
 	}
 }

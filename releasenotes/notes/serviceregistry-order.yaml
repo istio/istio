@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 50968
+releaseNotes:
+  - |
+    **Fixed** serviceRegistry orders influence the proxy labels, so we put the kubernetes registry in front.

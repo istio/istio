@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: hello
 spec:
   selector:
@@ -18,8 +17,7 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         proxy.istio.io/overrides: '{"initContainers":[{"name":"istio-proxy","command":["envoy"],"args":["-c","my-config.yaml"],"resources":{}}]}'
-        sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
-      creationTimestamp: null
+        sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
       labels:
         app: hello
         security.istio.io/tlsMode: istio
@@ -78,8 +76,6 @@ spec:
         command:
         - envoy
         env:
-        - name: JWT_POLICY
-          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: CA_ADDR
@@ -107,7 +103,7 @@ spec:
         - name: ISTIO_CPU_LIMIT
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
+              divisor: "1"
               resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
@@ -121,12 +117,12 @@ spec:
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
+              divisor: "1"
               resource: limits.memory
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
+              divisor: "1"
               resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
@@ -200,6 +196,8 @@ spec:
           name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/run/secrets/istio/crl
+          name: istio-ca-crl
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
@@ -236,5 +234,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
+      - configMap:
+          name: istio-ca-crl
+          optional: true
+        name: istio-ca-crl
 status: {}
 ---

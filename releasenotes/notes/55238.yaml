@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** Some user specified values in `IstioOperator` were being overwritten with default values.
+              Specifying `.values.pilot.cni.enabled=true` did not work without specifying `.components.cni.enabled=true`.

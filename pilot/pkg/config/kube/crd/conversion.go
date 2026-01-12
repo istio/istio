@@ -21,9 +21,8 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/pkg/config"
@@ -44,7 +43,7 @@ func FromJSON(s resource.Schema, js string) (config.Spec, error) {
 	return c, nil
 }
 
-func StatusJSONFromMap(schema resource.Schema, jsonMap map[string]any) (config.Status, error) {
+func StatusJSONFromMap(schema resource.Schema, jsonMap *json.RawMessage) (config.Status, error) {
 	if jsonMap == nil {
 		return nil, nil
 	}
@@ -63,40 +62,14 @@ func StatusJSONFromMap(schema resource.Schema, jsonMap map[string]any) (config.S
 	return status, nil
 }
 
-// FromYAML converts a canonical YAML to a proto message
-func FromYAML(s resource.Schema, yml string) (config.Spec, error) {
-	c, err := s.NewInstance()
-	if err != nil {
-		return nil, err
-	}
-	if err = config.ApplyYAML(c, yml); err != nil {
-		return nil, err
-	}
-	return c, nil
-}
+type ConversionFunc = func(s resource.Schema, js string) (config.Spec, error)
 
-// FromJSONMap converts from a generic map to a proto message using canonical JSON encoding
-// JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func FromJSONMap(s resource.Schema, data any) (config.Spec, error) {
-	// Marshal to YAML bytes
-	str, err := yaml.Marshal(data)
-	if err != nil {
-		return nil, err
-	}
-	out, err := FromYAML(s, string(str))
-	if err != nil {
-		return nil, multierror.Prefix(err, fmt.Sprintf("YAML decoding error: %v", string(str)))
-	}
-	return out, nil
-}
-
-// ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
-func ConvertObject(schema resource.Schema, object IstioObject, domain string) (*config.Config, error) {
+func ConvertObjectInternal(schema resource.Schema, object IstioObject, domain string, convert ConversionFunc) (*config.Config, error) {
 	js, err := json.Marshal(object.GetSpec())
 	if err != nil {
 		return nil, err
 	}
-	spec, err := FromJSON(schema, string(js))
+	spec, err := convert(schema, string(js))
 	if err != nil {
 		return nil, err
 	}
@@ -122,19 +95,37 @@ func ConvertObject(schema resource.Schema, object IstioObject, domain string) (*
 	}, nil
 }
 
+// ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
+func ConvertObject(schema resource.Schema, object IstioObject, domain string) (*config.Config, error) {
+	return ConvertObjectInternal(schema, object, domain, FromJSON)
+}
+
 // ConvertConfig translates Istio config to k8s config JSON
 func ConvertConfig(cfg config.Config) (IstioObject, error) {
-	spec, err := config.ToMap(cfg.Spec)
+	spec, err := config.ToRaw(cfg.Spec)
 	if err != nil {
 		return nil, err
 	}
-	status, err := config.ToMap(cfg.Status)
-	if err != nil {
-		return nil, err
+	var status *json.RawMessage
+	if cfg.Status != nil {
+		s, err := config.ToRaw(cfg.Status)
+		if err != nil {
+			return nil, err
+		}
+		// Probably a bit overkill, but this ensures we marshal a pointer to an empty object (&empty{}) as nil
+		if !bytes.Equal(s, []byte("{}")) {
+			status = &s
+		}
 	}
 	namespace := cfg.Namespace
 	if namespace == "" {
-		namespace = metav1.NamespaceDefault
+		clusterScoped := false
+		if s, ok := collections.All.FindByGroupVersionAliasesKind(cfg.GroupVersionKind); ok {
+			clusterScoped = s.IsClusterScoped()
+		}
+		if !clusterScoped {
+			namespace = metav1.NamespaceDefault
+		}
 	}
 	return &IstioKind{
 		TypeMeta: metav1.TypeMeta{
@@ -148,6 +139,8 @@ func ConvertConfig(cfg config.Config) (IstioObject, error) {
 			Labels:            cfg.Labels,
 			Annotations:       cfg.Annotations,
 			CreationTimestamp: metav1.NewTime(cfg.CreationTimestamp),
+			UID:               types.UID(cfg.UID),
+			Generation:        cfg.Generation,
 		},
 		Spec:   spec,
 		Status: status,

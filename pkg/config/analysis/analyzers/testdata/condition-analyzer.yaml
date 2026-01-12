@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: negative-condition-svc
+  namespace: default
+status:
+  conditions:
+  - type: istio.io/WaypointBound
+    status: "False"
+    reason: NoWaypoint
+    message: 'waypoint "default/waypoint" is not ready'
+    lastTransitionTime: "2023-01-01T00:00:00Z"
+    observedGeneration: 1
+  - type: argocd.argoproj.io/Synced # should be ignored by analyzer
+    status: "False"
+    reason: OutOfSync
+    message: 'Resource is out of sync with Git repository'
+    lastTransitionTime: "2023-01-01T00:00:00Z"
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: negative-condition-svcEntry
+  namespace: default
+status:
+  conditions:
+  - type: istio.io/WaypointBound
+    status: "False" 
+    reason: WaypointIsNotReady
+    message: 'waypoint "default/waypoint" is not ready'
+    lastTransitionTime: "2023-01-01T00:00:00Z"
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: negative-condition-authz
+  namespace: default
+status:
+  conditions:
+  - type: ZtunnelAccepted
+    status: "False"
+    reason: UnsupportedValue
+    message: 'ztunnel does not support the CUSTOM action'
+    lastTransitionTime: "2023-01-01T00:00:00Z"
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: negative-condition-authz-partially-invalid
+  namespace: default  
+status:
+  conditions:
+  - type: WaypointAccepted
+    status: "True"
+    reason: PartiallyInvalid
+    message: 'Invalid targetRefs: default/doesnt-exist'
+    lastTransitionTime: "2023-01-01T00:00:00Z"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: negative-condition-gateway
+  namespace: default
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    name: mesh
+    port: 15008
+    protocol: HBONE
+status:
+  conditions:
+  - type: Programmed
+    status: "False"
+    reason: AddressNotUsable
+    message: 'Failed to assign to any requested addresses: port 15008 not found for hostname "waypoint.default.svc.cluster.local"'
+    lastTransitionTime: "2023-01-01T00:00:00Z"
+    observedGeneration: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: negative-condition-httproute
+  namespace: default
+spec:
+  parentRefs:
+  - name: negative-condition-svc
+    namespace: default
+status:
+  parents:
+  - parentRef:
+      name: negative-condition-svc
+      namespace: default
+    conditions:
+    - type: Accepted
+      status: "False"
+      reason: WaypointNotBound
+      message: "Service is not bound to a waypoint"
+      lastTransitionTime: "2023-01-01T00:00:00Z"
+      observedGeneration: 1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: negative-condition-grpcroute
+  namespace: default
+spec:
+  parentRefs:
+  - name: negative-condition-svc
+    namespace: default
+status:
+  parents:
+  - parentRef:
+      name: negative-condition-svc
+      namespace: default
+    conditions:
+    - type: Accepted
+      status: "False"
+      reason: WaypointNotBound
+      message: "Service is not bound to a waypoint"
+      lastTransitionTime: "2023-01-01T00:00:00Z"
+      observedGeneration: 1

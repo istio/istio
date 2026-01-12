@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -312,4 +313,72 @@ func tempFileFromString(t *testing.T, content string) *os.File {
 		t.Fatal(err)
 	}
 	return tmpfile
+}
+
+func TestIsIstioConfigMap(t *testing.T) {
+	tests := []struct {
+		name   string
+		obj    controllers.Object
+		expect bool
+	}{
+		{
+			name: "istio cm",
+			obj: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "istio",
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "sidecar cm",
+			obj: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "istio-sidecar-injector",
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "not istio cm",
+			obj: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kube-proxy",
+				},
+			},
+			expect: false,
+		},
+		{
+			name:   "nil obj",
+			obj:    nil,
+			expect: false,
+		},
+		{
+			name: "not cm",
+			obj: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "istiod",
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "leaderelection lock",
+			obj: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "istio-namespace-controller-election",
+					Annotations: map[string]string{
+						"control-plane.alpha.kubernetes.io/leader": `{}`,
+					},
+				},
+			},
+			expect: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expect, isIstioConfigMap(test.obj))
+		})
+	}
 }

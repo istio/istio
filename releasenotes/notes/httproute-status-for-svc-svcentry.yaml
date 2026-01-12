@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** status information to HTTPRoute resources to indicate the status of parentRefs for service and service entry resources,
+  as well as a new condition to indicate the status of waypoint configuration when in ambient mode.

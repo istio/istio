@@ -139,7 +139,7 @@ func processPlainLog(line string) (timeStamp *time.Time, level string, text stri
 	}
 	text = strings.Join(lv[2:], "\t")
 	valid = true
-	return
+	return timeStamp, level, text, valid
 }
 
 type logJSON struct {

@@ -47,16 +47,18 @@ func getPodsNameInDefaultNamespace(ctx cli.Context, toComplete string) ([]string
 	return podsName, nil
 }
 
-func ValidPodsNameArgs(_ *cobra.Command, ctx cli.Context, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) != 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
+func ValidPodsNameArgs(ctx cli.Context) func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) != 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
 
-	podsName, err := getPodsNameInDefaultNamespace(ctx, toComplete)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
+		podsName, err := getPodsNameInDefaultNamespace(ctx, toComplete)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		return podsName, cobra.ShellCompDirectiveNoFileComp
 	}
-	return podsName, cobra.ShellCompDirectiveNoFileComp
 }
 
 func getServicesName(ctx cli.Context, toComplete string) ([]string, error) {

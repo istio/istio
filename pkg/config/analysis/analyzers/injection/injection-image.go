@@ -17,6 +17,7 @@ package injection
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -144,8 +145,8 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 	for ns, pods := range namespaceMismatchedPods {
-		c.Report(gvk.Namespace,
-			msg.NewPodsIstioProxyImageMismatchInNamespace(namespaceResources[ns], pods))
+		sort.Strings(pods)
+		c.Report(gvk.Namespace, msg.NewPodsIstioProxyImageMismatchInNamespace(namespaceResources[ns], pods))
 	}
 }
 

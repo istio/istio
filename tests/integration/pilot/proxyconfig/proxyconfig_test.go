@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -23,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -61,10 +61,9 @@ type proxyConfigInstance struct {
 
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
-		Features("usability.observability.proxy-config").
 		RequireIstioVersion("1.13").
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+			ns := namespace.NewOrFail(ctx, namespace.Config{
 				Prefix: "pc-test",
 				Inject: true,
 			})
@@ -152,10 +151,8 @@ func TestProxyConfig(t *testing.T) {
 					if tc.pcAnnotation != "" {
 						echoConfig.Subsets = []echo.SubsetConfig{
 							{
-								Annotations: map[echo.Annotation]*echo.AnnotationValue{
-									echo.SidecarConfig: {
-										Value: tc.pcAnnotation,
-									},
+								Annotations: map[string]string{
+									annotation.ProxyConfig.Name: tc.pcAnnotation,
 								},
 							},
 						}
@@ -171,7 +168,6 @@ func TestProxyConfig(t *testing.T) {
 func checkInjectedValues(t framework.TestContext, instances echo.Instances, values map[string]string) {
 	t.Helper()
 	for _, i := range instances {
-		i := i
 		attempts := 0
 		retry.UntilSuccessOrFail(t, func() error {
 			// to avoid sleeping for ProxyConfig propagation, we
@@ -184,7 +180,6 @@ func checkInjectedValues(t framework.TestContext, instances echo.Instances, valu
 			}
 			attempts++
 			for _, w := range i.WorkloadsOrFail(t) {
-				w := w
 				for k, v := range values {
 					// can we rely on printenv being in the container once distroless is default?
 					out, _, err := i.Config().Cluster.PodExec(w.PodName(), i.Config().Namespace.Name(),

@@ -15,9 +15,8 @@
 package sets
 
 import (
+	"cmp"
 	"fmt"
-
-	"golang.org/x/exp/constraints"
 
 	"istio.io/istio/pkg/slices"
 )
@@ -66,6 +65,15 @@ func (s Set[T]) DeleteAll(items ...T) Set[T] {
 	return s
 }
 
+// DeleteAllSet removes items from the set.
+// Note: this differs from Difference() as this is in-place
+func (s Set[T]) DeleteAllSet(other Set[T]) Set[T] {
+	for item := range other {
+		delete(s, item)
+	}
+	return s
+}
+
 // Merge a set of objects that are in s2 into s
 // For example:
 // s = {a1, a2, a3}
@@ -81,7 +89,7 @@ func (s Set[T]) Merge(s2 Set[T]) Set[T] {
 
 // Copy this set.
 func (s Set[T]) Copy() Set[T] {
-	result := New[T]()
+	result := NewWithLength[T](s.Len())
 	for key := range s {
 		result.Insert(key)
 	}
@@ -117,6 +125,17 @@ func (s Set[T]) Difference(s2 Set[T]) Set[T] {
 	return result
 }
 
+// DifferenceInPlace similar to Difference, but has better performance.
+// Note: This function modifies s in place.
+func (s Set[T]) DifferenceInPlace(s2 Set[T]) Set[T] {
+	for key := range s {
+		if s2.Contains(key) {
+			delete(s, key)
+		}
+	}
+	return s
+}
+
 // Diff takes a pair of Sets, and returns the elements that occur only on the left and right set.
 func (s Set[T]) Diff(other Set[T]) (left []T, right []T) {
 	for k := range s {
@@ -129,7 +148,7 @@ func (s Set[T]) Diff(other Set[T]) (left []T, right []T) {
 			right = append(right, k)
 		}
 	}
-	return
+	return left, right
 }
 
 // Intersection returns a set of objects that are common between s and s2
@@ -145,6 +164,17 @@ func (s Set[T]) Intersection(s2 Set[T]) Set[T] {
 		}
 	}
 	return result
+}
+
+// IntersectInPlace similar to Intersection, but has better performance.
+// Note: This function modifies s in place.
+func (s Set[T]) IntersectInPlace(s2 Set[T]) Set[T] {
+	for key := range s {
+		if !s2.Contains(key) {
+			delete(s, key)
+		}
+	}
+	return s
 }
 
 // SupersetOf returns true if s contains all elements of s2
@@ -178,7 +208,7 @@ func (s Set[T]) UnsortedList() []T {
 }
 
 // SortedList returns the slice with contents sorted.
-func SortedList[T constraints.Ordered](s Set[T]) []T {
+func SortedList[T cmp.Ordered](s Set[T]) []T {
 	res := s.UnsortedList()
 	slices.Sort(res)
 	return res
@@ -196,6 +226,20 @@ func (s Set[T]) InsertContains(item T) bool {
 	}
 	s[item] = struct{}{}
 	return false
+}
+
+// DeleteContains deletes the item from the set and returns if it was already present.
+// Example:
+//
+//	if set.DeleteContains(item) {
+//		fmt.Println("item was delete", item)
+//	}
+func (s Set[T]) DeleteContains(item T) bool {
+	if !s.Contains(item) {
+		return false
+	}
+	delete(s, item)
+	return true
 }
 
 // Contains returns whether the given item is in the set.

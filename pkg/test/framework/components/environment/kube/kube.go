@@ -15,8 +15,13 @@
 package kube
 
 import (
+	"fmt"
+
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
+	"istio.io/istio/pkg/test/framework/components/cluster/kube"
+	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -54,7 +59,7 @@ Check the test framework wiki for details on running the tests locally:
 	if err != nil {
 		return nil, err
 	}
-	clusters, err := clusterboot.NewFactory().With(configs...).Build()
+	clusters, err := buildClusters(configs)
 	if err != nil {
 		return nil, err
 	}
@@ -102,4 +107,81 @@ func (e *Environment) ID() resource.ID {
 
 func (e *Environment) Settings() *Settings {
 	return e.s.clone()
+}
+
+func buildClusters(configs []cluster.Config) (cluster.Clusters, error) {
+	scopes.Framework.Infof("=== BEGIN: Building clusters ===")
+
+	// use multierror to give as much detail as possible if the config is bad
+	var errs error
+	defer func() {
+		if errs != nil {
+			scopes.Framework.Infof("=== FAILED: Building clusters ===")
+		}
+	}()
+
+	allClusters := make(cluster.Map)
+	var clusters cluster.Clusters
+	for i, cfg := range configs {
+		c, err := buildCluster(cfg, allClusters)
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed building cluster from config %d: %v", i, err))
+			continue
+		}
+		if _, ok := allClusters[c.Name()]; ok {
+			errs = multierror.Append(errs, fmt.Errorf("more than one cluster named %s", c.Name()))
+			continue
+		}
+		allClusters[c.Name()] = c
+		clusters = append(clusters, c)
+	}
+	if errs != nil {
+		return nil, errs
+	}
+
+	// validate the topology has no open edges
+	for _, c := range allClusters {
+		if _, ok := allClusters[c.PrimaryName()]; !ok {
+			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is not in the topology", c.PrimaryName(), c.Name()))
+			continue
+		}
+		if _, ok := allClusters[c.ConfigName()]; !ok {
+			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is not in the topology", c.ConfigName(), c.Name()))
+			continue
+		}
+	}
+	if errs != nil {
+		return nil, errs
+	}
+
+	for _, c := range clusters {
+		scopes.Framework.Infof("Built Cluster:\n%s", c.String())
+	}
+
+	scopes.Framework.Infof("=== DONE: Building clusters ===")
+	return clusters, errs
+}
+
+func buildCluster(cfg cluster.Config, allClusters cluster.Map) (cluster.Cluster, error) {
+	cfg, err := validConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return kube.BuildKube(cfg, cluster.NewTopology(cfg, allClusters))
+}
+
+func validConfig(cfg cluster.Config) (cluster.Config, error) {
+	if cfg.Name == "" {
+		return cfg, fmt.Errorf("empty cluster name")
+	}
+	if cfg.PrimaryClusterName == "" {
+		cfg.PrimaryClusterName = cfg.Name
+	}
+	if cfg.ConfigClusterName == "" {
+		cfg.ConfigClusterName = cfg.PrimaryClusterName
+	}
+	if cfg.Meta == nil {
+		cfg.Meta = config.Map{}
+	}
+	return cfg, nil
 }

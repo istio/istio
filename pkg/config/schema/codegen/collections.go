@@ -101,8 +101,8 @@ func buildInputs() (inputs, error) {
 			Resource:               r,
 			ClientImport:           toImport(r.ProtoPackage),
 			StatusImport:           toImport(r.StatusProtoPackage),
-			IstioAwareClientImport: toIstioAwareImport(r.ProtoPackage),
-			ClientGroupPath:        toGroup(r.ProtoPackage),
+			IstioAwareClientImport: toIstioAwareImport(r.ProtoPackage, r.Version),
+			ClientGroupPath:        toGroup(r.ProtoPackage, r.Version),
 			ClientGetter:           toGetter(r.ProtoPackage),
 			ClientTypePath:         toTypePath(r),
 			SpecType:               tname,
@@ -164,6 +164,8 @@ func toTypePath(r *ast.Resource) string {
 func toGetter(protoPackage string) string {
 	if strings.Contains(protoPackage, "istio.io") {
 		return "Istio"
+	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api-inference-extension") {
+		return "GatewayAPIInference"
 	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
 		return "GatewayAPI"
 	} else if strings.Contains(protoPackage, "k8s.io/apiextensions-apiserver") {
@@ -172,15 +174,21 @@ func toGetter(protoPackage string) string {
 	return "Kube"
 }
 
-func toGroup(protoPackage string) string {
+func toGroup(protoPackage string, version string) string {
 	p := strings.Split(protoPackage, "/")
 	e := len(p) - 1
-	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
+	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api/apisx") {
+		// Custom naming for "X" types
+		return "Experimental" + strcase.UpperCamelCase(version)
+	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api-inference-extension") {
 		// Gateway has one level of nesting with custom name
-		return "Gateway" + strcase.UpperCamelCase(p[e])
+		return "Inference" + strcase.UpperCamelCase(version)
+	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
+		// Gateway has one level of nesting with custom name
+		return "Gateway" + strcase.UpperCamelCase(version)
 	}
 	// rest have two levels of nesting
-	return strcase.UpperCamelCase(p[e-1]) + strcase.UpperCamelCase(p[e])
+	return strcase.UpperCamelCase(p[e-1]) + strcase.UpperCamelCase(version)
 }
 
 type packageImport struct {
@@ -192,9 +200,11 @@ func toImport(p string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p, "/", ""), ".", ""), "-", "")
 }
 
-func toIstioAwareImport(p string) string {
-	imp := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p, "/", ""), ".", ""), "-", "")
-	if strings.Contains(p, "istio.io") {
+func toIstioAwareImport(protoPackage string, version string) string {
+	p := strings.Split(protoPackage, "/")
+	base := strings.Join(p[:len(p)-1], "")
+	imp := strings.ReplaceAll(strings.ReplaceAll(base, ".", ""), "-", "") + version
+	if strings.Contains(protoPackage, "istio.io") {
 		return "api" + imp
 	}
 	return imp

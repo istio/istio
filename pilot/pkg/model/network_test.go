@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
@@ -57,7 +57,7 @@ func TestGatewayHostnames(t *testing.T) {
 		}
 	})
 
-	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
+	meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
 	xdsUpdater := xdsfake.NewFakeXDS()
 	env := &model.Environment{NetworksWatcher: meshNetworks, ServiceDiscovery: memory.NewServiceDiscovery()}
 	if err := env.InitNetworksManager(xdsUpdater); err != nil {
@@ -78,7 +78,7 @@ func TestGatewayHostnames(t *testing.T) {
 		gateways = env.NetworkManager.AllGateways()
 		// A and AAAA
 		if len(gateways) != 2 {
-			t.Fatalf("expected 2 IPs")
+			t.Fatal("expected 2 IPs")
 		}
 		if gateways[0].Network != "nw0" || gateways[1].Network != "nw0" {
 			t.Fatalf("unexpected network: %v", gateways)
@@ -102,7 +102,7 @@ func TestGatewayHostnames(t *testing.T) {
 			t.Fatalf("unexpected network: %v", currentGateways)
 		}
 		if !env.NetworkManager.IsMultiNetworkEnabled() {
-			t.Fatalf("multi network is not enabled")
+			t.Fatal("multi network is not enabled")
 		}
 	})
 
@@ -122,7 +122,7 @@ func TestGatewayHostnames(t *testing.T) {
 		}, 0, retry.Timeout(10*model.MinGatewayTTL))
 		xdsUpdater.WaitOrFail(t, "xds full")
 		if env.NetworkManager.IsMultiNetworkEnabled() {
-			t.Fatalf("multi network should not be enabled when there are no gateways")
+			t.Fatal("multi network should not be enabled when there are no gateways")
 		}
 	})
 
@@ -139,7 +139,7 @@ func TestGatewayHostnames(t *testing.T) {
 		meshNetworks.SetNetworks(nil)
 		xdsUpdater.WaitOrFail(t, "xds full")
 		if len(env.NetworkManager.AllGateways()) > 0 {
-			t.Fatalf("expected no gateways")
+			t.Fatal("expected no gateways")
 		}
 	})
 }

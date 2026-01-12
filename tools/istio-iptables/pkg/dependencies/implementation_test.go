@@ -15,6 +15,7 @@
 package dependencies
 
 import (
+	"fmt"
 	"testing"
 
 	utilversion "k8s.io/apimachinery/pkg/util/version"
@@ -22,62 +23,134 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestDetectIptablesVersion(t *testing.T) {
+func TestOverrideVersionIsCorrectlyParsed(t *testing.T) {
 	cases := []struct {
 		name string
 		ver  string
-		want IptablesVersion
+		want *utilversion.Version
 	}{
 		{
 			name: "jammy nft",
 			ver:  "iptables v1.8.7 (nf_tables)",
-			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.7"), legacy: false},
+			want: utilversion.MustParseGeneric("1.8.7"),
 		},
 		{
 			name: "jammy legacy",
 			ver:  "iptables v1.8.7 (legacy)",
 
-			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.7"), legacy: true},
+			want: utilversion.MustParseGeneric("1.8.7"),
 		},
 		{
 			name: "xenial",
 			ver:  "iptables v1.6.0",
 
-			want: IptablesVersion{version: utilversion.MustParseGeneric("1.6.0"), legacy: true},
+			want: utilversion.MustParseGeneric("1.6.0"),
 		},
 		{
 			name: "bionic",
 			ver:  "iptables v1.6.1",
 
-			want: IptablesVersion{version: utilversion.MustParseGeneric("1.6.1"), legacy: true},
+			want: utilversion.MustParseGeneric("1.6.1"),
 		},
 		{
 			name: "centos 7",
 			ver:  "iptables v1.4.21",
 
-			want: IptablesVersion{version: utilversion.MustParseGeneric("1.4.21"), legacy: true},
+			want: utilversion.MustParseGeneric("1.4.21"),
 		},
 		{
 			name: "centos 8",
 			ver:  "iptables v1.8.4 (nf_tables)",
 
-			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.4"), legacy: false},
+			want: utilversion.MustParseGeneric("1.8.4"),
 		},
 		{
 			name: "alpine 3.18",
 			ver:  "iptables v1.8.9 (legacy)",
 
-			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.9"), legacy: true},
+			want: utilversion.MustParseGeneric("1.8.9"),
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := DetectIptablesVersion(tt.ver)
+			got, err := parseIptablesVer(tt.ver)
 			if err != nil {
 				t.Fatal(err)
 			}
-			assert.Equal(t, got.version.String(), tt.want.version.String())
-			assert.Equal(t, got.legacy, tt.want.legacy)
+			assert.Equal(t, got.String(), tt.want.String())
+		})
+	}
+}
+
+func TestDetectIptablesVersion(t *testing.T) {
+	cases := []struct {
+		name            string
+		shouldUseBinary func(string) (IptablesVersion, error)
+		dep             *RealDependencies
+		result          IptablesVersion
+		expected        error
+	}{
+		{
+			name: "FORCE_IPTABLES_BINARY_is_found",
+			shouldUseBinary: func(s string) (IptablesVersion, error) {
+				if s == iptablesNftBin {
+					return IptablesVersion{DetectedBinary: iptablesNftBin}, nil
+				}
+
+				return IptablesVersion{}, fmt.Errorf("binary not found")
+			},
+			dep: &RealDependencies{
+				ForceIptablesBinary: "nft",
+			},
+			result:   IptablesVersion{DetectedBinary: iptablesNftBin},
+			expected: nil,
+		},
+		{
+			name: "FORCE_IPTABLES_BINARY_not_found",
+			shouldUseBinary: func(s string) (IptablesVersion, error) {
+				return IptablesVersion{}, fmt.Errorf("binary not found")
+			},
+			dep: &RealDependencies{
+				ForceIptablesBinary: "legacy",
+			},
+			result:   IptablesVersion{},
+			expected: fmt.Errorf("binary not found"),
+		},
+		{
+			name: "FORCE_IPTABLES_BINARY_not_valid",
+			shouldUseBinary: func(s string) (IptablesVersion, error) {
+				return IptablesVersion{}, fmt.Errorf("binary not found")
+			},
+			dep: &RealDependencies{
+				ForceIptablesBinary: "iptables",
+			},
+			result:   IptablesVersion{},
+			expected: fmt.Errorf("iptables binary %q unsupported", "iptables"),
+		},
+		{
+			name: "selection_logic_finds_nft",
+			shouldUseBinary: func(s string) (IptablesVersion, error) {
+				if s == iptablesNftBin {
+					return IptablesVersion{DetectedBinary: iptablesNftBin}, nil
+				}
+
+				return IptablesVersion{}, fmt.Errorf("binary not found")
+			},
+			dep:      &RealDependencies{},
+			result:   IptablesVersion{DetectedBinary: iptablesNftBin},
+			expected: nil,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			shouldUseBinaryForContext = tt.shouldUseBinary
+			defer func() {
+				shouldUseBinaryForContext = shouldUseBinaryForCurrentContext
+			}()
+			r, e := tt.dep.DetectIptablesVersion(false)
+			assert.Equal(t, tt.result, r)
+			assert.Equal(t, tt.expected, e)
 		})
 	}
 }

@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue that can trigger a deadlock when `discoverySelectors` (configured in `MeshConfig`) and a namespace,
+    which has an `Ingress` object or a `gateway.networking.k8s.io` `Gateway` object, moves from being selected to unselected.

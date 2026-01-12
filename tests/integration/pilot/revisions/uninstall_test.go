@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -19,6 +18,7 @@ package revisions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -28,10 +28,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/version"
 
-	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/component"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
@@ -51,15 +51,14 @@ const (
 	revisionNotFound = "could not find target revision"
 )
 
-var allGVKs = append(helmreconciler.NamespacedResources(&version.Info{Major: "1", Minor: "24"}), helmreconciler.ClusterCPResources...)
+var allGVKs = append(uninstall.NamespacedResources(), uninstall.ClusterCPResources...)
 
 func TestUninstallByRevision(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 				uninstallCmd := []string{
 					"uninstall",
 					"--revision=" + stableRevision, "--skip-confirmation",
@@ -78,10 +77,9 @@ func TestUninstallByRevision(t *testing.T) {
 func TestUninstallByNotFoundRevision(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision_notfound").Run(func(t framework.TestContext) {
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 				uninstallCmd := []string{
 					"uninstall",
 					"--revision=" + notFoundRevision, "--dry-run",
@@ -97,10 +95,9 @@ func TestUninstallByNotFoundRevision(t *testing.T) {
 func TestUninstallWithSetFlag(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_revision").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 				uninstallCmd := []string{
 					"uninstall", "--set",
 					"revision=" + stableRevision, "--skip-confirmation",
@@ -118,9 +115,8 @@ func TestUninstallWithSetFlag(t *testing.T) {
 
 func TestUninstallCustomFile(t *testing.T) {
 	framework.NewTest(t).
-		Features("installation.istioctl.uninstall_file").
 		Run(func(t framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
 			createIstioOperatorTempFile := func(name, revision string) (fileName string) {
 				tempFile, err := os.CreateTemp("", name)
@@ -152,11 +148,11 @@ spec:
 
 			// Check if custom webhook is installed
 			validateWebhookExistence := func() {
-				ls := fmt.Sprintf("%s=%s", helmreconciler.IstioComponentLabelStr, name.IstiodRemoteComponentName)
+				ls := fmt.Sprintf("%s=%s", manifest.IstioComponentLabel, component.PilotComponentName)
 				cs := t.Clusters().Default()
 				objs, _ := getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, ls)
 				if len(objs) == 0 {
-					t.Fatalf("expected custom webhook to exist")
+					t.Fatal("expected custom webhook to exist")
 				}
 			}
 
@@ -173,23 +169,22 @@ spec:
 
 			// Check no resources from the custom file exist
 			checkCPResourcesUninstalled(t, t.Clusters().Default(), allGVKs,
-				fmt.Sprintf("%s=%s", helmreconciler.IstioComponentLabelStr, name.IstiodRemoteComponentName), true)
+				fmt.Sprintf("%s=%s", manifest.IstioComponentLabel, component.PilotComponentName), true)
 		})
 }
 
 func TestUninstallPurge(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.istioctl.uninstall_purge").
 		Run(func(t framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 			uninstallCmd := []string{
 				"uninstall",
 				"--purge", "--skip-confirmation",
 			}
 			istioCtl.InvokeOrFail(t, uninstallCmd)
 			cs := t.Clusters().Default()
-			checkCPResourcesUninstalled(t, cs, allGVKs, helmreconciler.IstioComponentLabelStr, true)
+			checkCPResourcesUninstalled(t, cs, allGVKs, manifest.IstioComponentLabel, true)
 		})
 }
 
@@ -236,7 +231,7 @@ func inspectRemainingResources(reItemList []unstructured.Unstructured, reStrList
 			msg := fmt.Sprintf("resources expected to be pruned but still exist in the cluster: %s",
 				strings.Join(reStrList, " "))
 			scopes.Framework.Warnf(msg)
-			return fmt.Errorf(msg)
+			return errors.New(msg)
 		}
 		return nil
 	}
@@ -246,7 +241,7 @@ func inspectRemainingResources(reItemList []unstructured.Unstructured, reStrList
 			labels := remaining.GetLabels()
 			cn, ok := labels["operator.istio.io/component"]
 			// we don't need to check the legacy addons here because we would not install that in test anymore.
-			if ok && cn != string(name.IstioBaseComponentName) {
+			if ok && cn != string(component.BaseComponentName) {
 				return fmt.Errorf("expect only base component resources still exist")
 			}
 		}

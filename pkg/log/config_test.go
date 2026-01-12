@@ -20,7 +20,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -126,8 +125,8 @@ func TestGrpc(t *testing.T) {
 	o.outputLevels = "grpc:info"
 	if err := Configure(o); err != nil {
 		t.Errorf("Expecting success, got %v", err)
-	} else if !o.LogGrpc {
-		t.Errorf("Expecting LogGrpc, got %v", o.LogGrpc)
+	} else if !o.logGRPC {
+		t.Errorf("Expecting LogGrpc, got %v", o.logGRPC)
 	}
 }
 
@@ -202,133 +201,12 @@ func TestOddballs(t *testing.T) {
 	}
 }
 
-func TestRotateNoStdout(t *testing.T) {
-	// Ensure that rotation is setup properly
-
-	dir := t.TempDir()
-
-	file := dir + "/rot.log"
-
-	o := DefaultOptions()
-	o.OutputPaths = []string{}
-	o.RotateOutputPath = file
-	if err := Configure(o); err != nil {
-		t.Fatalf("Unable to configure logging: %v", err)
-	}
-
-	defaultScope.Error("HELLO")
-	Sync() // nolint: errcheck
-
-	content, err := os.ReadFile(file)
-	if err != nil {
-		t.Errorf("Got failure '%v', expecting success", err)
-	}
-
-	lines := strings.Split(string(content), "\n")
-	if !strings.Contains(lines[0], "HELLO") {
-		t.Errorf("Expecting for first line of log to contain HELLO, got %s", lines[0])
-	}
-}
-
-func TestRotateAndStdout(t *testing.T) {
-	dir := t.TempDir()
-
-	file := dir + "/rot.log"
-
-	stdoutLines, _ := captureStdout(func() {
-		o := DefaultOptions()
-		o.RotateOutputPath = file
-		if err := Configure(o); err != nil {
-			t.Fatalf("Unable to configure logger: %v", err)
-		}
-
-		defaultScope.Error("HELLO")
-		Sync() // nolint: errcheck
-
-		content, err := os.ReadFile(file)
-		if err != nil {
-			t.Errorf("Got failure '%v', expecting success", err)
-		}
-
-		rotLines := strings.Split(string(content), "\n")
-		if !strings.Contains(rotLines[0], "HELLO") {
-			t.Errorf("Expecting for first line of log to contain HELLO, got %s", rotLines[0])
-		}
-	})
-
-	if !strings.Contains(stdoutLines[0], "HELLO") {
-		t.Errorf("Expecting for first line of log to contain HELLO, got %s", stdoutLines[0])
-	}
-}
-
-func TestRotateMaxBackups(t *testing.T) {
-	dir := t.TempDir()
-	file := dir + "/rot.log"
-
-	o := DefaultOptions()
-	o.OutputPaths = []string{}
-	o.RotateOutputPath = file
-	o.RotationMaxSize = 1
-	o.RotationMaxBackups = 2
-	o.RotationMaxAge = 30
-
-	if err := Configure(o); err != nil {
-		t.Fatalf("Unable to configure logger: %v", err)
-	}
-
-	// construct a log string that contains 128 characters
-	line := ""
-	for i := 0; i < 8; i++ {
-		line += "0123456789ABCDEF" // 16 characters
-	}
-
-	// make sure that all log outputs is much larger than 2M
-	wg := sync.WaitGroup{}
-	for i := 0; i < 4; i++ {
-		wg.Add(1)
-		go func() {
-			for ii := 0; ii < 1024; ii++ {
-				for j := 0; j < 8; j++ {
-					log.Println(line)
-				}
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	Sync()
-
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	var rd []os.DirEntry
-
-	for {
-		select {
-		case <-ticker.C:
-			rd, err := os.ReadDir(dir)
-			if err != nil {
-				t.Fatalf("Unable to read dir: %v", err)
-			}
-			if len(rd) == o.RotationMaxBackups+1 {
-				// perfect, we're done
-				return
-			}
-		case <-time.After(5 * time.Second):
-			for _, f := range rd {
-				t.Log(f.Name())
-			}
-			t.Errorf("Expecting at most %d backup logs, but %s has %d", o.RotationMaxBackups, dir, len(rd)-1)
-		}
-	}
-}
-
 func TestCapture(t *testing.T) {
 	lines, _ := captureStdout(func() {
 		o := DefaultOptions()
-		o.SetLogCallers(DefaultScopeName, true)
-		o.SetOutputLevel(DefaultScopeName, DebugLevel)
-		o.LogGrpc = true
+		o.logCallers = "default"
+		o.SetDefaultOutputLevel(DefaultScopeName, DebugLevel)
+		o.SetDefaultOutputLevel(GrpcScopeName, DebugLevel)
 		_ = Configure(o)
 
 		// output to the plain golang "log" package
@@ -355,6 +233,7 @@ func TestCapture(t *testing.T) {
 		_ = zap.L().Core().Write(entry, nil)
 
 		defaultScope.SetOutputLevel(NoneLevel)
+		grpcScope.SetOutputLevel(NoneLevel)
 
 		// all these get thrown out since the level is set to none
 		log.Println("golang-2")
@@ -369,15 +248,15 @@ func TestCapture(t *testing.T) {
 
 	patterns := []string{
 		timePattern + "\tinfo\tlog/config_test.go:.*\tgolang",
-		timePattern + "\tinfo\tlog/config_test.go:.*\tgrpc-error", // gRPC errors and warnings come out as info
-		timePattern + "\tinfo\tlog/config_test.go:.*\tgrpc-warn",
+		timePattern + "\terror\tlog/config_test.go:.*\tgrpc-error", // gRPC errors and warnings come out as info
+		timePattern + "\twarn\tlog/config_test.go:.*\tgrpc-warn",
 		timePattern + "\tinfo\tlog/config_test.go:.*\tgrpc-info",
 		timePattern + "\terror\tlog/config_test.go:.*\tzap-error",
 		timePattern + "\twarn\tlog/config_test.go:.*\tzap-warn",
 		timePattern + "\tinfo\tlog/config_test.go:.*\tzap-info",
 		timePattern + "\tdebug\tlog/config_test.go:.*\tzap-debug",
 		timePattern + "\terror\tlog/config_test.go:.*\tzap-with",
-		timePattern + "\terror\tzap-write",
+		"error\tzap-write",
 		"",
 	}
 
@@ -400,8 +279,8 @@ func TestCapture(t *testing.T) {
 
 	lines, _ = captureStdout(func() {
 		o := DefaultOptions()
-		o.SetStackTraceLevel(DefaultScopeName, DebugLevel)
-		o.SetOutputLevel(DefaultScopeName, DebugLevel)
+		o.stackTraceLevels = "default:debug"
+		o.SetDefaultOutputLevel(DefaultScopeName, DebugLevel)
 		_ = Configure(o)
 		log.Println("golang")
 	})
@@ -445,5 +324,5 @@ func captureStdout(f func()) ([]string, error) {
 
 func resetGlobals() {
 	scopes = make(map[string]*Scope, 1)
-	defaultScope = registerDefaultScope()
+	defaultScope, grpcScope = registerDefaultScopes()
 }

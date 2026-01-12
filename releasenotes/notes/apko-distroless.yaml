@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Updated** the [`distroless`](/docs/ops/configuration/security/harden-docker-images/) images to be based on [Wolfi](https://wolfi.dev).
+    This should have no user facing impact.

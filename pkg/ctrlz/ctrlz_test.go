@@ -17,11 +17,11 @@ package ctrlz
 import (
 	"fmt"
 	"net/http"
-	"strings"
+	"os"
+	"os/signal"
+	"syscall"
 	"testing"
 	"time"
-
-	"istio.io/istio/pkg/appsignals"
 )
 
 func TestStartStopEnabled(t *testing.T) {
@@ -39,10 +39,8 @@ func TestStartStopEnabled(t *testing.T) {
 }
 
 func TestSignals(t *testing.T) {
-	/// Watch the config reload notifier
-	c := make(chan appsignals.Signal, 1)
-	appsignals.Watch(c)
-
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGUSR1)
 	server := startAndWaitForServer(t)
 	defer server.Close()
 	reloadURL := fmt.Sprintf("http://%v/signalj/SIGUSR1", server.Address())
@@ -54,12 +52,9 @@ func TestSignals(t *testing.T) {
 		t.Fatalf("Got unexpected status code: %v", resp.StatusCode)
 	}
 	select {
-	case event := <-c:
-		if !strings.HasPrefix(event.Source, "Remote: 127.0.0.1") {
-			t.Fatalf("Got unexpected notification: %v", event)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("Timed out waiting for config reload event")
+	case <-c:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for SIGUSR1")
 	}
 }
 
@@ -72,6 +67,7 @@ func startAndWaitForServer(t *testing.T) *Server {
 
 	// Start and wait for server
 	o := DefaultOptions()
+	o.Port = 0
 	s, err := Run(o, nil)
 	if err != nil {
 		t.Fatalf("Failed to start server: %v", err)

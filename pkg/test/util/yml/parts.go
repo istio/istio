@@ -15,7 +15,7 @@
 package yml
 
 import (
-	"regexp"
+	"bufio"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,11 +25,6 @@ import (
 const (
 	joinSeparator = "\n---\n"
 )
-
-// Split where the '---' appears at the very beginning of a line. This will avoid
-// accidentally splitting in cases where yaml resources contain nested yaml (which
-// is indented).
-var splitRegex = regexp.MustCompile(`(^|\n)---`)
 
 // SplitYamlByKind splits the given YAML into parts indexed by kind.
 func SplitYamlByKind(content string) map[string]string {
@@ -64,7 +59,32 @@ func GetMetadata(content string) []metav1.ObjectMeta {
 // SplitString splits the given yaml doc if it's multipart document.
 func SplitString(yamlText string) []string {
 	out := make([]string, 0)
-	parts := splitRegex.Split(yamlText, -1)
+	reader := bufio.NewReader(strings.NewReader(yamlText))
+
+	parts := []string{}
+	active := strings.Builder{}
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if line != "" {
+				active.WriteString(line)
+			}
+			break
+		}
+
+		if strings.HasPrefix(line, "---") {
+			parts = append(parts, active.String())
+			active = strings.Builder{}
+		} else {
+			active.WriteString(line)
+		}
+	}
+
+	if active.Len() > 0 {
+		parts = append(parts, active.String())
+	}
+
 	for _, part := range parts {
 		part := strings.TrimSpace(part)
 		if len(part) > 0 {

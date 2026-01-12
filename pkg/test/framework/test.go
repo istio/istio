@@ -22,8 +22,6 @@ import (
 
 	traceapi "go.opentelemetry.io/otel/trace"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -33,12 +31,12 @@ import (
 type Test interface {
 	// Label applies the given labels to this test.
 	Label(labels ...label.Instance) Test
-	// Label applies the given labels to this test.
-	Features(feats ...features.Feature) Test
-	NotImplementedYet(features ...features.Feature) Test
 	// RequireIstioVersion ensures that all installed versions of Istio are at least the
 	// required version for the annotated test to pass
 	RequireIstioVersion(version string) Test
+	// RequireKubernetesMinorVersion ensures that all Kubernetes clusters used in this test
+	// are at least the required version for the annotated test to pass
+	RequireKubernetesMinorVersion(minorVersion uint) Test
 	// RequiresMinClusters ensures that the current environment contains at least the expected number of clusters.
 	// Otherwise it stops test execution and skips the test.
 	//
@@ -48,6 +46,8 @@ type Test interface {
 	//
 	// Deprecated: All new tests should support multiple clusters.
 	RequiresSingleCluster() Test
+	// RequiresDualstack ensures that test context contains DualStack configuration.
+	RequiresDualStack() Test
 	// RequiresLocalControlPlane ensures that clusters are using locally-deployed control planes.
 	//
 	// Deprecated: Tests should not make assumptions regarding control plane topology.
@@ -56,6 +56,9 @@ type Test interface {
 	//
 	// Deprecated: Tests should not make assumptions regarding number of networks.
 	RequiresSingleNetwork() Test
+	// TopLevel marks a test as a "top-level test" meaning a container test that has many subtests.
+	// Resources created at this level will be in-scope for dumping when any descendant test fails.
+	TopLevel() Test
 	// Run the test, supplied as a lambda.
 	Run(fn func(t TestContext))
 	// RunParallel runs this test in parallel with other children of the same parent test/suite. Under the hood,
@@ -110,19 +113,19 @@ type Test interface {
 // Test allows the test author to specify test-related metadata in a fluent-style, before commencing execution.
 type testImpl struct {
 	// name to be used when creating a Golang test. Only used for subtests.
-	name   string
-	parent *testImpl
-	goTest *testing.T
-	labels []label.Instance
-	// featureLabels maps features to the scenarios they cover.
-	featureLabels        map[features.Feature][]string
-	notImplemented       bool
-	s                    *suiteContext
-	requiredMinClusters  int
-	requiredMaxClusters  int
-	requireLocalIstiod   bool
-	requireSingleNetwork bool
-	minIstioVersion      string
+	name                      string
+	parent                    *testImpl
+	goTest                    *testing.T
+	labels                    []label.Instance
+	s                         *suiteContext
+	requiredMinClusters       int
+	requiredMaxClusters       int
+	requireLocalIstiod        bool
+	requireSingleNetwork      bool
+	requiredDualstack         bool
+	minIstioVersion           string
+	minKubernetesMinorVersion uint
+	topLevel                  bool
 
 	ctx *testContext
 	tc  context2.Context
@@ -131,9 +134,6 @@ type testImpl struct {
 
 // NewTest returns a new test wrapper for running a single test.
 func NewTest(t *testing.T) Test {
-	if analyze() {
-		return newTestAnalyzer(t)
-	}
 	rtMu.Lock()
 	defer rtMu.Unlock()
 
@@ -144,11 +144,10 @@ func NewTest(t *testing.T) Test {
 	ctx, span := tracing.Start(rt.suiteContext().traceContext, t.Name())
 
 	runner := &testImpl{
-		tc:            ctx,
-		ts:            span,
-		s:             rt.suiteContext(),
-		goTest:        t,
-		featureLabels: make(map[features.Feature][]string),
+		tc:     ctx,
+		ts:     span,
+		s:      rt.suiteContext(),
+		goTest: t,
 	}
 
 	return runner
@@ -159,18 +158,8 @@ func (t *testImpl) Label(labels ...label.Instance) Test {
 	return t
 }
 
-func (t *testImpl) Features(feats ...features.Feature) Test {
-	if err := addFeatureLabels(t.featureLabels, feats...); err != nil {
-		// test runs shouldn't fail
-		log.Error(err)
-	}
-	return t
-}
-
-func (t *testImpl) NotImplementedYet(features ...features.Feature) Test {
-	t.notImplemented = true
-	t.Features(features...).
-		Run(func(_ TestContext) { t.goTest.Skip("Test Not Yet Implemented") })
+func (t *testImpl) TopLevel() Test {
+	t.topLevel = true
 	return t
 }
 
@@ -185,6 +174,12 @@ func (t *testImpl) RequiresSingleCluster() Test {
 	return t.RequiresMinClusters(1)
 }
 
+func (t *testImpl) RequiresDualStack() Test {
+	t.requiredDualstack = true
+	// nolint: staticcheck
+	return t
+}
+
 func (t *testImpl) RequiresLocalControlPlane() Test {
 	t.requireLocalIstiod = true
 	return t
@@ -197,6 +192,11 @@ func (t *testImpl) RequiresSingleNetwork() Test {
 
 func (t *testImpl) RequireIstioVersion(version string) Test {
 	t.minIstioVersion = version
+	return t
+}
+
+func (t *testImpl) RequireKubernetesMinorVersion(minorVersion uint) Test {
+	t.minKubernetesMinorVersion = minorVersion
 	return t
 }
 
@@ -216,11 +216,6 @@ func (t *testImpl) runInternal(fn func(ctx TestContext), parallel bool) {
 			testName = t.goTest.Name()
 		}
 		panic(fmt.Sprintf("Attempting to run test `%s` more than once", testName))
-	}
-
-	if t.s.skipped {
-		t.goTest.Skip("Skipped because parent Suite was skipped.")
-		return
 	}
 
 	if t.parent != nil {
@@ -246,7 +241,7 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 
 	// we check kube for min clusters, these assume we're talking about real multicluster.
 	// it's possible to have 1 kube cluster then 1 non-kube cluster (vm for example)
-	if t.requiredMinClusters > 0 && len(t.s.Environment().Clusters().Kube()) < t.requiredMinClusters {
+	if t.requiredMinClusters > 0 && len(t.s.Environment().Clusters()) < t.requiredMinClusters {
 		t.goTest.Skipf("Skipping %q: number of clusters %d is below required min %d",
 			t.goTest.Name(), len(t.s.Environment().Clusters()), t.requiredMinClusters)
 		return
@@ -259,19 +254,33 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 		return
 	}
 
+	if t.requiredDualstack && len(t.ctx.Settings().IPFamilies) < 2 {
+		t.goTest.Skipf("Skipping %q: context does not have DualStack configuration",
+			t.goTest.Name())
+	}
+	if t.minKubernetesMinorVersion > 0 {
+		for _, c := range ctx.Clusters() {
+			if !c.MinKubeVersion(t.minKubernetesMinorVersion) {
+				t.goTest.Skipf("Skipping %q: cluster %s is below required min k8s version 1.%d",
+					t.goTest.Name(), c.Name(), t.minKubernetesMinorVersion)
+				return
+			}
+		}
+	}
+
 	if t.requireLocalIstiod {
 		for _, c := range ctx.Clusters() {
 			if !c.IsPrimary() {
-				t.goTest.Skipf(fmt.Sprintf("Skipping %q: cluster %s is not using a local control plane",
-					t.goTest.Name(), c.Name()))
+				t.goTest.Skipf("Skipping %q: cluster %s is not using a local control plane", t.goTest.Name(), c.Name())
+
 				return
 			}
 		}
 	}
 
 	if t.requireSingleNetwork && t.s.Environment().IsMultiNetwork() {
-		t.goTest.Skipf(fmt.Sprintf("Skipping %q: only single network allowed",
-			t.goTest.Name()))
+		t.goTest.Skipf("Skipping %q: only single network allowed", t.goTest.Name())
+
 		return
 	}
 
@@ -298,13 +307,15 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 		if t.goTest.Failed() {
 			message = "failed"
 		}
+		if t.goTest.Skipped() {
+			message = "skipped"
+		}
 		scopes.Framework.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
 			message,
 			rt.suiteContext().Settings().TestID,
 			t.goTest.Name(),
 			time.Since(start))
 		t.ts.End()
-		rt.suiteContext().registerOutcome(t)
 	})
 
 	// Run the user's test function.

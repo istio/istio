@@ -17,14 +17,20 @@ package controller
 import (
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/model"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
+	pkgmodel "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -126,140 +132,40 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 			pod.Namespace = "testns"
 			pod.Spec.ServiceAccountName = "testsan"
 			pod.Labels = c.podLabels
+			pod.Spec.NodeName = "fake"
+			// All should get this
+			c.expected[labelutil.LabelHostname] = "fake"
 
-			eb := NewEndpointBuilder(c.ctl, &pod)
-
-			assert.Equal(t, eb.labels, c.expected)
-		})
-	}
-}
-
-func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
-	cases := []struct {
-		name     string
-		ctl      testController
-		proxy    *model.Proxy
-		expected labels.Instance
-	}{
-		{
-			name: "empty",
-			ctl:  testController{},
-			proxy: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
-			expected: labels.Instance{},
-		},
-		{
-			name: "region only",
-			ctl:  testController{},
-			proxy: &model.Proxy{
-				Labels: labels.Instance{
-					"k1":                       "v1",
-					label.TopologyNetwork.Name: "mynetwork",
+			loc := pkgmodel.ConvertLocality(c.ctl.locality)
+			fc := kube.NewFakeClient(&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "fake", Labels: map[string]string{
+					NodeRegionLabelGA:          loc.Region,
+					NodeZoneLabel:              loc.Zone,
+					label.TopologySubzone.Name: loc.SubZone,
+				}},
+				Spec:   v1.NodeSpec{},
+				Status: v1.NodeStatus{},
+			})
+			nodes := kclient.New[*v1.Node](fc)
+			fc.RunAndWait(test.NewStop(t))
+			cc := &Controller{
+				nodes:       nodes,
+				meshWatcher: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig()),
+				networkManager: &networkManager{
+					clusterID: c.ctl.cluster,
+					network:   c.ctl.network,
 				},
-				Metadata: &model.NodeMetadata{
-					Labels: labels.Instance{
-						"k1":                       "v1",
-						label.TopologyNetwork.Name: "mynetwork",
-					},
-				},
-				Locality: &core.Locality{
-					Region: "myregion",
-				},
-			},
-			expected: labels.Instance{
-				"k1":                       "v1",
-				NodeRegionLabelGA:          "myregion",
-				label.TopologyNetwork.Name: "mynetwork",
-			},
-		},
-		{
-			name: "region and zone",
-			ctl:  testController{},
-			proxy: &model.Proxy{
-				Labels: labels.Instance{
-					"k1":                       "v1",
-					label.TopologyNetwork.Name: "mynetwork",
-				},
-				Metadata: &model.NodeMetadata{
-					Labels: labels.Instance{
-						"k1":                       "v1",
-						label.TopologyNetwork.Name: "mynetwork",
-					},
-				},
-				Locality: &core.Locality{
-					Region: "myregion",
-					Zone:   "myzone",
-				},
-			},
-			expected: labels.Instance{
-				"k1":                       "v1",
-				NodeRegionLabelGA:          "myregion",
-				NodeZoneLabelGA:            "myzone",
-				label.TopologyNetwork.Name: "mynetwork",
-			},
-		},
-		{
-			name: "all values set",
-			ctl: testController{
-				cluster: "mycluster",
-			},
-			proxy: &model.Proxy{
-				Labels: labels.Instance{
-					"k1":                       "v1",
-					label.TopologyNetwork.Name: "mynetwork",
-				},
-				Metadata: &model.NodeMetadata{
-					Labels: labels.Instance{
-						"k1":                       "v1",
-						label.TopologyNetwork.Name: "mynetwork",
-					},
-				},
-				Locality: &core.Locality{
-					Region:  "myregion",
-					Zone:    "myzone",
-					SubZone: "mysubzone",
-				},
-			},
-			expected: labels.Instance{
-				"k1":                       "v1",
-				NodeRegionLabelGA:          "myregion",
-				NodeZoneLabelGA:            "myzone",
-				label.TopologySubzone.Name: "mysubzone",
-				label.TopologyCluster.Name: "mycluster",
-				label.TopologyNetwork.Name: "mynetwork",
-			},
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			eb := NewEndpointBuilderFromMetadata(c.ctl, c.proxy)
+				opts: Options{ClusterID: c.ctl.cluster},
+			}
+			eb := cc.NewEndpointBuilder(&pod)
 
 			assert.Equal(t, eb.labels, c.expected)
 		})
 	}
 }
-
-var _ controllerInterface = testController{}
 
 type testController struct {
 	locality string
 	cluster  cluster2.ID
 	network  network.ID
-}
-
-func (c testController) getPodLocality(*v1.Pod) string {
-	return c.locality
-}
-
-func (c testController) Network(ip string, instance labels.Instance) network.ID {
-	if n := instance[label.TopologyNetwork.Name]; n != "" {
-		return network.ID(n)
-	}
-	return c.network
-}
-
-func (c testController) Cluster() cluster2.ID {
-	return c.cluster
 }

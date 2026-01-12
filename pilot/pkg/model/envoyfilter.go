@@ -17,11 +17,15 @@ package model
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/sets"
@@ -29,10 +33,46 @@ import (
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	Name             string
-	Namespace        string
-	workloadSelector labels.Instance
-	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+	Name                         string
+	Namespace                    string
+	ReferencedNamespacedServices sets.Set[NamespacedHostname]
+	ReferencedServices           sets.String
+	workloadSelector             labels.Instance
+	Patches                      map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+	Priority                     int32
+	creationTime                 time.Time
+
+	fullSpec *networking.EnvoyFilter
+}
+
+func (efw *EnvoyFilterWrapper) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      efw.Name,
+		Namespace: efw.Namespace,
+	}
+}
+
+var _ TargetablePolicy = &EnvoyFilterWrapper{}
+
+func (efw *EnvoyFilterWrapper) GetTargetRef() *v1beta1.PolicyTargetReference {
+	// This API never had this legacy field
+	return nil
+}
+
+func (efw *EnvoyFilterWrapper) GetTargetRefs() []*v1beta1.PolicyTargetReference {
+	if efw.fullSpec == nil {
+		return nil
+	}
+	return efw.fullSpec.TargetRefs
+}
+
+func (efw *EnvoyFilterWrapper) GetSelector() *v1beta1.WorkloadSelector {
+	if efw.workloadSelector != nil {
+		return &v1beta1.WorkloadSelector{
+			MatchLabels: efw.workloadSelector,
+		}
+	}
+	return nil
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -72,16 +112,45 @@ var wellKnownVersions = map[string]string{
 func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
-	out := &EnvoyFilterWrapper{Name: local.Name, Namespace: local.Namespace}
+	out := &EnvoyFilterWrapper{
+		Name:                         local.Name,
+		Namespace:                    local.Namespace,
+		ReferencedNamespacedServices: nil,
+		ReferencedServices:           nil,
+		workloadSelector:             nil,
+		Patches:                      nil,
+		Priority:                     localEnvoyFilter.Priority,
+		creationTime:                 local.CreationTimestamp,
+		fullSpec:                     localEnvoyFilter,
+	}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
+	}
+
+	// For Waypoint/Gateway with filtering, we need to explicitly opt-in to included services.
+	// This annotation allows doing so.
+	// Note: sidecar use cases should make sure to use Sidecar to include them; this will not override exclusions by sidecar
+	svcRefs := local.Annotations["envoyfilter.istio.io/referenced-services"]
+	for _, ref := range strings.Split(svcRefs, ",") {
+		ns, h, ok := strings.Cut(ref, "/")
+		if ok {
+			if out.ReferencedNamespacedServices == nil {
+				out.ReferencedNamespacedServices = sets.New[NamespacedHostname]()
+			}
+			out.ReferencedNamespacedServices.Insert(NamespacedHostname{Hostname: host.Name(h), Namespace: ns})
+		} else {
+			if out.ReferencedServices == nil {
+				out.ReferencedServices = sets.New[string]()
+			}
+			out.ReferencedServices.Insert(ref)
+		}
 	}
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
 		if cp.Patch == nil {
 			// Should be caught by validation, but sometimes its disabled and we don't want to crash
 			// as a result.
-			log.Debugf("envoyfilter %v/%v discarded due to missing patch", local.Namespace, local.Name)
+			log.Debugf("envoyfilter %s/%s discarded due to missing patch", local.Namespace, local.Name)
 			continue
 		}
 		cpw := &EnvoyFilterConfigPatchWrapper{
@@ -99,7 +168,7 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		// There generally won't be an error here because validation catches mismatched types
 		// Should only happen in tests or without validation
 		if err != nil {
-			log.Errorf("failed to build envoy filter value: %v", err)
+			log.Errorf("envoyfilter %s/%s failed to build envoy filter value: %+v", local.Namespace, local.Name, err)
 			continue
 		}
 		if cp.Match == nil {
@@ -182,7 +251,7 @@ func (efw *EnvoyFilterWrapper) Keys() []string {
 }
 
 // Returns the keys of all the wrapped envoyfilters.
-func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_ApplyTo) []string {
+func (efw *MergedEnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_ApplyTo) []string {
 	if efw == nil {
 		return nil
 	}

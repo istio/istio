@@ -20,16 +20,22 @@ import (
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
-	"istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/spiffe"
 )
 
 type generator interface {
 	permission(key, value string, forTCP bool) (*rbacpb.Permission, error)
 	principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error)
+}
+
+type extendedGenerator interface {
+	extendedPermission(key string, value []string, forTCP bool) (*rbacpb.Permission, error)
+	extendedPrincipal(key string, value []string, forTCP bool) (*rbacpb.Principal, error)
 }
 
 type destIPGenerator struct{}
@@ -71,9 +77,7 @@ func (connSNIGenerator) principal(_, _ string, _ bool, _ bool) (*rbacpb.Principa
 	return nil, fmt.Errorf("unimplemented")
 }
 
-type envoyFilterGenerator struct {
-	useExtendedJwt bool
-}
+type envoyFilterGenerator struct{}
 
 func (efg envoyFilterGenerator) permission(key, value string, _ bool) (*rbacpb.Permission, error) {
 	// Split key of format "experimental.envoy.filters.a.b[c]" to "envoy.filters.a.b" and "c".
@@ -86,14 +90,54 @@ func (efg envoyFilterGenerator) permission(key, value string, _ bool) (*rbacpb.P
 	// If value is of format [v], create a list matcher.
 	// Else, if value is of format v, create a string matcher.
 	if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
-		m := matcher.MetadataListMatcher(parts[0], parts[1:], matcher.StringMatcher(strings.Trim(value, "[]")), efg.useExtendedJwt)
+		m := matcher.MetadataListMatcher(parts[0], parts[1:], matcher.StringMatcher(strings.Trim(value, "[]")), false)
 		return permissionMetadata(m), nil
 	}
 	m := matcher.MetadataStringMatcher(parts[0], parts[1], matcher.StringMatcher(value))
 	return permissionMetadata(m), nil
 }
 
+func (efg envoyFilterGenerator) extendedPermission(key string, values []string, _ bool) (*rbacpb.Permission, error) {
+	// Split key of format "experimental.envoy.filters.a.b[c]" to "envoy.filters.a.b" and "c".
+	parts := strings.SplitN(strings.TrimSuffix(strings.TrimPrefix(key, "experimental."), "]"), "[", 2)
+
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid key: %v", key)
+	}
+
+	matchers := []*matcherpb.ValueMatcher{}
+	for _, value := range values {
+		if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
+			matchers = append(matchers, &matcherpb.ValueMatcher{
+				MatchPattern: &matcherpb.ValueMatcher_ListMatch{
+					ListMatch: &matcherpb.ListMatcher{
+						MatchPattern: &matcherpb.ListMatcher_OneOf{
+							OneOf: &matcherpb.ValueMatcher{
+								MatchPattern: &matcherpb.ValueMatcher_StringMatch{
+									StringMatch: matcher.StringMatcher(strings.Trim(value, "[]")),
+								},
+							},
+						},
+					},
+				},
+			})
+		} else {
+			matchers = append(matchers, &matcherpb.ValueMatcher{
+				MatchPattern: &matcherpb.ValueMatcher_StringMatch{
+					StringMatch: matcher.StringMatcher(value),
+				},
+			})
+		}
+	}
+	m := matcher.MetadataValueMatcher(parts[0], parts[1], matcher.OrMatcher(matchers))
+	return permissionMetadata(m), nil
+}
+
 func (envoyFilterGenerator) principal(_, _ string, _ bool, _ bool) (*rbacpb.Principal, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (envoyFilterGenerator) extendedPrincipal(_ string, _ []string, _ bool) (*rbacpb.Principal, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
 
@@ -137,6 +181,37 @@ func (srcNamespaceGenerator) principal(_, value string, _ bool, useAuthenticated
 	return principalAuthenticated(m, useAuthenticated), nil
 }
 
+type srcServiceAccountGenerator struct {
+	policyName types.NamespacedName
+}
+
+func (g srcServiceAccountGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (g srcServiceAccountGenerator) principal(_, value string, _ bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	regex := serviceAccountRegex(g.policyName.Namespace, value)
+	m := matcher.StringMatcherRegex(regex)
+	return principalAuthenticated(m, useAuthenticated), nil
+}
+
+// serviceAccountRegex builds a regex that will match the SA specifier.
+// The specifier takes a `<name>` or `<namespace>/<name>` value. If namespace is elided, defaultNamespace is used.
+func serviceAccountRegex(defaultNamespace string, value string) string {
+	ns, sa, ok := strings.Cut(value, "/")
+	if !ok {
+		ns = defaultNamespace
+		sa = value
+	}
+	// Format should follow...
+	// 'spiffe://' then a trust domain + arbitrary k/v pairs
+	// '/ns/<namespace>/'
+	// optional arbitrary k/v pairs
+	// '/sa/<serviceAccount>'
+	// Either end of string OR / + arbitrary k/v pairs (the / ensures we do not match <service account>-some-junk)
+	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", ns, sa)
+}
+
 type srcPrincipalGenerator struct{}
 
 func (srcPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
@@ -148,22 +223,29 @@ func (srcPrincipalGenerator) principal(key, value string, _ bool, useAuthenticat
 	return principalAuthenticated(m, useAuthenticated), nil
 }
 
-type requestPrincipalGenerator struct {
-	useExtendedJwt bool
-}
+type requestPrincipalGenerator struct{}
 
-func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+func (requestPrincipalGenerator) extendedPermission(_ string, _ []string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
 
 var matchAny = matcher.StringMatcherRegex(".+")
 
-func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
+func (rpg requestPrincipalGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
-	if rpg.useExtendedJwt {
-		iss, sub, found := strings.Cut(value, "/")
+	var or []*rbacpb.Principal
+	for _, value := range values {
+		// Use the last index of "/" since issuer may be an URL
+		idx := strings.LastIndex(value, "/")
+		found := idx >= 0
+		iss, sub := "", ""
+		if found {
+			iss, sub = value[:idx], value[idx+1:]
+		} else {
+			iss = value
+		}
 		var matchIss, matchSub *matcherpb.StringMatcher
 		switch {
 		case value == "*":
@@ -199,48 +281,40 @@ func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _
 		}
 		im := MetadataStringMatcherForJWTClaim("iss", matchIss)
 		sm := MetadataStringMatcherForJWTClaim("sub", matchSub)
-		return principalAnd([]*rbacpb.Principal{principalMetadata(im), principalMetadata(sm)}), nil
+		or = append(or, principalAnd([]*rbacpb.Principal{principalMetadata(im), principalMetadata(sm)}))
 	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
+	if len(or) == 1 {
+		return or[0], nil
+	} else if len(or) > 0 {
+		return principalOr(or), nil
+	}
+	return nil, nil
 }
 
-type requestAudiencesGenerator struct {
-	useExtendedJwt bool
+type requestAudiencesGenerator struct{}
+
+func (requestAudiencesGenerator) extendedPermission(key string, values []string, forTCP bool) (*rbacpb.Permission, error) {
+	return requestPrincipalGenerator{}.extendedPermission(key, values, forTCP)
 }
 
-func (requestAudiencesGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
-	return requestPrincipalGenerator{}.permission(key, value, forTCP)
-}
-
-func (rag requestAudiencesGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+func (rag requestAudiencesGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
-	if rag.useExtendedJwt {
-		return principalMetadata(MetadataStringMatcherForJWTClaim("aud", matcher.StringMatcher(value))), nil
-	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
+	return principalMetadata(MetadataListValueMatcherForJWTClaims([]string{"aud"}, matcher.StringOrMatcher(values))), nil
 }
 
-type requestPresenterGenerator struct {
-	useExtendedJwt bool
+type requestPresenterGenerator struct{}
+
+func (requestPresenterGenerator) extendedPermission(key string, values []string, forTCP bool) (*rbacpb.Permission, error) {
+	return requestPrincipalGenerator{}.extendedPermission(key, values, forTCP)
 }
 
-func (requestPresenterGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
-	return requestPrincipalGenerator{}.permission(key, value, forTCP)
-}
-
-func (rpg requestPresenterGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+func (rpg requestPresenterGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
-	if rpg.useExtendedJwt {
-		return principalMetadata(MetadataMatcherForJWTClaims([]string{"azp"}, matcher.StringMatcher(value), true)), nil
-	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
+	return principalMetadata(MetadataListValueMatcherForJWTClaims([]string{"azp"}, matcher.StringOrMatcher(values))), nil
 }
 
 type requestHeaderGenerator struct{}
@@ -262,15 +336,13 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool, _ bool) 
 	return principalHeader(m), nil
 }
 
-type requestClaimGenerator struct {
-	useExtendedJwt bool
-}
+type requestClaimGenerator struct{}
 
-func (requestClaimGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+func (requestClaimGenerator) extendedPermission(_ string, _ []string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
 
-func (rcg requestClaimGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
+func (rcg requestClaimGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
@@ -279,9 +351,7 @@ func (rcg requestClaimGenerator) principal(key, value string, forTCP bool, _ boo
 	if err != nil {
 		return nil, err
 	}
-	// Generate a metadata list matcher for the given path keys and value.
-	// On proxy side, the value should be of list type.
-	m := MetadataMatcherForJWTClaims(claims, matcher.StringMatcher(value), rcg.useExtendedJwt)
+	m := MetadataListValueMatcherForJWTClaims(claims, matcher.StringOrMatcher(values))
 	return principalMetadata(m), nil
 }
 
@@ -304,6 +374,11 @@ type pathGenerator struct{}
 func (g pathGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+
+	if security.ContainsPathTemplate(value) {
+		m := matcher.PathTemplateMatcher(value)
+		return permissionPathTemplate(m), nil
 	}
 
 	m := matcher.PathMatcher(value)

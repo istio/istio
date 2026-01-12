@@ -16,7 +16,6 @@ syntax = "proto3";
 
 import "google/protobuf/wrappers.proto";
 
-// Generate with protoc --go_out=. echo.proto -I /work/common-protos/ -I.
 package proto;
 option go_package="../proto";
 option java_package = "io.istio.test";
@@ -83,8 +82,20 @@ message ForwardEchoRequest {
   // If set, each request will force a DNS lookup. Only applies if newConnectionPerRequest is set.
   bool forceDNSLookup = 23;
 
+  // force_ip_family will force a specific IP family to be used for DNS resolution only.
+  // Valid values: "tcp4", "tcp6".
+  string force_ip_family = 26;
+
   // HBONE communication settings. If provided, requests will be tunnelled.
   HBONE hbone = 24;
+
+  // Double HBONE communication settings. The settings here represent the outer
+  // tunnel and the inner tunnel settings are specified in the hbone field.
+  // If the inner tunnel is not specified, the inner tunnel will
+  // be the same as the outer tunnel.
+  HBONE double_hbone = 27;
+
+  // If set, the proxy protocol will be used to send the request. This is automatically set for TCP and TLS protocols.
 
   ProxyProtoVersion proxyProtocolVersion = 25;
 }

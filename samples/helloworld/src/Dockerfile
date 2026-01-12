@@ -12,14 +12,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:3.9-slim
+FROM python:3.12.1-slim
 
 WORKDIR /opt/microservices
 COPY app.py ./
 COPY requirements.txt ./
 
 # install the dependencies and packages in the requirements file
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # old image had curl and could be used as a sample client if desired
 RUN apt-get update \
@@ -29,7 +29,7 @@ RUN apt-get update \
 EXPOSE 5000
 
 ARG service_version
-ENV SERVICE_VERSION ${service_version:-v1}
+ENV SERVICE_VERSION=${service_version:-v1}
 
 # image will bind on TCP6 by default. In k8s pod spec (in a deployment pod template most likely) override for explicit IPv4 if needed with the command shown below:
 # ["gunicorn", "-b", "[0.0.0.0]:5000", "app:app", "-k", "gevent"]

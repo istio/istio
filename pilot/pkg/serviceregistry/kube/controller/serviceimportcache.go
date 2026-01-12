@@ -77,7 +77,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 		}
 
 		sic.serviceImports = kclient.NewDelayedInformer[controllers.Object](sic.client, mcs.ServiceImportGVR, kubetypes.DynamicInformer, kclient.Filter{
-			ObjectFilter: sic.opts.GetFilter(),
+			ObjectFilter: sic.client.ObjectFilter(),
 		})
 		// Register callbacks for events.
 		registerHandlers(sic.Controller, sic.serviceImports, "ServiceImports", sic.onServiceImportEvent, nil)
@@ -136,7 +136,7 @@ func (ic *serviceImportCacheImpl) onServiceEvent(_, curr *model.Service, event m
 		}
 
 		mcsService := ic.genMCSService(curr, mcsHost, vips)
-		ic.addOrUpdateService(nil, mcsService, event, false)
+		ic.addOrUpdateService(nil, nil, mcsService, event, false)
 		return nil
 	})
 }
@@ -191,7 +191,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 
 	// Always force a rebuild of the endpoint cache in case this import caused
 	// a change to the discoverability policy.
-	ic.addOrUpdateService(nil, mcsService, event, true)
+	ic.addOrUpdateService(nil, nil, mcsService, event, true)
 
 	// TODO: do we really need a full push, we should do it in `addOrUpdateService`.
 	if needsFullPush {
@@ -208,15 +208,14 @@ func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []str
 		mcsService.ClusterVIPs.SetAddressesFor(ic.Cluster(), ips)
 		updated = true
 	}
-	return
+	return updated
 }
 
 func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 	pushReq := &model.PushRequest{
 		Full:           true,
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: mcsHost.String(), Namespace: ns}),
-
-		Reason: model.NewReasonStats(model.ServiceUpdate),
+		Reason:         model.NewReasonStats(model.ServiceUpdate),
 	}
 	ic.opts.XDSUpdater.ConfigUpdate(pushReq)
 }

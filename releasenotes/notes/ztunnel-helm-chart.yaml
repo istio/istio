@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Improved** the ztunnel Helm chart to set resource names to `.Release.Name` instead of hard-coded to ztunnel.
+upgradeNotes:
+  - title: Ztunnel Helm chart changes
+    content: |
+      In previous releases, resources in the ztunnel Helm chart were always named `ztunnel`.
+      In this release, they are now named `.Resource.Name`.
+      
+      If you are installing the chart with a release name other than `ztunnel`, the resource names will change, triggering downtime.
+      In this scenario, it is recommended to set `--set resourceName=ztunnel` to override back to the previous default.

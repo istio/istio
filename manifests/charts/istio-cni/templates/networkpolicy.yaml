@@ -1,0 +1,37 @@
+{{- if (.Values.global.networkPolicy).enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ template "name" . }}{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: {{ template "name" . }}-node
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: {{ template "name" . }}-node
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Metrics endpoint for monitoring/prometheus
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 15014
+  # Readiness probe endpoint
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # Allow DNS resolution and access to Kubernetes API server.
+  # IP/Port of the API server is heavily dependant on k8s distribution, so we allow all egress for now.
+  - {}
+{{- end }}

@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -59,7 +58,6 @@ func TestMultiVersionRevision(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
-		Features("installation.upgrade").
 		// Requires installation of CPs from manifests, won't succeed
 		// if existing CPs have different root cert
 		Label(label.CustomSetup).

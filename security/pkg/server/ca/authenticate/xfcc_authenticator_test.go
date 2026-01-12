@@ -15,6 +15,7 @@
 package authenticate
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/netip"
@@ -23,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/alecholmes/xfccparser"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
@@ -102,7 +102,7 @@ func TestXfccAuthenticator(t *testing.T) {
 		{
 			name:               "junk xfcc header",
 			xfccHeader:         `junk xfcc header`,
-			authenticateErrMsg: `error in parsing xfcc header: invalid header format: 0:16: unexpected token "<EOF>" (expected "=")`,
+			authenticateErrMsg: `error in parsing xfcc header: invalid header format: 0:16: unexpected token "<EOF>" (expected "=" <string>?)`,
 		},
 		{
 			name: "Xfcc Header single hop",
@@ -139,7 +139,7 @@ func TestXfccAuthenticator(t *testing.T) {
 		{
 			name:               "junk xfcc header with http",
 			xfccHeader:         `junk xfcc header`,
-			authenticateErrMsg: `error in parsing xfcc header: invalid header format: 0:16: unexpected token "<EOF>" (expected "=")`,
+			authenticateErrMsg: `error in parsing xfcc header: invalid header format: 0:16: unexpected token "<EOF>" (expected "=" <string>?)`,
 			useHttpRequest:     true,
 		},
 		{

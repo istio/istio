@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: egressgateway-for-external-app
@@ -10,4 +10,4 @@ spec:
         number: 443
       tls:
         mode: ISTIO_MUTUAL
-        sni: fake.external.com
+        sni: server.default.svc

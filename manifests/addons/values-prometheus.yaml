@@ -25,7 +25,7 @@ server:
 
   # use dockerhub
   image:
-    repository: prom/prometheus
+    repository: docker.io/prom/prometheus
 
   securityContext: null
 

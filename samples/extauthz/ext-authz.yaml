@@ -44,10 +44,11 @@ spec:
     metadata:
       labels:
         app: ext-authz
+        sidecar.istio.io/inject: "false" # do not inject the sidecar
     spec:
       containers:
       - image: gcr.io/istio-testing/ext-authz:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: ext-authz
         ports:
         - containerPort: 8000

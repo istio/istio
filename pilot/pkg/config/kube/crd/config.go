@@ -15,6 +15,8 @@
 package crd
 
 import (
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -23,17 +25,17 @@ import (
 type IstioKind struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              map[string]any `json:"spec"`
-	Status            map[string]any `json:"status,omitempty"`
+	Spec              json.RawMessage  `json:"spec"`
+	Status            *json.RawMessage `json:"status,omitempty"`
 }
 
 // GetSpec from a wrapper
-func (in *IstioKind) GetSpec() map[string]any {
+func (in *IstioKind) GetSpec() json.RawMessage {
 	return in.Spec
 }
 
 // GetStatus from a wrapper
-func (in *IstioKind) GetStatus() map[string]any {
+func (in *IstioKind) GetStatus() *json.RawMessage {
 	return in.Status
 }
 
@@ -73,7 +75,7 @@ func (in *IstioKind) DeepCopyObject() runtime.Object {
 // IstioObject is a k8s wrapper interface for config objects
 type IstioObject interface {
 	runtime.Object
-	GetSpec() map[string]any
-	GetStatus() map[string]any
+	GetSpec() json.RawMessage
+	GetStatus() *json.RawMessage
 	GetObjectMeta() metav1.ObjectMeta
 }

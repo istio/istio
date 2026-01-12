@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -33,27 +34,34 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -69,13 +77,17 @@ const (
 	// DefaultNetworkGatewayPort is the port used by default for cross-network traffic if not otherwise specified
 	// by meshNetworks or "networking.istio.io/gatewayPort"
 	DefaultNetworkGatewayPort = 15443
+	// DefaultNetworkGatewayPort is the port used by default for cross-network traffic in ambient mode (when
+	// double-HBONE protocol is used for communication).
+	DefaultNetworkGatewayHBONEPort = 15008
 )
 
 var log = istiolog.RegisterScope("kube", "kubernetes service registry controller")
 
 var (
-	typeTag  = monitoring.CreateLabel("type")
-	eventTag = monitoring.CreateLabel("event")
+	typeTag   = monitoring.CreateLabel("type")
+	eventTag  = monitoring.CreateLabel("event")
+	reasonTag = monitoring.CreateLabel("reason")
 
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_reg_events",
@@ -93,14 +105,15 @@ var (
 		"pilot_k8s_endpoints_pending_pod",
 		"Number of endpoints that do not currently have any corresponding pods.",
 	)
-)
 
-func incrementEvent(kind, event string) {
-	if kind == "" || event == "" {
-		return
-	}
-	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
-}
+	proxyNoSvcTarget = monitoring.NewSum(
+		"pilot_k8s_proxies_with_no_service_targets",
+		"Number of proxies that do not have any corresponding service targets.",
+	)
+	proxyNoSvcTargetWrongCluster   = proxyNoSvcTarget.With(reasonTag.Value("incorrect_cluster"))
+	proxyNoSvcTargetMissingService = proxyNoSvcTarget.With(reasonTag.Value("no_matching_services"))
+	proxyNoSvcTargetFromMetadata   = proxyNoSvcTarget.With(reasonTag.Value("no_matching_metadata"))
+)
 
 // Options stores the configurable attributes of a Controller.
 type Options struct {
@@ -128,7 +141,7 @@ type Options struct {
 	MeshNetworksWatcher mesh.NetworksWatcher
 
 	// MeshWatcher observes changes to the mesh config
-	MeshWatcher mesh.Watcher
+	MeshWatcher meshwatcher.WatcherCollection
 
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
@@ -139,18 +152,18 @@ type Options struct {
 	// SyncTimeout, if set, causes HasSynced to be returned when timeout.
 	SyncTimeout time.Duration
 
-	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
-	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
+	// Revision of this Istiod instance
+	Revision string
 
-	ConfigController model.ConfigStoreController
-	ConfigCluster    bool
-}
+	ConfigCluster bool
 
-func (o *Options) GetFilter() namespace.DiscoveryFilter {
-	if o.DiscoveryNamespacesFilter != nil {
-		return o.DiscoveryNamespacesFilter.Filter
-	}
-	return nil
+	CniNamespace string
+
+	// StatusWritingEnabled determines if status writing is enabled. This may be set to `nil`, in which case status
+	// writing will never be enabled
+	StatusWritingEnabled *activenotifier.ActiveNotifier
+
+	KrtDebugger *krt.DebugHandler
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -161,15 +174,15 @@ type kubernetesNode struct {
 
 // controllerInterface is a simplified interface for the Controller used for testing.
 type controllerInterface interface {
-	getPodLocality(pod *v1.Pod) string
 	Network(endpointIP string, labels labels.Instance) network.ID
-	Cluster() cluster.ID
 }
 
 var (
 	_ controllerInterface      = &Controller{}
 	_ serviceregistry.Instance = &Controller{}
 )
+
+type ambientIndex = ambient.Index
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
@@ -194,9 +207,8 @@ type Controller struct {
 	imports serviceImportCache
 	pods    *PodCache
 
-	crdHandlers                []func(name string)
-	handlers                   model.ControllerHandlers
-	namespaceDiscoveryHandlers []func(ns string, event model.Event)
+	crdHandlers []func(name string)
+	handlers    model.ControllerHandlers
 
 	// This is only used for test
 	stop chan struct{}
@@ -217,18 +229,17 @@ type Controller struct {
 
 	*networkManager
 
+	ambientIndex
+
 	// initialSyncTimedout is set to true after performing an initial processing timed out.
 	initialSyncTimedout *atomic.Bool
-	meshWatcher         mesh.Watcher
+	meshWatcher         mesh.RestrictedConfigWatcher
 
 	podsClient kclient.Client[*v1.Pod]
 
-	ambientIndex     AmbientIndex
-	configController model.ConfigStoreController
-	configCluster    bool
+	configCluster bool
 
 	networksHandlerRegistration *mesh.WatcherHandlerRegistration
-	meshHandlerRegistration     *mesh.WatcherHandlerRegistration
 }
 
 // NewController creates a new Kubernetes controller
@@ -248,6 +259,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 	c.networkManager = initNetworkManager(c, options)
 
+	// currently NOT using kubeClient.ObjectFilter() here as we only care about the system namespace
+	// if in the future we want to watch other namespaces here, we will need to alter the discoveryNamespacesFilter
+	// to have an exception for the system namespace
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	if c.opts.SystemNamespace != "" {
@@ -265,16 +279,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		)
 	}
 
-	// always init for each cluster, otherwise different ns labels in different cluster may not take effect,
-	// but we skip it for configCluster which has been initiated before
-	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
-		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
-	}
-	c.initDiscoveryHandlers(c.opts.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
+	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
-	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
-
-	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
+	registerHandlers(c, c.services, "Services", c.onServiceEvent, nil)
 
 	c.endpoints = newEndpointSliceController(c)
 
@@ -283,24 +290,47 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	registerHandlers[*v1.Node](c, c.nodes, "Nodes", c.onNodeEvent, nil)
 
 	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
-		ObjectFilter:    c.opts.DiscoveryNamespacesFilter.Filter,
+		ObjectFilter:    kubeClient.ObjectFilter(),
 		ObjectTransform: kubelib.StripPodUnusedFields,
+		FieldSelector:   "status.phase!=Failed",
 	})
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
 		c.queue.Push(func() error {
 			return c.endpoints.podArrived(key.Name, key.Namespace)
 		})
 	})
-	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
+	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
-	if features.EnableAmbientControllers {
-		c.configController = options.ConfigController
-		c.ambientIndex = c.setupIndex()
+	if features.EnableAmbient && options.ConfigCluster {
+		c.ambientIndex = ambient.New(ambient.Options{
+			Client:          kubeClient,
+			SystemNamespace: options.SystemNamespace,
+			DomainSuffix:    options.DomainSuffix,
+			ClusterID:       options.ClusterID,
+			IsConfigCluster: options.ConfigCluster,
+			Revision:        options.Revision,
+			XDSUpdater:      options.XDSUpdater,
+			MeshConfig:      options.MeshWatcher,
+			StatusNotifier:  options.StatusWritingEnabled,
+			Debugger:        options.KrtDebugger,
+			Flags: ambient.FeatureFlags{
+				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+			},
+			ClientBuilder: multicluster.DefaultBuildClientsFromConfig,
+			RemoteClientConfigOverrides: []func(*rest.Config){
+				func(r *rest.Config) {
+					r.QPS = options.KubernetesAPIQPS
+					r.Burst = options.KubernetesAPIBurst
+				},
+			},
+		})
 	}
+
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
-	c.meshWatcher = options.MeshWatcher
+	c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
 	if c.opts.MeshNetworksWatcher != nil {
 		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()
@@ -379,10 +409,8 @@ func (c *Controller) Cleanup() error {
 		c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandlerRegistration)
 	}
 
-	// Unregister mesh handler
-	if c.meshHandlerRegistration != nil {
-		c.opts.MeshWatcher.DeleteMeshHandler(c.meshHandlerRegistration)
-	}
+	// Shutdown all the informer handlers
+	c.shutdownInformerHandlers()
 
 	return nil
 }
@@ -391,13 +419,13 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster())
+	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.TrustDomain())
 
 	switch event {
 	case model.EventDelete:
 		c.deleteService(svcConv)
 	default:
-		c.addOrUpdateService(curr, svcConv, event, false)
+		c.addOrUpdateService(pre, curr, svcConv, event, false)
 	}
 
 	return nil
@@ -407,25 +435,64 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.Lock()
 	delete(c.servicesMap, svc.Hostname)
 	delete(c.nodeSelectorsForServices, svc.Hostname)
-	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
-	delete(c.networkGatewaysBySvc, svc.Hostname)
 	c.Unlock()
 
+	c.networkManager.Lock()
+	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
+	delete(c.networkGatewaysBySvc, svc.Hostname)
+	c.networkManager.Unlock()
 	if isNetworkGateway {
 		c.NotifyGatewayHandlers()
 		// TODO trigger push via handler
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
 	event := model.EventDelete
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, event)
-
-	c.handlers.NotifyServiceHandlers(nil, svc, event)
+	if !svc.Attributes.ExportTo.Contains(visibility.None) {
+		c.handlers.NotifyServiceHandlers(nil, svc, event)
+	}
 }
 
-func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
+// recomputeServiceForPod is called when a pod changes and service endpoints need to be recomputed.
+// Most of Pod is immutable, so once it has been created we are ok to cache the internal representation.
+// However, a few fields (labels) are mutable. When these change, we call recomputeServiceForPod and rebuild the cache
+// for all service's the pod is a part of and push an update.
+func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
+	allServices := c.services.List(pod.Namespace, klabels.Everything())
+	cu := sets.New[model.ConfigKey]()
+	services := getPodServices(allServices, pod)
+	for _, svc := range services {
+		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)
+		c.Lock()
+		conv, f := c.servicesMap[hostname]
+		c.Unlock()
+		if !f {
+			return
+		}
+		shard := model.ShardKeyFromRegistry(c)
+		endpoints := c.buildEndpointsForService(conv, true)
+		if len(endpoints) > 0 {
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(hostname), svc.Namespace, endpoints)
+		}
+		cu.Insert(model.ConfigKey{
+			Kind:      kind.ServiceEntry,
+			Name:      string(hostname),
+			Namespace: svc.Namespace,
+		})
+	}
+	if len(cu) > 0 {
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			Full:           false,
+			ConfigsUpdated: cu,
+			Reason:         model.NewReasonStats(model.EndpointUpdate),
+		})
+	}
+}
+
+func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -442,20 +509,15 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 		needsFullPush = c.updateServiceNodePortAddresses(currConv)
 	}
 
-	// For ExternalName, we need to update the EndpointIndex, as we will store endpoints just based on the Service.
-	if !features.EnableExternalNameAlias && curr != nil && curr.Spec.Type == v1.ServiceTypeExternalName {
-		updateEDSCache = true
-	}
-
 	c.Lock()
 	prevConv := c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
 	c.Unlock()
-	// This full push needed to update ALL ends endpoints, even though we do a full push on service add/update
+	// This full push needed to update all endpoints, even though we do a full push on service add/update
 	// as that full push is only triggered for the specific service.
 	if needsFullPush {
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -470,13 +532,11 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 		}
 	}
 
-	// filter out same service event
-	if event == model.EventUpdate && !serviceUpdateNeedsPush(prevConv, currConv) {
-		return
-	}
-
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
-	c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
+	if serviceUpdateNeedsPush(pre, curr, prevConv, currConv) {
+		log.Debugf("Service %s in namespace %s updated and needs push", currConv.Hostname, ns)
+		c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
+	}
 }
 
 func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bool) []*model.IstioEndpoint {
@@ -484,9 +544,6 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		fep := c.collectWorkloadInstanceEndpoints(svc)
 		endpoints = append(endpoints, fep...)
-	}
-	if !features.EnableExternalNameAlias {
-		endpoints = append(endpoints, kube.ExternalNameEndpoints(svc)...)
 	}
 	return endpoints
 }
@@ -526,6 +583,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: model.NewReasonStats(model.ServiceUpdate),
+			Forced: true,
 		})
 	}
 	return nil
@@ -549,10 +607,16 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 		}
 		return handler(prev, curr, event)
 	}
+	// Pre-build our metric types to avoid recompute them on each event
+	adds := k8sEvents.With(typeTag.Value(otype), eventTag.Value("add"))
+	updatesames := k8sEvents.With(typeTag.Value(otype), eventTag.Value("updatesame"))
+	updates := k8sEvents.With(typeTag.Value(otype), eventTag.Value("update"))
+	deletes := k8sEvents.With(typeTag.Value(otype), eventTag.Value("delete"))
+
 	informer.AddEventHandler(
 		controllers.EventHandler[T]{
 			AddFunc: func(obj T) {
-				incrementEvent(otype, "add")
+				adds.Increment()
 				c.queue.Push(func() error {
 					return wrappedHandler(ptr.Empty[T](), obj, model.EventAdd)
 				})
@@ -560,17 +624,17 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 			UpdateFunc: func(old, cur T) {
 				if filter != nil {
 					if filter(old, cur) {
-						incrementEvent(otype, "updatesame")
+						updatesames.Increment()
 						return
 					}
 				}
-				incrementEvent(otype, "update")
+				updates.Increment()
 				c.queue.Push(func() error {
 					return wrappedHandler(old, cur, model.EventUpdate)
 				})
 			},
 			DeleteFunc: func(obj T) {
-				incrementEvent(otype, "delete")
+				deletes.Increment()
 				c.queue.Push(func() error {
 					return handler(ptr.Empty[T](), obj, model.EventDelete)
 				})
@@ -580,7 +644,21 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
-	return c.queue.HasSynced() || c.initialSyncTimedout.Load()
+	if c.initialSyncTimedout.Load() {
+		return true
+	}
+	if c.ambientIndex != nil && !c.ambientIndex.HasSynced() {
+		return false
+	}
+	return c.queue.HasSynced()
+}
+
+func (c *Controller) shutdownInformerHandlers() {
+	c.namespaces.ShutdownHandlers()
+	c.services.ShutdownHandlers()
+	c.endpoints.slices.ShutdownHandlers()
+	c.pods.pods.ShutdownHandlers()
+	c.nodes.ShutdownHandlers()
 }
 
 func (c *Controller) informersSynced() bool {
@@ -618,9 +696,12 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
-
+	if c.ambientIndex != nil {
+		go c.ambientIndex.Run(stop)
+	}
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
+
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")
@@ -656,8 +737,9 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 // getPodLocality retrieves the locality for a pod.
 func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	// if pod has `istio-locality` label, skip below ops
-	if len(pod.Labels[model.LocalityLabel]) > 0 {
-		return model.GetLocalityLabel(pod.Labels[model.LocalityLabel])
+	localityLabel := pm.GetLocalityLabel(pod.Labels)
+	if localityLabel != "" {
+		return pm.SanitizeLocalityLabel(localityLabel)
 	}
 
 	// NodeName is set by the scheduler after the pod is created
@@ -684,7 +766,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
 	// Run through all the workload instances, select ones that match the service labels
 	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
-	// as InstancesByPort is called by the aggregate controller. We dont want to include
+	// as InstancesByPort is called by the aggregate controller. We don't want to include
 	// workload instances for any other registry
 	workloadInstancesExist := !c.workloadInstancesIndex.Empty()
 	c.RLock()
@@ -788,25 +870,24 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 }
 
 // GetProxyServiceTargets returns service targets co-located with a given proxy
-// TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
-// To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
+	if !c.isControllerForProxy(proxy) {
+		log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.Cluster())
+		proxyNoSvcTargetWrongCluster.Increment()
+		return nil
+	}
+
 	if len(proxy.IPAddresses) > 0 {
 		proxyIP := proxy.IPAddresses[0]
 		// look up for a WorkloadEntry; if there are multiple WorkloadEntry(s)
 		// with the same IP, choose one deterministically
 		workload := workloadinstances.GetInstanceForProxy(c.workloadInstancesIndex, proxy, proxyIP)
 		if workload != nil {
-			return c.serviceInstancesFromWorkloadInstance(workload)
+			return c.serviceTargetsFromWorkloadInstance(workload)
 		}
 		pod := c.pods.getPodByProxy(proxy)
 		if pod != nil && !proxy.IsVM() {
 			// we don't want to use this block for our test "VM" which is actually a Pod.
-
-			if !c.isControllerForProxy(proxy) {
-				log.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.Cluster())
-				return nil
-			}
 
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
@@ -819,7 +900,11 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 				return out
 			}
 			// 2. Headless service without selector
-			return c.endpoints.GetProxyServiceTargets(proxy)
+			out := c.endpoints.GetProxyServiceTargets(proxy)
+			if len(out) == 0 {
+				proxyNoSvcTargetMissingService.Increment()
+			}
+			return out
 		}
 
 		// 3. The pod is not present when this is called
@@ -829,21 +914,18 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 		// attempt to read the real pod.
 		out, err := c.GetProxyServiceTargetsFromMetadata(proxy)
 		if err != nil {
-			log.Warnf("GetProxyServiceTargetsFromMetadata for %v failed: %v", proxy.ID, err)
+			log.Errorf("failed to get proxy service targets from metadata: %v", err)
+		}
+		if len(out) == 0 {
+			proxyNoSvcTargetFromMetadata.Increment()
 		}
 		return out
 	}
 
-	// TODO: This could not happen, remove?
-	if c.opts.Metrics != nil {
-		c.opts.Metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy.ID, "")
-	} else {
-		log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
-	}
 	return nil
 }
 
-func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInstance) []model.ServiceTarget {
+func (c *Controller) serviceTargetsFromWorkloadInstance(si *model.WorkloadInstance) []model.ServiceTarget {
 	out := make([]model.ServiceTarget, 0)
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
@@ -950,10 +1032,6 @@ func (c *Controller) GetProxyServiceTargetsFromMetadata(proxy *model.Proxy) ([]m
 		return nil, nil
 	}
 
-	if !c.isControllerForProxy(proxy) {
-		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.Cluster())
-	}
-
 	// Create a pod with just the information needed to find the associated Services
 	dummyPod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1042,7 +1120,7 @@ func (c *Controller) GetProxyServiceTargetsByPod(pod *v1.Pod, service *v1.Servic
 			// find target port
 			portNum, err := FindPort(pod, &port)
 			if err != nil {
-				log.Warnf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
+				log.Debugf("Failed to find port for service %s/%s: %v", service.Namespace, service.Name, err)
 				continue
 			}
 			// Dedupe the target ports here - Service might have configured multiple ports to the same target port,
@@ -1077,18 +1155,9 @@ func (c *Controller) GetProxyServiceTargetsByPod(pod *v1.Pod, service *v1.Servic
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	pod := c.pods.getPodByProxy(proxy)
 	if pod != nil {
-		var locality, nodeName string
-		locality = c.getPodLocality(pod)
-		if len(proxy.GetNodeName()) == 0 {
-			// this can happen for an "old" proxy with no `Metadata.NodeName` set
-			// in this case we set the node name in labels on the fly
-			// TODO: remove this when 1.16 is EOL?
-			nodeName = pod.Spec.NodeName
-		}
-		if len(locality) == 0 && len(nodeName) == 0 {
-			return pod.Labels
-		}
-		return labelutil.AugmentLabels(pod.Labels, c.clusterID, locality, nodeName, c.network)
+		locality := c.getPodLocality(pod)
+		nodeName := proxy.GetNodeName()
+		return labelutil.AugmentLabels(pod.Labels, c.clusterID, locality, nodeName, c.Network(pod.Status.PodIP, pod.Labels))
 	}
 	return nil
 }
@@ -1101,11 +1170,6 @@ func (c *Controller) AppendServiceHandler(f model.ServiceHandler) {
 // AppendWorkloadHandler implements a service catalog operation
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
 	c.handlers.AppendWorkloadHandler(f)
-}
-
-// AppendNamespaceDiscoveryHandlers register handlers on namespace selected/deselected by discovery selectors change.
-func (c *Controller) AppendNamespaceDiscoveryHandlers(f func(string, model.Event)) {
-	c.namespaceDiscoveryHandlers = append(c.namespaceDiscoveryHandlers, f)
 }
 
 // AppendCrdHandlers register handlers on crd event.
@@ -1155,17 +1219,28 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 	return nil
 }
 
-func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
-	if !features.EnableOptimizedServicePush {
-		return true
+func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Service) bool {
+	// New Service - If it is not exported, no need to push.
+	if preConv == nil {
+		return !currConv.Attributes.ExportTo.Contains(visibility.None)
 	}
-	if prev == nil {
-		return !curr.Attributes.ExportTo.Contains(visibility.None)
-	}
-	// if service are not exported, no need to push
-	if prev.Attributes.ExportTo.Contains(visibility.None) &&
-		curr.Attributes.ExportTo.Contains(visibility.None) {
+	// if service Visibility is None and has not changed in the update/delete, no need to push.
+	if preConv.Attributes.ExportTo.Contains(visibility.None) &&
+		currConv.Attributes.ExportTo.Contains(visibility.None) {
 		return false
 	}
-	return !prev.Equals(curr)
+	// Check if there are any changes we care about by comparing `model.Service`s
+	if !preConv.Equals(currConv) {
+		return true
+	}
+	// Also check if target ports are changed since they are not included in `model.Service`
+	// `preConv.Equals(currConv)` already makes sure the length of ports is not changed
+	if prev != nil && curr != nil {
+		if !slices.EqualFunc(prev.Spec.Ports, curr.Spec.Ports, func(a, b v1.ServicePort) bool {
+			return a.TargetPort == b.TargetPort
+		}) {
+			return true
+		}
+	}
+	return false
 }

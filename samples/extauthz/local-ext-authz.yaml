@@ -15,7 +15,7 @@
 # Example configurations for deploying ext-authz server locally with the application container in the same pod.
 
 # Define the service entry for the local ext-authz service on port 8000.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: httpbin-ext-authz-http
@@ -31,7 +31,7 @@ spec:
   resolution: STATIC
 ---
 # Define the service entry for the local ext-authz service on port 9000.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: httpbin-ext-authz-grpc
@@ -65,7 +65,7 @@ spec:
     spec:
       serviceAccountName: httpbin
       containers:
-      - image: docker.io/kong/httpbin
+      - image: docker.io/mccutchen/go-httpbin:v2.15.0
         imagePullPolicy: IfNotPresent
         name: httpbin
         # Same as found in Dockerfile's CMD but using an unprivileged port
@@ -83,7 +83,7 @@ spec:
         ports:
         - containerPort: 8080
       - image: gcr.io/istio-testing/ext-authz:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: ext-authz
         ports:
         - containerPort: 8000

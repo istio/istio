@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 50790
+releaseNotes:
+- |
+  **Added** Add --for flag to istioctl x waypoint generate command so that the user can preview the yaml before they apply it.

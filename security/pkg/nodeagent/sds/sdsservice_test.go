@@ -14,6 +14,7 @@
 package sds
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -24,10 +25,10 @@ import (
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/xds"
@@ -56,6 +57,9 @@ var (
 				PollDelay: &durationpb.Duration{
 					Seconds: 0,
 					Nanos:   10000,
+				},
+				Fallback: &wrappers.BoolValue{
+					Value: true,
 				},
 			},
 		},
@@ -153,7 +157,7 @@ func setupSDS(t *testing.T) *TestServer {
 		t:       t,
 		server:  server,
 		store:   st,
-		udsPath: ca2.WorkloadIdentitySocketPath,
+		udsPath: ca2.GetIstioSDSServerSocketPath(),
 	}
 }
 

@@ -123,16 +123,18 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 // This is analogous to `kubectl rollout restart` on the echo deployment and waits for
 // `kubectl rollout status` to complete before returning, but uses direct API calls.
 func (d *deployment) Restart() error {
-	var errs error
 	var deploymentNames []string
 	for _, s := range d.cfg.Subsets {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
 		deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s", d.cfg.Service, s.Version))
 	}
 	curTimestamp := time.Now().Format(time.RFC3339)
+
+	g := multierror.Group{}
 	for _, deploymentName := range deploymentNames {
-		patchOpts := metav1.PatchOptions{}
-		patchData := fmt.Sprintf(`{
+		g.Go(func() error {
+			patchOpts := metav1.PatchOptions{}
+			patchData := fmt.Sprintf(`{
 			"spec": {
 				"template": {
 					"metadata": {
@@ -143,46 +145,47 @@ func (d *deployment) Restart() error {
 				}
 			}
 		}`, curTimestamp) // e.g., “2006-01-02T15:04:05Z07:00”
-		var err error
-		appsv1Client := d.cfg.Cluster.Kube().AppsV1()
+			var err error
+			appsv1Client := d.cfg.Cluster.Kube().AppsV1()
 
-		if d.cfg.IsStatefulSet() {
-			_, err = appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
-				types.StrategicMergePatchType, []byte(patchData), patchOpts)
-		} else {
-			_, err = appsv1Client.Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
-				types.StrategicMergePatchType, []byte(patchData), patchOpts)
-		}
-		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v (timestamp:%q)", d.cfg.Namespace.Name(), deploymentName, err, curTimestamp))
-			continue
-		}
-
-		if err := retry.UntilSuccess(func() error {
 			if d.cfg.IsStatefulSet() {
-				sts, err := appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				if sts.Spec.Replicas == nil || !statefulsetComplete(sts) {
-					return fmt.Errorf("rollout is not yet done (updated replicas:%v)", sts.Status.UpdatedReplicas)
-				}
+				_, err = appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+					types.StrategicMergePatchType, []byte(patchData), patchOpts)
 			} else {
-				dep, err := appsv1Client.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
-				if err != nil {
-					return err
+				_, err = appsv1Client.Deployments(d.cfg.Namespace.Name()).Patch(context.TODO(), deploymentName,
+					types.StrategicMergePatchType, []byte(patchData), patchOpts)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to rollout restart %v/%v: %v (timestamp:%q)", d.cfg.Namespace.Name(), deploymentName, err, curTimestamp)
+			}
+
+			if err := retry.UntilSuccess(func() error {
+				if d.cfg.IsStatefulSet() {
+					sts, err := appsv1Client.StatefulSets(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					if sts.Spec.Replicas == nil || !statefulsetComplete(sts) {
+						return fmt.Errorf("rollout is not yet done (updated replicas:%v)", sts.Status.UpdatedReplicas)
+					}
+				} else {
+					dep, err := appsv1Client.Deployments(d.cfg.Namespace.Name()).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					if dep.Spec.Replicas == nil || !deploymentComplete(dep) {
+						return fmt.Errorf("rollout is not yet done (updated replicas: %v)", dep.Status.UpdatedReplicas)
+					}
 				}
-				if dep.Spec.Replicas == nil || !deploymentComplete(dep) {
-					return fmt.Errorf("rollout is not yet done (updated replicas: %v)", dep.Status.UpdatedReplicas)
-				}
+				return nil
+			}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
+				return fmt.Errorf("failed to wait rollout status for %v/%v: %v",
+					d.cfg.Namespace.Name(), deploymentName, err)
 			}
 			return nil
-		}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed to wait rollout status for %v/%v: %v",
-				d.cfg.Namespace.Name(), deploymentName, err))
-		}
+		})
 	}
-	return errs
+	return g.Wait().ErrorOrNil()
 }
 
 func (d *deployment) WorkloadReady(w *workload) {
@@ -225,7 +228,7 @@ func (d *deployment) workloadEntryYAML(w *workload) string {
 	version := w.pod.Labels[constants.TestVMVersionLabel]
 
 	return fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: %s
@@ -258,26 +261,69 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 		deploy = getTemplate(vmDeploymentTemplateFile)
 	}
 
-	return tmpl.Execute(deploy, params)
+	deploymentYAML, err := tmpl.Execute(deploy, params)
+	if err != nil {
+		return "", err
+	}
+
+	// Check if any ports are configured as endpoint pickers
+	var eppPorts []int
+	for _, port := range cfg.Ports {
+		if port.EndpointPicker {
+			eppPorts = append(eppPorts, port.ServicePort)
+		}
+	}
+
+	// If there are endpoint picker ports, add a DestinationRule to disable mTLS for those ports
+	if len(eppPorts) > 0 {
+		drYAML := generateDestinationRuleForEPP(cfg.Service, cfg.Namespace.Name(), eppPorts)
+		deploymentYAML += "\n---\n" + drYAML
+	}
+
+	return deploymentYAML, nil
 }
 
-func GenerateService(cfg echo.Config) (string, error) {
-	params := serviceParams(cfg)
+func generateDestinationRuleForEPP(service, namespace string, eppPorts []int) string {
+	var portSettings strings.Builder
+	for i, port := range eppPorts {
+		if i > 0 {
+			portSettings.WriteString("\n")
+		}
+		portSettings.WriteString(fmt.Sprintf(`    - port:
+        number: %d
+      tls:
+        mode: DISABLE`, port))
+	}
+
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: %s-epp-notls
+  namespace: %s
+spec:
+  host: %s.%s.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+%s`, service, namespace, service, namespace, portSettings.String())
+}
+
+func GenerateService(cfg echo.Config, isOpenShift bool) (string, error) {
+	params := serviceParams(cfg, isOpenShift)
 	return tmpl.Execute(getTemplate(serviceTemplateFile), params)
 }
 
 var VMImages = map[echo.VMDistro]string{
 	echo.UbuntuBionic: "app_sidecar_ubuntu_bionic",
-	echo.UbuntuJammy:  "app_sidecar_ubuntu_jammy",
-	echo.Debian11:     "app_sidecar_debian_11",
-	// echo.Rockylinux8:  "app_sidecar_rockylinux_8", TODO(https://github.com/istio/istio/issues/38224)
+	echo.UbuntuNoble:  "app_sidecar_ubuntu_noble",
+	echo.Debian12:     "app_sidecar_debian_12",
+	echo.Rockylinux9:  "app_sidecar_rockylinux_9",
 }
 
 // ArmVMImages is the subset of images that work on arm64. These fail because Istio's arm64 build has a higher GLIBC requirement
 var ArmVMImages = map[echo.VMDistro]string{
-	echo.UbuntuJammy: "app_sidecar_ubuntu_jammy",
-	echo.Debian11:    "app_sidecar_debian_11",
-	// echo.Rockylinux8:  "app_sidecar_rockylinux_8", TODO(https://github.com/istio/istio/issues/38224)
+	echo.UbuntuNoble: "app_sidecar_ubuntu_noble",
+	echo.Debian12:    "app_sidecar_debian_12",
+	echo.Rockylinux9: "app_sidecar_rockylinux_9",
 }
 
 var RevVMImages = func() map[string]echo.VMDistro {
@@ -292,13 +338,13 @@ var RevVMImages = func() map[string]echo.VMDistro {
 // istiod via the east-west gateway, even though they are installed on the same cluster as istiod.
 func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost string, istioIP string) {
 	if ctx == nil {
-		return
+		return istioHost, istioIP
 	}
 
 	ist, err := istio.Get(ctx)
 	if err != nil {
 		log.Warnf("VM config failed to get Istio component for %s: %v", cfg.Cluster.Name(), err)
-		return
+		return istioHost, istioIP
 	}
 
 	// Generate the istiod host the same way as istioctl.
@@ -306,14 +352,14 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	istioRevision := getIstioRevision(cfg.Namespace)
 	istioHost = istioctlcmd.IstiodHost(istioNS, istioRevision)
 
-	istioIPAddr := ist.EastWestGatewayFor(cfg.Cluster).DiscoveryAddress().Addr()
+	istioIPAddr := ist.EastWestGatewayFor(cfg.Cluster).DiscoveryAddresses()[0].Addr()
 	if !istioIPAddr.IsValid() {
 		log.Warnf("VM config failed to get east-west gateway IP for %s", cfg.Cluster.Name())
 		istioHost, istioIP = "", ""
 	} else {
 		istioIP = istioIPAddr.String()
 	}
-	return
+	return istioHost, istioIP
 }
 
 func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]any, error) {
@@ -353,12 +399,22 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 			"ImageFullPath":  settings.CustomGRPCEchoImage, // This overrides image hub/tag if it's not empty.
 			"ContainerPorts": grpcPorts,
 			"FallbackPort":   grpcFallbackPort,
+			"DisableCAFlag":  "true", // the old cpp image doesn't support this new flag, so we elide it in templating
 		})
+	}
+
+	if cfg.WorkloadWaypointProxy != "" {
+		for _, subset := range cfg.Subsets {
+			if subset.Labels == nil {
+				subset.Labels = make(map[string]string)
+			}
+			subset.Labels[label.IoIstioUseWaypoint.Name] = cfg.WorkloadWaypointProxy
+		}
 	}
 
 	params := map[string]any{
 		"ImageHub":                settings.Image.Hub,
-		"ImageTag":                strings.TrimSuffix(settings.Image.Tag, "-distroless"),
+		"ImageTag":                settings.Image.Tag,
 		"ImagePullPolicy":         settings.Image.PullPolicy,
 		"ImagePullSecretName":     imagePullSecretName,
 		"Service":                 cfg.Service,
@@ -382,6 +438,8 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"WorkloadClass":           cfg.WorkloadClass(),
 		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient,
 		"Ambient":                 settings.Ambient,
+		"BindFamily":              cfg.BindFamily,
+		"OpenShift":               settings.OpenShift,
 	}
 
 	vmIstioHost, vmIstioIP := "", ""
@@ -409,15 +467,24 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	return params, nil
 }
 
-func serviceParams(cfg echo.Config) map[string]any {
+func serviceParams(cfg echo.Config, isOpenShift bool) map[string]any {
+	if cfg.ServiceWaypointProxy != "" {
+		if cfg.ServiceLabels == nil {
+			cfg.ServiceLabels = make(map[string]string)
+		}
+		cfg.ServiceLabels[label.IoIstioUseWaypoint.Name] = cfg.ServiceWaypointProxy
+	}
 	return map[string]any{
 		"Service":            cfg.Service,
 		"Headless":           cfg.Headless,
 		"ServiceAccount":     cfg.ServiceAccount,
 		"ServicePorts":       cfg.Ports.GetServicePorts(),
-		"ServiceAnnotations": cfg.ServiceAnnotations,
+		"ServiceLabels":      cfg.ServiceLabels,
 		"IPFamilies":         cfg.IPFamilies,
 		"IPFamilyPolicy":     cfg.IPFamilyPolicy,
+		"ServiceAnnotations": cfg.ServiceAnnotations,
+		"Namespace":          cfg.Namespace.Name(),
+		"OpenShift":          isOpenShift,
 	}
 }
 
@@ -435,7 +502,7 @@ func createVMConfig(ctx resource.Context, cfg echo.Config) error {
 	}
 
 	wg := tmpl.MustEvaluate(`
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: {{.name}}
@@ -534,8 +601,8 @@ spec:
 
 		// support proxyConfig customizations on VMs via annotation in the echo API.
 		for k, v := range subset.Annotations {
-			if k.Name == "proxy.istio.io/config" {
-				if err := patchProxyConfigFile(path.Join(subsetDir, "mesh.yaml"), v.Value); err != nil {
+			if k == "proxy.istio.io/config" {
+				if err := patchProxyConfigFile(path.Join(subsetDir, "mesh.yaml"), v); err != nil {
 					return fmt.Errorf("failed patching proxyconfig: %v", err)
 				}
 			}
@@ -642,13 +709,16 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	for _, p := range ports {
 		// Add the port to the set of application ports.
 		cport := &echoCommon.Port{
-			Name:        p.Name,
-			Protocol:    p.Protocol,
-			Port:        p.WorkloadPort,
-			TLS:         p.TLS,
-			ServerFirst: p.ServerFirst,
-			InstanceIP:  p.InstanceIP,
-			LocalhostIP: p.LocalhostIP,
+			Name:              p.Name,
+			Protocol:          p.Protocol,
+			Port:              p.WorkloadPort,
+			TLS:               p.TLS,
+			RequireClientCert: p.MTLS,
+			ServerFirst:       p.ServerFirst,
+			InstanceIP:        p.InstanceIP,
+			LocalhostIP:       p.LocalhostIP,
+			ProxyProtocol:     p.ProxyProtocol,
+			EndpointPicker:    p.EndpointPicker,
 		}
 		containerPorts = append(containerPorts, cport)
 

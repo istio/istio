@@ -19,24 +19,27 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"sigs.k8s.io/yaml"
-
-	ztunnelDump "istio.io/istio/istioctl/pkg/util/configdump"
 )
 
 // WorkloadFilter is used to pass filter information into workload based config writer print functions
 type WorkloadFilter struct {
-	Address string
-	Node    string
-	Verbose bool
+	Address   string
+	Node      string
+	Namespace string
 }
 
 // Verify returns true if the passed workload matches the filter fields
-func (wf *WorkloadFilter) Verify(workload *ztunnelDump.ZtunnelWorkload) bool {
-	if wf.Address == "" && wf.Node == "" {
+func (wf *WorkloadFilter) Verify(workload *ZtunnelWorkload) bool {
+	if wf.Address == "" && wf.Node == "" && wf.Namespace == "" {
 		return true
+	}
+
+	if wf.Namespace != "" {
+		if !strings.EqualFold(workload.Namespace, wf.Namespace) {
+			return false
+		}
 	}
 
 	if wf.Address != "" {
@@ -59,12 +62,10 @@ func (wf *WorkloadFilter) Verify(workload *ztunnelDump.ZtunnelWorkload) bool {
 
 // PrintWorkloadSummary prints a summary of the relevant listeners in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
-	w, zDump, err := c.setupWorkloadConfigWriter()
-	if err != nil {
-		return err
-	}
+	w := c.tabwriter()
+	zDump := c.ztunnelDump
 
-	verifiedWorkloads := make([]*ztunnelDump.ZtunnelWorkload, 0, len(zDump.Workloads))
+	verifiedWorkloads := make([]*ZtunnelWorkload, 0, len(zDump.Workloads))
 	for _, wl := range zDump.Workloads {
 		if filter.Verify(wl) {
 			verifiedWorkloads = append(verifiedWorkloads, wl)
@@ -83,35 +84,25 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 		return iNode < jNode
 	})
 
-	if filter.Verbose {
-		fmt.Fprintln(w, "NAMESPACE\tNAME\tNETWORK\tIP\tNODE\tWAYPOINT\tPROTOCOL")
-	} else {
-		fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tNODE")
-	}
+	fmt.Fprintln(w, "NAMESPACE\tPOD NAME\tADDRESS\tNODE\tWAYPOINT\tPROTOCOL")
 
 	for _, wl := range verifiedWorkloads {
-		var ip string
-		if len(wl.WorkloadIPs) > 0 {
-			ip = wl.WorkloadIPs[0]
+		address := strings.Join(wl.WorkloadIPs, ",")
+		if len(address) == 0 {
+			address = wl.Hostname
 		}
-		if filter.Verbose {
-			waypoint := waypointName(wl, zDump.Services)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-				wl.Namespace, wl.Name, wl.Network, ip, wl.Node, waypoint, wl.Protocol)
-		} else {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Namespace, wl.Name, ip, wl.Node)
-		}
+		waypoint := waypointName(wl, zDump.Services)
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
+			wl.Namespace, wl.Name, address, wl.Node, waypoint, wl.Protocol)
+
 	}
 	return w.Flush()
 }
 
 // PrintWorkloadDump prints the relevant workloads in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintWorkloadDump(filter WorkloadFilter, outputFormat string) error {
-	_, zDump, err := c.setupWorkloadConfigWriter()
-	if err != nil {
-		return err
-	}
-	filteredWorkloads := []*ztunnelDump.ZtunnelWorkload{}
+	zDump := c.ztunnelDump
+	filteredWorkloads := []*ZtunnelWorkload{}
 	for _, workload := range zDump.Workloads {
 		if filter.Verify(workload) {
 			filteredWorkloads = append(filteredWorkloads, workload)
@@ -130,37 +121,39 @@ func (c *ConfigWriter) PrintWorkloadDump(filter WorkloadFilter, outputFormat str
 	return nil
 }
 
-func (c *ConfigWriter) setupWorkloadConfigWriter() (*tabwriter.Writer, *ztunnelDump.ZtunnelDump, error) {
-	listeners, err := c.retrieveSortedWorkloadSlice()
-	if err != nil {
-		return nil, nil, err
-	}
-	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 1, ' ', 0)
-	return w, listeners, nil
-}
-
-func (c *ConfigWriter) retrieveSortedWorkloadSlice() (*ztunnelDump.ZtunnelDump, error) {
-	if c.ztunnelDump == nil {
-		return nil, fmt.Errorf("config writer has not been primed")
-	}
-	workloadDump := c.ztunnelDump
-	if workloadDump == nil {
-		return nil, fmt.Errorf("workload dump empty")
-	}
-	if len(workloadDump.Workloads) == 0 {
-		return nil, fmt.Errorf("no workloads found")
-	}
-
-	return workloadDump, nil
-}
-
-func waypointName(wl *ztunnelDump.ZtunnelWorkload, services map[string]*ztunnelDump.ZtunnelService) string {
+func waypointName(wl *ZtunnelWorkload, services []*ZtunnelService) string {
 	if wl.Waypoint == nil {
 		return "None"
 	}
 
-	if svc, ok := services[wl.Waypoint.Destination]; ok {
-		return svc.Name
+	for _, svc := range services {
+		if fmt.Sprintf("%s/%s", svc.Namespace, svc.Hostname) == wl.Waypoint.Destination {
+			return svc.Name
+		}
+		for _, addr := range svc.Addresses {
+			if addr == wl.Waypoint.Destination {
+				return svc.Name
+			}
+		}
+	}
+
+	return "NA" // Shouldn't normally reach here
+}
+
+func serviceWaypointName(svc *ZtunnelService, services []*ZtunnelService) string {
+	if svc.Waypoint == nil {
+		return "None"
+	}
+
+	for _, service := range services {
+		if fmt.Sprintf("%s/%s", service.Namespace, service.Hostname) == svc.Waypoint.Destination {
+			return service.Name
+		}
+		for _, addr := range service.Addresses {
+			if addr == svc.Waypoint.Destination {
+				return service.Name
+			}
+		}
 	}
 
 	return "NA" // Shouldn't normally reach here

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package caclient
+package citadel
 
 import (
 	"context"
@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -41,7 +42,7 @@ type CitadelClient struct {
 	tlsOpts  *TLSOptions
 	client   pb.IstioCertificateServiceClient
 	conn     *grpc.ClientConn
-	provider *caclient.TokenProvider
+	provider credentials.PerRPCCredentials
 	opts     *security.Options
 }
 
@@ -56,7 +57,7 @@ func NewCitadelClient(opts *security.Options, tlsOpts *TLSOptions) (*CitadelClie
 	c := &CitadelClient{
 		tlsOpts:  tlsOpts,
 		opts:     opts,
-		provider: caclient.NewCATokenProvider(opts),
+		provider: caclient.NewDefaultTokenProvider(opts),
 	}
 
 	conn, err := c.buildConnection()
@@ -92,7 +93,7 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) (res []s
 	// TODO(hzxuzhonghu): notify caclient rebuilding only when root cert is updated.
 	// It can happen when the istiod dns certs is resigned after root cert is updated,
 	// in this case, the ca grpc client can not automatically connect to istiod after the underlying network connection closed.
-	// Becase that the grpc client still use the old tls configuration to reconnect to istiod.
+	// Because that the grpc client still use the old tls configuration to reconnect to istiod.
 	// So here we need to rebuild the caClient in order to use the new root cert.
 	defer func() {
 		if err != nil {
@@ -104,6 +105,10 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) (res []s
 	}()
 
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", c.opts.ClusterID))
+	for k, v := range c.opts.CAHeaders {
+		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
+	}
+
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create certificate: %v", err)
@@ -150,7 +155,7 @@ func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
 
 func (c *CitadelClient) reconnect() error {
 	if err := c.conn.Close(); err != nil {
-		return fmt.Errorf("failed to close connection")
+		return fmt.Errorf("failed to close connection: %v", err)
 	}
 
 	conn, err := c.buildConnection()

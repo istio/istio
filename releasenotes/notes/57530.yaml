@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+- 57530
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+  - |
+    **Added** `DISABLE_SHADOW_HOST_SUFFIX` environment variable to control shadow host suffix behavior in mirror policies. When set to `true` (default), shadow host suffixes are added to hostnames of mirrored requests. When set to `true`, shadow host suffixes are not added. 
+    This provides backward compatibility for users upgrading from older Istio versions where shadow host suffixes were added by default via compatibility profiles.

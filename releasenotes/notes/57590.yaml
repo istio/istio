@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue: []
+releaseNotes:
+- |
+  **Fixed** IST0173 analyzer (DestinationRuleSubsetNotSelectPods) incorrectly flags DestinationRule subsets as not selecting any pods when the subsets used topology labels. 

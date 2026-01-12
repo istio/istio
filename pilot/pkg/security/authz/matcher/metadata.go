@@ -21,6 +21,16 @@ import (
 // MetadataStringMatcher creates a metadata string matcher for the given filter, key and the
 // string matcher.
 func MetadataStringMatcher(filter, key string, m *matcher.StringMatcher) *matcher.MetadataMatcher {
+	return MetadataValueMatcher(filter, key, &matcher.ValueMatcher{
+		MatchPattern: &matcher.ValueMatcher_StringMatch{
+			StringMatch: m,
+		},
+	})
+}
+
+// MetadataValueMatcher creates a metadata value matcher for the given filter, key and the
+// string matcher.
+func MetadataValueMatcher(filter, key string, m *matcher.ValueMatcher) *matcher.MetadataMatcher {
 	return &matcher.MetadataMatcher{
 		Filter: filter,
 		Path: []*matcher.MetadataMatcher_PathSegment{
@@ -30,23 +40,24 @@ func MetadataStringMatcher(filter, key string, m *matcher.StringMatcher) *matche
 				},
 			},
 		},
-		Value: &matcher.ValueMatcher{
-			MatchPattern: &matcher.ValueMatcher_StringMatch{
-				StringMatch: m,
-			},
-		},
+		Value: m,
 	}
 }
 
 // MetadataListMatcher creates a metadata list matcher for the given path keys and value.
 func MetadataListMatcher(filter string, keys []string, value *matcher.StringMatcher, useExtendedJwt bool) *matcher.MetadataMatcher {
+	return MetadataListValueMatcher(filter, keys, &matcher.ValueMatcher{
+		MatchPattern: &matcher.ValueMatcher_StringMatch{
+			StringMatch: value,
+		},
+	}, useExtendedJwt)
+}
+
+// MetadataListValueMatcher creates a metadata list matcher for the given path keys and value.
+func MetadataListValueMatcher(filter string, keys []string, value *matcher.ValueMatcher, useExtendedJwt bool) *matcher.MetadataMatcher {
 	listMatcher := &matcher.ListMatcher{
 		MatchPattern: &matcher.ListMatcher_OneOf{
-			OneOf: &matcher.ValueMatcher{
-				MatchPattern: &matcher.ValueMatcher_StringMatch{
-					StringMatch: value,
-				},
-			},
+			OneOf: value,
 		},
 	}
 
@@ -73,11 +84,7 @@ func MetadataListMatcher(filter string, keys []string, value *matcher.StringMatc
 								ListMatch: listMatcher,
 							},
 						},
-						{
-							MatchPattern: &matcher.ValueMatcher_StringMatch{
-								StringMatch: value,
-							},
-						},
+						value,
 					},
 				},
 			},

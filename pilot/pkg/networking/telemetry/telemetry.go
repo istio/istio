@@ -27,6 +27,7 @@ import (
 var (
 	// StatName patterns
 	serviceStatPattern           = "%SERVICE%"
+	serviceNameStatPattern       = "%SERVICE_NAME%"
 	serviceFQDNStatPattern       = "%SERVICE_FQDN%"
 	servicePortStatPattern       = "%SERVICE_PORT%"
 	serviceTargetPortStatPattern = "%TARGET_PORT%"
@@ -37,6 +38,7 @@ var (
 // BuildStatPrefix builds a stat prefix based on the stat pattern.
 func BuildStatPrefix(statPattern string, host string, subset string, port *model.Port, targetPort int, attributes *model.ServiceAttributes) string {
 	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
+	prefix = strings.ReplaceAll(prefix, serviceNameStatPattern, serviceName(host, attributes))
 	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, host)
 	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
 	prefix = strings.ReplaceAll(prefix, serviceTargetPortStatPattern, strconv.Itoa(targetPort))
@@ -48,6 +50,7 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 // BuildInboundStatPrefix builds a stat prefix based on the stat pattern and filter chain telemetry data.
 func BuildInboundStatPrefix(statPattern string, tm FilterChainMetadata, subset string, port uint32, portName string) string {
 	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, tm.ShortHostname())
+	prefix = strings.ReplaceAll(prefix, serviceNameStatPattern, tm.ServiceName())
 	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, tm.InstanceHostname.String())
 	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
 	prefix = strings.ReplaceAll(prefix, servicePortStatPattern, strconv.Itoa(int(port)))
@@ -55,11 +58,20 @@ func BuildInboundStatPrefix(statPattern string, tm FilterChainMetadata, subset s
 	return prefix
 }
 
-// shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
+// shortHostName constructs the short hostname from kubernetes hosts based on attributes (name and namespace).
 // For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
 func shortHostName(host string, attributes *model.ServiceAttributes) string {
 	if attributes.ServiceRegistry == provider.Kubernetes {
 		return attributes.Name + "." + attributes.Namespace
+	}
+	return host
+}
+
+// serviceName constructs the service name from kubernetes hosts based on attributes (name).
+// For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
+func serviceName(host string, attributes *model.ServiceAttributes) string {
+	if attributes.ServiceRegistry == provider.Kubernetes {
+		return attributes.Name
 	}
 	return host
 }
@@ -86,10 +98,18 @@ type FilterChainMetadata struct {
 	KubernetesServiceName string
 }
 
-// ShortHostname constructs the name from kubernetes service name if available or just uses instance host name.
+// ShortHostname constructs the short hostname from kubernetes service name if available or just uses instance hostname.
 func (tm FilterChainMetadata) ShortHostname() string {
 	if tm.KubernetesServiceName != "" {
 		return tm.KubernetesServiceName + "." + tm.KubernetesServiceNamespace
+	}
+	return tm.InstanceHostname.String()
+}
+
+// ServiceName constructs the service name from kubernetes service name if available or just uses instance host name.
+func (tm FilterChainMetadata) ServiceName() string {
+	if tm.KubernetesServiceName != "" {
+		return tm.KubernetesServiceName
 	}
 	return tm.InstanceHostname.String()
 }

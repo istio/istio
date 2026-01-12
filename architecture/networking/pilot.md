@@ -167,7 +167,7 @@ At a high level, each client job will find the correct generator for the request
 
 A naive implementation would simply regenerate all resources, of all subscribed types, for each client, on any configuration change. However, this scales poorly. As a result, we have many levels of optimizations to avoid doing this work.
 
-First, we have a concept of a `Full` push. Only `Full` pushes will recompute `PushContext` on change; otherwise this is skipped and the last `PushContext` is re-used. Note: even when `Full`, we try to copy as much from the previous `PushContext` as possible. For example, if only a `WasmPlugin` changed, we would not recompute services indexes.
+First, we have a concept of a `Full` push. Only `Full` pushes will recompute `PushContext` on change; otherwise this is skipped and the last `PushContext` is reused. Note: even when `Full`, we try to copy as much from the previous `PushContext` as possible. For example, if only a `WasmPlugin` changed, we would not recompute services indexes.
 Note: `Full` only refers to whether a `PushContext` recomputation is needed. Even within a `Full` push, we keep track of which configuration updates triggered this, so we could have "Full update of Config X" or "Full update of all configs".
 
 Next, for an individual proxy we will check if it could possibly be impacted by the change. For example, we know a sidecar never is impacted by a `Gateway` update, and we can also look at scoping (from `Sidecar.egress.hosts`) to further restrict update scopes.
@@ -184,7 +184,7 @@ Istio currently supports both SotW and Delta protocol. However, the delta implem
 
 Istiod consists of a collection of controllers. Per Kubernetes, "controllers are control loops that watch the state of your cluster, then make or request changes where needed."
 
-In Istio, we use the term a bit more liberally. Istio controllers watch more than just the state of *a* cluster -- many are reading from multiple clusters, or even external sources (files and XDS). Generally Kubernetes controllers are then writing state back to the cluster; Istio does have a few of these controllers, but most of them are centered around driving the [Proxy Configuration](#proxy-configuration).
+In Istio, we use the term a bit more liberally. Istio controllers watch more than just the state of *a* cluster -- many are reading from multiple clusters, or even external sources (files and XDS). Generally, Kubernetes controllers are then writing state back to the cluster; Istio does have a few of these controllers, but most of them are centered around driving the [Proxy Configuration](#proxy-configuration).
 
 ### Writing controllers
 

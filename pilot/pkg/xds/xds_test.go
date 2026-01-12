@@ -12,23 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xds_test
 
 import (
 	"fmt"
-	"os"
-	"path"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -40,7 +40,7 @@ type SidecarTestConfig struct {
 }
 
 var scopeConfig = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: sidecar
@@ -60,7 +60,7 @@ spec:
       - {{$ns}}
 {{ end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: app
@@ -80,7 +80,7 @@ spec:
   - address: 1.1.1.1
 {{- end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: excluded
@@ -100,7 +100,7 @@ spec:
   - address: 9.9.9.9
 {{- end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: included
@@ -120,7 +120,7 @@ spec:
   - address: 2.2.2.2
 {{- end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: app-https
@@ -142,7 +142,7 @@ spec:
   - address: 10.10.10.10
 {{- end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: excluded-https
@@ -179,7 +179,7 @@ func TestServiceScoping(t *testing.T) {
 	}
 
 	t.Run("STATIC", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			ConfigString: scopeConfig,
 			ConfigTemplateInput: SidecarTestConfig{
 				ImportedNamespaces: []string{"./*", "included/*"},
@@ -189,7 +189,7 @@ func TestServiceScoping(t *testing.T) {
 		proxy := s.SetupProxy(baseProxy())
 
 		endpoints := xdstest.ExtractLoadAssignments(s.Endpoints(proxy))
-		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1:80"}) {
+		if !slices.EqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1:80"}) {
 			t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
 		}
 
@@ -202,7 +202,7 @@ func TestServiceScoping(t *testing.T) {
 	})
 
 	t.Run("Ingress Listener", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			ConfigString: scopeConfig,
 			ConfigTemplateInput: SidecarTestConfig{
 				ImportedNamespaces: []string{"./*", "included/*"},
@@ -217,7 +217,7 @@ func TestServiceScoping(t *testing.T) {
 
 		endpoints := xdstest.ExtractClusterEndpoints(s.Clusters(proxy))
 		eps := endpoints["inbound|9080||"]
-		if !listEqualUnordered(eps, []string{"/var/run/someuds.sock"}) {
+		if !slices.EqualUnordered(eps, []string{"/var/run/someuds.sock"}) {
 			t.Fatalf("expected /var/run/someuds.sock, got %v", eps)
 		}
 
@@ -230,7 +230,7 @@ func TestServiceScoping(t *testing.T) {
 	})
 
 	t.Run("DNS", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			ConfigString: scopeConfig,
 			ConfigTemplateInput: SidecarTestConfig{
 				ImportedNamespaces: []string{"./*", "included/*"},
@@ -243,7 +243,7 @@ func TestServiceScoping(t *testing.T) {
 	})
 
 	t.Run("DNS no self import", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			ConfigString: scopeConfig,
 			ConfigTemplateInput: SidecarTestConfig{
 				ImportedNamespaces: []string{"included/*"},
@@ -258,7 +258,7 @@ func TestServiceScoping(t *testing.T) {
 
 func TestSidecarListeners(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{})
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		proxy := s.SetupProxy(&model.Proxy{
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
@@ -276,8 +276,8 @@ func TestSidecarListeners(t *testing.T) {
 	})
 
 	t.Run("mongo", func(t *testing.T) {
-		s := NewFakeDiscoveryServer(t, FakeOptions{
-			ConfigString: mustReadFile(t, "./tests/testdata/config/se-example.yaml"),
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			ConfigString: mustReadFile(t, "tests/testdata/config/se-example.yaml"),
 		})
 		proxy := s.SetupProxy(&model.Proxy{
 			IPAddresses: []string{"10.2.0.1"},
@@ -303,10 +303,10 @@ func TestSidecarListeners(t *testing.T) {
 }
 
 func TestEgressProxy(t *testing.T) {
-	s := NewFakeDiscoveryServer(t, FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: `
 # Add a random endpoint, otherwise there will be no routes to check
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: pod
@@ -322,7 +322,7 @@ spec:
   endpoints:
   - address: 10.10.10.20
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: sidecar-with-egressproxy
@@ -366,7 +366,7 @@ spec:
 		found = true
 	}
 	if !found {
-		t.Fatalf("failed to find tcp proxy")
+		t.Fatal("failed to find tcp proxy")
 	}
 
 	found = false
@@ -385,35 +385,27 @@ spec:
 		}
 	}
 	if !found {
-		t.Fatalf("failed to find expected fallthrough route")
+		t.Fatal("failed to find expected fallthrough route")
 	}
 }
 
 func assertListEqual(t test.Failer, a, b []string) {
 	t.Helper()
-	if !listEqualUnordered(a, b) {
+	if !slices.EqualUnordered(a, b) {
 		t.Fatalf("Expected list %v to be equal to %v", a, b)
 	}
 }
 
-func mustReadFile(t *testing.T, f string) string {
-	b, err := os.ReadFile(path.Join(env.IstioSrc, f))
-	if err != nil {
-		t.Fatalf("failed to read %v: %v", f, err)
-	}
-	return string(b)
-}
-
 func TestClusterLocal(t *testing.T) {
 	tests := map[string]struct {
-		fakeOpts            FakeOptions
+		fakeOpts            xds.FakeOptions
 		serviceCluster      string
 		wantClusterLocal    map[cluster.ID][]string
 		wantNonClusterLocal map[cluster.ID][]string
 	}{
 		// set up a k8s service in each cluster, with a pod in each cluster and a workloadentry in cluster-1
 		"k8s service with pod and workloadentry": {
-			fakeOpts: func() FakeOptions {
+			fakeOpts: func() xds.FakeOptions {
 				k8sObjects := map[cluster.ID]string{
 					"cluster-1": "",
 					"cluster-2": "",
@@ -462,11 +454,11 @@ ports:
 `, clusterID, i)
 					i++
 				}
-				return FakeOptions{
+				return xds.FakeOptions{
 					DefaultClusterName:              "cluster-1",
 					KubernetesObjectStringByCluster: k8sObjects,
 					ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: echo-app
@@ -489,9 +481,9 @@ spec:
 			},
 		},
 		"serviceentry": {
-			fakeOpts: FakeOptions{
+			fakeOpts: xds.FakeOptions{
 				ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-svc-mongocluster
@@ -513,12 +505,12 @@ spec:
 			},
 			serviceCluster: "outbound|27018||mymongodb.somedomain",
 			wantClusterLocal: map[cluster.ID][]string{
-				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
-				"other":      {},
+				constants.DefaultClusterName: {"2.2.2.2:27018", "3.3.3.3:27018"},
+				"other":                      {},
 			},
 			wantNonClusterLocal: map[cluster.ID][]string{
-				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
-				"other":      {"2.2.2.2:27018", "3.3.3.3:27018"},
+				constants.DefaultClusterName: {"2.2.2.2:27018", "3.3.3.3:27018"},
+				"other":                      {"2.2.2.2:27018", "3.3.3.3:27018"},
 			},
 		},
 	}
@@ -541,11 +533,11 @@ spec:
 					}
 					fakeOpts := tt.fakeOpts
 					fakeOpts.MeshConfig = meshConfig
-					s := NewFakeDiscoveryServer(t, fakeOpts)
+					s := xds.NewFakeDiscoveryServer(t, fakeOpts)
 					for clusterID := range want {
 						p := s.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}})
 						eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))[tt.serviceCluster]
-						if want := want[clusterID]; !listEqualUnordered(eps, want) {
+						if want := want[clusterID]; !slices.EqualUnordered(eps, want) {
 							t.Errorf("got %v but want %v for %s", eps, want, clusterID)
 						}
 					}

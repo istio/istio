@@ -29,7 +29,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/mcs"
@@ -53,7 +53,7 @@ func TestServiceExportController(t *testing.T) {
 			},
 		},
 	}
-	env := model.Environment{Watcher: mesh.NewFixedWatcher(&m)}
+	env := model.Environment{Watcher: meshwatcher.NewTestWatcher(&m)}
 	env.Init()
 
 	sc := newAutoServiceExportController(autoServiceExportOptions{
@@ -89,7 +89,7 @@ func TestServiceExportController(t *testing.T) {
 				Name:      "manual-export",
 			},
 			Status: mcsapi.ServiceExportStatus{
-				Conditions: []mcsapi.ServiceExportCondition{
+				Conditions: []metav1.Condition{
 					{
 						Type: mcsapi.ServiceExportValid,
 					},
@@ -136,7 +136,7 @@ func assertServiceExport(t *testing.T, client kube.Client, ns, name string, shou
 	}, serviceExportTimeout)
 }
 
-func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name string, condition mcsapi.ServiceExportConditionType) {
+func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name string, condition string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		gotU, err := client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(ns).Get(context.TODO(), name, metav1.GetOptions{})
@@ -149,7 +149,7 @@ func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name 
 			return err
 		}
 
-		if got.Status.Conditions == nil || len(got.Status.Conditions) == 0 || got.Status.Conditions[0].Type != condition {
+		if len(got.Status.Conditions) == 0 || got.Status.Conditions[0].Type != condition {
 			return fmt.Errorf("condition incorrect or not found")
 		}
 

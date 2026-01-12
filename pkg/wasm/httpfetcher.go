@@ -45,7 +45,7 @@ type HTTPFetcher struct {
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
 // requestTimeout is a timeout for each HTTP/HTTPS request.
-// requestMaxRetry is # of maximum retries of HTTP/HTTPS requests.
+// requestMaxRetry is the number of maximum retries of HTTP/HTTPS requests.
 func NewHTTPFetcher(requestTimeout time.Duration, requestMaxRetry int) *HTTPFetcher {
 	if requestTimeout == 0 {
 		requestTimeout = 5 * time.Second
@@ -97,7 +97,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
-			// Limit wasm module to 256mb; in reality it must be much smaller
+			// Limit wasm module to 256MB; in reality it must be much smaller
 			body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024*256))
 			if err != nil {
 				return nil, err
@@ -110,7 +110,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 		}
 		lastError = fmt.Errorf("wasm module download request failed: status code %v", resp.StatusCode)
 		if retryable(resp.StatusCode) {
-			// Limit wasm module to 256mb; in reality it must be much smaller
+			// Limit wasm module to 256MB; in reality it must be much smaller
 			body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024*256))
 			if err != nil {
 				return nil, err
@@ -147,7 +147,7 @@ func isPosixTar(b []byte) bool {
 func getFirstFileFromTar(b []byte) []byte {
 	buf := bytes.NewBuffer(b)
 
-	// Limit wasm module to 256mb; in reality it must be much smaller
+	// Limit wasm module to 256MB; in reality it must be much smaller
 	tr := tar.NewReader(io.LimitReader(buf, 1024*1024*256))
 
 	h, err := tr.Next()

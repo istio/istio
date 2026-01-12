@@ -1,0 +1,21 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-operator
+spec:
+  profile: ambient
+  components:
+    ztunnel:
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 200m
+            memory: 200Mi
+        tolerations:
+        - key: "example-key"
+          operator: "Exists"
+          effect: "NoSchedule"

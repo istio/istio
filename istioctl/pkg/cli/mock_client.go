@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"google.golang.org/grpc/credentials"
+
 	"istio.io/istio/pkg/kube"
 )
 
@@ -57,7 +59,7 @@ func (c MockClient) AllDiscoveryDo(_ context.Context, _, _ string) (map[string][
 	return c.Results, nil
 }
 
-func (c MockClient) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
+func (c MockClient) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
 	results, ok := c.Results[podName]
 	if !ok {
 		return nil, fmt.Errorf("unable to retrieve Pod: pods %q not found", podName)
@@ -65,10 +67,7 @@ func (c MockClient) EnvoyDo(ctx context.Context, podName, podNamespace, method, 
 	return results, nil
 }
 
-func (c MockClient) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
-	results, ok := c.Results[podName]
-	if !ok {
-		return nil, fmt.Errorf("unable to retrieve Pod: pods %q not found", podName)
-	}
-	return results, nil
+func (c MockClient) CreatePerRPCCredentials(_ context.Context, _, _ string, _ []string, _ int64,
+) (credentials.PerRPCCredentials, error) {
+	return nil, nil
 }

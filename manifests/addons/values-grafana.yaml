@@ -64,7 +64,7 @@ datasources:
         access: proxy
         isDefault: true
         jsonData:
-          timeInterval: 5s
+          timeInterval: 15s
         editable: true
       - name: Loki
         type: loki

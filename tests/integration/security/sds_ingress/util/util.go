@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 //  Copyright Istio Authors
 //
@@ -36,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -130,7 +128,7 @@ func CreateIngressKubeSecret(t framework.TestContext, credName string,
 
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	systemNS := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 	CreateIngressKubeSecretInNamespace(t, credName, ingressType, ingressCred, isCompoundAndNotGeneric, systemNS.Name(), clusters...)
 }
 
@@ -151,7 +149,6 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 		clusters = t.Clusters()
 	}
 	for _, c := range clusters {
-		c := c
 		wg.Go(func() error {
 			secret := createSecret(ingressType, credName, ns, ingressCred, isCompoundAndNotGeneric)
 			_, err := c.Kube().CoreV1().Secrets(ns).Create(context.TODO(), secret, metav1.CreateOptions{})
@@ -184,7 +181,7 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 func deleteKubeSecret(t framework.TestContext, credName string) {
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	systemNS := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 
 	// Delete Kubernetes secret for ingress gateway
 	c := t.Clusters().Default()
@@ -271,6 +268,7 @@ type ExpectedResponse struct {
 	StatusCode                   int
 	SkipErrorMessageVerification bool
 	ErrorMessage                 string
+	AllowedErrorMessages         []string
 }
 
 type TLSContext struct {
@@ -323,12 +321,24 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 				// message then it should be treated as error when error message
 				// verification is not skipped. Error message verification is skipped
 				// when the error message is non-deterministic.
-				if !exRsp.SkipErrorMessageVerification && len(exRsp.ErrorMessage) == 0 {
-					return fmt.Errorf("unexpected error: %w", err)
-				}
-				if !exRsp.SkipErrorMessageVerification && !strings.Contains(err.Error(), exRsp.ErrorMessage) {
-					return fmt.Errorf("expected response error message %s but got %w",
-						exRsp.ErrorMessage, err)
+				if !exRsp.SkipErrorMessageVerification {
+					if len(exRsp.ErrorMessage) == 0 && len(exRsp.AllowedErrorMessages) == 0 {
+						return fmt.Errorf("unexpected error: %w", err)
+					}
+					matched := false
+					if exRsp.ErrorMessage != "" && strings.Contains(err.Error(), exRsp.ErrorMessage) {
+						matched = true
+					}
+					for _, allowed := range exRsp.AllowedErrorMessages {
+						if strings.Contains(err.Error(), allowed) {
+							matched = true
+							break
+						}
+					}
+					if !matched {
+						return fmt.Errorf("expected one of %v but got error: %w",
+							append([]string{exRsp.ErrorMessage}, exRsp.AllowedErrorMessages...), err)
+					}
 				}
 				return nil
 			}
@@ -356,8 +366,8 @@ func RotateSecrets(ctx framework.TestContext, credName string, // nolint:interfa
 ) {
 	ctx.Helper()
 	c := ctx.Clusters().Default()
-	ist := istio.GetOrFail(ctx, ctx)
-	systemNS := namespace.ClaimOrFail(ctx, ctx, ist.Settings().SystemNamespace)
+	ist := istio.GetOrFail(ctx)
+	systemNS := namespace.ClaimOrFail(ctx, ist.Settings().SystemNamespace)
 	scrt, err := c.Kube().CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), credName, metav1.GetOptions{})
 	if err != nil {
 		ctx.Errorf("Failed to get secret %s:%s (error: %s)", systemNS.Name(), credName, err)
@@ -433,7 +443,7 @@ type TestConfig struct {
 }
 
 const vsTemplate = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: {{.CredentialName}}
@@ -454,7 +464,7 @@ spec:
 `
 
 const gwTemplate = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: {{.CredentialName}}
@@ -635,14 +645,48 @@ func RunTestMultiQUICGateways(t framework.TestContext, inst istio.Instance, call
 	}
 }
 
-func CreateCustomInstances(apps *deployment.SingleNamespaceView) error {
-	for index, namespacedName := range apps.EchoNamespace.All.NamespacedNames() {
+func SetInstances(apps echo.Services) error {
+	for index, namespacedName := range apps.NamespacedNames() {
 		switch {
 		case namespacedName.Name == "a":
-			A = apps.EchoNamespace.All[index]
+			A = apps[index]
 		case namespacedName.Name == "vm":
-			VM = apps.EchoNamespace.All[index]
+			VM = apps[index]
 		}
 	}
 	return nil
+}
+
+// Some cloud platform may throw the following error during creation of the service with mixed TCP/UDP protocols:
+// "Error syncing load balancer: failed to ensure load balancer: mixed protocol is not supported for LoadBalancer".
+// Make sure the service is up and running before proceeding with the test.
+func WaitForIngressQUICService(t framework.TestContext, ns string) error {
+	_, err := retry.UntilComplete(func() (any, bool, error) {
+		services, err := t.Clusters().Default().Kube().CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, false, err
+		}
+		if len(services.Items) == 0 {
+			return nil, false, fmt.Errorf("still waiting for the service in namespace %s to be created", ns)
+		}
+
+		// Fetch events to check for the service status
+		fieldSelector := fmt.Sprintf("involvedObject.kind=Service,involvedObject.name=%s", "istio-ingressgateway")
+		events, err := t.Clusters().Default().Kube().CoreV1().Events(ns).List(context.TODO(), metav1.ListOptions{
+			FieldSelector: fieldSelector,
+		})
+		if err != nil {
+			return nil, false, err
+		}
+
+		// Verify that "instio-ingressgateway" service is not stuck with creation error
+		for _, ev := range events.Items {
+			if strings.Contains(ev.Message, "mixed protocol is not supported for LoadBalancer") {
+				return nil, true, fmt.Errorf("the QUIC mixed service is not supported")
+			}
+		}
+		return nil, true, nil
+	}, retry.Delay(1*time.Second), retry.Timeout(30*time.Second), retry.Converge(0))
+
+	return err
 }

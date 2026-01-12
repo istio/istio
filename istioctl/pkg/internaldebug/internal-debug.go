@@ -15,8 +15,11 @@
 package internaldebug
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -27,12 +30,11 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/istioctl/pkg/writer/pilot"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/kube"
 )
 
-func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
+func HandlerForRetrieveDebugList(list bool, kubeClient kube.CLIClient,
 	centralOpts clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
 	istioNamespace string,
@@ -50,7 +52,9 @@ func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 	if respErr != nil {
 		return xdsResponses, respErr
 	}
-	_, _ = fmt.Fprint(writer, "error: according to below command list, please check all supported internal debug commands\n")
+	if !list {
+		_, _ = fmt.Fprint(writer, "error: according to below command list, please check all supported internal debug commands\n")
+	}
 	return xdsResponses, nil
 }
 
@@ -69,11 +73,7 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 					"edsz?proxyID=istio-ingressgateway")
 
 			case strings.Contains(eString, "404 page not found"):
-				return HandlerForRetrieveDebugList(kubeClient, *centralOpts, writer, istioNamespace)
-
-			case strings.Contains(eString, "querystring parameter 'resource' is required"):
-				return nil, fmt.Errorf("querystring parameter 'resource' is required, e.g. [%s]",
-					"config_distribution?resource=VirtualService/default/bookinfo")
+				return HandlerForRetrieveDebugList(false, kubeClient, *centralOpts, writer, istioNamespace)
 			}
 		}
 	}
@@ -97,6 +97,9 @@ By default it will use the default serviceAccount from (istio-system) namespace 
   # Retrieve sync diff for a single Envoy and Istiod
   istioctl x internal-debug syncz istio-egressgateway-59585c5b9c-ndc59.istio-system
 
+  # List all supported debug types
+  istioctl x internal-debug --list
+
   # SECURITY OPTIONS
 
   # Retrieve syncz debug information directly from the control plane, using token security
@@ -116,13 +119,24 @@ By default it will use the default serviceAccount from (istio-system) namespace 
   istioctl x internal-debug syncz --xds-label istio.io/rev=default
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 			if err != nil {
 				return err
 			}
+			sw := DebugWriter{
+				Writer:                 c.OutOrStdout(),
+				InternalDebugAllIstiod: internalDebugAllIstiod,
+			}
 			if len(args) == 0 {
+				if list {
+					xdsResponses, err := HandlerForRetrieveDebugList(list, kubeClient, centralOpts, c.OutOrStdout(), ctx.IstioNamespace())
+					if err != nil {
+						return err
+					}
+					return sw.PrintAll(xdsResponses)
+				}
 				return util.CommandParseError{
-					Err: fmt.Errorf("debug type is required"),
+					Err: fmt.Errorf("debug type is required, you can specify --list flag to list supported debug types"),
 				}
 			}
 			var xdsRequest discovery.DiscoveryRequest
@@ -141,10 +155,6 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			if err != nil {
 				return err
 			}
-			sw := pilot.XdsStatusWriter{
-				Writer:                 c.OutOrStdout(),
-				InternalDebugAllIstiod: internalDebugAllIstiod,
-			}
 			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), ctx.IstioNamespace(), xdsResponses)
 			if err != nil {
 				return err
@@ -160,9 +170,66 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 	opts.AttachControlPlaneFlags(debugCommand)
 	centralOpts.AttachControlPlaneFlags(debugCommand)
 	debugCommand.Long += "\n\n" + util.ExperimentalMsg
+	debugCommand.PersistentFlags().BoolVarP(&list, "list", "L", false,
+		"List all supported debug types.")
 	debugCommand.PersistentFlags().BoolVar(&internalDebugAllIstiod, "all", false,
 		"Send the same request to all instances of Istiod. Only applicable for in-cluster deployment.")
 	return debugCommand
 }
 
-var internalDebugAllIstiod bool
+var (
+	internalDebugAllIstiod bool
+	list                   bool
+)
+
+type DebugWriter struct {
+	Writer                 io.Writer
+	Namespace              string
+	InternalDebugAllIstiod bool
+}
+
+func (s *DebugWriter) PrintAll(drs map[string]*discovery.DiscoveryResponse) error {
+	// Gather the statuses before printing so they may be sorted
+	mappedResp := map[string][]byte{}
+	for id, dr := range drs {
+		for _, resource := range dr.Resources {
+			if s.InternalDebugAllIstiod {
+				mappedResp[id] = resource.Value
+			} else {
+				var out bytes.Buffer
+				if err := json.Indent(&out, resource.Value, "", "  "); err != nil {
+					// resource.Value is not a json, fallback to raw output
+					_, _ = s.Writer.Write(resource.Value)
+				} else {
+					_, _ = out.WriteTo(os.Stdout)
+				}
+
+				_, _ = s.Writer.Write([]byte("\n"))
+			}
+		}
+	}
+	if len(mappedResp) > 0 {
+		rawMap := make(map[string]json.RawMessage)
+		for k, v := range mappedResp {
+			var temp interface{}
+			if err := json.Unmarshal(v, &temp); err == nil {
+				rawMap[k] = json.RawMessage(v)
+			} else {
+				str := string(v)
+				encodedStr, err := json.Marshal(str)
+				if err != nil {
+					return err
+				}
+				rawMap[k] = json.RawMessage(encodedStr)
+			}
+		}
+		mresp, err := json.MarshalIndent(rawMap, "", "  ")
+		if err != nil {
+			return err
+		}
+		_, _ = s.Writer.Write(mresp)
+		_, _ = s.Writer.Write([]byte("\n"))
+	}
+
+	return nil
+}

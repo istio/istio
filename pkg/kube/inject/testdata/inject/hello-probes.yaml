@@ -28,6 +28,13 @@ spec:
           readinessProbe:
             httpGet:
               port: 3333
+          lifecycle:
+            preStop:
+              httpGet:
+                port: 91
+            postStart:
+              tcpSocket:
+                port: 93
         - name: world
           image: "fake.docker.io/google-samples/hello-go-gke:1.0"
           ports:

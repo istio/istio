@@ -28,18 +28,17 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func createProxies(n int) []*Connection {
 	proxies := make([]*Connection, 0, n)
 	for p := 0; p < n; p++ {
-		proxies = append(proxies, &Connection{
-			conID:       fmt.Sprintf("proxy-%v", p),
-			pushChannel: make(chan *Event),
-			stream:      &fakeStream{},
-		})
+		conn := newConnection("", &fakeStream{})
+		conn.SetID(fmt.Sprintf("proxy-%v", p))
+		proxies = append(proxies, conn)
 	}
 	return proxies
 }
@@ -72,15 +71,15 @@ func TestSendPushesManyPushes(t *testing.T) {
 	pushesMu := &sync.Mutex{}
 
 	for _, proxy := range proxies {
-		proxy := proxy
 		// Start receive thread
 		go func() {
 			for {
 				select {
-				case p := <-proxy.pushChannel:
+				case ev := <-proxy.PushCh():
+					p := ev.(*Event)
 					p.done()
 					pushesMu.Lock()
-					pushes[proxy.conID]++
+					pushes[proxy.ID()]++
 					pushesMu.Unlock()
 				case <-stopCh:
 					return
@@ -92,7 +91,7 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 	for push := 0; push < 100; push++ {
 		for _, proxy := range proxies {
-			queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}})
+			queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}, Forced: true})
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
@@ -125,15 +124,15 @@ func TestSendPushesSinglePush(t *testing.T) {
 	pushesMu := &sync.Mutex{}
 
 	for _, proxy := range proxies {
-		proxy := proxy
 		// Start receive thread
 		go func() {
 			for {
 				select {
-				case p := <-proxy.pushChannel:
+				case ev := <-proxy.PushCh():
+					p := ev.(*Event)
 					p.done()
 					pushesMu.Lock()
-					pushes[proxy.conID]++
+					pushes[proxy.ID()]++
 					pushesMu.Unlock()
 					wg.Done()
 				case <-stopCh:
@@ -145,7 +144,7 @@ func TestSendPushesSinglePush(t *testing.T) {
 	go doSendPushes(stopCh, semaphore, queue)
 
 	for _, proxy := range proxies {
-		queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}})
+		queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}, Forced: true})
 	}
 
 	if !wgDoneOrTimeout(wg, time.Second) {
@@ -183,8 +182,8 @@ func TestDebounce(t *testing.T) {
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
-	opts := debounceOptions{
-		debounceAfter:     time.Millisecond * 50,
+	opts := DebounceOptions{
+		DebounceAfter:     time.Millisecond * 50,
 		debounceMax:       time.Millisecond * 100,
 		enableEDSDebounce: false,
 	}
@@ -196,42 +195,42 @@ func TestDebounce(t *testing.T) {
 		{
 			name: "Should not debounce partial pushes",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(1, 0)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(2, 0)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(3, 0)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(4, 0)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(5, 0)
 			},
 		},
 		{
 			name: "Should debounce full pushes",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				expect(0, 0)
 			},
 		},
 		{
 			name: "Should send full updates in batches",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true}
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				expect(0, 1)
 			},
 		},
 		{
 			name: "Should send full updates in batches, partial updates immediately",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true}
-				updateCh <- &model.PushRequest{Full: true}
-				updateCh <- &model.PushRequest{Full: false}
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(2, 1)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(3, 1)
 			},
 		},
@@ -239,23 +238,23 @@ func TestDebounce(t *testing.T) {
 			name: "Should force a push after DebounceMax",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				// Send many requests within debounce window
-				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				time.Sleep(opts.DebounceAfter / 2)
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				time.Sleep(opts.DebounceAfter / 2)
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				time.Sleep(opts.DebounceAfter / 2)
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				time.Sleep(opts.DebounceAfter / 2)
 				expect(0, 1)
 			},
 		},
 		{
 			name: "Should push synchronously after debounce",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter + 10*time.Millisecond)
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				time.Sleep(opts.DebounceAfter + 10*time.Millisecond)
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				expect(0, 2)
 			},
 		},
@@ -311,7 +310,7 @@ func TestDebounce(t *testing.T) {
 						}
 						return nil
 					}
-				}, retry.Timeout(opts.debounceAfter*8), retry.Delay(opts.debounceAfter/2))
+				}, retry.Timeout(opts.DebounceAfter*8), retry.Delay(opts.DebounceAfter/2))
 				if err != nil {
 					t.Error(err)
 				}
@@ -326,169 +325,45 @@ func TestDebounce(t *testing.T) {
 	}
 }
 
-func TestShouldRespond(t *testing.T) {
-	tests := []struct {
-		name       string
-		connection *Connection
-		request    *discovery.DiscoveryRequest
-		response   bool
-	}{
-		{
-			name: "initial request",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl: v3.ClusterType,
-			},
-			response: true,
-		},
-		{
-			name: "ack",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.ClusterType: {
-							NonceSent: "nonce",
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.ClusterType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-			},
-			response: false,
-		},
-		{
-			name: "ack forced",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.EndpointType: {
-							NonceSent:     "nonce",
-							AlwaysRespond: true,
-							ResourceNames: []string{"my-resource"},
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-				ResourceNames: []string{"my-resource"},
-			},
-			response: true,
-		},
-		{
-			name: "nack",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.ClusterType: {
-							NonceSent: "nonce",
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.ClusterType,
-				VersionInfo:   "v1",
-				ResponseNonce: "stale nonce",
-			},
-			response: false,
-		},
-		{
-			name: "reconnect",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.ClusterType,
-				VersionInfo:   "v1",
-				ResponseNonce: "reconnect nonce",
-			},
-			response: true,
-		},
-		{
-			name: "resources change",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.EndpointType: {
-							NonceSent:     "nonce",
-							ResourceNames: []string{"cluster1"},
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-				ResourceNames: []string{"cluster1", "cluster2"},
-			},
-			response: true,
-		},
-		{
-			name: "ack with same resources",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.EndpointType: {
-							NonceSent:     "nonce",
-							ResourceNames: []string{"cluster2", "cluster1"},
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-				ResourceNames: []string{"cluster1", "cluster2"},
-			},
-			response: false,
-		},
-		{
-			name: "unsubscribe EDS",
-			connection: &Connection{
-				proxy: &model.Proxy{
-					WatchedResources: map[string]*model.WatchedResource{
-						v3.EndpointType: {
-							NonceSent:     "nonce",
-							ResourceNames: []string{"cluster2", "cluster1"},
-						},
-					},
-				},
-			},
-			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointType,
-				VersionInfo:   "v1",
-				ResponseNonce: "nonce",
-				ResourceNames: []string{},
-			},
-			response: false,
-		},
+func BenchmarkPushRequest(b *testing.B) {
+	// allTriggers contains all triggers, so we can pick one at random.
+	// It is not a big issue if it falls out of sync, as we are just trying to generate test data
+	allTriggers := []model.TriggerReason{
+		model.EndpointUpdate,
+		model.ConfigUpdate,
+		model.ServiceUpdate,
+		model.ProxyUpdate,
+		model.GlobalUpdate,
+		model.UnknownTrigger,
+		model.DebugTrigger,
+		model.SecretTrigger,
+		model.NetworksTrigger,
+		model.ProxyRequest,
+		model.NamespaceUpdate,
 	}
+	// Number of (simulated) proxies
+	proxies := 500
+	// Number of (simulated) pushes merged
+	pushesMerged := 10
+	// Number of configs per push
+	configs := 1
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := NewFakeDiscoveryServer(t, FakeOptions{})
-			if response, _ := s.Discovery.shouldRespond(tt.connection, tt.request); response != tt.response {
-				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
+	for n := 0; n < b.N; n++ {
+		var req *model.PushRequest
+		for i := 0; i < pushesMerged; i++ {
+			trigger := allTriggers[i%len(allTriggers)]
+			nreq := &model.PushRequest{
+				ConfigsUpdated: sets.New[model.ConfigKey](),
+				Reason:         model.NewReasonStats(trigger),
+				Forced:         true,
 			}
-			if tt.name != "reconnect" && tt.response {
-				if tt.connection.proxy.WatchedResources[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
-					t.Fatalf("Version & Nonce not updated properly")
-				}
+			for c := 0; c < configs; c++ {
+				nreq.ConfigsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"})
 			}
-		})
+			req = req.Merge(nreq)
+		}
+		for p := 0; p < proxies; p++ {
+			recordPushTriggers(req.Reason)
+		}
 	}
 }

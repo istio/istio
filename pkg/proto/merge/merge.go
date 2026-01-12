@@ -32,7 +32,7 @@ import (
 )
 
 type (
-	MergeFunction func(dst, src protoreflect.Message)
+	MergeFunction func(dst, src protoreflect.Message) protoreflect.Message
 	mergeOptions  struct {
 		customMergeFn map[protoreflect.FullName]MergeFunction
 	}
@@ -46,16 +46,10 @@ func MergeFunctionOptionFn(name protoreflect.FullName, function MergeFunction) O
 	}
 }
 
-// ReplaceMergeFn instead of merging all subfields one by one, takes src and set it to dest
-var ReplaceMergeFn MergeFunction = func(dst, src protoreflect.Message) {
-	dst.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-		dst.Clear(fd)
-		return true
-	})
-	src.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-		dst.Set(fd, v)
-		return true
-	})
+// ReplaceMergeFn instead of merging all subfields one by one, returns src
+var ReplaceMergeFn MergeFunction = func(dst, src protoreflect.Message) protoreflect.Message {
+	// we can return src directly because this is a replace
+	return src
 }
 
 var options = []OptionFn{
@@ -99,7 +93,8 @@ func (o mergeOptions) mergeMessage(dst, src protoreflect.Message) {
 		case fd.Message() != nil:
 			mergeFn, exists := o.customMergeFn[fd.Message().FullName()]
 			if exists {
-				mergeFn(dst.Mutable(fd).Message(), v.Message())
+				dstV := mergeFn(dst.Mutable(fd).Message(), v.Message())
+				dst.Set(fd, protoreflect.ValueOf(dstV))
 			} else {
 				o.mergeMessage(dst.Mutable(fd).Message(), v.Message())
 			}

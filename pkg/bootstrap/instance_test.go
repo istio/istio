@@ -11,15 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package bootstrap
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -28,10 +26,17 @@ import (
 	"strings"
 	"testing"
 
-	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/brotli/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/gzip/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/zstd/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/compressor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/downstream_connections/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -42,6 +47,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -73,8 +79,6 @@ var (
 // If the template is updated, refresh golden files using:
 // REFRESH_GOLDEN=true go test ./pkg/bootstrap/...
 func TestGolden(t *testing.T) {
-	var ts *httptest.Server
-
 	cases := []struct {
 		base                       string
 		envVars                    map[string]string
@@ -89,6 +93,7 @@ func TestGolden(t *testing.T) {
 		setup                      func()
 		teardown                   func()
 		check                      func(got *bootstrap.Bootstrap, t *testing.T)
+		compliancePolicy           string
 	}{
 		{
 			base: "xdsproxy",
@@ -103,6 +108,15 @@ func TestGolden(t *testing.T) {
 		},
 		{
 			base: "default",
+		},
+		{
+			base: "ambient",
+			envVars: map[string]string{
+				"ISTIO_META_ENABLE_HBONE": "true", // This is our indication that this proxy is in an ambient installation
+			},
+		},
+		{
+			base: "explicit_internal_address",
 		},
 		{
 			base: "running",
@@ -154,104 +168,6 @@ func TestGolden(t *testing.T) {
 			base: "metrics_no_statsd",
 		},
 		{
-			base:    "tracing_stackdriver",
-			stsPort: 15463,
-			platformMeta: map[string]string{
-				"gcp_project": "my-sd-project",
-			},
-			setup: func() {
-				ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					fmt.Fprintln(w, "my-sd-project")
-				}))
-
-				u, err := url.Parse(ts.URL)
-				if err != nil {
-					t.Fatalf("Unable to parse mock server url: %v", err)
-				}
-				t.Setenv("GCE_METADATA_HOST", u.Host)
-			},
-			teardown: func() {
-				if ts != nil {
-					ts.Close()
-				}
-			},
-			check: func(got *bootstrap.Bootstrap, t *testing.T) {
-				// nolint: staticcheck
-				cfg := got.Tracing.Http.GetTypedConfig()
-				sdMsg := &trace.OpenCensusConfig{}
-				if err := cfg.UnmarshalTo(sdMsg); err != nil {
-					t.Fatalf("unable to parse: %v %v", cfg, err)
-				}
-
-				want := &trace.OpenCensusConfig{
-					TraceConfig: &v1.TraceConfig{
-						Sampler: &v1.TraceConfig_ConstantSampler{
-							ConstantSampler: &v1.ConstantSampler{
-								Decision: v1.ConstantSampler_ALWAYS_PARENT,
-							},
-						},
-						MaxNumberOfAttributes:    200,
-						MaxNumberOfAnnotations:   201,
-						MaxNumberOfMessageEvents: 201,
-						MaxNumberOfLinks:         200,
-					},
-					StackdriverExporterEnabled: true,
-					StdoutExporterEnabled:      true,
-					StackdriverProjectId:       "my-sd-project",
-					StackdriverGrpcService: &core.GrpcService{
-						TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-							GoogleGrpc: &core.GrpcService_GoogleGrpc{
-								TargetUri:  "cloudtrace.googleapis.com",
-								StatPrefix: "oc_stackdriver_tracer",
-								ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-									CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-										SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{},
-									},
-								},
-								CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-									{
-										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
-											StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
-												TokenExchangeServiceUri: "http://localhost:15463/token",
-												SubjectTokenPath:        "./var/run/secrets/tokens/istio-token",
-												SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
-												Scope:                   "https://www.googleapis.com/auth/cloud-platform",
-											},
-										},
-									},
-								},
-							},
-						},
-						InitialMetadata: []*core.HeaderValue{
-							{
-								Key:   "x-goog-user-project",
-								Value: "my-sd-project",
-							},
-						},
-					},
-					IncomingTraceContext: []trace.OpenCensusConfig_TraceContext{
-						trace.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-						trace.OpenCensusConfig_TRACE_CONTEXT,
-						trace.OpenCensusConfig_GRPC_TRACE_BIN,
-						trace.OpenCensusConfig_B3,
-					},
-					OutgoingTraceContext: []trace.OpenCensusConfig_TraceContext{
-						trace.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
-						trace.OpenCensusConfig_TRACE_CONTEXT,
-						trace.OpenCensusConfig_GRPC_TRACE_BIN,
-						trace.OpenCensusConfig_B3,
-					},
-				}
-
-				if diff := cmp.Diff(sdMsg, want, protocmp.Transform()); diff != "" {
-					t.Fatalf("got unexpected diff: %v", diff)
-				}
-			},
-		},
-		{
-			base: "tracing_opencensusagent",
-		},
-		{
 			base: "tracing_none",
 		},
 		{
@@ -280,7 +196,8 @@ func TestGolden(t *testing.T) {
 			base: "tracing_tls_custom_sni",
 		},
 		{
-			base: "lrs",
+			base:             "lrs",
+			compliancePolicy: "fips-140-2",
 			envVars: map[string]string{
 				"ISTIO_META_LOAD_STATS_CONFIG_JSON": `{"api_type": "GRPC", "transport_api_version": "V3"}`,
 			},
@@ -307,6 +224,31 @@ func TestGolden(t *testing.T) {
 			base: "stats_compression_unknown",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsCompression": "unknown",
+			},
+		},
+		{
+			base: "stats_flush_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval": "10s",
+			},
+		},
+		{
+			base: "stats_eviction_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsEvictionInterval": "10s",
+			},
+		},
+		{
+			base: "invalid_stats_eviction_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsEvictionInterval": "11s",
+			},
+		},
+		{
+			base: "stats_interval",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsFlushInterval":    "10s",
+				"sidecar.istio.io/statsEvictionInterval": "20s",
 			},
 		},
 	}
@@ -356,16 +298,18 @@ func TestGolden(t *testing.T) {
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account",
 				},
-				OutlierLogPath:      "/dev/stdout",
-				annotationFilePath:  annoFile.Name(),
-				EnvoyPrometheusPort: 15090,
-				EnvoyStatusPort:     15021,
+				OutlierLogPath:             "/dev/stdout",
+				annotationFilePath:         annoFile.Name(),
+				EnvoyPrometheusPort:        15090,
+				EnvoyStatusPort:            15021,
+				WorkloadIdentitySocketFile: "test.sock",
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
 			fn, err := New(Config{
-				Node: node,
+				Node:             node,
+				CompliancePolicy: c.compliancePolicy,
 			}).CreateFile()
 			if err != nil {
 				t.Fatal(err)
@@ -424,7 +368,8 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid generated file %s: %v", c.base, err)
 			}
 
-			checkStatsMatcher(t, realM, goldenM, c.stats)
+			checkStatsMatcher(t, realM, goldenM, c.stats, node.Metadata)
+			checkStatsTags(t, goldenM)
 
 			if c.check != nil {
 				c.check(realM, t)
@@ -502,11 +447,182 @@ func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 	}
 }
 
-func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats) {
-	gsm := got.GetStatsConfig().GetStatsMatcher()
+// Test that our golden files all have proper stat tags
+func checkStatsTags(t *testing.T, got *bootstrap.Bootstrap) {
+	for _, tag := range got.StatsConfig.StatsTags {
+		// TODO: Add checks for other tags
+		switch tag.TagName {
+		case "cluster_name":
+			checkClusterNameTag(t, tag.GetRegex())
+		case "http_conn_manager_prefix":
+			checkHTTPConnManagerPrefixTag(t, tag.GetRegex())
+		}
+	}
+}
 
+// Envoy will remove the first capture group and set the tag to the second capture group.
+// We double check that all of the regexes we set return what we want here.
+
+func checkHTTPConnManagerPrefixTag(t *testing.T, regex string) {
+	if regex == "" {
+		t.Fatal("cluster_name tag regex is empty")
+	}
+
+	compiledRegex, err := regexp.Compile(regex)
+	if err != nil {
+		t.Fatalf("invalid regex for cluster_name tag: %v", err)
+	}
+
+	tc := []struct {
+		name               string
+		statPrefix         string
+		firstCaptureGroup  string
+		secondCaptureGroup string
+	}{
+		{
+			name:               "http_conn_manager_prefix stats tag - ipv4 address - single-segment",
+			statPrefix:         "http.0.0.0.0;.downstream_rq_total",
+			firstCaptureGroup:  "0.0.0.0;.",
+			secondCaptureGroup: "0.0.0.0",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - ipv4 address - multi-segment",
+			statPrefix:         "http.0.0.0.0;.jwt_authn.allowed",
+			firstCaptureGroup:  "0.0.0.0;.",
+			secondCaptureGroup: "0.0.0.0",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - ipv6 address - single-segment",
+			statPrefix:         "http.2001:0000:130F:0000:0000:09C0:876A:130B;.downstream_rq_total",
+			firstCaptureGroup:  "2001:0000:130F:0000:0000:09C0:876A:130B;.",
+			secondCaptureGroup: "2001:0000:130F:0000:0000:09C0:876A:130B",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - ipv6 address - multi-segment",
+			statPrefix:         "http.2001:0000:130F:0000:0000:09C0:876A:130B;.jwt_authn.allowed",
+			firstCaptureGroup:  "2001:0000:130F:0000:0000:09C0:876A:130B;.",
+			secondCaptureGroup: "2001:0000:130F:0000:0000:09C0:876A:130B",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - direction-prefixed ipv4 - single-segment",
+			statPrefix:         "http.inbound_0.0.0.0;.downstream_rq_total",
+			firstCaptureGroup:  "inbound_0.0.0.0;.",
+			secondCaptureGroup: "inbound_0.0.0.0",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - direction-prefixed ipv4 - multi-segment",
+			statPrefix:         "http.inbound_0.0.0.0;.jwt_authn.allowed",
+			firstCaptureGroup:  "inbound_0.0.0.0;.",
+			secondCaptureGroup: "inbound_0.0.0.0",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - direction-prefixed ipv6 - single-segment",
+			statPrefix:         "http.inbound_2001:0000:130F:0000:0000:09C0:876A:130B;.downstream_rq_total",
+			firstCaptureGroup:  "inbound_2001:0000:130F:0000:0000:09C0:876A:130B;.",
+			secondCaptureGroup: "inbound_2001:0000:130F:0000:0000:09C0:876A:130B",
+		},
+		{
+			name:               "http_conn_manager_prefix stats tag - direction-prefixed ipv6 - multi-segment",
+			statPrefix:         "http.inbound_2001:0000:130F:0000:0000:09C0:876A:130B;.jwt_authn.allowed",
+			firstCaptureGroup:  "inbound_2001:0000:130F:0000:0000:09C0:876A:130B;.",
+			secondCaptureGroup: "inbound_2001:0000:130F:0000:0000:09C0:876A:130B",
+		},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			subMatches := compiledRegex.FindStringSubmatch(tt.statPrefix)
+			if subMatches == nil {
+				t.Fatalf("cluster_name tag regex does not match cluster name %s", tt.statPrefix)
+			}
+
+			// The first index is the whole match followed by N number of capture groups.
+			// There are 2 capture groups we expect in the regex, so we always check for 3
+			if len(subMatches) != 3 {
+				t.Fatalf("unexpected number of capture groups: %d. Submatches: %v", len(subMatches), subMatches)
+			}
+			// Now we examine both of the capture groups (which start at index 1)
+			if subMatches[1] != tt.firstCaptureGroup {
+				t.Fatalf("first capture group does not match %s, got %s", tt.firstCaptureGroup, subMatches[1])
+			}
+
+			// Finally, check the second capture group
+			if subMatches[2] != tt.secondCaptureGroup {
+				t.Fatalf("second capture group does not match %s, got %s", tt.secondCaptureGroup, subMatches[2])
+			}
+		})
+	}
+}
+
+func checkClusterNameTag(t *testing.T, regex string) {
+	if regex == "" {
+		t.Fatal("cluster_name tag regex is empty")
+	}
+
+	compiledRegex, err := regexp.Compile(regex)
+	if err != nil {
+		t.Fatalf("invalid regex for cluster_name tag: %v", err)
+	}
+
+	tc := []struct {
+		name               string
+		clusterName        string
+		firstCaptureGroup  string
+		secondCaptureGroup string
+	}{
+		{
+			name:               "cluster_name stats tag - external service",
+			clusterName:        "cluster.outbound|443||api.facebook.com;.upstream_rq_retry",
+			firstCaptureGroup:  ".outbound|443||api.facebook.com;",
+			secondCaptureGroup: "outbound|443||api.facebook.com",
+		},
+		{
+			name:               "cluster_name stats tag - internal kubernetes service",
+			clusterName:        "cluster.outbound|443||kubernetes.default.svc.cluster.local;.upstream_rq_retry",
+			firstCaptureGroup:  ".outbound|443||kubernetes.default.svc.cluster.local;",
+			secondCaptureGroup: "outbound|443||kubernetes.default.svc.cluster.local",
+		},
+		{
+			name:               "cluster_name stats tag - no dots in cluster name",
+			clusterName:        "cluster.xds-grpc;.upstream_rq_retry",
+			firstCaptureGroup:  ".xds-grpc;",
+			secondCaptureGroup: "xds-grpc",
+		},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			subMatches := compiledRegex.FindStringSubmatch(tt.clusterName)
+			if subMatches == nil {
+				t.Fatalf("cluster_name tag regex does not match cluster name %s", tt.clusterName)
+			}
+
+			// The first index is the whole match followed by N number of capture groups.
+			// There are 2 capture groups we expect in the regex, so we always check for 3
+			if len(subMatches) != 3 {
+				t.Fatalf("unexpected number of capture groups: %d. Submatches: %v", len(subMatches), subMatches)
+			}
+			// Now we examine both of the capture groups (which start at index 1)
+			if subMatches[1] != tt.firstCaptureGroup {
+				t.Fatalf("first capture group does not match %s, got %s", tt.firstCaptureGroup, subMatches[1])
+			}
+
+			// Finally, check the second capture group
+			if subMatches[2] != tt.secondCaptureGroup {
+				t.Fatalf("second capture group does not match %s, got %s", tt.secondCaptureGroup, subMatches[2])
+			}
+		})
+	}
+}
+
+func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats, meta *model.BootstrapNodeMetadata) {
+	gsm := got.GetStatsConfig().GetStatsMatcher()
+	variablePrefixes := ""
+	if meta.EnableHBONE {
+		variablePrefixes = "workload_discovery,"
+	}
 	if stats.prefixes == "" {
-		stats.prefixes = v2Prefixes + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
+		stats.prefixes = v2Prefixes + variablePrefixes + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
 	} else {
 		stats.prefixes = v2Prefixes + stats.prefixes + "," + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
 	}

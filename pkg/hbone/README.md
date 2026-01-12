@@ -35,7 +35,7 @@ Usage example:
 d := hbone.NewDialer(hbone.Config{
     ProxyAddress: "1.2.3.4:15008",
     Headers: map[string][]string{
-        "some-addition-metadata": {"test-value"},
+        "some-additional-metadata": {"test-value"},
     },
     TLS:          nil, // TLS is strongly recommended in real world
 })

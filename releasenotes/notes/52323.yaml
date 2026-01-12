@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 52315
+
+releaseNotes:
+- |
+  **Removed** writing kubeconfig to CNI net directory.
+- |
+  **Removed** `CNI_NET_DIR` from the `istio-cni` configmap, as it now does nothing.

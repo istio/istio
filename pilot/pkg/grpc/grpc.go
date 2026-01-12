@@ -20,11 +20,12 @@ import (
 	"math"
 	"strings"
 
-	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -32,36 +33,12 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-type SendHandler func() error
-
-// Send with timeout if specified. If timeout is zero, sends without timeout.
-func Send(ctx context.Context, send SendHandler) error {
-	if features.XdsPushSendTimeout.Nanoseconds() > 0 {
-		errChan := make(chan error, 1)
-		timeoutCtx, cancel := context.WithTimeout(ctx, features.XdsPushSendTimeout)
-		defer cancel()
-		go func() {
-			err := send()
-			errChan <- err
-			close(errChan)
-		}()
-		select {
-		case <-timeoutCtx.Done():
-			return status.Errorf(codes.DeadlineExceeded, "timeout sending")
-		case err := <-errChan:
-			return err
-		}
-	}
-	err := send()
-	return err
-}
-
-func ServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnaryServerInterceptor) []grpc.ServerOption {
+func ServerOptions(options *istiokeepalive.Options, handleNewMaxMessageSize func(int64), interceptors ...grpc.UnaryServerInterceptor) []grpc.ServerOption {
 	maxStreams := features.MaxConcurrentStreams
 	maxRecvMsgSize := features.MaxRecvMsgSize
 
 	grpcOptions := []grpc.ServerOption{
-		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
+		grpc.ChainUnaryInterceptor(interceptors...),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.MaxRecvMsgSize(maxRecvMsgSize),
 		// Ensure we allow clients sufficient ability to send keep alives. If this is higher than client
@@ -69,6 +46,7 @@ func ServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnarySe
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime: options.Time / 2,
 		}),
+		grpc.StatsHandler(statsHandler(handleNewMaxMessageSize)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:                  options.Time,
 			Timeout:               options.Timeout,
@@ -78,6 +56,45 @@ func ServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnarySe
 	}
 
 	return grpcOptions
+}
+
+func statsHandler(callback func(int64)) stats.Handler {
+	return grpcStatsHandler{max: atomic.NewInt64(0), callback: callback}
+}
+
+type grpcStatsHandler struct {
+	max      *atomic.Int64
+	callback func(int64)
+}
+
+func (h grpcStatsHandler) TagConn(ctx context.Context, info *stats.ConnTagInfo) context.Context {
+	return ctx
+}
+
+func (h grpcStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
+	return ctx
+}
+
+func (h grpcStatsHandler) HandleConn(ctx context.Context, s stats.ConnStats) {
+}
+
+func (h grpcStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {
+	if ts, ok := s.(*stats.InPayload); ok {
+		l := int64(ts.Length)
+		// Set h.max = max(h.max, l)
+		// We need a CAS loop here, there is no native support for t his.
+		for {
+			cur := h.max.Load()
+			if l < cur {
+				return
+			}
+			if h.max.CompareAndSwap(cur, l) {
+				// Success, exit
+				h.callback(l)
+				return
+			}
+		}
+	}
 }
 
 const (
@@ -127,25 +144,40 @@ func containsExpectedMessage(msg string) bool {
 	return false
 }
 
-// IsExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
-// things are operating normally. This is basically capturing when the client disconnects.
-func IsExpectedGRPCError(err error) bool {
+type ErrorType string
+
+const (
+	// This indicates all the errors except the expected errors or graceful termination.
+	UnexpectedError ErrorType = "unexpectedError"
+	// This indicates an expected error when things are operating normally.
+	ExpectedError ErrorType = "expectedError"
+	// This indicates an error which happen when the connection is gracefully terminated.
+	// For example, the peer calls `SendClose()`.
+	GracefulTermination ErrorType = "gracefulTermination"
+)
+
+// GRPCErrorType checks a gRPC error code and determines its ErrorType.
+// This is basically capturing when the peer disconnects.
+func GRPCErrorType(err error) ErrorType {
 	if err == io.EOF {
-		return true
+		return GracefulTermination
 	}
 
 	if s, ok := status.FromError(err); ok {
 		if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
-			return true
+			return ExpectedError
 		}
 		if s.Code() == codes.Unavailable && containsExpectedMessage(s.Message()) {
-			return true
+			return ExpectedError
 		}
 	}
 	// If this is not a gRPCStatus we should just error message.
 	if strings.Contains(err.Error(), "stream terminated by RST_STREAM with error code: NO_ERROR") {
-		return true
+		return ExpectedError
+	}
+	if strings.Contains(err.Error(), "received prior goaway: code: NO_ERROR") {
+		return ExpectedError
 	}
 
-	return false
+	return UnexpectedError
 }

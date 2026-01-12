@@ -34,8 +34,6 @@ import (
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
@@ -54,7 +52,6 @@ type caOptions struct {
 	Namespace        string
 	Authenticators   []security.Authenticator
 	CertSignerDomain string
-	DiscoveryFilter  namespace.DiscoveryFilter
 }
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -139,15 +136,26 @@ var (
 		"Kubernetes CA Signer type. Valid from Kubernetes 1.18").Get()
 )
 
+// initCAServer create a CA Server. The CA API uses cert with the max workload cert TTL.
+// 'hostlist' must be non-empty - but is not used since CA Server will start on existing
+// grpc server. Adds client cert auth and kube (sds enabled)
+func (s *Server) initCAServer(ca caserver.CertificateAuthority, opts *caOptions) {
+	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, s.multiclusterController)
+	if startErr != nil {
+		log.Fatalf("failed to create istio ca server: %v", startErr)
+	}
+	s.caServer = caServer
+}
+
 // RunCA will start the cert signing GRPC service on an existing server.
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts *caOptions) {
+func (s *Server) RunCA(grpc *grpc.Server) {
 	iss := trustedIssuer.Get()
 	aud := audience.Get()
 
-	token, err := os.ReadFile(getJwtPath())
+	token, err := os.ReadFile(securityModel.ThirdPartyJwtPath)
 	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
@@ -162,14 +170,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		}
 	}
 
-	// The CA API uses cert with the max workload cert TTL.
-	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
-	// Adds client cert auth and kube (sds enabled)
-	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, s.kubeClient, opts.DiscoveryFilter)
-	if startErr != nil {
-		log.Fatalf("failed to create istio ca server: %v", startErr)
-	}
-
 	// TODO: if not set, parse Istiod's own token (if present) and get the issuer. The same issuer is used
 	// for all tokens - no need to configure twice. The token may also include cluster info to auto-configure
 	// networking properties.
@@ -178,16 +178,16 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
 		jwtRule := v1beta1.JWTRule{Issuer: iss, Audiences: []string{aud}}
-		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule)
+		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule, nil)
 		if err == nil {
-			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
+			s.caServer.Authenticators = append(s.caServer.Authenticators, oidcAuth)
 			log.Info("Using out-of-cluster JWT authentication")
 		} else {
 			log.Info("K8S token doesn't support OIDC, using only in-cluster auth")
 		}
 	}
 
-	caServer.Register(grpc)
+	s.caServer.Register(grpc)
 
 	log.Info("Istiod CA has started")
 }
@@ -220,10 +220,11 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 	return structuredPayload, nil
 }
 
-// detectSigningCABundle determines in which format the signing ca files are created.
+// detectSigningCABundleAndCRL determines in which format the signing ca files are created.
 // kubernetes tls secrets mount files as tls.crt,tls.key,ca.crt
 // istiod secret is ca-cert.pem ca-key.pem cert-chain.pem root-cert.pem
-func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
+// it also checks for optional crl file and adds its file path if it exists
+func detectSigningCABundleAndCRL() (ca.SigningCAFileBundle, error) {
 	tlsSigningFile := path.Join(LocalCertDir.Get(), ca.TLSSecretCACertFile)
 
 	// looking for tls file format (tls.crt)
@@ -244,30 +245,54 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 
 	log.Info("Using istiod file format for signing ca files")
 	// default ca file format
-	return ca.SigningCAFileBundle{
+	signingCAFileBundle := ca.SigningCAFileBundle{
 		RootCertFile:    path.Join(LocalCertDir.Get(), ca.RootCertFile),
 		CertChainFiles:  []string{path.Join(LocalCertDir.Get(), ca.CertChainFile)},
 		SigningCertFile: path.Join(LocalCertDir.Get(), ca.CACertFile),
 		SigningKeyFile:  path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile),
-	}, nil
+	}
+
+	if features.EnableCACRL {
+		// load crl file if it exists
+		crlFilePath := path.Join(LocalCertDir.Get(), ca.CACRLFile)
+		if _, err := os.Stat(crlFilePath); err == nil {
+			log.Info("Detected CRL file")
+			signingCAFileBundle.CRLFile = crlFilePath
+		}
+	}
+
+	return signingCAFileBundle, nil
 }
 
 // loadCACerts loads an existing `cacerts` Secret if the files aren't mounted locally.
 // By default, a cacerts Secret would be mounted during pod startup due to the
 // Istiod Deployment configuration. But with external Istiod, we want to be
 // able to load cacerts from a remote cluster instead.
+// TODO(costin): remove this method, it is not watching the files and the functionality is now available
+// in the normal CA code (including support for the new style keys)
 func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 	if s.kubeClient == nil {
 		return nil
 	}
 
-	signingKeyFile := path.Join(dir, ca.CAPrivateKeyFile)
-	if _, err := os.Stat(signingKeyFile); err == nil {
+	// Skip remote fetch if a complete CA bundle is already mounted
+	signingCABundleComplete, bundleExists, err := checkCABundleCompleteness(
+		path.Join(dir, ca.CAPrivateKeyFile),
+		path.Join(dir, ca.CACertFile),
+		path.Join(dir, ca.RootCertFile),
+		[]string{path.Join(dir, ca.CertChainFile)},
+	)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("error loading remote CA certs: %w", err)
+	}
+	if signingCABundleComplete {
 		return nil
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("signing key file %s already exists", signingKeyFile)
+	}
+	if bundleExists {
+		log.Warnf("incomplete signing CA bundle detected at %s", dir)
 	}
 
+	// if locally mounted signing bundle not found or is incomplete, try loading from remote cluster secrets
 	secret, err := s.kubeClient.Kube().CoreV1().Secrets(caOpts.Namespace).Get(
 		context.TODO(), ca.CACertsSecret, metav1.GetOptions{})
 	if err != nil {
@@ -277,6 +302,9 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 		return err
 	}
 
+	// TODO(deveshdama): writing cacerts files from remote cluster will always fail,
+	// since etc/cacerts is mounted as readonly volume
+	// tracking issue: https://github.com/istio/istio/issues/55698
 	log.Infof("cacerts Secret found in config cluster, saving contents to %s", dir)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -293,26 +321,32 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 // handleEvent handles the events on cacerts related files.
 // If create/write(modified) event occurs, then it verifies that
 // newly introduced cacerts are intermediate CA which is generated
-// from cuurent root-cert.pem. Then it updates and keycertbundle
+// from current root-cert.pem. Then it updates and keycertbundle
 // and generates new dns certs.
+// similarly, if crl file is created/modified,
+// it updates the crl file in keycertbundle and notifies the watcher
+// to replicate the new crl data.
 func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
 
 	var newCABundle []byte
 	var err error
+	var updateCRL bool
 
-	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-
-	fileBundle, err := detectSigningCABundle()
+	fileBundle, err := detectSigningCABundleAndCRL()
 	if err != nil {
 		log.Errorf("unable to determine signing file format %v", err)
 		return
 	}
+
+	// check if CA bundle is updated
 	newCABundle, err = os.ReadFile(fileBundle.RootCertFile)
 	if err != nil {
 		log.Errorf("failed reading root-cert.pem: %v", err)
 		return
 	}
+
+	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 
 	// Only updating intermediate CA is supported now
 	if !bytes.Equal(currentCABundle, newCABundle) {
@@ -332,15 +366,45 @@ func handleEvent(s *Server) {
 		}
 	}
 
+	if features.EnableCACRL {
+		// check if crl file is updated
+		if len(fileBundle.CRLFile) > 0 {
+			currentCRLData := s.CA.GetCAKeyCertBundle().GetCRLPem()
+			crlData, crlReadErr := os.ReadFile(fileBundle.CRLFile)
+			if crlReadErr != nil {
+				// handleEvent can be triggered either for key-cert bundle update or
+				// for crl file update. So, even if there is an error in reading crl file,
+				// we should log error and continue with key-cert bundle update.
+				log.Errorf("failed reading crl file: %v", crlReadErr)
+			}
+
+			if !bytes.Equal(currentCRLData, crlData) {
+				log.Infof("Updating CRL data")
+				updateCRL = true
+			}
+		}
+	}
+
+	// process updated root cert or crl file
 	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
 		fileBundle.SigningCertFile,
 		fileBundle.SigningKeyFile,
 		fileBundle.CertChainFiles,
-		fileBundle.RootCertFile)
-
+		fileBundle.RootCertFile,
+		fileBundle.CRLFile,
+	)
 	if err != nil {
 		log.Errorf("Failed to update new Plug-in CA certs: %v", err)
 		return
+	}
+	if len(s.CA.GetCAKeyCertBundle().GetRootCertPem()) != 0 {
+		caserver.RecordCertsExpiry(s.CA.GetCAKeyCertBundle())
+	}
+
+	// notify watcher to replicate new or updated crl data
+	if updateCRL {
+		s.istiodCertBundleWatcher.SetAndNotifyCACRL(s.CA.GetCAKeyCertBundle().GetCRLPem())
+		log.Infof("Istiod has detected the newly added CRL file and updated its CRL accordingly")
 	}
 
 	err = s.updateRootCertAndGenKeyCert()
@@ -396,10 +460,10 @@ func (s *Server) addCACertsFileWatcher(dir string) error {
 	return nil
 }
 
-// initCACertsWatcher initializes the cacerts (/etc/cacerts) directory.
-// In particular it monitors 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem'
-// and 'cert-chain.pem'.
-func (s *Server) initCACertsWatcher() {
+// initCACertsAndCRLWatcher initializes the cacerts (/etc/cacerts) directory.
+// In particular, it monitors 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem',
+// 'cert-chain.pem' and 'ca-crl.pem'.
+func (s *Server) initCACertsAndCRLWatcher() {
 	var err error
 
 	s.cacertsWatcher, err = fsnotify.NewWatcher()
@@ -424,22 +488,36 @@ func (s *Server) initCACertsWatcher() {
 //	which may contain multiple roots. A 'cert-chain.pem' file has the full cert chain.
 func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	var caOpts *ca.IstioCAOptions
-	var detectedSigningCABundle bool
+	var signingCABundleComplete bool
 	var istioGenerated bool
 	var err error
 
-	fileBundle, err := detectSigningCABundle()
+	fileBundle, err := detectSigningCABundleAndCRL()
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine signing file format %v", err)
 	}
-	if _, err := os.Stat(fileBundle.SigningKeyFile); err == nil {
-		detectedSigningCABundle = true
+
+	signingCABundleComplete, bundleExists, err := checkCABundleCompleteness(
+		fileBundle.SigningKeyFile,
+		fileBundle.SigningCertFile,
+		fileBundle.RootCertFile,
+		fileBundle.CertChainFiles,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create an istiod CA: %w", err)
+	}
+	if !signingCABundleComplete && bundleExists {
+		return nil, fmt.Errorf("failed to create an istiod CA: incomplete signing CA bundle detected")
+	}
+
+	if signingCABundleComplete {
 		if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
 			istioGenerated = true
 		}
 	}
 
-	if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && istioGenerated) {
+	useSelfSignedCA := !signingCABundleComplete || (features.UseCacertsForSelfSignedCA && istioGenerated)
+	if useSelfSignedCA {
 		if features.UseCacertsForSelfSignedCA && istioGenerated {
 			log.Infof("IstioGenerated %s secret found, use it as the CA certificate", ca.CACertsSecret)
 
@@ -466,7 +544,22 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
 
-		s.initCACertsWatcher()
+		if features.EnableCACRL {
+			// CRL is only supported for Plugged CA.
+			// If CRL file is present, read and notify it for initial replication
+			if len(fileBundle.CRLFile) > 0 {
+				log.Debugf("CRL file %s found, notifying it for initial replication", fileBundle.CRLFile)
+				crlBytes, crlErr := os.ReadFile(fileBundle.CRLFile)
+				if crlErr != nil {
+					log.Errorf("failed to read CRL file %s: %v", fileBundle.CRLFile, crlErr)
+					return nil, crlErr
+				}
+
+				s.istiodCertBundleWatcher.SetAndNotifyCACRL(crlBytes)
+			}
+		}
+
+		s.initCACertsAndCRLWatcher()
 	}
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
@@ -566,16 +659,71 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 	return raServer, err
 }
 
-// getJwtPath returns jwt path.
-func getJwtPath() string {
-	log.Infof("JWT policy is %v", features.JwtPolicy)
-	switch features.JwtPolicy {
-	case jwt.PolicyThirdParty:
-		return securityModel.K8sSATrustworthyJwtFileName
-	case jwt.PolicyFirstParty:
-		return securityModel.K8sSAJwtFileName
-	default:
-		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy)
-		return ""
+// checkCABundleCompleteness checks if all required CA certificate files exist
+// this function may return bundleExists as false even when some files exist in case of an error
+func checkCABundleCompleteness(
+	signingKeyFile, signingCertFile, rootCertFile string,
+	chainFiles []string,
+) (
+	signingCABundleComplete bool,
+	bundleExists bool,
+	err error,
+) {
+	signingKeyExists, err := fileExists(signingKeyFile)
+	if err != nil {
+		return false, false, err
 	}
+
+	signingCertExists, err := fileExists(signingCertFile)
+	if err != nil {
+		return false, signingKeyExists, err
+	}
+
+	rootCertExists, err := fileExists(rootCertFile)
+	if err != nil {
+		return false, signingKeyExists || signingCertExists, err
+	}
+
+	chainFilesExist, err := hasValidChainFiles(chainFiles)
+	if err != nil {
+		return false, signingKeyExists || signingCertExists || rootCertExists, err
+	}
+
+	bundleExists = signingKeyExists || signingCertExists || rootCertExists || chainFilesExist
+	signingCABundleComplete = signingKeyExists && signingCertExists && rootCertExists && chainFilesExist
+
+	return signingCABundleComplete, bundleExists, nil
+}
+
+// fileExists checks if a file exists and is accessible
+func fileExists(filename string) (bool, error) {
+	if filename == "" {
+		return false, nil
+	}
+	_, err := os.Stat(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("error checking file %s: %v", filename, err)
+	}
+	return true, nil
+}
+
+// hasValidChainFiles checks if there is at least one valid cert chain file
+func hasValidChainFiles(files []string) (bool, error) {
+	if len(files) == 0 {
+		return false, nil
+	}
+
+	for _, file := range files {
+		exists, err := fileExists(file)
+		if err != nil {
+			return false, err
+		}
+		if exists {
+			return true, nil
+		}
+	}
+	return false, nil
 }

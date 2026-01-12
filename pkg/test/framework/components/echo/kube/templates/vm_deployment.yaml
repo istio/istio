@@ -16,12 +16,12 @@ spec:
       annotations:
         # Sidecar is inside the pod to simulate VMs - do not inject
         sidecar.istio.io/inject: "false"
-        # HBONE enabled proxy lives inside the VM. Don't use CNI to redirect.
-        ambient.istio.io/redirection: disabled
       labels:
         # Label should not be selected. We will create a workload entry instead
         istio.io/test-vm: {{ $.Service }}
         istio.io/test-vm-version: {{ $subset.Version }}
+        # HBONE enabled proxy lives inside the VM. Don't use CNI to redirect.
+        istio.io/dataplane-mode: none
     spec:
       # Disable kube-dns, to mirror VM
       # we set policy to none and explicitly provide a set of invalid values
@@ -116,11 +116,6 @@ spec:
           sudo sh -c 'echo PROV_CERT=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
 
-          # su will mess with the limits set on the process we run. This may lead to quickly exhausting the file limits
-          # We will get the host limit and set it in the child as well.
-          # TODO(https://superuser.com/questions/1645513/why-does-executing-a-command-in-su-change-limits) can we do better?
-          currentLimit=$(ulimit -n)
-
           # This looks weird but Kubernetes escapes $$ to $; we want double dollar sign for current PID
           pid="$$$$"
 
@@ -136,7 +131,7 @@ spec:
           chmod +x /tmp/start.sh
           
           export ISTIO_AGENT_FLAGS="--concurrency 2 --proxyLogLevel warning,misc:error,rbac:debug,jwt:debug"
-          sudo -E -s /bin/bash -c "ulimit -n ${currentLimit}; exec /tmp/start.sh $pid &"
+          sudo -E /tmp/start.sh $pid &
           override_core_limits&
           /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
@@ -164,12 +159,14 @@ spec:
              --crt=/var/lib/istio/cert.crt \
              --key=/var/lib/istio/cert.key
         env:
-        - name: INSTANCE_IP
+        - name: INSTANCE_IPS
           valueFrom:
             fieldRef:
-              fieldPath: status.podIP
+              fieldPath: status.podIPs
         - name: ISTIO_ENVOY_ENABLE_CORE_DUMP
           value: "true"
+        - name: BIND_FAMILY
+          value: {{ $.BindFamily }}
         volumeMounts:
         - mountPath: /var/lib/istio/data
           name: istio-data
@@ -178,7 +175,7 @@ spec:
         - mountPath: /var/run/secrets/istio/bootstrap
           name: istio-vm-bootstrap
         {{- range $name, $value := $subset.Annotations }}
-        {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
+        {{- if eq $name "sidecar.istio.io/bootstrapOverride" }}
         - mountPath: /etc/istio-custom-bootstrap
           name: custom-bootstrap-volume
         {{- end }}
@@ -201,10 +198,10 @@ spec:
           name: {{ $.Service }}-{{ $subset.Version }}-vm-bootstrap
         name: istio-vm-bootstrap
       {{- range $name, $value := $subset.Annotations }}
-      {{- if eq $name.Name "sidecar.istio.io/bootstrapOverride" }}
+      {{- if eq $name "sidecar.istio.io/bootstrapOverride" }}
       - name: custom-bootstrap-volume
         configMap:
-          name: {{ $value.Value }}
+          name: {{ $value }}
       {{- end }}
       {{- end }}
 {{- end}}

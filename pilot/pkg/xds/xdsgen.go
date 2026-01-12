@@ -23,13 +23,14 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/lazy"
 	istioversion "istio.io/istio/pkg/version"
+	"istio.io/istio/pkg/xds"
 )
 
 // IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier
@@ -57,8 +58,12 @@ var controlPlane = lazy.New(func() (*core.ControlPlane, error) {
 	return &core.ControlPlane{Identifier: string(byVersion)}, nil
 })
 
-// ControlPlane identifies the instance and Istio version.
-func ControlPlane() *core.ControlPlane {
+// ControlPlane identifies the instance and Istio version, based on the requested type URL
+func ControlPlane(typ string) *core.ControlPlane {
+	if typ != TypeDebugSyncronization {
+		// Currently only TypeDebugSyncronization utilizes this so don't both sending otherwise
+		return nil
+	}
 	// Error will never happen because the getter of lazy does not return error.
 	cp, _ := controlPlane.Get()
 	return cp
@@ -114,7 +119,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{
 			TypeUrl:       w.TypeUrl,
-			ResourceNames: req.Delta.Subscribed.UnsortedList(),
+			ResourceNames: req.Delta.Subscribed,
 		}
 	}
 	res, logdata, err := gen.Generate(con.proxy, w, req)
@@ -126,31 +131,21 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		info += logFiltered
 	}
 	if err != nil || res == nil {
-		// If we have nothing to send, report that we got an ACK for this version.
-		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.conID, w.TypeUrl, req.Push.LedgerVersion)
-		}
 		if log.DebugEnabled() {
 			log.Debugf("%s: SKIP%s for node:%s%s", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, info)
 		}
 
-		// If we are sending a request, we must respond or we can get Envoy stuck. Assert we do.
-		// One exception is if Envoy is simply unsubscribing from some resources, in which case we can skip.
-		isUnsubscribe := !req.Delta.IsEmpty() && req.Delta.Subscribed.IsEmpty()
-		if features.EnableUnsafeAssertions && err == nil && res == nil && req.IsRequest() && !isUnsubscribe {
-			log.Fatalf("%s: SKIPPED%s for node:%s%s but expected a response for request", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, info)
-		}
 		return err
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 
 	resp := &discovery.DiscoveryResponse{
-		ControlPlane: ControlPlane(),
+		ControlPlane: ControlPlane(w.TypeUrl),
 		TypeUrl:      w.TypeUrl,
 		// TODO: send different version for incremental eds
 		VersionInfo: req.Push.PushVersion,
-		Nonce:       nonce(req.Push.LedgerVersion),
-		Resources:   model.ResourcesToAny(res),
+		Nonce:       nonce(req.Push.PushVersion),
+		Resources:   xds.ResourcesToAny(res),
 	}
 
 	configSize := ResourceSize(res)
@@ -161,7 +156,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		ptype = "PUSH INC"
 	}
 
-	if err := con.send(resp); err != nil {
+	if err := xds.Send(con, resp); err != nil {
 		if recordSendError(w.TypeUrl, err) {
 			log.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
 				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
@@ -196,4 +191,38 @@ func ResourceSize(r model.Resources) int {
 		size += len(r.Resource.Value)
 	}
 	return size
+}
+
+// xdsNeedsPush checks for the common cases whether we need to push or not.
+func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (needsPush, definitive bool) {
+	if proxy.Type == model.Ztunnel {
+		// Not supported for ztunnel
+		return false, true
+	}
+	if req == nil {
+		return true, true
+	}
+	// If none set, we will always push
+	if req.Forced {
+		return true, true
+	}
+
+	// We can not definitively say if we need to push or not based on generic checks, so we will push based
+	// on the specific typeURL checks.
+	return false, false
+}
+
+// waypointNeedsPush checks if an incremental push is needed for CDS and LDS which normally do a full push.
+func waypointNeedsPush(req *model.PushRequest) bool {
+	// Waypoint proxies needs to be pushed for LDS and CDS on kind.Address changes.
+	// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
+	// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
+	// incremental pushes.
+	// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
+
+	// Waypoints need CDS updates on kind.Address changes
+	// after implementing use-waypoint which decouples waypoint creation, wl pod creation
+	// user specifying waypoint use. Without this we're not getting correct waypoint config
+	// in a timely manner
+	return model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address)
 }

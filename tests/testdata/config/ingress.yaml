@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: istio-ingress
@@ -24,7 +24,7 @@ spec:
       serverCertificate: /etc/certs/servercert.pem
       privateKey: /etc/certs/privatekey.pem
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: ingress

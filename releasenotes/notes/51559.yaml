@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 51294
+releaseNotes:
+  - |
+    **Added** a status subcommand that prints out the status of gateway(s) for a given namespace.

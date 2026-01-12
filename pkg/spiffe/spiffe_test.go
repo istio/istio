@@ -29,6 +29,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
@@ -102,9 +103,6 @@ var (
 )
 
 func TestGenSpiffeURI(t *testing.T) {
-	oldTrustDomain := GetTrustDomain()
-	defer SetTrustDomain(oldTrustDomain)
-
 	testCases := []struct {
 		namespace      string
 		trustDomain    string
@@ -142,8 +140,7 @@ func TestGenSpiffeURI(t *testing.T) {
 		},
 	}
 	for id, tc := range testCases {
-		SetTrustDomain(tc.trustDomain)
-		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
+		got, err := genSpiffeURI(tc.trustDomain, tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
 			t.Errorf("teste case [%v] failed, error %v", id, tc)
 		}
@@ -161,35 +158,9 @@ func TestGenSpiffeURI(t *testing.T) {
 	}
 }
 
-func TestGetSetTrustDomain(t *testing.T) {
-	oldTrustDomain := GetTrustDomain()
-	defer SetTrustDomain(oldTrustDomain)
-
-	cases := []struct {
-		in  string
-		out string
-	}{
-		{
-			in:  "test.local",
-			out: "test.local",
-		},
-		{
-			in:  "test@local",
-			out: "test.local",
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.in, func(t *testing.T) {
-			SetTrustDomain(c.in)
-			if GetTrustDomain() != c.out {
-				t.Errorf("expected=%s, actual=%s", c.out, GetTrustDomain())
-			}
-		})
-	}
-}
-
 func TestMustGenSpiffeURI(t *testing.T) {
-	if nonsense := MustGenSpiffeURI("", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
+	mesh := &meshconfig.MeshConfig{TrustDomain: "something.local"}
+	if nonsense := MustGenSpiffeURI(mesh, "", ""); nonsense != "spiffe://something.local/ns//sa/" {
 		t.Errorf("Unexpected spiffe URI for empty namespace and service account: %s", nonsense)
 	}
 }
@@ -347,17 +318,17 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 
 	workloadCertBlock, _ := pem.Decode([]byte(validWorkloadCert))
 	if workloadCertBlock == nil {
-		t.Fatalf("failed to decode workload PEM cert")
+		t.Fatal("failed to decode workload PEM cert")
 	}
 	intCertBlock, _ := pem.Decode([]byte(validIntCert))
 	if intCertBlock == nil {
-		t.Fatalf("failed to decode intermediate PEM cert")
+		t.Fatal("failed to decode intermediate PEM cert")
 	}
 	serverCert := [][]byte{workloadCertBlock.Bytes, intCertBlock.Bytes}
 
 	keyBlock, _ := pem.Decode([]byte(validWorkloadKey))
 	if keyBlock == nil {
-		t.Fatalf("failed to parse PEM block containing the workload private key")
+		t.Fatal("failed to parse PEM block containing the workload private key")
 	}
 
 	privateKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
@@ -425,11 +396,11 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 				for _, certStr := range certStrs {
 					block, _ := pem.Decode([]byte(certStr))
 					if block == nil {
-						t.Fatalf("Can't decode the root cert.")
+						t.Fatal("Can't decode the root cert.")
 					}
 					rootCert, err := x509.ParseCertificate(block.Bytes)
 					if err != nil {
-						t.Fatalf("Failed to parse certificate: " + err.Error())
+						t.Fatal("Failed to parse certificate: " + err.Error())
 					}
 					certMap[trustDomain] = append(certMap[trustDomain], rootCert)
 				}
@@ -438,7 +409,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 			verifier := NewPeerCertVerifier()
 			verifier.AddMappings(certMap)
 			if verifier == nil {
-				t.Fatalf("Failed to create peer cert verifier.")
+				t.Fatal("Failed to create peer cert verifier.")
 			}
 			client := &http.Client{
 				Timeout: time.Second,
@@ -608,8 +579,13 @@ func TestIdentity(t *testing.T) {
 			nil,
 		},
 		{
-			// wrong separator /
-			"spiffe://td/ns/ns/foobar/sa/",
+			// Wrong ns separator
+			"spiffe://td/foobar/ns/sa/sa",
+			nil,
+		},
+		{
+			// Wrong sa separator
+			"spiffe://td/ns/ns/foobar/sa",
 			nil,
 		},
 	}

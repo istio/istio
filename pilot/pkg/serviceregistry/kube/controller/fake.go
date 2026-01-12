@@ -17,17 +17,22 @@ package controller
 import (
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -38,21 +43,19 @@ const (
 )
 
 type FakeControllerOptions struct {
-	Client                    kubelib.Client
-	CRDs                      []schema.GroupVersionResource
-	NetworksWatcher           mesh.NetworksWatcher
-	MeshWatcher               mesh.Watcher
-	ServiceHandler            model.ServiceHandler
-	ClusterID                 cluster.ID
-	WatchedNamespaces         string
-	DomainSuffix              string
-	XDSUpdater                model.XDSUpdater
-	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
-	Stop                      chan struct{}
-	SkipRun                   bool
-	ConfigController          model.ConfigStoreController
-	ConfigCluster             bool
-	SystemNamespace           string
+	Client            kubelib.Client
+	CRDs              []schema.GroupVersionResource
+	NetworksWatcher   mesh.NetworksWatcher
+	MeshWatcher       meshwatcher.WatcherCollection
+	ServiceHandler    model.ServiceHandler
+	ClusterID         cluster.ID
+	WatchedNamespaces string
+	DomainSuffix      string
+	XDSUpdater        model.XDSUpdater
+	Stop              chan struct{}
+	SkipRun           bool
+	ConfigCluster     bool
+	SystemNamespace   string
 }
 
 type FakeController struct {
@@ -76,24 +79,47 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 	if opts.Client == nil {
 		opts.Client = kubelib.NewFakeClient()
 	}
-	if opts.MeshWatcher == nil {
-		opts.MeshWatcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
+	if opts.ClusterID == "" {
+		opts.ClusterID = opts.Client.ClusterID()
 	}
+	if opts.MeshWatcher == nil {
+		opts.MeshWatcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"})
+	}
+	cleanupStop := false
+	stop := opts.Stop
+	if stop == nil {
+		// If we created the stop, clean it up. Otherwise, caller is responsible
+		cleanupStop = true
+		stop = make(chan struct{})
+	}
+	f := namespace.NewDiscoveryNamespacesFilter(
+		kclient.New[*corev1.Namespace](opts.Client),
+		opts.MeshWatcher,
+		stop,
+	)
+	kubelib.SetObjectFilter(opts.Client, f)
 
-	meshServiceController := aggregate.NewController(aggregate.Options{MeshHolder: opts.MeshWatcher})
+	var configCluster cluster.ID
+	if opts.ConfigCluster {
+		configCluster = opts.ClusterID
+	}
+	meshServiceController := aggregate.NewController(aggregate.Options{
+		MeshHolder:      opts.MeshWatcher,
+		ConfigClusterID: configCluster,
+	})
 
 	options := Options{
-		DomainSuffix:              domainSuffix,
-		XDSUpdater:                xdsUpdater,
-		Metrics:                   &model.Environment{},
-		MeshNetworksWatcher:       opts.NetworksWatcher,
-		MeshWatcher:               opts.MeshWatcher,
-		ClusterID:                 opts.ClusterID,
-		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
-		MeshServiceController:     meshServiceController,
-		ConfigCluster:             opts.ConfigCluster,
-		ConfigController:          opts.ConfigController,
-		SystemNamespace:           opts.SystemNamespace,
+		DomainSuffix:          domainSuffix,
+		XDSUpdater:            xdsUpdater,
+		Metrics:               &model.Environment{},
+		MeshNetworksWatcher:   opts.NetworksWatcher,
+		MeshWatcher:           opts.MeshWatcher,
+		ClusterID:             opts.ClusterID,
+		MeshServiceController: meshServiceController,
+		ConfigCluster:         opts.ConfigCluster,
+		SystemNamespace:       opts.SystemNamespace,
+		StatusWritingEnabled:  activenotifier.New(false),
+		KrtDebugger:           new(krt.DebugHandler),
 	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)
@@ -110,10 +136,11 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 			assert.NoError(t, queue.WaitForClose(c.queue, time.Second*5))
 		})
 	}
-	c.stop = opts.Stop
-	if c.stop == nil {
-		// If we created the stop, clean it up. Otherwise, caller is responsible
-		c.stop = test.NewStop(t)
+	c.stop = stop
+	if cleanupStop {
+		t.Cleanup(func() {
+			close(stop)
+		})
 	}
 	for _, crd := range opts.CRDs {
 		clienttest.MakeCRD(t, c.client, crd)

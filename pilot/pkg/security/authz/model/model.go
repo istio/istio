@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -32,19 +33,20 @@ const (
 	RBACShadowRulesDenyStatPrefix     = "istio_dry_run_deny_"
 	RBACExtAuthzShadowRulesStatPrefix = "istio_ext_authz_"
 
-	attrRequestHeader    = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
-	attrSrcIP            = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrRemoteIP         = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol.
-	attrSrcNamespace     = "source.namespace"            // e.g. "default".
-	attrSrcPrincipal     = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
-	attrRequestPrincipal = "request.auth.principal"      // authenticated principal of the request.
-	attrRequestAudiences = "request.auth.audiences"      // intended audience(s) for this authentication information.
-	attrRequestPresenter = "request.auth.presenter"      // authorized presenter of the credential.
-	attrRequestClaims    = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
-	attrDestIP           = "destination.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrDestPort         = "destination.port"            // must be in the range [0, 65535].
-	attrConnSNI          = "connection.sni"              // server name indication, e.g. "www.example.com".
-	attrEnvoyFilter      = "experimental.envoy.filters." // an experimental attribute for checking Envoy Metadata directly.
+	attrRequestHeader     = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrSrcIP             = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrRemoteIP          = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol.
+	attrSrcNamespace      = "source.namespace"            // e.g. "default".
+	attrSrcServiceAccount = "source.serviceAccount"       // e.g. "default/productpage".
+	attrSrcPrincipal      = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
+	attrRequestPrincipal  = "request.auth.principal"      // authenticated principal of the request.
+	attrRequestAudiences  = "request.auth.audiences"      // intended audience(s) for this authentication information.
+	attrRequestPresenter  = "request.auth.presenter"      // authorized presenter of the credential.
+	attrRequestClaims     = "request.auth.claims"         // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrDestIP            = "destination.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrDestPort          = "destination.port"            // must be in the range [0, 65535].
+	attrConnSNI           = "connection.sni"              // server name indication, e.g. "www.example.com".
+	attrEnvoyFilter       = "experimental.envoy.filters." // an experimental attribute for checking Envoy Metadata directly.
 
 	// Internal names used to generate corresponding Envoy matcher.
 	methodHeader = ":method"
@@ -57,6 +59,8 @@ type rule struct {
 	values    []string
 	notValues []string
 	g         generator
+	// This generator aggregates value predicates
+	extended extendedGenerator
 }
 
 type ruleList struct {
@@ -71,7 +75,7 @@ type Model struct {
 }
 
 // New returns a model representing a single authorization policy.
-func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
+func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 	m := Model{}
 
 	basePermission := ruleList{}
@@ -88,25 +92,27 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 		case k == attrConnSNI:
 			basePermission.appendLast(connSNIGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrEnvoyFilter):
-			basePermission.appendLast(envoyFilterGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			basePermission.appendLastExtended(envoyFilterGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcIP:
 			basePrincipal.appendLast(srcIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRemoteIP:
 			basePrincipal.appendLast(remoteIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcNamespace:
 			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues)
+		case k == attrSrcServiceAccount:
+			basePrincipal.appendLast(srcServiceAccountGenerator{policyName: policyName}, k, when.Values, when.NotValues)
 		case k == attrSrcPrincipal:
 			basePrincipal.appendLast(srcPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPrincipal:
-			basePrincipal.appendLast(requestPrincipalGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			basePrincipal.appendLastExtended(requestPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestAudiences:
-			basePrincipal.appendLast(requestAudiencesGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			basePrincipal.appendLastExtended(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPresenter:
-			basePrincipal.appendLast(requestPresenterGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			basePrincipal.appendLastExtended(requestPresenterGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestHeader):
 			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
-			basePrincipal.appendLast(requestClaimGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
+			basePrincipal.appendLastExtended(requestClaimGenerator{}, k, when.Values, when.NotValues)
 		default:
 			return nil, fmt.Errorf("unknown attribute %s", when.Key)
 		}
@@ -118,7 +124,8 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
 			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
-			merged.insertFront(requestPrincipalGenerator{useExtendedJwt: useExtendedJwt}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
+			merged.insertFront(srcServiceAccountGenerator{policyName: policyName}, attrSrcServiceAccount, s.ServiceAccounts, s.NotServiceAccounts)
+			merged.insertFrontExtended(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
 		}
 		m.principals = append(m.principals, merged)
@@ -224,64 +231,112 @@ func generatePrincipal(rl ruleList, forTCP bool, useAuthenticated bool, action r
 
 func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Permission, error) {
 	var permissions []*rbacpb.Permission
-	var or []*rbacpb.Permission
-	for _, value := range r.values {
-		p, err := r.g.permission(r.key, value, forTCP)
-		if err := r.checkError(action, err); err != nil {
-			return nil, err
+	if r.extended != nil {
+		if len(r.values) > 0 {
+			p, err := r.extended.extendedPermission(r.key, r.values, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				permissions = append(permissions, p)
+			}
 		}
-		if p != nil {
-			or = append(or, p)
+	} else {
+		var or []*rbacpb.Permission
+		for _, value := range r.values {
+			p, err := r.g.permission(r.key, value, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				or = append(or, p)
+			}
 		}
-	}
-	if len(or) > 0 {
-		permissions = append(permissions, permissionOr(or))
+		if len(or) > 0 {
+			permissions = append(permissions, permissionOr(or))
+		}
 	}
 
-	or = nil
-	for _, notValue := range r.notValues {
-		p, err := r.g.permission(r.key, notValue, forTCP)
-		if err := r.checkError(action, err); err != nil {
-			return nil, err
+	if r.extended != nil {
+		if len(r.notValues) > 0 {
+			p, err := r.extended.extendedPermission(r.key, r.notValues, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				permissions = append(permissions, permissionNot(p))
+			}
 		}
-		if p != nil {
-			or = append(or, p)
+	} else {
+		var or []*rbacpb.Permission
+		for _, notValue := range r.notValues {
+			p, err := r.g.permission(r.key, notValue, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				or = append(or, p)
+			}
 		}
-	}
-	if len(or) > 0 {
-		permissions = append(permissions, permissionNot(permissionOr(or)))
+		if len(or) > 0 {
+			permissions = append(permissions, permissionNot(permissionOr(or)))
+		}
 	}
 	return permissions, nil
 }
 
 func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
 	var principals []*rbacpb.Principal
-	var or []*rbacpb.Principal
-	for _, value := range r.values {
-		p, err := r.g.principal(r.key, value, forTCP, useAuthenticated)
-		if err := r.checkError(action, err); err != nil {
-			return nil, err
+	if r.extended != nil {
+		if len(r.values) > 0 {
+			p, err := r.extended.extendedPrincipal(r.key, r.values, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				principals = append(principals, p)
+			}
 		}
-		if p != nil {
-			or = append(or, p)
+	} else {
+		var or []*rbacpb.Principal
+		for _, value := range r.values {
+			p, err := r.g.principal(r.key, value, forTCP, useAuthenticated)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				or = append(or, p)
+			}
 		}
-	}
-	if len(or) > 0 {
-		principals = append(principals, principalOr(or))
+		if len(or) > 0 {
+			principals = append(principals, principalOr(or))
+		}
 	}
 
-	or = nil
-	for _, notValue := range r.notValues {
-		p, err := r.g.principal(r.key, notValue, forTCP, useAuthenticated)
-		if err := r.checkError(action, err); err != nil {
-			return nil, err
+	if r.extended != nil {
+		if len(r.notValues) > 0 {
+			p, err := r.extended.extendedPrincipal(r.key, r.notValues, forTCP)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				principals = append(principals, principalNot(p))
+			}
 		}
-		if p != nil {
-			or = append(or, p)
+	} else {
+		var or []*rbacpb.Principal
+		for _, notValue := range r.notValues {
+			p, err := r.g.principal(r.key, notValue, forTCP, useAuthenticated)
+			if err := r.checkError(action, err); err != nil {
+				return nil, err
+			}
+			if p != nil {
+				or = append(or, p)
+			}
 		}
-	}
-	if len(or) > 0 {
-		principals = append(principals, principalNot(principalOr(or)))
+		if len(or) > 0 {
+			principals = append(principals, principalNot(principalOr(or)))
+		}
 	}
 	return principals, nil
 }
@@ -318,6 +373,20 @@ func (p *ruleList) insertFront(g generator, key string, values, notValues []stri
 	p.rules = append([]*rule{r}, p.rules...)
 }
 
+func (p *ruleList) insertFrontExtended(g extendedGenerator, key string, values, notValues []string) {
+	if len(values) == 0 && len(notValues) == 0 {
+		return
+	}
+	r := &rule{
+		key:       key,
+		values:    values,
+		notValues: notValues,
+		extended:  g,
+	}
+
+	p.rules = append([]*rule{r}, p.rules...)
+}
+
 func (p *ruleList) appendLast(g generator, key string, values, notValues []string) {
 	if len(values) == 0 && len(notValues) == 0 {
 		return
@@ -329,5 +398,18 @@ func (p *ruleList) appendLast(g generator, key string, values, notValues []strin
 		g:         g,
 	}
 
+	p.rules = append(p.rules, r)
+}
+
+func (p *ruleList) appendLastExtended(g extendedGenerator, key string, values, notValues []string) {
+	if len(values) == 0 && len(notValues) == 0 {
+		return
+	}
+	r := &rule{
+		key:       key,
+		values:    values,
+		notValues: notValues,
+		extended:  g,
+	}
 	p.rules = append(p.rules, r)
 }

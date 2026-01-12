@@ -15,24 +15,26 @@
 package crd_test
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/ptr"
 )
 
 func TestKind(t *testing.T) {
 	obj := crd.IstioKind{}
 
-	spec := map[string]any{"a": "b"}
+	spec := json.RawMessage(`{"a":"b"}`)
 	obj.Spec = spec
 	if got := obj.GetSpec(); !reflect.DeepEqual(spec, got) {
 		t.Errorf("GetSpec() => got %v, want %v", got, spec)
 	}
 
-	status := map[string]any{"yo": "lit"}
+	status := ptr.Of(json.RawMessage(`{"c":"d"}`))
 	obj.Status = status
 	if got := obj.GetStatus(); !reflect.DeepEqual(status, got) {
 		t.Errorf("GetStatus() => got %v, want %v", got, status)

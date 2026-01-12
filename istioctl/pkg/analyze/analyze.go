@@ -28,10 +28,12 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -39,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 )
@@ -77,6 +80,8 @@ var (
 	recursive         bool
 	ignoreUnknown     bool
 	revisionSpecified string
+	remoteContexts    []string
+	selectedAnalyzers []string
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -87,6 +92,8 @@ func Analyze(ctx cli.Context) *cobra.Command {
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
+		Long: fmt.Sprintf("Analyze Istio configuration and print validation messages.\n"+
+			"For more information about message codes, refer to:\n%s", url.ConfigAnalysis),
 		Example: `  # Analyze the current live cluster
   istioctl analyze
 
@@ -95,9 +102,6 @@ func Analyze(ctx cli.Context) *cobra.Command {
 
   # Analyze the current live cluster, simulating the effect of applying additional yaml files
   istioctl analyze a.yaml b.yaml my-app-config/
-
-  # Analyze the current live cluster, simulating the effect of applying a directory of config recursively
-  istioctl analyze --recursive my-istio-config/
 
   # Analyze yaml files without connecting to a live cluster
   istioctl analyze --use-kube=false a.yaml b.yaml my-app-config/
@@ -110,7 +114,10 @@ func Analyze(ctx cli.Context) *cobra.Command {
   istioctl analyze -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
 
   # List available analyzers
-  istioctl analyze -L`,
+  istioctl analyze -L
+  
+  # Run specific analyzer
+  istioctl analyze --analyzer "gateway.ConflictingGatewayAnalyzer"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
 			_, ok := formatting.MsgOutputFormats[msgOutputFormat]
@@ -122,6 +129,11 @@ func Analyze(ctx cli.Context) *cobra.Command {
 
 			if listAnalyzers {
 				fmt.Print(AnalyzersAsString(analyzers.All()))
+				return nil
+			}
+
+			if recursive {
+				fmt.Println("The recursive flag has been removed and is hardcoded to true without explicitly specifying it.")
 				return nil
 			}
 
@@ -160,7 +172,12 @@ func Analyze(ctx cli.Context) *cobra.Command {
 				selectedNamespace = metav1.NamespaceDefault
 			}
 
-			sa := local.NewIstiodAnalyzer(analyzers.AllCombined(),
+			combinedAnalyzers := analyzers.AllCombined()
+			if len(selectedAnalyzers) != 0 {
+				combinedAnalyzers = analyzers.NamedCombined(selectedAnalyzers...)
+			}
+
+			sa := local.NewIstiodAnalyzer(combinedAnalyzers,
 				resource.Namespace(selectedNamespace),
 				resource.Namespace(ctx.IstioNamespace()), nil)
 
@@ -191,15 +208,21 @@ func Analyze(ctx cli.Context) *cobra.Command {
 			}
 			sa.SetSuppressions(suppressions)
 
+			shouldPrintCluster := false
 			// If we're using kube, use that as a base source.
 			if useKube {
-				// Set up the kube client
-				clik, err := ctx.CLIClient()
+				clients, err := getClients(ctx)
 				if err != nil {
 					return err
 				}
-				k := kube.EnableCrdWatcher(clik.(kube.Client))
-				sa.AddRunningKubeSourceWithRevision(k, revisionSpecified)
+				// If there are multiple clients, we think it's a multi-cluster scenario.
+				if len(clients) > 1 {
+					shouldPrintCluster = true
+				}
+				for _, c := range clients {
+					k := kube.EnableCrdWatcher(c.client)
+					sa.AddRunningKubeSourceWithRevision(k, revisionSpecified, c.remote)
+				}
 			}
 
 			// If we explicitly specify mesh config, use it.
@@ -253,6 +276,15 @@ func Analyze(ctx cli.Context) *cobra.Command {
 			// Get messages for output
 			outputMessages := result.Messages.SetDocRef("istioctl-analyze").FilterOutLowerThan(outputThreshold.Level)
 
+			if shouldPrintCluster {
+				for i := range outputMessages {
+					m := &outputMessages[i]
+					if m.Resource != nil && m.Resource.Origin.ClusterName().String() != "" {
+						m.PrintCluster = true
+					}
+				}
+			}
+
 			// Print all the messages to stdout in the specified format
 			output, err := formatting.Print(outputMessages, msgOutputFormat, colorize)
 			if err != nil {
@@ -268,7 +300,11 @@ func Analyze(ctx cli.Context) *cobra.Command {
 						for _, r := range readers {
 							files = append(files, r.Name)
 						}
-						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", strings.Join(files, "\n"))
+						if len(files) > 1 {
+							fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing:\n  - %s\n", strings.Join(files, "\n  - "))
+						} else {
+							fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", strings.Join(files, "\n"))
+						}
 					} else {
 						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", analyzeTargetAsString())
 					}
@@ -324,11 +360,17 @@ func Analyze(ctx cli.Context) *cobra.Command {
 	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
 		"The duration to wait before failing")
 	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
-		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
+		"[Removed: The recursive flag has been removed and is hardcoded to true] Process directory arguments recursively.")
 	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
-	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "", "default",
+	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "r", "default",
 		"analyze a specific revision deployed.")
+	analysisCmd.PersistentFlags().StringArrayVar(&remoteContexts, "remote-contexts", []string{},
+		`Kubernetes configuration contexts for remote clusters to be used in multi-cluster analysis. Not to be confused with '--context'. `+
+			"If unspecified, contexts are read from the remote secrets in the cluster.")
+	analysisCmd.PersistentFlags().StringArrayVarP(&selectedAnalyzers, "analyzer", "", []string{},
+		"Select specific analyzers to run. Can be repeated. If not specified, all analyzers are run. "+
+			"(e.g. istioctl analyze --analyzer \"gateway.ConflictingGatewayAnalyzer\")")
 	return analysisCmd
 }
 
@@ -394,12 +436,8 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		if err != nil {
 			return err
 		}
-		// If we encounter a directory, recurse only if the --recursive option
-		// was provided and the directory is not the same as dir.
+
 		if info.IsDir() {
-			if !recursive && dir != path {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 
@@ -479,4 +517,78 @@ func analyzeTargetAsString() string {
 // TODO: Refactor output writer so that it is smart enough to know when to output what.
 func isJSONorYAMLOutputFormat() bool {
 	return msgOutputFormat == formatting.JSONFormat || msgOutputFormat == formatting.YAMLFormat
+}
+
+type Client struct {
+	client kube.Client
+	remote bool
+}
+
+func getClients(ctx cli.Context) ([]*Client, error) {
+	client, err := ctx.CLIClient()
+	if err != nil {
+		return nil, err
+	}
+	clients := []*Client{
+		{
+			client: client,
+			remote: false,
+		},
+	}
+	if len(remoteContexts) > 0 {
+		remoteClients, err := getClientsFromContexts(ctx)
+		if err != nil {
+			return nil, err
+		}
+		clients = append(clients, remoteClients...)
+		return clients, nil
+	}
+	secrets, err := client.Kube().CoreV1().Secrets(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", multicluster.MultiClusterSecretLabel, "true"),
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range secrets.Items {
+		for _, cfg := range s.Data {
+			clientConfig, err := clientcmd.NewClientConfigFromBytes(cfg)
+			if err != nil {
+				return nil, err
+			}
+			rawConfig, err := clientConfig.RawConfig()
+			if err != nil {
+				return nil, err
+			}
+			curContext := rawConfig.Contexts[rawConfig.CurrentContext]
+			if curContext == nil {
+				continue
+			}
+			client, err := kube.NewCLIClient(clientConfig,
+				kube.WithRevision(revisionSpecified),
+				kube.WithCluster(cluster.ID(curContext.Cluster)))
+			if err != nil {
+				return nil, err
+			}
+			clients = append(clients, &Client{
+				client: client,
+				remote: true,
+			})
+		}
+	}
+	return clients, nil
+}
+
+func getClientsFromContexts(ctx cli.Context) ([]*Client, error) {
+	var clients []*Client
+	remoteClients, err := ctx.CLIClientsForContexts(remoteContexts)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range remoteClients {
+		clients = append(clients, &Client{
+			client: c,
+			remote: true,
+		})
+	}
+	return clients, nil
 }

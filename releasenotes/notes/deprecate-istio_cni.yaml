@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 49290
+releaseNotes:
+- |
+  **Deprecated** usage of `values.istio_cni` in favor of `values.pilot.cni`

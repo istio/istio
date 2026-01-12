@@ -25,7 +25,9 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/istioctl/pkg/multixds"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
@@ -33,96 +35,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var configDumpFile string
-
-func StatusCommand(ctx cli.Context) *cobra.Command {
-	var opts clioptions.ControlPlaneOptions
-
-	statusCmd := &cobra.Command{
-		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
-		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
-		Long: `
-Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
-
-`,
-		Example: `  # Retrieve sync status for all Envoys in a mesh
-  istioctl proxy-status
-
-  # Retrieve sync diff for a single Envoy and Istiod
-  istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
-
-  # Retrieve sync diff between Istiod and one pod under a deployment
-  istioctl proxy-status deployment/productpage-v1
-
-  # Write proxy config-dump to file, and compare to Istio control plane
-  kubectl port-forward -n istio-system istio-egressgateway-59585c5b9c-ndc59 15000 &
-  curl localhost:15000/config_dump > cd.json
-  istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system --file cd.json
-`,
-		Aliases: []string{"ps"},
-		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 0) && (configDumpFile != "") {
-				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("--file can only be used when pod-name is specified")
-			}
-			return nil
-		},
-		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
-			if err != nil {
-				return err
-			}
-			if len(args) > 0 {
-				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
-				if err != nil {
-					return err
-				}
-				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
-					_, _ = fmt.Fprintf(c.OutOrStdout(),
-						"Sync diff is not available for ztunnel pod %s.%s\n", podName, ns)
-					return nil
-				}
-				var envoyDump []byte
-				if configDumpFile != "" {
-					envoyDump, err = readConfigFile(configDumpFile)
-				} else {
-					path := "config_dump"
-					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
-				}
-				if err != nil {
-					return err
-				}
-
-				path := fmt.Sprintf("debug/config_dump?proxyID=%s.%s", podName, ns)
-				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), path)
-				if err != nil {
-					return err
-				}
-				c, err := compare.NewComparator(c.OutOrStdout(), istiodDumps, envoyDump)
-				if err != nil {
-					return err
-				}
-				return c.Diff()
-			}
-			queryStr := "debug/syncz"
-			if ctx.Namespace() != "" {
-				queryStr += "?namespace=" + ctx.Namespace()
-			}
-			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), queryStr)
-			if err != nil {
-				return err
-			}
-			sw := pilot.StatusWriter{Writer: c.OutOrStdout()}
-			return sw.PrintAll(statuses)
-		},
-	}
-
-	opts.AttachControlPlaneFlags(statusCmd)
-	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
-		"Envoy config dump JSON file")
-
-	return statusCmd
-}
+var (
+	proxyAdminPort int
+	configDumpFile string
+)
 
 func readConfigFile(filename string) ([]byte, error) {
 	file := os.Stdin
@@ -145,10 +61,29 @@ func readConfigFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
+func StableXdsStatusCommand(ctx cli.Context) *cobra.Command {
+	cmd := XdsStatusCommand(ctx)
+	unstableFlags := []string{}
+	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		for _, flag := range unstableFlags {
+			if cmd.PersistentFlags().Changed(flag) {
+				return fmt.Errorf("--%s is experimental. Use `istioctl experimental ps --%s`", flag, flag)
+			}
+		}
+		return nil
+	}
+	for _, flag := range unstableFlags {
+		_ = cmd.PersistentFlags().MarkHidden(flag)
+	}
+	return cmd
+}
+
 func XdsStatusCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var multiXdsOpts multixds.Options
+	var outputFormat string
+	var verbosity int
 
 	statusCmd := &cobra.Command{
 		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
@@ -157,32 +92,37 @@ func XdsStatusCommand(ctx cli.Context) *cobra.Command {
 Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
 `,
 		Example: `  # Retrieve sync status for all Envoys in a mesh
-  istioctl x proxy-status
+  istioctl proxy-status
+
+  # Retrieve sync status for Envoys in a specific namespace
+  istioctl proxy-status --namespace foo
 
   # Retrieve sync diff for a single Envoy and Istiod
-  istioctl x proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+  istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
 
   # SECURITY OPTIONS
 
   # Retrieve proxy status information directly from the control plane, using token security
   # (This is the usual way to get the proxy-status with an out-of-cluster control plane.)
-  istioctl x ps --xds-address istio.cloudprovider.example.com:15012
+  istioctl ps --xds-address istio.cloudprovider.example.com:15012
 
   # Retrieve proxy status information via Kubernetes config, using token security
   # (This is the usual way to get the proxy-status with an in-cluster control plane.)
-  istioctl x proxy-status
+  istioctl proxy-status
 
   # Retrieve proxy status information directly from the control plane, using RSA certificate security
   # (Certificates must be obtained before this step.  The --cert-dir flag lets istioctl bypass the Kubernetes API server.)
-  istioctl x ps --xds-address istio.example.com:15012 --cert-dir ~/.istio-certs
+  istioctl ps --xds-address istio.example.com:15012 --cert-dir ~/.istio-certs
 
   # Retrieve proxy status information via XDS from specific control plane in multi-control plane in-cluster configuration
   # (Select a specific control plane in an in-cluster canary Istio configuration.)
-  istioctl x ps --xds-label istio.io/rev=default
-`,
+  istioctl ps --xds-label istio.io/rev=default
+
+  # Show the status of a specific proxy in JSON format
+  istioctl proxy-status --output json`,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
+			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 			if err != nil {
 				return err
 			}
@@ -203,7 +143,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					envoyDump, err = readConfigFile(configDumpFile)
 				} else {
 					path := "config_dump"
-					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
+					envoyDump, err = kubeClient.EnvoyDoWithPort(context.TODO(), podName, ns, "GET", path, proxyAdminPort)
 				}
 				if err != nil {
 					return fmt.Errorf("could not contact sidecar: %w", err)
@@ -231,22 +171,26 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				return err
 			}
 			sw := pilot.XdsStatusWriter{
-				Writer:    c.OutOrStdout(),
-				Namespace: ctx.Namespace(),
+				Writer:       c.OutOrStdout(),
+				Namespace:    ctx.Namespace(),
+				OutputFormat: outputFormat,
+				Verbosity:    verbosity,
 			}
 			return sw.PrintAll(xdsResponses)
 		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 
 	opts.AttachControlPlaneFlags(statusCmd)
 	centralOpts.AttachControlPlaneFlags(statusCmd)
-	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+	statusCmd.PersistentFlags().StringVar(&configDumpFile, "file", "",
 		"Envoy config dump JSON file")
-	statusCmd.PersistentFlags().BoolVar(&multiXdsOpts.XdsViaAgents, "xds-via-agents", false,
-		"Access Istiod via the tap service of each agent")
-	statusCmd.PersistentFlags().IntVar(&multiXdsOpts.XdsViaAgentsLimit, "xds-via-agents-limit", 100,
-		"Maximum number of pods being visited by istioctl when `xds-via-agent` flag is true."+
-			"To iterate all the agent pods without limit, set to 0")
+	statusCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort, "Envoy proxy admin port")
+
+	statusCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table",
+		"Output format: table or json")
+	statusCmd.PersistentFlags().IntVarP(&verbosity, "verbosity", "v", 0,
+		"Verbosity level for proxy status output. 0=default, 1=show all xDS types (max verbosity)")
 
 	return statusCmd
 }

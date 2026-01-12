@@ -1,0 +1,46 @@
+apiVersion: release-notes/v2
+
+# This YAML file describes the format for specifying a release notes entry for Istio.
+# This should be filled in for all user facing changes.
+
+# kind describes the type of change that this represents.
+# Valid Values are:
+# - bug-fix -- Used to specify that this change represents a bug fix.
+# - security-fix -- Used to specify that this change represents a vulnerability fix.
+# - feature -- Used to specify a new feature that has been added.
+# - test -- Used to describe additional testing added. This file is optional for
+#   tests, but included for completeness.
+kind: bug-fix
+
+# area describes the area that this change affects.
+# Valid values are:
+# - traffic-management
+# - security
+# - telemetry
+# - installation
+# - istioctl
+# - documentation
+area: telemetry
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue: []
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Fixed** an issue where many panels in the Grafana dashboards showed **No data** if Prometheus had a scrape
+  interval configured to be larger than `15s`.
+
+# upgradeNotes is a markdown listing of any changes that will affect the upgrade
+# process. This will appear in the release notes.
+upgradeNotes:
+  - title: Grafana dashboard changes
+    content: |
+      The changes require version 7.2 or later of Grafana.
+
+# docs is a list of related docs to the change.
+docs:
+- '[Background information] https://grafana.com/blog/2020/09/28/new-in-grafana-7.2-__rate_interval-for-prometheus-rate-queries-that-just-work/'
+- '[Usage] https://istio.io/latest/docs/tasks/observability/metrics/using-istio-dashboard/'

@@ -18,33 +18,68 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
-	"strings"
 	"text/tabwriter"
-	"time"
 
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/istioctl/pkg/util/configdump"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 )
 
 // ConfigWriter is a writer for processing responses from the Ztunnel Admin config_dump endpoint
 type ConfigWriter struct {
 	Stdout      io.Writer
-	ztunnelDump *configdump.ZtunnelDump
+	ztunnelDump *ZtunnelDump
+	FullDump    []byte
+}
+
+type rawDump struct {
+	Services      json.RawMessage          `json:"services"`
+	Workloads     json.RawMessage          `json:"workloads"`
+	Policies      json.RawMessage          `json:"policies"`
+	Certificates  json.RawMessage          `json:"certificates"`
+	WorkloadState map[string]WorkloadState `json:"workloadstate"`
 }
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := configdump.ZtunnelDump{}
+	zDump := &ZtunnelDump{}
+	rawDump := &rawDump{}
 	// TODO(fisherxu): migrate this to jsonpb when issue fixed in golang
 	// Issue to track -> https://github.com/golang/protobuf/issues/632
-	err := json.Unmarshal(b, &cd)
+	err := json.Unmarshal(b, rawDump)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from ztunnel: %v", err)
 	}
-	c.ztunnelDump = &cd
+	// ensure that data gets unmarshalled into the right data type
+	if err := unmarshalListOrMap(rawDump.Services, &zDump.Services); err != nil {
+		return err
+	}
+	if err := unmarshalListOrMap(rawDump.Workloads, &zDump.Workloads); err != nil {
+		return err
+	}
+	if err := unmarshalListOrMap(rawDump.Certificates, &zDump.Certificates); err != nil {
+		return err
+	}
+	if err := unmarshalListOrMap(rawDump.Policies, &zDump.Policies); err != nil {
+		return err
+	}
+	zDump.WorkloadState = rawDump.WorkloadState
+	c.ztunnelDump = zDump
+	return nil
+}
+
+func unmarshalListOrMap[T any](input json.RawMessage, i *[]T) error {
+	if len(input) == 0 {
+		return nil
+	}
+	if input[0] == '[' {
+		return json.Unmarshal(input, i)
+	}
+	m := make(map[string]T)
+	if err := json.Unmarshal(input, &m); err != nil {
+		return err
+	}
+	*i = maps.Values(m)
 	return nil
 }
 
@@ -54,96 +89,53 @@ func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 	return nil
 }
 
-// PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
-	if c.ztunnelDump == nil {
-		return fmt.Errorf("config writer has not been primed")
+func (c *ConfigWriter) printHeaders(summary string, withHeaders bool) {
+	if withHeaders {
+		_, _ = c.Stdout.Write([]byte("------ "))
+		_, _ = c.Stdout.Write([]byte(summary))
+		_, _ = c.Stdout.Write([]byte(" ------\n\n"))
 	}
-	secretDump := c.ztunnelDump.Certificates
-	out, err := json.MarshalIndent(secretDump, "", "    ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal secrets dump: %v", err)
+}
+
+func (c *ConfigWriter) PrintFullSummary(withHeaders bool) error {
+	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("WORKLOAD INFO", withHeaders)
+	if err := c.PrintWorkloadSummary(WorkloadFilter{}); err != nil {
+		return err
 	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("SERVICE INFO", withHeaders)
+	if err := c.PrintServiceSummary(ServiceFilter{}); err != nil {
+		return err
+	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("POLICY INFO", withHeaders)
+	if err := c.PrintPolicySummary(PolicyFilter{}); err != nil {
+		return err
+	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("SECRET INFO", withHeaders)
+	if err := c.PrintSecretSummary(); err != nil {
+		return err
+	}
+	_, _ = c.Stdout.Write([]byte("\n"))
+	c.printHeaders("CONNECTIONS INFO", withHeaders)
+	if err := c.PrintConnectionsSummary(ConnectionsFilter{}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *ConfigWriter) PrintFullDump(outputFormat string) error {
+	out := c.FullDump
 	if outputFormat == "yaml" {
-		if out, err = yaml.JSONToYAML(out); err != nil {
+		var err error
+		out, err = yaml.JSONToYAML(out)
+		if err != nil {
 			return err
 		}
 	}
 	fmt.Fprintln(c.Stdout, string(out))
-	return nil
-}
-
-// PrintSecretSummary prints a summary of dynamic active secrets from the config dump
-func (c *ConfigWriter) PrintSecretSummary() error {
-	if c.ztunnelDump == nil {
-		return fmt.Errorf("config writer has not been primed")
-	}
-	secretDump := c.ztunnelDump.Certificates
-	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
-	fmt.Fprintln(w, "NAME\tTYPE\tSTATUS\tVALID CERT\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
-
-	for _, secret := range secretDump {
-		if strings.Contains(secret.State, "Unavailable") {
-			secret.State = "Unavailable"
-		}
-		if len(secret.CaCert) == 0 && len(secret.CertChain) == 0 {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-				secret.Identity, valueOrNA(""), secret.State, false, valueOrNA(""), valueOrNA(""), valueOrNA(""))
-		}
-		for _, ca := range secret.CaCert {
-			n := new(big.Int)
-			n, _ = n.SetString(ca.SerialNumber, 10)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
-				secret.Identity, "CA", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
-		}
-		for _, ca := range secret.CertChain {
-			n := new(big.Int)
-			n, _ = n.SetString(ca.SerialNumber, 10)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
-				secret.Identity, "Cert Chain", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
-		}
-	}
-	return w.Flush()
-}
-
-func valueOrNA(value string) string {
-	if value == "" {
-		return "NA"
-	}
-	return value
-}
-
-func certNotExpired(cert *configdump.Cert) bool {
-	// case where cert state is in either Initializing or Unavailable state
-	if cert.ExpirationTime == "" && cert.ValidFrom == "" {
-		return false
-	}
-	today := time.Now()
-	expDate, err := time.Parse(time.RFC3339, cert.ExpirationTime)
-	if err != nil {
-		log.Errorf("certificate timestamp (%v) could not be parsed: %v", cert.ExpirationTime, err)
-		return false
-	}
-	fromDate, err := time.Parse(time.RFC3339, cert.ValidFrom)
-	if err != nil {
-		log.Errorf("certificate timestamp (%v) could not be parsed: %v", cert.ValidFrom, err)
-		return false
-	}
-	if today.After(fromDate) && today.Before(expDate) {
-		return true
-	}
-	return false
-}
-
-func (c *ConfigWriter) PrintFullSummary(wf WorkloadFilter) error {
-	_, _ = c.Stdout.Write([]byte("\n"))
-	if err := c.PrintWorkloadSummary(wf); err != nil {
-		return err
-	}
-	_, _ = c.Stdout.Write([]byte("\n"))
-	if err := c.PrintSecretSummary(); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -157,4 +149,9 @@ func (c *ConfigWriter) PrintVersionSummary() error {
 func (c *ConfigWriter) PrintPodRootCAFromDynamicSecretDump() (string, error) {
 	// TODO
 	return "", nil
+}
+
+func (c *ConfigWriter) tabwriter() *tabwriter.Writer {
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 1, ' ', 0)
+	return w
 }

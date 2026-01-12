@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 53884
+releaseNotes:
+- |
+  **Fixed** an issue where Ambient `PeerAuthentication` policies were overly strict.
+

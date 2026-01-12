@@ -7,6 +7,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+{{ .CustomImport }}
   "reflect"
 {{- range .Packages}}
 	{{.ImportName}} "{{.PackageName}}"
@@ -37,7 +38,7 @@ var (
 			ClusterScoped: {{ .Resource.ClusterScoped }},
 			Synthetic: {{ .Resource.Synthetic }},
 			Builtin: {{ .Resource.Builtin }},
-			ValidateProto: validation.{{ .Resource.Validate }},
+			ValidateProto: {{ .Resource.Validate }},
 		}.MustBuild()
 {{ end }}
 
@@ -69,7 +70,7 @@ var (
 	// pilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
 	pilotGatewayAPI = collection.NewSchemasBuilder().
 	{{- range .Entries }}
-		{{- if or (contains .Resource.Group "istio.io") (contains .Resource.Group "gateway.networking.k8s.io") }}
+		{{- if or (contains .Resource.Group "istio.io") (contains .Resource.Group "gateway.networking.k8s.io") (contains .Resource.Group "gateway.networking.x-k8s.io") }}
 		MustAdd({{ .Resource.Identifier }}).
 		{{- end}}
 	{{- end }}

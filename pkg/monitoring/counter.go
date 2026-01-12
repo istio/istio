@@ -48,11 +48,7 @@ func newCounter(o options) *counter {
 
 func (f *counter) Record(value float64) {
 	f.runRecordHook(value)
-	if f.precomputedAddOption != nil {
-		f.c.Add(context.Background(), value, f.precomputedAddOption...)
-	} else {
-		f.c.Add(context.Background(), value)
-	}
+	f.c.Add(context.Background(), value, f.precomputedAddOption...)
 }
 
 func (f *counter) With(labelValues ...LabelValue) Metric {

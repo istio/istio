@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -31,13 +30,12 @@ import (
 func TestDestinationRuleTls(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.egress.tls.filebased").
 		Run(func(t framework.TestContext) {
 			ns := appNS
 
 			// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
 			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: db-mtls
@@ -50,10 +48,10 @@ spec:
       clientCertificate: /etc/certs/custom/cert-chain.pem
       privateKey: /etc/certs/custom/key.pem
       caCertificates: /etc/certs/custom/root-cert.pem
+      sni: server
 `).ApplyOrFail(t)
 
 			for _, portName := range []string{"grpc", "http", "tcp"} {
-				portName := portName
 				t.NewSubTest(portName).Run(func(t framework.TestContext) {
 					opts := echo.CallOptions{
 						To:    server,

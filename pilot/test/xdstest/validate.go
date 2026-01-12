@@ -19,11 +19,12 @@ import (
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
-	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -31,7 +32,13 @@ import (
 func ValidateListeners(t testing.TB, ls []*listener.Listener) {
 	t.Helper()
 	found := sets.New[string]()
+	foundAddresses := sets.New[string]()
 	for _, l := range ls {
+		for _, addr := range ExtractListenerAddresses(l) {
+			if foundAddresses.InsertContains(addr) {
+				t.Errorf("found duplicate address %s", addr)
+			}
+		}
 		if found.InsertContains(l.Name) {
 			t.Errorf("duplicate listener name %v", l.Name)
 		}
@@ -64,6 +71,10 @@ func validateListenerFilters(t testing.TB, l *listener.Listener) {
 func validateInboundListener(t testing.TB, l *listener.Listener) {
 	if l.GetAddress().GetSocketAddress().GetPortValue() != 15006 {
 		// Not an inbound port
+		return
+	}
+	if l.GetTrafficDirection() != core.TrafficDirection_INBOUND {
+		// Not an inbound listener
 		return
 	}
 	for i, fc := range l.GetFilterChains() {

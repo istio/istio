@@ -38,8 +38,6 @@ func TestOrdering(t *testing.T) {
 	mu := sync.Mutex{}
 	out := make([]int, 0)
 	for i := 0; i < numValues; i++ {
-		i := i
-
 		q.Push(func() error {
 			mu.Lock()
 			out = append(out, i)

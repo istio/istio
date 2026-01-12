@@ -16,9 +16,8 @@ package framework
 
 import (
 	"flag"
-	"io"
 
-	"google.golang.org/grpc/grpclog"
+	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"istio.io/istio/pkg/log"
 )
@@ -26,6 +25,9 @@ import (
 var logOptionsFromCommandline = log.DefaultOptions()
 
 func init() {
+	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
+	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
+
 	logOptionsFromCommandline.AttachFlags(
 		func(p *[]string, name string, value []string, usage string) {
 			// TODO(ozben): Implement string array method for capturing the complete set of log settings.
@@ -37,9 +39,7 @@ func init() {
 
 func configureLogging() error {
 	o := *logOptionsFromCommandline
-
-	o.LogGrpc = false
-	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
-
+	// This is spammy at info level, even for tests, so set to warn level
+	o.SetDefaultOutputLevel("installer", log.WarnLevel)
 	return log.Configure(&o)
 }

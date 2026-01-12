@@ -18,46 +18,18 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
-// iptables tables
-const (
-	MANGLE = "mangle"
-	NAT    = "nat"
-	FILTER = "filter"
-	RAW    = "raw"
-)
-
-// Built-in iptables chains
-const (
-	INPUT       = "INPUT"
-	OUTPUT      = "OUTPUT"
-	FORWARD     = "FORWARD"
-	PREROUTING  = "PREROUTING"
-	POSTROUTING = "POSTROUTING"
-)
-
-var BuiltInChainsMap = map[string]struct{}{
-	INPUT:       {},
-	OUTPUT:      {},
-	FORWARD:     {},
-	PREROUTING:  {},
-	POSTROUTING: {},
-}
-
-// Constants used for generating iptables commands
-const (
-	TCP = "tcp"
-	UDP = "udp"
-
-	TPROXY   = "TPROXY"
-	RETURN   = "RETURN"
-	ACCEPT   = "ACCEPT"
-	REJECT   = "REJECT"
-	REDIRECT = "REDIRECT"
-	MARK     = "MARK"
-	CT       = "CT"
-	DROP     = "DROP"
+var BuiltInChainsAndTargetsMap = sets.New(
+	"INPUT",
+	"OUTPUT",
+	"FORWARD",
+	"PREROUTING",
+	"POSTROUTING",
+	"ACCEPT",
+	"RETURN",
+	"DROP",
 )
 
 const (
@@ -66,14 +38,20 @@ const (
 	IPVersionSpecific = "PLACEHOLDER_IP_VERSION_SPECIFIC"
 )
 
+// In TPROXY mode, mark the packet from envoy outbound to app by podIP,
+// this is to prevent it being intercepted to envoy inbound listener.
+const OutboundMark = "1338"
+
 // iptables chains
 const (
 	ISTIOOUTPUT     = "ISTIO_OUTPUT"
+	ISTIOOUTPUTDNS  = "ISTIO_OUTPUT_DNS"
 	ISTIOINBOUND    = "ISTIO_INBOUND"
 	ISTIODIVERT     = "ISTIO_DIVERT"
 	ISTIOTPROXY     = "ISTIO_TPROXY"
 	ISTIOREDIRECT   = "ISTIO_REDIRECT"
 	ISTIOINREDIRECT = "ISTIO_IN_REDIRECT"
+	ISTIODROP       = "ISTIO_DROP"
 )
 
 // Constants used in cobra/viper CLI
@@ -93,10 +71,9 @@ const (
 	InboundTunnelPort         = "inbound-tunnel-port"
 	ProxyUID                  = "proxy-uid"
 	ProxyGID                  = "proxy-gid"
-	KubeVirtInterfaces        = "kube-virt-interfaces"
+	RerouteVirtualInterfaces  = "kube-virt-interfaces"
 	DryRun                    = "dry-run"
 	TraceLogging              = "iptables-trace-logging"
-	RestoreFormat             = "restore-format"
 	SkipRuleApply             = "skip-rule-apply"
 	RunValidation             = "run-validation"
 	IptablesProbePort         = "iptables-probe-port"
@@ -107,7 +84,11 @@ const (
 	CaptureAllDNS             = "capture-all-dns"
 	NetworkNamespace          = "network-namespace"
 	CNIMode                   = "cni-mode"
-	IptablesVersion           = "iptables-version"
+	Reconcile                 = "reconcile"
+	CleanupOnly               = "cleanup-only"
+	ForceApply                = "force-apply"
+	NativeNftables            = "native-nftables"
+	ForceIptablesBinary       = "force-iptables-binary"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.
@@ -146,16 +127,6 @@ const (
 	EnvoyUser = "ENVOY_USER"
 )
 
-// Constants for iptables commands
-const (
-	IPTABLES         = "iptables"
-	IPTABLESRESTORE  = "iptables-restore"
-	IPTABLESSAVE     = "iptables-save"
-	IP6TABLES        = "ip6tables"
-	IP6TABLESRESTORE = "ip6tables-restore"
-	IP6TABLESSAVE    = "ip6tables-save"
-)
-
 // Constants for syscall
 const (
 	// sys/socket.h
@@ -163,7 +134,6 @@ const (
 )
 
 const (
-	DefaultIptablesProbePort     = "15002"
 	DefaultIptablesProbePortUint = 15002
 	DefaultProbeTimeout          = 5 * time.Second
 )
@@ -176,4 +146,15 @@ const (
 // DNS ports
 const (
 	IstioAgentDNSListenerPort = "15053"
+)
+
+// type of iptables operation/command to run, as an enum
+// the implementation will choose the correct underlying binary,
+// so callers should just use these enums to indicate what they want to do.
+type IptablesCmd int
+
+const (
+	IPTables        IptablesCmd = iota
+	IPTablesSave    IptablesCmd = iota
+	IPTablesRestore IptablesCmd = iota
 )

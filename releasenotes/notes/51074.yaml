@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 50958
+releaseNotes:
+- |
+  **Fixed** Ensure CNI plugin inherits CNI agent log level, simplify CNI logging config

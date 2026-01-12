@@ -44,6 +44,11 @@ This will merge the passed in configuration with the default configuration. Sing
 
 For reference, [the default bootstrap configuration](../../tools/packaging/common/envoy_bootstrap.json) and Envoy's [configuration reference](https://www.envoyproxy.io/docs/envoy/latest/configuration/configuration#config) may be useful
 
+## Outside of Kubernetes
+
+The annotation above configures a volume mount and configures Istio to use it.
+When running outside of Kubernetes or in custom setups, similar functionality can be achieved by setting the `ISTIO_BOOTSTRAP_OVERRIDE` variable pointing to a file containing the custom bootstrap.
+
 ## Cleanup
 
 ```bash

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** a bug when a Sidecar is resource is defined with multiple egress listeners with different ports 
+  of a Kubernetes service, does not merge the ports correctly. This leads to creating only one Cluster with 
+  the first port and second port is ignored.

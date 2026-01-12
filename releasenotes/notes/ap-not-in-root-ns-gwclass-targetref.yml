@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where WaypointAccepted status condition for AuthorizationPolicies that reference a GatewayClass and do not reside in the root namespace was not being updated with the correct reason and message.

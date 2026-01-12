@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kstrings "k8s.io/utils/strings"
 	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -195,12 +196,25 @@ func appendMultusNetwork(existingValue, istioCniNetwork string) string {
 			log.Warnf("Unable to unmarshal Multus Network annotation JSON value: %v", err)
 			return existingValue
 		}
+		istioCniNetworkNs, istioCniNetworkName := kstrings.SplitQualifiedName(istioCniNetwork)
 		for _, net := range networks {
-			if net["name"] == istioCniNetwork {
-				return existingValue
+			if net["name"] == istioCniNetworkName {
+				ns := net["namespace"]
+				if ns == nil {
+					ns = ""
+				}
+				if ns == istioCniNetworkNs {
+					return existingValue
+				}
 			}
 		}
-		return existingValue[0:i] + fmt.Sprintf(`, {"name": "%s"}`, istioCniNetwork) + existingValue[i:]
+		var istioCniNetworkJSON string
+		if istioCniNetworkNs == "" {
+			istioCniNetworkJSON = fmt.Sprintf(`, {"name": "%s"}`, istioCniNetworkName)
+		} else {
+			istioCniNetworkJSON = fmt.Sprintf(`, {"name": "%s", "namespace": "%s"}`, istioCniNetworkName, istioCniNetworkNs)
+		}
+		return existingValue[0:i] + istioCniNetworkJSON + existingValue[i:]
 	}
 	for _, net := range strings.Split(existingValue, ",") {
 		if strings.TrimSpace(net) == istioCniNetwork {
@@ -289,7 +303,7 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if !ok || originalProxyConfig == nil {
 		return msg
 	}
-	pc := proto.Clone(originalProxyConfig).(*meshconfig.ProxyConfig)
+	pc := protomarshal.Clone(originalProxyConfig)
 	defaults := mesh.DefaultProxyConfig()
 	if pc.ConfigPath == defaults.ConfigPath {
 		pc.ConfigPath = ""

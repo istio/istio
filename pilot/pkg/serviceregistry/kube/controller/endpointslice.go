@@ -15,18 +15,19 @@
 package controller
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/discovery/v1"
-	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -49,7 +51,7 @@ var (
 )
 
 func newEndpointSliceController(c *Controller) *endpointSliceController {
-	slices := kclient.NewFiltered[*v1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.opts.GetFilter()})
+	slices := kclient.NewFiltered[*v1.EndpointSlice](c.client, kclient.Filter{ObjectFilter: c.client.ObjectFilter()})
 	out := &endpointSliceController{
 		c:             c,
 		slices:        slices,
@@ -83,17 +85,6 @@ func (esc *endpointSliceController) initializeNamespace(ns string, filtered bool
 	return err.ErrorOrNil()
 }
 
-// deleteEndpoints deletes endpoints for a given namespace.
-func (esc *endpointSliceController) deleteEndpoints(ns string) error {
-	var err *multierror.Error
-	endpoints := esc.slices.ListUnfiltered(ns, klabels.Everything())
-	log.Debugf("deleting %d endpointslices", len(endpoints))
-	for _, s := range endpoints {
-		err = multierror.Append(err, esc.onEvent(nil, s, model.EventDelete))
-	}
-	return err.ErrorOrNil()
-}
-
 func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model.Event) error {
 	esc.onEventInternal(nil, ep, event)
 	return nil
@@ -113,51 +104,69 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	} else {
 		esc.updateEndpointSlice(ep)
 	}
-	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
-	// Trigger EDS push for all hostnames.
-	esc.pushEDS(hostnames, namespacedName.Namespace)
+
+	// Now check if we need to do a full push for the service.
+	// If the service is headless, we need to do a full push if service exposes TCP ports
+	// to create IP based listeners. For pure HTTP headless services, we only need to push NDS.
 	name := serviceNameForEndpointSlice(esLabels)
 	namespace := ep.GetNamespace()
 	svc := esc.c.services.Get(name, namespace)
-	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone {
+	if svc != nil && !serviceNeedsPush(svc) {
+		return
+	}
+
+	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
+	log.Debugf("triggering EDS push for %s in namespace %s", hostnames, namespacedName.Namespace)
+	// Trigger EDS push for all hostnames.
+	esc.pushEDS(hostnames, namespacedName.Namespace)
+
+	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone || svc.Spec.Type == corev1.ServiceTypeExternalName {
 		return
 	}
 
 	configsUpdated := sets.New[model.ConfigKey]()
-	pureHTTP := true
+	supportsOnlyHTTP := true
 	for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
-		// skip push if it is not exported
-		if modelSvc.Attributes.ExportTo.Contains(visibility.None) {
-			continue
-		}
-		configsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
-
 		for _, p := range modelSvc.Ports {
 			if !p.Protocol.IsHTTP() {
-				pureHTTP = false
+				supportsOnlyHTTP = false
 				break
 			}
+		}
+		if supportsOnlyHTTP {
+			// pure HTTP headless services should not need a full push since they do not
+			// require a Listener based on IP: https://github.com/istio/istio/issues/48207
+			configsUpdated.Insert(model.ConfigKey{Kind: kind.DNSName, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
+		} else {
+			configsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
 		}
 	}
 
 	if len(configsUpdated) > 0 {
-		// For headless services, trigger a full push if EnableHeadlessService is true and svc ports are not pure HTTP.
-		// otherwise push endpoint updates - needed for NDS output.
 		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			// pure HTTP headless services should not need a full push since they do not
-			// require a Listener based on IP: https://github.com/istio/istio/issues/48207
-			Full: !pureHTTP && features.EnableHeadlessService,
-			// TODO: extend and set service instance type, so no need to re-init push context
+			Full:           true,
 			ConfigsUpdated: configsUpdated,
-
-			Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
+			Reason:         model.NewReasonStats(model.HeadlessEndpointUpdate),
 		})
 	}
 }
 
+func serviceNeedsPush(svc *corev1.Service) bool {
+	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
+		namespaces := strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",")
+		for _, ns := range namespaces {
+			ns = strings.TrimSpace(ns)
+			if ns == string(visibility.None) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // GetProxyServiceTargets returns service instances co-located with a given proxy
-// TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
-// To tackle this, we need a ip2instance map like what we have in service entry.
+// This is only used to find the targets associated with a headless service.
+// For the service with selector, it will use GetProxyServiceTargetsByPod to get the service targets.
 func (esc *endpointSliceController) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
 	eps := esc.slices.List(proxy.Metadata.Namespace, endpointSliceSelector)
 	var out []model.ServiceTarget
@@ -182,6 +191,11 @@ func (esc *endpointSliceController) serviceTargets(ep *v1.EndpointSlice, proxy *
 			port, f := svc.Ports.Get(instance.ServicePortName)
 			if !f {
 				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
+				continue
+			}
+			// The comparison works because both IstioEndpoint and Proxy always use the first PodIP (as provided by Kubernetes)
+			// as the first entry of their respective lists.
+			if proxy.IPAddresses[0] != instance.FirstAddressOrNil() {
 				continue
 			}
 			// If the endpoint isn't ready, report this
@@ -230,38 +244,65 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 		return model.Healthy
 	}
 
-	if features.PersistentSessionLabel != "" &&
-		svc != nil &&
-		svc.Attributes.Labels[features.PersistentSessionLabel] != "" &&
+	// An endpoint is draining only if it was previously ready (serving == true) and persistent sessions is enabled
+	if svc != nil && svc.SupportsDrainingEndpoints() &&
 		(e.Conditions.Serving == nil || *e.Conditions.Serving) &&
 		(e.Conditions.Terminating == nil || *e.Conditions.Terminating) {
 		return model.Draining
 	}
 
+	// If it is shutting down, mark it as terminating. This occurs regardless of whether it was previously healthy or not.
+	if svc != nil &&
+		(e.Conditions.Terminating == nil || *e.Conditions.Terminating) {
+		return model.Terminating
+	}
+
 	return model.UnHealthy
 }
 
-func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *v1.EndpointSlice) {
+func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, epSlice *v1.EndpointSlice) {
 	var endpoints []*model.IstioEndpoint
-	if slice.AddressType == v1.AddressTypeFQDN {
+	if epSlice.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return
 	}
 	svc := esc.c.GetService(hostName)
-	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
+	svcNamespacedName := getServiceNamespacedName(epSlice)
+	// This is not a endpointslice for service, ignore
+	if svcNamespacedName.Name == "" {
+		return
+	}
 
-	for _, e := range slice.Endpoints {
+	svcCore := esc.c.services.Get(svcNamespacedName.Name, svcNamespacedName.Namespace)
+	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
+	for _, e := range epSlice.Endpoints {
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
 		healthStatus := endpointHealthStatus(svc, e)
 		for _, a := range e.Addresses {
-			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
+			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: epSlice.Name, Namespace: epSlice.Namespace}, e.TargetRef, hostName)
 			if pod == nil && expectedPod {
 				continue
 			}
-			builder := NewEndpointBuilder(esc.c, pod)
+
+			var overrideAddresses []string
+			// If not expect a pod, it means this is not an endpointslice not managed by kubernetes.
+			// We do not add all pod ips to the istio endpoint.
+			if features.EnableDualStack && expectedPod && svcCore != nil && len(pod.Status.PodIPs) > 1 && len(svcCore.Spec.ClusterIPs) > 1 {
+				if epSlice.AddressType == v1.AddressTypeIPv6 {
+					// For endpointslice with targetRef and the pod has dual stack ip.
+					// We ignore ipv6 family address to prevent generating duplicate IstioEndpoints.
+					continue
+				}
+				// get the IP addresses for the dual stack pod
+				overrideAddresses = slices.Map(pod.Status.PodIPs, func(e corev1.PodIP) string {
+					return e.IP
+				})
+			}
+
+			builder := esc.c.NewEndpointBuilder(pod)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-			for _, port := range slice.Ports {
+			for _, port := range epSlice.Ports {
 				var portNum int32
 				if port.Port != nil {
 					portNum = *port.Port
@@ -271,12 +312,15 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 					portName = *port.Name
 				}
 
-				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
+				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus, svc.SupportsUnhealthyEndpoints())
+				if len(overrideAddresses) > 1 {
+					istioEndpoint.Addresses = overrideAddresses
+				}
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
 	}
-	esc.endpointCache.Update(hostName, slice.Name, endpoints)
+	esc.endpointCache.Update(hostName, epSlice.Name, endpoints)
 }
 
 func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, hostName host.Name, updateCache bool) []*model.IstioEndpoint {
@@ -369,7 +413,7 @@ func (e *endpointSliceCache) get(hostname host.Name) []*model.IstioEndpoint {
 	found := sets.New[endpointKey]()
 	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
 		for _, ep := range eps {
-			key := endpointKey{ep.Address, ep.ServicePortName}
+			key := endpointKey{ep.FirstAddressOrNil(), ep.ServicePortName}
 			if found.InsertContains(key) {
 				// This a duplicate. Update() already handles conflict resolution, so we don't
 				// need to pick the "right" one here.
@@ -394,7 +438,7 @@ func (e *endpointSliceCache) has(hostname host.Name) bool {
 
 func endpointSliceSelectorForService(name string) klabels.Selector {
 	return klabels.Set(map[string]string{
-		v1beta1.LabelServiceName: name,
+		v1.LabelServiceName: name,
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
 }
 
@@ -436,7 +480,7 @@ func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace str
 func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *corev1.ObjectReference, host host.Name) (*corev1.Pod, bool) {
 	var expectPod bool
 	pod := c.getPod(ip, ep.Namespace, targetRef)
-	if targetRef != nil && targetRef.Kind == "Pod" {
+	if targetRef != nil && targetRef.Kind == kind.Pod.String() {
 		expectPod = true
 		if pod == nil {
 			c.registerEndpointResync(ep, ip, host)
@@ -463,7 +507,7 @@ func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, ho
 // * It is an endpoint without an associated Pod.
 // * It is an endpoint with an associate Pod, but its not found.
 func (c *Controller) getPod(ip string, namespace string, targetRef *corev1.ObjectReference) *corev1.Pod {
-	if targetRef != nil && targetRef.Kind == "Pod" {
+	if targetRef != nil && targetRef.Kind == kind.Pod.String() {
 		key := types.NamespacedName{Name: targetRef.Name, Namespace: targetRef.Namespace}
 		pod := c.pods.getPodByKey(key)
 		return pod

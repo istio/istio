@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue causing stale endpoints when the same IP address was present in multiple `WorkloadEntries`.

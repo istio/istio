@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/log"
+	sec_model "istio.io/istio/pkg/model"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -43,6 +44,7 @@ func getTLSDialOption(opts *TLSOptions) (grpc.DialOption, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	config := tls.Config{
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			var certificate tls.Certificate
@@ -79,6 +81,8 @@ func getTLSDialOption(opts *TLSOptions) (grpc.DialOption, error) {
 	if opts.SAN != "" {
 		config.ServerName = opts.SAN
 	}
+	// Compliance for all gRPC clients (e.g. Citadel)..
+	sec_model.EnforceGoCompliance(&config)
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
 }

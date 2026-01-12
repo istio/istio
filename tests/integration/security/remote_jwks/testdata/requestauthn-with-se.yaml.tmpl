@@ -1,5 +1,5 @@
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: request-authn
@@ -13,7 +13,7 @@ spec:
     outputPayloadToHeader: "x-test-payload"
     forwardOriginalToken: true
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: jwt-server-se

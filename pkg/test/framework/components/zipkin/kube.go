@@ -15,15 +15,18 @@
 package zipkin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,12 +40,13 @@ import (
 )
 
 const (
-	appName    = "zipkin"
-	tracesAPI  = "/api/v2/traces?limit=%d&spanName=%s&annotationQuery=%s"
-	zipkinPort = 9411
+	appName     = "zipkin"
+	tracesAPI   = "/api/v2/traces?%s"
+	zipkinPort  = 9411
+	httpTimeout = 5 * time.Second
 
 	remoteZipkinEntry = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: tracing-gateway
@@ -64,7 +68,7 @@ spec:
     hosts:
     - "tracing.{INGRESS_DOMAIN}"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: tracing-vs
@@ -90,7 +94,7 @@ spec:
         port:
           number: 9411
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: tracing
@@ -103,7 +107,7 @@ spec:
 ---`
 
 	extServiceEntry = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: zipkin
@@ -232,31 +236,83 @@ func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
-func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery string) ([]Trace, error) {
-	// Get 100 most recent traces
-	client := http.Client{
-		Timeout: 5 * time.Second,
-	}
-	scopes.Framework.Debugf("make get call to zipkin api %v", c.address+fmt.Sprintf(tracesAPI, limit, spanName, annotationQuery))
-	resp, err := client.Get(c.address + fmt.Sprintf(tracesAPI, limit, spanName, annotationQuery))
+func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery, hostDomain string) ([]Trace, error) {
+	url, client, err := c.createHTTPClient(limit, spanName, annotationQuery, hostDomain)
 	if err != nil {
-		scopes.Framework.Debugf("zipking err %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		scopes.Framework.Debugf("response err %v", resp.StatusCode)
-		return nil, fmt.Errorf("zipkin api returns non-ok: %v", resp.StatusCode)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set Host header to specific domain resolution, like Openshift
+	if hostDomain != "" {
+		req.Host = fmt.Sprintf("tracing.%s", hostDomain)
+		scopes.Framework.Debugf("Request created with Host header: %s", req.Host)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		scopes.Framework.Debugf("Error performing request to Zipkin API: %v", err)
+		return nil, fmt.Errorf("http request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		scopes.Framework.Debugf("Received non-OK response: %d", resp.StatusCode)
+		return nil, fmt.Errorf("zipkin API returned status code: %d", resp.StatusCode)
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	traces, err := extractTraces(body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to extract traces: %w", err)
 	}
+
 	return traces, nil
+}
+
+func (c *kubeComponent) createHTTPClient(limit int, spanName, annotationQuery, hostDomain string) (string, http.Client, error) {
+	// Encoding the annotationQuery with URL
+	queryParams := url.Values{}
+	queryParams.Add("limit", strconv.Itoa(limit))
+	queryParams.Add("spanName", spanName)
+	queryParams.Add("annotationQuery", annotationQuery)
+	baseURL := fmt.Sprintf(tracesAPI, queryParams.Encode())
+	if hostDomain == "" {
+		url := c.address + baseURL
+		scopes.Framework.Debugf("Making GET call to Zipkin API: %s", url)
+		return url, http.Client{Timeout: httpTimeout}, nil
+	}
+
+	ip, err := testKube.WaitUntilReachableIngress(hostDomain)
+	if err != nil {
+		return "", http.Client{}, fmt.Errorf("failed to resolve host domain %s: %w", hostDomain, err)
+	}
+
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			_, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid address: %s: %w", addr, err)
+			}
+
+			resolvedAddr := net.JoinHostPort(ip, port)
+			return (&net.Dialer{}).DialContext(ctx, network, resolvedAddr)
+		},
+	}
+
+	url := fmt.Sprintf("http://%s", net.JoinHostPort(ip, baseURL))
+	scopes.Framework.Debugf("Making GET call to Zipkin API: %s with resolve override: %s", url, hostDomain)
+
+	return url, http.Client{
+		Timeout:   httpTimeout,
+		Transport: transport,
+	}, nil
 }
 
 // Close implements io.Closer.

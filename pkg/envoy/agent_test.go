@@ -24,7 +24,7 @@ import (
 
 var invalidStats = ""
 
-var downstreamCxPostiveAcStats = "http.admin.downstream_cx_active: 2 \n" +
+var downstreamCxPositiveAcStats = "http.admin.downstream_cx_active: 2 \n" +
 	"http.agent.downstream_cx_active: 0 \n" +
 	"http.inbound_0.0.0.0_8080.downstream_cx_active: 0 \n" +
 	"listener.0.0.0.0_15001.downstream_cx_active: 0 \n" +
@@ -124,7 +124,7 @@ func TestActiveConnections(t *testing.T) {
 		},
 		{
 			"valid active connections",
-			downstreamCxPostiveAcStats,
+			downstreamCxPositiveAcStats,
 			19,
 		},
 		{

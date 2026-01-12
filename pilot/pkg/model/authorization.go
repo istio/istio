@@ -15,9 +15,11 @@
 package model
 
 import (
+	"k8s.io/apimachinery/pkg/types"
+
 	authpb "istio.io/api/security/v1beta1"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 type AuthorizationPolicy struct {
@@ -25,6 +27,10 @@ type AuthorizationPolicy struct {
 	Namespace   string                      `json:"namespace"`
 	Annotations map[string]string           `json:"annotations"`
 	Spec        *authpb.AuthorizationPolicy `json:"spec"`
+}
+
+func (ap *AuthorizationPolicy) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Name: ap.Name, Namespace: ap.Namespace}
 }
 
 // AuthorizationPolicies organizes AuthorizationPolicy by namespace.
@@ -45,12 +51,21 @@ func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 
 	policies := env.List(gvk.AuthorizationPolicy, NamespaceAll)
 	sortConfigByCreationTime(policies)
+
+	policyCount := make(map[string]int)
+	for _, config := range policies {
+		policyCount[config.Namespace]++
+	}
+
 	for _, config := range policies {
 		authzConfig := AuthorizationPolicy{
 			Name:        config.Name,
 			Namespace:   config.Namespace,
 			Annotations: config.Annotations,
 			Spec:        config.Spec.(*authpb.AuthorizationPolicy),
+		}
+		if _, ok := policy.NamespaceToPolicies[config.Namespace]; !ok {
+			policy.NamespaceToPolicies[config.Namespace] = make([]AuthorizationPolicy, 0, policyCount[config.Namespace])
 		}
 		policy.NamespaceToPolicies[config.Namespace] = append(policy.NamespaceToPolicies[config.Namespace], authzConfig)
 	}
@@ -66,34 +81,29 @@ type AuthorizationPoliciesResult struct {
 }
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts WorkloadSelectionOpts) AuthorizationPoliciesResult {
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts WorkloadPolicyMatcher) AuthorizationPoliciesResult {
 	configs := AuthorizationPoliciesResult{}
 	if policy == nil {
 		return configs
 	}
-	rootNamespace := policy.RootNamespace
-	namespace := selectionOpts.Namespace
-	workloadLabels := selectionOpts.WorkloadLabels
-	var lookupInNamespaces []string
 
-	if namespace != rootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = []string{rootNamespace, namespace}
-	} else {
-		lookupInNamespaces = []string{namespace}
+	if len(selectionOpts.Services) > 1 {
+		// Currently, listing multiple services is unnecessary.
+		// To simplify, this function allows at most one service.
+		// The restriction can be lifted if future needs arise.
+		panic("ListAuthorizationPolicies expects at most 1 service in WorkloadPolicyMatcher")
 	}
 
-	for _, ns := range lookupInNamespaces {
+	lookupInNamespaces := []string{policy.RootNamespace, selectionOpts.WorkloadNamespace}
+	for _, svc := range selectionOpts.Services {
+		lookupInNamespaces = append(lookupInNamespaces, svc.Namespace)
+	}
+
+	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
-			switch getPolicyMatcher(gvk.AuthorizationPolicy, config.Name, selectionOpts, spec) {
-			case policyMatchSelector:
-				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-				if selector.SubsetOf(workloadLabels) {
-					configs = updateAuthorizationPoliciesResult(configs, config)
-				}
-			case policyMatchDirect:
+
+			if selectionOpts.ShouldAttachPolicy(gvk.AuthorizationPolicy, config.NamespacedName(), spec) {
 				configs = updateAuthorizationPoliciesResult(configs, config)
 			}
 		}
@@ -103,7 +113,7 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 }
 
 func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, config AuthorizationPolicy) AuthorizationPoliciesResult {
-	log.Infof("applying authorization policy %s.%s",
+	log.Debugf("applying authorization policy %s.%s",
 		config.Namespace, config.Name)
 	switch config.Spec.GetAction() {
 	case authpb.AuthorizationPolicy_ALLOW:

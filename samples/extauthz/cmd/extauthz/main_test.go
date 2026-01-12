@@ -36,13 +36,13 @@ func TestExtAuthz(t *testing.T) {
 	httpClient := &http.Client{}
 	httpReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d/check", <-server.httpPort), nil)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 
 	// Prepare the gRPC request.
 	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", <-server.grpcPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer func() { _ = conn.Close() }()
 	grpcV3Client := authv3.NewAuthorizationClient(conn)
@@ -106,7 +106,7 @@ func TestExtAuthz(t *testing.T) {
 					},
 				})
 				if err != nil {
-					t.Errorf(err.Error())
+					t.Error(err)
 				} else {
 					got = int(resp.Status.Code)
 				}
@@ -123,7 +123,7 @@ func TestExtAuthz(t *testing.T) {
 					},
 				})
 				if err != nil {
-					t.Errorf(err.Error())
+					t.Error(err)
 				} else {
 					got = int(resp.Status.Code)
 				}
@@ -131,7 +131,7 @@ func TestExtAuthz(t *testing.T) {
 				httpReq.Header.Set(checkHeader, tc.header)
 				resp, err := httpClient.Do(httpReq)
 				if err != nil {
-					t.Errorf(err.Error())
+					t.Error(err)
 				} else {
 					got = resp.StatusCode
 					resp.Body.Close()

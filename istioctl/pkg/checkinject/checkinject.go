@@ -105,9 +105,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 			checkResults := analyzeRunningWebhooks(whs.Items, podLabels, nsLabels)
 			return printCheckInjectorResults(cmd.OutOrStdout(), checkResults)
 		},
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
-		},
+		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 	cmd.PersistentFlags().StringVarP(&labelPairs, "labels", "l", "",
 		"Check namespace and label pairs injection status, split multiple labels by commas")

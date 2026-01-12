@@ -10,8 +10,8 @@
       "kubernetes": {
         "kubeconfig": "/etc/cni/net.d/calico-kubeconfig"
       },
-      "log_level": "info",
       "mtu": 1500,
+      "plugin_log_level": "info",
       "policy": {
         "type": "k8s"
       },

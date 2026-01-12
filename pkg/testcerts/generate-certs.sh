@@ -87,7 +87,7 @@ limitations under the License.
 EOF
 
 {
-	echo "// This file was generated using openssl by the gencerts.sh script"
+	echo "// This file was generated using openssl by the generate-certs.sh script"
 	echo "// and holds raw certificates for the webhook tests."
 	echo ""
 	echo "package testcerts"

@@ -17,8 +17,6 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    istio.io/for-service-account: reviews
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
   name: reviews-istio-waypoint

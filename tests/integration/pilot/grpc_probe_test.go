@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 //  Copyright Istio Authors
 //
@@ -18,9 +17,11 @@
 package pilot
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -30,16 +31,15 @@ import (
 
 func TestGRPCProbe(t *testing.T) {
 	framework.NewTest(t).
-		Features("usability.observability.grpc-probe").
 		Run(func(t framework.TestContext) {
 			if !t.Clusters().Default().MinKubeVersion(23) {
 				t.Skip("gRPC probe not supported")
 			}
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "grpc-probe", Inject: true})
+			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "grpc-probe", Inject: true})
 			// apply strict mtls
 			t.ConfigKube(t.Clusters().Configs()...).YAML(ns.Name(), `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: grpc-probe-mtls
@@ -74,7 +74,7 @@ func runGRPCProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //
 		ReadinessGRPCPort: "1234",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),
+				Annotations: map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: strconv.FormatBool(rewrite)},
 			},
 		},
 	}

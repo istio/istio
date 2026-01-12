@@ -71,7 +71,8 @@ func buildMockController() *Controller {
 		DiscoveryController: discovery2,
 	}
 
-	ctls := NewController(Options{&mockMeshConfigHolder{}})
+	// No config cluster (should be fine since this is a test)
+	ctls := NewController(Options{&mockMeshConfigHolder{}, ""})
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -273,6 +274,11 @@ func TestAddRegistry(t *testing.T) {
 			ClusterID:           "cluster2",
 			DiscoveryController: memory.NewServiceDiscovery(),
 		},
+		{
+			ProviderID:          provider.Kubernetes,
+			ClusterID:           "cluster3",
+			DiscoveryController: memory.NewServiceDiscovery(),
+		},
 	}
 	ctrl := NewController(Options{})
 
@@ -280,8 +286,11 @@ func TestAddRegistry(t *testing.T) {
 	registry2Counter := atomic.NewInt32(0)
 
 	for _, r := range registries {
+		counter := atomic.NewInt32(0)
 		clusterID := r.Cluster()
-		counter := registry1Counter
+		if clusterID == "cluster1" {
+			counter = registry1Counter
+		}
 		if clusterID == "cluster2" {
 			counter = registry2Counter
 		}
@@ -290,8 +299,13 @@ func TestAddRegistry(t *testing.T) {
 		})
 		ctrl.AddRegistry(r)
 	}
-	if l := len(ctrl.registries); l != 2 {
-		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
+	if l := len(ctrl.registries); l != 3 {
+		t.Fatalf("Expected length of the registries slice should be 3, got %d", l)
+	}
+
+	if ctrl.registries[0].Instance.Provider() != provider.Kubernetes {
+		t.Errorf("expected first registry should be %s, but got %s", provider.Kubernetes,
+			ctrl.registries[0].Instance.Provider())
 	}
 
 	registries[0].DiscoveryController.(*memory.ServiceDiscovery).AddService(mock.HelloService)
@@ -350,7 +364,7 @@ func TestGetDeleteRegistry(t *testing.T) {
 	}
 	// check left registries are orders as before
 	if !reflect.DeepEqual(result[0], wrapRegistry(registries[0])) || !reflect.DeepEqual(result[1], wrapRegistry(registries[2])) {
-		t.Fatalf("Expected registries order has been changed")
+		t.Fatal("Expected registries order has been changed")
 	}
 }
 
@@ -443,7 +457,7 @@ func TestDeferredRun(t *testing.T) {
 
 	t.Run("AddRegistry before aggregate Run does not run", func(t *testing.T) {
 		ctrl.AddRegistry(runnableRegistry("earlyAdd"))
-		ctrl.AddRegistryAndRun(runnableRegistry("earlyAddAndRun"), nil)
+		ctrl.AddRegistryAndRun(runnableRegistry("earlyAddAndRun"), stop)
 		expectRunningOrFail(t, ctrl, false)
 	})
 	t.Run("aggregate Run starts all registries", func(t *testing.T) {
@@ -459,7 +473,122 @@ func TestDeferredRun(t *testing.T) {
 		expectRunningOrFail(t, ctrl, true)
 	})
 	t.Run("AddRegistryAndRun after aggregate Run starts registry", func(t *testing.T) {
-		ctrl.AddRegistryAndRun(runnableRegistry("late"), nil)
+		ctrl.AddRegistryAndRun(runnableRegistry("late"), stop)
 		expectRunningOrFail(t, ctrl, true)
 	})
+}
+
+func TestMergeServiceWithSameTrustDomain(t *testing.T) {
+	svc1 := mock.MakeService(mock.ServiceArgs{
+		Hostname:        "test.default.svc.cluster.local",
+		Address:         "10.1.0.1",
+		ServiceAccounts: []string{"spiffe://cluster.local/ns/default/sa/test-sa"},
+		ClusterID:       "cluster-1",
+	})
+	svc2 := mock.MakeService(mock.ServiceArgs{
+		Hostname:        "test.default.svc.cluster.local",
+		Address:         "10.2.0.1",
+		ServiceAccounts: []string{"spiffe://cluster.local/ns/default/sa/test-sa"},
+		ClusterID:       "cluster-2",
+	})
+
+	discovery1 := memory.NewServiceDiscovery(svc1)
+	discovery2 := memory.NewServiceDiscovery(svc2)
+
+	registry1 := serviceregistry.Simple{
+		ProviderID:          provider.Kubernetes,
+		ClusterID:           "cluster-1",
+		DiscoveryController: discovery1,
+	}
+
+	registry2 := serviceregistry.Simple{
+		ProviderID:          provider.Kubernetes,
+		ClusterID:           "cluster-2",
+		DiscoveryController: discovery2,
+	}
+
+	ctrl := NewController(Options{
+		MeshHolder: &mockMeshConfigHolder{},
+	})
+	ctrl.AddRegistry(registry1)
+	ctrl.AddRegistry(registry2)
+
+	mergedSvc := ctrl.GetService(svc1.Hostname)
+	if mergedSvc == nil {
+		t.Fatal("Failed to get merged service")
+	}
+
+	expectedClusterVIPs := map[cluster.ID][]string{
+		"cluster-1": {"10.1.0.1"},
+		"cluster-2": {"10.2.0.1"},
+	}
+	if !reflect.DeepEqual(mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs) {
+		t.Errorf("ClusterVIPs mismatch.\nGot: %v\nWant: %v",
+			mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs)
+	}
+
+	expectedServiceAccounts := []string{"spiffe://cluster.local/ns/default/sa/test-sa"}
+	if !reflect.DeepEqual(mergedSvc.ServiceAccounts, expectedServiceAccounts) {
+		t.Errorf("ServiceAccounts mismatch.\nGot: %v\nWant: %v",
+			mergedSvc.ServiceAccounts, expectedServiceAccounts)
+	}
+}
+
+func TestMergeServiceWithDistinctTrustDomains(t *testing.T) {
+	svc1 := mock.MakeService(mock.ServiceArgs{
+		Hostname:        "test.default.svc.cluster.local",
+		Address:         "10.1.0.1",
+		ServiceAccounts: []string{"spiffe://mesh.east/ns/default/sa/test-sa"},
+		ClusterID:       "cluster-east",
+	})
+	svc2 := mock.MakeService(mock.ServiceArgs{
+		Hostname:        "test.default.svc.cluster.local",
+		Address:         "10.2.0.1",
+		ServiceAccounts: []string{"spiffe://mesh.west/ns/default/sa/test-sa"},
+		ClusterID:       "cluster-west",
+	})
+
+	discovery1 := memory.NewServiceDiscovery(svc1)
+	discovery2 := memory.NewServiceDiscovery(svc2)
+
+	registry1 := serviceregistry.Simple{
+		ProviderID:          provider.Kubernetes,
+		ClusterID:           "cluster-east",
+		DiscoveryController: discovery1,
+	}
+
+	registry2 := serviceregistry.Simple{
+		ProviderID:          provider.Kubernetes,
+		ClusterID:           "cluster-west",
+		DiscoveryController: discovery2,
+	}
+
+	ctrl := NewController(Options{
+		MeshHolder: &mockMeshConfigHolder{},
+	})
+	ctrl.AddRegistry(registry1)
+	ctrl.AddRegistry(registry2)
+
+	mergedSvc := ctrl.GetService(svc1.Hostname)
+	if mergedSvc == nil {
+		t.Fatal("Failed to get merged service")
+	}
+
+	expectedClusterVIPs := map[cluster.ID][]string{
+		"cluster-east": {"10.1.0.1"},
+		"cluster-west": {"10.2.0.1"},
+	}
+	if !reflect.DeepEqual(mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs) {
+		t.Errorf("ClusterVIPs mismatch.\nGot: %v\nWant: %v",
+			mergedSvc.ClusterVIPs.Addresses, expectedClusterVIPs)
+	}
+
+	expectedServiceAccounts := []string{
+		"spiffe://mesh.east/ns/default/sa/test-sa",
+		"spiffe://mesh.west/ns/default/sa/test-sa",
+	}
+	if !reflect.DeepEqual(mergedSvc.ServiceAccounts, expectedServiceAccounts) {
+		t.Errorf("ServiceAccounts mismatch.\nGot: %v\nWant: %v",
+			mergedSvc.ServiceAccounts, expectedServiceAccounts)
+	}
 }

@@ -15,14 +15,18 @@
 package envoy
 
 import (
+	"os"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/model"
 )
 
 func TestEnvoyArgs(t *testing.T) {
@@ -30,56 +34,150 @@ func TestEnvoyArgs(t *testing.T) {
 	proxyConfig.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "my-cluster"}
 	proxyConfig.Concurrency = &wrapperspb.Int32Value{Value: 8}
 
-	cfg := ProxyConfig{
-		LogLevel:          "trace",
-		ComponentLogLevel: "misc:error",
-		NodeIPs:           []string{"10.75.2.9", "192.168.11.18"},
-		BinaryPath:        proxyConfig.BinaryPath,
-		ConfigPath:        proxyConfig.ConfigPath,
-		ConfigCleanup:     true,
-		AdminPort:         proxyConfig.ProxyAdminPort,
-		DrainDuration:     proxyConfig.DrainDuration,
-		Concurrency:       8,
+	cases := []struct {
+		name      string
+		cfg       ProxyConfig
+		extraArgs []string
+		want      []string
+	}{
+		{
+			name: "default",
+			cfg: ProxyConfig{
+				LogLevel:          "trace",
+				ComponentLogLevel: "misc:error",
+				NodeIPs:           []string{"10.75.2.9", "192.168.11.18"},
+				BinaryPath:        proxyConfig.BinaryPath,
+				ConfigPath:        proxyConfig.ConfigPath,
+				ConfigCleanup:     true,
+				AdminPort:         proxyConfig.ProxyAdminPort,
+				DrainDuration:     proxyConfig.DrainDuration,
+				Concurrency:       8,
+			},
+			extraArgs: []string{"-l", "trace", "--component-log-level", "misc:error"},
+			want: []string{
+				"-c", "test.json",
+				"--drain-time-s", "45",
+				"--drain-strategy", "immediate",
+				"--local-address-ip-version", "v4",
+				"--file-flush-interval-msec", "1000",
+				"--disable-hot-restart",
+				"--allow-unknown-static-fields",
+				"-l", "trace",
+				"--component-log-level", "misc:error",
+				"--config-yaml", `{"key":"value"}`,
+				"--concurrency", "8",
+			},
+		},
+		{
+			name: "deprecated-logs",
+			cfg: ProxyConfig{
+				LogLevel:           "trace",
+				ComponentLogLevel:  "misc:error",
+				NodeIPs:            []string{"10.75.2.9", "192.168.11.18"},
+				BinaryPath:         proxyConfig.BinaryPath,
+				ConfigPath:         proxyConfig.ConfigPath,
+				ConfigCleanup:      true,
+				AdminPort:          proxyConfig.ProxyAdminPort,
+				DrainDuration:      proxyConfig.DrainDuration,
+				Concurrency:        8,
+				SkipDeprecatedLogs: true,
+			},
+			extraArgs: []string{"-l", "trace", "--component-log-level", "misc:error", "--skip-deprecated-logs"},
+			want: []string{
+				"-c", "test.json",
+				"--drain-time-s", "45",
+				"--drain-strategy", "immediate",
+				"--local-address-ip-version", "v4",
+				"--file-flush-interval-msec", "1000",
+				"--disable-hot-restart",
+				"--allow-unknown-static-fields",
+				"-l", "trace",
+				"--component-log-level", "misc:error",
+				"--skip-deprecated-logs",
+				"--config-yaml", `{"key":"value"}`,
+				"--concurrency", "8",
+			},
+		},
+		{
+			name: "file-flush",
+			cfg: ProxyConfig{
+				LogLevel:           "trace",
+				ComponentLogLevel:  "misc:error",
+				NodeIPs:            []string{"10.75.2.9", "192.168.11.18"},
+				BinaryPath:         proxyConfig.BinaryPath,
+				ConfigPath:         proxyConfig.ConfigPath,
+				ConfigCleanup:      true,
+				AdminPort:          proxyConfig.ProxyAdminPort,
+				DrainDuration:      proxyConfig.DrainDuration,
+				Concurrency:        8,
+				FileFlushMinSizeKB: 128,
+				FileFlushInterval:  durationpb.New(time.Second * 10),
+			},
+			extraArgs: []string{"-l", "trace", "--component-log-level", "misc:error"},
+			want: []string{
+				"-c", "test.json",
+				"--drain-time-s", "45",
+				"--drain-strategy", "immediate",
+				"--local-address-ip-version", "v4",
+				"--file-flush-interval-msec", "10000",
+				"--disable-hot-restart",
+				"--allow-unknown-static-fields",
+				"--file-flush-min-size-kb", "128",
+				"-l", "trace",
+				"--component-log-level", "misc:error",
+				"--config-yaml", `{"key":"value"}`,
+				"--concurrency", "8",
+			},
+		},
 	}
 
-	test := &envoy{
-		ProxyConfig: cfg,
-		extraArgs:   []string{"-l", "trace", "--component-log-level", "misc:error"},
-	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			test := &envoy{
+				ProxyConfig: tc.cfg,
+				extraArgs:   tc.extraArgs,
+			}
 
-	testProxy := NewProxy(cfg)
-	if !reflect.DeepEqual(testProxy, test) {
-		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
-	}
+			testProxy := NewProxy(tc.cfg)
+			if !reflect.DeepEqual(testProxy, test) {
+				t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
+			}
 
-	got := test.args("test.json", "testdata/bootstrap.json")
-	want := []string{
-		"-c", "test.json",
-		"--drain-time-s", "45",
-		"--drain-strategy", "immediate",
-		"--local-address-ip-version", "v4",
-		"--file-flush-interval-msec", "1000",
-		"--disable-hot-restart",
-		"--allow-unknown-static-fields",
-		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t",
-		"-l", "trace",
-		"--component-log-level", "misc:error",
-		"--config-yaml", `{"key":"value"}`,
-		"--concurrency", "8",
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", got, want)
+			got := test.args("test.json", "testdata/bootstrap.json")
+			if d := cmp.Diff(got, tc.want); d != "" {
+				t.Errorf("envoyArgs() => (-want +got):\n%s", d)
+			}
+		})
 	}
 }
 
-func TestReadToJSON(t *testing.T) {
-	got, err := readToJSON("testdata/bootstrap.yaml")
+func TestReadToJSONIPv4(t *testing.T) {
+	err := os.Setenv("HOST_IP", "169.254.169.254")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	want := `{"key":"value"}`
+	got, err := readBootstrapToJSON("testdata/bootstrap.yaml")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	want := `{"ip":"[169.254.169.254]:8126","ip2":"169.254.169.254:8126","key":"value"}`
 	if got != want {
-		t.Errorf("readToJSON() => got:\n%v,\nwant:\n%v", got, want)
+		t.Errorf("readBootstrapToJSON() => got:\n%v,\nwant:\n%v", got, want)
+	}
+}
+
+func TestReadToJSONIPv6(t *testing.T) {
+	err := os.Setenv("HOST_IP", "dead::beef")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	got, err := readBootstrapToJSON("testdata/bootstrap.yaml")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	want := `{"ip":"[dead::beef]:8126","ip2":"[dead::beef]:8126","key":"value"}`
+	if got != want {
+		t.Errorf("readBootstrapToJSON() => got:\n%v,\nwant:\n%v", got, want)
 	}
 }
 

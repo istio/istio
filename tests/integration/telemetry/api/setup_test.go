@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -22,6 +21,7 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 )
 
 const (
@@ -50,8 +51,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
-		// TODO: Remove this restriction once we validate our prometheus helm chart version is high enough
-		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			i, err := istio.Get(ctx)
@@ -59,7 +58,7 @@ func TestMain(m *testing.M) {
 				return err
 			}
 			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, `
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: mesh-default
@@ -71,7 +70,6 @@ spec:
 		}).
 		Setup(testRegistrySetup).
 		Setup(SetupSuite).
-		Setup(setupWasmExtension).
 		Run()
 }
 
@@ -80,10 +78,21 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      PILOT_MX_ADDITIONAL_LABELS: "custom-label"
 meshConfig:
   accessLogFile: "" # disable from install, we will enable via Telemetry layer
+  extensionProviders:
+  - name: filter-state-log
+    envoyFileAccessLog:      
+      path: /dev/stdout
+      logFormat:
+        text: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %FILTER_STATE(upstream_peer)% %FILTER_STATE(downstream_peer)%\n"
 `
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
+	cfg.Values["global.logging.level"] = "xdsproxy:debug,wasm:debug"
 }
 
 // SetupSuite set up echo app for stats testing.
@@ -95,33 +104,31 @@ proxyMetadata:
   WASM_INSECURE_REGISTRIES: %q`, registry.Address())
 	for _, e := range echos {
 		if e.Subsets[0].Annotations == nil {
-			e.Subsets[0].Annotations = map[echo.Annotation]*echo.AnnotationValue{}
+			e.Subsets[0].Annotations = map[string]string{}
 		}
 		if e.Service == "b" {
-			e.Subsets[0].Annotations.Set(echo.SidecarStatsHistogramBuckets, customBuckets)
+			e.Subsets[0].Annotations[annotation.SidecarStatsHistogramBuckets.Name] = customBuckets
 		}
-		e.Subsets[0].Annotations.Set(echo.SidecarProxyConfig, proxyMetadata)
+		e.Subsets[0].Annotations[annotation.ProxyConfig.Name] = proxyMetadata
+		// add custom label to echo instances, this will be used to test additional labels exchange.
+		if e.Subsets[0].Labels == nil {
+			e.Subsets[0].Labels = map[string]string{}
+		}
+		e.Subsets[0].Labels["custom-label"] = e.Service
 	}
+
+	proxyMd := `{"proxyMetadata": {"OUTPUT_CERTS": "/etc/certs/custom"}}`
 	prom := echo.Config{
 		// mock prom instance is used to mock a prometheus server, which will visit other echo instance /metrics
 		// endpoint with proxy provisioned certs.
 		Service: "mock-prom",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: map[echo.Annotation]*echo.AnnotationValue{
-					echo.SidecarIncludeInboundPorts: {
-						Value: "",
-					},
-					echo.SidecarIncludeOutboundIPRanges: {
-						Value: "",
-					},
-					echo.SidecarProxyConfig: {
-						Value: `proxyMetadata:
-  OUTPUT_CERTS: /etc/certs/custom`,
-					},
-					echo.SidecarVolumeMount: {
-						Value: `[{"name": "custom-certs", "mountPath": "/etc/certs/custom"}]`,
-					},
+				Annotations: map[string]string{
+					annotation.SidecarTrafficIncludeInboundPorts.Name:     "",
+					annotation.SidecarTrafficIncludeOutboundIPRanges.Name: "",
+					annotation.ProxyConfig.Name:                           proxyMd,
+					annotation.SidecarUserVolumeMount.Name:                `[{"name": "custom-certs", "mountPath": "/etc/certs/custom"}]`,
 				},
 			},
 		},
@@ -136,16 +143,13 @@ proxyMetadata:
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
 	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}
 	mockProm = match.ServiceName(echo.NamespacedName{Name: "mock-prom", Namespace: apps.Namespace}).GetMatches(apps.Echos().All.Instances())
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
-		return
+		return err
 	}
 
 	args := map[string]any{
@@ -153,7 +157,7 @@ proxyMetadata:
 			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
 	}
 	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/registry-secret.yaml").
-		Apply(); err != nil {
+		Apply(apply.CleanupConditionally); err != nil {
 		return err
 	}
 	return nil

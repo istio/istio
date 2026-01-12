@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 )
@@ -43,6 +44,7 @@ type Config struct {
 	Metrics               int
 	TLSCert               string
 	TLSKey                string
+	TLSCACert             string
 	Version               string
 	UDSServer             string
 	Cluster               string
@@ -50,6 +52,7 @@ type Config struct {
 	IstioVersion          string
 	Namespace             string
 	DisableALPN           bool
+	ReportRequest         func()
 }
 
 func (c Config) String() string {
@@ -60,6 +63,7 @@ func (c Config) String() string {
 	b.WriteString(fmt.Sprintf("Metrics:               %v\n", c.Metrics))
 	b.WriteString(fmt.Sprintf("TLSCert:               %v\n", c.TLSCert))
 	b.WriteString(fmt.Sprintf("TLSKey:                %v\n", c.TLSKey))
+	b.WriteString(fmt.Sprintf("TLSCACert:             %v\n", c.TLSCACert))
 	b.WriteString(fmt.Sprintf("Version:               %v\n", c.Version))
 	b.WriteString(fmt.Sprintf("UDSServer:             %v\n", c.UDSServer))
 	b.WriteString(fmt.Sprintf("Cluster:               %v\n", c.Cluster))
@@ -111,11 +115,11 @@ func (s *Instance) Start() (err error) {
 	s.endpoints = make([]endpoint.Instance, 0)
 
 	for _, p := range s.Ports {
-		ip, err := s.getListenerIP(p)
+		ips, err := s.getListenerIPs(p)
 		if err != nil {
 			return err
 		}
-		for _, ip := range getBindAddresses(ip) {
+		for _, ip := range getBindAddresses(ips) {
 			ep, err := s.newEndpoint(p, ip, "")
 			if err != nil {
 				return err
@@ -135,9 +139,12 @@ func (s *Instance) Start() (err error) {
 	return s.waitUntilReady()
 }
 
-func getBindAddresses(ip string) []string {
-	if ip != "" && ip != "localhost" {
-		return []string{ip}
+func getBindAddresses(ip []string) []string {
+	localhost := len(ip) == 1 && ip[0] == "localhost"
+	bindAll := len(ip) == 0
+	if !localhost && !bindAll {
+		// Explicit IPs, just return
+		return ip
 	}
 	// Binding to "localhost" will only bind to a single address (v4 or v6). We want both, so we need
 	// to be explicit
@@ -145,7 +152,7 @@ func getBindAddresses(ip string) []string {
 	// Obtain all the IPs from the node
 	ipAddrs, ok := network.GetPrivateIPs(context.Background())
 	if !ok {
-		return []string{ip}
+		return ip
 	}
 	for _, ip := range ipAddrs {
 		addr, err := netip.ParseAddr(ip)
@@ -160,15 +167,15 @@ func getBindAddresses(ip string) []string {
 		}
 	}
 	addrs := []string{}
-	if v4 {
-		if ip == "localhost" {
+	if v4 || !v6 {
+		if localhost {
 			addrs = append(addrs, "127.0.0.1")
 		} else {
 			addrs = append(addrs, "0.0.0.0")
 		}
 	}
 	if v6 {
-		if ip == "localhost" {
+		if localhost {
 			addrs = append(addrs, "::1")
 		} else {
 			addrs = append(addrs, "::")
@@ -184,41 +191,67 @@ func (s *Instance) Close() (err error) {
 			err = multierror.Append(err, s.Close())
 		}
 	}
-	return
+	return err
 }
 
-func (s *Instance) getListenerIP(port *common.Port) (string, error) {
+func (s *Instance) getListenerIPs(port *common.Port) ([]string, error) {
 	// Not configured on this port, set to empty which will lead to wildcard bind
 	// Not 0.0.0.0 in case we want IPv6
 	if port == nil {
-		return "", nil
+		return nil, nil
 	}
 	if _, f := s.BindLocalhostPortsMap[port.Port]; f {
-		return "localhost", nil
+		return []string{"localhost"}, nil
 	}
 	if _, f := s.BindIPPortsMap[port.Port]; !f {
-		return "", nil
+		return nil, nil
 	}
 	if ip, f := os.LookupEnv("INSTANCE_IP"); f {
-		return ip, nil
+		return []string{ip}, nil
 	}
-	return "", fmt.Errorf("--bind-ip set but INSTANCE_IP undefined")
+	if r, f := os.LookupEnv("INSTANCE_IPS"); f {
+		ips := strings.Split(r, ",")
+		if bf, f := os.LookupEnv("BIND_FAMILY"); f {
+			bf := strings.ToLower(bf)
+			ips = slices.FilterInPlace(ips, func(s string) bool {
+				ip, err := netip.ParseAddr(s)
+				if err != nil {
+					return false
+				}
+				if bf == "ipv4" && !ip.Is4() {
+					return false
+				}
+				if bf == "ipv6" && !ip.Is6() {
+					return false
+				}
+				return true
+			})
+		}
+		return ips, nil
+	}
+	return nil, fmt.Errorf("--bind-ip set but INSTANCE_IP/INSTANCE_IPS undefined")
 }
 
 func (s *Instance) newEndpoint(port *common.Port, listenerIP string, udsServer string) (endpoint.Instance, error) {
-	return endpoint.New(endpoint.Config{
+	epConfig := endpoint.Config{
 		Port:          port,
 		UDSServer:     udsServer,
 		IsServerReady: s.isReady,
+		ReportRequest: s.ReportRequest,
 		Version:       s.Version,
 		Cluster:       s.Cluster,
 		TLSCert:       s.TLSCert,
 		TLSKey:        s.TLSKey,
+		TLSCACert:     s.TLSCACert,
 		Dialer:        s.Dialer,
 		ListenerIP:    listenerIP,
 		DisableALPN:   s.DisableALPN,
 		IstioVersion:  s.IstioVersion,
-	})
+	}
+	if port != nil && port.EndpointPicker {
+		epConfig.EndpointPicker = true
+	}
+	return endpoint.New(epConfig)
 }
 
 func (s *Instance) isReady() bool {
@@ -260,6 +293,7 @@ func (s *Instance) validate() error {
 		case protocol.HTTP2:
 		case protocol.GRPC:
 		case protocol.HBONE:
+		case protocol.DoubleHBONE:
 		default:
 			return fmt.Errorf("protocol %v not currently supported", port.Protocol)
 		}

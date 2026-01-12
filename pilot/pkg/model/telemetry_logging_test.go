@@ -16,7 +16,6 @@ package model
 
 import (
 	"reflect"
-	"sort"
 	"testing"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -28,6 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/api/type/v1beta1"
@@ -78,6 +78,14 @@ func TestAccessLogging(t *testing.T) {
 		ConfigNamespace: "default",
 		Labels:          labels,
 		Metadata:        &NodeMetadata{Labels: labels},
+		IstioVersion:    &IstioVersion{Major: 1, Minor: 23},
+	}
+	waypoint := &Proxy{
+		ConfigNamespace: "default",
+		Type:            Waypoint,
+		Labels:          map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint"},
+		Metadata:        &NodeMetadata{Labels: map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint"}},
+		IstioVersion:    &IstioVersion{Major: 1, Minor: 23},
 	}
 	prometheus := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
@@ -136,7 +144,7 @@ func TestAccessLogging(t *testing.T) {
 		TargetRef: &v1beta1.PolicyTargetReference{
 			Group: gvk.KubernetesGateway.Group,
 			Kind:  gvk.KubernetesGateway.Kind,
-			Name:  "my-gateway",
+			Name:  "waypoint",
 		},
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -245,7 +253,7 @@ func TestAccessLogging(t *testing.T) {
 			},
 		},
 	}
-	nonExistant := &tpb.Telemetry{
+	nonExistent := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
 				Providers: []*tpb.ProviderRef{
@@ -472,7 +480,7 @@ func TestAccessLogging(t *testing.T) {
 			"client - gateway defined by targetRef",
 			[]config.Config{newTelemetry("default", targetRefClient)},
 			networking.ListenerClassGateway,
-			sidecar,
+			waypoint,
 			nil,
 			[]string{"envoy"},
 		},
@@ -622,7 +630,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"non existing",
-			[]config.Config{newTelemetry("default", nonExistant)},
+			[]config.Config{newTelemetry("default", nonExistent)},
 			networking.ListenerClassSidecarOutbound,
 			sidecar,
 			[]string{"envoy"},
@@ -690,7 +698,7 @@ func TestAccessLogging(t *testing.T) {
 			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
 			var got []string
-			cfgs := telemetry.AccessLogging(ctx, tt.proxy, tt.class)
+			cfgs := telemetry.AccessLogging(ctx, tt.proxy, tt.class, nil)
 			if cfgs != nil {
 				got = []string{}
 				for _, p := range cfgs {
@@ -699,7 +707,6 @@ func TestAccessLogging(t *testing.T) {
 					}
 					got = append(got, p.Provider.Name)
 				}
-				sort.Strings(got)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("got %v want %v", got, tt.want)
@@ -713,6 +720,7 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 		ConfigNamespace: "default",
 		Labels:          map[string]string{"app": "test"},
 		Metadata:        &NodeMetadata{},
+		IstioVersion:    &IstioVersion{Major: 1, Minor: 23},
 	}
 	code400filter := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
@@ -917,15 +925,23 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound)
+			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound, nil)
 			assert.Equal(t, tt.excepted, got)
 		})
 	}
 }
 
 func TestAccessLoggingCache(t *testing.T) {
-	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
-	otherNamespace := &Proxy{ConfigNamespace: "common", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Metadata:        &NodeMetadata{Labels: map[string]string{"app": "test"}},
+		IstioVersion:    &IstioVersion{Major: 1, Minor: 23},
+	}
+	otherNamespace := &Proxy{
+		ConfigNamespace: "common",
+		Metadata:        &NodeMetadata{Labels: map[string]string{"app": "test"}},
+		IstioVersion:    &IstioVersion{Major: 1, Minor: 23},
+	}
 	cfgs := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -944,8 +960,8 @@ func TestAccessLoggingCache(t *testing.T) {
 	telemetry, ctx := createTestTelemetries([]config.Config{newTelemetry("default", cfgs)}, t)
 	for _, s := range []*Proxy{sidecar, otherNamespace} {
 		t.Run(s.ConfigNamespace, func(t *testing.T) {
-			first := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound)
-			second := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound)
+			first := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound, nil)
+			second := telemetry.AccessLogging(ctx, s, networking.ListenerClassSidecarOutbound, nil)
 			assert.Equal(t, first, second)
 		})
 	}
@@ -1000,6 +1016,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 			labels: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"protocol": {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+					"host":     {Kind: &structpb.Value_StringValue{StringValue: "%CEL(request.host)%"}},
 				},
 			},
 			expected: &otelaccesslog.OpenTelemetryAccessLogConfig{
@@ -1025,6 +1042,10 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 				Attributes: &otlpcommon.KeyValueList{
 					Values: []*otlpcommon.KeyValue{
 						{
+							Key:   "host",
+							Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%CEL(request.host)%"}},
+						},
+						{
 							Key:   "protocol",
 							Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%PROTOCOL%"}},
 						},
@@ -1034,7 +1055,8 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := buildOpenTelemetryAccessLogConfig(tc.logName, tc.hostname, tc.clusterName, tc.body, tc.labels)
+			got := buildOpenTelemetryAccessLogConfig(tc.logName, tc.hostname,
+				tc.clusterName, tc.body, tc.labels)
 			assert.Equal(t, tc.expected, got)
 		})
 	}
@@ -1165,6 +1187,26 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
+	otelCfgWithFormatters := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: OtelEnvoyAccessLogFriendlyName,
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+			EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+				Service: "otel.foo.svc.cluster.local",
+				Port:    9811,
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider_LogFormat{
+					Text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+					Labels: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+							"key2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+							"key3": {Kind: &structpb.Value_StringValue{StringValue: "%CEL(request.host)%"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	defaultEnvoyProvider := &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "envoy",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
@@ -1176,7 +1218,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 
 	grpcBackendClusterName := "outbound|9811||grpc-als.foo.svc.cluster.local"
 	grpcBackendAuthority := "grpc-als.foo.svc.cluster.local"
-	otelAtrributeCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
+	otelAttributeCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: OtelEnvoyAccessLogFriendlyName,
 			GrpcService: &core.GrpcService{
@@ -1207,6 +1249,46 @@ func TestTelemetryAccessLog(t *testing.T) {
 					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%START_TIME%"}},
 				},
 			},
+		},
+	}
+	otelWithFormattersCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+			LogName: OtelEnvoyAccessLogFriendlyName,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: grpcBackendClusterName,
+						Authority:   grpcBackendAuthority,
+					},
+				},
+			},
+			TransportApiVersion:     core.ApiVersion_V3,
+			FilterStateObjectsToLog: envoyWasmStateToLog,
+		},
+		DisableBuiltinLabels: true,
+		Body: &otlpcommon.AnyValue{
+			Value: &otlpcommon.AnyValue_StringValue{
+				StringValue: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			},
+		},
+		Attributes: &otlpcommon.KeyValueList{
+			Values: []*otlpcommon.KeyValue{
+				{
+					Key:   "key1",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+				},
+				{
+					Key:   "key2",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+				},
+				{
+					Key:   "key3",
+					Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%CEL(request.host)%"}},
+				},
+			},
+		},
+		Formatters: []*core.TypedExtensionConfig{
+			reqWithoutQueryFormatter,
 		},
 	}
 
@@ -1277,6 +1359,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 						},
 					},
 				},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
 			},
 		},
 	}
@@ -1430,7 +1513,19 @@ func TestTelemetryAccessLog(t *testing.T) {
 			fp: otelCfg,
 			expected: &accesslog.AccessLog{
 				Name:       OtelEnvoyALSName,
-				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(otelAtrributeCfg)},
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(otelAttributeCfg)},
+			},
+		},
+		{
+			name: "otel-with-formatters",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			fp: otelCfgWithFormatters,
+			expected: &accesslog.AccessLog{
+				Name:       OtelEnvoyALSName,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(otelWithFormattersCfg)},
 			},
 		},
 		{
@@ -1466,6 +1561,77 @@ func TestTelemetryAccessLog(t *testing.T) {
 			expected: &accesslog.AccessLog{
 				Name:       wellknown.FileAccessLog,
 				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(defaultJSONLabelsOut)},
+			},
+		},
+		{
+			name: "enable-omit-empty-values",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			fp: &meshconfig.MeshConfig_ExtensionProvider{
+				Name: "envoy",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path:            "/dev/stdout",
+						OmitEmptyValues: true,
+					},
+				},
+			},
+			expected: &accesslog.AccessLog{
+				Name: wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
+					Path: DevStdout,
+					AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+						LogFormat: &core.SubstitutionFormatString{
+							Format: &core.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &core.DataSource{
+									Specifier: &core.DataSource_InlineString{
+										InlineString: EnvoyTextLogFormat,
+									},
+								},
+							},
+							OmitEmptyValues: true,
+						},
+					},
+				})},
+			},
+		},
+		{
+			name: "json-enable-omit-empty-values",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_JSON,
+				AccessLogFormat:   defaultFormatJSON,
+			},
+			fp: &meshconfig.MeshConfig_ExtensionProvider{
+				Name: "envoy",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: "/dev/stdout",
+						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
+								Labels: &structpb.Struct{},
+							},
+						},
+						OmitEmptyValues: true,
+					},
+				},
+			},
+			expected: &accesslog.AccessLog{
+				Name: wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
+					Path: "/dev/stdout",
+					AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+						LogFormat: &core.SubstitutionFormatString{
+							Format: &core.SubstitutionFormatString_JsonFormat{
+								JsonFormat: EnvoyJSONLogFormatIstio,
+							},
+							JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
+							OmitEmptyValues:   true,
+						},
+					},
+				})},
 			},
 		},
 		{
@@ -1516,7 +1682,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 
 			got := telemetryAccessLog(push, tc.fp)
 			if got == nil {
-				t.Fatalf("get nil accesslog")
+				t.Fatal("get nil accesslog")
 			}
 			assert.Equal(t, tc.expected, got)
 		})
@@ -1552,9 +1718,7 @@ func TestAccessLogJSONFormatters(t *testing.T) {
 					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
 				},
 			},
-			expected: []*core.TypedExtensionConfig{
-				metadataFormatter,
-			},
+			expected: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "with-both",
@@ -1566,7 +1730,6 @@ func TestAccessLogJSONFormatters(t *testing.T) {
 			},
 			expected: []*core.TypedExtensionConfig{
 				reqWithoutQueryFormatter,
-				metadataFormatter,
 			},
 		},
 		{
@@ -1577,9 +1740,7 @@ func TestAccessLogJSONFormatters(t *testing.T) {
 					"key2": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(UPSTREAM_HOST:istio)%"}},
 				},
 			},
-			expected: []*core.TypedExtensionConfig{
-				metadataFormatter,
-			},
+			expected: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "more-complex",
@@ -1593,8 +1754,16 @@ func TestAccessLogJSONFormatters(t *testing.T) {
 			},
 			expected: []*core.TypedExtensionConfig{
 				reqWithoutQueryFormatter,
-				metadataFormatter,
 			},
+		},
+		{
+			name: "cel",
+			json: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"req1": {Kind: &structpb.Value_StringValue{StringValue: "%CEL(request.host)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{},
 		},
 	}
 
@@ -1625,33 +1794,27 @@ func TestAccessLogTextFormatters(t *testing.T) {
 			},
 		},
 		{
-			name: "with-metadata",
-			text: EnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
-			expected: []*core.TypedExtensionConfig{
-				metadataFormatter,
-			},
+			name:     "with-metadata",
+			text:     EnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
+			expected: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "with-both",
 			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% %METADATA(CLUSTER:istio)%",
 			expected: []*core.TypedExtensionConfig{
 				reqWithoutQueryFormatter,
-				metadataFormatter,
 			},
 		},
 		{
-			name: "with-multi-metadata",
-			text: EnvoyTextLogFormat + " %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
-			expected: []*core.TypedExtensionConfig{
-				metadataFormatter,
-			},
+			name:     "with-multi-metadata",
+			text:     EnvoyTextLogFormat + " %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			expected: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "more-complex",
 			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
 			expected: []*core.TypedExtensionConfig{
 				reqWithoutQueryFormatter,
-				metadataFormatter,
 			},
 		},
 	}
@@ -1669,6 +1832,7 @@ func TestTelemetryAccessLogWithFormatter(t *testing.T) {
 		ConfigNamespace: "default",
 		Labels:          map[string]string{"app": "test"},
 		Metadata:        &NodeMetadata{},
+		IstioVersion:    &IstioVersion{Major: 1, Minor: 23},
 	}
 
 	textFormatters := &tpb.Telemetry{
@@ -1737,8 +1901,79 @@ func TestTelemetryAccessLogWithFormatter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry, ctx := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
-			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound)
+			got := telemetry.AccessLogging(ctx, tt.proxy, networking.ListenerClassSidecarOutbound, nil)
 			assert.Equal(t, tt.excepted, got)
+		})
+	}
+}
+
+func TestAccessLogFormatters(t *testing.T) {
+	cases := []struct {
+		name     string
+		text     string
+		labels   *structpb.Struct
+		expected []*core.TypedExtensionConfig
+	}{
+		{
+			name:     "default",
+			text:     EnvoyTextLogFormat,
+			expected: []*core.TypedExtensionConfig{},
+		},
+		{
+			name: "with-req-without-query",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)%",
+			labels: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+			},
+		},
+		{
+			name: "with-metadata",
+			text: EnvoyTextLogFormat + " %METADATA(CLUSTER:istio)%",
+			labels: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{},
+		},
+		{
+			name: "with-both",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% %METADATA(CLUSTER:istio)%",
+			labels: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+					"key2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+			},
+		},
+		{
+			name: "all",
+			text: EnvoyTextLogFormat + " %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
+			labels: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"key1": {Kind: &structpb.Value_StringValue{StringValue: "%METADATA(CLUSTER:istio)%"}},
+					"key2": {Kind: &structpb.Value_StringValue{StringValue: "%REQ_WITHOUT_QUERY(key1:val1)%"}},
+					"key3": {Kind: &structpb.Value_StringValue{StringValue: "%CEL(request.host)%"}},
+				},
+			},
+			expected: []*core.TypedExtensionConfig{
+				reqWithoutQueryFormatter,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := accessLogFormatters(tc.text, tc.labels)
+			assert.Equal(t, tc.expected, got)
 		})
 	}
 }

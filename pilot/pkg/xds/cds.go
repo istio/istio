@@ -17,13 +17,14 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/util/sets"
 )
 
 type CdsGenerator struct {
-	Server *DiscoveryServer
+	ConfigGenerator core.ConfigGenerator
 }
 
 var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
@@ -39,6 +40,7 @@ var skippedCdsConfigs = sets.New(
 	kind.Telemetry,
 	kind.WasmPlugin,
 	kind.ProxyConfig,
+	kind.DNSName,
 )
 
 // Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
@@ -53,37 +55,76 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 	return s
 }()
 
-func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	if req == nil {
-		return true
+// cdsNeedsPush may return a new PushRequest with ConfigsUpdated filtered to only include configs that impact CDS,
+// this is done because cluster generator checks if only some specific types of configs are present to enable delta generation.
+func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return req, res
+	}
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
+		return req, true
 	}
 	if !req.Full {
-		// CDS only handles full push
-		return false
+		return req, false
 	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
-	}
+
+	relevantUpdates := make(sets.Set[model.ConfigKey])
+	filtered := false
+	checkGateway := false
 	for config := range req.ConfigsUpdated {
-		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-			if _, f := pushCdsGatewayConfig[config.Kind]; f {
-				return true
+		if proxy.Type == model.Router {
+			if config.Kind == kind.Gateway {
+				// Do the check outside of the loop since its slow; just trigger we need it
+				checkGateway = true
+			}
+			if features.FilterGatewayClusterConfig {
+				if _, f := pushCdsGatewayConfig[config.Kind]; f {
+					relevantUpdates.Insert(config)
+					continue
+				}
+			}
+			if config.Kind == kind.VirtualService {
+				// We largely don't use VirtualService for CDS building. However, we do use it as part of Sidecar scoping, which
+				// implicitly includes VS destinations.
+				// Since Routers do not use Sidecar, though, we can skip for Router.
+				filtered = true
+				continue
 			}
 		}
 
 		if _, f := skippedCdsConfigs[config.Kind]; !f {
-			return true
+			relevantUpdates.Insert(config)
+		} else {
+			// we filtered a config
+			filtered = true
 		}
 	}
-	return false
+
+	needsPush := false
+
+	if checkGateway {
+		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
+		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
+		if autoPassthroughModeChanged || autoPassthroughHostsChanged {
+			needsPush = true
+		}
+	}
+
+	if filtered {
+		newPushRequest := *req
+		newPushRequest.ConfigsUpdated = relevantUpdates
+		req = &newPushRequest
+	}
+
+	return req, needsPush || len(req.ConfigsUpdated) > 0
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !cdsNeedsPush(req, proxy) {
+	req, needsPush := cdsNeedsPush(req, proxy)
+	if !needsPush {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, req)
+	clusters, logs := c.ConfigGenerator.BuildClusters(proxy, req)
 	return clusters, logs, nil
 }
 
@@ -91,9 +132,10 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req
 func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	if !cdsNeedsPush(req, proxy) {
+	req, needsPush := cdsNeedsPush(req, proxy)
+	if !needsPush {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
-	updatedClusters, removedClusters, logs, usedDelta := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, req, w)
+	updatedClusters, removedClusters, logs, usedDelta := c.ConfigGenerator.BuildDeltaClusters(proxy, req, w)
 	return updatedClusters, removedClusters, logs, usedDelta, nil
 }

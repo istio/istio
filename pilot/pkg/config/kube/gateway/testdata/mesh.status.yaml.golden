@@ -1,9 +1,7 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -13,10 +11,9 @@ status:
     status: "True"
     type: Accepted
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -65,10 +62,9 @@ status:
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: consumer-override
   namespace: default
 spec: null
@@ -93,10 +89,9 @@ status:
       namespace: apple
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: dual
   namespace: default
 spec: null
@@ -115,9 +110,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      group: ""
-      kind: Service
-      name: example
+      name: gateway
+      namespace: istio-system
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
@@ -131,13 +125,13 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      name: gateway
-      namespace: istio-system
+      group: ""
+      kind: Service
+      name: example
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: echo
   namespace: default
 spec: null
@@ -160,10 +154,9 @@ status:
       kind: Service
       name: echo
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: echo-port
   namespace: default
 spec: null
@@ -187,10 +180,9 @@ status:
       name: echo-port
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: header
   namespace: default
 spec: null
@@ -213,10 +205,9 @@ status:
       kind: Service
       name: echo
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: multi-service
   namespace: default
 spec: null
@@ -276,7 +267,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
-  creationTimestamp: null
   name: tls
   namespace: default
 spec: null
@@ -302,7 +292,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
-  creationTimestamp: null
   name: tcp
   namespace: default
 spec: null

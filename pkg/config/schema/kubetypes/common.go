@@ -20,14 +20,83 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/typemap"
 )
 
-func GetGVR[T runtime.Object]() schema.GroupVersionResource {
-	gk := GetGVK[T]()
+func MustGVRFromType[T runtime.Object]() schema.GroupVersionResource {
+	if gk, ok := getGvk(ptr.Empty[T]()); ok {
+		gr, ok := gvk.ToGVR(gk)
+		if !ok {
+			panic(fmt.Sprintf("unknown GVR for GVK %v", gk))
+		}
+		return gr
+	}
+	if rp := typemap.Get[RegisterType[T]](registeredTypes); rp != nil {
+		return (*rp).GetGVR()
+	}
+	panic("unknown kind: " + ptr.TypeName[T]())
+}
+
+func GvrFromObject(t runtime.Object) schema.GroupVersionResource {
+	gk := GvkFromObject(t)
 	gr, ok := gvk.ToGVR(gk)
 	if !ok {
 		panic(fmt.Sprintf("unknown GVR for GVK %v", gk))
 	}
 	return gr
+}
+
+func MustGVKFromType[T runtime.Object]() (cfg config.GroupVersionKind) {
+	if gvk, ok := getGvk(ptr.Empty[T]()); ok {
+		return gvk
+	}
+	if rp := typemap.Get[RegisterType[T]](registeredTypes); rp != nil {
+		return (*rp).GetGVK()
+	}
+	panic("unknown kind: " + cfg.String())
+}
+
+func MustToGVR[T runtime.Object](cfg config.GroupVersionKind) schema.GroupVersionResource {
+	if r, ok := gvk.ToGVR(cfg); ok {
+		return r
+	}
+	if rp := typemap.Get[RegisterType[T]](registeredTypes); rp != nil {
+		return (*rp).GetGVR()
+	}
+	panic("unknown kind: " + cfg.String())
+}
+
+func GvkFromObject(obj runtime.Object) config.GroupVersionKind {
+	if gvk, ok := getGvk(obj); ok {
+		return gvk
+	}
+	panic("unknown kind: " + obj.GetObjectKind().GroupVersionKind().String())
+}
+
+type TypeMetaSetGVK interface {
+	runtime.Object
+	SetGroupVersionKind(gvk schema.GroupVersionKind)
+}
+
+func EnsureTypeMeta[T TypeMetaSetGVK](t T) T {
+	if t.GetObjectKind().GroupVersionKind().Empty() {
+		gvk := MustGVKFromType[T]()
+		t.SetGroupVersionKind(gvk.Kubernetes())
+	}
+	return t
+}
+
+var registeredTypes = typemap.NewTypeMap()
+
+func Register[T runtime.Object](reg RegisterType[T]) {
+	typemap.Set[RegisterType[T]](registeredTypes, reg)
+}
+
+type RegisterType[T runtime.Object] interface {
+	GetGVK() config.GroupVersionKind
+	GetGVR() schema.GroupVersionResource
+	Object() T
 }

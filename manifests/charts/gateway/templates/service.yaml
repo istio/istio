@@ -5,6 +5,8 @@ metadata:
   name: {{ include "gateway.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
+    app.kubernetes.io/name: {{ include "gateway.name" . }}
+    {{- include "istio.labels" . | nindent 4}}
     {{- include "gateway.labels" . | nindent 4 }}
     {{- with .Values.networkGateway }}
     topology.istio.io/network: "{{.}}"
@@ -14,6 +16,14 @@ metadata:
 spec:
 {{- with .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ . }}"
+{{- end }}
+{{- if eq .Values.service.type "LoadBalancer" }}
+  {{- if hasKey .Values.service "allocateLoadBalancerNodePorts" }}
+  allocateLoadBalancerNodePorts: {{ .Values.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
+  {{- if hasKey .Values.service "loadBalancerClass" }}
+  loadBalancerClass: {{ .Values.service.loadBalancerClass }}
+  {{- end }}
 {{- end }}
 {{- if .Values.service.ipFamilyPolicy }}
   ipFamilyPolicy: {{ .Values.service.ipFamilyPolicy }}
@@ -31,7 +41,13 @@ spec:
 {{- with .Values.service.externalTrafficPolicy }}
   externalTrafficPolicy: "{{ . }}"
 {{- end }}
+{{- with .Values.service.internalTrafficPolicy }}
+  internalTrafficPolicy: "{{ . }}"
+{{- end }}
   type: {{ .Values.service.type }}
+{{- if not (eq .Values.service.clusterIP "") }}
+  clusterIP: {{ .Values.service.clusterIP }}
+{{- end }}
   ports:
 {{- if .Values.networkGateway }}
   - name: status-port
@@ -56,4 +72,7 @@ spec:
 {{- end }}
   selector:
     {{- include "gateway.selectorLabels" . | nindent 4 }}
+    {{- with .Values.service.selectorLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 {{- end }}

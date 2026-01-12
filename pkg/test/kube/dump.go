@@ -84,14 +84,13 @@ func outputPath(workDir string, cluster cluster.Cluster, prefix, suffix string) 
 
 func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 	errG := multierror.Group{}
-	for _, c := range ctx.AllClusters().Kube() {
+	for _, c := range ctx.AllClusters() {
 		deps, err := c.Kube().AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			scopes.Framework.Warnf("Error getting deployments for cluster %s: %v", c.Name(), err)
 			return
 		}
 		for _, deployment := range deps.Items {
-			deployment := deployment
 			errG.Go(func() error {
 				out, err := yaml.Marshal(deployment)
 				if err != nil {
@@ -106,14 +105,13 @@ func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 
 func DumpWebhooks(ctx resource.Context, workDir string) {
 	errG := multierror.Group{}
-	for _, c := range ctx.AllClusters().Kube() {
+	for _, c := range ctx.AllClusters() {
 		mwhs, err := c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			scopes.Framework.Warnf("Error getting mutating webhook configurations for cluster %s: %v", c.Name(), err)
 			return
 		}
 		for _, mwh := range mwhs.Items {
-			mwh := mwh
 			errG.Go(func() error {
 				out, err := yaml.Marshal(mwh)
 				if err != nil {
@@ -128,7 +126,6 @@ func DumpWebhooks(ctx resource.Context, workDir string) {
 			return
 		}
 		for _, vwh := range vwhs.Items {
-			vwh := vwh
 			errG.Go(func() error {
 				out, err := yaml.Marshal(vwh)
 				if err != nil {
@@ -150,14 +147,14 @@ func DumpPods(ctx resource.Context, workDir, namespace string, selectors []strin
 			DumpPodState,
 			DumpPodEvents,
 			DumpPodLogs,
-			DumpPodProxies,
-			DumpNdsz,
+			DumpPodEnvoy,
+			DumpPodAgent,
 			DumpCoreDumps,
 		}
 	}
 
 	wg := sync.WaitGroup{}
-	for _, c := range ctx.AllClusters().Kube() {
+	for _, c := range ctx.AllClusters() {
 		pods, err := c.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {
 			scopes.Framework.Warnf("Error getting pods list for cluster %s via kubectl: %v", c.Name(), err)
@@ -167,7 +164,6 @@ func DumpPods(ctx resource.Context, workDir, namespace string, selectors []strin
 			continue
 		}
 		for _, dump := range dumpers {
-			c, dump := c, dump
 			wg.Add(1)
 			go func() {
 				dump(ctx, c, workDir, namespace, pods.Items...)
@@ -423,13 +419,12 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 	}
 }
 
-// DumpPodProxies will dump Envoy proxy config and clusters in each of the provided pods
+// DumpPodEnvoy will dump Envoy proxy config and clusters in each of the provided pods
 // or all pods in the namespace if none are provided.
-func DumpPodProxies(ctx resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
+func DumpPodEnvoy(ctx resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 	g := errgroup.Group{}
 	for _, pod := range pods {
-		pod := pod
 		if !hasEnvoy(pod) {
 			continue
 		}
@@ -442,7 +437,6 @@ func DumpPodProxies(ctx resource.Context, c cluster.Cluster, workDir, namespace 
 			defer fw.Close()
 			dumpProxyCommand(c, fw, pod, workDir, "proxy-config.json", "config_dump?include_eds=true")
 			dumpProxyCommand(c, fw, pod, workDir, "proxy-clusters.txt", "clusters")
-			dumpProxyCommand(c, fw, pod, workDir, "proxy-stats.txt", "stats/prometheus")
 			return nil
 		})
 	}
@@ -625,10 +619,9 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir, endpoint, names
 	}
 }
 
-func DumpNdsz(ctx resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
+func DumpPodAgent(ctx resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
 	g := errgroup.Group{}
 	for _, pod := range pods {
-		pod := pod
 		g.Go(func() error {
 			fw, err := newPortForward(c, pod, 15020)
 			if err != nil {
@@ -636,10 +629,26 @@ func DumpNdsz(ctx resource.Context, c cluster.Cluster, workDir string, _ string,
 			}
 			defer fw.Close()
 			dumpProxyCommand(c, fw, pod, workDir, "ndsz.json", "debug/ndsz")
+			dumpProxyCommand(c, fw, pod, workDir, "proxy-stats.txt", "stats/prometheus")
 			return nil
 		})
 	}
 	if err := g.Wait(); err != nil {
 		scopes.Framework.Errorf("failed to dump ndsz: %v", err)
+	}
+}
+
+// Will capture pod logs until target pod/container terminates, and then will write them to file.
+// Generally should be run in a goroutine while deletion happens
+func DumpTerminationLogs(ctx context.Context, c cluster.Cluster, workDir string, pod corev1.Pod, containerName string) {
+	fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.termination.log", containerName))
+	l, err := c.PodLogsFollow(ctx, pod.Name, pod.Namespace, containerName)
+	if err != nil && len(l) == 0 {
+		scopes.Framework.Warnf("Unable to capture termination logs for cluster/pod/container: %s/%s/%s/%s: %v",
+			c.Name(), pod.Namespace, pod.Name, containerName, err)
+	}
+	if err = os.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+		scopes.Framework.Warnf("Unable to write termination logs for cluster/pod/container: %s/%s/%s/%s: %v",
+			c.Name(), pod.Namespace, pod.Name, containerName, err)
 	}
 }

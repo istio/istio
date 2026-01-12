@@ -15,9 +15,9 @@
 package ca
 
 import (
+	"context"
 	"time"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,8 +25,7 @@ import (
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -55,7 +54,7 @@ type Server struct {
 	ca             CertificateAuthority
 	serverCertTTL  time.Duration
 
-	nodeAuthorizer *NodeAuthorizer
+	nodeAuthorizer *MulticlusterNodeAuthorizor
 }
 
 type SaNode struct {
@@ -95,14 +94,14 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		if s.nodeAuthorizer == nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
-			serverCaLog.Warnf("impersonation not allowed, as node authorizer is not configured")
+			serverCaLog.Warnf("impersonation not allowed, as node authorizer (CA_TRUSTED_NODE_ACCOUNTS) is not configured")
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 
 		}
-		if err := s.nodeAuthorizer.authenticateImpersonation(caller.KubernetesInfo, impersonatedIdentity); err != nil {
+		if err := s.nodeAuthorizer.authenticateImpersonation(ctx, caller.KubernetesInfo, impersonatedIdentity); err != nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
-			serverCaLog.Warnf("impersonation failed: %v", err)
+			serverCaLog.Warnf("impersonation failed for identity %s, error: %v", impersonatedIdentity, err)
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 		}
 		// Node is authorized to impersonate; overwrite the SAN to the impersonated identity.
@@ -138,23 +137,39 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 			serverCaLog.Debugf("Append cert chain to response, %s", string(certChainBytes))
 		}
 	}
+	// expand `respCertChain` since each element might be a concatenated multi-cert PEM
+	// the expanded structure (one cert per `string` in `certChain`) is specifically expected by `ztunnel`
+	response := &pb.IstioCertificateResponse{}
+	for _, pem := range respCertChain {
+		for _, cert := range util.PemCertBytestoString([]byte(pem)) {
+			// the trailing "\n" is added for backwards compatibility
+			// there are ca clients (see pkg/test/framework/components/istio/ca.go) that would try to simply concatenate elements in the chain
+			response.CertChain = append(response.CertChain, cert+"\n")
+		}
+	}
+	// Per the spec: "... the root cert is the last element." so we do not want to flatten the root cert.
+	// If we did, the client cannot distinguish the root.
+	// A better API would put the root in a separate field entirely...
 	if len(rootCertBytes) != 0 {
-		respCertChain = append(respCertChain, string(rootCertBytes))
+		response.CertChain = append(response.CertChain, string(rootCertBytes))
 	}
-	response := &pb.IstioCertificateResponse{
-		CertChain: respCertChain,
-	}
+
+	serverCaLog.Debugf("Responding with cert chain, %q", response.CertChain)
 	s.monitoring.Success.Increment()
-	serverCaLog.Debugf("CSR successfully signed, sans %v.", caller.Identities)
+	serverCaLog.Debugf("CSR successfully signed, sans %v.", sans)
 	return response, nil
 }
 
-func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
+// RecordCertsExpiry updates the certificate-expiration related metrics given a new keycertbundle
+func RecordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
+	// Expiry of the first root cert in trust bundle
 	rootCertExpiry, err := keyCertBundle.ExtractRootCertExpiryTimestamp()
 	if err != nil {
 		serverCaLog.Errorf("failed to extract root cert expiry timestamp (error %v)", err)
+	} else {
+		rootCertExpiryTimestamp.Record(float64(rootCertExpiry.Unix()))
+		rootCertExpirySeconds.ValueFrom(func() float64 { return time.Until(rootCertExpiry).Seconds() })
 	}
-	rootCertExpiryTimestamp.Record(rootCertExpiry)
 
 	if len(keyCertBundle.GetCertChainPem()) == 0 {
 		return
@@ -163,8 +178,10 @@ func recordCertsExpiry(keyCertBundle *util.KeyCertBundle) {
 	certChainExpiry, err := keyCertBundle.ExtractCACertExpiryTimestamp()
 	if err != nil {
 		serverCaLog.Errorf("failed to extract CA cert expiry timestamp (error %v)", err)
+	} else {
+		certChainExpiryTimestamp.Record(float64(certChainExpiry.Unix()))
+		certChainExpirySeconds.ValueFrom(func() float64 { return time.Until(certChainExpiry).Seconds() })
 	}
-	certChainExpiryTimestamp.Record(certChainExpiry)
 }
 
 // Register registers a GRPC server on the specified port.
@@ -177,12 +194,11 @@ func New(
 	ca CertificateAuthority,
 	ttl time.Duration,
 	authenticators []security.Authenticator,
-	client kube.Client,
-	filter namespace.DiscoveryFilter,
+	controller multicluster.ComponentBuilder,
 ) (*Server, error) {
 	certBundle := ca.GetCAKeyCertBundle()
 	if len(certBundle.GetRootCertPem()) != 0 {
-		recordCertsExpiry(certBundle)
+		RecordCertsExpiry(certBundle)
 	}
 
 	server := &Server{
@@ -192,14 +208,10 @@ func New(
 		monitoring:     newMonitoringMetrics(),
 	}
 
-	if len(features.CATrustedNodeAccounts) > 0 && client != nil {
+	if len(features.CATrustedNodeAccounts) > 0 {
 		// TODO: do we need some way to delayed readiness until this is synced? Probably
 		// Worst case is we deny some requests though which are retried
-		na, err := NewNodeAuthorizer(client, filter, features.CATrustedNodeAccounts)
-		if err != nil {
-			return nil, err
-		}
-		server.nodeAuthorizer = na
+		server.nodeAuthorizer = NewMulticlusterNodeAuthenticator(features.CATrustedNodeAccounts, controller)
 	}
 	return server, nil
 }

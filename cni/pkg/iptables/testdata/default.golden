@@ -1,0 +1,32 @@
+iptables-save
+ip6tables-save
+* mangle
+-N ISTIO_PRERT
+-N ISTIO_OUTPUT
+-A PREROUTING -j ISTIO_PRERT
+-A OUTPUT -j ISTIO_OUTPUT
+-A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
+-A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
+COMMIT
+* nat
+-N ISTIO_PRERT
+-N ISTIO_OUTPUT
+-A OUTPUT -j ISTIO_OUTPUT
+-A PREROUTING -j ISTIO_PRERT
+-A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp -j ACCEPT
+-A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
+-A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports 15006
+-A ISTIO_OUTPUT ! -o lo -p udp -m mark ! --mark 0x539/0xfff -m udp --dport 53 -j REDIRECT --to-port 15053
+-A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp --dport 53 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports 15053
+-A ISTIO_OUTPUT -p tcp -m mark --mark 0x111/0xfff -j ACCEPT
+-A ISTIO_OUTPUT ! -d 127.0.0.1/32 -o lo -j ACCEPT
+-A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports 15001
+COMMIT
+* raw
+-N ISTIO_OUTPUT
+-N ISTIO_PRERT
+-A PREROUTING -j ISTIO_PRERT
+-A OUTPUT -j ISTIO_OUTPUT
+-A ISTIO_OUTPUT -p udp -m mark --mark 0x539/0xfff -m udp --dport 53 -j CT --zone 1
+-A ISTIO_PRERT -p udp -m mark ! --mark 0x539/0xfff -m udp --sport 53 -j CT --zone 1
+COMMIT

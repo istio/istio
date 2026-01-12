@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 57007
+releaseNotes:
+- |
+  **Added** support specifying both `--level` and `--stack-trace-level` for `istioctl admin log`.

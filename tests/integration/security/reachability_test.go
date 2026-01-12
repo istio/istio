@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -20,6 +19,7 @@ package security
 import (
 	"testing"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -51,62 +51,31 @@ const (
 
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.reachability").
 		Run(func(t framework.TestContext) {
 			systemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
 			integIstioVersion := cMinIstioVersion
-			var migrationApp echo.Instances
-			// if dual stack is enabled, a dual stack echo config should be added
-			if !t.Settings().EnableDualStack {
-				// Create a custom echo deployment in NS1 with subsets that allows us to test the
-				// migration of a workload to istio (from no sidecar to sidecar).
-				migrationApp = deployment.New(t).
-					WithClusters(t.Clusters()...).WithConfig(echo.Config{
-					Namespace:      echo1NS,
-					Service:        migrationServiceName,
-					ServiceAccount: true,
-					Ports:          ports.All(),
-					Subsets: []echo.SubsetConfig{
-						{
-							// Istio deployment, with sidecar.
-							Version:     migrationVersionIstio,
-							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, true),
-						},
-						{
-							// Legacy (non-Istio) deployment subset, does not have sidecar injected.
-							Version:     migrationVersionNonIstio,
-							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-						},
+			// Create a custom echo deployment in NS1 with subsets that allows us to test the
+			// migration of a workload to istio (from no sidecar to sidecar).
+			migrationApp := deployment.New(t).
+				WithClusters(t.Clusters()...).WithConfig(echo.Config{
+				Namespace:      echo1NS,
+				Service:        migrationServiceName,
+				ServiceAccount: true,
+				Ports:          ports.All(),
+				Subsets: []echo.SubsetConfig{
+					{
+						// Istio deployment, with sidecar.
+						Version:     migrationVersionIstio,
+						Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
 					},
-				}).BuildOrFail(t)
-			} else {
-				// TODO: remove the MinIstioVersion setting for dual stack integration test for next line
-				// integIstioVersion = cMinIstioVersionDS
-				// Create a custom echo deployment in NS1 with subsets that allows us to test the
-				// migration of a workload to istio (from no sidecar to sidecar).
-				migrationApp = deployment.New(t).
-					WithClusters(t.Clusters()...).WithConfig(echo.Config{
-					Namespace:      echo1NS,
-					Service:        migrationServiceName,
-					ServiceAccount: true,
-					Ports:          ports.All(),
-					Subsets: []echo.SubsetConfig{
-						{
-							// Istio deployment, with sidecar.
-							Version:     migrationVersionIstio,
-							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, true),
-						},
-						{
-							// Legacy (non-Istio) deployment subset, does not have sidecar injected.
-							Version:     migrationVersionNonIstio,
-							Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
-						},
+					{
+						// Legacy (non-Istio) deployment subset, does not have sidecar injected.
+						Version:     migrationVersionNonIstio,
+						Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 					},
-					IPFamilies:     "IPv4, IPv6",
-					IPFamilyPolicy: "RequireDualStack",
-				}).BuildOrFail(t)
-			}
+				},
+			}).BuildOrFail(t)
 
 			// Add the migration app to the full list of services.
 			allServices := apps.Ns1.All.Append(migrationApp.Services())
@@ -165,6 +134,43 @@ func TestReachability(t *testing.T) {
 					expectCrossNetwork: notNaked,
 					expectSuccess:      notNaked,
 					minIstioVersion:    integIstioVersion,
+					// For this one test, run all protocols.
+					// For others, we will just run the 3 core (HTTP, HTTPS, TCP).
+					// Because security code does not treat HTTP2, WS, or GRPC differently, we are skip those protocols to speed up tests,
+					// and avoid expensive calls that give no coverage (TestReachability is by far the slowest test in Istio).
+					callOpts: []echo.CallOptions{
+						{
+							Port: echo.Port{
+								Name: ports.HTTP.Name,
+							},
+						},
+						{
+							Port: echo.Port{
+								Name: ports.HTTP.Name,
+							},
+							Scheme: scheme.WebSocket,
+						},
+						{
+							Port: echo.Port{
+								Name: ports.HTTP2.Name,
+							},
+						},
+						{
+							Port: echo.Port{
+								Name: ports.HTTPS.Name,
+							},
+						},
+						{
+							Port: echo.Port{
+								Name: ports.TCP.Name,
+							},
+						},
+						{
+							Port: echo.Port{
+								Name: ports.GRPC.Name,
+							},
+						},
+					},
 				},
 				{
 					name: "global mtls permissive",
@@ -414,8 +420,6 @@ func TestReachability(t *testing.T) {
 			}
 
 			for _, c := range cases {
-				c := c
-
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					if c.minIstioVersion != "" {
 						skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
@@ -439,28 +443,12 @@ func TestReachability(t *testing.T) {
 							},
 							{
 								Port: echo.Port{
-									Name: ports.HTTP.Name,
-								},
-								Scheme: scheme.WebSocket,
-							},
-							{
-								Port: echo.Port{
-									Name: ports.HTTP2.Name,
-								},
-							},
-							{
-								Port: echo.Port{
 									Name: ports.HTTPS.Name,
 								},
 							},
 							{
 								Port: echo.Port{
 									Name: ports.TCP.Name,
-								},
-							},
-							{
-								Port: echo.Port{
-									Name: ports.GRPC.Name,
 								},
 							},
 						}
@@ -470,8 +458,6 @@ func TestReachability(t *testing.T) {
 					// This is to workaround a known bug (https://github.com/istio/istio/issues/38982) causing
 					// connection resets when sending traffic to multiple ports at once
 					for _, opts := range allOpts {
-						opts := opts
-
 						schemeStr := string(opts.Scheme)
 						if len(schemeStr) == 0 {
 							schemeStr = opts.Port.Name
@@ -479,7 +465,9 @@ func TestReachability(t *testing.T) {
 						t.NewSubTestf("%s%s", schemeStr, opts.HTTP.Path).Run(func(t framework.TestContext) {
 							// Run the test cases.
 							echotest.New(t, allServices.Instances()).
-								FromMatch(match.And(c.fromMatch, match.NotProxylessGRPC)).
+								// Proxyless gRPC is not tested in this test
+								// Headless and statefulset do not impact behavior as a client, so they are skipped in FromMatch to speed up tests
+								FromMatch(match.And(c.fromMatch, match.NotProxylessGRPC, match.NotHeadless, match.NoStatefulSet)).
 								ToMatch(match.And(c.toMatch, match.NotProxylessGRPC)).
 								WithDefaultFilters(1, 1).
 								ConditionallyTo(echotest.NoSelfCalls).

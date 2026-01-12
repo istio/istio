@@ -26,7 +26,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -101,7 +100,6 @@ func WarmBase(ctx context.Context, architectures []string, baseImages ...string)
 
 	t0 := time.Now()
 	for i, b := range keys {
-		b, i := b, i
 		go func() {
 			defer wg.Done()
 			ref, err := name.ParseReference(b.name)
@@ -364,8 +362,4 @@ func CreateProgress(name string) chan v1.Update {
 		}
 	}()
 	return updates
-}
-
-func Experiment() {
-	registry.New()
 }

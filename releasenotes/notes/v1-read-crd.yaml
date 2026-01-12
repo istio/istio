@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: enhancement
+area: installation
+releaseNotes:
+  - |
+    **Updated** all Istio components to read `v1` CRDs where applicable. This should have no impact, unless the cluster is using Istio CRDs from 1.21 or older (which is not a supported version skew).

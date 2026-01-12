@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: extensibility
+issue: []
+releaseNotes:
+- |
+  **Fixed** for waypoint, the envoyfilter with targetRef kind: GatewayClass with group: gateway.networking.k8s.io in the root namespace doesn't work.

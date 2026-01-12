@@ -5,7 +5,7 @@
 # HTTP and TLS, the host must be specified
 # See https://istio.io/docs/tasks/traffic-management/egress/
 
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: python-https
@@ -18,7 +18,7 @@ spec:
     protocol: HTTPS
 ---
 # pypi.python.org may 301 redirect to pypi.org, so we need this too.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: pypi-https
@@ -31,7 +31,7 @@ spec:
     protocol: HTTPS
 ---
 # pip install may fetch files from files.pythonhosted.org
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: pythonhosted-https

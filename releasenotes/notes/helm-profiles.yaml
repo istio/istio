@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 47838
+
+releaseNotes:
+  - |
+    **Added** support for "profiles" to Helm installation. Try it out with `--set profile=demo`!

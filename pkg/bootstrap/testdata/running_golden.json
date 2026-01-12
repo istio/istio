@@ -1,4 +1,9 @@
 {
+  "application_log_config": {
+    "log_format": {
+      "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
+    }
+  },
   "node": {
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "test.test",
@@ -9,19 +14,19 @@
       ,
       "sub_zone": "sub_zoneC"
     },
-    "metadata": {"ANNOTATIONS":{"istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}"},"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","INTERCEPTION_MODE":"REDIRECT","ISTIO_PROXY_SHA":"istio-proxy:sha","ISTIO_VERSION":"release-3.1","LABELS":{"app":"test","istio-locality":"regionA/zoneB/sub_zoneC","version":"v1alpha1"},"NAME":"svc-0-0-0-6944fb884d-4pgx8","NAMESPACE":"test","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"POD_NAME":"svc-0-0-0-6944fb884d-4pgx8","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/running","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"mypilot:1001","drainDuration":"5s","proxyAdminPort":15005,"serviceCluster":"istio-proxy","statNameLength":200,"statsdUdpAddress":"10.1.1.1:9125","statusPort":15020,"tracing":{"zipkin":{"address":"localhost:6000"}}},"STATIC_LABELS":{"app":"test","istio-locality":"regionA/zoneB/sub_zoneC","version":"v1alpha1"},"app":"test","istio-locality":"regionA.zoneB.sub_zoneC","istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}","version":"v1alpha1"}
+    "metadata": {"ANNOTATIONS":{"istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}"},"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","INTERCEPTION_MODE":"REDIRECT","ISTIO_PROXY_SHA":"istio-proxy:sha","ISTIO_VERSION":"release-3.1","LABELS":{"app":"test","istio-locality":"regionA/zoneB/sub_zoneC","version":"v1alpha1"},"METADATA_DISCOVERY":"false","NAME":"svc-0-0-0-6944fb884d-4pgx8","NAMESPACE":"test","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"POD_NAME":"svc-0-0-0-6944fb884d-4pgx8","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/running","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"mypilot:1001","drainDuration":"5s","proxyAdminPort":15005,"serviceCluster":"istio-proxy","statNameLength":200,"statsdUdpAddress":"10.1.1.1:9125","statusPort":15020,"tracing":{"zipkin":{"address":"localhost:6000"}}},"STATIC_LABELS":{"app":"test","istio-locality":"regionA/zoneB/sub_zoneC","version":"v1alpha1"},"WORKLOAD_IDENTITY_SOCKET_FILE":"test.sock","app":"test","istio-locality":"regionA.zoneB.sub_zoneC","istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}","version":"v1alpha1"}
   },
   "layered_runtime": {
-      "layers": [
-          {
-            "name": "global config",
-            "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
-          },
-          {
-              "name": "admin",
-              "admin_layer": {}
-          }
-      ]
+    "layers": [
+      {
+        "name": "global config",
+        "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.fixed_heap_use_allocated":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"re2.max_program_size.error_level":"32768"}
+      },
+      {
+        "name": "admin",
+        "admin_layer": {}
+      }
+    ]
   },
   "bootstrap_extensions": [
     {
@@ -40,7 +45,15 @@
     "stats_tags": [
       {
         "tag_name": "cluster_name",
-        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
+        "regex": "^cluster(\\.(.+);)"
+      },
+      {
+        "tag_name": "http_conn_manager_prefix",
+        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));\\.)"
+      },
+      {
+        "tag_name": "thread_name",
+        "regex": "^server(\\.(.+))\\.watchdog"
       },
       {
         "tag_name": "tcp_prefix",
@@ -57,10 +70,6 @@
       {
         "tag_name": "http_conn_manager_listener_prefix",
         "regex": "^listener(?=\\.).*?\\.http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
-      },
-      {
-        "tag_name": "http_conn_manager_prefix",
-        "regex": "^http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
       },
       {
         "tag_name": "listener_address",
@@ -133,7 +142,7 @@
           "suffix": "shadow_denied"
           },
           {
-          "safe_regex": {"regex":"vhost\\.*\\.route\\.*"}
+          "safe_regex": {"regex":"vhost\\..*\\.route\\..*"}
           },
           {
           "prefix": "component"
@@ -175,7 +184,7 @@
       "resource_api_version": "V3"
     },
     "ads_config": {
-      "api_type": "GRPC",
+      "api_type": "DELTA_GRPC",
       "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
@@ -191,6 +200,7 @@
     "clusters": [
       {
         "name": "prometheus_stats",
+        "alt_stat_name": "prometheus_stats;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -213,6 +223,7 @@
       },
       {
         "name": "agent",
+        "alt_stat_name": "agent;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -235,6 +246,7 @@
       },
       {
         "name": "sds-grpc",
+        "alt_stat_name": "sds-grpc;",
         "type": "STATIC",
         "typed_extension_protocol_options": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -253,7 +265,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "./var/run/secrets/workload-spiffe-uds/socket"
+                    "path": "./var/run/secrets/workload-spiffe-uds/test.sock"
                   }
                 }
               }
@@ -263,6 +275,7 @@
       },
       {
         "name": "xds-grpc",
+        "alt_stat_name": "xds-grpc;",
         "type" : "STATIC",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -315,6 +328,7 @@
       ,
       {
         "name": "zipkin",
+        "alt_stat_name": "zipkin;",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
@@ -339,13 +353,18 @@
     ],
     "listeners":[
       {
+        "name": "0.0.0.0_15090",
+        
         "address": {
           "socket_address": {
             "protocol": "TCP",
             "address": "0.0.0.0",
+            
             "port_value": 15090
           }
         },
+        "ignore_global_conn_limit": true,
+        "bypass_overload_manager": true,
         "filter_chains": [
           {
             "filters": [
@@ -389,6 +408,7 @@
         ]
       },
       {
+        "name": "0.0.0.0_15021",
         "address": {
            "socket_address": {
              "protocol": "TCP",
@@ -396,6 +416,8 @@
              "port_value": 15021
            }
         },
+        "ignore_global_conn_limit": true,
+        "bypass_overload_manager": true,
         "filter_chains": [
           {
             "filters": [
@@ -438,6 +460,17 @@
         ]
       }
     ]
+  },
+  "overload_manager": {
+    "resource_monitors": [
+      {
+        "name": "envoy.resource_monitors.global_downstream_max_connections",
+        "typed_config": {
+          "@type": "type.googleapis.com/envoy.extensions.resource_monitors.downstream_connections.v3.DownstreamConnectionsConfig",
+          "max_active_downstream_connections": 2147483647
+        }
+      }
+    ]
   }
   ,
   "tracing": {
@@ -474,9 +507,13 @@
   
   ,
   "cluster_manager": {
+    "enable_deferred_cluster_creation": true,
     "outlier_detection": {
       "event_log_path": "/dev/stdout"
     }
   }
-  
+  ,
+  "deferred_stat_options": {
+    "enable_deferred_creation_stats": true
+  }
 }

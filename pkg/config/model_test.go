@@ -16,7 +16,6 @@ package config
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -24,10 +23,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/test/config"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestDeepCopy(t *testing.T) {
@@ -52,7 +52,7 @@ func TestDeepCopy(t *testing.T) {
 	copied.Annotations["policy.istio.io/checkRetries"] = "0"
 	if cfg.Labels["app"] == copied.Labels["app"] ||
 		cfg.Annotations["policy.istio.io/checkRetries"] == copied.Annotations["policy.istio.io/checkRetries"] {
-		t.Fatalf("Did not deep copy labels and annotations")
+		t.Fatal("Did not deep copy labels and annotations")
 	}
 
 	// change the copied gateway to see if the original config is not effected
@@ -95,9 +95,9 @@ func TestDeepCopyTypes(t *testing.T) {
 		},
 		// gateway-api type
 		{
-			&v1alpha2.GatewayClassSpec{ControllerName: "foo"},
+			&k8s.GatewayClassSpec{ControllerName: "foo"},
 			func(c Spec) Spec {
-				c.(*v1alpha2.GatewayClassSpec).ControllerName = "bar"
+				c.(*k8s.GatewayClassSpec).ControllerName = "bar"
 				return c
 			},
 			nil,
@@ -178,7 +178,7 @@ func TestDeepCopyTypes(t *testing.T) {
 			}
 			changed := tt.modify(tt.input)
 			if cmp.Equal(cpy, changed, tt.option) {
-				t.Fatalf("deep copy allowed modification")
+				t.Fatal("deep copy allowed modification")
 			}
 		})
 	}
@@ -205,9 +205,9 @@ func TestApplyJSON(t *testing.T) {
 		},
 		// gateway-api type
 		{
-			input:  &v1alpha2.GatewayClassSpec{},
+			input:  &k8s.GatewayClassSpec{},
 			json:   `{"controllerName":"foobar","fake-field":1}`,
-			output: &v1alpha2.GatewayClassSpec{ControllerName: "foobar"},
+			output: &k8s.GatewayClassSpec{ControllerName: "foobar"},
 		},
 		// mock type
 		{
@@ -238,7 +238,7 @@ func TestApplyJSON(t *testing.T) {
 				t.Fatalf("Diff: %v", diff)
 			}
 			if err := ApplyJSONStrict(tt.input, tt.json); err == nil {
-				t.Fatalf("expected error from non existent field in strict mode")
+				t.Fatal("expected error from non existent field in strict mode")
 			}
 		})
 	}
@@ -257,11 +257,11 @@ func TestToJSON(t *testing.T) {
 		// Kubernetes type
 		{
 			input: &corev1.PodSpec{ServiceAccountName: "foobar"},
-			json:  `{"serviceAccountName":"foobar"}`,
+			json:  `{"containers":null,"serviceAccountName":"foobar"}`,
 		},
 		// gateway-api type
 		{
-			input: &v1alpha2.GatewayClassSpec{ControllerName: "foobar"},
+			input: &k8s.GatewayClassSpec{ControllerName: "foobar"},
 			json:  `{"controllerName":"foobar"}`,
 		},
 		// mock type
@@ -293,63 +293,118 @@ func TestToJSON(t *testing.T) {
 	}
 }
 
-func TestToMap(t *testing.T) {
+func TestEqualsTypes(t *testing.T) {
+	mk := func(a Spec) Config {
+		return Config{
+			Spec: a,
+		}
+	}
 	cases := []struct {
-		input Spec
-		mp    map[string]any
+		input  Config
+		modify func(c Spec) Spec
+		option cmp.Option
 	}{
 		// Istio type
 		{
-			input: &networking.VirtualService{Gateways: []string{"foobar"}},
-			mp: map[string]any{
-				"gateways": []any{"foobar"},
+			mk(&networking.VirtualService{Gateways: []string{"foo"}}),
+			func(c Spec) Spec {
+				c.(*networking.VirtualService).Gateways = []string{"bar"}
+				return c
 			},
+			protocmp.Transform(),
 		},
 		// Kubernetes type
 		{
-			input: &corev1.PodSpec{ServiceAccountName: "foobar"},
-			mp: map[string]any{
-				"serviceAccountName": "foobar",
+			mk(&corev1.PodSpec{ServiceAccountName: "foobar"}),
+			func(c Spec) Spec {
+				c.(*corev1.PodSpec).ServiceAccountName = "bar"
+				return c
 			},
+			nil,
 		},
 		// gateway-api type
 		{
-			input: &v1alpha2.GatewayClassSpec{ControllerName: "foobar"},
-			mp: map[string]any{
-				"controllerName": "foobar",
+			mk(&k8s.GatewayClassSpec{ControllerName: "foo"}),
+			func(c Spec) Spec {
+				c.(*k8s.GatewayClassSpec).ControllerName = "bar"
+				return c
 			},
+			nil,
 		},
 		// mock type
 		{
-			input: &config.MockConfig{Key: "foobar"},
-			mp: map[string]any{
-				"key": "foobar",
+			mk(&config.MockConfig{Key: "foobar"}),
+			func(c Spec) Spec {
+				c.(*config.MockConfig).Key = "bar"
+				return c
 			},
+			protocmp.Transform(),
 		},
 		// XDS type, to test golang/proto
 		{
-			input: &cluster.Cluster{Name: "foobar"},
-			mp: map[string]any{
-				"name": "foobar",
+			mk(&cluster.Cluster{Name: "foobar"}),
+			func(c Spec) Spec {
+				c.(*cluster.Cluster).Name = "bar"
+				return c
 			},
+			protocmp.Transform(),
+		},
+		// Random struct pointer
+		{
+			mk(&TestStruct{Name: "foobar"}),
+			func(c Spec) Spec {
+				c.(*TestStruct).Name = "bar"
+				return c
+			},
+			nil,
 		},
 		// Random struct
 		{
-			input: &TestStruct{Name: "foobar"},
-			mp: map[string]any{
-				"name": "foobar",
+			mk(TestStruct{Name: "foobar"}),
+			func(c Spec) Spec {
+				x := c.(TestStruct)
+				x.Name = "bar"
+				return x
 			},
+			nil,
+		},
+		// Slice
+		{
+			mk([]string{"foo"}),
+			func(c Spec) Spec {
+				x := c.([]string)
+				x[0] = "a"
+				return x
+			},
+			nil,
+		},
+		// Array
+		{
+			mk([1]string{"foo"}),
+			func(c Spec) Spec {
+				x := c.([1]string)
+				x[0] = "a"
+				return x
+			},
+			nil,
+		},
+		// Map
+		{
+			mk(map[string]string{"a": "b"}),
+			func(c Spec) Spec {
+				x := c.(map[string]string)
+				x["a"] = "x"
+				return x
+			},
+			nil,
 		},
 	}
 	for _, tt := range cases {
-		t.Run(fmt.Sprintf("%T", tt.input), func(t *testing.T) {
-			got, err := ToMap(tt.input)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !reflect.DeepEqual(got, tt.mp) {
-				t.Fatalf("got %+v want %+v", got, tt.mp)
-			}
+		t.Run(fmt.Sprintf("%T", tt.input.Spec), func(t *testing.T) {
+			cpy := tt.input.DeepCopy()
+			assert.Equal(t, tt.input.Equals(&cpy), true)
+			tt.input.Spec = tt.modify(tt.input.Spec)
+			assert.Equal(t, tt.input.Equals(&cpy), false)
 		})
 	}
 }

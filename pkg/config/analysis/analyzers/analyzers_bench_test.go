@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
@@ -32,7 +34,6 @@ import (
 // This is a very basic benchmark on unit test data, so it doesn't tell us anything about how an analyzer performs at scale
 func BenchmarkAnalyzers(b *testing.B) {
 	for _, tc := range testGrid {
-		tc := tc // Capture range variable so subtests work correctly
 		b.Run(tc.name+"-bench", func(b *testing.B) {
 			sa, err := setupAnalyzerForCase(tc, nil)
 			if err != nil {
@@ -92,7 +93,10 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 
 		return false
 	})
-	ctx := local.NewContext(store, make(chan struct{}), func(name config.GroupVersionKind) {})
+	stores := map[cluster.ID]model.ConfigStore{
+		"fake": store,
+	}
+	ctx := local.NewContext(stores, make(chan struct{}), func(name config.GroupVersionKind) {})
 
 	b.ResetTimer()
 	for _, a := range All() {

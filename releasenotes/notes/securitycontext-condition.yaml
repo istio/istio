@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 49549
+releaseNotes:
+  - |
+    **Added** manifests: add `gateways.securityContext` option to custom gateway securityContext.

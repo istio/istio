@@ -1,16 +1,21 @@
-{{- if .Values.cni.resourceQuotas.enabled }}
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
+{{- if .Values.resourceQuotas.enabled }}
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: istio-cni-resource-quota
+  name: {{ template "name" . }}-resource-quota
   namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
   hard:
-    pods: {{ .Values.cni.resourceQuotas.pods | quote }}
+    pods: {{ .Values.resourceQuotas.pods | quote }}
   scopeSelector:
     matchExpressions:
     - operator: In
       scopeName: PriorityClass
       values:
       - system-node-critical
+{{- end }}
 {{- end }}

@@ -14,6 +14,8 @@
 package telemetry
 
 import (
+	"sort"
+
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -26,6 +28,7 @@ func getNames(entries []*resource.Instance) []string {
 	for _, rs := range entries {
 		names = append(names, string(rs.Metadata.FullName.Name))
 	}
+	sort.Strings(names)
 	return names
 }
 

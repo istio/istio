@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: allow-policy
@@ -12,7 +12,7 @@ spec:
     - operation:
         notPorts: ["100"]
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: deny-policy
@@ -30,7 +30,7 @@ spec:
         ports: ["100"]
 ---
 # Make sure listener has a least one listener, otherwise there may be no policies
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway

@@ -86,6 +86,12 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 }
 ```
 
+If you are writing a multi-cluster analyzer, you can obtain the cluster name from the resource metadata:
+
+```go
+clusterID := r.Origin.ClusterName()
+```
+
 ### 2. Add the Analyzer to All()
 
 In order to be run, analyzers need to be registered in the [analyzers.All()](https://github.com/istio/istio/blob/master/pkg/config/analysis/analyzers/all.go) function. Add your analyzer as an entry there.
@@ -164,7 +170,7 @@ e.g. for the GatewayAnalyzer used as an example above, you would add something l
 `virtualservice_gateways.yaml`:
 
 ```yaml
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: httpbin-gateway
@@ -172,7 +178,7 @@ spec:
   selector:
     istio: ingressgateway
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: httpbin
@@ -182,7 +188,7 @@ spec:
   gateways:
   - httpbin-gateway # Expected: no validation error since this gateway exists
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: httpbin-bogus

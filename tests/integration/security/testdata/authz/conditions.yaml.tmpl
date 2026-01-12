@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}-request-headers
@@ -21,7 +21,7 @@ spec:
         notValues: [ "bar" ]
 ---
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}-source-ip
@@ -44,7 +44,7 @@ spec:
         notValues: {{ .Denied.MustWorkloads.Addresses | toJson }}
 ---
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}-source-namespace
@@ -67,7 +67,7 @@ spec:
         notValues: [ "{{ .Denied.NamespaceName }}" ]
 ---
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}-source-principal
@@ -81,16 +81,16 @@ spec:
         paths: [ "/source-principal" ]
     when:
     - key: source.principal
-      values: [ "{{ .Allowed.ServiceAccountName }}" ]
+      values: [ "{{ .Allowed.SpiffeIdentity }}" ]
   - to:
       - operation:
           paths: [ "/source-principal-notValues" ]
     when:
       - key: source.principal
-        notValues: [ "{{ .Denied.ServiceAccountName }}" ]
+        notValues: [ "{{ .Denied.SpiffeIdentity }}" ]
 ---
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}-destination-ip
@@ -119,7 +119,7 @@ spec:
         notValues: {{ .To.MustWorkloads.Addresses | toJson }}
 ---
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}-destination-port
@@ -148,7 +148,7 @@ spec:
         notValues: [ "{{ ( .To.PortForName `http` ).WorkloadPort }}" ]
 ---
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}-connection-sni

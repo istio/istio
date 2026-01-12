@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -92,7 +92,7 @@ func ListRevisionDescriptions(client kube.CLIClient) (map[string]*RevisionDescri
 	}
 	for _, hook := range webhooks {
 		rev := renderWithDefault(hook.GetLabels()[label.IoIstioRev.Name], DefaultRevisionName)
-		tagLabel := hook.GetLabels()[IstioTagLabel]
+		tagLabel := hook.GetLabels()[label.IoIstioTag.Name]
 		ri, revPresent := revisions[rev]
 		if revPresent {
 			if tagLabel != "" {

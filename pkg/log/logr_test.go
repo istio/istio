@@ -16,6 +16,7 @@ package log
 
 import (
 	"errors"
+	"sync/atomic"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -38,7 +39,12 @@ func runLogrTestWithScope(t *testing.T, s *Scope, f func(l logr.Logger)) []strin
 }
 
 func newScope() *Scope {
-	s := &Scope{name: "test"}
+	s := &Scope{
+		name:            "test",
+		outputLevel:     &atomic.Value{},
+		stackTraceLevel: &atomic.Value{},
+		logCallers:      &atomic.Value{},
+	}
 	s.SetOutputLevel(InfoLevel)
 	s.SetStackTraceLevel(NoneLevel)
 	s.SetLogCallers(false)

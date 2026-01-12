@@ -19,22 +19,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/k8s"
 )
 
 const (
-	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
-	CACertNamespaceConfigMap = "istio-ca-root-cert"
-
 	// maxRetries is the number of times a namespace will be retried before it is dropped out of the queue.
 	// With the current rate-limiter in use (5ms*2^(maxRetries-1)) the following numbers represent the
 	// sequence of delays between successive queuing of a namespace.
@@ -43,7 +41,15 @@ const (
 	maxRetries = 5
 )
 
-var configMapLabel = map[string]string{"istio.io/config": "true"}
+var (
+	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
+	CACertNamespaceConfigMap = features.CACertConfigMapName
+
+	// CRLNamespaceConfigMap is the name of the ConfigMap in each namespace storing the CRL of plugged in CA certificates.
+	CRLNamespaceConfigMap = features.CRLConfigMapName
+
+	configMapLabel = map[string]string{"istio.io/config": "true"}
+)
 
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
@@ -51,66 +57,76 @@ type NamespaceController struct {
 
 	queue controllers.Queue
 
-	namespaces kclient.Client[*v1.Namespace]
-	configmaps kclient.Client[*v1.ConfigMap]
+	namespaces    kclient.Client[*v1.Namespace]
+	configmaps    kclient.Client[*v1.ConfigMap]
+	crlConfigmaps kclient.Client[*v1.ConfigMap]
 
-	// if meshConfig.DiscoverySelectors specified, DiscoveryNamespacesFilter tracks the namespaces to be watched by this controller.
-	DiscoveryNamespacesFilter namespace.DiscoveryNamespacesFilter
+	ignoredNamespaces sets.Set[string]
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher,
-	discoveryNamespacesFilter namespace.DiscoveryNamespacesFilter,
-) *NamespaceController {
+func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *NamespaceController {
 	c := &NamespaceController{
-		caBundleWatcher:           caBundleWatcher,
-		DiscoveryNamespacesFilter: discoveryNamespacesFilter,
+		caBundleWatcher: caBundleWatcher,
 	}
 	c.queue = controllers.NewQueue("namespace controller",
-		controllers.WithReconciler(c.reconcileCACert),
+		controllers.WithReconciler(c.reconcileCACertAndCRL),
 		controllers.WithMaxAttempts(maxRetries))
 
 	c.configmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
 		FieldSelector: "metadata.name=" + CACertNamespaceConfigMap,
-		ObjectFilter:  c.GetFilter(),
+		ObjectFilter:  kubeClient.ObjectFilter(),
 	})
-	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
+	c.namespaces = kclient.NewFiltered[*v1.Namespace](kubeClient, kclient.Filter{
+		ObjectFilter: kubeClient.ObjectFilter(),
+	})
+
+	// kube-system is not skipped to enable deploying ztunnel in that namespace
+	c.ignoredNamespaces = inject.IgnoredNamespaces.Copy().Delete(constants.KubeSystemNamespace)
 
 	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		// skip special kubernetes system namespaces
-		return !inject.IgnoredNamespaces.Contains(o.GetNamespace())
+		return !c.ignoredNamespaces.Contains(o.GetNamespace())
 	}))
 
-	if c.DiscoveryNamespacesFilter != nil {
-		c.DiscoveryNamespacesFilter.AddHandler(func(ns string, event model.Event) {
-			c.syncNamespace(ns)
-		})
-	} else {
-		c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
-			if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
-				// We are only watching one namespace, and its not this one
-				return false
-			}
-			if inject.IgnoredNamespaces.Contains(o.GetName()) {
-				// skip special kubernetes system namespaces
-				return false
-			}
-			return true
-		}))
-	}
-	return c
-}
+	c.namespaces.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+		if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
+			// We are only watching one namespace, and its not this one
+			return false
+		}
+		if c.ignoredNamespaces.Contains(o.GetName()) {
+			// skip special kubernetes system namespaces
+			return false
+		}
+		return true
+	}))
 
-func (nc *NamespaceController) GetFilter() namespace.DiscoveryFilter {
-	if nc.DiscoveryNamespacesFilter != nil {
-		return nc.DiscoveryNamespacesFilter.Filter
+	if features.EnableCACRL {
+		// set filtered client for crl configmap
+		c.crlConfigmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
+			FieldSelector: "metadata.name=" + CRLNamespaceConfigMap,
+			ObjectFilter:  kubeClient.ObjectFilter(),
+		})
+
+		// register crl configmap event handler
+		c.crlConfigmaps.AddEventHandler(
+			controllers.FilteredObjectSpecHandler(
+				c.queue.AddObject,
+				func(o controllers.Object) bool {
+					// skip special kubernetes system namespaces
+					return !c.ignoredNamespaces.Contains(o.GetNamespace())
+				},
+			),
+		)
 	}
-	return nil
+
+	return c
 }
 
 // Run starts the NamespaceController until a value is sent to stopCh.
 func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
 	if !kube.WaitForCacheSync("namespace controller", stopCh, nc.namespaces.HasSynced, nc.configmaps.HasSynced) {
+		nc.queue.ShutDownEarly()
 		return
 	}
 
@@ -135,26 +151,51 @@ func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
 	}
 }
 
-// reconcileCACert will reconcile the ca root cert configmap for the specified namespace
+// reconcileCACertAndCRL will reconcile the ca root cert and crl configmap for the specified namespace
 // If the configmap is not found, it will be created.
 // If the namespace is filtered out by discovery selector, the configmap will be deleted.
-func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
+func (nc *NamespaceController) reconcileCACertAndCRL(o types.NamespacedName) error {
 	ns := o.Namespace
 	if ns == "" {
 		// For Namespace object, it will not have o.Namespace field set
 		ns = o.Name
 	}
-	if nc.DiscoveryNamespacesFilter != nil && !nc.DiscoveryNamespacesFilter.Filter(ns) {
-		// do not delete the configmap, maybe it is owned by another control plane
-		return nil
+
+	errs := []error{
+		// upsert root-cert configmap
+		k8s.InsertDataToConfigMap(
+			nc.configmaps,
+			metav1.ObjectMeta{
+				Name:      CACertNamespaceConfigMap,
+				Namespace: ns,
+				Labels:    configMapLabel,
+			},
+			constants.CACertNamespaceConfigMapDataName,
+			nc.caBundleWatcher.GetCABundle(),
+		),
 	}
 
-	meta := metav1.ObjectMeta{
-		Name:      CACertNamespaceConfigMap,
-		Namespace: ns,
-		Labels:    configMapLabel,
+	if features.EnableCACRL {
+		// upsert crl configmap
+		errs = append(
+			errs,
+			k8s.InsertDataToConfigMap(
+				nc.crlConfigmaps,
+				metav1.ObjectMeta{
+					Name:      CRLNamespaceConfigMap,
+					Namespace: ns,
+					Labels:    configMapLabel,
+				},
+				constants.CACRLNamespaceConfigMapDataName,
+				nc.caBundleWatcher.GetCRL(),
+			),
+		)
 	}
-	return k8s.InsertDataToConfigMap(nc.configmaps, meta, nc.caBundleWatcher.GetCABundle())
+
+	// Returns nil when there are no errors,
+	// the single error when there is exactly one,
+	// or a combined error when there are several.
+	return utilerrors.NewAggregate(errs)
 }
 
 // On namespace change, update the config map.
@@ -167,7 +208,7 @@ func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) {
 
 func (nc *NamespaceController) syncNamespace(ns string) {
 	// skip special kubernetes system namespaces
-	if inject.IgnoredNamespaces.Contains(ns) {
+	if nc.ignoredNamespaces.Contains(ns) {
 		return
 	}
 	nc.queue.Add(types.NamespacedName{Name: ns})

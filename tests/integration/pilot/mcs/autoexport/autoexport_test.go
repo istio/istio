@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -57,7 +56,6 @@ func TestMain(m *testing.M) {
 
 func TestAutoExport(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.autoexport").
 		Run(func(ctx framework.TestContext) {
 			serviceExportGVR := common.KubeSettings(ctx).ServiceExportGVR()
 			// Verify that ServiceExport is created automatically for services.
@@ -65,7 +63,6 @@ func TestAutoExport(t *testing.T) {
 				func(ctx framework.TestContext) {
 					serviceB := match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 					for _, cluster := range serviceB.GetMatches(echos.Instances).Clusters() {
-						cluster := cluster
 						ctx.NewSubTest(cluster.StableName()).RunParallel(func(ctx framework.TestContext) {
 							// Verify that the ServiceExport was created.
 							ctx.NewSubTest("create").Run(func(ctx framework.TestContext) {
@@ -119,7 +116,6 @@ func TestAutoExport(t *testing.T) {
 			ctx.NewSubTest("non-exported").RunParallel(func(ctx framework.TestContext) {
 				ns := "kube-system"
 				for i, cluster := range ctx.Clusters() {
-					cluster := cluster
 					ctx.NewSubTest(strconv.Itoa(i)).RunParallel(func(ctx framework.TestContext) {
 						services, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(ns).List(
 							context.TODO(), metav1.ListOptions{})

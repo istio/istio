@@ -1,0 +1,14 @@
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: valid-peer-authentication
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  mtls:
+    mode: PERMISSIVE
+  portLevelMtls:
+    8080:
+      mode: STRICT

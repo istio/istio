@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 49896
+releaseNotes:
+- |
+  **Added** ability to define the traffic address type (service, workload, all or none) for waypoints via the `--for` flag when using the `istioctl experimental waypoint apply` command.

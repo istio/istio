@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -41,7 +40,6 @@ import (
 func TestSidecarMutualTlsOrigination(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
-		Features("security.egress.mtls.sds").
 		Run(func(t framework.TestContext) {
 			var (
 				credNameGeneric  = "mtls-credential-generic"
@@ -103,19 +101,20 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 					},
 				},
 				// Mutual TLS origination from an unauthorized sidecar to https endpoint
-				// This will result in `TLS ERROR Secret is not supplied by SDS`
+				// This will result in a 503 with the UH flag because the cluster will
+				// stay warming until a valid secret is sent.
 				{
 					name:            "unauthorized sidecar",
 					credentialToUse: credNameGeneric,
 					from:            apps.Ns1.B,
 					drSelector:      "b",
 					expectedResponse: ingressutil.ExpectedResponse{
-						StatusCode:   http.StatusServiceUnavailable,
-						ErrorMessage: "Secret is not supplied by SDS",
+						StatusCode: http.StatusServiceUnavailable,
 					},
 				},
 				// Mutual TLS origination using an invalid client certificate
-				// This will result in `TLS ERROR: Secret is not supplied by SDS`
+				// This will result in a 503 with the UH flag because the cluster will
+				// stay warming until a valid secret is sent.
 				{
 					name:             "invalid client cert",
 					credentialToUse:  fakeCredName,
@@ -123,8 +122,7 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 					drSelector:       "c",
 					authorizeSidecar: true,
 					expectedResponse: ingressutil.ExpectedResponse{
-						StatusCode:   http.StatusServiceUnavailable,
-						ErrorMessage: "Secret is not supplied by SDS",
+						StatusCode: http.StatusServiceUnavailable,
 					},
 				},
 				// Mutual TLS origination from an authorized sidecar to https endpoint with a CRL specifying the server certificate as revoked.
@@ -156,7 +154,7 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					if tc.authorizeSidecar {
-						serviceAccount := tc.from.Config().ServiceAccountName()
+						serviceAccount := tc.from.Config().SpiffeIdentity()
 						serviceAccountName := serviceAccount[strings.LastIndex(serviceAccount, "/")+1:]
 						authorizeSidecar(t, tc.from.Config().Namespace, serviceAccountName)
 					}
@@ -217,7 +215,7 @@ func newTLSSidecarDestinationRule(t framework.TestContext, to echo.Instances, de
 		"WorkloadSelector": workloadSelector,
 	}
 	se := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: originate-mtls-for-nginx
@@ -235,7 +233,7 @@ spec:
   resolution: DNS
 `
 	dr := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-server-sds-{{.WorkloadSelector}}
@@ -255,7 +253,7 @@ spec:
           credentialName: {{.CredentialName}}
           sni: {{ .to.Config.ClusterLocalFQDN }}
 `
-	t.ConfigIstio().Eval(clientNamespace.Name(), args, se, dr).ApplyOrFail(t, apply.NoCleanup)
+	t.ConfigIstio().Eval(clientNamespace.Name(), args, se, dr).ApplyOrFail(t)
 }
 
 func newTLSSidecarCallOpts(to echo.Target, host string, exRsp ingressutil.ExpectedResponse) echo.CallOptions {

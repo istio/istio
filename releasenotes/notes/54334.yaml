@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 54334
+releaseNotes:
+- |
+  **Fixed** the wording of the status message when L7 rules are present in an AuthorizationPolicy which is bound to ztunnel to be clearer.
+

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 49913
+releaseNotes:
+- |
+  **Fixed** list matching for the audience claims in JWT tokens.
+

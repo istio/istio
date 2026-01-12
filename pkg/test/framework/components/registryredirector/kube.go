@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -53,8 +54,9 @@ type kubeComponent struct {
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	cluster := ctx.Clusters().GetOrDefault(cfg.Cluster)
 	c := &kubeComponent{
-		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
+		cluster: cluster,
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
@@ -82,16 +84,20 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		args["TargetRegistry"] = cfg.TargetRegistry
 	}
 
+	if len(cfg.Scheme) != 0 {
+		args["Scheme"] = cfg.Scheme
+	}
+
 	if len(cfg.Image) != 0 {
 		args["Image"] = cfg.Image
 	}
 
 	// apply YAML
-	if err := ctx.ConfigKube(c.cluster).EvalFile(c.ns.Name(), args, env.RegistryRedirectorServerInstallFilePath).Apply(); err != nil {
+	if err := ctx.ConfigKube(c.cluster).EvalFile(c.ns.Name(), args, env.RegistryRedirectorServerInstallFilePath).Apply(apply.CleanupConditionally); err != nil {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.RegistryRedirectorServerInstallFilePath, err)
 	}
 
-	fetchFn := testKube.NewPodFetch(ctx.Clusters().Default(), c.ns.Name(), podSelector)
+	fetchFn := testKube.NewPodFetch(cluster, c.ns.Name(), podSelector)
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err

@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
@@ -218,7 +219,9 @@ func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionRespo
 
 	gvk := obj.GroupVersionKind()
 
-	s, exists := wh.schemas.FindByGroupVersionAliasesKind(resource.FromKubernetesGVK(&gvk))
+	// "Version" is not relevant for Istio types; each version has the same schema. So do a lookup that does not consider
+	// version. This ensures if a new version comes out and Istiod is not updated, we won't reject it.
+	s, exists := wh.schemas.FindByGroupKind(resource.FromKubernetesGVK(&gvk))
 	if !exists {
 		scope.Infof("unrecognized type %v", addDryRunMessageIfNeeded(obj.GroupVersionKind().String()))
 		reportValidationFailed(request, reasonUnknownType, isDryRun)
@@ -234,7 +237,10 @@ func (wh *Webhook) validate(request *kube.AdmissionRequest) *kube.AdmissionRespo
 
 	warnings, err := s.ValidateConfig(*out)
 	if err != nil {
-		scope.Infof("configuration is invalid: %v", addDryRunMessageIfNeeded(err.Error()))
+		if _, f := out.Annotations[constants.AlwaysReject]; !f {
+			// Hide error message if it was intentionally rejected (by our own internal call)
+			scope.Infof("configuration is invalid: %v", addDryRunMessageIfNeeded(err.Error()))
+		}
 		reportValidationFailed(request, reasonInvalidConfig, isDryRun)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
 	}

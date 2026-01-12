@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/log"
 )
 
@@ -40,10 +41,12 @@ func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
 }
 
 func marshal(msg proto.Message) ([]byte, error) {
-	if vt, ok := msg.(vtStrictMarshal); ok {
-		// Attempt to use more efficient implementation
-		// "Strict" is the equivalent to Deterministic=true below
-		return vt.MarshalVTStrict()
+	if features.EnableVtprotobuf {
+		if vt, ok := msg.(vtStrictMarshal); ok {
+			// Attempt to use more efficient implementation
+			// "Strict" is the equivalent to Deterministic=true below
+			return vt.MarshalVTStrict()
+		}
 	}
 	// If not available, fallback to normal implementation
 	return proto.MarshalOptions{Deterministic: true}.Marshal(msg)
@@ -57,13 +60,6 @@ func MessageToAny(msg proto.Message) *anypb.Any {
 		return nil
 	}
 	return out
-}
-
-func TypedStruct(typeURL string) *anypb.Any {
-	return MessageToAny(&udpa.TypedStruct{
-		TypeUrl: typeURL,
-		Value:   nil,
-	})
 }
 
 func TypedStructWithFields(typeURL string, fields map[string]interface{}) *anypb.Any {
@@ -96,4 +92,20 @@ func UnmarshalAny[T any](a *anypb.Any) (*T, error) {
 // https://github.com/planetscale/vtprotobuf#available-features
 type vtStrictMarshal interface {
 	MarshalVTStrict() ([]byte, error)
+}
+
+type vtEquals[T proto.Message] interface {
+	EqualVT(T) bool
+}
+
+// Equals checks if two message are equal.
+// This is preferred to proto.Equals since it can use vtprotobuf implementations and is more type safe
+func Equals[T proto.Message](a T, b T) bool {
+	if features.EnableVtprotobuf {
+		if vt, ok := any(a).(vtEquals[T]); ok {
+			return vt.EqualVT(b)
+		}
+	}
+	// If not available, fallback to normal implementation
+	return proto.Equal(a, b)
 }

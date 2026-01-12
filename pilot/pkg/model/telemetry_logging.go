@@ -23,19 +23,17 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	otelaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
-	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
-	metadataformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/metadata/v3"
 	reqwithoutquery "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -49,7 +47,7 @@ const (
 		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
 		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
 		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
-		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
+		"%UPSTREAM_CLUSTER_RAW% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
 		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME%\n"
 
 	HTTPEnvoyAccessLogFriendlyName = "http_envoy_accesslog"
@@ -62,6 +60,8 @@ const (
 	reqWithoutQueryCommandOperator = "%REQ_WITHOUT_QUERY"
 	metadataCommandOperator        = "%METADATA"
 	celCommandOperator             = "%CEL"
+	// count of all supported formatter, right now is 3(CEL, METADATA and REQ_WITHOUT_QUERY).
+	maxFormattersLength = 3
 
 	DevStdout = "/dev/stdout"
 
@@ -95,7 +95,7 @@ var (
 			"request_id":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
 			"authority":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
 			"upstream_host":                     {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
+			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER_RAW%"}},
 			"upstream_local_address":            {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
 			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
 			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
@@ -108,40 +108,31 @@ var (
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
 	// But end users can certainly configure it on their own via the meshConfig using the %FILTER_STATE% macro.
-	envoyWasmStateToLog = []string{"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"}
+	// Related to https://github.com/istio/proxy/pull/5825, start from 1.24, Istio use new filter state key.
+	envoyStateToLog = []string{"upstream_peer", "downstream_peer"}
+	// envoyWasmStateToLog includes both old and new filter state keys for backward compatibility
+	envoyWasmStateToLog = []string{"upstream_peer", "downstream_peer", // start from 1.24.0
+		"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"}
 
 	// reqWithoutQueryFormatter configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
 	reqWithoutQueryFormatter = &core.TypedExtensionConfig{
 		Name:        "envoy.formatter.req_without_query",
 		TypedConfig: protoconv.MessageToAny(&reqwithoutquery.ReqWithoutQuery{}),
 	}
-
-	// metadataFormatter configures additional formatters needed for some of the format strings like "METADATA"
-	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/metadata/v3/metadata.proto
-	metadataFormatter = &core.TypedExtensionConfig{
-		Name:        "envoy.formatter.metadata",
-		TypedConfig: protoconv.MessageToAny(&metadataformatter.Metadata{}),
-	}
-
-	// celFormatter configures additional formatters needed for some of the format strings like "CEL"
-	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/cel/v3/cel.proto
-	celFormatter = &core.TypedExtensionConfig{
-		Name:        "envoy.formatter.cel",
-		TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
-	}
 )
 
 // configureFromProviderConfigHandled contains the number of providers we handle below.
 // This is to ensure this stays in sync as new handlers are added
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING telemetryAccessLog.
-const telemetryAccessLogHandled = 14
+const telemetryAccessLogHandled = 15
 
 func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
 	var al *accesslog.AccessLog
 	switch prov := fp.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
 		// For built-in provider, fallback to MeshConfig for formatting options when LogFormat unset.
-		if fp.Name == builtinEnvoyAccessLogProvider && prov.EnvoyFileAccessLog.LogFormat == nil {
+		if fp.Name == builtinEnvoyAccessLogProvider &&
+			prov.EnvoyFileAccessLog.LogFormat == nil && !prov.EnvoyFileAccessLog.OmitEmptyValues {
 			al = FileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
 		} else {
 			al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog)
@@ -161,6 +152,7 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 		*meshconfig.MeshConfig_ExtensionProvider_Opencensus,
 		*meshconfig.MeshConfig_ExtensionProvider_Opentelemetry,
 		*meshconfig.MeshConfig_ExtensionProvider_Prometheus,
+		*meshconfig.MeshConfig_ExtensionProvider_Sds,
 		*meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 		// No access logs supported for this provider
 		// Stackdriver is a special case as its handled in the Metrics logic, as it uses a shared filter
@@ -170,13 +162,15 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 	return al
 }
 
-func tcpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) *accesslog.AccessLog {
+func tcpGrpcAccessLogFromTelemetry(push *PushContext,
+	prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider,
+) *accesslog.AccessLog {
 	logName := TCPEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
 	}
 
-	filterObjects := envoyWasmStateToLog
+	filterObjects := envoyStateToLog
 	if len(prov.FilterStateObjectsToLog) != 0 {
 		filterObjects = prov.FilterStateObjectsToLog
 	}
@@ -223,12 +217,12 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	if prov.LogFormat != nil {
 		switch logFormat := prov.LogFormat.LogFormat.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text:
-			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(logFormat.Text)
+			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(logFormat.Text, prov.OmitEmptyValues)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels:
-			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat)
+			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat, prov.OmitEmptyValues)
 		}
 	} else {
-		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("")
+		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("", prov.OmitEmptyValues)
 	}
 	if len(needsFormatter) != 0 {
 		fl.GetLogFormat().Formatters = needsFormatter
@@ -242,7 +236,9 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	return al
 }
 
-func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
+func buildFileAccessTextLogFormat(
+	logFormatText string, omitEmptyValues bool,
+) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
 	formatString := fileAccessLogFormat(logFormatText)
 	formatters := accessLogTextFormatters(formatString)
 
@@ -255,12 +251,14 @@ func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAcce
 					},
 				},
 			},
+			OmitEmptyValues: omitEmptyValues,
 		},
 	}, formatters
 }
 
 func buildFileAccessJSONLogFormat(
 	logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels,
+	omitEmptyValues bool,
 ) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
 	jsonLogStruct := EnvoyJSONLogFormatIstio
 	if logFormat.Labels != nil {
@@ -278,64 +276,50 @@ func buildFileAccessJSONLogFormat(
 			Format: &core.SubstitutionFormatString_JsonFormat{
 				JsonFormat: jsonLogStruct,
 			},
+			JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
+			OmitEmptyValues:   omitEmptyValues,
 		},
 	}, formatters
 }
 
 func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtensionConfig {
-	reqWithoutQuery, metadata, cel := false, false, false
-	for _, value := range jsonLogStruct.Fields {
-		if reqWithoutQuery && metadata {
-			break
-		}
+	if jsonLogStruct == nil {
+		return nil
+	}
 
+	reqWithoutQuery := false
+	for _, value := range jsonLogStruct.Fields {
 		if !reqWithoutQuery && strings.Contains(value.GetStringValue(), reqWithoutQueryCommandOperator) {
 			reqWithoutQuery = true
 		}
-		if !metadata && strings.Contains(value.GetStringValue(), metadataCommandOperator) {
-			metadata = true
-		}
-		if !cel && strings.Contains(value.GetStringValue(), celCommandOperator) {
-			cel = true
-		}
 	}
 
-	formatters := make([]*core.TypedExtensionConfig, 0, 2)
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormattersLength)
 	if reqWithoutQuery {
 		formatters = append(formatters, reqWithoutQueryFormatter)
-	}
-	if metadata {
-		formatters = append(formatters, metadataFormatter)
-	}
-	if cel {
-		formatters = append(formatters, celFormatter)
 	}
 
 	return formatters
 }
 
 func accessLogTextFormatters(text string) []*core.TypedExtensionConfig {
-	formatters := make([]*core.TypedExtensionConfig, 0, 2)
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormattersLength)
 	if strings.Contains(text, reqWithoutQueryCommandOperator) {
 		formatters = append(formatters, reqWithoutQueryFormatter)
-	}
-	if strings.Contains(text, metadataCommandOperator) {
-		formatters = append(formatters, metadataFormatter)
-	}
-	if strings.Contains(text, celCommandOperator) {
-		formatters = append(formatters, celFormatter)
 	}
 
 	return formatters
 }
 
-func httpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) *accesslog.AccessLog {
+func httpGrpcAccessLogFromTelemetry(push *PushContext,
+	prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider,
+) *accesslog.AccessLog {
 	logName := HTTPEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
 	}
 
-	filterObjects := envoyWasmStateToLog
+	filterObjects := envoyStateToLog
 	if len(prov.FilterStateObjectsToLog) != 0 {
 		filterObjects = prov.FilterStateObjectsToLog
 	}
@@ -422,6 +406,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: jsonLogStruct,
 				},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
 			},
 		}
 	default:
@@ -472,7 +457,9 @@ func openTelemetryLog(pushCtx *PushContext,
 	}
 }
 
-func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format string, labels *structpb.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
+func buildOpenTelemetryAccessLogConfig(
+	logName, hostname, clusterName, format string, labels *structpb.Struct,
+) *otelaccesslog.OpenTelemetryAccessLogConfig {
 	cfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: logName,
@@ -487,7 +474,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
-		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLabels,
+		DisableBuiltinLabels: true,
 	}
 
 	if format != "" {
@@ -504,7 +491,38 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 		}
 	}
 
+	cfg.Formatters = accessLogFormatters(format, labels)
+
 	return cfg
+}
+
+func accessLogFormatters(text string, labels *structpb.Struct) []*core.TypedExtensionConfig {
+	formatters := make([]*core.TypedExtensionConfig, 0, maxFormattersLength)
+	defer func() {
+		slices.SortBy(formatters, func(f *core.TypedExtensionConfig) string {
+			return f.Name
+		})
+	}()
+
+	formatters = append(formatters, accessLogTextFormatters(text)...)
+	if len(formatters) >= maxFormattersLength {
+		// all formatters are added, return if we have reached the limit
+		return formatters
+	}
+
+	names := sets.New[string]()
+	for _, f := range formatters {
+		names.Insert(f.Name)
+	}
+
+	for _, f := range accessLogJSONFormatters(labels) {
+		if !names.Contains(f.Name) {
+			formatters = append(formatters, f)
+			names.Insert(f.Name)
+		}
+	}
+
+	return formatters
 }
 
 func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otlpcommon.KeyValue {
@@ -527,7 +545,7 @@ func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otl
 func LookupCluster(push *PushContext, service string, port int) (hostname string, cluster string, err error) {
 	if service == "" {
 		err = fmt.Errorf("service must not be empty")
-		return
+		return hostname, cluster, err
 	}
 
 	// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
@@ -536,7 +554,7 @@ func LookupCluster(push *PushContext, service string, port int) (hostname string
 		if svc := push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
 			hostname = string(svc.Hostname)
 			cluster = BuildSubsetKey(TrafficDirectionOutbound, "", svc.Hostname, port)
-			return
+			return hostname, cluster, err
 		}
 	} else {
 		namespaceToServices := push.ServiceIndex.HostnameAndNamespace[host.Name(service)]
@@ -549,14 +567,14 @@ func LookupCluster(push *PushContext, service string, port int) (hostname string
 			svc := namespaceToServices[namespaces[0]]
 			hostname = string(svc.Hostname)
 			cluster = BuildSubsetKey(TrafficDirectionOutbound, "", svc.Hostname, port)
-			return
+			return hostname, cluster, err
 		} else if len(namespaces) > 1 {
 			err = fmt.Errorf("found %s in multiple namespaces %v, specify the namespace explicitly in "+
 				"the format of <Namespace>/<Hostname>", service, namespaces)
-			return
+			return hostname, cluster, err
 		}
 	}
 
 	err = fmt.Errorf("could not find service %s in Istio service registry", service)
-	return
+	return hostname, cluster, err
 }

@@ -15,6 +15,7 @@
 package match
 
 import (
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -141,6 +142,14 @@ var Headless Matcher = func(i echo.Instance) bool {
 // NotHeadless is equivalent to Not(Headless)
 var NotHeadless = Not(Headless)
 
+// StatefulSet matches instances that are a stateful set
+var StatefulSet Matcher = func(i echo.Instance) bool {
+	return i.Config().StatefulSet
+}
+
+// NotStatefulSet is equivalent to Not(StatefulSet)
+var NoStatefulSet = Not(StatefulSet)
+
 // ProxylessGRPC matches instances that are Pods with a SidecarInjectTemplate annotation equal to grpc.
 var ProxylessGRPC Matcher = func(i echo.Instance) bool {
 	return i.Config().IsProxylessGRPC()
@@ -155,23 +164,26 @@ var TProxy Matcher = func(i echo.Instance) bool {
 
 var NotTProxy = Not(TProxy)
 
-var Waypoint Matcher = func(i echo.Instance) bool {
-	return i.Config().HasWaypointProxy()
+var ServiceAddressedWaypoint Matcher = func(i echo.Instance) bool {
+	return i.Config().HasServiceAddressedWaypointProxy()
 }
 
-var NotWaypoint = Not(Waypoint)
+var WorkloadAddressedWaypoint Matcher = func(i echo.Instance) bool {
+	return i.Config().HasWorkloadAddressedWaypointProxy()
+}
+
+var NotWaypoint = And(Not(ServiceAddressedWaypoint), Not(WorkloadAddressedWaypoint))
 
 // add a "waypointed service" matcher
 func WaypointService() Matcher {
 	return func(i echo.Instance) bool {
-		return Waypoint(i)
+		return ServiceAddressedWaypoint(i)
 	}
 }
 
-// add a new matcher for "captured service -> service"
-func CapturedService() Matcher {
+func AmbientCaptured() Matcher {
 	return func(i echo.Instance) bool {
-		return i.Config().ZTunnelCaptured()
+		return i.Config().ZTunnelCaptured() && !i.Config().IsUncaptured()
 	}
 }
 
@@ -196,7 +208,7 @@ var MultiVersion Matcher = func(i echo.Instance) bool {
 	for _, s := range i.Config().Subsets {
 		if s.Version == "vistio" {
 			matchIstio = true
-		} else if s.Version == "vlegacy" && !s.Annotations.GetBool(echo.SidecarInject) {
+		} else if s.Version == "vlegacy" && s.Annotations[annotation.SidecarInject.Name] == "false" {
 			matchLegacy = true
 		}
 	}

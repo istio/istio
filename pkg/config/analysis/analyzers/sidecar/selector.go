@@ -128,8 +128,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 				continue
 			}
 
-			m := msg.NewConflictingSidecarWorkloadSelectors(rs, sNames,
-				p.Namespace.String(), p.Name.String())
+			m := msg.NewConflictingSidecarWorkloadSelectors(rs, sNames, p.Namespace.String(), p.Name.String())
 
 			if line, ok := util.ErrorLine(rs, fmt.Sprintf(util.MetadataName)); ok {
 				m.Line = line

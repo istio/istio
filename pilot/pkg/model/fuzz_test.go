@@ -23,7 +23,7 @@ import (
 )
 
 func FuzzDeepCopyService(f *testing.F) {
-	fuzzDeepCopy[*Service](f)
+	fuzzDeepCopyEqual[*Service](f)
 }
 
 func FuzzDeepCopyServiceInstance(f *testing.F) {
@@ -35,17 +35,51 @@ func FuzzDeepCopyWorkloadInstance(f *testing.F) {
 }
 
 func FuzzDeepCopyIstioEndpoint(f *testing.F) {
-	fuzzDeepCopy[*IstioEndpoint](f)
+	fuzzDeepCopyEqual[*IstioEndpoint](f)
 }
 
 type deepCopier[T any] interface {
 	DeepCopy() T
 }
 
+type equalCopier[T any] interface {
+	deepCopier[T]
+	Equals(T) bool
+}
+
+// fuzzDeepCopy runs a fuzz test that, after calling DeepCopy, the result is equal
 func fuzzDeepCopy[T deepCopier[T]](f test.Fuzzer) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		orig := fuzz.Struct[T](fg)
-		copied := orig.DeepCopy()
-		assert.Equal(fg.T(), orig, copied)
+		fast := orig.DeepCopy()
+		slow := fuzz.DeepCopySlow[T](orig)
+
+		// check copy is correct
+		assert.Equal(fg.T(), orig, fast)
+		assert.Equal(fg.T(), orig, slow)
+
+		// check is deep copy
+		fuzz.MutateStruct(fg.T(), &orig)
+		assert.Equal(fg.T(), fast, slow)
+	})
+}
+
+// fuzzDeepCopyEqual runs a fuzz test that, after calling DeepCopy, the result is equal by both cmp.Equal and the struct-defined Equals() method
+func fuzzDeepCopyEqual[T equalCopier[T]](f test.Fuzzer) {
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
+		orig := fuzz.Struct[T](fg)
+		fast := orig.DeepCopy()
+		slow := fuzz.DeepCopySlow[T](orig)
+
+		// check copy is correct
+		assert.Equal(fg.T(), orig, fast)
+		assert.Equal(fg.T(), orig.Equals(fast), true)
+		assert.Equal(fg.T(), orig, slow)
+		assert.Equal(fg.T(), orig.Equals(slow), true)
+
+		// check is deep copy
+		fuzz.MutateStruct(fg.T(), &orig)
+		assert.Equal(fg.T(), fast, slow)
+		assert.Equal(fg.T(), fast.Equals(slow), true)
 	})
 }

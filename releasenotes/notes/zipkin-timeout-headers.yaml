@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+# issue is a list of GitHub issues resolved in this note.
+issue: []
+
+docs:
+  - '[envoy] https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/trace/v3/zipkin.proto'
+  - '[reference] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshConfig-ExtensionProvider-ZipkinTracingProvider'
+  - '[usage] https://istio.io/latest/docs/tasks/observability/distributed-tracing/'
+
+releaseNotes:
+- |
+  **Added** `timeout` and `headers` fields to `ZipkinTracingProvider` in MeshConfig extensionProviders.
+  The `timeout` field configures the HTTP request timeout when sending spans to the Zipkin collector,
+  providing better control over trace export reliability. The `headers` field allows including custom
+  HTTP headers for authentication, authorization, and custom metadata use cases. Headers support both
+  direct values and environment variable references for secure credential management.

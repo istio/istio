@@ -142,7 +142,6 @@ type test struct {
 func (tst *test) Run(t *testing.T) {
 	t.Helper()
 	framework.NewTest(t).
-		Features("infrastructure.framework").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest(tst.name).Run(tst.runInternal)
 		})

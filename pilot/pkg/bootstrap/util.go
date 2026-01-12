@@ -15,9 +15,7 @@
 package bootstrap
 
 import (
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pkg/ledger"
 )
 
 func hasKubeRegistry(registries []string) bool {
@@ -27,14 +25,4 @@ func hasKubeRegistry(registries []string) bool {
 		}
 	}
 	return false
-}
-
-func buildLedger(ca RegistryOptions) ledger.Ledger {
-	var result ledger.Ledger
-	if ca.DistributionTrackingEnabled {
-		result = ledger.Make(ca.DistributionCacheRetention)
-	} else {
-		result = &model.DisabledLedger{}
-	}
-	return result
 }

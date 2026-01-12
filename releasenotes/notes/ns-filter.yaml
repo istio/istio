@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** a bug causing `discoverySelectors` to accidentally filter out all `GatewayClasses`.

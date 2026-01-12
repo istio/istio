@@ -145,6 +145,10 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 		FileWriter: yml.NewFileWriter(workDir),
 	}
 
+	if test.topLevel {
+		ctx.scope.markTopLevel()
+	}
+
 	// Register the cleanup handler for the context.
 	goTest.Cleanup(ctx.close)
 
@@ -259,12 +263,11 @@ func (c *testContext) NewSubTest(name string) Test {
 	tc, span := tracing.Start(c.test.tc, name)
 
 	return &testImpl{
-		tc:            tc,
-		ts:            span,
-		name:          name,
-		parent:        c.test,
-		s:             c.test.s,
-		featureLabels: c.test.featureLabels,
+		tc:     tc,
+		ts:     span,
+		name:   name,
+		parent: c.test,
+		s:      c.test.s,
 	}
 }
 
@@ -298,11 +301,28 @@ func (c *testContext) CleanupStrategy(strategy cleanup.Strategy, fn func()) {
 	}
 }
 
+// topLevelScopes walks up the tree to find all "top level" or "container"
+// scopes. We always want to dump the resources created at the "top level" when
+// their descendant scopes fail.
+func (c *testContext) topLevelScopes() []*scope {
+	var out []*scope
+	current := c.scope.parent
+	for current != nil {
+		if current.topLevel {
+			out = append(out, current)
+		}
+		current = current.parent
+	}
+	return out
+}
+
 func (c *testContext) dump() {
 	if c.suite.RequestTestDump() {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
-		// make sure we dump suite-level resources, but don't dump sibling tests or their children
-		rt.DumpCustom(c, false)
+		// make sure we dump suite-level/top-level resources, but don't dump sibling tests or their children
+		for _, scope := range c.topLevelScopes() {
+			scope.dump(c, false)
+		}
 		c.scope.dump(c, true)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
 	} else {

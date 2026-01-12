@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -36,7 +35,6 @@ import (
 func TestPassThroughFilterChain(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.filterchain").
 		Run(func(t framework.TestContext) {
 			type expect struct {
 				port echo.Port
@@ -55,7 +53,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 				// the workload ports are working correctly.
 				{
 					name: "DISABLE",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -78,7 +76,7 @@ spec:
 				{
 					// There is only authZ policy that allows access to TCPWorkloadOnly should be allowed.
 					name: "DISABLE with authz",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -86,7 +84,7 @@ spec:
   mtls:
     mode: DISABLE
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: authz
@@ -113,7 +111,7 @@ spec:
 					// There is only authN policy that enables mTLS (Strict).
 					// The request should be denied because the client is always using plain text.
 					name: "STRICT",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -137,7 +135,7 @@ spec:
 					// There is only authN policy that enables mTLS (Permissive).
 					// The request should be allowed because the client is always using plain text.
 					name: "PERMISSIVE",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: mtls
@@ -161,7 +159,7 @@ spec:
 					// There is only authN policy that disables mTLS by default and enables mTLS strict on port 8086, 8088, 8084.
 					// The request should be denied on port 8086, 8088, 8084.
 					name: "DISABLE with STRICT",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: {{ .To.ServiceName }}-mtls
@@ -191,7 +189,7 @@ spec:
 					// There is only authN policy that enables mTLS by default and disables mTLS strict on port 8086 and 8088.
 					// The request should be denied on port 8085 and 8071.
 					name: "STRICT with DISABLE",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: {{ .To.ServiceName }}-mtls
@@ -219,7 +217,7 @@ spec:
 				},
 				{
 					name: "PERMISSIVE with STRICT",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: {{ .To.ServiceName }}-mtls
@@ -247,7 +245,7 @@ spec:
 				},
 				{
 					name: "STRICT with PERMISSIVE",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: {{ .To.ServiceName }}-mtls
@@ -275,7 +273,7 @@ spec:
 				},
 				{
 					name: "PERMISSIVE with DISABLE",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: {{ .To.ServiceName }}-mtls
@@ -303,7 +301,7 @@ spec:
 				},
 				{
 					name: "DISABLE with PERMISSIVE",
-					config: `apiVersion: security.istio.io/v1beta1
+					config: `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: {{ .To.ServiceName }}-mtls
@@ -332,7 +330,6 @@ spec:
 			}
 
 			for _, tc := range cases {
-				tc := tc
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					// Create the PeerAuthentication for the test case.
 					config.New(t).
@@ -349,7 +346,7 @@ spec:
 						// to confirm that mTLS was used. To work around this, we configure our 2 workload-only
 						// ports differently for each test and rely on allow/deny for each to indicate whether
 						// mtls was used.
-						Source(config.YAML(`apiVersion: networking.istio.io/v1beta1
+						Source(config.YAML(`apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: {{ .To.ServiceName }}-se
@@ -369,7 +366,7 @@ spec:
     protocol: TCP
 {{- end }}
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: {{ .To.ServiceName }}-dr
@@ -395,9 +392,8 @@ spec:
 						// TODO(nmittler): Why does passthrough not work?
 						ConditionallyTo(echotest.SameNetwork).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							for _, expect := range tc.expected {
-								expect := expect
-								p := expect.port
+							for _, exp := range tc.expected {
+								p := exp.port
 								opts := echo.CallOptions{
 									// Do not set To, otherwise fillInCallOptions() will
 									// complain with port does not match.
@@ -413,9 +409,9 @@ spec:
 									Count: echo.DefaultCallsPerWorkload() * to.WorkloadsOrFail(t).Len(),
 								}
 
-								allow := allowValue(expect.mtlsSucceeds)
+								allow := allowValue(exp.mtlsSucceeds)
 								if from.Config().IsNaked() {
-									allow = allowValue(expect.plaintextSucceeds)
+									allow = allowValue(exp.plaintextSucceeds)
 								}
 
 								if allow {

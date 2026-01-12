@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Improved** `ServiceEntry` with `resolution: NONE` to respect `targetPort`, if specified.
+    This is particularly useful when doing TLS origination, allowing to set `port:80, targetPort: 443`.
+    If undesired set `--compatibilityVersion=1.21` to revert to the old behavior, or remove the `targetPort` specification.
+upgradeNotes:
+  - title: "`ServiceEntry` with `resolution: NONE` now respects `targetPort`"
+    content: |
+      `ServiceEntry` with `resolution: NONE` previously ignored any `targetPort` specifier.
+      In this release, the `targetPort` is now respected.
+      If undesired set `--compatibilityVersion=1.21` to revert to the old behavior, or remove the `targetPort` specification.

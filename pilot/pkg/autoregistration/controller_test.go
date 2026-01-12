@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/keepalive"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
@@ -162,7 +163,7 @@ var (
 	}
 )
 
-func TestNonAutoregisteredWorkloads(t *testing.T) {
+func TestNonAutoRegisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
 	c := NewController(store, "", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)
@@ -177,12 +178,11 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	}
 
 	for name, tc := range cases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			c.OnConnect(makeConn(tc, time.Now()))
 			items := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if len(items) != 0 {
-				t.Fatalf("expected 0 WorkloadEntry")
+				t.Fatal("expected 0 WorkloadEntry")
 			}
 		})
 	}
@@ -209,15 +209,15 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	var p1conn1, p1conn2 *fakeConn
 	p := fakeProxy("1.2.3.4", wgA, "nw1", "sa-a")
-	p.Locality = n.Locality
+	p.XdsNode = n
 
 	var p2conn1 *fakeConn
 	p2 := fakeProxy("1.2.3.4", wgA, "nw2", "sa-a")
-	p2.Locality = n.Locality
+	p2.XdsNode = n
 
 	var p3conn1 *fakeConn
 	p3 := fakeProxy("1.2.3.5", wgA, "nw1", "sa-a")
-	p3.Locality = n.Locality
+	p3.XdsNode = n
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
@@ -352,6 +352,35 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
 }
 
+func TestAutoregistrationDisabled(t *testing.T) {
+	test.SetForTest(t, &features.WorkloadEntryAutoRegistration, false)
+	store := memory.NewController(memory.Make(collections.All))
+	createOrFail(t, store, weB)
+
+	stop := test.NewStop(t)
+
+	c := NewController(store, "pilot-x", keepalive.Infinity)
+	go c.Run(stop)
+
+	t.Run("health check still works", func(t *testing.T) {
+		proxy := fakeProxySuitableForHealthChecks(weB)
+
+		err := c.OnConnect(makeConn(proxy, time.Now()))
+		assert.NoError(t, err)
+		// report workload is healthy
+		c.QueueWorkloadEntryHealth(proxy, HealthEvent{
+			Healthy: true,
+		})
+		// ensure health condition has been updated
+		checkHealthOrFail(t, store, proxy, true)
+	})
+	t.Run("registration does nothing", func(t *testing.T) {
+		p := fakeProxy("1.2.3.4", wgA, "litNw", "sa-a")
+		assert.NoError(t, c.OnConnect(makeConn(p, time.Now())))
+		checkNoEntryOrFail(t, store, wgA, p)
+	})
+}
+
 func TestUpdateHealthCondition(t *testing.T) {
 	stop := test.NewStop(t)
 	ig, ig2, store := setup(t)
@@ -401,9 +430,8 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 		},
 	}
 	proxy := fakeProxy("10.0.0.1", group, "nw1", "sa")
-	proxy.Labels[model.LocalityLabel] = "rgn2/zone2/subzone2"
+	proxy.Labels[pm.LocalityLabel] = "rgn2/zone2/subzone2"
 	proxy.XdsNode = fakeNode("rgn2", "zone2", "subzone2")
-	proxy.Locality = proxy.XdsNode.Locality
 
 	wantLabels := map[string]string{
 		"app":   "a",   // from WorkloadEntry template
@@ -728,7 +756,7 @@ func checkEntry(
 	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
 	if cfg == nil {
 		err = multierror.Append(fmt.Errorf("expected WorkloadEntry %s/%s to exist", wg.Namespace, name))
-		return
+		return err
 	}
 	tmpl := wg.Spec.(*v1alpha3.WorkloadGroup)
 	we := cfg.Spec.(*v1alpha3.WorkloadEntry)
@@ -789,7 +817,7 @@ func checkEntry(
 			err = multierror.Append(err, fmt.Errorf("labels missing on WorkloadEntry: %s=%s from proxy meta", k, v))
 		}
 	}
-	return
+	return err
 }
 
 func checkEntryOrFail(
@@ -831,7 +859,7 @@ func checkNoEntryOrFail(
 
 	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
 	if cfg != nil {
-		t.Fatalf("workload entry found when it was not expected")
+		t.Fatal("workload entry found when it was not expected")
 	}
 }
 
@@ -857,7 +885,7 @@ func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, hea
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
 	if cfg == nil || cfg.Status == nil {
 		err = multierror.Append(fmt.Errorf("expected workloadEntry %s/%s to exist", name, proxy.Metadata.Namespace))
-		return
+		return err
 	}
 	stat := cfg.Status.(*v1alpha1.IstioStatus)
 	found := false
@@ -882,7 +910,7 @@ func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, hea
 				name, proxy.Metadata.Namespace))
 		}
 	}
-	return
+	return err
 }
 
 func checkHealthOrFail(t test.Failer, store model.ConfigStoreController, proxy *model.Proxy, healthy bool) {
@@ -916,10 +944,10 @@ func checkNonAutoRegisteredEntryOrFail(t test.Failer, store model.ConfigStoreCon
 			t.Fatalf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v)
 		}
 		if _, ok := cfg.Annotations[annotation.IoIstioConnectedAt.Name]; !ok {
-			t.Fatalf("expected connection timestamp to be set")
+			t.Fatal("expected connection timestamp to be set")
 		}
 	} else if _, ok := cfg.Annotations[annotation.IoIstioDisconnectedAt.Name]; !ok {
-		t.Fatalf("expected disconnection timestamp to be set")
+		t.Fatal("expected disconnection timestamp to be set")
 	}
 }
 

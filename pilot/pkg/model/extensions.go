@@ -26,6 +26,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	typeapi "istio.io/api/type/v1beta1"
@@ -33,8 +34,8 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -43,12 +44,13 @@ const (
 	fileScheme     = "file"
 	ociScheme      = "oci"
 
-	// name of environment variable at Wasm VM, which will carry the Wasm image pull secret.
-	WasmSecretEnv = "ISTIO_META_WASM_IMAGE_PULL_SECRET"
-	// name of environment variable at Wasm VM, which will carry the Wasm image pull policy.
-	WasmPolicyEnv = "ISTIO_META_WASM_IMAGE_PULL_POLICY"
-	// name of environment variable at Wasm VM, which will carry the resource version of WasmPlugin.
-	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
+	WasmSecretEnv          = pm.WasmSecretEnv
+	WasmPolicyEnv          = pm.WasmPolicyEnv
+	WasmResourceVersionEnv = pm.WasmResourceVersionEnv
+
+	// WasmPluginResourceNamePrefix is the prefix of the resource name of WasmPlugin,
+	// preventing the name collision with other resources.
+	WasmPluginResourceNamePrefix = "extensions.istio.io/wasmplugin/"
 )
 
 // WasmPluginType defines the type of wasm plugin
@@ -96,19 +98,17 @@ type WasmPluginWrapper struct {
 	ResourceVersion string
 }
 
-func (p *WasmPluginWrapper) MatchListener(opts WorkloadSelectionOpts, li WasmPluginListenerInfo) bool {
-	switch getPolicyMatcher(gvk.WasmPlugin, p.Name, opts, p) {
-	case policyMatchDirect:
-		// This plugin is bound directly to this workload; just check traffic selectors
+func (p *WasmPluginWrapper) MatchListener(matcher WorkloadPolicyMatcher, li WasmPluginListenerInfo) bool {
+	if matcher.ShouldAttachPolicy(gvk.WasmPlugin, p.NamespacedName(), p) {
 		return matchTrafficSelectors(p.Match, li)
-	case policyMatchSelector:
-		// This plugin is bound based on the workload selector; check traffic selectors and workload selector
-		workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(opts.WorkloadLabels))
-		return workloadMatch && matchTrafficSelectors(p.Match, li)
 	}
 
 	// If it doesn't match one of the above cases, the plugin is not bound to this workload
 	return false
+}
+
+func (p *WasmPluginWrapper) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Name: p.Name, Namespace: p.Namespace}
 }
 
 func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
@@ -159,18 +159,39 @@ func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
 
 	datasource := buildDataSource(u, plugin)
 	resourceName := p.Namespace + "." + p.Name
-	return &wasmextensions.PluginConfig{
+
+	wasmConfig := &wasmextensions.PluginConfig{
 		Name:          resourceName,
 		RootId:        plugin.PluginName,
 		Configuration: cfg,
 		Vm:            buildVMConfig(datasource, p.ResourceVersion, plugin),
-		FailOpen:      plugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN,
 	}
+
+	switch plugin.FailStrategy {
+	case extensions.FailStrategy_FAIL_OPEN:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
+	case extensions.FailStrategy_FAIL_CLOSE:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
+	case extensions.FailStrategy_FAIL_RELOAD:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_RELOAD
+	}
+	return wasmConfig
 }
 
 type WasmPluginListenerInfo struct {
 	Port  int
 	Class istionetworking.ListenerClass
+
+	// Service that WasmPlugins can attach to via targetRefs (optional)
+	Services []*Service
+}
+
+func (listenerInfo WasmPluginListenerInfo) WithService(service *Service) WasmPluginListenerInfo {
+	if service == nil {
+		return listenerInfo
+	}
+	listenerInfo.Services = append(listenerInfo.Services, service)
+	return listenerInfo
 }
 
 // If anyListener is used as a listener info,
@@ -247,7 +268,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	return &WasmPluginWrapper{
 		Name:            plugin.Name,
 		Namespace:       plugin.Namespace,
-		ResourceName:    plugin.Namespace + "." + plugin.Name,
+		ResourceName:    WasmPluginResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
 		WasmPlugin:      wasmPlugin,
 		ResourceVersion: plugin.ResourceVersion,
 	}

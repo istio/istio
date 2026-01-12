@@ -48,14 +48,11 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/version"
 )
 
@@ -69,6 +66,10 @@ type ExternalInjector struct {
 	client          kube.CLIClient
 	clientConfig    *admissionregistration.WebhookClientConfig
 	injectorAddress string
+}
+
+func (e ExternalInjector) GetKubeClient() kube.Client {
+	return e.client
 }
 
 func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, error) {
@@ -438,34 +439,14 @@ func getIOPConfigs() (string, *meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
 	var valuesConfig string
 	if iopFilename != "" {
-		var iop *iopv1alpha1.IstioOperator
-		y, err := manifest.ReadLayeredYAMLs([]string{iopFilename})
+		iop, err := render.MergeInputs([]string{iopFilename}, nil, nil)
 		if err != nil {
 			return "", nil, err
 		}
-		iop, err = validate.UnmarshalIOP(y)
-		if err != nil {
-			return "", nil, err
-		}
-		if err := validate.ValidIOP(iop); err != nil {
-			return "", nil, fmt.Errorf("validation errors: \n%s", err)
-		}
-		if err != nil {
-			return "", nil, err
-		}
-		if iop.Spec.Values != nil {
-			values, err := protomarshal.ToJSON(iop.Spec.Values)
-			if err != nil {
-				return "", nil, err
-			}
-			valuesConfig = values
-		}
-		if iop.Spec.MeshConfig != nil {
-			meshConfigYaml, err := protomarshal.ToYAML(iop.Spec.MeshConfig)
-			if err != nil {
-				return "", nil, err
-			}
-			meshConfig, err = mesh.ApplyMeshConfigDefaults(meshConfigYaml)
+		v, _ := iop.GetPathMap("spec.values")
+		valuesConfig = v.JSON()
+		if mc, f := iop.GetPathMap("spec.meshConfig"); f {
+			meshConfig, err = mesh.ApplyMeshConfigDefaults(mc.JSON())
 			if err != nil {
 				return "", nil, err
 			}
@@ -578,7 +559,7 @@ It's best to do kube-inject when the resource is initially created.
 			var valuesConfig string
 			var sidecarTemplate inject.RawTemplates
 			var meshConfig *meshconfig.MeshConfig
-			rev := opts.Revision
+			rev := cliContext.RevisionOrDefault(opts.Revision)
 			// if the revision is "default", render templates with an empty revision
 			if rev == util.DefaultRevisionName {
 				rev = ""
@@ -626,7 +607,7 @@ It's best to do kube-inject when the resource is initially created.
 			if root != nil {
 				_ = c.Root().PersistentFlags().Set("log_target", "stderr")
 			}
-			if c.Parent() != nil {
+			if c.Parent() != nil && c.Parent().PersistentPreRunE != nil {
 				return c.Parent().PersistentPreRunE(c, args)
 			}
 

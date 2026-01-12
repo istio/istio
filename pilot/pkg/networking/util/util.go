@@ -34,7 +34,6 @@ import (
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -46,10 +45,12 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/proto/merge"
-	"istio.io/istio/pkg/util/strcase"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -69,8 +70,7 @@ const (
 	PassthroughFilterChain = "PassthroughFilterChain"
 
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
-	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
-	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
+	InboundPassthroughCluster = "InboundPassthroughCluster"
 
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
@@ -93,12 +93,12 @@ const (
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
-var ALPNH2Only = []string{"h2"}
+var ALPNH2Only = pm.ALPNH2Only
 
 // ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
-var ALPNInMeshH2 = []string{"istio", "h2"}
+var ALPNInMeshH2 = pm.ALPNInMeshH2
 
 // ALPNInMeshH2WithMxc advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
@@ -157,18 +157,23 @@ func AddrStrToPrefix(addr string) (netip.Prefix, error) {
 	return netip.PrefixFrom(ipa, ipa.BitLen()), nil
 }
 
+// PrefixToCidrRange converts from CIDR prefix to CIDR proto
+func PrefixToCidrRange(prefix netip.Prefix) *core.CidrRange {
+	return &core.CidrRange{
+		AddressPrefix: prefix.Addr().String(),
+		PrefixLen: &wrapperspb.UInt32Value{
+			Value: uint32(prefix.Bits()),
+		},
+	}
+}
+
 // AddrStrToCidrRange converts from string to CIDR proto
 func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
 	prefix, err := AddrStrToPrefix(addr)
 	if err != nil {
 		return nil, err
 	}
-	return &core.CidrRange{
-		AddressPrefix: prefix.Addr().String(),
-		PrefixLen: &wrapperspb.UInt32Value{
-			Value: uint32(prefix.Bits()),
-		},
-	}, nil
+	return PrefixToCidrRange(prefix), nil
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
@@ -234,24 +239,9 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE119 checks whether the given Istio version is greater than or equals 1.19.
-func IsIstioVersionGE119(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 19, Patch: -1}) >= 0
-}
-
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
-	if locality == "" {
-		return &core.Locality{}
-	}
-
-	region, zone, subzone := label.SplitLocalityLabel(locality)
-	return &core.Locality{
-		Region:  region,
-		Zone:    zone,
-		SubZone: subzone,
-	}
+	return pm.ConvertLocality(locality)
 }
 
 // LocalityToString converts Locality struct to '/' separated locality string.
@@ -366,17 +356,21 @@ func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
 func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Metadata {
 	if metadata == nil {
 		metadata = &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{},
+			FilterMetadata: make(map[string]*structpb.Struct, 1),
 		}
 	}
+
 	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
-	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
-		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{},
+		gvk.KebabKind(config.GroupVersionKind.Kind) + "/" + config.Name
+
+	istioMeta, ok := metadata.FilterMetadata[IstioMetadataKey]
+	if !ok {
+		istioMeta = &structpb.Struct{
+			Fields: make(map[string]*structpb.Value, 1),
 		}
+		metadata.FilterMetadata[IstioMetadataKey] = istioMeta
 	}
-	metadata.FilterMetadata[IstioMetadataKey].Fields["config"] = &structpb.Value{
+	istioMeta.Fields["config"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{
 			StringValue: s,
 		},
@@ -466,10 +460,6 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 // AppendLbEndpointMetadata adds metadata values to a lb endpoint using the passed in metadata as base.
 func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetadata *core.Metadata,
 ) {
-	if !features.EndpointTelemetryLabel || !features.EnableTelemetryLabel {
-		return
-	}
-
 	if envoyMetadata.FilterMetadata == nil {
 		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
 	}
@@ -487,7 +477,7 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separated string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
-	if features.EndpointTelemetryLabel {
+	if features.EnableTelemetryLabel && features.EndpointTelemetryLabel {
 		// allow defaulting for non-injected cases
 		canonicalName, canonicalRevision := kubelabels.CanonicalService(istioMetadata.Labels, istioMetadata.WorkloadName)
 
@@ -528,16 +518,7 @@ func IsAllowAnyOutbound(node *model.Proxy) bool {
 }
 
 func StringToExactMatch(in []string) []*matcher.StringMatcher {
-	if len(in) == 0 {
-		return nil
-	}
-	res := make([]*matcher.StringMatcher, 0, len(in))
-	for _, s := range in {
-		res = append(res, &matcher.StringMatcher{
-			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
-		})
-	}
-	return res
+	return pm.StringToExactMatch(in)
 }
 
 func StringToPrefixMatch(in []string) []*matcher.StringMatcher {
@@ -620,6 +601,34 @@ func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.ForwardClientCertDet
 	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }
 
+// MeshNetworksToEnvoyInternalAddressConfig converts all of the FromCidr Endpoints into Envy internal networks.
+// Because the input is an unordered map, the output is sorted to ensure config stability.
+func MeshNetworksToEnvoyInternalAddressConfig(nets *meshconfig.MeshNetworks) *hcm.HttpConnectionManager_InternalAddressConfig {
+	if nets == nil {
+		return nil
+	}
+	prefixes := []netip.Prefix{}
+	for _, internalnetwork := range nets.Networks {
+		for _, ne := range internalnetwork.Endpoints {
+			if prefix, err := AddrStrToPrefix(ne.GetFromCidr()); err == nil {
+				prefixes = append(prefixes, prefix)
+			}
+		}
+	}
+	if len(prefixes) == 0 {
+		return nil
+	}
+	sort.Slice(prefixes, func(a, b int) bool {
+		ap, bp := prefixes[a], prefixes[b]
+		return ap.Addr().Less(bp.Addr()) || (ap.Addr() == bp.Addr() && ap.Bits() < bp.Bits())
+	})
+	iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
+	for _, prefix := range prefixes {
+		iac.CidrRanges = append(iac.CidrRanges, PrefixToCidrRange(prefix))
+	}
+	return iac
+}
+
 // ByteCount returns a human readable byte format
 // Inspired by https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
 func ByteCount(b int) string {
@@ -694,6 +703,19 @@ func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 	}
 }
 
+func GetEndpointHost(e *endpoint.LbEndpoint) string {
+	addr := e.GetEndpoint().GetAddress()
+	if host := addr.GetSocketAddress().GetAddress(); host != "" {
+		return host
+	}
+	if endpointID := addr.GetEnvoyInternalAddress().GetEndpointId(); endpointID != "" {
+		// extract host from endpoint id
+		host, _, _ := net.SplitHostPort(endpointID)
+		return host
+	}
+	return ""
+}
+
 func BuildTunnelMetadataStruct(address string, port int, waypoint string) *structpb.Struct {
 	m := map[string]interface{}{
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
@@ -701,6 +723,24 @@ func BuildTunnelMetadataStruct(address string, port int, waypoint string) *struc
 	}
 	if waypoint != "" {
 		m["waypoint"] = waypoint
+	}
+	st, _ := structpb.NewStruct(m)
+	return st
+}
+
+func AppendDoubleHBONEMetadata(service string, port int, envoyMetadata *core.Metadata) {
+	if envoyMetadata.FilterMetadata == nil {
+		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
+	}
+	target := buildDoubleHBONEMetadataStruct(service, port)
+	addIstioEndpointLabel(envoyMetadata, "double_hbone", structpb.NewStructValue(target))
+}
+
+func buildDoubleHBONEMetadataStruct(service string, port int) *structpb.Struct {
+	m := map[string]interface{}{
+		// the actual service domain name and port that we want to connect to, these are used
+		// in the HTTP2 CONNECT request :authority
+		"hbone_target_address": DomainName(service, port),
 	}
 	st, _ := structpb.NewStruct(m)
 	return st
@@ -721,7 +761,7 @@ func BuildStatefulSessionFilter(svc *model.Service) *hcm.HttpFilter {
 }
 
 func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.StatefulSession {
-	if svc == nil {
+	if svc == nil || !features.EnablePersistentSessionFilter.Load() {
 		return nil
 	}
 	sessionCookie := svc.Attributes.Labels[features.PersistentSessionLabel]
@@ -733,13 +773,16 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 		if !found {
 			cookiePath = "/"
 		}
+		// The cookie is using TTL=0, which means they are session cookies (browser is not saving the cookie, expires
+		// when the tab is closed). Most pods don't have ability (or code) to actually persist cookies, and expiration
+		// is better handled in the cookie content (and consistently in the header value - which doesn't have
+		// persistence semantics).
 		return &statefulsession.StatefulSession{
 			SessionState: &core.TypedExtensionConfig{
 				Name: "envoy.http.stateful_session.cookie",
 				TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 					Cookie: &httpv3.Cookie{
 						Path: cookiePath,
-						Ttl:  &durationpb.Duration{Seconds: 120},
 						Name: cookieName,
 					},
 				}),
@@ -758,59 +801,108 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 	return nil
 }
 
-// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
-func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+// GetPortLevelTrafficPolicy return the port level traffic policy and true if it exists.
+// Otherwise returns the original policy that applies to all destination ports.
+func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Port) (*networking.TrafficPolicy, bool) {
+	if port == nil {
+		return policy, false
+	}
+	if policy == nil {
+		return nil, false
+	}
+
+	var portTrafficPolicy *networking.TrafficPolicy_PortTrafficPolicy
+	// Check if port level overrides exist, if yes override with them.
+	for _, p := range policy.PortLevelSettings {
+		if p.Port != nil && uint32(port.Port) == p.Port.Number {
+			// per the docs, port level policies do not inherit and instead to defaults if not provided
+			portTrafficPolicy = p
+			break
+		}
+	}
+	if portTrafficPolicy == nil {
+		return policy, false
+	}
+
+	// Note that port-level settings will override the destination-level settings.
+	// Traffic settings specified at the destination-level will not be inherited when overridden by port-level settings,
+	// i.e. default values will be applied to fields omitted in port-level traffic policies.
+	return shadowCopyPortTrafficPolicy(portTrafficPolicy), true
+}
+
+// MergeSubsetTrafficPolicy merges the destination and subset level traffic policy for the given port.
+func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	// First get DR port level traffic policy
+	original, _ = GetPortLevelTrafficPolicy(original, port)
 	if subsetPolicy == nil {
 		return original
 	}
-
-	// Sanity check that top-level port level settings have already been merged for the given port
-	if original != nil && len(original.PortLevelSettings) != 0 {
-		original = MergeTrafficPolicy(nil, original, port)
+	subsetPolicy, hasPortLevel := GetPortLevelTrafficPolicy(subsetPolicy, port)
+	if original == nil {
+		return subsetPolicy
 	}
 
-	mergedPolicy := &networking.TrafficPolicy{}
-	if original != nil {
-		mergedPolicy.ConnectionPool = original.ConnectionPool
-		mergedPolicy.LoadBalancer = original.LoadBalancer
-		mergedPolicy.OutlierDetection = original.OutlierDetection
-		mergedPolicy.Tls = original.Tls
-		mergedPolicy.Tunnel = original.Tunnel
-		mergedPolicy.ProxyProtocol = original.ProxyProtocol
-	}
-
+	// merge DR with subset traffic policy
 	// Override with subset values.
-	if subsetPolicy.ConnectionPool != nil {
+	mergedPolicy := ShallowCopyTrafficPolicy(original)
+
+	return mergeTrafficPolicy(mergedPolicy, subsetPolicy, hasPortLevel)
+}
+
+// Note that port-level settings will override the destination-level settings.
+// Traffic settings specified at the destination-level will not be inherited when overridden by port-level settings,
+// i.e. default values will be applied to fields omitted in port-level traffic policies.
+func mergeTrafficPolicy(mergedPolicy, subsetPolicy *networking.TrafficPolicy, hasPortLevel bool) *networking.TrafficPolicy {
+	if subsetPolicy.ConnectionPool != nil || hasPortLevel {
 		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
 	}
-	if subsetPolicy.OutlierDetection != nil {
+	if subsetPolicy.OutlierDetection != nil || hasPortLevel {
 		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
 	}
-	if subsetPolicy.LoadBalancer != nil {
+	if subsetPolicy.LoadBalancer != nil || hasPortLevel {
 		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
 	}
-	if subsetPolicy.Tls != nil {
+	if subsetPolicy.Tls != nil || hasPortLevel {
 		mergedPolicy.Tls = subsetPolicy.Tls
 	}
+
 	if subsetPolicy.Tunnel != nil {
 		mergedPolicy.Tunnel = subsetPolicy.Tunnel
 	}
 	if subsetPolicy.ProxyProtocol != nil {
 		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
 	}
-
-	// Check if port level overrides exist, if yes override with them.
-	if port != nil {
-		for _, p := range subsetPolicy.PortLevelSettings {
-			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				// per the docs, port level policies do not inherit and instead to defaults if not provided
-				mergedPolicy.ConnectionPool = p.ConnectionPool
-				mergedPolicy.OutlierDetection = p.OutlierDetection
-				mergedPolicy.LoadBalancer = p.LoadBalancer
-				mergedPolicy.Tls = p.Tls
-				break
-			}
-		}
-	}
 	return mergedPolicy
+}
+
+func shadowCopyPortTrafficPolicy(portTrafficPolicy *networking.TrafficPolicy_PortTrafficPolicy) *networking.TrafficPolicy {
+	if portTrafficPolicy == nil {
+		return nil
+	}
+	ret := &networking.TrafficPolicy{}
+	ret.ConnectionPool = portTrafficPolicy.ConnectionPool
+	ret.LoadBalancer = portTrafficPolicy.LoadBalancer
+	ret.OutlierDetection = portTrafficPolicy.OutlierDetection
+	ret.Tls = portTrafficPolicy.Tls
+	return ret
+}
+
+// ShallowCopyTrafficPolicy shallow copy a traffic policy, portLevelSettings are ignored.
+func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.TrafficPolicy {
+	if original == nil {
+		return nil
+	}
+	ret := &networking.TrafficPolicy{}
+	ret.ConnectionPool = original.ConnectionPool
+	ret.LoadBalancer = original.LoadBalancer
+	ret.OutlierDetection = original.OutlierDetection
+	ret.Tls = original.Tls
+	ret.Tunnel = original.Tunnel
+	ret.ProxyProtocol = original.ProxyProtocol
+	return ret
+}
+
+func DelimitedStatsPrefix(statPrefix string) string {
+	statPrefix += constants.StatPrefixDelimiter
+	return statPrefix
 }

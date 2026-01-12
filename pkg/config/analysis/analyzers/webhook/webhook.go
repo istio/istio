@@ -32,20 +32,24 @@ import (
 )
 
 type Analyzer struct {
-	SkipServiceCheck bool
+	SkipServiceCheck             bool
+	SkipDefaultRevisionedWebhook bool
 }
 
 var _ analysis.Analyzer = &Analyzer{}
 
 func (a *Analyzer) Metadata() analysis.Metadata {
-	return analysis.Metadata{
+	meta := analysis.Metadata{
 		Name:        "webhook.Analyzer",
 		Description: "Checks the validity of Istio webhooks",
 		Inputs: []config.GroupVersionKind{
 			gvk.MutatingWebhookConfiguration,
-			gvk.Service,
 		},
 	}
+	if !a.SkipServiceCheck {
+		meta.Inputs = append(meta.Inputs, gvk.Service)
+	}
+	return meta
 }
 
 func getNamespaceLabels() []klabels.Set {
@@ -70,6 +74,9 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	resources := map[string]*resource.Instance{}
 	revisions := sets.New[string]()
 	context.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
+		if a.SkipDefaultRevisionedWebhook && isDefaultRevisionedWebhook(resource.Message.(*v1.MutatingWebhookConfiguration)) {
+			return true
+		}
 		wh := resource.Message.(*v1.MutatingWebhookConfiguration)
 		revs := extractRevisions(wh)
 		if len(revs) == 0 && !isIstioWebhook(wh) {
@@ -114,7 +121,7 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 				for match := range matches {
 					others := matches.Difference(sets.New(match))
 					context.Report(gvk.MutatingWebhookConfiguration, msg.NewInvalidWebhook(resources[match],
-						fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", others.UnsortedList())))
+						fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", sets.SortedList(others))))
 				}
 			}
 		}
@@ -180,6 +187,14 @@ func extractRevisions(wh *v1.MutatingWebhookConfiguration) []string {
 		}
 	}
 	return revs.UnsortedList()
+}
+
+func isDefaultRevisionedWebhook(wh *v1.MutatingWebhookConfiguration) bool {
+	_, ok := wh.GetLabels()["istio.io/tag"]
+	if !ok && wh.GetLabels()[label.IoIstioRev.Name] == "default" {
+		return true
+	}
+	return false
 }
 
 func selectorMatches(selector *metav1.LabelSelector, labels klabels.Set) bool {

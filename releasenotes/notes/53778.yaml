@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+  - |
+    **Fixed** an issue that should use `upstream_peer` instead of `wasm.upstream_peer` in `filterStateObjectsToLog`.

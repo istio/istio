@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -30,7 +29,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -44,14 +43,14 @@ import (
 
 func TestIntermediateCertificateRefresh(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.peer.cacert-rotation").
 		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/issues/49648")
 			istioCfg := istio.DefaultConfigOrFail(t, t)
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
-			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+			namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 			newX509 := getX509FromFile(t, "ca-cert-alt-2.pem")
 
-			sa := apps.Captured[0].ServiceAccountName()
+			sa := apps.Captured[0].SpiffeIdentity()
 
 			// we do not know which ztunnel instance is located on the node as the workload, so we need to check all of them initially
 			ztunnelPods, err := kubetest.NewPodFetch(t.AllClusters()[0], istioCfg.SystemNamespace, "app=ztunnel")()
@@ -92,11 +91,8 @@ func getWorkloadSecret(t framework.TestContext, zPods []v1.Pod, serviceAccount s
 
 		for _, s := range dump {
 			if strings.Contains(s.Identity, serviceAccount) {
-				if len(s.CaCert) == 0 {
-					t.Errorf("ca cert missing in %v for identity: %v", ztunnel.Name, s.Identity)
-				}
 				if len(s.CertChain) == 0 {
-					t.Errorf("cert chain missing in %v for identity: %v", ztunnel.Name, s.Identity)
+					t.Fatalf("cert chain missing in %v for identity: %v", ztunnel.Name, s.Identity)
 				}
 				return &s, ztunnel, nil
 			}
@@ -118,7 +114,7 @@ func waitForWorkloadCertUpdate(t framework.TestContext, ztunnelPod v1.Pod, servi
 		}
 
 		// retry when workload cert is not updated
-		if originalCert.CaCert[0].ValidFrom != updatedCert.CaCert[0].ValidFrom {
+		if originalCert.CertChain[0].ValidFrom != updatedCert.CertChain[0].ValidFrom {
 			newSecret = updatedCert
 			t.Logf("workload cert is updated")
 			return true
@@ -130,7 +126,7 @@ func waitForWorkloadCertUpdate(t framework.TestContext, ztunnelPod v1.Pod, servi
 }
 
 func verifyWorkloadCert(t framework.TestContext, workloadSecret *configdump.CertsDump, caX590 *x509.Certificate) error {
-	intermediateCert, err := base64.StdEncoding.DecodeString(workloadSecret.CertChain[0].Pem)
+	intermediateCert, err := base64.StdEncoding.DecodeString(workloadSecret.CertChain[1].Pem)
 	if err != nil {
 		t.Errorf("failed to decode intermediate certificate: %v", err)
 	}
@@ -141,7 +137,7 @@ func verifyWorkloadCert(t framework.TestContext, workloadSecret *configdump.Cert
 			intermediateX509.SerialNumber.String(), caX590.SerialNumber.String())
 	}
 
-	workloadCert, err := base64.StdEncoding.DecodeString(workloadSecret.CaCert[0].Pem)
+	workloadCert, err := base64.StdEncoding.DecodeString(workloadSecret.CertChain[0].Pem)
 	if err != nil {
 		return fmt.Errorf("failed to decode workload certificate: %v", err)
 	}

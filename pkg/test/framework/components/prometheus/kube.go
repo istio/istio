@@ -74,6 +74,7 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
+	yaml = strings.ReplaceAll(yaml, "namespace: istio-system", fmt.Sprintf("namespace: %s", ns))
 	if err := ctx.ConfigKube().YAML(ns, yaml).Apply(apply.NoCleanup); err != nil {
 		return err
 	}
@@ -100,7 +101,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 			return nil, err
 		}
 	}
-	for _, cls := range ctx.Clusters().Kube() {
+	for _, cls := range ctx.Clusters() {
 		scopes.Framework.Debugf("Installing Prometheus on cluster: %s", cls.Name())
 		// Find the Prometheus pod and service, and start forwarding a local port.
 		fetchFn := testKube.NewSinglePodFetch(cls, cfg.TelemetryNamespace, fmt.Sprintf("app.kubernetes.io/name=%s", appName))

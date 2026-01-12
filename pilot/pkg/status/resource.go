@@ -18,13 +18,13 @@ package status
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/api/meta/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -34,24 +34,6 @@ import (
 
 var scope = log.RegisterScope("status",
 	"status controller for istio")
-
-func ResourceFromString(s string) *Resource {
-	pieces := strings.Split(s, "/")
-	if len(pieces) != 6 {
-		scope.Errorf("cannot unmarshal %s into resource identifier", s)
-		return nil
-	}
-	return &Resource{
-		GroupVersionResource: schema.GroupVersionResource{
-			Group:    pieces[0],
-			Version:  pieces[1],
-			Resource: pieces[2],
-		},
-		Namespace:  pieces[3],
-		Name:       pieces[4],
-		Generation: pieces[5],
-	}
-}
 
 // TODO: maybe replace with a kubernetes resource identifier, if that's a thing
 type Resource struct {
@@ -95,18 +77,14 @@ func ResourceFromModelConfig(c config.Config) Resource {
 	}
 }
 
-func GetTypedStatus(in any) (out *v1alpha1.IstioStatus, err error) {
-	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
-		return ret, nil
-	}
-	return nil, fmt.Errorf("cannot cast %T: %v to IstioStatus", in, in)
-}
-
-func GetOGProvider(in any) (out GenerationProvider, err error) {
+func GetStatusManipulator(in any) (out Manipulator) {
 	if ret, ok := in.(*v1alpha1.IstioStatus); ok && ret != nil {
-		return &IstioGenerationProvider{ret}, nil
+		return &IstioGenerationProvider{ret}
 	}
-	return nil, fmt.Errorf("cannot cast %T: %v to GenerationProvider", in, in)
+	if ret, ok := in.(*networking.ServiceEntryStatus); ok && ret != nil {
+		return &ServiceEntryGenerationProvider{ret}
+	}
+	return &NopStatusManipulator{in}
 }
 
 func NewIstioContext(stop <-chan struct{}) context.Context {

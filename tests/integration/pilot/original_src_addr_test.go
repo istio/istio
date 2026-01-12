@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -29,7 +28,6 @@ func TestTproxy(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
-		Features("traffic.original-source-ip").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			if t.Settings().Skip(echo.TProxy) {

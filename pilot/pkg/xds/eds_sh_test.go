@@ -30,11 +30,11 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/network"
 )
@@ -61,7 +61,7 @@ func (r expectedResults) getAddrs() []string {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{NetworksWatcher: mesh.NewFixedNetworksWatcher(nil)})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{NetworksWatcher: meshwatcher.NewFixedNetworksWatcher(nil)})
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
@@ -77,7 +77,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	initRegistry(s, 4, []string{}, 4)
 
 	// Push contexts needs to be updated
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
 	time.Sleep(time.Millisecond * 200) // give time for cache to clear
 
 	tests := []struct {
@@ -309,7 +309,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	for i := 0; i < numOfEndpoints; i++ {
 		addr := fmt.Sprintf("10.%d.0.%d", networkNum, i+1)
 		istioEndpoints[i] = &model.IstioEndpoint{
-			Address:         addr,
+			Addresses:       []string{addr},
 			EndpointPort:    2080,
 			ServicePortName: "http-main",
 			Network:         networkID,
@@ -335,7 +335,7 @@ func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshcon
 	}
 	// add the new one
 	c[string(id)] = network
-	server.Env().NetworksWatcher.SetNetworks(&meshconfig.MeshNetworks{Networks: c})
+	server.Env().NetworksWatcher.(meshwatcher.TestNetworksWatcher).SetNetworks(&meshconfig.MeshNetworks{Networks: c})
 }
 
 func getLbEndpointAddrs(eps []*endpoint.LbEndpoint) []string {

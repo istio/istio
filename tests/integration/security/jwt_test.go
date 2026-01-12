@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -44,7 +43,6 @@ func TestRequestAuthentication(t *testing.T) {
 	payload3 := strings.Split(jwt.TokenIssuer1WithNestedClaims2, ".")[1]
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			type testCase struct {
 				name          string
@@ -257,6 +255,19 @@ func TestRequestAuthentication(t *testing.T) {
 				},
 			}))
 
+			t.NewSubTest("timeout").Run(newTest("testdata/requestauthn/timeout.yaml.tmpl", []testCase{
+				{
+					name: "valid-token-forward-remote-jwks",
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.Check = check.And(
+							check.NotOK(),
+							check.Status(http.StatusUnauthorized))
+					},
+				},
+			}))
+
 			t.NewSubTest("aud").Run(newTest("testdata/requestauthn/aud.yaml.tmpl", []testCase{
 				{
 					name: "invalid-aud",
@@ -401,7 +412,6 @@ func TestRequestAuthentication(t *testing.T) {
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authentication.ingressjwt").
 		Run(func(t framework.TestContext) {
 			config.New(t).
 				Source(config.File("testdata/requestauthn/global-jwt.yaml.tmpl").WithParams(param.Params{
@@ -462,6 +472,16 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					name          string
 					customizeCall func(opts *echo.CallOptions, to echo.Target)
 				}{
+					{
+						name: "allow healthz",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/healthz"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
 					{
 						name: "deny without token",
 						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
@@ -548,16 +568,6 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							opts.Check = check.Status(http.StatusForbidden)
 						},
 					},
-					{
-						name: "allow healthz",
-						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
-							opts.HTTP.Path = "/healthz"
-							opts.HTTP.Headers = headers.New().
-								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
-								Build()
-							opts.Check = check.OK()
-						},
-					},
 				}
 
 				newTrafficTest(t, apps.Ns1.All.Instances()).
@@ -584,7 +594,6 @@ func TestIngressRequestAuthentication(t *testing.T) {
 func TestGatewayAPIRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authentication.ingressjwt").
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
 			config.New(t).
@@ -603,6 +612,16 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 					name          string
 					customizeCall func(opts *echo.CallOptions, to echo.Target)
 				}{
+					{
+						name: "allow healthz",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/healthz"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
 					{
 						name: "deny without token",
 						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
@@ -698,16 +717,6 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 								WithAuthz(jwt.TokenIssuer1).
 								Build()
 							opts.Check = check.Status(http.StatusForbidden)
-						},
-					},
-					{
-						name: "allow healthz",
-						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
-							opts.HTTP.Path = "/healthz"
-							opts.HTTP.Headers = headers.New().
-								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
-								Build()
-							opts.Check = check.OK()
 						},
 					},
 				}

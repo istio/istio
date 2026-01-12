@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -40,10 +39,9 @@ func TestWorkloadEntryGateway(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresMinClusters(2).
-		Features("traffic.reachability").
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
-			i := istio.GetOrFail(t, t)
+			i := istio.GetOrFail(t)
 			type gwAddr struct {
 				ip   string
 				port int
@@ -53,9 +51,9 @@ func TestWorkloadEntryGateway(t *testing.T) {
 				if _, ok := gatewayAddresses[cluster.NetworkName()]; ok {
 					continue
 				}
-				ip, port := i.EastWestGatewayFor(cluster).AddressForPort(15443)
-				if ip != "" {
-					gatewayAddresses[cluster.NetworkName()] = gwAddr{ip, port}
+				ips, ports := i.EastWestGatewayFor(cluster).AddressesForPort(15443)
+				if ips != nil {
+					gatewayAddresses[cluster.NetworkName()] = gwAddr{ips[0], ports[0]}
 				}
 			}
 			if len(t.Clusters().Networks()) != len(gatewayAddresses) {
@@ -65,7 +63,7 @@ func TestWorkloadEntryGateway(t *testing.T) {
 			// we have an imaginary network for each network called {name}-manual-discovery
 			gwTmpl := `
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: remote-gateway-manual-discovery-%s
@@ -87,7 +85,7 @@ spec:
 			// a serviceentry that only includes cluster-local endpoints (avoid automatic cross-cluster discovery)
 			seTmpl := `
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: serviceentry.mesh.global
@@ -110,7 +108,7 @@ spec:
 `
 
 			exposeServices := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: cross-network-gateway
@@ -142,7 +140,7 @@ spec:
 			}
 
 			weTmpl := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: se-cross-network-{{.testName}}
@@ -187,7 +185,6 @@ spec:
 			}
 
 			for _, tc := range testCases {
-				tc := tc
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					for network, networkClusters := range t.Clusters().ByNetwork() {
 						weClusters := t.Clusters().Configs(networkClusters...)
@@ -204,7 +201,6 @@ spec:
 					}
 
 					for _, src := range apps.A.Instances() {
-						src := src
 						// TODO possibly can run parallel
 						t.NewSubTestf("from %s", src.Clusters().Default().Name()).Run(func(t framework.TestContext) {
 							src.CallOrFail(t, echo.CallOptions{

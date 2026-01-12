@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 )
@@ -56,11 +57,13 @@ func NewModern(c kube.Client, events chan string, _ <-chan struct{}) {
 	Services := krt.NewInformer[*v1.Service](c, krt.WithObjectAugmentation(func(o any) any {
 		return ServiceWrapper{o.(*v1.Service)}
 	}))
+	ServicesByNamespace := krt.NewNamespaceIndex(Services)
+
 	Workloads := krt.NewCollection(Pods, func(ctx krt.HandlerContext, p *v1.Pod) *Workload {
 		if p.Status.PodIP == "" {
 			return nil
 		}
-		services := krt.Fetch(ctx, Services, krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels()))
+		services := krt.Fetch(ctx, Services, krt.FilterIndex(ServicesByNamespace, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels()))
 		return &Workload{
 			Named:        krt.NewNamed(p),
 			IP:           p.Status.PodIP,
@@ -178,6 +181,7 @@ func drainN(c chan string, n int) {
 }
 
 func BenchmarkControllers(b *testing.B) {
+	log.FindScope("krt").SetOutputLevel(log.InfoLevel)
 	watch.DefaultChanSize = 100_000
 	initialPods := []*v1.Pod{}
 	for i := 0; i < 1000; i++ {

@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
@@ -83,8 +84,7 @@ b
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			parts := yml.SplitString(c.doc)
-			g := NewWithT(t)
-			g.Expect(parts).To(Equal(expected))
+			assert.Equal(t, parts, expected)
 		})
 	}
 }
@@ -132,4 +132,23 @@ b`
 	g := NewWithT(t)
 	doc := yml.JoinString(parts...)
 	g.Expect(doc).To(Equal(expected))
+}
+
+func TestSplitWithLongPart(t *testing.T) {
+	longPartA := ""
+	longPartB := ""
+	for range 70000 {
+		longPartA += "a"
+		longPartB += "b"
+	}
+
+	doc := longPartA + "\n---\n" + longPartB
+
+	parts := yml.SplitString(doc)
+
+	g := NewWithT(t)
+
+	g.Expect(len(parts)).To(Equal(2))
+	g.Expect(parts[0]).To(Equal(longPartA))
+	g.Expect(parts[1]).To(Equal(longPartB))
 }

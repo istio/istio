@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/analysis/testing/fixtures"
@@ -130,6 +131,17 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 }
 
+func BenchmarkMetadata(b *testing.B) {
+	a := ValidationAnalyzer{
+		s: schemaWithValidateFn(validation.EmptyValidate),
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Metadata()
+	}
+}
+
 func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning, error)) resource2.Schema {
 	original := collections.VirtualService
 	return resource2.Builder{
@@ -151,6 +163,9 @@ func (fakeOrigin) Comparator() string            { return "myFriendlyName" }
 func (fakeOrigin) Namespace() resource.Namespace { return "myNamespace" }
 func (fakeOrigin) Reference() resource.Reference { return fakeReference{} }
 func (fakeOrigin) FieldMap() map[string]int      { return make(map[string]int) }
+func (fakeOrigin) ClusterName() cluster.ID {
+	return "cluster"
+}
 
 type fakeReference struct{}
 

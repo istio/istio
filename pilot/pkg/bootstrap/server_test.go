@@ -15,6 +15,7 @@ package bootstrap
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -25,7 +26,6 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,7 +124,7 @@ func TestNewServerCertInit(t *testing.T) {
 				CaCertFile: tlsArgcaCertFile,
 			},
 			enableCA:                  false,
-			certProvider:              constants.CertProviderKubernetes,
+			certProvider:              constants.CertProviderIstiod,
 			expNewCert:                false,
 			expCert:                   testcerts.ServerCert,
 			expKey:                    testcerts.ServerKey,
@@ -202,6 +202,8 @@ func TestNewServerCertInit(t *testing.T) {
 			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
 			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
 
+			// Run test in an isolated directory so we don't read test files written by other cases
+			assert.NoError(t, os.Chdir(t.TempDir()))
 			// check if we have some tls assets to write for test
 			if c.FSCertsPaths != (TLSFSLoadPaths{}) {
 				err := loadCertFilesAtPaths(c.FSCertsPaths)
@@ -302,12 +304,12 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// setup cert watches.
-	if err := s.initCertificateWatches(tlsOptions); err != nil {
+	if err := s.initFileCertificateWatches(tlsOptions); err != nil {
 		t.Fatalf("initCertificateWatches failed: %v", err)
 	}
 
 	if err := s.initIstiodCertLoader(); err != nil {
-		t.Fatalf("istiod unable to load its cert")
+		t.Fatal("istiod unable to load its cert")
 	}
 
 	if err := s.server.Start(stop); err != nil {
@@ -332,6 +334,90 @@ func TestReloadIstiodCert(t *testing.T) {
 	// Validate that istiod cert is updated.
 	g.Eventually(func() bool {
 		return checkCert(t, s, testcerts.RotatedCert, testcerts.RotatedKey)
+	}, "10s", "100ms").Should(BeTrue())
+}
+
+func TestReloadcacerts(t *testing.T) {
+	var err error
+
+	// Run test in an isolated directory so we don't read test files written by other cases
+	// set ROOT_CA_DIR to temp cacertsDir and create the directory
+	cacertsDir := filepath.Join(t.TempDir(), "/etc/cacerts")
+	if err := os.MkdirAll(cacertsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(%v) failed: %v", cacertsDir, err)
+	}
+	test.SetEnvForTest(t, "ROOT_CA_DIR", cacertsDir)
+	test.SetForTest(t, &features.EnableCAServer, true)
+	assert.NoError(t, os.Chdir(t.TempDir()))
+
+	// load cacerts files into memory
+	var caCert, caKey, certChain, rootCert []byte
+	if caCert, err = readSampleCertFromFile("ca-cert.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if caKey, err = readSampleCertFromFile("ca-key.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if certChain, err = readSampleCertFromFile("cert-chain.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if rootCert, err = readSampleCertFromFile("root-cert.pem"); err != nil {
+		t.Fatal(err)
+	}
+	// write cacerts files to temp dir
+	if err := os.WriteFile(filepath.Join(cacertsDir, "ca-cert.pem"), caCert, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "ca-cert.pem"), err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "ca-key.pem"), caKey, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "ca-key.pem"), err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "cert-chain.pem"), certChain, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "cert-chain.pem"), err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "root-cert.pem"), rootCert, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "root-cert.pem"), err)
+	}
+
+	stop := make(chan struct{})
+	s := &Server{
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+		server:                  server.New(),
+	}
+
+	defer func() {
+		close(stop)
+		_ = s.cacertsWatcher.Close()
+	}()
+
+	// start server
+	if err := s.server.Start(stop); err != nil {
+		t.Fatalf("Could not invoke startFuncs: %v", err)
+	}
+
+	// create server CA for load cacerts files
+	if err = s.maybeCreateCA(&caOptions{}); err != nil {
+		t.Fatalf("Could not create CA: %v", err)
+	}
+
+	// validate that the cacerts files are loaded
+	g := NewWithT(t)
+	g.Eventually(func() bool {
+		return len(s.CA.GetCAKeyCertBundle().GetCertChainPem()) > 0
+	}, "10s", "100ms").Should(BeTrue())
+
+	// update cert chain of cert bundle to alt version
+	certChainAlt, err := readSampleCertFromFile("cert-chain-alt.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cacertsDir, "cert-chain.pem"), certChainAlt, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", filepath.Join(cacertsDir, "cert-chain.pem"), err)
+	}
+
+	// validate that the cert chain is updated
+	g.Eventually(func() bool {
+		currentCertChain := s.CA.GetCAKeyCertBundle().GetCertChainPem()
+		return bytes.Equal(currentCertChain, certChainAlt)
 	}, "10s", "100ms").Should(BeTrue())
 }
 
@@ -520,7 +606,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 					GRPCAddr:       ":0",
 					HTTPSAddr:      ":0",
 					TLSOptions: TLSOptions{
-						CipherSuits: c.serverCipherSuites,
+						CipherSuites: c.serverCipherSuites,
 					},
 				}
 				p.RegistryOptions = RegistryOptions{
@@ -545,6 +631,55 @@ func TestIstiodCipherSuites(t *testing.T) {
 				s.WaitUntilCompletion()
 			}()
 		})
+	}
+}
+
+func TestIstiodReadinessHandler(t *testing.T) {
+	configDir := t.TempDir()
+
+	args := NewPilotArgs(func(p *PilotArgs) {
+		p.Namespace = "istio-system"
+		p.ServerOptions = DiscoveryServerOptions{
+			// Dynamically assign all ports.
+			HTTPAddr:       ":0",
+			HTTPSAddr:      ":0",
+			MonitoringAddr: ":0",
+			GRPCAddr:       ":0",
+		}
+		p.RegistryOptions = RegistryOptions{
+			KubeConfig: "config",
+			FileDir:    configDir,
+		}
+		p.ShutdownDuration = 1 * time.Millisecond
+	})
+
+	g := NewWithT(t)
+	s, err := NewServer(args, func(s *Server) {
+		s.kubeClient = kube.NewFakeClient()
+	})
+	g.Expect(err).To(Succeed())
+
+	stop := make(chan struct{})
+	g.Expect(s.Start(stop)).To(Succeed())
+	defer func() {
+		close(stop)
+		s.WaitUntilCompletion()
+	}()
+
+	c := http.Client{}
+	c.Transport = &http.Transport{
+		// nolint: gosec
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+	defer c.CloseIdleConnections()
+
+	for _, url := range []string{"http://" + s.httpAddr, "https://" + s.httpsAddr} {
+		resp, err := c.Get(url + "/ready")
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		g.Expect(resp.Body.Close()).To(Succeed())
 	}
 }
 
@@ -576,7 +711,7 @@ func TestInitOIDC(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := &PilotArgs{JwtRule: tt.jwtRule}
 
-			_, err := initOIDC(args)
+			_, err := initOIDC(args, nil)
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
@@ -641,12 +776,12 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			}
 			cert, certErr := util.ParsePemEncodedCertificate(rotatedCertBytes)
 			if certErr != nil {
-				t.Fatalf("rotated cert is not valid")
+				t.Fatal("rotated cert is not valid")
 			}
 			currTime := time.Now()
 			timeToExpire := cert.NotAfter.Sub(currTime)
 			if timeToExpire < 0 {
-				t.Fatalf("rotated cert is already expired")
+				t.Fatal("rotated cert is already expired")
 			}
 		})
 	}
@@ -656,11 +791,11 @@ func checkCert(t *testing.T, s *Server, cert, key []byte) bool {
 	t.Helper()
 	actual, err := s.getIstiodCertificate(nil)
 	if err != nil {
-		t.Fatalf("fail to load fetch certs.")
+		t.Fatal("fail to load fetch certs.")
 	}
 	expected, err := tls.X509KeyPair(cert, key)
 	if err != nil {
-		t.Fatalf("fail to load test certs.")
+		t.Fatal("fail to load test certs.")
 	}
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }

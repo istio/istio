@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -33,10 +32,9 @@ import (
 // (a) Different workloads after getting their certificates signed by the K8s CA are successfully able to communicate with each other
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.externalca.reachability").
 		Run(func(t framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
-			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+			namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 
 			from := apps.EchoNamespace.A
 			to := apps.EchoNamespace.B

@@ -1,0 +1,21 @@
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: full
+spec:
+  selector:
+    matchLabels:
+      foo: bar
+  mtls:
+    mode: PERMISSIVE
+  portLevelMtls:
+    "80":
+      mode: STRICT
+---
+# Weird but valid
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: partial-selector
+spec:
+  selector: {}

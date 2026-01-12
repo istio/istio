@@ -411,7 +411,7 @@ func CheckCacheFreshness(cache model.ConfigStoreController, namespace string, t 
 	timeout := time.After(10 * time.Second)
 	select {
 	case <-timeout:
-		t.Fatalf("timeout waiting to be done")
+		t.Fatal("timeout waiting to be done")
 	case <-done:
 		return
 	}

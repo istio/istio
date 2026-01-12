@@ -1,0 +1,7 @@
+# BASE_DISTRIBUTION is usually used to switch between the old base distribution and distroless base images
+# However, for now, agentgateway is always distroless
+ARG BASE_DISTRIBUTION=debug
+
+ARG AGENTGATEWAY_IMAGE=cr.agentgateway.dev/agentgateway
+# Currently, we just mirror the image. The reason to mirror is to give a single version, repository, etc for Istio users.
+FROM ${AGENTGATEWAY_IMAGE}

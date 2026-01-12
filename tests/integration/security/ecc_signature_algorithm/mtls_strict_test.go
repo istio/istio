@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 //  Copyright Istio Authors
 //
@@ -32,7 +31,7 @@ import (
 
 const (
 	DestinationRuleConfigIstioMutual = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: server
@@ -45,7 +44,7 @@ spec:
 `
 
 	PeerAuthenticationConfig = `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -59,7 +58,6 @@ spec:
 func TestStrictMTLS(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.peer.ecc-signature-algorithm").
 		Run(func(t framework.TestContext) {
 			ns := apps.EchoNamespace.Namespace.Name()
 			args := map[string]string{"AppNamespace": ns}
@@ -80,7 +78,7 @@ func TestStrictMTLS(t *testing.T) {
 			certPEMs := cert.DumpCertFromSidecar(t, client, server, "http")
 			block, _ := pem.Decode([]byte(strings.Join(certPEMs, "\n")))
 			if block == nil { // nolint: staticcheck
-				t.Fatalf("failed to parse certificate PEM")
+				t.Fatal("failed to parse certificate PEM")
 			}
 
 			certificate, err := x509.ParseCertificate(block.Bytes) // nolint: staticcheck

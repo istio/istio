@@ -17,6 +17,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -39,8 +40,13 @@ var (
 	ErrNoPodsFetched = fmt.Errorf("no pods fetched")
 )
 
-// PodFetchFunc fetches pods from a k8s Client.
-type PodFetchFunc func() ([]corev1.Pod, error)
+type (
+	// PodFetchFunc fetches pods from a k8s Client.
+	PodFetchFunc func() ([]corev1.Pod, error)
+
+	// SvcFetchFunc fetches services from a k8s Client.
+	SvcFetchFunc func() ([]corev1.Service, error)
+)
 
 // NewPodFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
 func NewPodFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
@@ -119,6 +125,17 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
 	return fetched, nil
 }
 
+// NewServiceFetch creates a new ServiceFetchFunction that fetches all services matching the namespace and label selectors.
+func NewServiceFetch(a istioKube.CLIClient, namespace string, selectors ...string) SvcFetchFunc {
+	return func() ([]corev1.Service, error) {
+		services, err := a.ServicesForSelector(context.TODO(), namespace, selectors...)
+		if err != nil {
+			return nil, err
+		}
+		return services.Items, nil
+	}
+}
+
 // DeleteOptionsForeground creates new delete options that will block until the operation completes.
 func DeleteOptionsForeground() metav1.DeleteOptions {
 	propagationPolicy := metav1.DeletePropagationForeground
@@ -148,6 +165,8 @@ func WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]core
 
 // WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
 // one usable endpoint.
+// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+// nolint: staticcheck
 func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name string,
 	opts ...retry.Option,
 ) (*corev1.Service, *corev1.Endpoints, error) {
@@ -323,4 +342,44 @@ func checkAllNamesExist(names []string, haystack []string) bool {
 	}
 
 	return true
+}
+
+// Resolve domain name and return ip address.
+// By default, return ipv4 address and if missing, return ipv6.
+func resolveHostDomainToIP(hostDomain string) (string, error) {
+	ips, err := net.LookupIP(hostDomain)
+	if err != nil {
+		return "", err
+	}
+
+	var ipv6Addr string
+
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			return ip.String(), nil
+		} else if ipv6Addr == "" {
+			ipv6Addr = ip.String()
+		}
+	}
+
+	if ipv6Addr != "" {
+		return ipv6Addr, nil
+	}
+
+	return "", fmt.Errorf("no IP address found for hostname: %s", hostDomain)
+}
+
+// When the Ingress is a domain name (in public cloud), it might take a bit of time to make it reachable.
+func WaitUntilReachableIngress(hostDomain string) (string, error) {
+	var ip string
+	err := retry.UntilSuccess(func() error {
+		ipAddr, err := resolveHostDomainToIP(hostDomain)
+		if err != nil {
+			return err
+		}
+		ip = ipAddr
+		return nil
+	}, retry.Timeout(90*time.Second), retry.BackoffDelay(1*time.Second))
+
+	return ip, err
 }

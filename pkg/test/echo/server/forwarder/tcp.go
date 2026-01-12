@@ -70,6 +70,8 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 		}
 	}
 
+	localAddr, _, _ := net.SplitHostPort(conn.LocalAddr().String())
+	echo.SourceIPField.WriteForRequest(&msgBuilder, requestID, localAddr)
 	echo.ForwarderURLField.WriteForRequest(&msgBuilder, requestID, cfg.Request.Url)
 
 	if cfg.Request.Message != "" {

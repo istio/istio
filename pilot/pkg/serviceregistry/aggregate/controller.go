@@ -15,7 +15,6 @@
 package aggregate
 
 import (
-	"net/netip"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -28,8 +27,8 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
@@ -41,7 +40,8 @@ var (
 
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
-	meshHolder mesh.Holder
+	meshHolder      mesh.Holder
+	configClusterID cluster.ID
 
 	// The lock is used to protect the registries and controller's running status.
 	storeLock  sync.RWMutex
@@ -55,69 +55,136 @@ type Controller struct {
 	model.NetworkGatewaysHandler
 }
 
-func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
-	if !features.EnableAmbientControllers {
+func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if !features.EnableAmbient {
 		return nil
 	}
-	var res []netip.Addr
+	var res []model.ServiceInfo
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.Waypoint(scope)...)
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
+		res = append(res, p.ServicesForWaypoint(key)...)
 	}
 	return res
 }
 
-func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo {
-	if !features.EnableAmbientControllers {
+func (c *Controller) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
+	if !features.EnableAmbient {
 		return nil
 	}
-	var res []*model.WorkloadInfo
+	var res []model.ServiceWaypointInfo
 	for _, p := range c.GetRegistries() {
-		res = append(res, p.WorkloadsForWaypoint(scope)...)
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
+		res = append(res, p.ServicesWithWaypoint(key)...)
+	}
+	return res
+}
+
+func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+	if !features.EnableAmbientWaypoints {
+		return nil
+	}
+	var res []model.WorkloadInfo
+	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
+		res = append(res, p.WorkloadsForWaypoint(key)...)
 	}
 	return res
 }
 
 func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.String) sets.String {
-	if !features.EnableAmbientControllers {
+	if !features.EnableAmbient {
 		return nil
 	}
 	res := sets.New[string]()
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
 	}
 	return res
 }
 
-func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.Authorization {
-	var res []*security.Authorization
-	if !features.EnableAmbientControllers {
+func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAuthorization {
+	var res []model.WorkloadAuthorization
+	if !features.EnableAmbient {
 		return res
 	}
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = append(res, p.Policies(requested)...)
 	}
 	return res
 }
 
-func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, sets.String) {
-	i := []*model.AddressInfo{}
-	if !features.EnableAmbientControllers {
-		return i, nil
+func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressInfo, sets.String) {
+	if !features.EnableAmbient {
+		return nil, nil
 	}
-	removed := sets.String{}
+	var i []model.AddressInfo
+	var removed sets.String
+	foundRegistryCount := 0
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			continue
+		}
 		wis, r := p.AddressInformation(addresses)
-		i = append(i, wis...)
-		removed.Merge(r)
+		if len(wis) == 0 && len(r) == 0 {
+			continue
+		}
+		foundRegistryCount++
+		if foundRegistryCount == 1 {
+			// first registry: use the data structures they provided, to avoid a copy
+			removed = r
+			i = wis
+		} else {
+			i = append(i, wis...)
+			removed.Merge(r)
+		}
 	}
-	// We may have 'removed' it in one registry but found it in another
-	for _, wl := range i {
-		// TODO(@hzxuzhonghu) This is not right for workload, we may search workload by ip, but the resource name is uid.
-		if removed.Contains(wl.ResourceName()) {
-			removed.Delete(wl.ResourceName())
+	if foundRegistryCount > 1 {
+		// We may have 'removed' it in one registry but found it in another
+		// As an optimization, we skip this in the common case of only one registry
+		for _, wl := range i {
+			// TODO(@hzxuzhonghu) This is not right for workload, we may search workload by ip, but the resource name is uid.
+			if removed.Contains(wl.ResourceName()) {
+				removed.Delete(wl.ResourceName())
+			}
 		}
 	}
 	return i, removed
+}
+
+func (c *Controller) ServiceInfo(key string) *model.ServiceInfo {
+	if !features.EnableAmbientMultiNetwork {
+		return nil
+	}
+	for _, p := range c.GetRegistries() {
+		// When it comes to service info in ambient multicluster setup, only the local cluster matter.
+		if p.Cluster() == c.configClusterID && p.Provider() == provider.Kubernetes {
+			return p.ServiceInfo(key)
+		}
+	}
+	return nil
 }
 
 type registryEntry struct {
@@ -127,13 +194,15 @@ type registryEntry struct {
 }
 
 type Options struct {
-	MeshHolder mesh.Holder
+	MeshHolder      mesh.Holder
+	ConfigClusterID cluster.ID
 }
 
 // NewController creates a new Aggregate controller
 func NewController(opt Options) *Controller {
 	return &Controller{
 		registries:        make([]*registryEntry, 0),
+		configClusterID:   opt.ConfigClusterID,
 		meshHolder:        opt.MeshHolder,
 		running:           false,
 		handlersByCluster: map[cluster.ID]*model.ControllerHandlers{},
@@ -141,7 +210,20 @@ func NewController(opt Options) *Controller {
 }
 
 func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan struct{}) {
-	c.registries = append(c.registries, &registryEntry{Instance: registry, stop: stop})
+	added := false
+	if registry.Provider() == provider.Kubernetes {
+		for i, r := range c.registries {
+			if r.Provider() != provider.Kubernetes {
+				// insert the registry in the position of the first non kubernetes registry
+				c.registries = slices.Insert(c.registries, i, &registryEntry{Instance: registry, stop: stop})
+				added = true
+				break
+			}
+		}
+	}
+	if !added {
+		c.registries = append(c.registries, &registryEntry{Instance: registry, stop: stop})
+	}
 
 	// Observe the registry for events.
 	registry.AppendNetworkGatewayHandler(c.NotifyGatewayHandlers)
@@ -296,6 +378,12 @@ func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance)
 		newAddresses := src.ClusterVIPs.GetAddressesFor(clusterID)
 		dst.ClusterVIPs.SetAddressesFor(clusterID, newAddresses)
 	}
+	// Merge service accounts from different clusters
+	// Each cluster may have a different trust domain, so we need to collect all unique service accounts
+	if len(src.ServiceAccounts) > 0 {
+		dst.ServiceAccounts = append(dst.ServiceAccounts, src.ServiceAccounts...)
+		dst.ServiceAccounts = slices.FilterDuplicates(dst.ServiceAccounts)
+	}
 }
 
 // NetworkGateways merges the service-based cross-network gateways from each registry.
@@ -349,6 +437,11 @@ func (c *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTa
 		if len(instances) > 0 {
 			out = append(out, instances...)
 		}
+	}
+
+	if len(out) == 0 {
+		log.Debugf("GetProxyServiceTargets(): no service targets found for proxy %s with clusterID %s",
+			node.ID, nodeClusterID.String())
 	}
 
 	return out

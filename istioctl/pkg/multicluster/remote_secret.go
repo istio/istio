@@ -38,7 +38,9 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/component"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
@@ -154,12 +156,13 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 	return out, nil
 }
 
-func createBaseKubeconfig(caData []byte, clusterName, server string) *api.Config {
+func createBaseKubeconfig(caData []byte, clusterName, server, tlsServerName string) *api.Config {
 	return &api.Config{
 		Clusters: map[string]*api.Cluster{
 			clusterName: {
 				CertificateAuthorityData: caData,
 				Server:                   server,
+				TLSServerName:            tlsServerName,
 			},
 		},
 		AuthInfos: map[string]*api.AuthInfo{},
@@ -173,16 +176,16 @@ func createBaseKubeconfig(caData []byte, clusterName, server string) *api.Config
 	}
 }
 
-func createBearerTokenKubeconfig(caData, token []byte, clusterName, server string) *api.Config {
-	c := createBaseKubeconfig(caData, clusterName, server)
+func createBearerTokenKubeconfig(caData, token []byte, clusterName, server, tlsServerName string) *api.Config {
+	c := createBaseKubeconfig(caData, clusterName, server, tlsServerName)
 	c.AuthInfos[c.CurrentContext] = &api.AuthInfo{
 		Token: string(token),
 	}
 	return c
 }
 
-func createPluginKubeconfig(caData []byte, clusterName, server string, authProviderConfig *api.AuthProviderConfig) *api.Config {
-	c := createBaseKubeconfig(caData, clusterName, server)
+func createPluginKubeconfig(caData []byte, clusterName, server, tlsServerName string, authProviderConfig *api.AuthProviderConfig) *api.Config {
+	c := createBaseKubeconfig(caData, clusterName, server, tlsServerName)
 	c.AuthInfos[c.CurrentContext] = &api.AuthInfo{
 		AuthProvider: authProviderConfig,
 	}
@@ -191,7 +194,7 @@ func createPluginKubeconfig(caData []byte, clusterName, server string, authProvi
 
 func createRemoteSecretFromPlugin(
 	tokenSecret *v1.Secret,
-	server, clusterName, secName string,
+	server, tlsServerName, clusterName, secName string,
 	authProviderConfig *api.AuthProviderConfig,
 ) (*v1.Secret, error) {
 	caData, ok := tokenSecret.Data[v1.ServiceAccountRootCAKey]
@@ -200,7 +203,7 @@ func createRemoteSecretFromPlugin(
 	}
 
 	// Create a Kubeconfig to access the remote cluster using the auth provider plugin.
-	kubeconfig := createPluginKubeconfig(caData, clusterName, server, authProviderConfig)
+	kubeconfig := createPluginKubeconfig(caData, clusterName, server, tlsServerName, authProviderConfig)
 	if err := clientcmd.Validate(*kubeconfig); err != nil {
 		return nil, fmt.Errorf("invalid kubeconfig: %v", err)
 	}
@@ -214,14 +217,16 @@ var (
 	errMissingTokenKey  = fmt.Errorf("no %q data found", v1.ServiceAccountTokenKey)
 )
 
-func createRemoteSecretFromTokenAndServer(client kube.CLIClient, tokenSecret *v1.Secret, clusterName, server, secName string) (*v1.Secret, error) {
+func createRemoteSecretFromTokenAndServer(
+	client kube.CLIClient, tokenSecret *v1.Secret, clusterName, server, tlsServerName, secName string,
+) (*v1.Secret, error) {
 	caData, token, err := waitForTokenData(client, tokenSecret)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a Kubeconfig to access the remote cluster using the remote service account credentials.
-	kubeconfig := createBearerTokenKubeconfig(caData, token, clusterName, server)
+	kubeconfig := createBearerTokenKubeconfig(caData, token, clusterName, server, tlsServerName)
 	if err := clientcmd.Validate(*kubeconfig); err != nil {
 		return nil, fmt.Errorf("invalid kubeconfig: %v", err)
 	}
@@ -233,7 +238,7 @@ func createRemoteSecretFromTokenAndServer(client kube.CLIClient, tokenSecret *v1
 func waitForTokenData(client kube.CLIClient, secret *v1.Secret) (ca, token []byte, err error) {
 	ca, token, err = tokenDataFromSecret(secret)
 	if err == nil {
-		return
+		return ca, token, nil
 	}
 
 	log.Infof("Waiting for data to be populated in %s", secret.Name)
@@ -247,7 +252,7 @@ func waitForTokenData(client kube.CLIClient, secret *v1.Secret) (ca, token []byt
 			return err
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(tokenWaitBackoff), 5))
-	return
+	return ca, token, err
 }
 
 func tokenDataFromSecret(tokenSecret *v1.Secret) (ca, token []byte, err error) {
@@ -255,14 +260,14 @@ func tokenDataFromSecret(tokenSecret *v1.Secret) (ca, token []byte, err error) {
 	ca, ok = tokenSecret.Data[v1.ServiceAccountRootCAKey]
 	if !ok {
 		err = errMissingRootCAKey
-		return
+		return ca, token, err
 	}
 	token, ok = tokenSecret.Data[v1.ServiceAccountTokenKey]
 	if !ok {
 		err = errMissingTokenKey
-		return
+		return ca, token, err
 	}
-	return
+	return ca, token, err
 }
 
 func getServiceAccountSecret(client kube.CLIClient, opt RemoteSecretOptions) (*v1.Secret, error) {
@@ -424,55 +429,27 @@ func createServiceAccount(client kube.CLIClient, opt RemoteSecretOptions) error 
 }
 
 func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
-	// Create a renderer for the base installation.
-	baseRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace, nil)
-	discoveryRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "istio-control/istio-discovery", "Pilot", opt.Namespace, nil)
-
-	baseTemplates := []string{"reader-serviceaccount.yaml"}
-	discoveryTemplates := []string{"clusterrole.yaml", "clusterrolebinding.yaml"}
-
-	if err := baseRenderer.Run(); err != nil {
-		return "", fmt.Errorf("failed running base Helm renderer: %w", err)
+	flags := []string{"installPackagePath=" + opt.ManifestsPath, "values.global.istioNamespace=" + opt.Namespace}
+	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
+	if err != nil {
+		return "", err
 	}
-	if err := discoveryRenderer.Run(); err != nil {
-		return "", fmt.Errorf("failed running base discovery Helm renderer: %w", err)
-	}
-
-	values := fmt.Sprintf(`
-global:
-  istioNamespace: %s
-`, opt.Namespace)
-
-	// Render the templates required for the service account and role bindings.
-	baseContent, err := baseRenderer.RenderManifestFiltered(values, func(template string) bool {
-		for _, t := range baseTemplates {
-			if strings.Contains(template, t) {
-				return true
+	included := []string{}
+	for _, mf := range mfs {
+		if mf.Component != component.BaseComponentName && mf.Component != component.PilotComponentName {
+			continue
+		}
+		for _, m := range mf.Manifests {
+			if (m.GetKind() == "ClusterRole" || m.GetKind() == "ClusterRoleBinding") && strings.HasPrefix(m.GetName(), "istio-reader-clusterrole") {
+				included = append(included, m.Content)
+			}
+			if m.GetKind() == "ServiceAccount" && m.GetName() == "istio-reader-service-account" {
+				included = append(included, m.Content)
 			}
 		}
-		return false
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed rendering base manifest: %w", err)
-	}
-	discoveryContent, err := discoveryRenderer.RenderManifestFiltered(values, func(template string) bool {
-		for _, t := range discoveryTemplates {
-			if strings.Contains(template, t) {
-				return true
-			}
-		}
-		return false
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed rendering discovery manifest: %w", err)
 	}
 
-	aggregateContent := fmt.Sprintf(`
-%s
----
-%s
-`, baseContent, discoveryContent)
-	return aggregateContent, nil
+	return strings.Join(included, mesh.YAMLSeparator), nil
 }
 
 func createNamespaceIfNotExist(client kube.Client, ns string) error {
@@ -600,6 +577,11 @@ type RemoteSecretOptions struct {
 	// ServerOverride overrides the server IP/hostname field from the Kubeconfig
 	ServerOverride string
 
+	// TLSServerName sets `tls-server-name` in the generated kubeconfig.
+	// This parameter ensures that the TLS connection to the API server will not fail if the overridden
+	// server name is a proxy server.
+	TLSServerName string
+
 	// SecretName selects a specific secret from the remote service account, if there are multiple
 	SecretName string
 }
@@ -618,6 +600,8 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 			"the local cluster will be used.")
 	flagset.StringVar(&o.ServerOverride, "server", "",
 		"The address and port of the Kubernetes API server.")
+	flagset.StringVar(&o.TLSServerName, "tls-server-name", "",
+		"The server name that should be validated by kube-client during establishing TLS connection with kube-apiserver.")
 	flagset.StringVar(&o.SecretName, "secret-name", "",
 		"The name of the specific secret to use from the service-account. Needed when there are multiple secrets in the service account.")
 	var supportedAuthType []string
@@ -699,13 +683,13 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.CLIClient) (*v1.Sec
 	var remoteSecret *v1.Secret
 	switch opt.AuthType {
 	case RemoteSecretAuthTypeBearerToken:
-		remoteSecret, err = createRemoteSecretFromTokenAndServer(client, tokenSecret, opt.ClusterName, server, secretName)
+		remoteSecret, err = createRemoteSecretFromTokenAndServer(client, tokenSecret, opt.ClusterName, server, opt.TLSServerName, secretName)
 	case RemoteSecretAuthTypePlugin:
 		authProviderConfig := &api.AuthProviderConfig{
 			Name:   opt.AuthPluginName,
 			Config: opt.AuthPluginConfig,
 		}
-		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, server, opt.ClusterName, secretName,
+		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, server, opt.TLSServerName, opt.ClusterName, secretName,
 			authProviderConfig)
 	default:
 		err = fmt.Errorf("unsupported authentication type: %v", opt.AuthType)

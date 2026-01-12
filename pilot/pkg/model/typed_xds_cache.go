@@ -155,15 +155,12 @@ func (l *lruCache[K]) Flush() {
 	for _, keyConfigs := range l.evictQueue {
 		l.clearConfigIndex(keyConfigs.key, keyConfigs.dependentConfigs)
 	}
+	// The underlying array releases references to elements so that they can be garbage collected.
+	clear(l.evictQueue)
 	l.evictQueue = l.evictQueue[:0:1000]
+
 	l.recordDependentConfigSize()
 	l.mu.Unlock()
-}
-
-func (l *lruCache[K]) indexLen() int {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	return len(l.configIndex)
 }
 
 func (l *lruCache[K]) recordDependentConfigSize() {
@@ -200,7 +197,7 @@ func (l *lruCache[K]) clearConfigIndex(k K, dependentConfigs []ConfigHash) {
 	if exists {
 		newDependents := c.dependentConfigs
 		// we only need to clear configs {old difference new}
-		dependents := sets.New(dependentConfigs...).Difference(sets.New(newDependents...))
+		dependents := sets.New(dependentConfigs...).DifferenceInPlace(sets.New(newDependents...))
 		for cfg := range dependents {
 			sets.DeleteCleanupLast(l.configIndex, cfg, k)
 		}
@@ -247,7 +244,7 @@ func (l *lruCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *di
 	defer l.mu.Unlock()
 	if token < l.token {
 		// entry may be stale, we need to drop it. This can happen when the cache is invalidated
-		// after we call Get.
+		// after we call Clear or ClearAll.
 		return
 	}
 	cur, f := l.store.Get(k)
@@ -287,6 +284,8 @@ func (l *lruCache[K]) Get(key K) *discovery.Resource {
 
 // get return the cached value if it exists.
 func (l *lruCache[K]) get(key K, token CacheToken) *discovery.Resource {
+	// DON'T try to refactor to use RLock here.
+	// RLock will cause panic because hashicorp LRU cache does not guarantee concurrent safe.
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	cv, ok := l.store.Get(key)
@@ -330,7 +329,11 @@ func (l *lruCache[K]) ClearAll() {
 	// create a new store.
 	l.store = newLru(l.onEvict)
 	l.configIndex = map[ConfigHash]sets.Set[K]{}
+
+	// The underlying array releases references to elements so that they can be garbage collected.
+	clear(l.evictQueue)
 	l.evictQueue = l.evictQueue[:0:1000]
+
 	size(l.store.Len())
 }
 

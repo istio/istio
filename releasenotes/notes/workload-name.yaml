@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Added** a new `service.istio.io/workload-name` label that can be added to a `Pod` or `WorkloadEntry` to override the "workload name" reported in telemetry.
+  - |
+    **Added** a fallback to use the `WorkloadGroup` name as the "workload name" (as reported in telemetry) for `WorkloadEntry`s created by a `WorkloadGroup`. 

@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config"
@@ -49,8 +48,6 @@ type suiteContext struct {
 	settings    *resource.Settings
 	environment resource.Environment
 
-	skipped bool
-
 	workDir string
 	yml.FileWriter
 
@@ -61,9 +58,6 @@ type suiteContext struct {
 	contextNames sets.String
 
 	suiteLabels label.Set
-
-	outcomeMu    sync.RWMutex
-	testOutcomes []TestOutcome
 
 	dumpCount *atomic.Uint64
 
@@ -87,6 +81,7 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		contextNames: sets.New[string](),
 		dumpCount:    atomic.NewUint64(0),
 	}
+	c.globalScope.markTopLevel()
 
 	env, err := envFn(c)
 	if err != nil {
@@ -235,42 +230,6 @@ func (c *suiteContext) RequestTestDump() bool {
 
 func (c *suiteContext) ID() string {
 	return c.globalScope.id
-}
-
-type Outcome string
-
-const (
-	Passed         Outcome = "Passed"
-	Failed         Outcome = "Failed"
-	Skipped        Outcome = "Skipped"
-	NotImplemented Outcome = "NotImplemented"
-)
-
-type TestOutcome struct {
-	Name          string
-	Type          string
-	Outcome       Outcome
-	FeatureLabels map[features.Feature][]string
-}
-
-func (c *suiteContext) registerOutcome(test *testImpl) {
-	o := Passed
-	if test.notImplemented {
-		o = NotImplemented
-	} else if test.goTest.Failed() {
-		o = Failed
-	} else if test.goTest.Skipped() {
-		o = Skipped
-	}
-	newOutcome := TestOutcome{
-		Name:          test.goTest.Name(),
-		Type:          "integration",
-		Outcome:       o,
-		FeatureLabels: test.featureLabels,
-	}
-	c.contextMu.Lock()
-	defer c.contextMu.Unlock()
-	c.testOutcomes = append(c.testOutcomes, newOutcome)
 }
 
 func (c *suiteContext) RecordTraceEvent(key string, value any) {

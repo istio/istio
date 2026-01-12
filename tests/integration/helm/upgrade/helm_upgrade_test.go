@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -26,9 +25,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/util/image"
+	helmtest "istio.io/istio/tests/integration/helm"
 )
 
 var (
+	currentVersion           string
 	previousSupportedVersion string
 	nMinusTwoVersion         string
 )
@@ -46,6 +47,7 @@ func initVersions(ctx resource.Context) error {
 		return err
 	}
 
+	currentVersion = v.String()
 	previousVersion := semver.New(v.Major(), v.Minor()-1, v.Patch(), v.Prerelease(), v.Metadata())
 
 	// If the previous version is not published yet, use the latest one
@@ -59,14 +61,6 @@ func initVersions(ctx resource.Context) error {
 	nMinusTwoVersion = semver.New(previousVersion.Major(), previousVersion.Minor()-1, previousVersion.Patch(),
 		previousVersion.Prerelease(), previousVersion.Metadata()).String()
 
-	// Workaround publish issues
-	if previousSupportedVersion == "1.17.0" {
-		previousSupportedVersion = "1.17.1"
-	}
-	if nMinusTwoVersion == "1.17.0" {
-		nMinusTwoVersion = "1.17.1"
-	}
-
 	return nil
 }
 
@@ -74,31 +68,27 @@ func initVersions(ctx resource.Context) error {
 func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
-		Run(performInPlaceUpgradeFunc(previousSupportedVersion))
+		Run(performInPlaceUpgradeFunc(previousSupportedVersion, false))
 }
 
 // TestCanaryUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
 func TestCanaryUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
-		Run(performCanaryUpgradeFunc(previousSupportedVersion))
+		Run(performCanaryUpgradeFunc(helmtest.DefaultNamespaceConfig, previousSupportedVersion))
 }
 
 // TestCanaryUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
 func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
-		Run(performCanaryUpgradeFunc(nMinusTwoVersion))
+		Run(performCanaryUpgradeFunc(helmtest.DefaultNamespaceConfig, nMinusTwoVersion))
 }
 
 // TestStableRevisionLabelsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
 func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
 		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion))
 }
 
@@ -106,6 +96,25 @@ func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
 func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("installation.helm.default.upgrade").
 		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
+}
+
+// TestAmbientInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with ambient profile for Istio 1.(n-1)
+func TestAmbientInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(performInPlaceUpgradeFunc(previousSupportedVersion, true))
+}
+
+// TestAmbientInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with ambient profile for Istio 1.(n-1)
+func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(upgradeAllButZtunnel(previousSupportedVersion))
+}
+
+func TestAmbientStableRevisionLabelsGatewayStatus(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(runMultipleTagsFunc(true, true))
 }

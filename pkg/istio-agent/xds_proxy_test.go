@@ -26,6 +26,8 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	httprbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	wasmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -41,10 +43,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/envoy"
@@ -54,36 +56,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	wasmcache "istio.io/istio/pkg/wasm"
 )
-
-// TestXdsLeak is a regression test for https://github.com/istio/istio/issues/34097
-func TestXdsLeak(t *testing.T) {
-	proxy := setupXdsProxyWithDownstreamOptions(t, []grpc.ServerOption{grpc.StreamInterceptor(xdstest.SlowServerInterceptor(time.Second, time.Second))})
-	f := xdstest.NewMockServer(t)
-	setDialOptions(proxy, f.Listener)
-	proxy.dialOptions = append(proxy.dialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
-	conn := setupDownstreamConnection(t, proxy)
-	downstream := stream(t, conn)
-	sendDownstreamWithoutResponse(t, downstream)
-	for i := 0; i < 15; i++ {
-		// Send a bunch of responses from Istiod. These should not block, even though there are more sends than responseChan can hold
-		f.SendResponse(&discovery.DiscoveryResponse{TypeUrl: v3.ClusterType})
-	}
-	// Exit test, closing the connections. We should not have any goroutine leaks (checked by leak.CheckMain)
-}
-
-// sendDownstreamWithoutResponse sends a response without waiting for a response
-func sendDownstreamWithoutResponse(t *testing.T, downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	t.Helper()
-	err := downstream.Send(&discovery.DiscoveryRequest{
-		TypeUrl: v3.ClusterType,
-		Node: &core.Node{
-			Id: "sidecar~0.0.0.0~debug~cluster.local",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyBasicFlow(t *testing.T) {
@@ -297,7 +269,7 @@ func setDialOptions(p *XdsProxy, l *bufconn.Listener) {
 	}
 }
 
-var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", "Kubernetes")
+var ctx = metadata.AppendToOutgoingContext(context.Background(), "ClusterID", constants.DefaultClusterName)
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyReconnects(t *testing.T) {
@@ -463,7 +435,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
-		ClusterID:   "Kubernetes",
+		ClusterID:   constants.DefaultClusterName,
 	}
 	proxy := setupXdsProxy(t)
 	// Reset wasm cache to a fake ACK cache.
@@ -531,8 +503,6 @@ func TestECDSWasmConversion(t *testing.T) {
 	if !proto.Equal(gotEcdsConfig, wantEcdsConfig) {
 		t.Errorf("xds proxy wasm config conversion got %v want %v", gotEcdsConfig, wantEcdsConfig)
 	}
-	v1 := proxy.ecdsLastAckVersion
-	n1 := proxy.ecdsLastNonce
 
 	// reset wasm cache to a NACK cache, and recreate xds server as well to simulate a version bump
 	proxy.wasmCache = &fakeNackCache{}
@@ -557,18 +527,26 @@ func TestECDSWasmConversion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Wait until nonce was updated, which represents an ACK/NACK has been received.
-	retry.UntilSuccessOrFail(t, func() error {
-		if proxy.ecdsLastNonce.Load() == n1.Load() {
-			return errors.New("last process nonce has not been updated. no ecds ack/nack is received yet")
-		}
-		return nil
-	}, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
-
-	// Verify that the last ack version remains the same, which represents the latest DiscoveryRequest is a NACK.
-	v2 := proxy.ecdsLastAckVersion
-	if v1.Load() == v2.Load() {
-		t.Errorf("last ack ecds request was updated. expect it to remain the same which represents a nack for ecds update")
+	gotResp, err = downstream.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gotResp.Resources) != 1 {
+		t.Errorf("xds proxy ecds wasm conversion number of received resource got %v want 1", len(gotResp.Resources))
+	}
+	if err := gotResp.Resources[0].UnmarshalTo(gotEcdsConfig); err != nil {
+		t.Fatalf("wasm config conversion output %v failed to unmarshal", gotResp.Resources[0])
+	}
+	httpDenyAll := &httprbac.RBAC{
+		Rules:           &rbacv3.RBAC{},
+		RulesStatPrefix: wasmcache.DefaultDenyStatPrefix,
+	}
+	wantEcdsConfig = &core.TypedExtensionConfig{
+		Name:        "extension-config",
+		TypedConfig: protoconv.MessageToAny(httpDenyAll),
+	}
+	if !proto.Equal(gotEcdsConfig, wantEcdsConfig) {
+		t.Errorf("xds proxy wasm config conversion got %v want %v", gotEcdsConfig, wantEcdsConfig)
 	}
 }
 

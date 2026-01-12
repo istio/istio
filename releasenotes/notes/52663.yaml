@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 41859
+  - 52663
+
+releaseNotes:
+  - |
+    **Added** support for by passing overload manager for static listeners. This can be reverted by setting
+    BYPASS_OVERLOAD_MANAGER_FOR_STATIC_LISTENERS to false in agent Deployment.

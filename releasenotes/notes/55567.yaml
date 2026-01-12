@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 50164
+releaseNotes:
+  - |
+    **Fixed** an issue that validation webhook incorrectly report a warning when a ServiceEntry configures `workloadSelector` with DNS resolution.

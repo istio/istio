@@ -1,16 +1,25 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
   namespace: istio-system
 spec:
+  # TODO: test per-port
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+            - group: ""
+              kind: ConfigMap
+              name: my-cert-http
   addresses:
   - value: istio-ingressgateway
     type: Hostname
@@ -35,6 +44,18 @@ spec:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
+  - name: terminate-multi
+    hostname: "domainmulti.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+      - name: my-cert-http2
   - name: terminate-mtls
     hostname: "other.example"
     port: 34000
@@ -48,6 +69,136 @@ spec:
       - name: my-cert-http
       options:
         gateway.istio.io/tls-terminate-mode: MUTUAL
+  - name: terminate-mtls-frontendvalidation-configmap
+    hostname: "frontendvalidation-configmap.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+  - name: terminate-mtls-frontendvalidation-secret
+    hostname: "frontendvalidation-secret.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+  - name: terminate-istio-mtls
+    hostname: "egress.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      options:
+        gateway.istio.io/tls-terminate-mode: ISTIO_MUTUAL
+  - name: terminate-istio-builtin
+    hostname: "builtin.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      options:
+        gateway.istio.io/tls-terminate-mode: ISTIO_SIMPLE
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway2
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: passthrough
+    port: 34000
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Passthrough
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway-valid-ciphers
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: passthrough
+    port: 34000
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Passthrough
+      options:
+        gateway.istio.io/tls-cipher-suites: "ECDHE-ECDSA-AES128-GCM-SHA256, ECDHE-RSA-AES128-GCM-SHA256"
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway-invalid-ciphers
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: passthrough
+    port: 34000
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Passthrough
+      options:
+        gateway.istio.io/tls-cipher-suites: "bogus,bad"
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway-mixed-ciphers
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: passthrough
+    port: 34000
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Passthrough
+      options:
+        gateway.istio.io/tls-cipher-suites: "bad, ECDHE-RSA-AES128-GCM-SHA256"
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
@@ -57,6 +208,8 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
+    namespace: istio-system
+  - name: gateway2
     namespace: istio-system
   rules:
   - backendRefs:
@@ -79,7 +232,7 @@ spec:
     - name: httpbin-foo
       port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http

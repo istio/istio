@@ -63,22 +63,15 @@ function download_ztunnel_if_necessary () {
 
   # Download and make the binary executable
   echo "Downloading ztunnel: $1 to $2"
-  BASE_NAME="$(basename "${ISTIO_ZTUNNEL_RELEASE_URL}")"
-  time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" > "${BASE_NAME}"
-  chmod +x "${BASE_NAME}"
-
-  # Copy the extracted binary to the output location
-  cp "${BASE_NAME}" "$2"
-
-  # Remove the extracted binary.
-  rm -rf usr
+  time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" > "$2"
+  chmod +x "$2"
 
   # Make a copy named just "ztunnel" in the same directory (overwrite if necessary).
   echo "Copying $2 to $(dirname "$2")/${3}"
   cp -f "$2" "$(dirname "$2")/${3}"
   popd
 
-  # Also copy it to out/$os_arch/ztunnel as that's whats used in the build
+  # Also copy it to out/$os_arch/ztunnel as that's what's used in the build
   echo "Copying '${2}' to ${TARGET_OUT_LINUX}/ztunnel"
   cp -f "${2}" "${TARGET_OUT_LINUX}/ztunnel"
 }
@@ -106,7 +99,7 @@ function maybe_build_ztunnel() {
   fi
 
   pushd "${BUILD_ZTUNNEL_REPO}"
-  cargo build --profile="${BUILD_ZTUNNEL_PROFILE:-dev}"
+  cargo build --profile="${BUILD_ZTUNNEL_PROFILE:-dev}" ${BUILD_ZTUNNEL_TARGET:+--target=${BUILD_ZTUNNEL_TARGET}}
 
   local ZTUNNEL_BIN_PATH
   if [[ "${BUILD_ZTUNNEL_PROFILE:-dev}" == "dev" ]]; then
@@ -114,7 +107,7 @@ function maybe_build_ztunnel() {
   else
       ZTUNNEL_BIN_PATH="${BUILD_ZTUNNEL_PROFILE}"
   fi
-  ZTUNNEL_BIN_PATH="out/rust/${ZTUNNEL_BIN_PATH}/ztunnel"
+  ZTUNNEL_BIN_PATH="out/rust/${BUILD_ZTUNNEL_TARGET:+${BUILD_ZTUNNEL_TARGET}/}${ZTUNNEL_BIN_PATH}/ztunnel"
 
   echo "Copying $(pwd)/${ZTUNNEL_BIN_PATH} to ${TARGET_OUT_LINUX}/ztunnel"
   mkdir -p "${TARGET_OUT_LINUX}"

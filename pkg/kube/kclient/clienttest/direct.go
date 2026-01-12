@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 )
 
@@ -39,8 +40,11 @@ type directClient[T controllers.Object, PT any, TL runtime.Object] struct {
 func (d *directClient[T, PT, TL]) Get(name, namespace string) T {
 	api := kubeclient.GetClient[T, TL](d.client, namespace)
 	res, err := api.Get(context.Background(), name, metav1.GetOptions{})
-	if err != nil && !kerrors.IsNotFound(err) {
-		d.t.Fatalf("get: %v", err)
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			d.t.Fatalf("get: %v", err)
+		}
+		return ptr.Empty[T]()
 	}
 	return res
 }
@@ -55,9 +59,15 @@ func (d *directClient[T, PT, TL]) List(namespace string, selector klabels.Select
 	}
 	items := reflect.ValueOf(res).Elem().FieldByName("Items")
 	ret := make([]T, 0, items.Len())
+	// Core types have non-pointer lists, Istio uses pointer...
+	needsPointer := ptr.TypeName[T]() != ptr.TypeName[PT]()
 	for i := 0; i < items.Len(); i++ {
 		itm := items.Index(i).Interface().(PT)
-		ret = append(ret, any(&itm).(T))
+		if needsPointer {
+			ret = append(ret, any(&itm).(T))
+		} else {
+			ret = append(ret, any(itm).(T))
+		}
 	}
 	return ret
 }
@@ -75,7 +85,9 @@ func NewWriter[T controllers.ComparableObject](t test.Failer, c kube.Client) Tes
 // Typically, clienttest.WrapReadWriter should be used to simply wrap an existing client when testing an informer.
 // However, NewDirectClient can be useful if we do not need/want an informer and need direct reads.
 // Generic parameters represent the type with and without a pointer, and the list type.
-// Example: NewDirectClient[*Pod, Pod, PodList]
+// Example: NewDirectClient[*Pod, Pod, *PodList]
+// Istio types use a non-standard pointer type for lists. As a result, you need to set the pointer type twice.
+// Example: NewDirectClient[*ServiceEntry, *ServiceEntry, *ServiceEntryList](t, kc)
 func NewDirectClient[T controllers.ComparableObject, PT any, TL runtime.Object](t test.Failer, c kube.Client) TestClient[T] {
 	return WrapReadWriter[T](t, &directClient[T, PT, TL]{
 		t:      t,

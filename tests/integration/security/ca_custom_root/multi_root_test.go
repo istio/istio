@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -30,7 +29,6 @@ import (
 
 func TestMultiRootSetup(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.peer.multiple-root").
 		Run(func(t framework.TestContext) {
 			testNS := apps.EchoNamespace.Namespace
 

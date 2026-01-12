@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Improved** JSON access logs to emit keys in a stable ordering.

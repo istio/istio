@@ -23,6 +23,8 @@ spec:
       enabled: true
       namespace: istio-control
       k8s:
+        podDisruptionBudget:
+          maxUnavailable: 1
         resources:
           requests:
             cpu: 123m

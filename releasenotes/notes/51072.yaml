@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+  - |
+    **Fixed** an issue that span name isn't set when using the OpenTelemetry tracing provider.

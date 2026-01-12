@@ -159,7 +159,7 @@ func checkInformerOverlap(inf builtInformer, resource schema.GroupVersionResourc
 	if features.EnableUnsafeAssertions && !allowedOverlap(resource) {
 		l = log.Fatalf
 	}
-	l("for type %v, registered conflicting ObjectTransform. Stack: %v", resource, string(debug.Stack()))
+	l("for type %v, registered conflicting ObjectTransform. %p != %p, Stack: %v", resource, inf.objectTransform, opts.ObjectTransform, string(debug.Stack()))
 }
 
 func (f *informerFactory) makeStartableInformer(informer cache.SharedIndexInformer, key informerKey) StartableInformer {

@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Improved** environment variable `PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY` default value to `true`,
+    enabling the spawning of upstream spans for gateway requests by default.
+
+upgradeNodes:
+  - title: enable PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY by default
+    content: |
+        The environment variable `PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY` is now set to `true` by default.
+        This change enables the spawning of upstream spans for gateway requests by default, enhancing
+        observability for services behind the gateway, more details could be found [here](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/observability/tracing#different-modes-of-envoy). Users who prefer the previous behavior can
+        explicitly set this variable to `false` in their configuration.

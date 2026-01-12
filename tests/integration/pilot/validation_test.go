@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -23,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	json "github.com/go-jose/go-jose/v3/json"
+	json "github.com/go-jose/go-jose/v4/json"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/constants"
@@ -95,7 +94,7 @@ func TestValidation(t *testing.T) {
 								}
 							}
 
-							ns := namespace.NewOrFail(t, t, namespace.Config{
+							ns := namespace.NewOrFail(t, namespace.Config{
 								Prefix: "validation",
 							})
 
@@ -110,7 +109,7 @@ func TestValidation(t *testing.T) {
 									t.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
 								}
 							case dryRunErr == nil && !valid:
-								t.Fatalf("got unexpected success for invalid config")
+								t.Fatal("got unexpected success for invalid config")
 							case dryRunErr != nil && !valid:
 								if !denied(dryRunErr) {
 									t.Fatalf("config request denied for wrong reason: %v", dryRunErr)

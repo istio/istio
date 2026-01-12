@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -50,7 +49,6 @@ func TestRevisionedUpgrade(t *testing.T) {
 		// Requires installation of CPs from manifests, won't succeed
 		// if existing CPs have different root cert
 		Label(label.CustomSetup).
-		Features("installation.upgrade").
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/pull/46213")
 			// Kubernetes 1.22 drops support for a number of legacy resources, so we cannot install the old versions
@@ -80,7 +78,7 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	// install control plane on the specified version and create namespace pointed to that control plane
 	installRevisionOrFail(t, fromVersion, configs)
 	revision := strings.ReplaceAll(fromVersion, ".", "-")
-	revisionedNamespace := namespace.NewOrFail(t, t, namespace.Config{
+	revisionedNamespace := namespace.NewOrFail(t, namespace.Config{
 		Prefix:   revision,
 		Inject:   true,
 		Revision: revision,

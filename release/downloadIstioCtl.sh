@@ -15,6 +15,8 @@
 # limitations under the License.
 ##############################################################################
 
+set -e
+
 # Separate downloader for istioctl
 #
 # You can fetch the istioctl file using:

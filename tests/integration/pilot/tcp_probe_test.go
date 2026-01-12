@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 //  Copyright Istio Authors
 //
@@ -18,9 +17,11 @@
 package pilot
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -30,9 +31,8 @@ import (
 
 func TestTcpProbe(t *testing.T) {
 	framework.NewTest(t).
-		Features("usability.observability.tcp-probe").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "tcp-probe", Inject: true})
+			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "tcp-probe", Inject: true})
 			for _, testCase := range []struct {
 				name     string
 				rewrite  bool
@@ -61,7 +61,7 @@ func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 		ReadinessTCPPort: "1234",
 		Subsets: []echo.SubsetConfig{
 			{
-				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),
+				Annotations: map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: strconv.FormatBool(rewrite)},
 			},
 		},
 	}

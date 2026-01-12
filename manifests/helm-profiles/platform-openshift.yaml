@@ -1,0 +1,15 @@
+# The OpenShift profile provides a basic set of settings to run Istio on OpenShift
+cni:
+  cniBinDir: /var/lib/cni/bin
+  cniConfDir: /etc/cni/multus/net.d
+  chained: false
+  cniConfFileName: "istio-cni.conf"
+  provider: "multus"
+pilot:
+  cni:
+    enabled: true
+    provider: "multus"
+seLinuxOptions:
+  type: spc_t
+# Openshift requires privileged pods to run in kube-system
+trustedZtunnelNamespace: "kube-system"

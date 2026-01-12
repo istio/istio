@@ -16,6 +16,7 @@ package xdstest
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 
@@ -28,7 +29,6 @@ import (
 	tcpproxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -315,6 +316,15 @@ func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]
 	return got
 }
 
+func ExtractListenerAddresses(l *listener.Listener) []string {
+	res := []string{}
+	res = append(res, addressToString(l.Address, nil))
+	for _, aa := range l.AdditionalAddresses {
+		res = append(res, addressToString(aa.Address, nil))
+	}
+	return res
+}
+
 // ExtractHealthEndpoints returns all health and unhealth endpoints
 func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []string) {
 	if cla == nil {
@@ -324,17 +334,16 @@ func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []st
 	unhealthy := []string{}
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
+			addresses := []*core.Address{lb.GetEndpoint().GetAddress()}
+			for _, aa := range lb.GetEndpoint().GetAdditionalAddresses() {
+				addresses = append(addresses, aa.GetAddress())
+			}
 			var addrString string
-			switch lb.GetEndpoint().GetAddress().Address.(type) {
-			case *core.Address_SocketAddress:
-				addrString = fmt.Sprintf("%s:%d",
-					lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue())
-			case *core.Address_Pipe:
-				addrString = lb.GetEndpoint().Address.GetPipe().Path
-			case *core.Address_EnvoyInternalAddress:
-				internalAddr := lb.GetEndpoint().Address.GetEnvoyInternalAddress().GetServerListenerName()
-				destinationAddr := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["local"].GetStringValue()
-				addrString = fmt.Sprintf("%s;%s", internalAddr, destinationAddr)
+			for i, addr := range addresses {
+				if i != 0 {
+					addrString += ","
+				}
+				addrString += addressToString(addr, lb)
 			}
 			if lb.HealthStatus == core.HealthStatus_HEALTHY {
 				healthy = append(healthy, addrString)
@@ -344,6 +353,26 @@ func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []st
 		}
 	}
 	return healthy, unhealthy
+}
+
+func addressToString(addr *core.Address, lb *endpoint.LbEndpoint) string {
+	res := ""
+	switch addr.Address.(type) {
+	case *core.Address_SocketAddress:
+		res = net.JoinHostPort(addr.GetSocketAddress().Address, fmt.Sprint(addr.GetSocketAddress().GetPortValue()))
+	case *core.Address_Pipe:
+		res = addr.GetPipe().Path
+	case *core.Address_EnvoyInternalAddress:
+		internalAddr := addr.GetEnvoyInternalAddress().GetServerListenerName()
+		if lb != nil {
+			destinationAddr := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["local"].GetStringValue()
+			res = fmt.Sprintf("%s;%s", internalAddr, destinationAddr)
+			if wp := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["waypoint"].GetStringValue(); wp != "" {
+				res += fmt.Sprintf(";%s", wp)
+			}
+		}
+	}
+	return res
 }
 
 // ExtractEndpoints returns all endpoints in the load assignment (including unhealthy endpoints)
@@ -476,5 +505,5 @@ func MapKeys[M ~map[string]V, V any](mp M) []string {
 
 func TypeName[T proto.Message]() string {
 	ft := new(T)
-	return resource.APITypePrefix + string((*ft).ProtoReflect().Descriptor().FullName())
+	return pm.APITypePrefix + string((*ft).ProtoReflect().Descriptor().FullName())
 }

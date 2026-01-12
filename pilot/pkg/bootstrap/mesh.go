@@ -15,14 +15,17 @@
 package bootstrap
 
 import (
-	"encoding/json"
 	"os"
 
+	"sigs.k8s.io/yaml"
+
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/version"
 )
 
@@ -30,8 +33,6 @@ const (
 	// defaultMeshConfigMapName is the default name of the ConfigMap with the mesh config
 	// The actual name can be different - use getMeshConfigMapName
 	defaultMeshConfigMapName = "istio"
-	// configMapKey should match the expected MeshConfig file name
-	configMapKey = "mesh"
 )
 
 // initMeshConfiguration creates the mesh in the pilotConfig from the input arguments.
@@ -46,75 +47,47 @@ const (
 // - the SHARED_MESH_CONFIG config map will also be loaded and merged.
 func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
 	log.Infof("initializing mesh configuration %v", args.MeshConfigFile)
-	defer func() {
-		if s.environment.Watcher != nil {
-			log.Infof("mesh configuration: %s", mesh.PrettyFormatOfMeshConfig(s.environment.Mesh()))
-			log.Infof("version: %s", version.Info.String())
-			argsdump, _ := json.MarshalIndent(args, "", "   ")
-			log.Infof("flags: %s", argsdump)
-		}
-	}()
+	col := s.getMeshConfiguration(args, fileWatcher)
+	col.AsCollection().WaitUntilSynced(s.internalStop)
+	s.environment.Watcher = meshwatcher.ConfigAdapter(col)
 
-	// Watcher will be merging more than one mesh config source?
-	multiWatch := features.SharedMeshConfig != ""
+	log.Infof("mesh configuration: %s", meshwatcher.PrettyFormatOfMeshConfig(s.environment.Mesh()))
+	log.Infof("version: %s", version.Info.String())
+	argsdump, _ := yaml.Marshal(args)
+	log.Infof("flags: %s", argsdump)
+}
 
-	var err error
-	if _, err = os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
-		s.environment.Watcher, err = mesh.NewFileWatcher(fileWatcher, args.MeshConfigFile, multiWatch)
-		if err == nil {
-			if multiWatch && s.kubeClient != nil {
-				kubemesh.AddUserMeshConfig(
-					s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
-			} else {
-				// Normal install no longer uses this mode - testing and special installs still use this.
-				log.Warnf("Using local mesh config file %s, in cluster configs ignored", args.MeshConfigFile)
-			}
-			return
-		}
-	}
-
-	// Config file either didn't exist or failed to load.
-	if s.kubeClient == nil {
-		// Use a default mesh.
-		meshConfig := mesh.DefaultMeshConfig()
-		s.environment.Watcher = mesh.NewFixedWatcher(meshConfig)
+// getMeshConfiguration builds up MeshConfig.
+func (s *Server) getMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[meshwatcher.MeshConfigResource] {
+	// We need to get mesh configuration up-front, before we start anything, so we use internalStop rather than scheduling a task to run
+	// later.
+	opts := krt.NewOptionsBuilder(s.internalStop, "", args.KrtDebugger)
+	sources := s.getConfigurationSources(args, fileWatcher, args.MeshConfigFile, kubemesh.MeshConfigKey)
+	if len(sources) == 0 {
 		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
-		return
 	}
-
-	// Watch the istio ConfigMap for mesh config changes.
-	// This may be necessary for external Istiod.
-	configMapName := getMeshConfigMapName(args.Revision)
-	multiWatcher := kubemesh.NewConfigMapWatcher(
-		s.kubeClient, args.Namespace, configMapName, configMapKey, multiWatch, s.internalStop)
-	s.environment.Watcher = multiWatcher
-	s.environment.NetworksWatcher = multiWatcher
-	log.Infof("initializing mesh networks from mesh config watcher")
-
-	if multiWatch {
-		kubemesh.AddUserMeshConfig(s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
-	}
+	return meshwatcher.NewCollection(opts, sources...)
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
 func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
-	if s.environment.NetworksWatcher != nil {
-		return
-	}
-	log.Info("initializing mesh networks")
-	if args.NetworksConfigFile != "" {
-		var err error
-		s.environment.NetworksWatcher, err = mesh.NewNetworksWatcher(fileWatcher, args.NetworksConfigFile)
-		if err != nil {
-			log.Info(err)
-		}
-	}
+	log.Infof("initializing mesh networks configuration %v", args.NetworksConfigFile)
+	col := s.getMeshNetworks(args, fileWatcher)
+	col.AsCollection().WaitUntilSynced(s.internalStop)
+	s.environment.NetworksWatcher = meshwatcher.NetworksAdapter(col)
+	log.Infof("mesh networks configuration: %s", meshwatcher.PrettyFormatOfMeshNetworks(s.environment.MeshNetworks()))
+}
 
-	if s.environment.NetworksWatcher == nil {
-		log.Info("mesh networks configuration not provided")
-		s.environment.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
+func (s *Server) getMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[meshwatcher.MeshNetworksResource] {
+	// We need to get mesh networks up-front, before we start anything, so we use internalStop rather than scheduling a task to run
+	// later.
+	opts := krt.NewOptionsBuilder(s.internalStop, "", args.KrtDebugger)
+	sources := s.getConfigurationSources(args, fileWatcher, args.NetworksConfigFile, kubemesh.MeshNetworksKey)
+	if len(sources) == 0 {
+		log.Warnf("Using default mesh networks - missing file %s and no k8s client", args.NetworksConfigFile)
 	}
+	return meshwatcher.NewNetworksCollection(opts, sources...)
 }
 
 func getMeshConfigMapName(revision string) string {
@@ -123,4 +96,41 @@ func getMeshConfigMapName(revision string) string {
 		return name
 	}
 	return name + "-" + revision
+}
+
+// getConfigurationSources builds the mesh sources. This can pull MeshConfig and Meshnetworks (based on file/configmap key)
+// There are a variety of possible states:
+// * default + file
+// * default + file + configmap
+// * default + configmap
+// * default + configmap + configmap
+// * default
+func (s *Server) getConfigurationSources(args *PilotArgs, fileWatcher filewatcher.FileWatcher, file string, cmKey string) []meshwatcher.MeshConfigSource {
+	opts := krt.NewOptionsBuilder(s.internalStop, "", args.KrtDebugger)
+	// Watcher will be merging more than one mesh config source?
+	var userMeshConfig *meshwatcher.MeshConfigSource
+	if features.SharedMeshConfig != "" && s.kubeClient != nil {
+		userMeshConfig = ptr.Of(kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, features.SharedMeshConfig, cmKey, opts))
+	}
+	if _, err := os.Stat(file); !os.IsNotExist(err) {
+		fileSource, err := meshwatcher.NewFileSource(fileWatcher, file, opts)
+		if err == nil {
+			return toSources(fileSource, userMeshConfig)
+		}
+	}
+
+	if s.kubeClient == nil {
+		return nil
+	}
+	configMapName := getMeshConfigMapName(args.Revision)
+	primary := kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, configMapName, cmKey, opts)
+	return toSources(primary, userMeshConfig)
+}
+
+func toSources(base meshwatcher.MeshConfigSource, user *meshwatcher.MeshConfigSource) []meshwatcher.MeshConfigSource {
+	if user != nil {
+		// User configuration is applied first
+		return []meshwatcher.MeshConfigSource{*user, base}
+	}
+	return []meshwatcher.MeshConfigSource{base}
 }

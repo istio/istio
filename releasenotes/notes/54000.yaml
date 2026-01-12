@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 54000
+releaseNotes:
+  - |
+    **Added** support for additional labels exchange for telemetry in sidecar mode.

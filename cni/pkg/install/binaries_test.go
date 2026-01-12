@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	file2 "istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 )
@@ -73,4 +74,23 @@ func TestCopyBinaries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCopyBinariesWhenTmpExist(t *testing.T) {
+	srcDir := t.TempDir()
+	file.WriteOrFail(t, filepath.Join(srcDir, "testFile1"), []byte("content"))
+	file.WriteOrFail(t, filepath.Join(srcDir, "testFile2"), []byte("content"))
+
+	targetDir := t.TempDir()
+	tmpFile1 := filepath.Join(targetDir, "testFile1.tmp.3816169537")
+	tmpFile2 := filepath.Join(targetDir, "testFile2.tmp.4977877")
+	file.WriteOrFail(t, tmpFile1, []byte("content"))
+	file.WriteOrFail(t, tmpFile2, []byte("content"))
+
+	_, err := copyBinaries(srcDir, []string{targetDir})
+	assert.NoError(t, err)
+
+	// check that all old temp files were removed
+	assert.Equal(t, file2.Exists(tmpFile1), false)
+	assert.Equal(t, file2.Exists(tmpFile2), false)
 }

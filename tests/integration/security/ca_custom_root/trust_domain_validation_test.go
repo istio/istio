@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -43,7 +42,7 @@ const (
 	// ports with plaintext: 8090 (http) and 8092 (tcp)
 	// ports with mTLS: 8091 (http), 8093 (tcp) and 9000 (tcp passthrough).
 	policy = `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: "mtls"
@@ -59,7 +58,7 @@ spec:
     8092:
       mode: DISABLE
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: server
@@ -88,7 +87,7 @@ spec:
 // - works for both HTTP and TCP protocol
 // - works for pass through filter chains
 func TestTrustDomainValidation(t *testing.T) {
-	framework.NewTest(t).Features("security.peer.trust-domain-validation").Run(
+	framework.NewTest(t).Run(
 		func(ctx framework.TestContext) {
 			testNS := apps.EchoNamespace.Namespace
 

@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+
+releaseNotes:
+- |
+  **Fixed** an issue where CA certificates derived from ROOT_CA_DIR env var value (i.e. default of ./etc/cacerts) were only updated when either the root ca or the crl file was updated.

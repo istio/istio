@@ -6,21 +6,20 @@ metadata:
 spec:
   components:
     base:
-      enabled: false
+      enabled: true
     pilot:
-      enabled: false
+      enabled: true
     ingressGateways:
     - name: istio-ingressgateway
       enabled: false
     egressGateways:
     - name: istio-egressgateway
       enabled: false
-    istiodRemote:
-      enabled: true
   values:
+    profile: remote
+    # Test overrides of the remote profile
     global:
       externalIstiod: true
-      omitSidecarInjectorConfigMap: true
       configCluster: true
     pilot:
       configMap: true

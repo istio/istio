@@ -35,7 +35,7 @@ type otel struct {
 const (
 	appName         = "opentelemetry-collector"
 	remoteOtelEntry = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: otel-gateway
@@ -51,7 +51,7 @@ spec:
     hosts:
     - "opentelemetry-collector.{INGRESS_DOMAIN}"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: opentelemetry-collector
@@ -70,7 +70,7 @@ spec:
         port:
           number: 55678
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: opentelemetry-collector
@@ -83,7 +83,7 @@ spec:
 ---`
 
 	extServiceEntry = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: opentelemetry-collector

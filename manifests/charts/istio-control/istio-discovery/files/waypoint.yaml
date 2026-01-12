@@ -10,8 +10,16 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
+        "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
       ) | nindent 4 }}
+  {{- if ge .KubeVersion 128 }}
+  # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    kind: Gateway
+    name: "{{.Name}}"
+    uid: "{{.UID}}"
+  {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -25,11 +33,11 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
-        "gateway.istio.io/managed" "istio.io-mesh-controller"
+        "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
+        "gateway.istio.io/managed" .ControllerLabel
       ) | nindent 4 }}
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: "{{.Name}}"
     uid: "{{.UID}}"
@@ -44,7 +52,6 @@ spec:
           (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version")
           (strdict "istio.io/rev" (.Revision | default "default"))
           (strdict
-            "ambient.istio.io/redirection" "disabled"
             "prometheus.io/path" "/stats/prometheus"
             "prometheus.io/port" "15020"
             "prometheus.io/scrape" "true"
@@ -53,21 +60,40 @@ spec:
         {{- toJsonMap
           (strdict
             "sidecar.istio.io/inject" "false"
+            "istio.io/dataplane-mode" "none"
             "service.istio.io/canonical-name" .DeploymentName
             "service.istio.io/canonical-revision" "latest"
            )
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
-            "gateway.istio.io/managed" "istio.io-mesh-controller"
+            "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
+            "gateway.istio.io/managed" .ControllerLabel
           ) | nindent 8}}
     spec:
-      terminationGracePeriodSeconds: 2
+      {{- if .Values.global.waypoint.affinity }}
+      affinity:
+      {{- toYaml .Values.global.waypoint.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.waypoint.topologySpreadConstraints }}
+      topologySpreadConstraints:
+      {{- toYaml .Values.global.waypoint.topologySpreadConstraints | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.waypoint.nodeSelector }}
+      nodeSelector:
+      {{- toYaml .Values.global.waypoint.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.waypoint.tolerations }}
+      tolerations:
+      {{- toYaml .Values.global.waypoint.tolerations | nindent 8 }}
+      {{- end }}
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
       - name: istio-proxy
         ports:
+        - containerPort: 15020
+          name: metrics
+          protocol: TCP
         - containerPort: 15021
           name: status-port
           protocol: TCP
@@ -96,6 +122,9 @@ spec:
         {{- if .Values.global.logAsJson }}
         - --log_as_json
         {{- end }}
+        {{- if .Values.global.proxy.outlierLogPath }}
+        - --outlierLogPath={{ .Values.global.proxy.outlierLogPath }}
+        {{- end}}
         env:
         - name: ISTIO_META_SERVICE_ACCOUNT
           valueFrom:
@@ -105,8 +134,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        - name: JWT_POLICY
-          value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
         - name: CA_ADDR
@@ -139,6 +166,7 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+              divisor: "1"
         - name: PROXY_CONFIG
           value: |
                  {{ protoToJSON .ProxyConfig }}
@@ -152,16 +180,22 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.memory
+              divisor: "1"
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+              divisor: "1"
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
         {{- $network := valueOrDefault (index .InfrastructureLabels `topology.istio.io/network`) .Values.global.network }}
         {{- if $network }}
         - name: ISTIO_META_NETWORK
           value: "{{ $network }}"
+        {{- if eq .ControllerLabel "istio.io-eastwest-controller" }}
+        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+          value: "{{ $network }}"
+        {{- end }}
         {{- end }}
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
@@ -176,13 +210,14 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
         {{- end }}
+        {{- with (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}
+        - name: TRUST_DOMAIN
+          value: "{{ . }}"
+        {{- end }}
+        {{- if .Values.global.waypoint.resources }}
         resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
+        {{- toYaml .Values.global.waypoint.resources | nindent 10 }}
+        {{- end }}
         startupProbe:
           failureThreshold: 30
           httpGet:
@@ -205,14 +240,23 @@ spec:
           timeoutSeconds: 1
         securityContext:
           privileged: false
+        {{- if not (eq .Values.global.platform "openshift") }}
           runAsGroup: 1337
-          runAsUser: 0
+          runAsUser: 1337
+        {{- end }}
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           capabilities:
             drop:
             - ALL
+{{- if .Values.gateways.seccompProfile }}
+          seccompProfile:
+{{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
+{{- end }}
         volumeMounts:
-        - name: workload-socket
-          mountPath: /var/run/secrets/workload-spiffe-uds
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -252,9 +296,17 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istio-ca-root-cert
-        name: istiod-ca-cert
+      - name: istiod-ca-cert
+      {{- if eq (.Values.pilot.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+              path: root-cert.pem
+      {{- else }}
+        configMap:
+          name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
+      {{- end }}
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- range .Values.global.imagePullSecrets }}
@@ -266,22 +318,30 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    {{ toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+    {{ toJsonMap
+      (strdict "networking.istio.io/traffic-distribution" "PreferClose")
+      (omit .InfrastructureAnnotations
+        "kubectl.kubernetes.io/last-applied-configuration"
+        "gateway.istio.io/name-override"
+        "gateway.istio.io/service-account"
+        "gateway.istio.io/controller-version"
+      ) | nindent 4 }}
   labels:
     {{- toJsonMap
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
+        "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
       ) | nindent 4 }}
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: "{{.Name}}"
     uid: "{{.UID}}"
 spec:
+  ipFamilyPolicy: PreferDualStack
   ports:
   {{- range $key, $val := .Ports }}
   - name: {{ $val.Name | quote }}
@@ -296,3 +356,53 @@ spec:
   {{- end }}
   type: {{ .ServiceType | quote }}
 ---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
+  annotations:
+    {{- toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+  labels:
+    {{- toJsonMap
+          .InfrastructureLabels
+          (strdict
+          "gateway.networking.k8s.io/gateway-name" .Name
+          "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
+          ) | nindent 4 }}
+  ownerReferences:
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      name: {{.Name}}
+      uid: "{{.UID}}"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name:  {{.DeploymentName | quote}}
+  maxReplicas: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
+  annotations:
+    {{- toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+  labels:
+    {{- toJsonMap
+          .InfrastructureLabels
+          (strdict
+          "gateway.networking.k8s.io/gateway-name" .Name
+          "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
+          ) | nindent 4 }}
+  ownerReferences:
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      name: {{.Name}}
+      uid: "{{.UID}}"
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: {{.Name|quote}}
+

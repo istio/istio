@@ -6,14 +6,10 @@ ARG BASE_VERSION=latest
 ARG ISTIO_BASE_REGISTRY=gcr.io/istio-release
 
 # The following section is used as base image if BASE_DISTRIBUTION=debug
-FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} as debug
+FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} AS debug
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-# This image is a custom built debian11 distroless image with multiarchitecture support.
-# It is built on the base distroless image, with iptables binary and libraries added
-# The source can be found at https://github.com/istio/distroless/tree/iptables
-# This version is from commit 973bd8e0048479c770ab4332063921e22d222c9b.
-FROM ${ISTIO_BASE_REGISTRY}/iptables@sha256:1696a2570c01a00f8910b3d9d68039ff22ae8ddbe7903fa78005740251bddd9f as distroless
+FROM ${ISTIO_BASE_REGISTRY}/iptables:${BASE_VERSION} AS distroless
 
 # This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006
@@ -28,6 +24,6 @@ ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/ztunnel /usr/local/bin/ztunnel
 
 # Environment variable indicating the exact build, for debugging
-ENV ISTIO_META_ISTIO_VERSION $istio_version
+ENV ISTIO_META_ISTIO_VERSION=$istio_version
 
 ENTRYPOINT ["/usr/local/bin/ztunnel"]

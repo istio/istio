@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/log"
 )
 
 type upgradeArgs struct {
@@ -27,7 +26,7 @@ type upgradeArgs struct {
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks.
-func UpgradeCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
+func UpgradeCmd(ctx cli.Context) *cobra.Command {
 	rootArgs := &RootArgs{}
 	upgradeArgs := &upgradeArgs{
 		InstallArgs: &InstallArgs{},
@@ -35,8 +34,7 @@ func UpgradeCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade Istio control plane in-place",
-		Long: "The upgrade command is an alias for the install command" +
-			" that performs additional upgrade-related checks.",
+		Long:  "The upgrade command is an alias for the install command",
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			p := NewPrinterForWriter(cmd.OutOrStderr())
@@ -44,7 +42,7 @@ func UpgradeCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return Install(client, rootArgs, upgradeArgs.InstallArgs, logOpts, cmd.OutOrStdout(), l, p)
+			return Install(client, rootArgs, upgradeArgs.InstallArgs, cmd.OutOrStdout(), l, p)
 		},
 	}
 	addFlags(cmd, rootArgs)

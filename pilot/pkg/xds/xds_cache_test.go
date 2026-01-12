@@ -74,7 +74,7 @@ func TestXdsCacheToken(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			val := c.Get(k)
 			if val == nil {
-				t.Fatalf("no cache found")
+				t.Fatal("no cache found")
 			}
 			if val != nil && val.Resource.TypeUrl != fmt.Sprint(n.Load()) {
 				t.Fatalf("got bad write: %v", val.Resource.TypeUrl)
@@ -141,8 +141,8 @@ func TestXdsCache(t *testing.T) {
 	t.Run("multiple destinationRules", func(t *testing.T) {
 		c := model.NewXdsCache()
 
-		ep1 := makeEp("1", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}))
-		ep2 := makeEp("2", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}}))
+		ep1 := makeEp("1", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}, nil))
+		ep2 := makeEp("2", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}}, nil))
 
 		start := time.Now()
 		c.Add(ep1, &model.PushRequest{Start: start}, any1)

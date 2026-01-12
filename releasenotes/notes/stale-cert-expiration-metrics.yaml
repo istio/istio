@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+- |
+  **Fixed** The `citadel_server_root_cert_expiry_timestamp`, `citadel_server_root_cert_expiry_seconds`, `citadel_server_cert_chain_expiry_timestamp`, and `citadel_server_cert_chain_expiry_seconds` update when new certificates are loaded.

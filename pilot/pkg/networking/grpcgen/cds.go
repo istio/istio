@@ -21,11 +21,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	corexds "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	corexds "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
@@ -129,8 +129,8 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 func (b *clusterBuilder) build() []*cluster.Cluster {
 	var defaultCluster *cluster.Cluster
 	if b.filter.Contains(b.defaultClusterName) {
-		defaultCluster = edsCluster(b.defaultClusterName)
-		if b.svc.Attributes.Labels[features.PersistentSessionLabel] != "" {
+		defaultCluster = b.edsCluster(b.defaultClusterName)
+		if b.svc.SupportsDrainingEndpoints() {
 			// see core/v1alpha3/cluster.go
 			defaultCluster.CommonLbConfig.OverrideHostStatus = &core.HealthStatusSet{
 				Statuses: []core.HealthStatus{
@@ -150,9 +150,10 @@ func (b *clusterBuilder) build() []*cluster.Cluster {
 }
 
 // edsCluster creates a simple cluster to read endpoints from ads/eds.
-func edsCluster(name string) *cluster.Cluster {
+func (b *clusterBuilder) edsCluster(name string) *cluster.Cluster {
 	return &cluster.Cluster{
 		Name:                 name,
+		AltStatName:          util.DelimitedStatsPrefix(name),
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 		EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 			ServiceName: name,
@@ -175,7 +176,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 	// resolve policy from context
 	destinationRule := corexds.CastDestinationRule(b.node.SidecarScope.DestinationRule(
 		model.TrafficDirectionOutbound, b.node, b.svc.Hostname).GetRule())
-	trafficPolicy := util.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
+	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
 	b.applyTrafficPolicy(defaultCluster, trafficPolicy)
@@ -188,17 +189,17 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 			if !b.filter.Contains(subsetKey) {
 				continue
 			}
-			c := edsCluster(subsetKey)
-			trafficPolicy := util.MergeTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
+			c := b.edsCluster(subsetKey)
+			trafficPolicy := util.MergeSubsetTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
 			b.applyTrafficPolicy(c, trafficPolicy)
 			subsetClusters = append(subsetClusters, c)
 		}
 	}
 
-	return
+	return subsetClusters
 }
 
-// applyTrafficPolicy mutates the give cluster (if not-nil) so that the given merged traffic policy applies.
+// applyTrafficPolicy mutates the given cluster (if not-nil) so that the given merged traffic policy applies.
 func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *networking.TrafficPolicy) {
 	// cluster can be nil if it wasn't requested
 	if c == nil {
@@ -206,17 +207,58 @@ func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *n
 	}
 	b.applyTLS(c, trafficPolicy)
 	b.applyLoadBalancing(c, trafficPolicy)
+	b.applyCircuitBreakers(c, trafficPolicy)
 	// TODO status or log when unsupported features are included
 }
 
 func (b *clusterBuilder) applyLoadBalancing(c *cluster.Cluster, policy *networking.TrafficPolicy) {
-	switch policy.GetLoadBalancer().GetSimple() {
-	case networking.LoadBalancerSettings_ROUND_ROBIN, networking.LoadBalancerSettings_UNSPECIFIED:
-	// ok
-	default:
-		log.Warnf("cannot apply LbPolicy %s to %s", policy.LoadBalancer.GetSimple(), b.node.ID)
+	if policy == nil {
+		return
 	}
-	corexds.ApplyRingHashLoadBalancer(c, policy.GetLoadBalancer())
+
+	lb := policy.GetLoadBalancer()
+	if lb == nil {
+		return
+	}
+
+	if lb.GetConsistentHash() != nil {
+		corexds.ApplyRingHashLoadBalancer(c, lb)
+		return
+	}
+
+	switch lb.GetSimple() {
+	case networking.LoadBalancerSettings_ROUND_ROBIN, networking.LoadBalancerSettings_UNSPECIFIED:
+		// Default gRPC behavior (round_robin) so no explicit `lb_policy` needed.
+	case networking.LoadBalancerSettings_LEAST_REQUEST:
+		c.LbPolicy = cluster.Cluster_LEAST_REQUEST
+	default:
+		log.Warnf("cannot apply LbPolicy %s to %s", lb.GetSimple(), b.node.ID)
+	}
+}
+
+func (b *clusterBuilder) applyCircuitBreakers(c *cluster.Cluster, policy *networking.TrafficPolicy) {
+	if policy == nil {
+		return
+	}
+
+	cp := policy.ConnectionPool
+	if cp == nil {
+		return
+	}
+
+	// Per gRFC [A32], only max_requests is supported; other fields are not applicable to gRPC.
+	// [A32]: https://github.com/grpc/proposal/blob/master/A32-xds-circuit-breaking.md
+	if cp.Http == nil || cp.Http.Http2MaxRequests <= 0 {
+		return
+	}
+
+	c.CircuitBreakers = &cluster.CircuitBreakers{
+		Thresholds: []*cluster.CircuitBreakers_Thresholds{
+			{
+				MaxRequests: wrapperspb.UInt32(uint32(cp.Http.Http2MaxRequests)),
+			},
+		},
+	}
 }
 
 func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.TrafficPolicy) {

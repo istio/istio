@@ -17,12 +17,12 @@ package serviceentry
 import (
 	"net/netip"
 	"strings"
-	"time"
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/labels"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
@@ -48,8 +49,10 @@ func convertPort(port *networking.ServicePort) *model.Port {
 }
 
 type HostAddress struct {
-	host    string
-	address string
+	host           string
+	address        string
+	autoAssignedV4 string
+	autoAssignedV6 string
 }
 
 // ServiceToServiceEntry converts from internal Service representation to ServiceEntry
@@ -59,6 +62,19 @@ type HostAddress struct {
 // See kube.ConvertService for the conversion from K8S to internal Service.
 func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Config {
 	gvk := gvk.ServiceEntry
+
+	getSvcAddresses := func(s *model.Service, node *model.Proxy) []string {
+		if node.Metadata != nil && node.Metadata.ClusterID == "" {
+			var addresses []string
+			addressMap := s.ClusterVIPs.GetAddresses()
+			for _, clusterAddresses := range addressMap {
+				addresses = append(addresses, clusterAddresses...)
+			}
+			return addresses
+		}
+
+		return s.GetAllAddressesForProxy(proxy)
+	}
 	se := &networking.ServiceEntry{
 		// Host is fully qualified: name, namespace, domainSuffix
 		Hosts: []string{string(svc.Hostname)},
@@ -66,15 +82,7 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		// Internal Service and K8S Service have a single Address.
 		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
 		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
-		//
-		Addresses: svc.GetAddresses(proxy),
-
-		// Location:             0,
-
-		// Internal resolution:
-		//  - Passthrough - for ClusterIP=None and no ExternalName
-		//  - ClientSideLB - regular ClusterIP clusters (VIP, resolved via EDS)
-		//  - DNSLB - if ExternalName is specified. Also meshExternal is set.
+		Addresses: getSvcAddresses(svc, proxy),
 
 		// This is based on alpha.istio.io/canonical-serviceaccounts and
 		//  alpha.istio.io/kubernetes-serviceaccounts.
@@ -98,7 +106,6 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 	}
 
 	// Reverse in convertServices. Note that enum values are different
-	// TODO: make the enum match, should be safe (as long as they're used as enum)
 	var resolution networking.ServiceEntry_Resolution
 	switch svc.Resolution {
 	case model.Passthrough: // 2
@@ -109,6 +116,8 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		resolution = networking.ServiceEntry_DNS_ROUND_ROBIN // 3
 	case model.ClientSideLB: // 0
 		resolution = networking.ServiceEntry_STATIC // 1
+	case model.DynamicDNS:
+		resolution = networking.ServiceEntry_DYNAMIC_DNS
 	}
 	se.Resolution = resolution
 
@@ -150,6 +159,14 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
 func convertServices(cfg config.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	// ShouldV2AutoAllocateIP already checks that there are no addresses in the spec however this is critical enough to likely be worth checking
+	// explicitly as well in case the logic changes. We never want to overwrite addresses in the spec if there are any
+	addresses := serviceEntry.Addresses
+	addressLookup := map[string][]netip.Addr{}
+	if serviceentry.ShouldV2AutoAllocateIPFromConfig(cfg) && len(addresses) == 0 {
+		addressLookup = serviceentry.GetHostAddressesFromConfig(cfg)
+	}
+
 	creationTime := cfg.CreationTimestamp
 
 	var resolution model.Resolution
@@ -162,11 +179,22 @@ func convertServices(cfg config.Config) []*model.Service {
 		resolution = model.DNSRoundRobinLB
 	case networking.ServiceEntry_STATIC:
 		resolution = model.ClientSideLB
+	case networking.ServiceEntry_DYNAMIC_DNS:
+		resolution = model.DynamicDNS
 	}
 
+	trafficDistribution := model.GetTrafficDistribution(nil, cfg.Annotations)
+
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
+	var portOverrides map[uint32]uint32
 	for _, port := range serviceEntry.Ports {
 		svcPorts = append(svcPorts, convertPort(port))
+		if resolution == model.Passthrough && port.TargetPort != 0 {
+			if portOverrides == nil {
+				portOverrides = map[uint32]uint32{}
+			}
+			portOverrides[port.Number] = port.TargetPort
+		}
 	}
 
 	var exportTo sets.Set[visibility.Instance]
@@ -187,52 +215,64 @@ func convertServices(cfg config.Config) []*model.Service {
 			for _, address := range serviceEntry.Addresses {
 				// Check if address is an IP first because that is the most common case.
 				if netutil.IsValidIPAddress(address) {
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, address})
+					hostAddresses = append(hostAddresses, &HostAddress{hostname, address, "", ""})
 				} else if cidr, cidrErr := netip.ParsePrefix(address); cidrErr == nil {
 					newAddress := address
 					if cidr.Bits() == cidr.Addr().BitLen() {
 						// /32 mask. Remove the /32 and make it a normal IP address
 						newAddress = cidr.Addr().String()
 					}
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, newAddress})
+					hostAddresses = append(hostAddresses, &HostAddress{hostname, newAddress, "", ""})
 				}
 			}
 		} else {
-			hostAddresses = append(hostAddresses, &HostAddress{hostname, constants.UnspecifiedIP})
+			var v4, v6 string
+			if autoAddresses, ok := addressLookup[hostname]; ok {
+				for _, aa := range autoAddresses {
+					if aa.Is4() {
+						v4 = aa.String()
+					}
+					if aa.Is6() {
+						v6 = aa.String()
+					}
+				}
+			}
+			hostAddresses = append(hostAddresses, &HostAddress{hostname, constants.UnspecifiedIP, v4, v6})
 		}
 	}
 
-	return buildServices(hostAddresses, cfg.Name, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
-}
-
-func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
-	resolution model.Resolution, exportTo sets.Set[visibility.Instance], selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string,
-) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
-	lbls := labels
-	if features.CanonicalServiceForMeshExternalServiceEntry && location == networking.ServiceEntry_MESH_EXTERNAL {
-		lbls = ensureCanonicalServiceLabels(name, labels)
+	lbls := cfg.Labels
+	if features.CanonicalServiceForMeshExternalServiceEntry && serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL {
+		lbls = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
 	}
 	for _, ha := range hostAddresses {
-		out = append(out, &model.Service{
-			CreationTime:   ctime,
-			MeshExternal:   location == networking.ServiceEntry_MESH_EXTERNAL,
+		svc := &model.Service{
+			CreationTime:   creationTime,
+			MeshExternal:   serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 			Hostname:       host.Name(ha.host),
 			DefaultAddress: ha.address,
-			Ports:          ports,
+			Ports:          svcPorts,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: provider.External,
-				Name:            ha.host,
-				Namespace:       namespace,
-				Labels:          lbls,
-				ExportTo:        exportTo,
-				LabelSelectors:  selectors,
+				ServiceRegistry:        provider.External,
+				PassthroughTargetPorts: portOverrides,
+				Name:                   ha.host,
+				Namespace:              cfg.Namespace,
+				Labels:                 lbls,
+				ExportTo:               exportTo,
+				LabelSelectors:         labelSelectors,
+				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution},
 			},
-			ServiceAccounts: saccounts,
-		})
+			ServiceAccounts: serviceEntry.SubjectAltNames,
+		}
+		if ha.autoAssignedV4 != "" {
+			svc.AutoAllocatedIPv4Address = ha.autoAssignedV4
+		}
+		if ha.autoAssignedV6 != "" {
+			svc.AutoAllocatedIPv6Address = ha.autoAssignedV6
+		}
+		out = append(out, svc)
 	}
 	return out
 }
@@ -272,20 +312,23 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 	tlsMode := getTLSModeFromWorkloadEntry(wle)
 	sa := ""
 	if wle.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, wle.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(s.meshWatcher.Mesh(), service.Attributes.Namespace, wle.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(wle)
 	locality := wle.Locality
-	if locality == "" && len(wle.Labels[model.LocalityLabel]) > 0 {
-		locality = model.GetLocalityLabel(wle.Labels[model.LocalityLabel])
+	localityLabel := pm.GetLocalityLabel(wle.Labels)
+	if locality == "" && localityLabel != "" {
+		locality = pm.SanitizeLocalityLabel(localityLabel)
 	}
 	labels := labelutil.AugmentLabels(wle.Labels, clusterID, locality, "", networkID)
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         addr,
+			Addresses:       []string{addr},
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
-			Network:         network.ID(wle.Network),
+
+			LegacyClusterPortKey: int(servicePort.Number),
+			Network:              network.ID(wle.Network),
 			Locality: model.Locality{
 				Label:     locality,
 				ClusterID: clusterID,
@@ -309,7 +352,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
 	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID,
 ) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+	out := make([]*model.ServiceInstance, 0, len(services)*len(se.Ports))
 	for _, service := range services {
 		for _, port := range se.Ports {
 			out = append(out, s.convertEndpoint(service, port, wle, configKey, clusterID))
@@ -319,7 +362,6 @@ func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.Work
 }
 
 func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if serviceEntry == nil {
 		return nil
@@ -327,26 +369,37 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 	if services == nil {
 		services = convertServices(cfg)
 	}
+
+	endpointsNum := len(serviceEntry.Endpoints)
+	hostnameToServiceInstance := false
+	if len(serviceEntry.Endpoints) == 0 && serviceEntry.WorkloadSelector == nil && isDNSTypeServiceEntry(serviceEntry) {
+		hostnameToServiceInstance = true
+		endpointsNum = 1
+	}
+
+	out := make([]*model.ServiceInstance, 0, len(services)*len(serviceEntry.Ports)*endpointsNum)
 	for _, service := range services {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			if len(serviceEntry.Endpoints) == 0 && serviceEntry.WorkloadSelector == nil &&
-				(serviceEntry.Resolution == networking.ServiceEntry_DNS || serviceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) {
+			if hostnameToServiceInstance {
 				// Note: only convert the hostname to service instance if WorkloadSelector is not set
-				// when service entry has discovery type DNS and no endpoints
-				// we create endpoints from service's host
-				// Do not use serviceentry.hosts as a service entry is converted into
-				// multiple services (one for each host)
+				// when service entry has discovery type DNS and no endpoints.
+				// We create endpoints from service's host, do not use serviceentry.hosts
+				// as a service entry is converted into multiple services (one for each host)
 				endpointPort := serviceEntryPort.Number
 				if serviceEntryPort.TargetPort > 0 {
 					endpointPort = serviceEntryPort.TargetPort
 				}
 				out = append(out, &model.ServiceInstance{
 					Endpoint: &model.IstioEndpoint{
-						Address:         string(service.Hostname),
-						EndpointPort:    endpointPort,
-						ServicePortName: serviceEntryPort.Name,
-						Labels:          nil,
-						TLSMode:         model.DisabledTLSModeLabel,
+						Addresses:            []string{string(service.Hostname)},
+						EndpointPort:         endpointPort,
+						ServicePortName:      serviceEntryPort.Name,
+						LegacyClusterPortKey: int(serviceEntryPort.Number),
+						Labels:               nil,
+						TLSMode:              model.DisabledTLSModeLabel,
+						Locality: model.Locality{
+							ClusterID: s.clusterID,
+						},
 					},
 					Service:     service,
 					ServicePort: convertPort(serviceEntryPort),
@@ -379,7 +432,7 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadInstance, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry,
 ) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+	out := make([]*model.ServiceInstance, 0, len(serviceEntryServices)*len(serviceEntry.Ports))
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			// note: this is same as workloadentry handler
@@ -396,8 +449,9 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 			}
 			ep := workloadInstance.Endpoint.ShallowCopy()
 			ep.ServicePortName = serviceEntryPort.Name
+			ep.LegacyClusterPortKey = int(serviceEntryPort.Number)
+
 			ep.EndpointPort = targetPort
-			ep.ComputeEnvoyEndpoint(nil)
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    ep,
 				Service:     service,
@@ -410,8 +464,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadIn
 
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this workload instance when selecting workload entries
-func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
-	we := ConvertWorkloadEntry(cfg)
+func (s *Controller) convertWorkloadEntryToWorkloadInstance(we *networking.WorkloadEntry, meta config.Meta, clusterID cluster.ID) *model.WorkloadInstance {
 	addr := we.GetAddress()
 	dnsServiceEntryOnly := false
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
@@ -425,17 +478,18 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(s.meshWatcher.Mesh(), meta.Namespace, we.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(we)
 	locality := we.Locality
-	if locality == "" && len(we.Labels[model.LocalityLabel]) > 0 {
-		locality = model.GetLocalityLabel(we.Labels[model.LocalityLabel])
+	localityLabel := pm.GetLocalityLabel(we.Labels)
+	if locality == "" && localityLabel != "" {
+		locality = pm.SanitizeLocalityLabel(localityLabel)
 	}
-	labels := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
+	lbls := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address: addr,
+			Addresses: []string{addr},
 			// Not setting ports here as its done by k8s controller
 			Network: network.ID(we.Network),
 			Locality: model.Locality{
@@ -443,17 +497,17 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 				ClusterID: clusterID,
 			},
 			LbWeight:  we.Weight,
-			Namespace: cfg.Namespace,
+			Namespace: meta.Namespace,
 			// Workload entry config name is used as workload name, which will appear in metric label.
 			// After VM auto registry is introduced, workload group annotation should be used for workload name.
-			WorkloadName:   cfg.Name,
-			Labels:         labels,
+			WorkloadName:   labels.WorkloadNameFromWorkloadEntry(meta.Name, meta.Annotations, meta.Labels),
+			Labels:         lbls,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},
 		PortMap:             we.Ports,
-		Namespace:           cfg.Namespace,
-		Name:                cfg.Name,
+		Namespace:           meta.Namespace,
+		Name:                meta.Name,
 		Kind:                model.WorkloadEntryKind,
 		DNSServiceEntryOnly: dnsServiceEntryOnly,
 	}

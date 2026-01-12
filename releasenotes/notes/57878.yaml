@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 57878
+releaseNotes:
+- |
+  **Fixed** the issue when sidecars try to route requests to ambient E/W gateways incorrectly.

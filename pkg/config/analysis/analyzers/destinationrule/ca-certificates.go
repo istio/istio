@@ -53,9 +53,8 @@ func (c *CaCertificateAnalyzer) analyzeDestinationRule(r *resource.Instance, ctx
 	drNs := r.Metadata.FullName.Namespace
 	drName := r.Metadata.FullName.String()
 	mode := dr.GetTrafficPolicy().GetTls().GetMode()
-
 	if mode == v1alpha3.ClientTLSSettings_SIMPLE || mode == v1alpha3.ClientTLSSettings_MUTUAL {
-		if dr.GetTrafficPolicy().GetTls().GetCaCertificates() == "" {
+		if dr.GetTrafficPolicy().GetTls().GetCaCertificates() == "" && !(dr.GetTrafficPolicy().GetTls().GetCredentialName() != "" && dr.WorkloadSelector != nil) {
 			m := msg.NewNoServerCertificateVerificationDestinationLevel(r, drName,
 				drNs.String(), mode.String(), dr.GetHost())
 
@@ -70,7 +69,7 @@ func (c *CaCertificateAnalyzer) analyzeDestinationRule(r *resource.Instance, ctx
 	for i, p := range portSettings {
 		mode = p.GetTls().GetMode()
 		if mode == v1alpha3.ClientTLSSettings_SIMPLE || mode == v1alpha3.ClientTLSSettings_MUTUAL {
-			if p.GetTls().GetCaCertificates() == "" {
+			if p.GetTls().GetCaCertificates() == "" && !(p.GetTls().GetCredentialName() != "" && dr.WorkloadSelector != nil) {
 				m := msg.NewNoServerCertificateVerificationPortLevel(r, drName,
 					drNs.String(), mode.String(), dr.GetHost(), p.GetPort().String())
 

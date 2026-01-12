@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"sigs.k8s.io/yaml"
@@ -28,7 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -47,13 +46,6 @@ func DefaultProxyConfig() *meshconfig.ProxyConfig {
 		ProxyAdminPort:           15000,
 		ControlPlaneAuthPolicy:   meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		DiscoveryAddress:         "istiod.istio-system.svc:15012",
-		Tracing: &meshconfig.Tracing{
-			Tracer: &meshconfig.Tracing_Zipkin_{
-				Zipkin: &meshconfig.Tracing_Zipkin{
-					Address: "zipkin.istio-system:9411",
-				},
-			},
-		},
 
 		// Code defaults
 		BinaryPath:     constants.BinaryPathFilename,
@@ -89,6 +81,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		TrustDomainAliases:          []string{},
 		EnableAutoMtls:              wrappers.Bool(true),
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
+		InboundTrafficPolicy:        &meshconfig.MeshConfig_InboundTrafficPolicy{Mode: meshconfig.MeshConfig_InboundTrafficPolicy_PASSTHROUGH},
 		LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
 			Enabled: wrappers.Bool(true),
 		},
@@ -140,7 +133,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 // ApplyProxyConfig applies the give proxy config yaml to a mesh config object. The passed in mesh config
 // will not be modified.
 func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
-	mc := proto.Clone(meshConfig).(*meshconfig.MeshConfig)
+	mc := protomarshal.Clone(meshConfig)
 	pc, err := MergeProxyConfig(yaml, mc.DefaultConfig)
 	if err != nil {
 		return nil, err
@@ -258,7 +251,7 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 
 	defaultConfig.TrustDomainAliases = sets.SortedList(sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...))
 
-	warn, err := validation.ValidateMeshConfig(defaultConfig)
+	warn, err := agent.ValidateMeshConfig(defaultConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +308,7 @@ func ParseMeshNetworks(yaml string) (*meshconfig.MeshNetworks, error) {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
-	if err := validation.ValidateMeshNetworks(&out); err != nil {
+	if err := agent.ValidateMeshNetworks(&out); err != nil {
 		return nil, err
 	}
 	return &out, nil

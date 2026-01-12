@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 )
 
 const (
@@ -82,7 +83,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 		newValues = values
 		return nil
 	})
-	stop := make(chan struct{})
+	stop := test.NewStop(t)
 	go w.Run(stop)
 	controller := w.(*configMapWatcher).c
 	client.RunAndWait(stop)

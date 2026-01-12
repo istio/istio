@@ -109,8 +109,7 @@ func (ic *injectConfig) UpdateInjectionConfig(t resource.Context, update func(*i
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
 
-	for _, c := range ic.ctx.AllClusters().Kube() {
-		c := c
+	for _, c := range ic.ctx.AllClusters() {
 		errG.Go(func() error {
 			cfgMap, err := ic.getConfigMap(c, ic.configMapName())
 			if err != nil {
@@ -166,7 +165,6 @@ func (ic *injectConfig) UpdateInjectionConfig(t resource.Context, update func(*i
 		mu.RLock()
 		defer mu.RUnlock()
 		for cn, mcYAML := range origCfg {
-			cn, mcYAML := cn, mcYAML
 			c := ic.ctx.AllClusters().GetByName(cn)
 			errG.Go(func() error {
 				cfgMap, err := ic.getConfigMap(c, ic.configMapName())
@@ -290,8 +288,7 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 	origCfg := map[string]string{}
 	mu := sync.RWMutex{}
 
-	for _, c := range mc.ctx.AllClusters().Kube() {
-		c := c
+	for _, c := range mc.ctx.AllClusters() {
 		errG.Go(func() error {
 			cfgMapName, err := mc.configMapName()
 			if err != nil {
@@ -356,7 +353,6 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 		mu.RLock()
 		defer mu.RUnlock()
 		for cn, mcYAML := range origCfg {
-			cn, mcYAML := cn, mcYAML
 			c := mc.ctx.AllClusters().GetByName(cn)
 			errG.Go(func() error {
 				cfgMapName, err := mc.configMapName()
@@ -382,9 +378,9 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 	return errG.Wait().ErrorOrNil()
 }
 
-func (mc *meshConfig) UpdateMeshConfigOrFail(ctx resource.Context, t test.Failer, update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) {
+func (mc *meshConfig) UpdateMeshConfigOrFail(t resource.ContextFailer, update func(*meshconfig.MeshConfig) error, cleanupStrategy cleanup.Strategy) {
 	t.Helper()
-	if err := mc.UpdateMeshConfig(ctx, update, cleanupStrategy); err != nil {
+	if err := mc.UpdateMeshConfig(t, update, cleanupStrategy); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -395,9 +391,9 @@ func (mc *meshConfig) PatchMeshConfig(t resource.Context, patch string) error {
 	}, cleanup.Always)
 }
 
-func (mc *meshConfig) PatchMeshConfigOrFail(ctx resource.Context, t test.Failer, patch string) {
+func (mc *meshConfig) PatchMeshConfigOrFail(t resource.ContextFailer, patch string) {
 	t.Helper()
-	if err := mc.PatchMeshConfig(ctx, patch); err != nil {
+	if err := mc.PatchMeshConfig(t, patch); err != nil {
 		t.Fatal(err)
 	}
 }

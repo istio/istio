@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 55767
+releaseNotes:
+  - |
+    **Fixed** an issue where virtual service routes were ignored when 
+    virtual service was configured with hosts containing mixed case letters.

@@ -55,9 +55,9 @@ type Scope struct {
 	callerSkip  int
 
 	// set by the Configure method and adjustable dynamically
-	outputLevel     atomic.Value
-	stackTraceLevel atomic.Value
-	logCallers      atomic.Value
+	outputLevel     *atomic.Value
+	stackTraceLevel *atomic.Value
+	logCallers      *atomic.Value
 
 	// labels data - key slice to preserve ordering
 	labelKeys []string
@@ -89,9 +89,12 @@ func registerScope(name string, description string, callerSkip int) *Scope {
 	s, ok := scopes[name]
 	if !ok {
 		s = &Scope{
-			name:        name,
-			description: description,
-			callerSkip:  callerSkip,
+			name:            name,
+			description:     description,
+			callerSkip:      callerSkip,
+			outputLevel:     &atomic.Value{},
+			stackTraceLevel: &atomic.Value{},
+			logCallers:      &atomic.Value{},
 		}
 		s.SetOutputLevel(InfoLevel)
 		s.SetStackTraceLevel(NoneLevel)
@@ -302,7 +305,12 @@ func (s *Scope) WithLabels(kvlist ...any) *Scope {
 			out.labels["WithLabels error"] = fmt.Sprintf("label name %v must be a string, got %T ", keyi, keyi)
 			return out
 		}
+		_, override := out.labels[key]
 		out.labels[key] = kvlist[i+1]
+		if override {
+			// Key already set, just modify the value
+			continue
+		}
 		out.labelKeys = append(out.labelKeys, key)
 	}
 	return out
@@ -337,11 +345,19 @@ func (s *Scope) emitWithTime(level zapcore.Level, msg string, t time.Time) {
 		fields = make([]zapcore.Field, 0, len(s.labelKeys))
 		for _, k := range s.labelKeys {
 			v := s.labels[k]
-			fields = append(fields, zap.Field{
-				Key:       k,
-				Interface: v,
-				Type:      zapcore.ReflectType,
-			})
+			if d, ok := v.(time.Duration); ok {
+				fields = append(fields, zap.Field{
+					Key:     k,
+					Integer: int64(d),
+					Type:    zapcore.DurationType,
+				})
+			} else {
+				fields = append(fields, zap.Field{
+					Key:       k,
+					Interface: v,
+					Type:      zapcore.ReflectType,
+				})
+			}
 		}
 	} else if len(s.labelKeys) > 0 {
 		sb := &strings.Builder{}

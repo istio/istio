@@ -1,0 +1,17 @@
+action: DENY
+groups:
+- rules:
+  - matches:
+    - destinationPorts:
+      - 8080
+      notPrincipals:
+      - presence: {}
+- rules:
+  - matches:
+    - destinationPorts:
+      - 9090
+      notPrincipals:
+      - presence: {}
+name: converted_peer_authentication_workload
+namespace: foo
+scope: WORKLOAD_SELECTOR

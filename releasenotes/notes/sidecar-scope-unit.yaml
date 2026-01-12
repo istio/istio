@@ -1,0 +1,27 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+upgradeNotes:
+  - title: '`Sidecar` scoping changes'
+    content: |
+      During processing of services, Istio has a variety of conflict resolution strategies.
+      Historically, these have subtly differed when a user has a `Sidecar` resource defined, compared to when they do not.
+      This applied even if the `Sidecar` resource with just `egress: "*/*"`, which should be the same as not having one defined.
+
+      In this version, the behavior between the two has been unified:
+
+      *Multiple services defined with the same hostname*
+      Behavior before, without `Sidecar`: prefer a Kubernetes `Service` (rather than a `ServiceEntry`), else pick an arbitrary one.
+      Behavior before, with `Sidecar`: prefer the Service in the same namespace as the proxy, else pick an arbitrary one.
+      New behavior: prefer the Service in the same namespace as the proxy, then the Kubernetes Service (not ServiceEntry), else pick an arbitrary one.
+
+      *Multiple Gateway API Route defined for the same service*
+      Behavior before, without `Sidecar`: prefer the local proxy namespace, to allow consumer overrides.
+      Behavior before, with `Sidecar`: arbitrary order.
+      New behavior: prefer the local proxy namespace, to allow consumer overrides.
+      
+      The old behavior can be retained, temporarily, by setting `PILOT_UNIFIED_SIDECAR_SCOPE=false`.
+
+releaseNotes:
+  - |
+    **Updated** the behavior of XDS generation to be aligned when a user has a `Sidecar` configured and when they do not. See upgrade notes for more information.

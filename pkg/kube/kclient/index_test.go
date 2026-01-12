@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kclient
+package kclient_test
 
 import (
 	"context"
@@ -26,6 +26,9 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -36,11 +39,15 @@ type SaNode struct {
 	Node           string
 }
 
+func (s SaNode) String() string {
+	return s.Node + "/" + s.ServiceAccount.String()
+}
+
 func TestIndex(t *testing.T) {
 	c := kube.NewFakeClient()
-	pods := New[*corev1.Pod](c)
+	pods := kclient.New[*corev1.Pod](c)
 	c.RunAndWait(test.NewStop(t))
-	index := CreateIndex[SaNode, *corev1.Pod](pods, func(pod *corev1.Pod) []SaNode {
+	index := kclient.CreateIndex[SaNode, *corev1.Pod](pods, "saNode", func(pod *corev1.Pod) []SaNode {
 		if len(pod.Spec.NodeName) == 0 {
 			return nil
 		}
@@ -71,7 +78,7 @@ func TestIndex(t *testing.T) {
 	}
 	assert.Equal(t, index.Lookup(k1), nil)
 	assert.Equal(t, index.Lookup(k2), nil)
-	pod1 := &corev1.Pod{
+	pod1 := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod",
 			Namespace: "ns",
@@ -80,8 +87,8 @@ func TestIndex(t *testing.T) {
 			ServiceAccountName: "sa",
 			NodeName:           "node",
 		},
-	}
-	pod2 := &corev1.Pod{
+	})
+	pod2 := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod2",
 			Namespace: "ns",
@@ -90,8 +97,8 @@ func TestIndex(t *testing.T) {
 			ServiceAccountName: "sa2",
 			NodeName:           "node",
 		},
-	}
-	pod3 := &corev1.Pod{
+	})
+	pod3 := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod3",
 			Namespace: "ns",
@@ -100,7 +107,7 @@ func TestIndex(t *testing.T) {
 			ServiceAccountName: "sa",
 			NodeName:           "node",
 		},
-	}
+	})
 
 	assertIndex := func(k SaNode, pods ...*corev1.Pod) {
 		t.Helper()
@@ -144,59 +151,94 @@ func TestIndex(t *testing.T) {
 	// Should fully cleanup the index on deletes
 	c.Kube().CoreV1().Pods("ns").Delete(context.Background(), pod2.Name, metav1.DeleteOptions{})
 	c.Kube().CoreV1().Pods("ns").Delete(context.Background(), pod3.Name, metav1.DeleteOptions{})
-	assert.EventuallyEqual(t, func() int {
-		index.mu.RLock()
-		defer index.mu.RUnlock()
-		return len(index.objects)
-	}, 0)
+	assertIndex(keyNew)
+	assertIndex(k1)
+	assertIndex(k2)
 }
 
-func TestIndexDelegate(t *testing.T) {
+func TestIndexFilters(t *testing.T) {
 	c := kube.NewFakeClient()
-	pods := New[*corev1.Pod](c)
-	c.RunAndWait(test.NewStop(t))
-	var index *Index[string, *corev1.Pod]
-	adds := atomic.NewInt32(0)
-	index = CreateIndexWithDelegate[string, *corev1.Pod](pods, func(pod *corev1.Pod) []string {
-		return []string{pod.Spec.ServiceAccountName}
-	}, controllers.EventHandler[*corev1.Pod]{
-		AddFunc: func(obj *corev1.Pod) {
-			// Assert that our handler sees the incoming update (and doesn't run before)
-			sa := obj.Spec.ServiceAccountName
-			got := index.Lookup(sa)
-			for _, p := range got {
-				if p.Name == obj.Name {
-					adds.Inc()
-					return
-				}
-			}
-			t.Fatalf("pod %v/%v not found in index, have %v", obj.Name, sa, got)
-		},
+
+	currentAllowedNamespace := atomic.NewString("a")
+	filter := kubetypes.NewStaticObjectFilter(func(obj any) bool {
+		return controllers.ExtractObject(obj).GetNamespace() == currentAllowedNamespace.Load()
 	})
-	pod1 := &corev1.Pod{
+	pods := kclient.NewFiltered[*corev1.Pod](c, kubetypes.Filter{
+		ObjectFilter: filter,
+	})
+	pc := clienttest.NewWriter[*corev1.Pod](t, c)
+	c.RunAndWait(test.NewStop(t))
+	index := kclient.CreateStringIndex[*corev1.Pod](pods, "podIp", func(pod *corev1.Pod) []string {
+		if pod.Status.PodIP == "" {
+			return nil
+		}
+		return []string{pod.Status.PodIP}
+	})
+
+	// Initial state should be empty
+	assert.Equal(t, index.Lookup("1.1.1.1"), nil)
+
+	assertIndex := func(k string, pods ...*corev1.Pod) {
+		t.Helper()
+		assert.EventuallyEqual(t, func() []*corev1.Pod { return index.Lookup(k) }, pods, retry.Timeout(time.Second*5))
+	}
+
+	// Add a pod matching the filter, we should see it.
+	podA1 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod",
-			Namespace: "ns",
+			Namespace: "a",
 		},
-		Spec: corev1.PodSpec{
-			ServiceAccountName: "sa",
-			NodeName:           "node",
-		},
+		Status: corev1.PodStatus{PodIP: "1.1.1.1"},
 	}
-	pod2 := &corev1.Pod{
+	pc.CreateOrUpdateStatus(podA1)
+	assertIndex("1.1.1.1", podA1)
+
+	podA2 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod2",
-			Namespace: "ns",
+			Namespace: "a",
 		},
-		Spec: corev1.PodSpec{
-			ServiceAccountName: "sa2",
-			NodeName:           "node",
-		},
+		Status: corev1.PodStatus{PodIP: "2.2.2.2"},
 	}
+	pc.CreateOrUpdateStatus(podA2)
+	assertIndex("1.1.1.1", podA1)
+	assertIndex("2.2.2.2", podA2)
 
-	c.Kube().CoreV1().Pods("ns").Create(context.Background(), pod1, metav1.CreateOptions{})
-	assert.EventuallyEqual(t, adds.Load, 1)
+	// Create a pod not matching the filter with overlapping IP
+	podB1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod",
+			Namespace: "b",
+		},
+		Status: corev1.PodStatus{PodIP: "1.1.1.1"},
+	}
+	pc.CreateOrUpdateStatus(podB1)
+	assertIndex("1.1.1.1", podA1)
+	assertIndex("2.2.2.2", podA2)
 
-	c.Kube().CoreV1().Pods("ns").Create(context.Background(), pod2, metav1.CreateOptions{})
-	assert.EventuallyEqual(t, adds.Load, 2)
+	// Another pod, not matching filter with distinct IP
+	podB2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod2",
+			Namespace: "b",
+		},
+		Status: corev1.PodStatus{PodIP: "3.3.3.3"},
+	}
+	pc.CreateOrUpdateStatus(podB2)
+	assertIndex("1.1.1.1", podA1)
+	assertIndex("2.2.2.2", podA2)
+	assertIndex("3.3.3.3")
+
+	// Switch the filter
+	currentAllowedNamespace.Store("b")
+	assertIndex("1.1.1.1", podB1)
+	assertIndex("2.2.2.2")
+	assertIndex("3.3.3.3", podB2)
+
+	// Switch the filter again
+	currentAllowedNamespace.Store("c")
+	assertIndex("1.1.1.1")
+	assertIndex("2.2.2.2")
+	assertIndex("3.3.3.3")
 }

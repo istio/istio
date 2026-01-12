@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: hello
 spec:
   selector:
@@ -17,9 +16,8 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        proxy.istio.io/overrides: '{"containers":[{"name":"istio-proxy","resources":{"limits":{"cpu":"3"},"requests":{"cpu":"123m"}},"volumeMounts":[{"name":"certs","mountPath":"/etc/certs"}],"livenessProbe":{"httpGet":{"path":"/healthz/ready","port":15021},"initialDelaySeconds":10,"timeoutSeconds":3,"periodSeconds":2,"failureThreshold":30},"lifecycle":{"preStop":{"exec":{"command":["sleep","10"]}}},"terminationMessagePath":"/foo/bar","securityContext":{"runAsUser":1234,"runAsGroup":1234,"readOnlyRootFilesystem":false,"allowPrivilegeEscalation":true},"tty":true}],"initContainers":[{"name":"istio-init","image":"fake/custom-image","args":["my","custom","args"],"resources":{}}]}'
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
-      creationTimestamp: null
+        proxy.istio.io/overrides: '{"initContainers":[{"name":"istio-init","image":"fake/custom-image","args":["my","custom","args"],"resources":{}},{"name":"istio-proxy","resources":{"limits":{"cpu":"3"},"requests":{"cpu":"123m"}},"volumeMounts":[{"name":"certs","mountPath":"/etc/certs"}],"livenessProbe":{"httpGet":{"path":"/healthz/ready","port":15021},"initialDelaySeconds":10,"timeoutSeconds":3,"periodSeconds":2,"failureThreshold":30},"lifecycle":{"preStop":{"exec":{"command":["sleep","10"]}}},"terminationMessagePath":"/foo/bar","securityContext":{"runAsUser":1234,"runAsGroup":1234,"readOnlyRootFilesystem":false,"allowPrivilegeEscalation":true},"tty":true}]}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
       labels:
         app: hello
         security.istio.io/tlsMode: istio
@@ -30,6 +28,33 @@ spec:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
         name: hello
         resources: {}
+      initContainers:
+      - args:
+        - my
+        - custom
+        - args
+        image: fake/custom-image
+        name: istio-init
+        resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       - args:
         - proxy
         - sidecar
@@ -39,8 +64,6 @@ spec:
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
         env:
-        - name: JWT_POLICY
-          value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
         - name: CA_ADDR
@@ -68,7 +91,7 @@ spec:
         - name: ISTIO_CPU_LIMIT
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
+              divisor: "1"
               resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
@@ -82,12 +105,12 @@ spec:
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
+              divisor: "1"
               resource: limits.memory
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
-              divisor: "0"
+              divisor: "1"
               resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
@@ -139,6 +162,7 @@ spec:
           requests:
             cpu: 123m
             memory: 128Mi
+        restartPolicy: Always
         securityContext:
           allowPrivilegeEscalation: true
           capabilities:
@@ -167,6 +191,8 @@ spec:
           name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/run/secrets/istio/crl
+          name: istio-ca-crl
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
@@ -177,33 +203,6 @@ spec:
           name: istio-podinfo
         - mountPath: /etc/certs
           name: certs
-      initContainers:
-      - args:
-        - my
-        - custom
-        - args
-        image: fake/custom-image
-        name: istio-init
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
       volumes:
       - name: workload-socket
       - name: credential-socket
@@ -232,6 +231,10 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
+      - configMap:
+          name: istio-ca-crl
+          optional: true
+        name: istio-ca-crl
       - name: certs
         secret:
           secretName: istio-certs

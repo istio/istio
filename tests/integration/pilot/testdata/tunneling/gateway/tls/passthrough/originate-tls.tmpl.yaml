@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-external-svc
@@ -10,3 +10,4 @@ spec:
       tls:
         mode: SIMPLE
         sni: external.{{ .externalNamespace }}.svc.cluster.local
+        insecureSkipVerify: true

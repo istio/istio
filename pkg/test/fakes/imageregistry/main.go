@@ -34,6 +34,7 @@ import (
 var (
 	port             = flag.Int("port", 1338, "port to run registry on")
 	registry         = flag.String("registry", "gcr.io", "name of registry to redirect registry request to")
+	scheme           = flag.String("scheme", "https", "scheme of the URL to the image registry")
 	regexForManifest = regexp.MustCompile(`(?P<Prefix>/v\d+)?/(?P<ImageName>.+)/manifests/(?P<Tag>[^:]*)$`)
 	regexForLayer    = regexp.MustCompile(`/layer/v1/(?P<ImageName>[^:]+):(?P<Tag>[^:]+)`)
 )
@@ -86,7 +87,11 @@ func (h *Handler) getFirstLayerURL(imageName string, tag string) (string, error)
 	}
 
 	u := fmt.Sprintf("%v/%v:%v", *registry, imageName, convertedTag)
-	ref, err := name.ParseReference(u)
+	var opts []name.Option
+	if *scheme == "http" {
+		opts = append(opts, name.Insecure)
+	}
+	ref, err := name.ParseReference(u, opts...)
 	if err != nil {
 		return "", fmt.Errorf("could not parse url in image reference: %v", err)
 	}
@@ -106,7 +111,7 @@ func (h *Handler) getFirstLayerURL(imageName string, tag string) (string, error)
 		return "", fmt.Errorf("docker image does not have one layer (got %v)", len(manifest.Layers))
 	}
 
-	return fmt.Sprintf("https://%v/v2/%v/blobs/%v", *registry, imageName, manifest.Layers[0].Digest.String()), nil
+	return fmt.Sprintf("%s://%v/v2/%v/blobs/%v", *scheme, *registry, imageName, manifest.Layers[0].Digest.String()), nil
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -167,7 +172,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		fallthrough
 	default:
-		rurl := fmt.Sprintf("https://%v%v", *registry, h.convertTag(r.URL.Path))
+		rurl := fmt.Sprintf("%s://%v%v", *scheme, *registry, h.convertTag(r.URL.Path))
 		log.Infof("Get %q, send redirect to %q", r.URL, rurl)
 		http.Redirect(w, r, rurl, http.StatusMovedPermanently)
 	}

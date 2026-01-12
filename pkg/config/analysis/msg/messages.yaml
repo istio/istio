@@ -163,19 +163,7 @@ messages:
   # IST0119 RETIRED
   # IST0120 RETIRED
   # IST0121 RETIRED
-
-  - name: "InvalidRegexp"
-    code: IST0122
-    level: Warning
-    description: "Invalid Regex"
-    template: "Field %q regular expression invalid: %q (%s)"
-    args:
-      - name: where
-        type: string
-      - name: re
-        type: string
-      - name: problem
-        type: string
+  # IST0122 RETIRED
 
   - name: "NamespaceMultipleInjectionLabels"
     code: IST0123
@@ -298,7 +286,8 @@ messages:
   - name: "ServiceEntryAddressesRequired"
     code: IST0134
     level: Warning
-    description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol"
+    description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol when PILOT_ENABLE_IP_AUTOALLOCATE is not set on a proxy"
+
     template: "ServiceEntry addresses are required for this protocol."
 
   - name: "DeprecatedAnnotation"
@@ -506,6 +495,17 @@ messages:
     - name: minimumVersion
       type: string
 
+  - name: "FutureUnsupportedGatewayAPIVersion"
+    code: IST0172
+    level: Warning
+    description: "The Gateway API CRD version will not be supported in the future"
+    template: "The Gateway API CRD version %v is lower than the minimum version: %v"
+    args:
+    - name: version
+      type: string
+    - name: minimumVersion
+      type: string
+
   - name: "InvalidTelemetryProvider"
     code: IST0157
     level: Warning
@@ -624,3 +624,79 @@ messages:
     args:
       - name: reason
         type: string
+
+  - name: "UnknownUpgradeCompatibility"
+    code: IST0168
+    level: Warning
+    description: "We cannot automatically detect whether a change is fully compatible or not"
+    template: "The configuration %q changed in release %s, but compatibility cannot be automatically detected: %s. Or, install with `--set compatibilityVersion=%s` to retain the old default."
+    args:
+      - name: field
+        type: string
+      - name: release
+        type: string
+      - name: info
+        type: string
+      - name: compatVersion
+        type: string
+
+  - name: "UpdateIncompatibility"
+    code: IST0169
+    level: Warning
+    description: "The provided configuration object may be incompatible due to an upgrade"
+    template: "The configuration %q changed in release %s: %s. Or, install with `--set compatibilityVersion=%s` to retain the old default."
+    args:
+      - name: field
+        type: string
+      - name: release
+        type: string
+      - name: info
+        type: string
+      - name: compatVersion
+        type: string
+
+  - name: "MultiClusterInconsistentService"
+    code: IST0170
+    level: Warning
+    description: "The services live in different clusters under multi-cluster deployment model are inconsistent"
+    template: "The service %v in namespace %q is inconsistent across clusters %q, which can lead to undefined behaviors. The inconsistent behaviors are: %v."
+    args:
+    - name: serviceName
+      type: string
+    - name: namespace
+      type: string
+    - name: clusters
+      type: "[]string"
+    - name: error
+      type: string
+
+  - name: "NegativeConditionStatus"
+    code: IST0171
+    level: Warning
+    description: "A condition with a negative status is present"
+    template: "A condition with a negative status is present: type=%s, reason=%s, message=%s."
+    args:
+      - name: conditionType
+        type: string
+      - name: reason
+        type: string
+      - name: message
+        type: string
+
+  - name: "DestinationRuleSubsetNotSelectPods"
+    code: IST0173
+    level: Error
+    description: "Subsets defined in destination does not select any pods."
+    template: "The Subset %s defined in the DestinationRule does not select any pods. Which may lead to 503 UH (NoHealthyUpstream)."
+    args:
+    - name: subset
+      type: string
+
+  - name: "UnknownDestinationRuleHost"
+    code: IST0174
+    level: Warning
+    description: "Host defined in destination rule does not match any services in the mesh."
+    template: "The host %s defined in the DestinationRule does not match any services in the mesh."
+    args:
+    - name: host
+      type: string

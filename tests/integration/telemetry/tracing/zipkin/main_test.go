@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -39,6 +38,27 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["meshConfig.enableTracing"] = "true"
-	cfg.Values["pilot.traceSampling"] = "100.0"
+	cfg.ControlPlaneValues = `
+values:
+  pilot:
+    traceSampling: 100.0
+meshConfig:
+  enableTracing: true
+  defaultConfig:
+    tracing: {} # disable legacy MeshConfig tracing options
+  defaultProviders:
+    tracing:
+    - zipkin
+  extensionProviders:
+  - name: zipkin
+    zipkin:
+      service: zipkin.istio-system.svc.cluster.local
+      port: 9411
+      traceContextOption: USE_B3_WITH_W3C_PROPAGATION
+      headers:
+      - name: X-Custom-Header
+        value: test-value
+      - name: Authorization
+        value: Bearer test-token
+`
 }

@@ -23,10 +23,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/schema/gvk"
 	istiogvr "istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kubeclient"
 	types "istio.io/istio/pkg/config/schema/kubetypes"
@@ -36,6 +36,8 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type fullClient[T controllers.Object] struct {
@@ -47,13 +49,20 @@ type writeClient[T controllers.Object] struct {
 	client kube.Client
 }
 
+// handlerRegistration stores a handler, with the registration so it can be de-registered
+type handlerRegistration struct {
+	registration cache.ResourceEventHandlerRegistration
+	// handler is the actual handler. Note this does NOT have the filtering applied.
+	handler cache.ResourceEventHandler
+}
+
 type informerClient[T controllers.Object] struct {
 	informer      cache.SharedIndexInformer
 	startInformer func(stopCh <-chan struct{})
 	filter        func(t any) bool
 
 	handlerMu          sync.RWMutex
-	registeredHandlers []cache.ResourceEventHandlerRegistration
+	registeredHandlers []handlerRegistration
 }
 
 func (n *informerClient[T]) Get(name, namespace string) T {
@@ -82,6 +91,48 @@ func (n *informerClient[T]) Start(stopCh <-chan struct{}) {
 	n.startInformer(stopCh)
 }
 
+// internalIndex is the type we use to store a Kubernetes set of index, as well as the key to the index we care about.
+// Users should not interact with this directly, and should instead use CreateIndex.
+type internalIndex struct {
+	key     string
+	indexer cache.Indexer
+	filter  func(t any) bool
+}
+
+func (i internalIndex) Lookup(key string) []any {
+	res, err := i.indexer.ByIndex(i.key, key)
+	if err != nil {
+		// This should only happen if the index key (i.key, not key) does not exist which should be impossible.
+		log.Fatalf("index lookup failed: %v", err)
+	}
+	if i.filter != nil {
+		return slices.FilterInPlace(res, i.filter)
+	}
+	return res
+}
+
+var _ RawIndexer = internalIndex{}
+
+func (n *informerClient[T]) Index(name string, extract func(o T) []string) RawIndexer {
+	if _, ok := n.informer.GetIndexer().GetIndexers()[name]; !ok {
+		if err := n.informer.AddIndexers(map[string]cache.IndexFunc{
+			name: func(obj any) ([]string, error) {
+				t := controllers.Extract[T](obj)
+				return extract(t), nil
+			},
+		}); err != nil {
+			// Should only happen on key conflict or on stop
+			log.Warnf("failed to add indexer: %v", err)
+		}
+	}
+	ret := internalIndex{
+		key:     name,
+		indexer: n.informer.GetIndexer(),
+		filter:  n.filter,
+	}
+	return ret
+}
+
 func (n *writeClient[T]) Create(object T) (T, error) {
 	api := kubeclient.GetWriteClient[T](n.client, object.GetNamespace())
 	return api.Create(context.Background(), object, metav1.CreateOptions{})
@@ -90,6 +141,24 @@ func (n *writeClient[T]) Create(object T) (T, error) {
 func (n *writeClient[T]) Update(object T) (T, error) {
 	api := kubeclient.GetWriteClient[T](n.client, object.GetNamespace())
 	return api.Update(context.Background(), object, metav1.UpdateOptions{})
+}
+
+func (n *writeClient[T]) Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error) {
+	api := kubeclient.GetWriteClient[T](n.client, namespace)
+	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{})
+}
+
+func (n *writeClient[T]) PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) (T, error) {
+	api := kubeclient.GetWriteClient[T](n.client, namespace)
+	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{}, "status")
+}
+
+func (n *writeClient[T]) ApplyStatus(name, namespace string, pt apitypes.PatchType, data []byte, fieldManager string) (T, error) {
+	api := kubeclient.GetWriteClient[T](n.client, namespace)
+	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{
+		Force:        ptr.Of(true),
+		FieldManager: fieldManager,
+	}, "status")
 }
 
 func (n *writeClient[T]) UpdateStatus(object T) (T, error) {
@@ -109,11 +178,27 @@ func (n *informerClient[T]) ShutdownHandlers() {
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
 	for _, c := range n.registeredHandlers {
-		_ = n.informer.RemoveEventHandler(c)
+		_ = n.informer.RemoveEventHandler(c.registration)
 	}
+	n.registeredHandlers = nil
 }
 
-func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
+func (n *informerClient[T]) ShutdownHandler(registration cache.ResourceEventHandlerRegistration) {
+	n.handlerMu.Lock()
+	defer n.handlerMu.Unlock()
+	n.registeredHandlers = slices.FilterInPlace(n.registeredHandlers, func(h handlerRegistration) bool {
+		return h.registration != registration
+	})
+	_ = n.informer.RemoveEventHandler(registration)
+}
+
+type neverReady struct{}
+
+func (a neverReady) HasSynced() bool {
+	return false
+}
+
+func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) cache.ResourceEventHandlerRegistration {
 	fh := cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			if n.filter == nil {
@@ -123,10 +208,19 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 		},
 		Handler: h,
 	}
-	reg, _ := n.informer.AddEventHandler(fh)
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
-	n.registeredHandlers = append(n.registeredHandlers, reg)
+	// AddEventHandler is safe to call under the lock. This will *enqueue* all existing items, but not block on processing them,
+	// so the timing is quick.
+	// If we do this outside the lock, we can hit a subtle race condition where we have started processing items before they
+	// are registered (in n.registeredHandlers); this can cause the dynamic filtering to miss events
+	reg, err := n.informer.AddEventHandler(fh)
+	if err != nil {
+		// Should only happen if its already stopped. We should exit early.
+		return neverReady{}
+	}
+	n.registeredHandlers = append(n.registeredHandlers, handlerRegistration{registration: reg, handler: h})
+	return reg
 }
 
 func (n *informerClient[T]) HasSynced() bool {
@@ -137,11 +231,15 @@ func (n *informerClient[T]) HasSynced() bool {
 	defer n.handlerMu.RUnlock()
 	// HasSynced is fast, so doing it under the lock is okay
 	for _, g := range n.registeredHandlers {
-		if !g.HasSynced() {
+		if !g.registration.HasSynced() {
 			return false
 		}
 	}
 	return true
+}
+
+func (n *informerClient[T]) HasSyncedIgnoringHandlers() bool {
+	return n.informer.HasSynced()
 }
 
 func (n *informerClient[T]) List(namespace string, selector klabels.Selector) []T {
@@ -192,11 +290,27 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 // This means there must only be one filter configuration for a given type using the same kube.Client.
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
-	gvr := gvk.MustToGVR(types.GetGVK[T]())
-	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter))
+	gvr := types.MustToGVR[T](types.MustGVKFromType[T]())
+	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter), gvr)
 	return &fullClient[T]{
 		writeClient: writeClient[T]{client: c},
-		Informer:    newInformerClient[T](inf, filter),
+		Informer:    newInformerClient[T](gvr, inf, filter),
+	}
+}
+
+// NewFilteredDelayed returns a "delayed" client for the given GVR that is writeable.
+// It is the caller's responsibility to not write to the client if the type is not available; the "Delay" is not impacting
+// the write flow. The reason for this is typically the writes are for status, which is in response to the object existing,
+// which implies the GVR exists.
+func NewFilteredDelayed[T controllers.ComparableObject](
+	c kube.Client,
+	gvr schema.GroupVersionResource,
+	filter Filter,
+) Client[T] {
+	inf := NewDelayedInformer[T](c, gvr, kubetypes.StandardInformer, filter)
+	return &fullClient[T]{
+		writeClient: writeClient[T]{client: c},
+		Informer:    inf,
 	}
 }
 
@@ -214,13 +328,13 @@ func NewDelayedInformer[T controllers.ComparableObject](
 ) Informer[T] {
 	watcher := c.CrdWatcher()
 	if watcher == nil {
-		log.Fatalf("NewDelayedInformer called without a CrdWatcher enabled")
+		log.Fatal("NewDelayedInformer called without a CrdWatcher enabled")
 	}
 	delay := newDelayedFilter(gvr, watcher)
 	inf := func() informerfactory.StartableInformer {
 		opts := ToOpts(c, gvr, filter)
 		opts.InformerType = informerType
-		return kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
+		return kubeclient.GetInformerFiltered[T](c, opts, gvr)
 	}
 	return newDelayedInformer[T](gvr, inf, delay, filter)
 }
@@ -228,7 +342,7 @@ func NewDelayedInformer[T controllers.ComparableObject](
 // NewUntypedInformer returns an untyped client for a given GVR. This is read-only.
 func NewUntypedInformer(c kube.Client, gvr schema.GroupVersionResource, filter Filter) Untyped {
 	inf := kubeclient.GetInformerFilteredFromGVR(c, ToOpts(c, gvr, filter), gvr)
-	return newInformerClient[controllers.Object](inf, filter)
+	return newInformerClient[controllers.Object](gvr, inf, filter)
 }
 
 // NewDynamic returns a dynamic client for a given GVR. This is read-only.
@@ -236,7 +350,7 @@ func NewDynamic(c kube.Client, gvr schema.GroupVersionResource, filter Filter) U
 	opts := ToOpts(c, gvr, filter)
 	opts.InformerType = kubetypes.DynamicInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return newInformerClient[controllers.Object](inf, filter)
+	return newInformerClient[controllers.Object](gvr, inf, filter)
 }
 
 // NewMetadata returns a metadata client for a given GVR. This is read-only.
@@ -244,7 +358,7 @@ func NewMetadata(c kube.Client, gvr schema.GroupVersionResource, filter Filter) 
 	opts := ToOpts(c, gvr, filter)
 	opts.InformerType = kubetypes.MetadataInformer
 	inf := kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
-	return newInformerClient[*metav1.PartialObjectMetadata](inf, filter)
+	return newInformerClient[*metav1.PartialObjectMetadata](gvr, inf, filter)
 }
 
 // NewWriteClient is exposed for testing.
@@ -272,8 +386,8 @@ func newDelayedInformer[T controllers.ComparableObject](
 		fc := &informerClient[T]{
 			informer:      inf.Informer,
 			startInformer: inf.Start,
-			filter:        filter.ObjectFilter,
 		}
+		applyDynamicFilter(filter, gvr, fc)
 		inf.Start(stop)
 		log.Infof("%v is now ready, building client", gvr.GroupResource())
 		// Swap out the dummy client with the full one
@@ -284,14 +398,61 @@ func newDelayedInformer[T controllers.ComparableObject](
 		return delayedClient
 	}
 	log.Debugf("%v ready now, building client", gvr.GroupResource())
-	return newInformerClient[T](getInf(), filter)
+	return newInformerClient[T](gvr, getInf(), filter)
 }
 
-func newInformerClient[T controllers.ComparableObject](inf informerfactory.StartableInformer, filter Filter) Informer[T] {
-	return &informerClient[T]{
+func newInformerClient[T controllers.ComparableObject](
+	gvr schema.GroupVersionResource,
+	inf informerfactory.StartableInformer,
+	filter Filter,
+) Informer[T] {
+	ic := &informerClient[T]{
 		informer:      inf.Informer,
 		startInformer: inf.Start,
-		filter:        filter.ObjectFilter,
+	}
+	if filter.ObjectFilter != nil {
+		applyDynamicFilter(filter, gvr, ic)
+	}
+	return ic
+}
+
+func applyDynamicFilter[T controllers.ComparableObject](filter Filter, gvr schema.GroupVersionResource, ic *informerClient[T]) {
+	if filter.ObjectFilter != nil {
+		ic.filter = filter.ObjectFilter.Filter
+		filter.ObjectFilter.AddHandler(func(added, removed sets.String) {
+			ic.handlerMu.RLock()
+			defer ic.handlerMu.RUnlock()
+			if gvr == istiogvr.Namespace {
+				// Namespace is special; we query all namespaces
+				// Note: other cluster-scoped resources should just not use the filter
+				for _, item := range ic.ListUnfiltered(metav1.NamespaceAll, klabels.Everything()) {
+					if !added.Contains(item.GetName()) {
+						continue
+					}
+					for _, c := range ic.registeredHandlers {
+						c.handler.OnAdd(item, false)
+					}
+				}
+				// Removes are currently NOT handled. We only have the namespace name here. We would need to have the object
+				// filter passthrough the entire namespace object, so we can pass the last known state to OnDelete.
+				// Fortunately, missing a namespace delete event usually doesn't matter since everything in the namespace gets torn down.
+			} else {
+				for ns := range added {
+					for _, item := range ic.ListUnfiltered(ns, klabels.Everything()) {
+						for _, c := range ic.registeredHandlers {
+							c.handler.OnAdd(item, false)
+						}
+					}
+				}
+				for ns := range removed {
+					for _, item := range ic.ListUnfiltered(ns, klabels.Everything()) {
+						for _, c := range ic.registeredHandlers {
+							c.handler.OnDelete(item)
+						}
+					}
+				}
+			}
+		})
 	}
 }
 

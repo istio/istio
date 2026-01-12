@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
 #
@@ -36,7 +36,7 @@ MOUNT_DEST="${MOUNT_DEST:-/work}"
 
 read -ra DOCKER_RUN_OPTIONS <<< "${DOCKER_RUN_OPTIONS:-}"
 
-[[ -t 1 ]] && DOCKER_RUN_OPTIONS+=("-it")
+[[ -t 0 ]] && DOCKER_RUN_OPTIONS+=("-it")
 [[ ${UID} -ne 0 ]] && DOCKER_RUN_OPTIONS+=(-u "${UID}:${DOCKER_GID}")
 
 # $CONTAINER_OPTIONS becomes an empty arg when quoted, so SC2086 is disabled for the
@@ -47,7 +47,9 @@ read -ra DOCKER_RUN_OPTIONS <<< "${DOCKER_RUN_OPTIONS:-}"
     "${DOCKER_RUN_OPTIONS[@]}" \
     --init \
     --sig-proxy=true \
+    --cap-add=SYS_ADMIN \
     ${DOCKER_SOCKET_MOUNT:--v /var/run/docker.sock:/var/run/docker.sock} \
+    -e DOCKER_HOST=${DOCKER_SOCKET_HOST:-unix:///var/run/docker.sock} \
     $CONTAINER_OPTIONS \
     --env-file <(env | grep -v ${ENV_BLOCKLIST}) \
     -e IN_BUILD_CONTAINER=1 \

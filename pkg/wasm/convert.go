@@ -22,39 +22,75 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	httprbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	networkrbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/hashicorp/go-multierror"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	extensions "istio.io/api/extensions/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/util/istiomultierror"
+	"istio.io/istio/pkg/util/protomarshal"
+)
+
+const (
+	// DefaultAllowStatPrefix is the stat prefix used for WASM default allow RBAC filters
+	DefaultAllowStatPrefix = "wasm-default-allow"
+	// DefaultDenyStatPrefix is the stat prefix used for WASM default deny RBAC filters
+	DefaultDenyStatPrefix = "wasm-default-deny"
 )
 
 var (
-	allowHTTPTypedConfig    = protoconv.MessageToAny(&httprbac.RBAC{})
-	allowNetworkTypedConfig = protoconv.MessageToAny(&networkrbac.RBAC{})
+	allowHTTPTypedConfig, _ = anypb.New(&httprbac.RBAC{
+		// no rules mean allow all.
+		RulesStatPrefix: DefaultAllowStatPrefix,
+	})
+
+	denyHTTPTypedConfig, _ = anypb.New(&httprbac.RBAC{
+		// empty rule means deny all.
+		Rules:           &rbacv3.RBAC{},
+		RulesStatPrefix: DefaultDenyStatPrefix,
+	})
+
+	allowNetworkTypeConfig, _ = anypb.New(&networkrbac.RBAC{
+		// no rules mean allow all.
+		StatPrefix: DefaultAllowStatPrefix,
+	})
+	denyNetworkTypedConfig, _ = anypb.New(&networkrbac.RBAC{
+		// empty rule means deny all.
+		Rules:      &rbacv3.RBAC{},
+		StatPrefix: DefaultDenyStatPrefix,
+	})
 )
 
-func createHTTPAllowAllFilter(name string) (*anypb.Any, error) {
+func createHTTPDefaultFilter(name string, failOpen bool) (*anypb.Any, error) {
+	var tc *anypb.Any
+	if failOpen {
+		tc = allowHTTPTypedConfig
+	} else {
+		tc = denyHTTPTypedConfig
+	}
 	ec := &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: allowHTTPTypedConfig,
+		TypedConfig: tc,
 	}
 	return anypb.New(ec)
 }
 
-func createNetworkAllowAllFilter(name string) (*anypb.Any, error) {
+func createNetworkDefaultFilter(name string, failOpen bool) (*anypb.Any, error) {
+	var tc *anypb.Any
+	if failOpen {
+		tc = allowNetworkTypeConfig
+	} else {
+		tc = denyNetworkTypedConfig
+	}
 	ec := &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: allowNetworkTypedConfig,
+		TypedConfig: tc,
 	}
 	return anypb.New(ec)
 }
@@ -96,12 +132,15 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 			if wasmHTTPConfig != nil {
 				newExtensionConfig, err := convertHTTPWasmConfigFromRemoteToLocal(extConfig, wasmHTTPConfig, cache)
 				if err != nil {
-					if !wasmHTTPConfig.GetConfig().GetFailOpen() {
-						convertErrs[i] = err
-						return
+					failOpen := httpWasmFailOpen(wasmHTTPConfig)
+					rbacFilter := "deny"
+					if failOpen {
+						rbacFilter = "allow"
 					}
+					wasmLog.Errorf("error in converting the wasm config to local: %v. applying %s RBAC filter", err, rbacFilter)
 					// Use NOOP filter because the download failed.
-					newExtensionConfig, err = createHTTPAllowAllFilter(extConfig.GetName())
+					// nolint: staticcheck // FailOpen deprecated
+					newExtensionConfig, err = createHTTPDefaultFilter(extConfig.GetName(), failOpen)
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
 						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
@@ -113,12 +152,15 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 			} else {
 				newExtensionConfig, err := convertNetworkWasmConfigFromRemoteToLocal(extConfig, wasmNetworkConfig, cache)
 				if err != nil {
-					if !wasmNetworkConfig.GetConfig().GetFailOpen() {
-						convertErrs[i] = err
-						return
+					failOpen := networkWasmFailOpen(wasmNetworkConfig)
+					rbacFilter := "deny"
+					if failOpen {
+						rbacFilter = "allow"
 					}
+					wasmLog.Errorf("error in converting the wasm config to local: %v. applying %s RBAC filter", err, rbacFilter)
+
 					// Use NOOP filter because the download failed.
-					newExtensionConfig, err = createNetworkAllowAllFilter(extConfig.GetName())
+					newExtensionConfig, err = createNetworkDefaultFilter(extConfig.GetName(), failOpen)
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
 						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
@@ -132,11 +174,29 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	}
 
 	wg.Wait()
-	err := multierror.Append(nil, convertErrs...).ErrorOrNil()
+	err := multierror.Append(istiomultierror.New(), convertErrs...).ErrorOrNil()
 	if err != nil {
-		wasmLog.Errorf("convert the wasm config: %v", err)
+		wasmLog.Errorf("error in applying failopen rbac config: %v", err)
 	}
 	return err
+}
+
+func httpWasmFailOpen(http *httpwasm.Wasm) bool {
+	if failurePolicy := http.GetConfig().FailurePolicy; failurePolicy != wasmextensions.FailurePolicy_UNSPECIFIED {
+		return failurePolicy == wasmextensions.FailurePolicy_FAIL_OPEN
+	}
+
+	// FailOpen deprecated
+	return http.GetConfig().GetFailOpen() // nolint: staticcheck
+}
+
+func networkWasmFailOpen(network *networkwasm.Wasm) bool {
+	if failurePolicy := network.GetConfig().FailurePolicy; failurePolicy != wasmextensions.FailurePolicy_UNSPECIFIED {
+		return failurePolicy == wasmextensions.FailurePolicy_FAIL_OPEN
+	}
+
+	// FailOpen deprecated
+	return network.GetConfig().GetFailOpen() // nolint: staticcheck
 }
 
 // tryUnmarshal returns the typed extension config and wasm config by unmarsharling `resource`,
@@ -155,29 +215,29 @@ func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *httpwasm.Wa
 	switch {
 	case ec.GetTypedConfig() == nil:
 		return nil, nil, nil, fmt.Errorf("typed extension config %+v does not contain any typed config", ec)
-	case ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType:
+	case ec.GetTypedConfig().TypeUrl == model.WasmHTTPFilterType:
 		if err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig); err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm HTTP filter: %w", err)
 		}
-	case ec.GetTypedConfig().TypeUrl == xds.WasmNetworkFilterType:
+	case ec.GetTypedConfig().TypeUrl == model.WasmNetworkFilterType:
 		wasmNetwork = true
 		if err := ec.GetTypedConfig().UnmarshalTo(wasmNetworkFilterConfig); err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm Network filter: %w", err)
 		}
-	case ec.GetTypedConfig().TypeUrl == xds.TypedStructType:
+	case ec.GetTypedConfig().TypeUrl == model.TypedStructType:
 		typedStruct := &udpa.TypedStruct{}
 		wasmTypedConfig := ec.GetTypedConfig()
 		if err := wasmTypedConfig.UnmarshalTo(typedStruct); err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to unmarshal typed config for wasm filter: %w", err)
 		}
 
-		if typedStruct.TypeUrl == xds.WasmHTTPFilterType {
-			if err := conversion.StructToMessage(typedStruct.Value, wasmHTTPFilterConfig); err != nil {
+		if typedStruct.TypeUrl == model.WasmHTTPFilterType {
+			if err := protomarshal.StructToMessageSlow(typedStruct.Value, wasmHTTPFilterConfig); err != nil {
 				return nil, nil, nil, fmt.Errorf("failed to convert extension config struct %+v to Wasm Network filter", typedStruct)
 			}
-		} else if typedStruct.TypeUrl == xds.WasmNetworkFilterType {
+		} else if typedStruct.TypeUrl == model.WasmNetworkFilterType {
 			wasmNetwork = true
-			if err := conversion.StructToMessage(typedStruct.Value, wasmNetworkFilterConfig); err != nil {
+			if err := protomarshal.StructToMessageSlow(typedStruct.Value, wasmNetworkFilterConfig); err != nil {
 				return nil, nil, nil, fmt.Errorf("failed to convert extension config struct %+v to Wasm HTTP filter", typedStruct)
 			}
 		} else {
@@ -285,7 +345,7 @@ func convertNetworkWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wa
 func rewriteVMConfig(resourceName string, vm *wasmextensions.VmConfig, status *string, cache Cache, configName string) error {
 	envs := vm.GetEnvironmentVariables()
 	var pullSecret []byte
-	pullPolicy := extensions.PullPolicy_UNSPECIFIED_POLICY
+	pullPolicy := Unspecified
 	resourceVersion := ""
 	if envs != nil {
 		if sec, found := envs.KeyValues[model.WasmSecretEnv]; found {
@@ -297,8 +357,8 @@ func rewriteVMConfig(resourceName string, vm *wasmextensions.VmConfig, status *s
 		}
 
 		if ps, found := envs.KeyValues[model.WasmPolicyEnv]; found {
-			if p, found := extensions.PullPolicy_value[ps]; found {
-				pullPolicy = extensions.PullPolicy(p)
+			if p, found := PullPolicyValues[ps]; found {
+				pullPolicy = p
 			}
 		}
 		resourceVersion = envs.KeyValues[model.WasmResourceVersionEnv]

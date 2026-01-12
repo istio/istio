@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+- |
+  **Updated** default value of the feature flag `VERIFY_CERT_AT_CLIENT` to true.
+  This means server certificates will be automatically verified using the OS CA certificates when not using a DestinationRule caCertificates field.
+  If undesired please use the new `compatibilityVersion` feature to fallback to old behavior, or `insecureSkipVerify`
+  field in DestinationRule to skip the verification.
+upgradeNotes:
+- title: Default value of the feature flag `VERIFY_CERT_AT_CLIENT` is set to true
+  content: |
+    This means server certificates will be automatically verified using the OS CA certificates when not using a DestinationRule caCertificates field.
+    If undesired please use the new `compatibilityVersion` feature to fallback to old behavior, or `insecureSkipVerify`
+    field in DestinationRule to skip the verification.
+

@@ -23,7 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -46,7 +46,7 @@ type networkManager struct {
 	ranger    cidranger.Ranger
 	clusterID cluster.ID
 
-	gatewayResourceClient kclient.Informer[*v1beta1.Gateway]
+	gatewayResourceClient kclient.Informer[*gatewayv1.Gateway]
 	meshNetworksWatcher   mesh.NetworksWatcher
 
 	// Network name for to be used when the meshNetworks fromRegistry nor network label on pod is specified
@@ -82,10 +82,8 @@ func initNetworkManager(c *Controller, options Options) *networkManager {
 		discoverRemoteGatewayResources: options.ConfigCluster,
 	}
 	// initialize the gateway resource client when any feature that uses it is enabled
-	if features.MultiNetworkGatewayAPI || features.EnableAmbientControllers {
-		n.gatewayResourceClient = kclient.NewDelayedInformer[*v1beta1.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
-	}
 	if features.MultiNetworkGatewayAPI {
+		n.gatewayResourceClient = kclient.NewDelayedInformer[*gatewayv1.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
 		// conditionally register this handler
 		registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
 	}
@@ -156,12 +154,10 @@ func (c *Controller) onNetworkChange() {
 	if err := c.endpoints.initializeNamespace(metav1.NamespaceAll, true); err != nil {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
-	c.reloadNetworkGateways()
-	// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
-	// With this, the pod do not need to restart when the network configuration changes.
-	if features.EnableAmbientControllers {
-		c.syncAllWorkloadsForAmbient()
+	if c.reloadNetworkGateways() {
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
 	}
+	c.NotifyGatewayHandlers()
 }
 
 // reloadMeshNetworks will read the mesh networks configuration to setup
@@ -169,7 +165,6 @@ func (c *Controller) onNetworkChange() {
 func (n *networkManager) reloadMeshNetworks() {
 	n.Lock()
 	defer n.Unlock()
-	n.networkFromMeshConfig = ""
 	ranger := cidranger.NewPCTrieRanger()
 
 	n.networkFromMeshConfig = ""
@@ -247,7 +242,7 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 // extractGatewaysFromService checks if the service is a cross-network gateway
 // and if it is, updates the controller's gateways.
 func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
-	changed := c.extractGatewaysInner(svc)
+	changed := c.networkManager.extractGatewaysInner(svc)
 	if changed {
 		c.NotifyGatewayHandlers()
 	}
@@ -255,27 +250,23 @@ func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
 }
 
 // reloadNetworkGateways performs extractGatewaysFromService for all services registered with the controller.
+// It returns whether there is a gateway changed.
 // It is called only by `onNetworkChange`.
 // It iterates over all services, because mesh networks can be set with a service name.
-func (c *Controller) reloadNetworkGateways() {
+func (c *Controller) reloadNetworkGateways() bool {
 	c.Lock()
-	gwsChanged := false
+	defer c.Unlock()
+	gwChanged := false
 	for _, svc := range c.servicesMap {
 		if c.extractGatewaysInner(svc) {
-			gwsChanged = true
-			break
+			gwChanged = true
 		}
 	}
-	c.Unlock()
-	if gwsChanged {
-		c.NotifyGatewayHandlers()
-		// TODO ConfigUpdate via gateway handler
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
-	}
+	return gwChanged
 }
 
-// extractGatewaysInner performs the logic for extractGatewaysFromService without locking the controller.
-// Returns true if any gateways changed.
+// extractGatewaysInner updates the gateway address inferred from the service.
+// Returns true if any gateway address changed.
 func (n *networkManager) extractGatewaysInner(svc *model.Service) bool {
 	n.Lock()
 	defer n.Unlock()
@@ -321,19 +312,43 @@ func (n *networkManager) extractGatewaysInner(svc *model.Service) bool {
 
 // getGatewayDetails returns gateways without the address populated, only the network and (unmapped) port for a given service.
 func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGateway {
-	// TODO should we start checking if svc's Ports contain the gateway port?
+	// We have different types of E/W gateways - those that use mTLS (those are used in sidecar mode when talking cross networks)
+	// and those that use double-HBONE (those are used in ambient mode when talking cross cluster). A gateway service may or may
+	// not listen on the mTLS (15443, by default) or HBONE (15008) ports, depending on the mode of operation used by the mesh
+	// in the remote cluster. We should not use gateways that don't really listen on the right port.
 
 	// label based gateways
 	// TODO label based gateways could support being the gateway for multiple networks
 	if nw := svc.Attributes.Labels[label.TopologyNetwork.Name]; nw != "" {
+		hbonePort := DefaultNetworkGatewayHBONEPort
+		gwPort := DefaultNetworkGatewayPort
+
 		if gwPortStr := svc.Attributes.Labels[label.NetworkingGatewayPort.Name]; gwPortStr != "" {
-			if gwPort, err := strconv.Atoi(gwPortStr); err == nil {
-				return []model.NetworkGateway{{Port: uint32(gwPort), Network: network.ID(nw)}}
+			port, err := strconv.Atoi(gwPortStr)
+			if err != nil {
+				log.Warnf("could not parse %q for %s on %s/%s; defaulting to %d",
+					gwPortStr, label.NetworkingGatewayPort.Name, svc.Attributes.Namespace, svc.Attributes.Name, DefaultNetworkGatewayPort)
+			} else {
+				gwPort = port
 			}
-			log.Warnf("could not parse %q for %s on %s/%s; defaulting to %d",
-				gwPortStr, label.NetworkingGatewayPort.Name, svc.Attributes.Namespace, svc.Attributes.Name, DefaultNetworkGatewayPort)
 		}
-		return []model.NetworkGateway{{Port: DefaultNetworkGatewayPort, Network: network.ID(nw)}}
+
+		_, acceptMTLS := svc.Ports.GetByPort(gwPort)
+		_, acceptHBONE := svc.Ports.GetByPort(hbonePort)
+
+		if !acceptMTLS && !acceptHBONE {
+			log.Warnf("service %s/%s is labeled as gateway, but does not listen neither on port %d nor on port %d",
+				svc.Attributes.Namespace, svc.Attributes.Name, gwPort, hbonePort)
+			return nil
+		}
+
+		if !acceptMTLS {
+			gwPort = 0
+		}
+		if !acceptHBONE {
+			hbonePort = 0
+		}
+		return []model.NetworkGateway{{Port: uint32(gwPort), HBONEPort: uint32(hbonePort), Network: network.ID(nw)}}
 	}
 
 	// meshNetworks registryServiceName+fromRegistry
@@ -348,7 +363,7 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 // handleGateway resource adds a NetworkGateway for each combination of address and auto-passthrough listener
 // discovering duplicates from the generated Service is not a huge concern as we de-duplicate in NetworkGateways
 // which returns a set, although it's not totally efficient.
-func (n *networkManager) handleGatewayResource(_ *v1beta1.Gateway, gw *v1beta1.Gateway, event model.Event) error {
+func (n *networkManager) handleGatewayResource(_ *gatewayv1.Gateway, gw *gatewayv1.Gateway, event model.Event) error {
 	if nw := gw.GetLabels()[label.TopologyNetwork.Name]; nw == "" {
 		return nil
 	}
@@ -377,20 +392,24 @@ func (n *networkManager) handleGatewayResource(_ *v1beta1.Gateway, gw *v1beta1.G
 		return nil
 	}
 
-	autoPassthrough := func(l v1beta1.Listener) bool {
+	autoPassthrough := func(l gatewayv1.Listener) bool {
 		return kube.IsAutoPassthrough(gw.GetLabels(), l)
 	}
 
 	base := model.NetworkGateway{
 		Network: network.ID(gw.GetLabels()[label.TopologyNetwork.Name]),
 		Cluster: n.clusterID,
+		ServiceAccount: types.NamespacedName{
+			Namespace: gw.Namespace,
+			Name:      kube.GatewaySA(gw),
+		},
 	}
 	newGateways := model.NetworkGatewaySet{}
 	for _, addr := range gw.Spec.Addresses {
 		if addr.Type == nil {
 			continue
 		}
-		if addrType := *addr.Type; addrType != v1beta1.IPAddressType && addrType != v1beta1.HostnameAddressType {
+		if addrType := *addr.Type; addrType != gatewayv1.IPAddressType && addrType != gatewayv1.HostnameAddressType {
 			continue
 		}
 		for _, l := range slices.Filter(gw.Spec.Listeners, autoPassthrough) {
@@ -398,6 +417,15 @@ func (n *networkManager) handleGatewayResource(_ *v1beta1.Gateway, gw *v1beta1.G
 			networkGateway.Addr = addr.Value
 			networkGateway.Port = uint32(l.Port)
 			newGateways.Insert(networkGateway)
+		}
+		for _, l := range gw.Spec.Listeners {
+			if l.Protocol == "HBONE" {
+				networkGateway := base
+				networkGateway.Addr = addr.Value
+				networkGateway.Port = uint32(l.Port)
+				networkGateway.HBONEPort = uint32(l.Port)
+				newGateways.Insert(networkGateway)
+			}
 		}
 	}
 	n.gatewaysFromResource[gw.UID] = newGateways

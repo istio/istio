@@ -176,13 +176,10 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	fc := []*hcm.HttpFilter{}
 	// See security/authz/builder and grpc internal/xds/rbac
 	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
-	selectionOpts := model.WorkloadSelectionOpts{
-		Namespace:      node.ConfigNamespace,
-		WorkloadLabels: node.Labels,
-	}
+	selectionOpts := model.PolicyMatcherForProxy(node)
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	if len(policies.Deny)+len(policies.Allow) > 0 {
-		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
+		rules := buildRBAC(rbacpb.RBAC_DENY, policies.Deny)
 		if rules != nil && len(rules.Policies) > 0 {
 			rbac := &rbachttp.RBAC{
 				Rules: rules,
@@ -193,7 +190,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 				})
 		}
-		arules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_ALLOW, policies.Allow)
+		arules := buildRBAC(rbacpb.RBAC_ALLOW, policies.Allow)
 		if arules != nil && len(arules.Policies) > 0 {
 			rbac := &rbachttp.RBAC{
 				Rules: arules,
@@ -257,11 +254,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 //
 // For gateways it would make a lot of sense to use this concept, same for moving path prefix at top level ( more scalable, easier for users)
 // This should probably be done for the v2 API.
-//
-// nolint: unparam
-func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext,
-	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy,
-) *rbacpb.RBAC {
+func buildRBAC(a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy) *rbacpb.RBAC {
 	rules := &rbacpb.RBAC{
 		Action:   a,
 		Policies: map[string]*rbacpb.Policy{},
@@ -269,7 +262,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 	for _, policy := range policies {
 		for i, rule := range policy.Spec.Rules {
 			name := fmt.Sprintf("%s-%s-%d", policy.Namespace, policy.Name, i)
-			m, err := authzmodel.New(rule, true)
+			m, err := authzmodel.New(policy.NamespacedName(), rule)
 			if err != nil {
 				log.Warnf("Invalid rule %v: %v", rule, err)
 				continue

@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
@@ -42,10 +43,13 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	proxyConfig "istio.io/api/networking/v1beta1"
-	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	opconfig "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
@@ -58,15 +62,15 @@ const (
 	// InjectionPolicyDisabled specifies that the sidecar injector
 	// will not inject the sidecar into resources by default for the
 	// namespace(s) being watched. Resources can enable injection
-	// using the "sidecar.istio.io/inject" annotation with value of
-	// true.
+	// using the "sidecar.istio.io/inject" label with value of
+	// "true".
 	InjectionPolicyDisabled InjectionPolicy = "disabled"
 
 	// InjectionPolicyEnabled specifies that the sidecar injector will
 	// inject the sidecar into resources by default for the
 	// namespace(s) being watched. Resources can disable injection
-	// using the "sidecar.istio.io/inject" annotation with value of
-	// false.
+	// using the "sidecar.istio.io/inject" label with value of
+	// "false".
 	InjectionPolicyEnabled InjectionPolicy = "enabled"
 )
 
@@ -90,24 +94,27 @@ const (
 	ImageTypeDebug = "debug"
 	// ImageTypeDistroless is the suffix of the distroless image.
 	ImageTypeDistroless = "distroless"
-	// ImageTypeDefault is the type name of the default image, sufix is elided.
+	// ImageTypeDefault is the type name of the default image, suffix is elided.
 	ImageTypeDefault = "default"
 )
 
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
-	TypeMeta       metav1.TypeMeta
-	DeploymentMeta metav1.ObjectMeta
-	ObjectMeta     metav1.ObjectMeta
-	Spec           corev1.PodSpec
-	ProxyConfig    *meshconfig.ProxyConfig
-	MeshConfig     *meshconfig.MeshConfig
-	Values         map[string]any
-	Revision       string
-	ProxyImage     string
-	ProxyUID       int64
-	ProxyGID       int64
+	TypeMeta                 metav1.TypeMeta
+	DeploymentMeta           types.NamespacedName
+	ObjectMeta               metav1.ObjectMeta
+	Spec                     corev1.PodSpec
+	ProxyConfig              *meshconfig.ProxyConfig
+	MeshConfig               *meshconfig.MeshConfig
+	Values                   map[string]any
+	Revision                 string
+	NativeSidecars           bool
+	ProxyImage               string
+	ProxyUID                 int64
+	ProxyGID                 int64
+	InboundTrafficPolicyMode string
+	CompliancePolicy         string
 }
 
 type (
@@ -118,6 +125,7 @@ type (
 
 type Injector interface {
 	Inject(pod *corev1.Pod, namespace string) ([]byte, error)
+	GetKubeClient() kube.Client
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -189,6 +197,7 @@ func UnmarshalConfig(yml []byte) (Config, error) {
 }
 
 func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata metav1.ObjectMeta) bool { // nolint: lll
+	log := log.WithLabels("pod", metadata.Namespace+"/"+potentialPodName(metadata))
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -216,11 +225,16 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		// The label is the new API; if both are present we prefer the label
 		objectSelector = lbl
 	}
-	switch strings.ToLower(objectSelector) {
-	// http://yaml.org/type/bool.html
-	case "y", "yes", "true", "on":
+	switch objectSelector {
+	case "true":
 		inject = true
+	case "false":
+		inject = false
 	case "":
+		useDefault = true
+	default:
+		log.Warnf("Invalid value for %s: %q. Only 'true' and 'false' are accepted. Falling back to default injection policy.",
+			label.SidecarInject.Name, objectSelector)
 		useDefault = true
 	}
 
@@ -311,7 +325,7 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
 	}
 
-	imageType := ""
+	imageType := global.GetVariant()
 	if image != nil {
 		imageType = image.ImageType
 	}
@@ -325,6 +339,39 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	}
 
 	return imageURL(global.GetHub(), imageName, tag, imageType)
+}
+
+// AgentgatewayImage constructs image url
+func AgentgatewayImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
+	imageName := "agentgateway"
+	global := values.GetGlobal()
+
+	tag := ""
+	if global.GetTag() != nil { // Tag is an interface but we need the string form.
+		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
+	}
+
+	// Agentgateway does not use variants, but we still publish them for consistency so use it
+	imageType := global.GetVariant()
+	if image != nil {
+		imageType = image.ImageType
+	}
+
+	if it, ok := annotations["gateway.istio.io/agentgatewayImage"]; ok {
+		imageType = it
+	}
+
+	return imageURL(global.GetHub(), imageName, tag, imageType)
+}
+
+func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
+	switch meshConfig.GetInboundTrafficPolicy().GetMode() {
+	case meshconfig.MeshConfig_InboundTrafficPolicy_LOCALHOST:
+		return "localhost"
+	case meshconfig.MeshConfig_InboundTrafficPolicy_PASSTHROUGH:
+		return "passthrough"
+	}
+	return "passthrough"
 }
 
 // imageURL creates url from parts.
@@ -359,17 +406,8 @@ func updateImageTypeIfPresent(tag string, imageType string) string {
 	return tag + "-" + imageType
 }
 
-// RunTemplate renders the sidecar template
-// Returns the raw string template, as well as the parse pod form
-func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
+func extractClusterAndNetwork(params InjectionParameters) (string, string) {
 	metadata := &params.pod.ObjectMeta
-	meshConfig := params.meshConfig
-
-	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
-		log.Errorf("Injection failed due to invalid annotations: %v", err)
-		return nil, nil, err
-	}
-
 	cluster := params.valuesConfig.asStruct.GetGlobal().GetMultiCluster().GetClusterName()
 	// TODO allow overriding the values.global network in injection with the system namespace label
 	network := params.valuesConfig.asStruct.GetGlobal().GetNetwork()
@@ -384,6 +422,21 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	if n, ok := metadata.Labels[label.TopologyNetwork.Name]; ok {
 		network = n
 	}
+	return cluster, network
+}
+
+// RunTemplate renders the sidecar template
+// Returns the raw string template, as well as the parse pod form
+func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
+	metadata := &params.pod.ObjectMeta
+	meshConfig := params.meshConfig
+
+	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
+		log.Errorf("Injection failed due to invalid annotations: %v", err)
+		return nil, nil, err
+	}
+
+	cluster, network := extractClusterAndNetwork(params)
 
 	// use network in values for template, and proxy env variables
 	if cluster != "" {
@@ -400,18 +453,25 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 
 	proxyUID, proxyGID := GetProxyIDs(params.namespace)
 
+	// When changing this, make sure to change TemplateInput in deploymentcontroller.go
 	data := SidecarTemplateData{
-		TypeMeta:       params.typeMeta,
-		DeploymentMeta: params.deployMeta,
-		ObjectMeta:     strippedPod.ObjectMeta,
-		Spec:           strippedPod.Spec,
-		ProxyConfig:    params.proxyConfig,
-		MeshConfig:     meshConfig,
-		Values:         params.valuesConfig.asMap,
-		Revision:       params.revision,
-		ProxyImage:     ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
-		ProxyUID:       proxyUID,
-		ProxyGID:       proxyGID,
+		TypeMeta:                 params.typeMeta,
+		DeploymentMeta:           params.deployMeta,
+		ObjectMeta:               strippedPod.ObjectMeta,
+		Spec:                     strippedPod.Spec,
+		ProxyConfig:              params.proxyConfig,
+		MeshConfig:               meshConfig,
+		Values:                   params.valuesConfig.asMap,
+		Revision:                 params.revision,
+		ProxyImage:               ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		NativeSidecars:           params.nativeSidecar,
+		ProxyUID:                 proxyUID,
+		ProxyGID:                 proxyGID,
+		InboundTrafficPolicyMode: InboundTrafficPolicyMode(meshConfig),
+		CompliancePolicy:         common_features.CompliancePolicy,
+	}
+	if params.valuesConfig.asMap == nil {
+		return nil, nil, fmt.Errorf("failed to parse values.yaml; check Istiod logs for errors")
 	}
 
 	mergedPod = params.pod
@@ -436,7 +496,14 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		// these will be in the `containers` field.
 		// So if we see the proxy container in `containers` in the original pod, and in `initContainers` in the template pod,
 		// move the container.
-		if features.EnableNativeSidecars.Get() &&
+		// The sidecar.istio.io/nativeSidecar annotation takes precedence over the global feature flag.
+		native := params.nativeSidecar
+		if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "true" {
+			native = true
+		} else if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "false" {
+			native = false
+		}
+		if native &&
 			FindContainer(ProxyContainerName, templatePod.Spec.InitContainers) != nil &&
 			FindContainer(ProxyContainerName, mergedPod.Spec.Containers) != nil {
 			mergedPod = mergedPod.DeepCopy()
@@ -621,7 +688,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 ) (any, error) {
 	out := in.DeepCopyObject()
 
-	var deploymentMetadata metav1.ObjectMeta
+	var deploymentMetadata types.NamespacedName
 	var metadata *metav1.ObjectMeta
 	var podSpec *corev1.PodSpec
 	var typeMeta metav1.TypeMeta
@@ -658,7 +725,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 		job := v
 		typeMeta = job.TypeMeta
 		metadata = &job.Spec.JobTemplate.ObjectMeta
-		deploymentMetadata = job.ObjectMeta
+		deploymentMetadata = config.NamespacedName(job)
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
 	case *corev1.Pod:
 		pod := v
@@ -669,7 +736,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	case *appsv1.Deployment: // Added to be explicit about the most expected case
 		deploy := v
 		typeMeta = deploy.TypeMeta
-		deploymentMetadata = deploy.ObjectMeta
+		deploymentMetadata = config.NamespacedName(deploy)
 		metadata = &deploy.Spec.Template.ObjectMeta
 		podSpec = &deploy.Spec.Template.Spec
 	default:
@@ -678,7 +745,8 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 
 		typeMeta = outValue.FieldByName("TypeMeta").Interface().(metav1.TypeMeta)
 
-		deploymentMetadata = outValue.FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
+		om := outValue.FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
+		deploymentMetadata = types.NamespacedName{Name: om.GetName(), Namespace: om.GetNamespace()}
 
 		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
 		// `Template` is defined as a pointer in some older API
@@ -761,6 +829,16 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			warningHandler(warningStr)
 			return out, nil
 		}
+
+		var nativeSidecar bool
+		if injector != nil && injector.GetKubeClient() != nil {
+			nodes := kclient.New[*corev1.Node](injector.GetKubeClient())
+			nativeSidecar = DetectNativeSidecar(nodes, pod.Spec.NodeName)
+		} else {
+			// if injector or client is nil, enable native sidecars if the feature is explicitly enabled
+			nativeSidecar = (features.EnableNativeSidecars == features.NativeSidecarModeEnabled)
+		}
+
 		params := InjectionParameters{
 			pod:        pod,
 			deployMeta: deploymentMetadata,
@@ -771,6 +849,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			meshConfig:          meshconfig,
 			proxyConfig:         meshconfig.GetDefaultConfig(),
 			valuesConfig:        valuesConfig,
+			nativeSidecar:       nativeSidecar,
 			revision:            revision,
 			proxyEnvs:           map[string]string{},
 			injectedAnnotations: nil,
@@ -874,7 +953,7 @@ func GetProxyIDs(namespace *corev1.Namespace) (uid int64, gid int64) {
 	gid = constants.DefaultProxyUIDInt
 
 	if namespace == nil {
-		return
+		return uid, gid
 	}
 
 	// Check for OpenShift specifics and returns the max number in the range specified in the namespace annotation
@@ -885,5 +964,5 @@ func GetProxyIDs(namespace *corev1.Namespace) (uid int64, gid int64) {
 		gid = groups[0].Max
 	}
 
-	return
+	return uid, gid
 }

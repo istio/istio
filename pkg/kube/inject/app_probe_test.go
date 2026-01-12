@@ -185,7 +185,7 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 }`,
 		},
 		{
-			name: "gRPC startup probe with service and timeout",
+			name: "gRPC startup probe with service and timeout including a http lifecycle handler",
 			pod: &corev1.Pod{Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
@@ -199,18 +199,38 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 							},
 							TimeoutSeconds: 10,
 						},
+						Lifecycle: &corev1.Lifecycle{
+							PreStop: &corev1.LifecycleHandler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/foo",
+									Port: intstr.IntOrString{
+										IntVal: 1234,
+									},
+									Host:   "foo",
+									Scheme: "HTTP",
+								},
+							},
+						},
 					},
 				},
 			}},
 			expected: `
 {
-    "/app-health/foo/startupz": {
-        "grpc": {
-            "port": 1234,
-            "service": "foo"
-        },
-        "timeoutSeconds": 10
+  "/app-health/foo/startupz": {
+    "grpc": {
+      "port": 1234,
+      "service": "foo"
+    },
+    "timeoutSeconds": 10
+  },
+  "/app-lifecycle/foo/prestopz": {
+    "httpGet": {
+      "path": "/foo",
+      "port": 1234,
+      "host": "foo",
+      "scheme": "HTTP"
     }
+  }
 }`,
 		},
 	} {

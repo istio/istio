@@ -110,10 +110,6 @@ func (s *FakeStore) Update(cfg config.Config) (newRevision string, err error) {
 
 func (*FakeStore) UpdateStatus(config config.Config) (string, error) { return "", nil }
 
-func (*FakeStore) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	return "", nil
-}
-
 func (s *FakeStore) Delete(typ config.GroupVersionKind, name, namespace string, rv *string) error {
 	nsConfigs := s.store[typ]
 	if nsConfigs == nil {

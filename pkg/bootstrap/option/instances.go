@@ -16,12 +16,12 @@ package option
 
 import (
 	"strings"
+	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/model"
 )
 
 type (
@@ -101,6 +101,10 @@ func Localhost(value LocalhostValue) Instance {
 	return newOption("localhost", value)
 }
 
+func AdditionalLocalhost(value LocalhostValue) Instance {
+	return newOption("additional_localhost", value)
+}
+
 func Wildcard(value WildcardValue) Instance {
 	return newOption("wildcard", value)
 }
@@ -121,21 +125,20 @@ func OutlierLogPath(value string) Instance {
 	return newOptionOrSkipIfZero("outlier_log_path", value)
 }
 
+func CustomFileSDSPath(value string) Instance {
+	return newOptionOrSkipIfZero("custom_file_path", value)
+}
+
+func ApplicationLogJSON(value bool) Instance {
+	return newOption("log_json", value)
+}
+
 func LightstepAddress(value string) Instance {
 	return newOptionOrSkipIfZero("lightstep", value).withConvert(addressConverter(value))
 }
 
 func LightstepToken(value string) Instance {
 	return newOption("lightstepToken", value)
-}
-
-func OpenCensusAgentAddress(value string) Instance {
-	return newOptionOrSkipIfZero("openCensusAgent", value)
-}
-
-func OpenCensusAgentContexts(value []meshAPI.Tracing_OpenCensusAgent_TraceContext) Instance {
-	return newOption("openCensusAgentContexts", value).
-		withConvert(openCensusAgentContextConverter(value))
 }
 
 func StackDriverEnabled(value bool) Instance {
@@ -229,6 +232,10 @@ func EnvoyStatusPort(value int) Instance {
 	return newOption("envoy_status_port", value)
 }
 
+func EnvoyStatusPortEnableProxyProtocol(value bool) Instance {
+	return newOption("envoy_status_port_enable_proxy_protocol", value)
+}
+
 func EnvoyPrometheusPort(value int) Instance {
 	return newOption("envoy_prometheus_port", value)
 }
@@ -261,12 +268,24 @@ func MetadataDiscovery(value bool) Instance {
 	return newOption("metadata_discovery", value)
 }
 
+func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
+	value, ok := proxyMetadata["METRICS_LOCALHOST_ACCESS_ONLY"]
+	if ok && value == "true" {
+		return newOption("metrics_localhost_access_only", true)
+	}
+	return newOption("metrics_localhost_access_only", false)
+}
+
 func LoadStatsConfigJSONStr(node *model.Node) Instance {
 	// JSON string for configuring Load Reporting Service.
 	if json, ok := node.RawMetadata["LOAD_STATS_CONFIG_JSON"].(string); ok {
 		return newOption("load_stats_config_json_str", json)
 	}
 	return skipOption("load_stats_config_json_str")
+}
+
+func WorkloadIdentitySocketFile(value string) Instance {
+	return newOption("workload_identity_socket_file", value)
 }
 
 type HistogramMatch struct {
@@ -283,4 +302,12 @@ func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
 
 func EnvoyStatsCompression(value string) Instance {
 	return newOption("stats_compression", value)
+}
+
+func EnvoyStatsFlushInterval(interval time.Duration) Instance {
+	return newOption("stats_flush_interval", interval)
+}
+
+func EnvoyStatsEvictionInterval(interval *durationpb.Duration) Instance {
+	return newEnvoyDurationOption("stats_eviction_interval", interval)
 }

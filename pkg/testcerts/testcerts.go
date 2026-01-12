@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// This file was generated using openssl by the gencerts.sh script
+// This file was generated using openssl by the generate-certs.sh script
 // and holds raw certificates for the webhook tests.
 
 package testcerts
@@ -39,7 +39,7 @@ j4C2rMjvTxmkyIcR1uBEeVvuGU8R70nZ1yfo3vDwmNGMcLwW+4QK+WcfwfjLXhLs
 Fg72WnHeojDUhqEz4UyFZbnRJ4x6leQhnrIcVjWX4FFFktiO9rqqfw==
 -----END CERTIFICATE-----`)
 
-// BadCert is a abd x509 cert. Copied from crypto/x509/x509_test.go:1628
+// BadCert is a bad x509 cert. Copied from crypto/x509/x509_test.go:1628
 var BadCert = []byte(`
 -----BEGIN CERTIFICATE-----
 MIIC1jCCAb6gAwIBAgICEjQwDQYJKoZIhvcNAQELBQAwKDEmMCQGA1UEAxMdRW1w

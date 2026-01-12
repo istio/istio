@@ -3,8 +3,6 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
-      proxyMetadata: {}
-      tracing: {}
     defaultProviders:
       metrics:
       - prometheus
@@ -21,5 +19,3 @@ metadata:
     release: istio
   name: istio
   namespace: istio-system
-
----

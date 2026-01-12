@@ -3,7 +3,7 @@
 
 
 # Sidecar - no imports defined, isolated namespace.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: default
@@ -14,7 +14,7 @@ spec:
       - exampleegressgw/*
 ---
 # Test workload entry
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: workload
@@ -37,7 +37,7 @@ spec:
       tcplocal: 31200
 ---
 
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-svc-httpbin
@@ -53,7 +53,7 @@ spec:
   resolution: DNS
 
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
  name: istio-egressgateway
@@ -72,7 +72,7 @@ spec:
 #And the associated VirtualService to route from the sidecar to the
 #gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
 #well as route from the gateway to the external service.
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: gateway-routing

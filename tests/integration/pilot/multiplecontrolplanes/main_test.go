@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -21,6 +20,9 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -46,8 +48,10 @@ var (
 	echo1NS    namespace.Instance
 	echo2NS    namespace.Instance
 	echo3NS    namespace.Instance
+	sharedNS   namespace.Instance
 	externalNS namespace.Instance
-	apps       deployment.Echos
+	apps1      deployment.Echos
+	apps2      deployment.Echos
 )
 
 // TestMain defines the entrypoint for multiple controlplane tests using revisions and discoverySelectors.
@@ -58,6 +62,12 @@ func TestMain(m *testing.M) {
 		RequireMultiPrimary().
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
+		// We are deploying two isolated environments, which CNI doesn't support.
+		// We could deploy one of the usergroups as the CNI owner, but for now we skip
+		SkipIf("CNI is not supported", func(ctx resource.Context) bool {
+			c, _ := istio.DefaultConfig(ctx)
+			return c.EnableCNI
+		}).
 		SetupParallel(
 			namespace.Setup(&userGroup1NS, namespace.Config{Prefix: "usergroup-1", Labels: map[string]string{"usergroup": "usergroup-1"}}),
 			namespace.Setup(&userGroup2NS, namespace.Config{Prefix: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}})).
@@ -80,13 +90,11 @@ meshConfig:
   discoverySelectors:
     - matchLabels:
         usergroup: usergroup-1
+    - matchLabels:
+        usergroup: shared
 values:
   global:
-    istioNamespace: %s
-  pilot:
-    env:
-      # CR scoping is guarded by the feature flag
-      ENABLE_ENHANCED_RESOURCE_SCOPING: true`,
+    istioNamespace: %s`,
 				userGroup1NS.Name(), userGroup1NS.Name())
 		})).
 		Setup(istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
@@ -96,6 +104,11 @@ values:
 
 			cfg.Values["global.istioNamespace"] = userGroup2NS.Name()
 			cfg.SystemNamespace = userGroup2NS.Name()
+			cfg.EastWestGatewayValues = `
+values:
+  global:
+    trustBundleName: usergroup-2-ca-root-cert
+`
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 namespace: %s
 revision: usergroup-2
@@ -104,37 +117,53 @@ meshConfig:
   discoverySelectors:
     - matchLabels:
         usergroup: usergroup-2
+    - matchLabels:
+        usergroup: shared
 values:
   global:
+    trustBundleName: usergroup-2-ca-root-cert
     istioNamespace: %s
   pilot:
-    env:
-      # CR scoping is guarded by the feature flag
-      ENABLE_ENHANCED_RESOURCE_SCOPING: true`,
-				userGroup2NS.Name(), userGroup2NS.Name())
+    crlConfigMapName: usergroup-2-ca-crl`, userGroup2NS.Name(), userGroup2NS.Name())
 		})).
 		SetupParallel(
 			// application namespaces are labeled according to the required control plane ownership.
 			namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true, Revision: "usergroup-1", Labels: map[string]string{"usergroup": "usergroup-1"}}),
 			namespace.Setup(&echo2NS, namespace.Config{Prefix: "echo2", Inject: true, Revision: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}}),
 			namespace.Setup(&echo3NS, namespace.Config{Prefix: "echo3", Inject: true, Revision: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}}),
+			namespace.Setup(&sharedNS, namespace.Config{Prefix: "echo-shared", Inject: true, Revision: "usergroup-1", Labels: map[string]string{"usergroup": "shared"}}),
 			namespace.Setup(&externalNS, namespace.Config{Prefix: "external", Inject: false})).
 		SetupParallel(
-			deployment.Setup(&apps, deployment.Config{
+			deployment.Setup(&apps1, deployment.Config{
 				Namespaces: []namespace.Getter{
 					namespace.Future(&echo1NS),
-					namespace.Future(&echo2NS),
-					namespace.Future(&echo3NS),
+					namespace.Future(&sharedNS),
 				},
 				ExternalNamespace: namespace.Future(&externalNS),
+				// we're using the ServiceNamePrefix field to prefix service names, as we deploy two echo instances to the sharedNS namespace
+				ServiceNamePrefix: "usergroup-1-",
 			})).
+		Setup(func(ctx resource.Context) error {
+			return sharedNS.SetLabel("istio.io/rev", "usergroup-2")
+		}).
+		Setup(func(ctx resource.Context) error {
+			return deployment.Setup(&apps2, deployment.Config{
+				Namespaces: []namespace.Getter{
+					namespace.Future(&echo2NS),
+					namespace.Future(&echo3NS),
+					namespace.Future(&sharedNS),
+				},
+				ExternalNamespace: namespace.Future(&externalNS),
+				// we're using the ServiceNamePrefix field to prefix service names, as we deploy two echo instances to the sharedNS namespace
+				ServiceNamePrefix: "usergroup-2-",
+			})(ctx)
+		}).
 		Run()
 }
 
 // TestMultiControlPlane sets up two distinct istio control planes and verify if resources and traffic are properly isolated
 func TestMultiControlPlane(t *testing.T) {
 	framework.NewTest(t).
-		Features("installation.multiplecontrolplanes").
 		Run(func(t framework.TestContext) {
 			// configure peerauthentication per system namespace
 			restrictUserGroups(t)
@@ -148,26 +177,44 @@ func TestMultiControlPlane(t *testing.T) {
 				{
 					name:       "workloads within same usergroup can communicate, same namespace",
 					statusCode: http.StatusOK,
-					from:       apps.NS[0].A,
-					to:         apps.NS[0].B,
+					from:       apps1.NS[0].A,
+					to:         apps1.NS[0].B,
 				},
 				{
 					name:       "workloads within same usergroup can communicate, different namespaces",
 					statusCode: http.StatusOK,
-					from:       apps.NS[1].A,
-					to:         apps.NS[2].B,
+					from:       apps2.NS[0].A,
+					to:         apps2.NS[1].B,
+				},
+				{
+					name:       "workloads within same usergroup can communicate, different namespaces, one of them shared",
+					statusCode: http.StatusOK,
+					from:       apps2.NS[0].A,
+					to:         apps2.NS[2].B,
+				},
+				{
+					name:       "workloads within same usergroup can communicate, shared namespace",
+					statusCode: http.StatusOK,
+					from:       apps1.NS[1].A,
+					to:         apps1.NS[1].B,
 				},
 				{
 					name:       "workloads within different usergroups cannot communicate, registry only",
 					statusCode: http.StatusBadGateway,
-					from:       apps.NS[0].A,
-					to:         apps.NS[1].B,
+					from:       apps1.NS[0].A,
+					to:         apps2.NS[0].B,
 				},
 				{
 					name:       "workloads within different usergroups cannot communicate, default passthrough",
 					statusCode: http.StatusServiceUnavailable,
-					from:       apps.NS[2].B,
-					to:         apps.NS[0].B,
+					from:       apps2.NS[1].B,
+					to:         apps1.NS[0].B,
+				},
+				{
+					name:       "workloads within different usergroups cannot communicate, shared namespace",
+					statusCode: http.StatusServiceUnavailable,
+					from:       apps2.NS[2].B,
+					to:         apps1.NS[1].B,
 				},
 			}
 
@@ -191,10 +238,9 @@ func TestMultiControlPlane(t *testing.T) {
 // TestCustomResourceScoping sets up a CustomResource and verifies that the configuration is not leaked to namespaces owned by a different control plane
 func TestCustomResourceScoping(t *testing.T) {
 	framework.NewTest(t).
-		Features("installation.multiplecontrolplanes").
 		Run(func(t framework.TestContext) {
 			// allow access to external service only for app-ns-2 namespace which is under usergroup-2
-			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name(), "usergroup-2")
+			allowExternalService(t, apps2.NS[0].Namespace.Name(), externalNS.Name(), "usergroup-2")
 
 			testCases := []struct {
 				name       string
@@ -204,25 +250,25 @@ func TestCustomResourceScoping(t *testing.T) {
 				{
 					name:       "workloads in SE configured namespace can reach external service",
 					statusCode: http.StatusOK,
-					from:       apps.NS[1].A,
+					from:       apps2.NS[0].A,
 				},
 				{
 					name:       "workloads in non-SE configured namespace, but same usergroup can reach external service",
 					statusCode: http.StatusOK,
-					from:       apps.NS[2].A,
+					from:       apps2.NS[1].A,
 				},
 				{
 					name:       "workloads in non-SE configured usergroup cannot reach external service",
 					statusCode: http.StatusBadGateway,
-					from:       apps.NS[0].A,
+					from:       apps1.NS[0].A,
 				},
 			}
 			for _, tc := range testCases {
 				t.NewSubTestf(tc.name).Run(func(t framework.TestContext) {
 					tc.from[0].CallOrFail(t, echo.CallOptions{
-						Address: apps.External.All[0].Address(),
+						Address: apps1.External.All[0].Address(),
 						HTTP: echo.HTTP{
-							Headers: HostHeader(apps.External.All[0].Config().DefaultHostHeader),
+							Headers: HostHeader(apps1.External.All[0].Config().DefaultHostHeader),
 						},
 						Port:   echo.Port{Name: "http", ServicePort: 80},
 						Scheme: scheme.HTTP,
@@ -230,6 +276,55 @@ func TestCustomResourceScoping(t *testing.T) {
 							check.ErrorOrStatus(tc.statusCode),
 						),
 					})
+				})
+			}
+		})
+}
+
+// TestCRLConfigMapNames verifies that CRL ConfigMaps are correctly propagated to workload namespaces
+func TestCRLConfigMapNames(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			testCases := []struct {
+				name           string
+				namespace      namespace.Instance
+				shouldExist    []string
+				shouldNotExist []string
+			}{
+				{
+					name:           "echo1 namespace has default CRL ConfigMap",
+					namespace:      echo1NS,
+					shouldExist:    []string{"istio-ca-crl"},
+					shouldNotExist: []string{"usergroup-2-ca-crl"},
+				},
+				{
+					name:           "echo2 namespace has custom CRL ConfigMap",
+					namespace:      echo2NS,
+					shouldExist:    []string{"usergroup-2-ca-crl"},
+					shouldNotExist: []string{"istio-ca-crl"},
+				},
+				{
+					name:           "shared namespace has both CRL ConfigMaps",
+					namespace:      sharedNS,
+					shouldExist:    []string{"istio-ca-crl", "usergroup-2-ca-crl"},
+					shouldNotExist: []string{},
+				},
+			}
+
+			for _, tc := range testCases {
+				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					for _, cm := range tc.shouldExist {
+						_, err := t.Clusters().Default().Kube().CoreV1().ConfigMaps(tc.namespace.Name()).Get(t.Context(), cm, metav1.GetOptions{})
+						if err != nil {
+							t.Fatalf("%s should exist in %s: %v", cm, tc.namespace.Name(), err)
+						}
+					}
+					for _, cm := range tc.shouldNotExist {
+						_, err := t.Clusters().Default().Kube().CoreV1().ConfigMaps(tc.namespace.Name()).Get(t.Context(), cm, metav1.GetOptions{})
+						if err == nil || !k8serrors.IsNotFound(err) {
+							t.Fatalf("%s should not exist in %s", cm, tc.namespace.Name())
+						}
+					}
 				})
 			}
 		})
@@ -243,7 +338,7 @@ func restrictUserGroups(t framework.TestContext) {
 	for _, ns := range []string{userGroup1NS.Name(), userGroup2NS.Name()} {
 		t.ConfigIstio().Eval(ns, map[string]any{
 			"Namespace": ns,
-		}, `apiVersion: security.istio.io/v1beta1
+		}, `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: "usergroup-peerauth"
@@ -259,7 +354,7 @@ func allowExternalService(t framework.TestContext, ns string, externalNs string,
 	t.ConfigIstio().Eval(ns, map[string]any{
 		"Namespace": externalNs,
 		"Revision":  revision,
-	}, `apiVersion: networking.istio.io/v1alpha3
+	}, `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-service

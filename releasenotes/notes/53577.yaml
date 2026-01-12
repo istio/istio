@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: [53577]
+releaseNotes:
+  - |
+    **Added** Istiod environment variable `PILOT_DNS_CARES_UDP_MAX_QUERIES` that controls the `udp_max_queries` field of Envoy's default Cares DNS resolver.
+    This value defaults to 100 when unset.
+    For more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/network/dns_resolver/cares/v3/cares_dns_resolver.proto#envoy-v3-api-field-extensions-network-dns-resolver-cares-v3-caresdnsresolverconfig-udp-max-queries

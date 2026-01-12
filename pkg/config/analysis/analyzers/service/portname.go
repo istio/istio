@@ -19,6 +19,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -61,9 +62,10 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Context) {
 	svc := r.Message.(*v1.ServiceSpec)
 	// Skip gateway managed services, which are not created by users
-	if v, ok := r.Metadata.Labels[constants.ManagedGatewayLabel]; ok &&
+	if v, ok := r.Metadata.Labels[label.GatewayManaged.Name]; ok &&
 		v == constants.ManagedGatewayControllerLabel ||
-		v == constants.ManagedGatewayMeshControllerLabel {
+		v == constants.ManagedGatewayMeshControllerLabel ||
+		v == constants.ManagedGatewayEastWestControllerLabel {
 		return
 	}
 	for i, port := range svc.Ports {

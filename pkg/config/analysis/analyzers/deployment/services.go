@@ -15,12 +15,14 @@ package deployment
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -70,7 +72,7 @@ func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 }
 
 func isWaypointDeployment(r *resource.Instance) bool {
-	return r.Metadata.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel
+	return r.Metadata.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel
 }
 
 // analyzeDeploymentPortProtocol analyzes the specific service mesh deployment
@@ -93,6 +95,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.I
 			for protocol := range protMap {
 				svcNames = append(svcNames, protMap[protocol]...)
 			}
+			sort.Strings(svcNames)
 			m := msg.NewDeploymentAssociatedToMultipleServices(r, r.Metadata.FullName.Name.String(), port, svcNames)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
@@ -122,6 +125,11 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.In
 				svcNames = append(svcNames, s)
 				ports = append(ports, p)
 			}
+
+			sort.Strings(svcNames)
+			sort.Slice(ports, func(i, j int) bool {
+				return ports[i] < ports[j]
+			})
 			m := msg.NewDeploymentConflictingPorts(r, r.Metadata.FullName.Name.String(), svcNames, targetPort, ports)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {

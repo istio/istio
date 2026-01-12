@@ -1,9 +1,7 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -13,10 +11,9 @@ status:
     status: "True"
     type: Accepted
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -61,14 +58,11 @@ status:
     name: default
     supportedKinds:
     - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-    - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
 metadata:
-  creationTimestamp: null
   name: grpc
   namespace: default
 spec: null

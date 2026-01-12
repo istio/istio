@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -12,10 +12,16 @@ metadata:
   labels:
     foo: bar
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: default
-    istio.io/gateway-name: default
+    istio.io/dataplane-mode: none
   name: default-istio
   namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    kind: Gateway
+    name: default
+    uid: ""
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -25,12 +31,13 @@ metadata:
   labels:
     foo: bar
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: default
-    istio.io/gateway-name: default
+    istio.io/dataplane-mode: none
   name: default-istio
   namespace: default
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: default
     uid: ""
@@ -48,8 +55,10 @@ spec:
         prometheus.io/scrape: "true"
       labels:
         foo: bar
+        gateway.istio.io/managed: istio.io-gateway-controller
+        gateway.networking.k8s.io/gateway-class-name: istio
         gateway.networking.k8s.io/gateway-name: default
-        istio.io/gateway-name: default
+        istio.io/dataplane-mode: none
         service.istio.io/canonical-name: default-istio
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
@@ -67,8 +76,6 @@ spec:
         - --log_output_level
         - <nil>
         env:
-        - name: JWT_POLICY
-          value: <no value>
         - name: PILOT_CERT_PROVIDER
           value: <no value>
         - name: CA_ADDR
@@ -96,6 +103,7 @@ spec:
         - name: ISTIO_CPU_LIMIT
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
@@ -107,10 +115,12 @@ spec:
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.memory
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
@@ -131,6 +141,9 @@ spec:
         image: test/proxyv2:test
         name: istio-proxy
         ports:
+        - containerPort: 15020
+          name: metrics
+          protocol: TCP
         - containerPort: 15021
           name: status-port
           protocol: TCP
@@ -178,6 +191,8 @@ spec:
           name: istio-data
         - mountPath: /etc/istio/proxy
           name: istio-envoy
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
       securityContext:
@@ -206,6 +221,13 @@ spec:
               fieldPath: metadata.annotations
             path: annotations
         name: istio-podinfo
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: <no value>
+              expirationSeconds: 43200
+              path: istio-token
 ---
 apiVersion: v1
 kind: Service
@@ -215,16 +237,18 @@ metadata:
   labels:
     foo: bar
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: default
-    istio.io/gateway-name: default
+    istio.io/dataplane-mode: none
   name: default-istio
   namespace: default
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: default
     uid: null
 spec:
+  ipFamilyPolicy: PreferDualStack
   ports:
   - appProtocol: tcp
     name: status-port

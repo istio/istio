@@ -21,8 +21,10 @@ import (
 	"time"
 
 	"github.com/mitchellh/copystructure"
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
@@ -53,8 +55,8 @@ type Configurable interface {
 	// Short form for Config().NamespacedName().
 	NamespacedName() NamespacedName
 
-	// ServiceAccountName returns the service account string for this service.
-	ServiceAccountName() string
+	// SpiffeIdentity returns the spiffe identity for this service (without the spiffe:// prefix)
+	SpiffeIdentity() string
 
 	// ClusterLocalFQDN returns the fully qualified domain name for cluster-local host.
 	ClusterLocalFQDN() string
@@ -71,11 +73,11 @@ type VMDistro = string
 
 const (
 	UbuntuBionic VMDistro = "UbuntuBionic"
-	UbuntuJammy  VMDistro = "UbuntuJammy"
-	Debian11     VMDistro = "Debian11"
-	Rockylinux8  VMDistro = "Centos8"
+	UbuntuNoble  VMDistro = "UbuntuNoble"
+	Debian12     VMDistro = "Debian12"
+	Rockylinux9  VMDistro = "Rockylinux9"
 
-	DefaultVMDistro = UbuntuJammy
+	DefaultVMDistro = UbuntuNoble
 )
 
 // Config defines the options for creating an Echo component.
@@ -122,7 +124,10 @@ type Config struct {
 	Ports Ports
 
 	// ServiceAnnotations is annotations on service object.
-	ServiceAnnotations Annotations
+	ServiceAnnotations map[string]string
+
+	// ServiceLabels is the labels on service object.
+	ServiceLabels map[string]string
 
 	// ReadinessTimeout specifies the timeout that we wait the application to
 	// become ready.
@@ -171,10 +176,17 @@ type Config struct {
 	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
 	IPFamilyPolicy string
 
+	// This is an optional field used as part of dual stack testing.
 	DualStack bool
 
-	// WaypointProxy specifies if this workload should have an associated Waypoint
-	WaypointProxy bool
+	// ServiceWaypointProxy specifies if this workload should have an associated Waypoint for service-addressed traffic
+	ServiceWaypointProxy string
+
+	// WorkloadWaypointProxy specifies if this workload should have an associated Waypoint for workload-addressed traffic
+	WorkloadWaypointProxy string
+
+	// Specify IP family to which echo will bind
+	BindFamily string
 }
 
 // Getter for a custom echo deployment
@@ -213,8 +225,8 @@ func (c Config) AccountName() string {
 	return "default"
 }
 
-// ServiceAccountName returns the service account name for this service.
-func (c Config) ServiceAccountName() string {
+// SpiffeIdentity returns the service account name for this service.
+func (c Config) SpiffeIdentity() string {
 	return "cluster.local/ns/" + c.NamespaceName() + "/sa/" + c.Service
 }
 
@@ -223,7 +235,7 @@ type SubsetConfig struct {
 	// The version of the deployment.
 	Version string
 	// Annotations provides metadata hints for deployment of the instance.
-	Annotations Annotations
+	Annotations map[string]string
 	// Labels provides metadata hints for deployment of the instance.
 	Labels map[string]string
 	// Replicas of this deployment
@@ -264,6 +276,21 @@ func (c Config) ClusterSetLocalFQDN() string {
 	return out
 }
 
+// HostnameVariants for a Kubernetes service.
+// Results may be invalid for non k8s.
+func (c Config) HostnameVariants() []string {
+	ns := c.NamespaceName()
+	if ns == "" {
+		ns = "default"
+	}
+	return []string{
+		c.Service,
+		c.Service + "." + ns,
+		c.Service + "." + ns + ".svc",
+		c.ClusterLocalFQDN(),
+	}
+}
+
 // HostHeader returns the Host header that will be used for calls to this service.
 func (c Config) HostHeader() string {
 	if c.DefaultHostHeader != "" {
@@ -284,7 +311,8 @@ func (c Config) IsStatefulSet() bool {
 // Note: instances that mix subsets with and without sidecars are considered 'naked'.
 func (c Config) IsNaked() bool {
 	for _, s := range c.Subsets {
-		if s.Annotations != nil && !s.Annotations.GetBool(SidecarInject) {
+		if s.Annotations != nil && s.Annotations[annotation.SidecarInject.Name] == "false" {
+			// Sidecar injection is disabled - it's naked.
 			return true
 		}
 	}
@@ -297,30 +325,37 @@ func (c Config) IsAllNaked() bool {
 		// No subsets - default to not-naked.
 		return false
 	}
-
+	// if ANY subset has a sidecar, not naked.
 	for _, s := range c.Subsets {
-		if s.Annotations == nil || s.Annotations.GetBool(SidecarInject) {
+		if s.Annotations == nil || s.Annotations[annotation.SidecarInject.Name] != "false" {
 			// Sidecar injection is enabled - it's not naked.
 			return false
 		}
 	}
-
 	// All subsets were annotated indicating no sidecar injection.
 	return true
 }
 
 func (c Config) IsProxylessGRPC() bool {
 	// TODO make these check if any subset has a matching annotation
-	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.HasPrefix(c.Subsets[0].Annotations.Get(SidecarInjectTemplates), "grpc-")
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.HasPrefix(c.Subsets[0].Annotations[annotation.InjectTemplates.Name], "grpc-")
 }
 
 func (c Config) IsTProxy() bool {
 	// TODO this could be HasCustomInjectionMode
-	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(SidecarInterceptionMode) == "TPROXY"
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations[annotation.SidecarInterceptionMode.Name] == "TPROXY"
 }
 
-func (c Config) HasWaypointProxy() bool {
-	return c.WaypointProxy
+func (c Config) HasAnyWaypointProxy() bool {
+	return c.ServiceWaypointProxy != "" || c.WorkloadWaypointProxy != ""
+}
+
+func (c Config) HasServiceAddressedWaypointProxy() bool {
+	return c.ServiceWaypointProxy != ""
+}
+
+func (c Config) HasWorkloadAddressedWaypointProxy() bool {
+	return c.WorkloadWaypointProxy != ""
 }
 
 func (c Config) HasSidecar() bool {
@@ -335,20 +370,24 @@ func (c Config) HasSidecar() bool {
 
 func (c Config) IsUncaptured() bool {
 	// TODO this can be more robust to not require labeling initial echo config (check namespace + isWaypoint + not sidecar)
-	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(AmbientType) == constants.AmbientRedirectionDisabled
+	return len(c.Subsets) > 0 && c.Subsets[0].Labels != nil && c.Subsets[0].Labels[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeNone
 }
 
 func (c Config) HasProxyCapabilities() bool {
 	return !c.IsUncaptured() || c.HasSidecar() || c.IsProxylessGRPC()
 }
 
+func (c Config) IsAmbient() bool {
+	return c.HasProxyCapabilities() && !c.HasSidecar()
+}
+
 func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }
 
-func (c Config) IsDelta() bool {
-	// TODO this doesn't hold if delta is on by default
-	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")
+func (c Config) IsSotw() bool {
+	// TODO this doesn't hold if delta is off by default
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations[annotation.ProxyConfig.Name], "ISTIO_DELTA_XDS")
 }
 
 // IsRegularPod returns true if the echo pod is not any of the following:
@@ -366,15 +405,28 @@ func (c Config) IsRegularPod() bool {
 		!c.IsHeadless() &&
 		!c.IsStatefulSet() &&
 		!c.IsProxylessGRPC() &&
-		!c.HasWaypointProxy() &&
+		!c.HasServiceAddressedWaypointProxy() &&
+		!c.HasWorkloadAddressedWaypointProxy() &&
 		!c.ZTunnelCaptured() &&
 		!c.DualStack
 }
 
+// WaypointClient means the client supports HBONE and does zTunnel redirection.
+// Currently, only zTunnel captured sources do this. Eventually this might be enabled
+// for ingress and/or sidecars.
+func (c Config) WaypointClient() bool {
+	return c.ZTunnelCaptured() && !c.IsUncaptured()
+}
+
 // ZTunnelCaptured returns true in ambient enabled namespaces where there is no sidecar
 func (c Config) ZTunnelCaptured() bool {
-	return c.Namespace.IsAmbient() && len(c.Subsets) > 0 &&
-		c.Subsets[0].Annotations.GetByName("ambient.istio.io/redirection") == "enabled"
+	haveSubsets := len(c.Subsets) > 0
+	if c.Namespace.IsAmbient() && haveSubsets &&
+		c.Subsets[0].Labels[label.IoIstioDataplaneMode.Name] != constants.DataplaneModeNone &&
+		!c.HasSidecar() {
+		return true
+	}
+	return haveSubsets && c.Subsets[0].Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
@@ -560,10 +612,11 @@ func (c Config) WorkloadClass() WorkloadClass {
 		return External
 	} else if c.IsStatefulSet() {
 		return StatefulSet
-	} else if c.IsDelta() {
-		// TODO remove if delta is on by default
-		return Delta
-	} else if c.ZTunnelCaptured() && !c.HasWaypointProxy() {
+	} else if c.IsSotw() {
+		return Sotw
+	} else if c.HasAnyWaypointProxy() {
+		return Waypoint
+	} else if c.ZTunnelCaptured() && !c.HasAnyWaypointProxy() {
 		return Captured
 	}
 	if c.IsHeadless() {

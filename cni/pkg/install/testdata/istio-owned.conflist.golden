@@ -1,0 +1,46 @@
+{
+  "cniVersion": "0.4.0",
+  "name": "dbnet",
+  "plugins": [
+    {
+      "args": {
+        "labels": {
+          "appVersion": "1.0"
+        }
+      },
+      "bridge": "cni0",
+      "dns": {
+        "nameservers": [
+          "10.1.0.1"
+        ]
+      },
+      "ipam": {
+        "gateway": "10.1.0.1",
+        "subnet": "10.1.0.0/16",
+        "type": "host-local"
+      },
+      "type": "bridge"
+    },
+    {
+      "sysctl": {
+        "net.core.somaxconn": "500"
+      },
+      "type": "tuning"
+    },
+    {
+      "ambient_enabled": true,
+      "cni_agent_run_dir": "/path/to/kubeconfig",
+      "dns": {},
+      "enablement_selectors": [],
+      "exclude_namespaces": [
+        ""
+      ],
+      "ipam": {},
+      "name": "istio-cni",
+      "native_nftables": false,
+      "plugin_log_level": "debug",
+      "pod_namespace": "my-namespace",
+      "type": "istio-cni"
+    }
+  ]
+}

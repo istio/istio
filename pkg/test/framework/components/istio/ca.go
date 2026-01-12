@@ -30,7 +30,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
@@ -38,14 +40,13 @@ type Cert struct {
 	ClientCert, Key, RootCert []byte
 }
 
-func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, namespace string) (Cert, error) {
-	c := t.Clusters().Default()
+func CreateCertificateForCluster(t framework.TestContext, i Instance, serviceAccount, namespace string, c cluster.Cluster) (Cert, error) {
 	rootCert, err := FetchRootCert(c.Kube())
 	if err != nil {
 		return Cert{}, fmt.Errorf("failed to fetch root cert: %v", err)
 	}
 
-	token, err := GetServiceAccountToken(c.Kube(), "istio-ca", namespace, serviceAccount)
+	token, err := GetServiceAccountToken(c, "istio-ca", namespace, serviceAccount)
 	if err != nil {
 		return Cert{}, err
 	}
@@ -72,7 +73,11 @@ func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, name
 		Csr:              string(csrPEM),
 		ValidityDuration: int64((time.Hour * 24 * 7).Seconds()),
 	}
-	rctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+token, "ClusterID", "Kubernetes"))
+	clusterName := constants.DefaultClusterName
+	if t.Settings().AmbientMultiNetwork {
+		clusterName = c.Name()
+	}
+	rctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+token, "ClusterID", clusterName))
 	resp, err := client.CreateCertificate(rctx, req)
 	if err != nil {
 		return Cert{}, fmt.Errorf("send CSR: %v", err)
@@ -84,15 +89,20 @@ func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, name
 	return Cert{certChain, keyPEM, []byte(rootCert)}, nil
 }
 
+func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, namespace string) (Cert, error) {
+	return CreateCertificateForCluster(t, i, serviceAccount, namespace, t.Clusters().Default())
+}
+
 // 7 days
 var saTokenExpiration int64 = 60 * 60 * 24 * 7
 
-func GetServiceAccountToken(c kubernetes.Interface, aud, ns, sa string) (string, error) {
+func GetServiceAccountToken(cluster cluster.Cluster, aud, ns, sa string) (string, error) {
 	san := san(ns, sa)
-
-	if got, f := cachedTokens.Load(san); f {
+	c := cluster.Kube()
+	key := fmt.Sprintf("%s:%s", cluster.Name(), san)
+	if got, f := cachedTokens.Load(key); f {
 		t := got.(token)
-		if t.expiration.After(time.Now().Add(time.Minute)) {
+		if t.expiration.After(time.Now().Add(5 * time.Minute)) {
 			return t.token, nil
 		}
 		// Otherwise, its expired, load a new one
@@ -108,7 +118,7 @@ func GetServiceAccountToken(c kubernetes.Interface, aud, ns, sa string) (string,
 		return "", err
 	}
 	exp := rt.Status.ExpirationTimestamp.Time
-	cachedTokens.Store(san, token{rt.Status.Token, exp})
+	cachedTokens.Store(key, token{rt.Status.Token, exp})
 	return rt.Status.Token, nil
 }
 

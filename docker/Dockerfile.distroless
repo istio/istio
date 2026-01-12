@@ -1,8 +1,8 @@
 # prepare a distroless source context to copy files from
-FROM gcr.io/distroless/static-debian11@sha256:6706c73aae2afaa8201d63cc3dda48753c09bcd6c300762251065c0f7e602b25 as distroless_source
+FROM cgr.dev/chainguard/static@sha256:a301031ffd4ed67f35ca7fa6cf3dad9937b5fa47d7493955a18d9b4ca5412d1a AS distroless_source
 
 # prepare a base dev to modify file contents
-FROM ubuntu:focal as ubuntu_source
+FROM ubuntu:noble AS ubuntu_source
 
 # Modify contents of container
 COPY --from=distroless_source /etc/ /home/etc

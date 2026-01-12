@@ -1,0 +1,13 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[allow-none]-rule[0]:
+        permissions:
+        - notRule:
+            any: true
+        principals:
+        - notId:
+            any: true
+  shadowRulesStatPrefix: istio_dry_run_allow_

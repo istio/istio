@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: productpage
@@ -11,7 +11,7 @@ spec:
     - destination:
         host: productpage
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: bogus-productpage
@@ -24,7 +24,7 @@ spec:
     - destination:
         host: reviews
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews
@@ -37,7 +37,7 @@ spec:
     - destination:
         host: reviews
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews
@@ -52,7 +52,7 @@ spec:
     - destination:
         host: reviews
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: ratings
@@ -67,7 +67,7 @@ spec:
     - destination:
         host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: ratings
@@ -84,7 +84,7 @@ spec:
     - destination:
         host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: ratings
@@ -101,7 +101,7 @@ spec:
     - destination:
         host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: ratings
@@ -120,7 +120,7 @@ spec:
     - destination:
         host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: ratings
@@ -137,7 +137,7 @@ spec:
     - destination:
         host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: ratings

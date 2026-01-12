@@ -17,6 +17,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -27,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
@@ -73,6 +74,15 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		log.Warnf("legacy --concurrency=%d flag detected; prefer to use ProxyConfig", concurrency)
 		proxyConfig.Concurrency = wrapperspb.Int32(int32(concurrency))
 	}
+
+	if proxyConfig.Concurrency.GetValue() == 0 {
+		if CPULimit < runtime.NumCPU() {
+			log.Warnf("concurrency is set to 0, which will use a thread per CPU on the host. However, CPU limit is set lower. "+
+				"This is not recommended and may lead to performance issues. "+
+				"CPU count: %d, CPU Limit: %d.", runtime.NumCPU(), CPULimit)
+		}
+	}
+
 	if x, ok := proxyConfig.GetClusterName().(*meshconfig.ProxyConfig_ServiceCluster); ok {
 		if x.ServiceCluster == "" {
 			proxyConfig.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: serviceCluster}
@@ -88,8 +98,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
-	if err := validation.ValidateMeshConfigProxyConfig(proxyConfig); err != nil {
-		return nil, err
+	validation := agent.ValidateMeshConfigProxyConfig(proxyConfig)
+	if validation.Err != nil {
+		return nil, validation.Err
 	}
 	return applyAnnotations(proxyConfig, annotations), nil
 }

@@ -9,45 +9,56 @@ data:
     receivers:
       opencensus:
         endpoint: 0.0.0.0:55678
+      otlp/auth:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:5317
+            auth:
+              authenticator: bearertokenauth
       otlp:
         protocols:
           grpc:
+            endpoint: 0.0.0.0:4317
           http:
+            endpoint: 0.0.0.0:4318
     processors:
       batch:
     exporters:
       zipkin:
         # Export to zipkin for easy querying
         endpoint: http://zipkin.istio-system.svc:9411/api/v2/spans
-      logging:
-        loglevel: debug
-      jaeger:
-        endpoint: jaeger-collector.istio-system.svc.cluster.local:14250
-        tls:
-          insecure: true
-        sending_queue:
-          enabled: true
-        retry_on_failure:
-          enabled: true
+      debug:
+        verbosity: detailed
     extensions:
+      bearertokenauth:
+        token: "somerandomtoken"
       health_check:
-        port: 13133
+      pprof:
+      zpages:
     service:
       extensions:
       - health_check
+      - pprof
+      - zpages
+      - bearertokenauth
       pipelines:
         logs:
           receivers: [otlp]
           processors: [batch]
-          exporters: [logging]
+          exporters: [debug]
         traces:
           receivers:
           - otlp
           - opencensus
           exporters:
           - zipkin
-          - logging
-          - jaeger
+          - debug
+        traces/auth:
+          receivers:
+          - otlp/auth
+          exporters:
+          - zipkin
+          - debug
 ---
 apiVersion: v1
 kind: Service
@@ -65,6 +76,14 @@ spec:
       port: 4317
       protocol: TCP
       targetPort: 4317
+    - name: http-otlp # HTTP endpoint for OpenTelemetry receiver.
+      port: 4318
+      protocol: TCP
+      targetPort: 4318
+    - name: grpc-otlp-auth # HTTP endpoint with basic auth for OpenTelemetry receiver.
+      port: 5317
+      protocol: TCP
+      targetPort: 5317
   selector:
     app: opentelemetry-collector
 ---
@@ -88,8 +107,7 @@ spec:
         sidecar.istio.io/inject: "false" # do not inject
     spec:
       containers:
-        - command:
-            - "/otelcol"
+        - args:
             - "--config=/conf/opentelemetry-collector-config.yaml"
           env:
             - name: POD_NAME
@@ -102,11 +120,13 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-          image: otel/opentelemetry-collector:0.54.0
+          image: docker.io/otel/opentelemetry-collector-contrib:0.123.0
           imagePullPolicy: IfNotPresent
           name: opentelemetry-collector
           ports:
             - containerPort: 4317
+              protocol: TCP
+            - containerPort: 4318
               protocol: TCP
             - name: grpc-opencensus
               containerPort: 55678

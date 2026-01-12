@@ -1,6 +1,6 @@
 # The following policy selects a non-exist workload
 
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: policy-{{ .To.ServiceName }}-bad

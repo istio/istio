@@ -23,25 +23,25 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/xds"
+	pm "istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type mockCache struct {
 	wantSecret []byte
-	wantPolicy extensions.PullPolicy
+	wantPolicy PullPolicy
 }
 
 func (c *mockCache) Get(downloadURL string, opts GetOptions) (string, error) {
@@ -66,7 +66,7 @@ func (c *mockCache) Get(downloadURL string, opts GetOptions) (string, error) {
 func (c *mockCache) Cleanup() {}
 
 func messageToStruct(t *testing.T, m proto.Message) *structpb.Struct {
-	st, err := conversion.MessageToStruct(m)
+	st, err := protomarshal.MessageToStructSlow(m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,26 +226,16 @@ func TestWasmConvert(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "remote load fail",
-			input: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-fail"],
-			},
-			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-fail"],
-			},
-			wantErr: true,
-		},
-		{
 			name: "mix",
 			input: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-fail"],
+				extensionConfigMap["remote-load-fail-close"],
 				extensionConfigMap["remote-load-success"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-fail"],
+				extensionConfigMap["remote-load-deny"],
 				extensionConfigMap["remote-load-success-local-file"],
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "remote load fail open",
@@ -254,6 +244,16 @@ func TestWasmConvert(t *testing.T) {
 			},
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-allow"],
+			},
+			wantErr: false,
+		},
+		{
+			name: "remote load fail close",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-fail-close"],
+			},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-deny"],
 			},
 			wantErr: false,
 		},
@@ -293,9 +293,9 @@ func TestWasmConvert(t *testing.T) {
 				extensionConfigMap["no-http-uri"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["no-http-uri"],
+				extensionConfigMap["remote-load-deny"],
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "secret",
@@ -340,7 +340,7 @@ func TestWasmConvert(t *testing.T) {
 }
 
 func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
-	ws, _ := conversion.MessageToStruct(wasm)
+	ws, _ := protomarshal.MessageToStructSlow(wasm)
 	return &core.TypedExtensionConfig{
 		Name: name,
 		TypedConfig: protoconv.MessageToAny(
@@ -373,7 +373,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 	"no-wasm": {
 		Name: "no-wasm",
 		TypedConfig: protoconv.MessageToAny(
-			&udpa.TypedStruct{TypeUrl: resource.APITypePrefix + "sometype"},
+			&udpa.TypedStruct{TypeUrl: pm.APITypePrefix + "sometype"},
 		),
 	},
 	"no-remote-load": buildTypedStructExtensionConfig("no-remote-load", &wasm.Wasm{
@@ -392,7 +392,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			},
 		},
 	}),
-	"no-http-uri": buildTypedStructExtensionConfig("no-remote-load", &wasm.Wasm{
+	"no-http-uri": buildTypedStructExtensionConfig("remote-load-fail", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{
 				VmConfig: &v3.VmConfig{
@@ -448,7 +448,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			},
 		},
 	}),
-	"remote-load-fail": buildTypedStructExtensionConfig("remote-load-fail", &wasm.Wasm{
+	"remote-load-fail-close": buildTypedStructExtensionConfig("remote-load-fail", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{
 				VmConfig: &v3.VmConfig{
@@ -479,7 +479,13 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			FailOpen: true,
 		},
 	}),
-	"remote-load-allow": buildAnyExtensionConfig("remote-load-fail", &rbac.RBAC{}),
+	"remote-load-allow": buildAnyExtensionConfig("remote-load-fail", &rbac.RBAC{
+		RulesStatPrefix: DefaultAllowStatPrefix,
+	}),
+	"remote-load-deny": buildAnyExtensionConfig("remote-load-fail", &rbac.RBAC{
+		Rules:           &rbacv3.RBAC{},
+		RulesStatPrefix: DefaultDenyStatPrefix,
+	}),
 	"remote-load-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{

@@ -15,7 +15,6 @@
 package matcher
 
 import (
-	"regexp"
 	"strings"
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -52,31 +51,6 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 		Name: k,
 		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
 			StringMatch: StringMatcherExact(v, false),
-		},
-	}
-}
-
-// HostMatcherWithRegex creates a host matcher for a host using regex for proxies before 1.11.
-func HostMatcherWithRegex(k, v string) *routepb.HeaderMatcher {
-	var regex string
-	if v == "*" {
-		return &routepb.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{
-				PresentMatch: true,
-			},
-		}
-	} else if strings.HasPrefix(v, "*") {
-		regex = `.*` + regexp.QuoteMeta(v[1:])
-	} else if strings.HasSuffix(v, "*") {
-		regex = regexp.QuoteMeta(v[:len(v)-1]) + `.*`
-	} else {
-		regex = regexp.QuoteMeta(v)
-	}
-	return &routepb.HeaderMatcher{
-		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-			StringMatch: StringMatcherRegex(`(?i)` + regex),
 		},
 	}
 }

@@ -20,7 +20,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -121,7 +121,6 @@ func (t *T) RunFromClusters(testFn oneClusterOneTest) {
 // fromEachCluster runs test from each cluster without requiring source deployment.
 func (t *T) fromEachCluster(ctx framework.TestContext, testFn perClusterTest) {
 	for _, fromCluster := range t.sources.Clusters() {
-		fromCluster := fromCluster
 		ctx.NewSubTestf("from %s", fromCluster.StableName()).Run(func(ctx framework.TestContext) {
 			testFn(ctx, fromCluster)
 		})
@@ -167,7 +166,7 @@ func (gi gatewayInstance) ServiceName() types.NamespacedName {
 func (t *T) RunViaGatewayIngress(gatewayClass string, testFn ingressTest) {
 	// Build and apply any completed configuration that does not require to/from params.
 	t.cfg.BuildCompleteSources().Apply()
-	istioInstance := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	istioInstance := istio.GetOrFail(t.rootCtx)
 	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
 		gwInstance := gatewayInstance{
 			NamespacedName: types.NamespacedName{
@@ -177,7 +176,8 @@ func (t *T) RunViaGatewayIngress(gatewayClass string, testFn ingressTest) {
 			GatewayClass: gatewayClass,
 		}
 		// Build and apply per-destination config
-		gwIngress := istioInstance.CustomIngressFor(ctx.Clusters()[0], gwInstance.ServiceName(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, gwInstance.Name))
+		gwIngress := istioInstance.CustomIngressFor(ctx.Clusters()[0], gwInstance.ServiceName(),
+			fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, gwInstance.Name))
 		callers := ingress.Instances{gwIngress}.Callers()
 		t.cfg.Context(ctx).BuildFromAndTo(callers, dstInstances.Services()).Apply()
 
@@ -202,7 +202,7 @@ func (t *T) RunViaIngress(testFn ingressTest) {
 	// Build and apply any completed configuration that does not require to/from params.
 	t.cfg.BuildCompleteSources().Apply()
 
-	istioInstance := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	istioInstance := istio.GetOrFail(t.rootCtx)
 	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
 		// Build and apply per-destination config
 		callers := istioInstance.Ingresses().Callers()
@@ -220,6 +220,11 @@ func (t *T) RunViaIngress(testFn ingressTest) {
 			doTest(ctx, ctx.Clusters()[0], dstInstances)
 		} else {
 			t.fromEachCluster(ctx, func(ctx framework.TestContext, c cluster.Cluster) {
+				if ctx.Settings().AmbientMultiNetwork {
+					// Ambient multi-network does not yet support routing across clusters from ingress
+					// https://github.com/istio/istio/issues/57537
+					dstInstances = dstInstances.ForCluster(c.Name())
+				}
 				doTest(ctx, c, dstInstances)
 			})
 		}
@@ -245,7 +250,6 @@ func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTe
 	includeNS := t.isMultipleNamespaces()
 
 	for _, from := range t.sources.Services() {
-		from := from
 		subtestName := from.Config().Service
 		if includeNS {
 			subtestName += "." + from.Config().Namespace.Prefix()
@@ -262,7 +266,6 @@ func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest
 	includeNS := t.isMultipleNamespaces()
 
 	for _, to := range t.destinations.Services() {
-		to := to
 		subtestName := to.Config().Service
 		if includeNS {
 			subtestName += "." + to.Config().Namespace.Prefix()
@@ -275,7 +278,6 @@ func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest
 
 func (t *T) fromEachWorkloadCluster(ctx framework.TestContext, from echo.Instances, testFn perInstanceTest) {
 	for _, fromInstance := range from {
-		fromInstance := fromInstance
 		if len(ctx.Clusters()) == 1 && len(from) == 1 {
 			testFn(ctx, fromInstance)
 		} else {
@@ -309,8 +311,6 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, from echo.Instances
 	// combination filters should be run again for individual sources
 	filteredTargets := t.destinations.Services().MatchFQDNs(commonTargets...)
 	for _, svc := range nDestinations(ctx, n, filteredTargets) {
-		svc := svc
-
 		namespacedNames := svc.NamespacedNames()
 		var toNames []string
 		if includeNS {
@@ -340,5 +340,5 @@ func nDestinations(ctx framework.TestContext, n int, deployments echo.Services) 
 		}
 		out = append(out, deployments[start:start+n])
 	}
-	return
+	return out
 }

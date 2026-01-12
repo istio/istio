@@ -23,7 +23,6 @@ import (
 	"text/tabwriter"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
@@ -37,8 +36,9 @@ const (
 	anonymousName = "_anonymous_match_nothing_"
 )
 
-// Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1].
-var re = regexp.MustCompile(`ns\[(.+)\]-policy\[(.+)\]-rule\[(.+)\]`)
+// Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1]
+// and istio-ext-authz-ns[default]-policy[some-policy]-rule[1].
+var re = regexp.MustCompile(`(?:istio-ext-authz-)?ns\[(.+)\]-policy\[(.+)\]-rule\[(.+)\]`)
 
 type filterChain struct {
 	rbacHTTP []*rbachttp.RBAC
@@ -127,6 +127,15 @@ func extractName(name string) (string, string) {
 	return fmt.Sprintf("%s.%s", parts[2], parts[1]), parts[3]
 }
 
+type policyAction string
+
+const (
+	policyActionAllow  policyAction = "ALLOW"
+	policyActionDeny   policyAction = "DENY"
+	policyActionLog    policyAction = "LOG"
+	policyActionCustom policyAction = "CUSTOM"
+)
+
 // Print prints the AuthorizationPolicy in the listener.
 func Print(writer io.Writer, listeners []*listener.Listener) {
 	parsedListeners := parse(listeners)
@@ -134,10 +143,10 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 		return
 	}
 
-	actionToPolicy := map[rbacpb.RBAC_Action]map[string]struct{}{}
+	actionToPolicy := map[policyAction]map[string]struct{}{}
 	policyToRule := map[string]map[string]struct{}{}
 
-	addPolicy := func(action rbacpb.RBAC_Action, name string, rule string) {
+	addPolicy := func(action policyAction, name string, rule string) {
 		if actionToPolicy[action] == nil {
 			actionToPolicy[action] = map[string]struct{}{}
 		}
@@ -151,20 +160,32 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 	for _, parsed := range parsedListeners {
 		for _, fc := range parsed.filterChains {
 			for _, rbacHTTP := range fc.rbacHTTP {
-				action := rbacHTTP.GetRules().GetAction()
+				action := policyAction(rbacHTTP.GetRules().GetAction().String())
 				for name := range rbacHTTP.GetRules().GetPolicies() {
 					nameOfPolicy, indexOfRule := extractName(name)
 					addPolicy(action, nameOfPolicy, indexOfRule)
+				}
+				for name := range rbacHTTP.GetShadowRules().GetPolicies() {
+					if strings.HasPrefix(name, "istio-ext-authz-") {
+						nameOfPolicy, indexOfRule := extractName(name)
+						addPolicy(policyActionCustom, nameOfPolicy, indexOfRule)
+					}
 				}
 				if len(rbacHTTP.GetRules().GetPolicies()) == 0 {
 					addPolicy(action, anonymousName, "0")
 				}
 			}
 			for _, rbacTCP := range fc.rbacTCP {
-				action := rbacTCP.GetRules().GetAction()
+				action := policyAction(rbacTCP.GetRules().GetAction().String())
 				for name := range rbacTCP.GetRules().GetPolicies() {
 					nameOfPolicy, indexOfRule := extractName(name)
 					addPolicy(action, nameOfPolicy, indexOfRule)
+				}
+				for name := range rbacTCP.GetShadowRules().GetPolicies() {
+					if strings.HasPrefix(name, "istio-ext-authz-") {
+						nameOfPolicy, indexOfRule := extractName(name)
+						addPolicy(policyActionCustom, nameOfPolicy, indexOfRule)
+					}
 				}
 				if len(rbacTCP.GetRules().GetPolicies()) == 0 {
 					addPolicy(action, anonymousName, "0")
@@ -175,7 +196,7 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 
 	buf := strings.Builder{}
 	buf.WriteString("ACTION\tAuthorizationPolicy\tRULES\n")
-	for _, action := range []rbacpb.RBAC_Action{rbacpb.RBAC_DENY, rbacpb.RBAC_ALLOW, rbacpb.RBAC_LOG} {
+	for _, action := range []policyAction{policyActionDeny, policyActionAllow, policyActionLog, policyActionCustom} {
 		if names, ok := actionToPolicy[action]; ok {
 			sortedNames := make([]string, 0, len(names))
 			for name := range names {

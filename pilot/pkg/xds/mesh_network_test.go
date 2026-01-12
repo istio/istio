@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xds_test
 
 import (
 	"context"
@@ -34,14 +34,17 @@ import (
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -73,8 +76,8 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 		kubeObjects = append(kubeObjects, objs...)
 		configObjects = append(configObjects, w.configs()...)
 	}
-	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
-	s := NewFakeDiscoveryServer(t, FakeOptions{
+	meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		KubernetesObjects: kubeObjects,
 		Configs:           configObjects,
 		NetworksWatcher:   meshNetworks,
@@ -188,6 +191,7 @@ func TestMeshNetworking(t *testing.T) {
 				Spec: corev1.ServiceSpec{
 					Type:        corev1.ServiceTypeClusterIP,
 					ExternalIPs: []string{"3.3.3.3"},
+					Ports:       []corev1.ServicePort{{Port: 15443}},
 				},
 			}},
 		},
@@ -279,13 +283,10 @@ func TestMeshNetworking(t *testing.T) {
 	}
 
 	for ingrType, ingressObjects := range ingressServiceScenarios {
-		ingrType, ingressObjects := ingrType, ingressObjects
 		t.Run(string(ingrType), func(t *testing.T) {
 			for name, networkConfig := range meshNetworkConfigs {
-				name, networkConfig := name, networkConfig
 				t.Run(name, func(t *testing.T) {
 					for _, cfg := range trafficConfigs {
-						cfg := cfg
 						t.Run(cfg.Meta.Name, func(t *testing.T) {
 							pod := &workload{
 								kind: Pod,
@@ -402,7 +403,7 @@ spec:
 			name: "ServiceEntry",
 			cfg: `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: remote-we-svc
@@ -515,7 +516,7 @@ spec:
 					}
 					configObjects := `
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: subset-se
@@ -537,7 +538,7 @@ spec:
 					for i, entry := range tc.entries {
 						configObjects += fmt.Sprintf(`
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: we-%d
@@ -555,8 +556,8 @@ spec:
 					runMeshNetworkingTest(t, meshNetworkingTest{
 						workloads:       []*workload{client},
 						configYAML:      configObjects,
-						kubeObjectsYAML: map[cluster.ID]string{"Kubernetes": sc.k8s},
-						kubeObjects: map[cluster.ID][]runtime.Object{"Kubernetes": {
+						kubeObjectsYAML: map[cluster.ID]string{constants.DefaultClusterName: sc.k8s},
+						kubeObjects: map[cluster.ID][]runtime.Object{constants.DefaultClusterName: {
 							gatewaySvc("gateway-1", "1.1.1.1", "network-1"),
 							gatewaySvc("gateway-2", "2.2.2.2", "network-2"),
 						}},
@@ -574,7 +575,10 @@ func gatewaySvc(name, ip, network string) *corev1.Service {
 			Namespace: "istio-system",
 			Labels:    map[string]string{label.TopologyNetwork.Name: network},
 		},
-		Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+		Spec: corev1.ServiceSpec{
+			Type:  corev1.ServiceTypeLoadBalancer,
+			Ports: []corev1.ServicePort{{Port: 15443}},
+		},
 		Status: corev1.ServiceStatus{
 			LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: ip}}},
 		},
@@ -602,12 +606,12 @@ func runMeshNetworkingTest(t *testing.T, tt meshNetworkingTest, configs ...confi
 		}
 		configObjects = append(configObjects, w.configs()...)
 	}
-	s := NewFakeDiscoveryServer(t, FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		KubernetesObjectsByCluster:      kubeObjects,
 		KubernetesObjectStringByCluster: tt.kubeObjectsYAML,
 		ConfigString:                    tt.configYAML,
 		Configs:                         configObjects,
-		NetworksWatcher:                 mesh.NewFixedNetworksWatcher(tt.meshNetworkConfig),
+		NetworksWatcher:                 meshwatcher.NewFixedNetworksWatcher(tt.meshNetworkConfig),
 	})
 	for _, w := range tt.workloads {
 		w.setupProxy(s)
@@ -660,7 +664,7 @@ func (w *workload) ExpectWithWeight(target *workload, subset string, eps ...xdst
 	w.weightedExpectations[target.clusterName(subset)] = eps
 }
 
-func (w *workload) Test(t *testing.T, s *FakeDiscoveryServer) {
+func (w *workload) Test(t *testing.T, s *xds.FakeDiscoveryServer) {
 	if w.expectations == nil && w.weightedExpectations == nil {
 		return
 	}
@@ -670,7 +674,7 @@ func (w *workload) Test(t *testing.T, s *FakeDiscoveryServer) {
 	})
 }
 
-func (w *workload) testUnweighted(t *testing.T, s *FakeDiscoveryServer) {
+func (w *workload) testUnweighted(t *testing.T, s *xds.FakeDiscoveryServer) {
 	if w.expectations == nil {
 		return
 	}
@@ -681,7 +685,7 @@ func (w *workload) testUnweighted(t *testing.T, s *FakeDiscoveryServer) {
 
 			for c, want := range w.expectations {
 				got := eps[c]
-				if !listEqualUnordered(got, want) {
+				if !slices.EqualUnordered(got, want) {
 					err := fmt.Errorf("cluster %s, expected %v, but got %v", c, want, got)
 					fmt.Println(err)
 					return err
@@ -689,7 +693,7 @@ func (w *workload) testUnweighted(t *testing.T, s *FakeDiscoveryServer) {
 			}
 			for c, got := range eps {
 				want := w.expectations[c]
-				if !listEqualUnordered(got, want) {
+				if !slices.EqualUnordered(got, want) {
 					err := fmt.Errorf("cluster %s, expected %v, but got %v", c, want, got)
 					fmt.Println(err)
 					return err
@@ -700,7 +704,7 @@ func (w *workload) testUnweighted(t *testing.T, s *FakeDiscoveryServer) {
 	})
 }
 
-func (w *workload) testWeighted(t *testing.T, s *FakeDiscoveryServer) {
+func (w *workload) testWeighted(t *testing.T, s *xds.FakeDiscoveryServer) {
 	if w.weightedExpectations == nil {
 		return
 	}
@@ -768,7 +772,7 @@ func (w *workload) configs() []config.Config {
 	return nil
 }
 
-func (w *workload) setupProxy(s *FakeDiscoveryServer) {
+func (w *workload) setupProxy(s *xds.FakeDiscoveryServer) {
 	p := &model.Proxy{
 		ID:     strings.Join([]string{w.name, w.namespace}, "."),
 		Labels: w.labels,

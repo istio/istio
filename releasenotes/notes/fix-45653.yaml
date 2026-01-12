@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: istioctl
+
+issue:
+  - https://github.com/istio/istio/issues/45653
+
+releaseNotes:
+  - |
+    **Fixed** an issue where `istioctl analyze` reported errors for empty file resource blocks.
+

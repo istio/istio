@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue: []
+releaseNotes:
+- |
+  **Fixed** an issue causing istio-iptables cmd to fail when a non-built-in table is present in the system.

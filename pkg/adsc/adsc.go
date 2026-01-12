@@ -34,7 +34,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -69,8 +68,14 @@ const (
 )
 
 type Config struct {
+	// Is the name of the client for user-facing logs. If not set, Address will be used
+	ClientName string
+
 	// Address of the xDS server
 	Address string
+
+	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
+	XDSSAN string
 
 	// Namespace defaults to 'default'
 	Namespace string
@@ -101,20 +106,9 @@ type Config struct {
 	// Secrets is the interface used for getting keys and rootCA.
 	SecretManager security.SecretManager
 
-	// For getting the certificate, using same code as SDS server.
-	// Either the JWTPath or the certs must be present.
-	JWTPath string
-
-	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
-	XDSSAN string
-
 	// XDSRootCAFile explicitly set the root CA to be used for the XDS connection.
 	// Mirrors Envoy file.
 	XDSRootCAFile string
-
-	// RootCert contains the XDS root certificate. Used mainly for tests, apps will normally use
-	// XDSRootCAFile
-	RootCert []byte
 
 	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
 	InsecureSkipVerify bool
@@ -160,13 +154,13 @@ type ADSC struct {
 	// Indicates if the ADSC client is closed
 	closed bool
 
-	// NodeID is the node identity sent to Pilot.
-	nodeID string
-
 	watchTime time.Time
 
-	// InitialLoad tracks the time to receive the initial configuration.
-	InitialLoad time.Duration
+	// initialLoad tracks the time to receive the initial configuration.
+	initialLoad time.Duration
+
+	// indicates if the initial LDS request is sent
+	initialLds bool
 
 	// httpListeners contains received listeners with a http_connection_manager filter.
 	httpListeners map[string]*listener.Listener
@@ -185,10 +179,6 @@ type ADSC struct {
 
 	// All received endpoints, keyed by cluster name
 	eds map[string]*endpoint.ClusterLoadAssignment
-
-	// Metadata has the node metadata to send to pilot.
-	// If nil, the defaults will be used.
-	Metadata *pstruct.Struct
 
 	// Updates includes the type of the last update received from the server.
 	Updates     chan string
@@ -209,19 +199,12 @@ type ADSC struct {
 	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
 	Registry *memory.ServiceDiscovery
 
-	// LocalCacheDir is set to a base name used to save fetched resources.
-	// If set, each update will be saved.
-	// TODO: also load at startup - so we can support warm up in init-container, and survive
-	// restarts.
-	LocalCacheDir string
-
 	cfg *ADSConfig
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
 	sendNodeMeta bool
 
-	sync     map[string]time.Time
-	Locality *core.Locality
+	sync map[string]time.Time
 }
 
 type ResponseHandler interface {
@@ -277,12 +260,6 @@ func New(discoveryAddr string, opts *ADSConfig) (*ADSC, error) {
 		sync:        map[string]time.Time{},
 		errChan:     make(chan error, 10),
 	}
-
-	adsc.Metadata = opts.Meta
-	adsc.Locality = opts.Locality
-
-	adsc.nodeID = nodeID(&adsc.cfg.Config)
-
 	if err := adsc.Dial(); err != nil {
 		return nil, err
 	}
@@ -317,7 +294,7 @@ func setDefaultConfig(config *Config) Config {
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func (a *ADSC) Dial() error {
-	conn, err := dialWithConfig(&a.cfg.Config)
+	conn, err := dialWithConfig(context.Background(), &a.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -325,7 +302,7 @@ func (a *ADSC) Dial() error {
 	return nil
 }
 
-func dialWithConfig(config *Config) (*grpc.ClientConn, error) {
+func dialWithConfig(ctx context.Context, config *Config) (*grpc.ClientConn, error) {
 	defaultGrpcDialOptions := defaultGrpcDialOptions()
 	var grpcDialOptions []grpc.DialOption
 	grpcDialOptions = append(grpcDialOptions, defaultGrpcDialOptions...)
@@ -347,7 +324,7 @@ func dialWithConfig(config *Config) (*grpc.ClientConn, error) {
 		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	conn, err := grpc.Dial(config.Address, grpcDialOptions...)
+	conn, err := grpc.DialContext(ctx, config.Address, grpcDialOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -355,16 +332,13 @@ func dialWithConfig(config *Config) (*grpc.ClientConn, error) {
 }
 
 func tlsConfig(config *Config) (*tls.Config, error) {
-	var clientCerts []tls.Certificate
 	var serverCABytes []byte
 	var err error
 
 	getClientCertificate := getClientCertFn(config)
 
 	// Load the root CAs
-	if config.RootCert != nil {
-		serverCABytes = config.RootCert
-	} else if config.XDSRootCAFile != "" {
+	if config.XDSRootCAFile != "" {
 		serverCABytes, err = os.ReadFile(config.XDSRootCAFile)
 		if err != nil {
 			return nil, err
@@ -398,7 +372,6 @@ func tlsConfig(config *Config) (*tls.Config, error) {
 	// it's insecure only when a user explicitly enable insecure mode.
 	return &tls.Config{
 		GetClientCertificate: getClientCertificate,
-		Certificates:         clientCerts,
 		RootCAs:              serverCAs,
 		ServerName:           shost,
 		InsecureSkipVerify:   config.InsecureSkipVerify,
@@ -424,7 +397,8 @@ func (a *ADSC) Run() error {
 		return err
 	}
 	a.sendNodeMeta = true
-	a.InitialLoad = 0
+	a.initialLoad = 0
+	a.initialLds = false
 	// Send the initial requests
 	for _, r := range a.cfg.InitialDiscoveryRequests {
 		if r.TypeUrl == v3.ClusterType {
@@ -471,7 +445,6 @@ func (a *ADSC) reconnect() {
 
 	err := a.Run()
 	if err != nil {
-		// TODO: fix reconnect
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 	}
 }
@@ -485,7 +458,7 @@ func (a *ADSC) handleRecv() {
 		var err error
 		msg, err := a.stream.Recv()
 		if err != nil {
-			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
+			adscLog.Infof("connection closed with err: %v", err)
 			select {
 			case a.errChan <- err:
 			default:
@@ -520,16 +493,6 @@ func (a *ADSC) handleRecv() {
 				adscLog.Warnf("Failed to unmarshal mesh config: %v", err)
 			}
 			a.Mesh = m
-			if a.LocalCacheDir != "" {
-				strResponse, err := protomarshal.ToJSONWithIndent(m, "  ")
-				if err != nil {
-					continue
-				}
-				err = os.WriteFile(a.LocalCacheDir+"_mesh.json", []byte(strResponse), 0o644)
-				if err != nil {
-					continue
-				}
-			}
 			continue
 		}
 
@@ -666,7 +629,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		switch filter.Name {
 		case wellknown.TCPProxy:
 			lt[l.Name] = l
-			config, _ := conversion.MessageToStruct(filter.GetTypedConfig())
+			config, _ := protomarshal.MessageToStructSlow(filter.GetTypedConfig())
 			c := config.Fields["cluster"].GetStringValue()
 			adscLog.Debugf("TCP: %s -> %s", l.Name, c)
 		case wellknown.HTTPConnectionManager:
@@ -934,12 +897,13 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 		b, _ := json.MarshalIndent(eds, " ", " ")
 		adscLog.Debugf(string(b))
 	}
-	if a.InitialLoad == 0 {
+	if a.initialLoad == 0 && !a.initialLds {
 		// first load - Envoy loads listeners after endpoints
 		_ = a.stream.Send(&discovery.DiscoveryRequest{
 			Node:    a.node(),
 			TypeUrl: v3.ListenerType,
 		})
+		a.initialLds = true
 	}
 
 	a.mutex.Lock()
@@ -971,9 +935,9 @@ func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
 		rds[r.Name] = r
 		size += proto.Size(r)
 	}
-	if a.InitialLoad == 0 {
-		a.InitialLoad = time.Since(a.watchTime)
-		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d time=%d", len(configurations), size, vh, rcount, a.InitialLoad)
+	if a.initialLoad == 0 {
+		a.initialLoad = time.Since(a.watchTime)
+		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d time=%d", len(configurations), size, vh, rcount, a.initialLoad)
 	} else {
 		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d", len(configurations), size, vh, rcount)
 	}
@@ -1244,18 +1208,6 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 				continue
 			}
 		}
-		if a.LocalCacheDir != "" {
-			strResponse, err := json.MarshalIndent(newCfg, "  ", "  ")
-			if err != nil {
-				adscLog.Warnf("Error marshaling received MCP config %v", err)
-				continue
-			}
-			err = os.WriteFile(a.LocalCacheDir+"_res."+
-				newCfg.GroupVersionKind.Kind+"."+newCfg.Namespace+"."+newCfg.Name+".json", strResponse, 0o644)
-			if err != nil {
-				adscLog.Warnf("Error writing received MCP config to local file %v", err)
-			}
-		}
 	}
 
 	// remove deleted resources from cache
@@ -1264,13 +1216,6 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 			if err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace, nil); err != nil {
 				adscLog.Warnf("Error deleting an outdated resource from the store %v", err)
 				continue
-			}
-			if a.LocalCacheDir != "" {
-				err := os.Remove(a.LocalCacheDir + "_res." +
-					config.GroupVersionKind.Kind + "." + config.Namespace + "." + config.Name + ".json")
-				if err != nil {
-					adscLog.Warnf("Error deleting received MCP config to local file %v", err)
-				}
 			}
 		}
 	}

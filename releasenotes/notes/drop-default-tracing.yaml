@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Removed** default tracing configuration that enables tracing to `zipkin.istio-system.svc`. See upgrade notes for more information.
+upgradeNotes:
+  - title: Default tracing to `zipkin.istio-system.svc` removed
+    content: |
+      In previous versions of Istio, tracing was automatically configured to send traces to `zipkin.istio-system.svc`.
+      This default setting has been removed; users will need to explicitly configure where to send traces moving forward.
+
+      `istioctl x precheck --from-version=1.21` can automatically detect if you may be impacted by this change.
+
+      If you previously had tracing enabled implicitly, you can enable it by doing one of:
+      * Installing with `--set compatibilityVersion=1.21`.
+      * Following [Configure tracing with Telemetry API](/docs/tasks/observability/distributed-tracing/telemetry-api/).

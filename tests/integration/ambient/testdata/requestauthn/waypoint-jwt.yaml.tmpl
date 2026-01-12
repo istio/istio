@@ -1,10 +1,10 @@
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: default-{{ .To.ServiceName }}
 spec:
-  targetRef:
-    kind: Gateway
+  targetRefs:
+  - kind: Gateway
     group: gateway.networking.k8s.io
     name: waypoint
   jwtRules:
@@ -13,7 +13,7 @@ spec:
   - issuer: "test-issuer-2@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: ignored-{{ .To.ServiceName }}
@@ -25,14 +25,15 @@ spec:
   - issuer: "test-issuer-3@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: authz-gateway-{{ .To.ServiceName }}
 spec:
-  selector:
-    matchLabels:
-      gateway.networking.k8s.io/gateway-name: waypoint # TODO: Replace this with a targetRef after https://github.com/istio/istio/pull/46560 merges
+  targetRefs:
+  - kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
   rules:
   - from:
     - source:

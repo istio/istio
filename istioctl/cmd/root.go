@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 
 	"istio.io/istio/istioctl/pkg/admin"
@@ -46,9 +45,9 @@ import (
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/istioctl/pkg/version"
-	"istio.io/istio/istioctl/pkg/wait"
 	"istio.io/istio/istioctl/pkg/waypoint"
 	"istio.io/istio/istioctl/pkg/workload"
+	"istio.io/istio/istioctl/pkg/ztunnelconfig"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
@@ -106,6 +105,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		Short:             "Istio control interface.",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
+		PersistentPreRunE: ConfigureLogging,
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
@@ -117,13 +117,6 @@ debug and diagnose their Istio mesh.
 	rootOptions := cli.AddRootFlags(flags)
 
 	ctx := cli.NewCLIContext(rootOptions)
-
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if err := configureLogging(cmd, args); err != nil {
-			return err
-		}
-		return nil
-	}
 
 	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagIstioNamespace, func(
 		cmd *cobra.Command, args []string, toComplete string,
@@ -159,12 +152,14 @@ debug and diagnose their Istio mesh.
 	}
 
 	xdsBasedTroubleshooting := []*cobra.Command{
+		// TODO(hanxiaop): I think experimental version still has issues, so we keep the old version for now.
 		version.XdsVersionCommand(ctx),
+		// TODO(hanxiaop): this is kept for some releases in case someone is using it.
 		proxystatus.XdsStatusCommand(ctx),
 	}
-	debugBasedTroubleshooting := []*cobra.Command{
+	troubleshootingCommands := []*cobra.Command{
 		version.NewVersionCommand(ctx),
-		proxystatus.StatusCommand(ctx),
+		proxystatus.StableXdsStatusCommand(ctx),
 	}
 	var debugCmdAttachmentPoint *cobra.Command
 	if viper.GetBool("PREFER-EXPERIMENTAL") {
@@ -183,7 +178,7 @@ debug and diagnose their Istio mesh.
 	for _, c := range xdsBasedTroubleshooting {
 		experimentalCmd.AddCommand(c)
 	}
-	for _, c := range debugBasedTroubleshooting {
+	for _, c := range troubleshootingCommands {
 		debugCmdAttachmentPoint.AddCommand(c)
 	}
 
@@ -192,21 +187,20 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(admin.Cmd(ctx))
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
-	rootCmd.AddCommand(mesh.NewVerifyCommand(ctx))
-	rootCmd.AddCommand(mesh.UninstallCmd(ctx, root.LoggingOptions))
+	rootCmd.AddCommand(mesh.UninstallCmd(ctx))
 
 	experimentalCmd.AddCommand(authz.AuthZ(ctx))
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(metrics.Cmd(ctx))
 	experimentalCmd.AddCommand(describe.Cmd(ctx))
-	experimentalCmd.AddCommand(wait.Cmd(ctx))
 	experimentalCmd.AddCommand(config.Cmd())
 	experimentalCmd.AddCommand(workload.Cmd(ctx))
 	experimentalCmd.AddCommand(internaldebug.DebugCommand(ctx))
 	experimentalCmd.AddCommand(precheck.Cmd(ctx))
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
 	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
-	experimentalCmd.AddCommand(waypoint.Cmd(ctx))
+	rootCmd.AddCommand(waypoint.Cmd(ctx))
+	rootCmd.AddCommand(ztunnelconfig.ZtunnelConfig(ctx))
 
 	analyzeCmd := analyze.Analyze(ctx)
 	hideInheritedFlags(analyzeCmd, cli.FlagIstioNamespace)
@@ -216,23 +210,15 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
-	manifestCmd := mesh.ManifestCmd(ctx, root.LoggingOptions)
+	manifestCmd := mesh.ManifestCmd(ctx)
 	hideInheritedFlags(manifestCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
 
-	operatorCmd := mesh.OperatorCmd(ctx)
-	hideInheritedFlags(operatorCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
-	rootCmd.AddCommand(operatorCmd)
-
-	installCmd := mesh.InstallCmd(ctx, root.LoggingOptions)
+	installCmd := mesh.InstallCmd(ctx)
 	hideInheritedFlags(installCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(installCmd)
 
-	profileCmd := mesh.ProfileCmd(ctx, root.LoggingOptions)
-	hideInheritedFlags(profileCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
-	rootCmd.AddCommand(profileCmd)
-
-	upgradeCmd := mesh.UpgradeCmd(ctx, root.LoggingOptions)
+	upgradeCmd := mesh.UpgradeCmd(ctx)
 	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
@@ -248,7 +234,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand(ctx))
 	rootCmd.AddCommand(proxyconfig.ClustersCommand(ctx))
 
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, collateral.Metadata{
 		Title:   "Istio Control",
 		Section: "istioctl CLI",
 		Manual:  "Istio Control",
@@ -295,11 +281,8 @@ func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 	})
 }
 
-func configureLogging(_ *cobra.Command, _ []string) error {
-	if err := log.Configure(root.LoggingOptions); err != nil {
-		return err
-	}
-	return nil
+func ConfigureLogging(_ *cobra.Command, _ []string) error {
+	return log.Configure(root.LoggingOptions)
 }
 
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated from

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** an issue in the gateway chart where `--set platform` worked but `--set global.platform` did not.

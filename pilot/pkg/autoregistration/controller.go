@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/queue"
 )
@@ -150,6 +151,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if c.store != nil && c.cleanupQueue != nil {
 		go c.periodicWorkloadEntryCleanup(stop)
 		go c.cleanupQueue.Run(stop)
+	}
+	if features.WorkloadEntryAutoRegistration {
 		go c.lateRegistrationQueue.Run(stop)
 	}
 
@@ -528,7 +531,6 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 		case <-ticker.C:
 			wles := c.store.List(gvk.WorkloadEntry, metav1.NamespaceAll)
 			for _, wle := range wles {
-				wle := wle
 				if c.shouldCleanupEntry(wle) {
 					c.cleanupQueue.Push(func() error {
 						c.cleanupEntry(wle, true)
@@ -689,7 +691,7 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		// the label has been converted to "istio-locality: region/zone/subzone"
 		// in pilot/pkg/xds/ads.go, and `/` is not allowed in k8s label value.
 		// Instead of converting again, we delete it since has set WorkloadEntry.Locality
-		delete(entry.Labels, model.LocalityLabel)
+		delete(entry.Labels, pm.LocalityLabel)
 	}
 
 	annotations := map[string]string{annotation.IoIstioAutoRegistrationGroup.Name: groupCfg.Name}
@@ -700,8 +702,12 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	if proxy.Metadata.Network != "" {
 		entry.Network = string(proxy.Metadata.Network)
 	}
-	if proxy.Locality != nil {
-		entry.Locality = util.LocalityToString(proxy.Locality)
+	// proxy.Locality can be unset when auto registration takes place, because
+	// its state is not fully initialized. Therefore, we check the bootstrap
+	// node.
+	if proxy.XdsNode != nil && proxy.XdsNode.Locality != nil {
+		entry.Locality = util.LocalityToString(proxy.XdsNode.Locality)
+		log.Infof("Setting Locality: %s for WLE: %s via XdsNode", entry.Locality, name)
 	}
 	if proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil {
 		annotations[status.WorkloadEntryHealthCheckAnnotation] = "true"

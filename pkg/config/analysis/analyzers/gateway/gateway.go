@@ -64,6 +64,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	// Kubernetes services, and they offer different TCP port combinations, this validator will
 	// not report a problem if *any* selecting service exposes the Gateway's port.
 	servicePorts := map[uint32]bool{}
+	portMapping := map[uint32]uint32{} // svc port -> svc targetPort mapping
 	gwSelectorMatches := 0
 
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
@@ -88,6 +89,9 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 							// the actual port associated with the service is the `TargetPort` that reaches the sidecar *workload instances*.
 							if tp := port.TargetPort.IntValue(); tp != 0 {
 								servicePorts[uint32(tp)] = true
+								if _, ok := portMapping[uint32(port.Port)]; !ok {
+									portMapping[uint32(port.Port)] = uint32(tp)
+								}
 							} else {
 								servicePorts[uint32(port.Port)] = true
 							}
@@ -117,6 +121,9 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	for _, server := range gw.Servers {
 		if server.Port != nil {
 			_, ok := servicePorts[server.Port.Number]
+			if !ok {
+				_, ok = portMapping[server.Port.Number]
+			}
 			if !ok {
 				m := msg.NewGatewayPortNotDefinedOnService(r, int(server.Port.Number), gwSelector.String())
 

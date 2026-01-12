@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -41,27 +41,24 @@ var (
 )
 
 const (
-	// TODO: replace this with official 1.11 release once available.
-	NMinusOne    = "1.11.0-beta.1"
+	// This should technically be bumped on every release, but in practice, only changes to CNI assumptions
+	// wil require an update (e.g. CNI expects 2 containers in the pod but there's only 1 with native sidecars)
+	NMinusOne    = "1.27.1"
 	CNIConfigDir = "tests/integration/pilot/testdata/upgrade"
 )
 
 // Currently only test CNI with one version behind.
 var versions = []string{NMinusOne}
 
-// TestCNIVersionSkew runs all traffic tests with older versions of CNI and lastest Istio.
+// TestCNIVersionSkew runs all traffic tests with older versions of CNI and latest Istio.
 // This is to simulate the case where CNI and Istio control plane versions are out of sync during upgrade.
 func TestCNIVersionSkew(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.cni.upgrade").
 		Run(func(t framework.TestContext) {
-			if !i.Settings().EnableCNI {
-				t.Skip("CNI version skew test is only tested when CNI is enabled.")
-			}
 			for _, v := range versions {
 				installCNIOrFail(t, v)
-				podFetchFn := kube.NewSinglePodFetch(t.Clusters().Default(), "kube-system", "k8s-app=istio-cni-node")
+				podFetchFn := kube.NewSinglePodFetch(t.Clusters().Default(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
 				// Make sure CNI pod is using image with applied version.
 				retry.UntilSuccessOrFail(t, func() error {
 					pods, err := podFetchFn()
@@ -95,6 +92,10 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		SkipIf("CNI version skew test is only tested when CNI is enabled.", func(ctx resource.Context) bool {
+			cfg, _ := istio.DefaultConfig(ctx)
+			return !cfg.EnableCNI
+		}).
 		Label(label.Postsubmit).
 		Label(label.CustomSetup).
 		RequireMultiPrimary().
@@ -112,5 +113,6 @@ func installCNIOrFail(t framework.TestContext, ver string) {
 	if err != nil {
 		t.Fatalf("Failed to read CNI manifest %v", err)
 	}
+	config = strings.ReplaceAll(config, "kube-system", i.Settings().SystemNamespace)
 	t.ConfigIstio().YAML("", config).ApplyOrFail(t)
 }

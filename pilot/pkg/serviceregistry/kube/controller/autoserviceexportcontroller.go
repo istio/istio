@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -66,7 +67,7 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 		controllers.WithReconciler(c.Reconcile),
 		controllers.WithMaxAttempts(5))
 
-	c.services = kclient.New[*v1.Service](opts.Client)
+	c.services = kclient.NewFiltered[*v1.Service](opts.Client, kubetypes.Filter{ObjectFilter: opts.Client.ObjectFilter()})
 
 	// Only handle add. The controller only acts on parts of the service
 	// that are immutable (e.g. name). When we create ServiceExport, we bind its

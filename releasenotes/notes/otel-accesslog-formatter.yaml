@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Added** access log [formatter](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/formatter/formatter) support for OpenTelemetry, users should add CEL/METADATA/REQ_WITHOUT_QUERY commands after all proxies upgraded to 1.23+.      

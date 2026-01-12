@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gw-{{ .To.ServiceName }}
@@ -13,7 +13,7 @@ spec:
       hosts:
         - "*.{{ .To.ServiceName }}.com"
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vw-{{ .To.ServiceName }}
@@ -30,7 +30,7 @@ spec:
             port:
               number: {{ (.To.PortForName "http").ServicePort }}
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: allow-{{ .To.ServiceName }}

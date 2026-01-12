@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
@@ -42,16 +43,18 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubeclient "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
 	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -65,7 +68,8 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 	endpoints := model.NewEndpointIndex(model.DisabledCache{})
 	delegate := model.NewEndpointIndexUpdater(endpoints)
 	xdsUpdater := xdsfake.NewWithDelegate(delegate)
-	meshWatcher := mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
+	delegate.ConfigUpdateFunc = xdsUpdater.ConfigUpdate
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 	kc := kubecontroller.NewController(
 		client,
 		kubecontroller.Options{
@@ -80,7 +84,7 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
 
-	se := serviceentry.NewController(configController, xdsUpdater)
+	se := serviceentry.NewController(configController, xdsUpdater, meshWatcher)
 	client.RunAndWait(stop)
 
 	kc.AppendWorkloadHandler(se.WorkloadInstanceHandler)
@@ -241,11 +245,15 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		fx.WaitOrFail(t, "eds")
-		// headless service update must trigger nds push.
-		ev := fx.WaitOrFail(t, "xds")
-		if !ev.Reason.Has(model.HeadlessEndpointUpdate) {
-			t.Fatalf("xds push reason does not contain %v", model.HeadlessEndpointUpdate)
+		// Endpoint update is triggered since its a brand new service
+		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.EndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v: %v", model.EndpointUpdate, ev)
 		}
+		// headless service update must trigger nds push, so we trigger a full push.
+		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v: %v", model.HeadlessEndpointUpdate, ev)
+		}
+
 		// pure HTTP headless services should not need a full push since they do not
 		// require a Listener based on IP: https://github.com/istio/istio/issues/48207
 		instances := []EndpointResponse{{
@@ -262,10 +270,13 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "tcp", Port: 70}}, []string{pod.Status.PodIP})
 		fx.WaitOrFail(t, "eds")
-		ev := fx.WaitOrFail(t, "xds full")
-		// headless service update must trigger nds push.
-		if !ev.Reason.Has(model.HeadlessEndpointUpdate) {
-			t.Fatalf("xds push reason does not contain %v", model.HeadlessEndpointUpdate)
+		// Endpoint update is triggered since its a brand new service
+		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.EndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v: %v", model.EndpointUpdate, ev)
+		}
+		// headless service update must trigger nds push, so we trigger a full push.
+		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v: %v", model.HeadlessEndpointUpdate, ev)
 		}
 		instances := []EndpointResponse{{
 			Address: pod.Status.PodIP,
@@ -462,6 +473,250 @@ func TestWorkloadInstances(t *testing.T) {
 			Port:    80,
 		}}
 		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+	})
+
+	t.Run("External only: workloadEntry port is changed", func(t *testing.T) {
+		store, _, fx := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service.namespace.svc.cluster.local"},
+				Ports: []*networking.ServicePort{{
+					Name:     "http",
+					Number:   80,
+					Protocol: "http",
+				}},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		makeIstioObject(t, store, workloadEntry)
+		fx.WaitOrFail(t, "xds full")
+
+		instances := []EndpointResponse{{
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    80,
+		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+
+		fx.Clear()
+		// Update the port
+		newWorkloadEntry := workloadEntry.DeepCopy()
+		spec := workloadEntry.Spec.(*networking.WorkloadEntry).DeepCopy()
+		spec.Ports = map[string]uint32{
+			"http": 1234,
+		}
+		newWorkloadEntry.Spec = spec
+		makeIstioObject(t, store, newWorkloadEntry)
+		instances = []EndpointResponse{{
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    1234,
+		}}
+		fx.WaitOrFail(t, "xds")
+		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+	})
+
+	t.Run("External only: workloadEntry with overlapping IPs", func(t *testing.T) {
+		store, _, fx := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"example.com"},
+				Ports: []*networking.ServicePort{
+					{Number: 445, Name: "http-445", Protocol: "http"},
+				},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		expectedSvc := &model.Service{
+			Hostname: "example.com",
+			Ports: []*model.Port{{
+				Name:     "http-445",
+				Port:     445,
+				Protocol: "http",
+			}},
+			Attributes: model.ServiceAttributes{
+				Namespace:      namespace,
+				Name:           "service",
+				LabelSelectors: labels,
+			},
+		}
+		we1 := config.Config{
+			Meta: config.Meta{
+				Name:             "we1",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http-445": 1234,
+				},
+			},
+		}
+		we2 := config.Config{
+			Meta: config.Meta{
+				Name:             "we2",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http-445": 5678,
+				},
+			},
+		}
+		makeIstioObject(t, store, we1)
+		makeIstioObject(t, store, we2)
+		fx.WaitOrFail(t, "xds full")
+
+		instances := []EndpointResponse{{
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    1234,
+		}, {
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    5678,
+		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 445, instances)
+
+		fx.Clear()
+
+		// Delete one of the WE
+		_ = store.Delete(gvk.WorkloadEntry, we2.Name, we2.Namespace, nil)
+
+		fx.WaitOrFail(t, "xds")
+		instances = []EndpointResponse{
+			{
+				Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:    1234,
+			},
+		}
+		expectServiceEndpoints(t, fx, expectedSvc, 445, instances)
+	})
+
+	t.Run("External only: workloadEntry with overlapping IPs and multiple SE", func(t *testing.T) {
+		store, _, fx := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry1",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"1.example.com"},
+				Ports: []*networking.ServicePort{
+					{Number: 445, Name: "http-445", Protocol: "http"},
+				},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry2",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"2.example.com"},
+				Ports: []*networking.ServicePort{
+					{Number: 445, Name: "http-445", Protocol: "http"},
+				},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		expectedSvc := &model.Service{
+			Hostname: "1.example.com",
+			Ports: []*model.Port{{
+				Name:     "http-445",
+				Port:     445,
+				Protocol: "http",
+			}},
+			Attributes: model.ServiceAttributes{
+				Namespace:      namespace,
+				Name:           "service",
+				LabelSelectors: labels,
+			},
+		}
+		we1 := config.Config{
+			Meta: config.Meta{
+				Name:             "we1",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http-445": 1234,
+				},
+			},
+		}
+		we2 := config.Config{
+			Meta: config.Meta{
+				Name:             "we2",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http-445": 5678,
+				},
+			},
+		}
+		makeIstioObject(t, store, we1)
+		makeIstioObject(t, store, we2)
+		fx.WaitOrFail(t, "xds full")
+
+		instances := []EndpointResponse{{
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    1234,
+		}, {
+			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:    5678,
+		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 445, instances)
+
+		fx.Clear()
+
+		// Delete one of the WE
+		_ = store.Delete(gvk.WorkloadEntry, we2.Name, we2.Namespace, nil)
+
+		fx.WaitOrFail(t, "xds")
+		newInstances := []EndpointResponse{
+			{
+				Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+				Port:    1234,
+			},
+		}
+		expectServiceEndpoints(t, fx, expectedSvc, 445, newInstances)
+
+		makeIstioObject(t, store, we2)
+		expectServiceEndpoints(t, fx, expectedSvc, 445, instances)
 	})
 
 	t.Run("Service selects WorkloadEntry", func(t *testing.T) {
@@ -729,6 +984,86 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
 	})
 
+	t.Run("ServiceEntry selects Pod that is Failed without IP", func(t *testing.T) {
+		store, kube, fx := setupTest(t)
+		makeIstioObject(t, store, serviceEntry)
+		makePod(t, kube, pod)
+		// Copy the pod since other tests expect it to have an IP.
+		p2 := pod.DeepCopy()
+		instances := []EndpointResponse{{
+			Address: p2.Status.PodIP,
+			Port:    80,
+		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+
+		// Failed pods should have their endpoints removed from the registry, despite not having an IP.
+		p2.Status.PodIP = ""
+		p2.Status.PodIPs = nil
+		p2.Status.Phase = v1.PodFailed
+		_, err := kube.CoreV1().Pods(p2.Namespace).UpdateStatus(context.TODO(), p2, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, []EndpointResponse{})
+	})
+
+	t.Run("ServiceEntry selects Pod that is Failed with an IP", func(t *testing.T) {
+		store, kube, fx := setupTest(t)
+		makeIstioObject(t, store, serviceEntry)
+		makePod(t, kube, pod)
+		p2 := pod.DeepCopy()
+		instances := []EndpointResponse{{
+			Address: p2.Status.PodIP,
+			Port:    80,
+		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+
+		// Failed pods should have their endpoints removed from the registry
+		p2.Status.Phase = v1.PodFailed
+		_, err := kube.CoreV1().Pods(p2.Namespace).UpdateStatus(context.TODO(), p2, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, []EndpointResponse{})
+
+		// Removing the IP should be a no-op
+		p2.Status.PodIP = ""
+		p2.Status.PodIPs = nil
+		_, err = kube.CoreV1().Pods(p2.Namespace).UpdateStatus(context.TODO(), p2, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, []EndpointResponse{})
+	})
+
+	t.Run("ServiceEntry selects Pod with IP removed", func(t *testing.T) {
+		store, kube, fx := setupTest(t)
+		makeIstioObject(t, store, serviceEntry)
+		makePod(t, kube, pod)
+		p2 := pod.DeepCopy()
+		instances := []EndpointResponse{{
+			Address: p2.Status.PodIP,
+			Port:    80,
+		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+
+		// Pods without an IP can't be ready.
+		p2.Status.PodIP = ""
+		p2.Status.PodIPs = nil
+		_, err := kube.CoreV1().Pods(p2.Namespace).UpdateStatus(context.TODO(), p2, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, []EndpointResponse{})
+
+		// Failing the pod should be a no-op
+		p2.Status.Phase = v1.PodFailed
+		_, err = kube.CoreV1().Pods(p2.Namespace).UpdateStatus(context.TODO(), p2, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectServiceEndpoints(t, fx, expectedSvc, 80, []EndpointResponse{})
+	})
 	t.Run("ServiceEntry selects Pod with targetPort number", func(t *testing.T) {
 		store, kube, fx := setupTest(t)
 		makeIstioObject(t, store, config.Config{
@@ -758,6 +1093,222 @@ func TestWorkloadInstances(t *testing.T) {
 			Port:    8080,
 		}}
 		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+	})
+
+	t.Run("ServiceEntry selects WorkloadEntry", func(t *testing.T) {
+		store, _, fx := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry-1",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service-1.namespace.svc.cluster.local"},
+				Ports: []*networking.ServicePort{port},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{
+						"app.foo": "true",
+					},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
+			},
+		})
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry-2",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service-2.namespace.svc.cluster.local"},
+				Ports: []*networking.ServicePort{port},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{
+						"app.bar": "true",
+					},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
+			},
+		})
+		// Both service entries share a common workload entry
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workloadentry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels: map[string]string{
+					"app.foo": "true",
+					"app.bar": "true",
+				},
+			},
+		})
+
+		fx.WaitOrFail(t, "xds full")
+		instances := []EndpointResponse{{
+			Address: "2.3.4.5",
+			Port:    80,
+		}}
+		expectedSvc1 := &model.Service{
+			Hostname: "service-1.namespace.svc.cluster.local",
+			Ports: []*model.Port{{
+				Name:     "http",
+				Port:     80,
+				Protocol: "http",
+			}},
+			Attributes: model.ServiceAttributes{
+				Namespace: namespace,
+				Name:      "service-entry-1",
+				LabelSelectors: map[string]string{
+					"app.foo": "true",
+				},
+			},
+		}
+		expectedSvc2 := &model.Service{
+			Hostname: "service-2.namespace.svc.cluster.local",
+			Ports: []*model.Port{{
+				Name:     "http",
+				Port:     80,
+				Protocol: "http",
+			}},
+			Attributes: model.ServiceAttributes{
+				Namespace: namespace,
+				Name:      "service-entry-2",
+				LabelSelectors: map[string]string{
+					"app.bar": "true",
+				},
+			},
+		}
+		expectServiceEndpoints(t, fx, expectedSvc1, 80, instances)
+		expectServiceEndpoints(t, fx, expectedSvc2, 80, instances)
+		fx.Clear()
+		// Delete the `app.foo` label to unselect service entry
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workloadentry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels: map[string]string{
+					"app.bar": "true",
+				},
+			},
+		})
+		fx.WaitOrFail(t, "xds")
+		expectServiceEndpoints(t, fx, expectedSvc1, 80, []EndpointResponse{})
+		expectServiceEndpoints(t, fx, expectedSvc2, 80, instances)
+	})
+
+	t.Run("Multiport ServiceEntry selects WorkloadEntry", func(t *testing.T) {
+		store, _, fx := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service.namespace.svc.cluster.local"},
+				Ports: []*networking.ServicePort{
+					{
+						Name:     "http",
+						Number:   80,
+						Protocol: "http",
+					},
+					{
+						Name:     "tcp",
+						Number:   3000,
+						Protocol: "tcp",
+					},
+				},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{
+						"app.foo": "true",
+					},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
+			},
+		})
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workloadentry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels: map[string]string{
+					"app.foo": "true",
+				},
+				Ports: map[string]uint32{
+					"http": 8080,
+					"tcp":  3000,
+				},
+			},
+		})
+
+		fx.WaitOrFail(t, "xds full")
+		expectedSvc := &model.Service{
+			Hostname: "service.namespace.svc.cluster.local",
+			Ports: []*model.Port{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: "http",
+				},
+				{
+					Name:     "tcp",
+					Port:     3000,
+					Protocol: "tcp",
+				},
+			},
+			Attributes: model.ServiceAttributes{
+				Namespace: namespace,
+				Name:      "service-entry",
+				LabelSelectors: map[string]string{
+					"app.foo": "true",
+				},
+			},
+		}
+		// Two endpoints will be generated: one for service port 80 and another for service port 3000.
+		expectServiceEndpoints(t, fx, expectedSvc, 80, []EndpointResponse{{Address: "2.3.4.5", Port: 8080}})
+		expectServiceEndpoints(t, fx, expectedSvc, 3000, []EndpointResponse{{Address: "2.3.4.5", Port: 3000}})
+		fx.Clear()
+		// Update the TCP port to 4000.
+		// This update should trigger a comparison with the TCP endpoint, not the HTTP one,
+		// which could cause unnecessary pushes.
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workloadentry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels: map[string]string{
+					"app.foo": "true",
+				},
+				Ports: map[string]uint32{
+					"http": 8080,
+					"tcp":  4000,
+				},
+			},
+		})
+		fx.WaitOrFail(t, "xds")
+		expectServiceEndpoints(t, fx, expectedSvc, 80, []EndpointResponse{{Address: "2.3.4.5", Port: 8080}})
+		expectServiceEndpoints(t, fx, expectedSvc, 3000, []EndpointResponse{{Address: "2.3.4.5", Port: 4000}})
 	})
 
 	t.Run("All directions", func(t *testing.T) {
@@ -874,8 +1425,8 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
 	})
 
-	istiotest.SetForTest(t, &features.EnableHBONE, true)
-	istiotest.SetForTest(t, &features.EnableAmbientControllers, true)
+	istiotest.SetForTest(t, &features.EnableSidecarHBONEListening, true)
+	istiotest.SetForTest(t, &features.EnableAmbient, true)
 	for _, ambient := range []bool{false, true} {
 		name := "disabled"
 		if ambient {
@@ -886,7 +1437,7 @@ func TestWorkloadInstances(t *testing.T) {
 		if ambient {
 			nodeMeta = &model.NodeMetadata{EnableHBONE: true}
 			pod = pod.DeepCopy()
-			pod.Annotations[constants.AmbientRedirection] = constants.AmbientRedirectionEnabled
+			pod.Annotations[annotation.AmbientRedirection.Name] = constants.AmbientRedirectionEnabled
 		}
 		opts := xds.FakeOptions{MeshConfig: m}
 		t.Run("ambient "+name, func(t *testing.T) {
@@ -980,12 +1531,12 @@ func setHealth(cfg config.Config, healthy bool) config.Config {
 	}
 	cfg.Annotations[status.WorkloadEntryHealthCheckAnnotation] = "true"
 	if healthy {
-		return status.UpdateConfigCondition(cfg, &v1alpha1.IstioCondition{
+		return status.UpdateIstioConfigCondition(cfg, &v1alpha1.IstioCondition{
 			Type:   status.ConditionHealthy,
 			Status: status.StatusTrue,
 		})
 	}
-	return status.UpdateConfigCondition(cfg, &v1alpha1.IstioCondition{
+	return status.UpdateIstioConfigCondition(cfg, &v1alpha1.IstioCondition{
 		Type:   status.ConditionHealthy,
 		Status: status.StatusFalse,
 	})
@@ -1198,12 +1749,12 @@ func expectServiceEndpointsFromIndex(t *testing.T, ei *model.EndpointIndex, svc 
 		}
 		got := slices.Map(endpoints, func(e *model.IstioEndpoint) EndpointResponse {
 			return EndpointResponse{
-				Address: e.Address,
+				Address: e.Addresses[0],
 				Port:    e.EndpointPort,
 			}
 		})
 		slices.SortBy(got, func(a EndpointResponse) string {
-			return a.Address
+			return fmt.Sprintf("%v:%d", a.Address, a.Port)
 		})
 		return assert.Compare(got, expected)
 	}, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
@@ -1212,7 +1763,7 @@ func expectServiceEndpointsFromIndex(t *testing.T, ei *model.EndpointIndex, svc 
 // nolint: unparam
 func expectServiceEndpoints(t *testing.T, fx *xdsfake.Updater, svc *model.Service, port int, expected []EndpointResponse) {
 	t.Helper()
-	expectServiceEndpointsFromIndex(t, fx.Delegate.(*model.EndpointIndexUpdater).Index, svc, port, expected)
+	expectServiceEndpointsFromIndex(t, fx.Delegate.(*model.FakeEndpointIndexUpdater).Index, svc, port, expected)
 }
 
 func setPodReady(pod *v1.Pod) {
@@ -1350,7 +1901,7 @@ func TestLocality(t *testing.T) {
 	namespace := "default"
 	basePod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod",
+			Name:      "test-1",
 			Namespace: namespace,
 			Labels:    map[string]string{},
 		},
@@ -1384,7 +1935,7 @@ func TestLocality(t *testing.T) {
 			name: "pod specific label",
 			pod: func() *v1.Pod {
 				p := basePod.DeepCopy()
-				p.Labels[model.LocalityLabel] = "r.z.s"
+				p.Labels[pm.LocalityLabel] = "r.z.s"
 				return p
 			}(),
 			node: baseNode,
@@ -1414,7 +1965,7 @@ func TestLocality(t *testing.T) {
 			name: "pod and node labels",
 			pod: func() *v1.Pod {
 				p := basePod.DeepCopy()
-				p.Labels[model.LocalityLabel] = "r.z.s"
+				p.Labels[pm.LocalityLabel] = "r.z.s"
 				return p
 			}(),
 			node: func() *v1.Node {
@@ -1468,7 +2019,7 @@ func TestLocality(t *testing.T) {
 					Endpoints: []*networking.WorkloadEntry{{
 						Address: "1.2.3.4",
 						Labels: map[string]string{
-							model.LocalityLabel: "r.z.s",
+							pm.LocalityLabel: "r.z.s",
 						},
 					}},
 					Resolution: networking.ServiceEntry_STATIC,
@@ -1495,7 +2046,7 @@ func TestLocality(t *testing.T) {
 						Address:  "1.2.3.4",
 						Locality: "r/z/s",
 						Labels: map[string]string{
-							model.LocalityLabel: "lr.lz.ls",
+							pm.LocalityLabel: "lr.lz.ls",
 						},
 					}},
 					Resolution: networking.ServiceEntry_STATIC,
@@ -1511,8 +2062,10 @@ func TestLocality(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := xds.FakeOptions{}
+			proxyName := ""
 			if tt.pod != nil {
 				opts.KubernetesObjects = append(opts.KubernetesObjects, tt.pod)
+				proxyName = tt.pod.Name + "." + tt.pod.Namespace
 			}
 			if tt.node != nil {
 				opts.KubernetesObjects = append(opts.KubernetesObjects, tt.node)
@@ -1521,7 +2074,7 @@ func TestLocality(t *testing.T) {
 				opts.Configs = append(opts.Configs, tt.obj)
 			}
 			s := xds.NewFakeDiscoveryServer(t, opts)
-			s.Connect(s.SetupProxy(&model.Proxy{IPAddresses: []string{"1.2.3.4"}}), nil, []string{v3.ClusterType})
+			s.Connect(s.SetupProxy(&model.Proxy{ID: proxyName, IPAddresses: []string{"1.2.3.4"}}), nil, []string{v3.ClusterType})
 			retry.UntilSuccessOrFail(t, func() error {
 				clients := s.Discovery.AllClients()
 				if len(clients) != 1 {

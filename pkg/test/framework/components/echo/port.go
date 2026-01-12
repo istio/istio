@@ -46,6 +46,9 @@ type Port struct {
 	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
 	TLS bool
 
+	// MTLS determines whether the connection will be mTLS. By default this is false (plain text).
+	MTLS bool
+
 	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
 	ServerFirst bool
 
@@ -54,6 +57,13 @@ type Port struct {
 
 	// LocalhostIP determines if echo will listen on the localhost IP; otherwise, it will listen on wildcard
 	LocalhostIP bool
+
+	// ProxyProtocol determines if echo should accept PROXY protocol.
+	ProxyProtocol bool
+
+	// EndpointPicker indicates this port should serve as an endpoint picker (ext_proc gRPC service).
+	// Only valid when Protocol is GRPC.
+	EndpointPicker bool
 }
 
 // IsWorkloadOnly returns true if there is no service port specified for this Port.

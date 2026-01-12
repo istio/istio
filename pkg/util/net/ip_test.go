@@ -15,6 +15,7 @@
 package net
 
 import (
+	"net/http/httptest"
 	"net/netip"
 	"reflect"
 	"testing"
@@ -360,6 +361,52 @@ func TestParseIPsSplitToV4V61(t *testing.T) {
 			}
 			if !reflect.DeepEqual(gotIpv6, tt.wantIpv6) {
 				t.Errorf("ParseIPsSplitToV4V6() gotIpv6 = %v, want %v", gotIpv6, tt.wantIpv6)
+			}
+		})
+	}
+}
+
+func TestIsRequestFromLocalhost(t *testing.T) {
+	testCases := []struct {
+		name       string
+		remoteAddr string
+		expected   bool
+	}{
+		{
+			name:       "Localhost IPv4",
+			remoteAddr: "127.0.0.1:8080",
+			expected:   true,
+		},
+		{
+			name:       "Localhost IPv6",
+			remoteAddr: "[::1]:8080",
+			expected:   true,
+		},
+		{
+			name:       "Private IPv4",
+			remoteAddr: "192.168.1.100:8080",
+			expected:   false,
+		},
+		{
+			name:       "Public IPv4",
+			remoteAddr: "8.8.8.8:8080",
+			expected:   false,
+		},
+		{
+			name:       "Invalid Remote Address",
+			remoteAddr: "invalid",
+			expected:   false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/", nil)
+			req.RemoteAddr = tc.remoteAddr
+
+			result := IsRequestFromLocalhost(req)
+			if result != tc.expected {
+				t.Errorf("IsRequestFromLocalhost expected %t for %s, but got %t", tc.expected, tc.remoteAddr, result)
 			}
 		})
 	}

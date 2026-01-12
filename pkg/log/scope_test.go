@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strconv"
 	"testing"
+	"time"
 
 	"go.uber.org/zap/zapcore"
 	"k8s.io/klog/v2"
@@ -155,7 +156,7 @@ func TestBasicScopes(t *testing.T) {
 			wantExit: true,
 		},
 		{
-			f:        func() { s.Fatalf("Hello") },
+			f:        func() { s.Fatal("Hello") },
 			pat:      timePattern + "\tfatal\ttestScope\tHello",
 			wantExit: true,
 		},
@@ -269,7 +270,7 @@ func TestScopeWithLabel(t *testing.T) {
 	lines, err := captureStdout(func() {
 		Configure(DefaultOptions())
 		funcs.Store(funcs.Load().(patchTable))
-		s2 := s.WithLabels("foo", "bar").WithLabels("baz", 123, "qux", 0.123)
+		s2 := s.WithLabels("foo", "bar").WithLabels("baz", 123, "qux", 0.123, "dur", time.Millisecond*101).WithLabels("foo", "override")
 		s2.Debug("Hello")
 		// s should be unmodified.
 		s.Debug("Hello")
@@ -280,7 +281,7 @@ func TestScopeWithLabel(t *testing.T) {
 		t.Errorf("Got error '%v', expected success", err)
 	}
 
-	mustRegexMatchString(t, lines[0], `Hello	foo=bar baz=123 qux=0.123`)
+	mustRegexMatchString(t, lines[0], `Hello	foo=override baz=123 qux=0.123 dur=101ms`)
 	mustRegexMatchString(t, lines[1], "Hello$")
 }
 
@@ -295,7 +296,7 @@ func TestScopeJSON(t *testing.T) {
 		o.JSONEncoding = true
 		Configure(o)
 		funcs.Store(funcs.Load().(patchTable))
-		s.WithLabels("foo", "bar", "baz", 123).Debug("Hello")
+		s.WithLabels("foo", "bar", "baz", 123, "dur", time.Millisecond*101).Debug("Hello")
 
 		_ = Sync()
 	})
@@ -303,7 +304,7 @@ func TestScopeJSON(t *testing.T) {
 		t.Errorf("Got error '%v', expected success", err)
 	}
 
-	mustRegexMatchString(t, lines[0], `{.*"msg":"Hello","foo":"bar","baz":123}`)
+	mustRegexMatchString(t, lines[0], `{.*"msg":"Hello","foo":"bar","baz":123,"dur":"101ms"}`)
 }
 
 func mustRegexMatchString(t *testing.T, got, want string) {
@@ -442,4 +443,63 @@ func TestBadWriter(t *testing.T) {
 	// for now, we just make sure this doesn't crash. To be totally correct, we'd need to capture stderr and
 	// inspect it, but it's just not worth it
 	defaultScope.Error("TestBadWriter")
+}
+
+// Regression test for a race condition
+func TestUpdateScope(t *testing.T) {
+	o := testOptions()
+	if err := Configure(o); err != nil {
+		t.Errorf("Got err '%v', expecting success", err)
+	}
+
+	go func() {
+		for range 100 {
+			defaultScope.SetOutputLevel(DebugLevel)
+		}
+	}()
+	go func() {
+		for range 100 {
+			defaultScope.WithLabels("foo", "bar")
+		}
+	}()
+}
+
+func BenchmarkLog(b *testing.B) {
+	runOpts := func(name string, opts func(*Options), f func()) {
+		b.Run(name, func(b *testing.B) {
+			o := testOptions()
+			o.OutputPaths = []string{"/dev/null"}
+			opts(o)
+			if err := Configure(o); err != nil {
+				b.Fatalf("Got err '%v', expecting success", err)
+			}
+			for n := 0; n < b.N; n++ {
+				f()
+			}
+		})
+	}
+	run := func(name string, f func()) {
+		runOpts(name, func(options *Options) {}, f)
+	}
+	run("default", func() {
+		Info("some message")
+	})
+	run("formatted", func() {
+		Infof("some %s", "message")
+	})
+	scope := WithLabels("some", "value", "foo", 123)
+	run("precreated labels", func() {
+		scope.Infof("some %s", "message")
+	})
+	run("labels", func() {
+		WithLabels("some", "value", "foo", 123).Infof("some %s", "message")
+	})
+	run("precreated and dynamic labels", func() {
+		scope.WithLabels("fruit", "apply").Infof("some %s", "message")
+	})
+	runOpts("json", func(options *Options) {
+		options.JSONEncoding = true
+	}, func() {
+		scope.Infof("some %s", "message")
+	})
 }

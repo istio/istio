@@ -49,6 +49,7 @@ type Params struct {
 	Container      string
 	KubeConfig     string
 	KubeContext    string
+	ProxyAdminPort int
 }
 
 func (p *Params) SetDryRun(dryRun bool) *Params {
@@ -60,6 +61,12 @@ func (p *Params) SetDryRun(dryRun bool) *Params {
 func (p *Params) SetVerbose(verbose bool) *Params {
 	out := *p
 	out.Verbose = verbose
+	return &out
+}
+
+func (p *Params) SetProxyAdminPort(proxyAdminPort int) *Params {
+	out := *p
+	out.ProxyAdminPort = proxyAdminPort
 	return &out
 }
 
@@ -200,7 +207,7 @@ func GetProxyInfo(p *Params) (map[string]string, error) {
 	}
 	ret := make(map[string]string)
 	for _, url := range common.ProxyDebugURLs(p.ClusterVersion) {
-		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun)
+		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun, p.ProxyAdminPort)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
@@ -220,7 +227,7 @@ func GetZtunnelInfo(p *Params) (map[string]string, error) {
 	errs := istiomultierror.New()
 	ret := make(map[string]string)
 	for _, url := range common.ZtunnelDebugURLs(p.ClusterVersion) {
-		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun)
+		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun, p.ProxyAdminPort)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue

@@ -8,11 +8,11 @@ See the
 for a more complete design description. The operator code is divided roughly into five areas:
 
 1. [IstioOperatorSpec API](#istiooperatorspec-api) and related infrastructure, which is expressed as a
-[proto](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto) and
+[proto](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto) and
 compiled to [Go
-structs](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.pb.go).
+structs](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.pb.go).
 `IstioOperatorSpec` has pass-through fields to the Helm values.yaml API, but these are additionally validated through
-a [schema](../operator/pkg/apis/istio/v1alpha1/values_types.proto).
+a [schema](../../operator/pkg/apis/values_types.proto).
 1. [Controller](#k8s-controller) code. The code comprises the K8s listener, webhook and logic for reconciling the cluster
 to an `IstioOperatorSpec` CR.
 1. [Manifest creation](#manifest-creation) code. User settings are overlaid on top of the
@@ -34,11 +34,11 @@ are intended to support production ready deployments of Istio that follow best p
 Throughout the document, the following terms are used:
 
 - `IstioOperatorSpec`: The API directly defined in the
-[IstioOperatorSpec proto](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto),
+[IstioOperatorSpec proto](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto),
 including feature and component groupings, namespaces and enablement, and per-component K8s settings.
 - Helm values.yaml API, implicitly defined through the various values.yaml files in the
 [istio/manifests/charts](../manifests/charts/istio-operator) and schematized in the operator through
-[values_types.proto](../operator/pkg/apis/istio/v1alpha1/values_types.proto).
+[values_types.proto](../../operator/pkg/apis/values_types.proto).
 
 ## IstioOperatorSpec API
 
@@ -199,10 +199,6 @@ Apart from validating the correctness of individual fields, the operator ensure 
 different parts of the configuration tree are correct. For example, it's an error to enable a component while its
 parent feature is disabled.
 
-## K8s controller
-
-TODO(rcernich).
-
 ## Manifest creation
 
 Manifest rendering is a multi-step process, shown in the figure below. ![rendering
@@ -238,7 +234,6 @@ subdirectory as a Cobra command with the following subcommands:
     - [diff](../operator/cmd/mesh/manifest-diff.go): the diff subcommand is used to compare manifest from two files or directories.
     - [generate](../operator/cmd/mesh/manifest-generate.go): the generate subcommand is used to generate an Istio install manifest.
 - [profile](../operator/cmd/mesh/profile.go): dumps the default values for a selected profile, it has the following subcommands:
-    - [diff](../operator/cmd/mesh/profile-diff.go): the diff subcommand is used to display the difference between two Istio configuration profiles.
     - [dump](../operator/cmd/mesh/profile-dump.go): the dump subcommand is used to dump the values in an Istio configuration profile.
     - [list](../operator/cmd/mesh/profile-list.go): the list subcommand is used to list available Istio configuration profiles.
 - [upgrade](../operator/cmd/mesh/upgrade.go): performs an in-place upgrade of the Istio control plane with eligibility checks.

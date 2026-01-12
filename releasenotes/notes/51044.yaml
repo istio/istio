@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 50808
+releaseNotes:
+  - |
+    **Removed** Istio Stackdriver metrics from XDS.

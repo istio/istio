@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 50355
+releaseNotes:
+- |
+  **Added** functionality to enroll individual pods into ambient by labelling them with `istio.io/dataplane-mode=ambient`

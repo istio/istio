@@ -166,13 +166,6 @@ func (cr *store) UpdateStatus(c config.Config) (string, error) {
 	return cr.writer.UpdateStatus(c)
 }
 
-func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	if cr.writer == nil {
-		return "", errorUnsupported
-	}
-	return cr.writer.Patch(orig, patchFn)
-}
-
 type storeCache struct {
 	model.ConfigStore
 	caches []model.ConfigStoreController

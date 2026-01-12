@@ -11,14 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package sidecar
 
-import "istio.io/istio/pkg/config/resource"
+import (
+	"sort"
+
+	"istio.io/istio/pkg/config/resource"
+)
 
 func getNames(entries []*resource.Instance) []string {
 	names := make([]string, 0, len(entries))
 	for _, rs := range entries {
 		names = append(names, string(rs.Metadata.FullName.Name))
 	}
+	sort.Strings(names)
 	return names
 }

@@ -51,7 +51,7 @@ const (
 	lastStateUnhealthy
 )
 
-func fillInDefaults(cfg *v1alpha3.ReadinessProbe, ipAddresses []string) *v1alpha3.ReadinessProbe {
+func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 	cfg = cfg.DeepCopy()
 	// Thresholds have a minimum of 1
 	cfg.FailureThreshold = orDefault(cfg.FailureThreshold, 1)
@@ -70,13 +70,6 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe, ipAddresses []string) *v1alpha
 			h.HttpGet.Scheme = string(apimirror.URISchemeHTTP)
 		}
 		h.HttpGet.Scheme = strings.ToLower(h.HttpGet.Scheme)
-		if h.HttpGet.Host == "" {
-			if len(ipAddresses) == 0 || status.LegacyLocalhostProbeDestination.Get() {
-				h.HttpGet.Host = "localhost"
-			} else {
-				h.HttpGet.Host = ipAddresses[0]
-			}
-		}
 	}
 	return cfg
 }
@@ -86,15 +79,18 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Pro
 	if cfg == nil {
 		return nil
 	}
-	cfg = fillInDefaults(cfg, proxyAddrs)
+	cfg = fillInDefaults(cfg)
+	defaultHost := resolveDefaultHost(proxyAddrs)
 	var prober Prober
 	switch healthCheckMethod := cfg.HealthCheckMethod.(type) {
 	case *v1alpha3.ReadinessProbe_HttpGet:
-		prober = NewHTTPProber(healthCheckMethod.HttpGet, ipv6)
+		prober = NewHTTPProber(healthCheckMethod.HttpGet, defaultHost, ipv6)
 	case *v1alpha3.ReadinessProbe_TcpSocket:
-		prober = &TCPProber{Config: healthCheckMethod.TcpSocket}
+		prober = NewTCPProber(healthCheckMethod.TcpSocket, defaultHost)
 	case *v1alpha3.ReadinessProbe_Exec:
 		prober = &ExecProber{Config: healthCheckMethod.Exec}
+	case *v1alpha3.ReadinessProbe_Grpc:
+		prober = NewGRPCProber(healthCheckMethod.Grpc, defaultHost)
 	default:
 		prober = nil
 	}
@@ -114,6 +110,13 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Pro
 		},
 		prober: AggregateProber{Probes: probers},
 	}
+}
+
+func resolveDefaultHost(ipAddresses []string) string {
+	if len(ipAddresses) == 0 || status.LegacyLocalhostProbeDestination.Get() {
+		return "localhost"
+	}
+	return ipAddresses[0]
 }
 
 func orDefault(val int32, def int32) int32 {

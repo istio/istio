@@ -16,21 +16,27 @@ package echotest_test
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
+
+func init() {
+	allClusters[cls1.Name()] = cls1
+	allClusters[cls2.Name()] = cls2
+}
 
 var (
 	// TODO set this up with echobuilder/cluster builder in Fake mode
@@ -39,8 +45,23 @@ var (
 	echo2NS = namespace.Static("echo2")
 
 	// 2 clusters on 2 networks
-	cls1 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls1", Network: "n1", Index: 0, ClusterKind: cluster.Fake}}
-	cls2 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls2", Network: "n2", Index: 1, ClusterKind: cluster.Fake}}
+	allClusters = make(cluster.Map)
+	cls1        = &kube.Cluster{Topology: cluster.Topology{
+		ClusterName:        "cls1",
+		Network:            "n1",
+		PrimaryClusterName: "cls1",
+		ConfigClusterName:  "cls1",
+		Index:              0,
+		AllClusters:        allClusters,
+	}}
+	cls2 = &kube.Cluster{Topology: cluster.Topology{
+		ClusterName:        "cls2",
+		Network:            "n2",
+		PrimaryClusterName: "cls2",
+		ConfigClusterName:  "cls2",
+		Index:              1,
+		AllClusters:        allClusters,
+	}}
 
 	// simple pod
 	a1 = &fakeInstance{Cluster: cls1, Namespace: echo1NS, Service: "a"}
@@ -62,20 +83,20 @@ var (
 	headless2 = &fakeInstance{Cluster: cls2, Namespace: echo1NS, Service: "headless", Headless: true}
 	// naked pod (uninjected)
 	naked1 = &fakeInstance{Cluster: cls1, Namespace: echo1NS, Service: "naked", Subsets: []echo.SubsetConfig{{
-		Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+		Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 	}}}
 	naked2 = &fakeInstance{Cluster: cls2, Namespace: echo1NS, Service: "naked", Subsets: []echo.SubsetConfig{{
-		Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+		Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 	}}}
 	// external svc
 	external1 = &fakeInstance{
 		Cluster: cls1, Namespace: echo1NS, Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
-			Annotations: map[echo.Annotation]*echo.AnnotationValue{echo.SidecarInject: {Value: strconv.FormatBool(false)}},
+			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 		}},
 	}
 	external2 = &fakeInstance{
 		Cluster: cls2, Namespace: echo1NS, Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
-			Annotations: map[echo.Annotation]*echo.AnnotationValue{echo.SidecarInject: {Value: strconv.FormatBool(false)}},
+			Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 		}},
 	}
 
@@ -178,7 +199,6 @@ func TestFilters(t *testing.T) {
 		},
 	}
 	for n, tc := range tests {
-		n, tc := n, tc
 		t.Run(n, func(t *testing.T) {
 			compare(t, tc.filter(all), tc.expect)
 		})
@@ -307,7 +327,6 @@ func TestRun(t *testing.T) {
 		}
 
 		for name, tt := range tests {
-			tt := tt
 			t.NewSubTest(name).Run(func(t framework.TestContext) {
 				testTopology := map[string]map[string]int{}
 				tt.run(t, testTopology)
@@ -362,8 +381,8 @@ func (f fakeInstance) NamespaceName() string {
 	return f.Config().NamespaceName()
 }
 
-func (f fakeInstance) ServiceAccountName() string {
-	return f.Config().ServiceAccountName()
+func (f fakeInstance) SpiffeIdentity() string {
+	return f.Config().SpiffeIdentity()
 }
 
 func (f fakeInstance) ClusterLocalFQDN() string {

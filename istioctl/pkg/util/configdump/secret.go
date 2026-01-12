@@ -38,32 +38,27 @@ func (w *Wrapper) GetSecretConfigDump() (*admin.SecretsConfigDump, error) {
 }
 
 // GetRootCAFromSecretConfigDump retrieves root CA from a secret config dump wrapper
-func (w *Wrapper) GetRootCAFromSecretConfigDump(anySec *anypb.Any) (string, error) {
+func (w *Wrapper) GetRootCAFromSecretConfigDump(anySec *anypb.Any) ([]byte, error) {
 	var secret extapi.Secret
 	if err := anySec.UnmarshalTo(&secret); err != nil {
-		return "", fmt.Errorf("failed to unmarshall ROOTCA secret: %v", err)
+		return nil, fmt.Errorf("failed to unmarshall ROOTCA secret: %v", err)
 	}
-	var returnStr string
-	var returnErr error
 	rCASecret := secret.GetValidationContext()
 	if rCASecret != nil {
 		trustCA := rCASecret.GetTrustedCa()
 		if trustCA != nil {
 			inlineBytes := trustCA.GetInlineBytes()
 			if inlineBytes != nil {
-				returnStr = base64.StdEncoding.EncodeToString(inlineBytes)
-				returnErr = nil
-			} else {
-				returnStr = ""
-				returnErr = fmt.Errorf("can not retrieve inlineBytes from trustCA section")
+				rootCA := make([]byte, base64.StdEncoding.DecodedLen(len(inlineBytes)))
+				_, err := base64.StdEncoding.Decode(rootCA, inlineBytes)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode inlinebytes: %v", err)
+				}
+				return rootCA, err
 			}
-		} else {
-			returnStr = ""
-			returnErr = fmt.Errorf("can not retrieve trustedCa from secret ROOTCA")
+			return nil, fmt.Errorf("cannot retrieve inlineBytes from trustCA section")
 		}
-	} else {
-		returnStr = ""
-		returnErr = fmt.Errorf("can not find ROOTCA from secret config dump")
+		return nil, fmt.Errorf("cannot retrieve trustedCa from secret ROOTCA")
 	}
-	return returnStr, returnErr
+	return nil, fmt.Errorf("cannot find ROOTCA from secret config dump")
 }

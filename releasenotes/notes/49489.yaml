@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 49489
+releaseNotes:
+  - |
+    **Fixed** an bug when there are more than one service with same host name within same namespace, there could occur `STRICT_DNS cluster without endpoints` error. 

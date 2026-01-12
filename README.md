@@ -5,8 +5,11 @@
 [![GoDoc](https://godoc.org/istio.io/istio?status.svg)](https://godoc.org/istio.io/istio)
 
 <a href="https://istio.io/">
-    <img src="https://github.com/istio/istio/raw/master/logo/istio-bluelogo-whitebackground-unframed.svg"
-         alt="Istio logo" title="Istio" height="100" width="100" />
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cncf/artwork/refs/heads/main/projects/istio/icon/color/istio-icon-color.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://github.com/istio/istio/raw/master/logo/istio-bluelogo-whitebackground-unframed.svg">
+      <img title="Istio" height="100" width="100" alt="Istio logo" src="https://github.com/istio/istio/raw/master/logo/istio-bluelogo-whitebackground-unframed.svg">
+    </picture>
 </a>
 
 ---
@@ -14,7 +17,7 @@
 Istio is an open source service mesh that layers transparently onto existing distributed applications. Istio’s powerful features provide a uniform and more efficient way to secure, connect, and monitor services. Istio is the path to load balancing, service-to-service authentication, and monitoring – with few or no service code changes.
 
 - For in-depth information about how to use Istio, visit [istio.io](https://istio.io)
-- To ask questions and get assistance from our community, visit [discuss.istio.io](https://discuss.istio.io)
+- To ask questions and get assistance from our community, visit [GitHub Discussions](https://github.com/istio/istio/discussions)
 - To learn how to participate in our overall community, visit [our community page](https://istio.io/about/community)
 
 In this README:
@@ -52,15 +55,10 @@ Istio is composed of these components:
   > simplifies and enhances how microservices in an application talk to each
   > other over the network provided by the underlying platform.
 
-- **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management. It consists of the following sub-components:
+* **Ztunnel** - A lightweight data plane proxy written in Rust,
+    used in Ambient mesh mode to provide secure connectivity and observability for workloads without sidecar proxies.
 
-    - **Pilot** - Responsible for configuring the proxies at runtime.
-
-    - **Citadel** - Responsible for certificate issuance and rotation.
-
-    - **Galley** - Responsible for validating, ingesting, aggregating, transforming and distributing config within Istio.
-
-- **Operator** - The component provides user friendly options to operate the Istio service mesh.
+- **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management.
 
 ## Repositories
 
@@ -79,21 +77,26 @@ core components, install artifacts, and sample programs. It includes:
     - [istioctl](istioctl/). This directory contains code for the
 [_istioctl_](https://istio.io/latest/docs/reference/commands/istioctl/) command line utility.
 
-    - [operator](operator/). This directory contains code for the
-[Istio Operator](https://istio.io/latest/docs/setup/install/operator/).
-
     - [pilot](pilot/). This directory
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/#pilot), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
 [routing rules](https://istio.io/latest/docs/reference/config/networking/) into proxy specific configuration.
 
-    - [security](security/). This directory contains [security](https://istio.io/latest/docs/concepts/security/) related code,
-including Citadel (acting as Certificate Authority), citadel agent, etc.
+    - [security](security/). This directory contains [security](https://istio.io/latest/docs/concepts/security/) related code.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
 extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
 Envoy filters) that support authentication, authorization, and telemetry collection.
+
+- [istio/ztunnel](https://github.com/istio/ztunnel). The repository contains the Rust implementation of the ztunnel
+component of Ambient mesh.
+
+- [istio/client-go](https://github.com/istio/client-go). This repository defines
+  auto-generated Kubernetes clients for interacting with Istio resources programmatically.
+
+> [!NOTE]
+> Only the `istio/api` and `istio/client-go` repositories expose stable interfaces intended for direct usage as libraries.
 
 ## Issue management
 
@@ -112,6 +115,10 @@ milestone cannot be considered achieved if the issue isn't resolved.
 ---
 
 <div align="center">
-    <img src="https://raw.githubusercontent.com/cncf/artwork/master/other/cncf/horizontal/color/cncf-color.svg" width="300" alt="Cloud Native Computing Foundation logo"/>
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cncf/artwork/refs/heads/main/other/cncf/horizontal/color-whitetext/cncf-color-whitetext.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/cncf/artwork/master/other/cncf/horizontal/color/cncf-color.svg">
+      <img width="300" alt="Cloud Native Computing Foundation logo" src="https://raw.githubusercontent.com/cncf/artwork/refs/heads/main/other/cncf/horizontal/color-whitetext/cncf-color-whitetext.svg">
+    </picture>
     <p>Istio is a <a href="https://cncf.io">Cloud Native Computing Foundation</a> project.</p>
 </div>

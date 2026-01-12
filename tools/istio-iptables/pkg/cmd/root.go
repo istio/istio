@@ -22,11 +22,13 @@ import (
 
 	"istio.io/istio/pkg/flag"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tools/common/config"
+	"istio.io/istio/tools/common/tproxy"
 	"istio.io/istio/tools/istio-iptables/pkg/capture"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 	"istio.io/istio/tools/istio-iptables/pkg/validation"
+	nftables "istio.io/istio/tools/istio-nftables/pkg/nft"
 )
 
 const InvalidDropByIptables = "INVALID_DROP"
@@ -92,9 +94,9 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 		"Comma separated list of outbound ports to be excluded from redirection to Envoy.",
 		&cfg.OutboundPortsExclude)
 
-	flag.BindEnv(fs, constants.KubeVirtInterfaces, "k",
+	flag.BindEnv(fs, constants.RerouteVirtualInterfaces, "k",
 		"Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound.",
-		&cfg.KubeVirtInterfaces)
+		&cfg.RerouteVirtualInterfaces)
 
 	flag.BindEnv(fs, constants.InboundTProxyMark, "t", "", &cfg.InboundTProxyMark)
 
@@ -102,11 +104,6 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 
 	flag.BindEnv(fs, constants.DryRun, "n", "Do not call any external dependencies like iptables.",
 		&cfg.DryRun)
-
-	flag.BindEnv(fs, constants.TraceLogging, "", "Insert tracing logs for each iptables rules, using the LOG chain.", &cfg.TraceLogging)
-
-	flag.BindEnv(fs, constants.RestoreFormat, "f", "Print iptables rules in iptables-restore interpretable format.",
-		&cfg.RestoreFormat)
 
 	flag.BindEnv(fs, constants.IptablesProbePort, "", "Set listen port for failure detection.", &cfg.IptablesProbePort)
 
@@ -135,23 +132,56 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	flag.BindEnv(fs, constants.NetworkNamespace, "", "The network namespace that iptables rules should be applied to.",
 		&cfg.NetworkNamespace)
 
-	flag.BindEnv(fs, constants.CNIMode, "", "Whether to run as CNI plugin.", &cfg.CNIMode)
+	flag.BindEnv(fs, constants.CNIMode, "", "Whether to run as CNI plugin.", &cfg.HostFilesystemPodNetwork)
 
-	flag.BindEnv(fs, constants.IptablesVersion, "", "version of iptables command. If not set, this is automatically detected.", &cfg.IPTablesVersion)
+	flag.BindEnv(fs, constants.Reconcile, "", "Reconcile pre-existing and incompatible iptables rules instead of failing if drift is detected.",
+		&cfg.Reconcile)
+
+	flag.BindEnv(fs, constants.CleanupOnly, "", "Perform a forced cleanup without creating new iptables chains or rules.",
+		&cfg.CleanupOnly)
+
+	// This flag is a safety measure in case the idempotency changes of #50328 backfire.
+	// Allow bypassing of iptables idempotency handling, and attempts to apply iptables rules regardless of table state, which may cause unrecoverable failures.
+	// Consider removing it after several releases with no reported issues.
+	flag.BindEnv(fs, constants.ForceApply, "", "Apply iptables changes even if they appear to already be in place.",
+		&cfg.ForceApply)
+
+	// This mode is an alternative for iptables. It uses nftables rules for traffic redirection.
+	flag.BindEnv(fs, constants.NativeNftables, "", "Use native nftables instead of iptables rules.",
+		&cfg.NativeNftables)
+
+	// This allows the user to specify the iptables version to use.
+	flag.BindEnv(fs, constants.ForceIptablesBinary, "", "Break glass option to choose which iptables binary to use.",
+		&cfg.ForceIptablesBinary)
 }
 
-func GetCommand() *cobra.Command {
+func GetCommand(logOpts *log.Options) *cobra.Command {
 	cfg := config.DefaultConfig()
 	cmd := &cobra.Command{
 		Use:   "istio-iptables",
 		Short: "Set up iptables rules for Istio Sidecar",
 		Long:  "istio-iptables is responsible for setting up port forwarding for Istio Sidecar.",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if err := log.Configure(logOpts); err != nil {
+				return err
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
-			cfg.FillConfigFromEnvironment()
+			if err := cfg.FillConfigFromEnvironment(); err != nil {
+				handleErrorWithCode(err, 1)
+			}
 			if err := cfg.Validate(); err != nil {
 				handleErrorWithCode(err, 1)
 			}
-			if err := ProgramIptables(cfg); err != nil {
+			runMethod := ProgramIptables
+
+			// If nftables is enabled, use nft rules for traffic redirection.
+			if cfg.NativeNftables {
+				runMethod = nftables.ProgramNftables
+			}
+
+			if err := runMethod(cfg); err != nil {
 				handleErrorWithCode(err, 1)
 			}
 
@@ -183,26 +213,25 @@ type IptablesError struct {
 func ProgramIptables(cfg *config.Config) error {
 	var ext dep.Dependencies
 	if cfg.DryRun {
-		ext = &dep.StdoutStubDependencies{}
+		log.Info("running iptables in dry-run mode, no rule changes will be made")
+		ext = &dep.DependenciesStub{}
 	} else {
-		ipv, err := dep.DetectIptablesVersion(cfg.IPTablesVersion)
-		if err != nil {
-			return err
-		}
 		ext = &dep.RealDependencies{
-			CNIMode:          cfg.CNIMode,
-			NetworkNamespace: cfg.NetworkNamespace,
-			IptablesVersion:  ipv,
+			UsePodScopedXtablesLock: cfg.HostFilesystemPodNetwork,
+			NetworkNamespace:        cfg.NetworkNamespace,
+			ForceIptablesBinary:     cfg.ForceIptablesBinary,
 		}
 	}
 
-	iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
-
 	if !cfg.SkipRuleApply {
+		iptConfigurator, err := capture.NewIptablesConfigurator(cfg, ext)
+		if err != nil {
+			return err
+		}
 		if err := iptConfigurator.Run(); err != nil {
 			return err
 		}
-		if err := capture.ConfigureRoutes(cfg); err != nil {
+		if err := tproxy.ConfigureRoutes(cfg); err != nil {
 			return fmt.Errorf("failed to configure routes: %v", err)
 		}
 	}

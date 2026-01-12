@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: installation
+
+issue: []
+
+releaseNotes: 
+- |
+  **Removed** unsed multicluster-related Helm values.

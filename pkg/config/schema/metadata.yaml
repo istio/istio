@@ -62,6 +62,7 @@ resources:
 
   - kind: "EndpointSlice"
     plural: "endpointslices"
+    group: "discovery.k8s.io"
     version: "v1"
     builtin: true
     specless: true
@@ -121,6 +122,8 @@ resources:
     builtin: true
     proto: "k8s.io.api.core.v1.ServiceSpec"
     protoPackage: "k8s.io/api/core/v1"
+    statusProto: "k8s.io.api.core.v1.ServiceStatus"
+    statusProtoPackage: "k8s.io/api/core/v1"
 
   - kind: "ConfigMap"
     plural: "configmaps"
@@ -149,6 +152,15 @@ resources:
     statusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus"
     statusProtoPackage: "k8s.io/api/certificates/v1"
 
+  - kind: "ClusterTrustBundle"
+    plural: "clustertrustbundles"
+    group: "certificates.k8s.io"
+    version: "v1beta1"
+    builtin: true
+    clusterScoped: true
+    proto: "k8s.io.api.certificates.v1beta1.ClusterTrustBundleSpec"
+    protoPackage: "k8s.io/api/certificates/v1beta1"
+
   - kind: "Ingress"
     plural: "ingresses"
     group: "networking.k8s.io"
@@ -176,53 +188,90 @@ resources:
     proto: "k8s.io.api.coordination.v1.LeaseSpec"
     protoPackage: "k8s.io/api/coordination/v1"
 
+  - kind: "HorizontalPodAutoscaler"
+    plural: "horizontalpodautoscalers"
+    group: "autoscaling"
+    version: "v2"
+    builtin: true
+    proto: "k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerSpec"
+    protoPackage: "k8s.io/api/autoscaling/v2"
+    statusProto: "k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerStatus"
+    statusProtoPackage: "k8s.io/api/autoscaling/v2"
+
+  - kind: "PodDisruptionBudget"
+    plural: "poddisruptionbudgets"
+    group: "policy"
+    version: "v1"
+    builtin: true
+    proto: "k8s.io.api.policy.v1.PodDisruptionBudgetSpec"
+    protoPackage: "k8s.io/api/policy/v1"
+    statusProto: "k8s.io.api.policy.v1.PodDisruptionBudgetStatus"
+    statusProtoPackage: "k8s.io/api/policy/v1"
+#
+#  - kind: "ClusterRole"
+#    plural: "clusterroles"
+#    group: "rbac.authorization.k8s.io"
+#    version: "v1"
+#    builtin: true
+
   - kind: "GatewayClass"
     plural: "gatewayclasses"
     group: "gateway.networking.k8s.io"
-    version: "v1beta1"
+    version: "v1"
     versionAliases:
     - "v1alpha2"
-    - "v1"
+    - "v1beta1"
     clusterScoped: true
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassSpec"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
 
   - kind: "Gateway"
     identifier: KubernetesGateway
     plural: "gateways"
     group: "gateway.networking.k8s.io"
-    version: "v1beta1"
+    version: "v1"
     versionAliases:
     - "v1alpha2"
-    - "v1"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    - "v1beta1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GatewaySpec"
-    validate: "EmptyValidate"
+    validate: "validation.EmptyValidate"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
 
   - kind: "HTTPRoute"
     plural: "httproutes"
     group: "gateway.networking.k8s.io"
-    version: "v1beta1"
+    version: "v1"
     versionAliases:
     - "v1alpha2"
-    - "v1"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    - "v1beta1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteSpec"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
 
+  - kind: "InferencePool"
+    plural: "inferencepools"
+    group: "inference.networking.k8s.io"
+    version: "v1"
+    protoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+    proto: "x-k8s.io.gateway-api-inference-extension.api.v1.InferencePoolSpec"
+    statusProto: "x-k8s.io.gateway-api-inference-extension.api.v1.InferencePoolStatus"
+    statusProtoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+    
   - kind: "GRPCRoute"
     plural: "grpcroutes"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    version: "v1"
+    versionAliases:
+    - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GRPCRouteSpec"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.GRPCRouteStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
 
   - kind: "TCPRoute"
     plural: "tcproutes"
@@ -260,12 +309,41 @@ resources:
     protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec"
 
+  - kind: "XBackendTrafficPolicy"
+    plural: "xbackendtrafficpolicies"
+    group: "gateway.networking.x-k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+    proto: "k8s.io.gateway_api.apix.v1alpha1.BackendTrafficPolicySpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+    statusProto: PolicyStatus
+
+  - kind: "BackendTLSPolicy"
+    plural: "backendtlspolicies"
+    group: "gateway.networking.k8s.io"
+    version: "v1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    proto: "k8s.io.gateway_api.api.v1.BackendTLSPolicySpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    statusProto: "k8s.io.gateway_api.api.v1.PolicyStatus"
+
+  - kind: "XListenerSet"
+    identifier: XListenerSet
+    plural: "xlistenersets"
+    group: "gateway.networking.x-k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+    proto: "ListenerSetSpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+    statusProto: "ListenerSetStatus"
+
   ## Istio resources
   - kind: "VirtualService"
     plural: "virtualservices"
     group: "networking.istio.io"
-    version: "v1alpha3"
+    version: "v1"
     versionAliases:
+      - "v1alpha3"
       - "v1beta1"
     proto: "istio.networking.v1alpha3.VirtualService"
     protoPackage: "istio.io/api/networking/v1alpha3"
@@ -275,8 +353,9 @@ resources:
   - kind: "Gateway"
     plural: "gateways"
     group: "networking.istio.io"
-    version: "v1alpha3"
+    version: "v1"
     versionAliases:
+      - "v1alpha3"
       - "v1beta1"
     proto: "istio.networking.v1alpha3.Gateway"
     protoPackage: "istio.io/api/networking/v1alpha3"
@@ -286,19 +365,21 @@ resources:
   - kind: "ServiceEntry"
     plural: "serviceentries"
     group: "networking.istio.io"
-    version: "v1alpha3"
+    version: "v1"
     versionAliases:
+      - "v1alpha3"
       - "v1beta1"
     proto: "istio.networking.v1alpha3.ServiceEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    statusProto: "istio.meta.v1alpha1.IstioStatus"
-    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+    statusProto: "istio.networking.v1alpha3.ServiceEntryStatus"
+    statusProtoPackage: "istio.io/api/networking/v1alpha3"
 
   - kind: "WorkloadEntry"
     plural: "workloadentries"
     group: "networking.istio.io"
-    version: "v1alpha3"
+    version: "v1"
     versionAliases:
+      - "v1alpha3"
       - "v1beta1"
     proto: "istio.networking.v1alpha3.WorkloadEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
@@ -308,8 +389,9 @@ resources:
   - kind: "WorkloadGroup"
     plural: "workloadgroups"
     group: "networking.istio.io"
-    version: "v1alpha3"
+    version: "v1"
     versionAliases:
+      - "v1alpha3"
       - "v1beta1"
     proto: "istio.networking.v1alpha3.WorkloadGroup"
     protoPackage: "istio.io/api/networking/v1alpha3"
@@ -319,8 +401,9 @@ resources:
   - kind: DestinationRule
     plural: "destinationrules"
     group: "networking.istio.io"
-    version: "v1alpha3"
+    version: "v1"
     versionAliases:
+      - "v1alpha3"
       - "v1beta1"
     proto: "istio.networking.v1alpha3.DestinationRule"
     protoPackage: "istio.io/api/networking/v1alpha3"
@@ -339,8 +422,9 @@ resources:
   - kind: "Sidecar"
     plural: "sidecars"
     group: "networking.istio.io"
-    version: "v1alpha3"
+    version: "v1"
     versionAliases:
+      - "v1alpha3"
       - "v1beta1"
     proto: "istio.networking.v1alpha3.Sidecar"
     protoPackage: "istio.io/api/networking/v1alpha3"
@@ -375,9 +459,9 @@ resources:
   - kind: AuthorizationPolicy
     plural: "authorizationpolicies"
     group: "security.istio.io"
-    version: "v1beta1"
+    version: "v1"
     versionAliases:
-      - "v1"
+      - "v1beta1"
     proto: "istio.security.v1beta1.AuthorizationPolicy"
     protoPackage: "istio.io/api/security/v1beta1"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
@@ -386,9 +470,9 @@ resources:
   - kind: RequestAuthentication
     plural: "requestauthentications"
     group: "security.istio.io"
-    version: "v1beta1"
+    version: "v1"
     versionAliases:
-      - "v1"
+      - "v1beta1"
     proto: "istio.security.v1beta1.RequestAuthentication"
     protoPackage: "istio.io/api/security/v1beta1"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
@@ -397,7 +481,9 @@ resources:
   - kind: PeerAuthentication
     plural: "peerauthentications"
     group: "security.istio.io"
-    version: "v1beta1"
+    version: "v1"
+    versionAliases:
+    - "v1beta1"
     proto: "istio.security.v1beta1.PeerAuthentication"
     protoPackage: "istio.io/api/security/v1beta1"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
@@ -406,7 +492,9 @@ resources:
   - kind: "Telemetry"
     plural: "telemetries"
     group: "telemetry.istio.io"
-    version: "v1alpha1"
+    version: "v1"
+    versionAliases:
+    - "v1alpha1"
     proto: "istio.telemetry.v1alpha1.Telemetry"
     protoPackage: "istio.io/api/telemetry/v1alpha1"
     statusProto: "istio.meta.v1alpha1.IstioStatus"

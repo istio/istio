@@ -25,12 +25,18 @@ type Options struct {
 
 	// The IP address to listen on for ctrlz.
 	Address string
+
+	// If true, pprof will be enabled
+	EnablePprof bool
 }
+
+// DefaultControlZPort is the default port for the ControlZ server
+const DefaultControlZPort = 9876
 
 // DefaultOptions returns a new set of options, initialized to the defaults
 func DefaultOptions() *Options {
 	return &Options{
-		Port:    9876,
+		Port:    DefaultControlZPort,
 		Address: "localhost",
 	}
 }

@@ -31,7 +31,7 @@ type ReconcilerFn func(key types.NamespacedName) error
 // Queue defines an abstraction around Kubernetes' workqueue.
 // Items enqueued are deduplicated; this generally means relying on ordering of events in the queue is not feasible.
 type Queue struct {
-	queue       workqueue.RateLimitingInterface
+	queue       workqueue.TypedRateLimitingInterface[any]
 	initialSync *atomic.Bool
 	name        string
 	maxAttempts int
@@ -48,9 +48,9 @@ func WithName(name string) func(q *Queue) {
 }
 
 // WithRateLimiter allows defining a custom rate limiter for the queue
-func WithRateLimiter(r workqueue.RateLimiter) func(q *Queue) {
+func WithRateLimiter(r workqueue.TypedRateLimiter[any]) func(q *Queue) {
 	return func(q *Queue) {
-		q.queue = workqueue.NewRateLimitingQueue(r)
+		q.queue = workqueue.NewTypedRateLimitingQueue[any](r)
 	}
 }
 
@@ -90,7 +90,15 @@ func NewQueue(name string, options ...func(*Queue)) Queue {
 		o(&q)
 	}
 	if q.queue == nil {
-		q.queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		q.queue = workqueue.NewTypedRateLimitingQueueWithConfig[any](
+			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.TypedRateLimitingQueueConfig[any]{
+				Name:            name,
+				MetricsProvider: nil,
+				Clock:           nil,
+				DelayingQueue:   nil,
+			},
+		)
 	}
 	q.log = log.WithLabels("controller", q.name)
 	return q
@@ -104,6 +112,13 @@ func (q Queue) Add(item any) {
 // AddObject takes an Object and adds the types.NamespacedName associated.
 func (q Queue) AddObject(obj Object) {
 	q.queue.Add(config.NamespacedName(obj))
+}
+
+// ShutDownEarly shuts down the queue *before* it has been Run.
+// Creating a queue without running it causes a leak, so this must be called on any queue that is closed without
+func (q Queue) ShutDownEarly() {
+	q.log.Infof("shutdown early")
+	q.queue.ShutDown()
 }
 
 // Run the queue. This is synchronous, so should typically be called in a goroutine.

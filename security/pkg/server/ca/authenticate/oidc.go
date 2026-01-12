@@ -22,6 +22,7 @@ import (
 	oidc "github.com/coreos/go-oidc/v3/oidc"
 
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -31,8 +32,10 @@ const (
 )
 
 type JwtAuthenticator struct {
-	audiences []string
-	verifier  *oidc.IDTokenVerifier
+	// holder of a mesh configuration for dynamically updating trust domain
+	meshHolder mesh.Holder
+	audiences  []string
+	verifier   *oidc.IDTokenVerifier
 }
 
 var _ security.Authenticator = &JwtAuthenticator{}
@@ -40,7 +43,7 @@ var _ security.Authenticator = &JwtAuthenticator{}
 // newJwtAuthenticator is used when running istiod outside of a cluster, to validate the tokens using OIDC
 // K8S is created with --service-account-issuer, service-account-signing-key-file and service-account-api-audiences
 // which enable OIDC.
-func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule) (*JwtAuthenticator, error) {
+func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, meshWatcher mesh.Watcher) (*JwtAuthenticator, error) {
 	issuer := jwtRule.GetIssuer()
 	jwksURL := jwtRule.GetJwksUri()
 	// The key of a JWT issuer may change, so the key may need to be updated.
@@ -61,8 +64,9 @@ func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule) (*JwtAuthenticator, error) {
 		verifier = oidc.NewVerifier(issuer, keySet, &oidc.Config{SkipClientIDCheck: true})
 	}
 	return &JwtAuthenticator{
-		verifier:  verifier,
-		audiences: jwtRule.Audiences,
+		meshHolder: meshWatcher,
+		verifier:   verifier,
+		audiences:  jwtRule.Audiences,
 	}, nil
 }
 
@@ -108,7 +112,7 @@ func (j *JwtAuthenticator) authenticate(ctx context.Context, bearerToken string)
 	}
 	return &security.Caller{
 		AuthSource: security.AuthSourceIDToken,
-		Identities: []string{spiffe.MustGenSpiffeURI(ns, ksa)},
+		Identities: []string{spiffe.MustGenSpiffeURI(j.meshHolder.Mesh(), ns, ksa)},
 	}, nil
 }
 

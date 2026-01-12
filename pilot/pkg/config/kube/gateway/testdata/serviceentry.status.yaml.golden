@@ -1,7 +1,6 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -48,10 +47,34 @@ status:
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
+  name: egress
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
   name: http
   namespace: default
 spec: null
@@ -72,4 +95,54 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: egress
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: egress
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
 ---

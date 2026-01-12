@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 51987
+releaseNotes:
+  - |
+    **Removed** some fields from the helm values API that had been without effect and in some cases long-deprecated. Removed fields are: pilot.configNamespace, pilot.configSource, pilot.enableProtocolSniffingForOutbound, pilot.enableProtocolSniffingForInbound, pilot.useMCP, global.autoscalingV2API, global.configRootNamespace, global.defaultConfigVisibilitySettings, global.useMCP, sidecarInjectorWebhook.objectSelector and sidecarInjectorWebhook.useLegacySelectors.

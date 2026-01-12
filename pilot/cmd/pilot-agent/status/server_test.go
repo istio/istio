@@ -32,12 +32,13 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
@@ -141,7 +142,7 @@ func TestNewServer(t *testing.T) {
 		// A valid input.
 		{
 			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": 8080}},` +
-				`"/app-health/business/livez": {"httpGet": {"path": "/buisiness/live", "port": 9090}}}`,
+				`"/app-health/business/livez": {"httpGet": {"path": "/business/live", "port": 9090}}}`,
 		},
 		// long request timeout
 		{
@@ -377,7 +378,7 @@ my_metric{app="bar"} 0
 				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
 			}
 
-			parser := expfmt.TextParser{}
+			parser := expfmt.NewTextParser(model.LegacyValidation)
 			mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 			if err != nil && !tt.expectParseError {
 				t.Fatalf("failed to parse metrics: %v", err)
@@ -397,32 +398,32 @@ func TestNegotiateMetricsFormat(t *testing.T) {
 		{
 			name:        "openmetrics minimal accept header",
 			contentType: `application/openmetrics-text; version=0.0.1`,
-			expected:    expfmt.FmtOpenMetrics_0_0_1,
+			expected:    FmtOpenMetrics_0_0_1,
 		},
 		{
 			name:        "openmetrics minimal v1 accept header",
 			contentType: `application/openmetrics-text; version=1.0.0`,
-			expected:    expfmt.FmtOpenMetrics_1_0_0,
+			expected:    FmtOpenMetrics_1_0_0,
 		},
 		{
 			name:        "openmetrics accept header",
 			contentType: `application/openmetrics-text; version=0.0.1; charset=utf-8`,
-			expected:    expfmt.FmtOpenMetrics_0_0_1,
+			expected:    FmtOpenMetrics_0_0_1,
 		},
 		{
 			name:        "openmetrics v1 accept header",
 			contentType: `application/openmetrics-text; version=1.0.0; charset=utf-8`,
-			expected:    expfmt.FmtOpenMetrics_1_0_0,
+			expected:    FmtOpenMetrics_1_0_0,
 		},
 		{
 			name:        "plaintext accept header",
 			contentType: "text/plain; version=0.0.4; charset=utf-8",
-			expected:    expfmt.FmtText,
+			expected:    expfmt.NewFormat(expfmt.TypeTextPlain),
 		},
 		{
 			name:        "empty accept header",
 			contentType: "",
-			expected:    expfmt.FmtText,
+			expected:    expfmt.NewFormat(expfmt.TypeTextPlain),
 		},
 	}
 	for _, tt := range cases {
@@ -469,7 +470,7 @@ my_other_metric{} 0
 		},
 		{
 			name:         "plaintext accept header",
-			acceptHeader: string(expfmt.FmtText),
+			acceptHeader: string(FmtText),
 		},
 		{
 			name:         "empty accept header",
@@ -488,7 +489,7 @@ my_other_metric{} 0
 			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
 				var negotiatedMetrics string
-				if format == expfmt.FmtText {
+				if strings.Contains(string(format), "text/plain") {
 					negotiatedMetrics = appText004
 				} else {
 					negotiatedMetrics = appOpenMetrics
@@ -519,14 +520,14 @@ my_other_metric{} 0
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
 			}
 
-			if negotiateMetricsFormat(rec.Header().Get("Content-Type")) == expfmt.FmtText {
-				textParser := expfmt.TextParser{}
+			if negotiateMetricsFormat(rec.Header().Get("Content-Type")) == FmtText {
+				textParser := expfmt.NewTextParser(model.LegacyValidation)
 				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 				if err != nil {
 					t.Fatalf("failed to parse text metrics: %v", err)
 				}
 			} else {
-				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes())
+				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes(), labels.NewSymbolTable())
 				for {
 					_, err := omParser.Next()
 					if err == io.EOF {
@@ -621,7 +622,7 @@ my_other_metric{} 0
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
 		var negotiatedMetrics string
-		if format == expfmt.FmtText {
+		if format == FmtText {
 			negotiatedMetrics = appText
 		} else {
 			negotiatedMetrics = appOpenMetrics
@@ -664,7 +665,7 @@ func BenchmarkStats(t *testing.B) {
 			for i := 0; i < t.N; i++ {
 				req := &http.Request{}
 				req.Header = make(http.Header)
-				req.Header.Add("Accept", string(expfmt.FmtText))
+				req.Header.Add("Accept", string(FmtText))
 				rec := httptest.NewRecorder()
 				server.handleStats(rec, req)
 			}
@@ -673,7 +674,7 @@ func BenchmarkStats(t *testing.B) {
 			for i := 0; i < t.N; i++ {
 				req := &http.Request{}
 				req.Header = make(http.Header)
-				req.Header.Add("Accept", string(expfmt.FmtOpenMetrics_1_0_0))
+				req.Header.Add("Accept", string(FmtOpenMetrics_1_0_0))
 				rec := httptest.NewRecorder()
 				server.handleStats(rec, req)
 			}
@@ -694,24 +695,24 @@ func TestAppProbe(t *testing.T) {
 		"/app-health/hello-world/readyz": &Prober{
 			HTTPGet: &apimirror.HTTPGetAction{
 				Path: "/hello/sunnyvale",
-				Port: intstr.IntOrString{IntVal: int32(appPort)},
+				Port: apimirror.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 		"/app-health/hello-world/livez": &Prober{
 			HTTPGet: &apimirror.HTTPGetAction{
-				Port: intstr.IntOrString{IntVal: int32(appPort)},
+				Port: apimirror.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 	}
 	simpleTCPConfig := KubeAppProbers{
 		"/app-health/hello-world/readyz": &Prober{
 			TCPSocket: &apimirror.TCPSocketAction{
-				Port: intstr.IntOrString{IntVal: int32(appPort)},
+				Port: apimirror.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 		"/app-health/hello-world/livez": &Prober{
 			TCPSocket: &apimirror.TCPSocketAction{
-				Port: intstr.IntOrString{IntVal: int32(appPort)},
+				Port: apimirror.IntOrString{IntVal: int32(appPort)},
 			},
 		},
 	}
@@ -756,7 +757,7 @@ func TestAppProbe(t *testing.T) {
 			config: KubeAppProbers{
 				"/app-health/header/readyz": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
 						HTTPHeaders: []apimirror.HTTPHeader{
 							{Name: testHeader, Value: testHeaderValue},
@@ -774,7 +775,20 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/hello-world/readyz": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "hello/texas",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			name:      "http-prestopz-path",
+			probePath: "app-lifecycle/hello-world/prestopz",
+			config: KubeAppProbers{
+				"/app-lifecycle/hello-world/prestopz": &Prober{
+					HTTPGet: &apimirror.HTTPGetAction{
+						Path: "hello/texas",
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -787,7 +801,7 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/hello-world/livez": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "hello/texas",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -842,7 +856,7 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/redirect/livez": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "redirect",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -855,7 +869,7 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/redirect-loop/livez": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "redirect-loop",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -868,7 +882,7 @@ func TestAppProbe(t *testing.T) {
 				"/app-health/remote-redirect/livez": &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
 						Path: "remote-redirect",
-						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
 					},
 				},
 			},
@@ -878,7 +892,7 @@ func TestAppProbe(t *testing.T) {
 	testFn := func(t *testing.T, tc test) {
 		appProber, err := json.Marshal(tc.config)
 		if err != nil {
-			t.Fatalf("invalid app probers")
+			t.Fatal("invalid app probers")
 		}
 		config := Options{
 			KubeAppProbers: string(appProber),
@@ -936,7 +950,7 @@ func TestAppProbe(t *testing.T) {
 							TimeoutSeconds: 1,
 							HTTPGet: &apimirror.HTTPGetAction{
 								Path: fmt.Sprintf("status/%d", code),
-								Port: intstr.IntOrString{IntVal: int32(appPort)},
+								Port: apimirror.IntOrString{IntVal: int32(appPort)},
 							},
 						},
 					},
@@ -1045,7 +1059,7 @@ func TestHttpsAppProbe(t *testing.T) {
 			client := http.Client{}
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d/%s", statusPort, tc.probePath), nil)
 			if err != nil {
-				t.Fatalf("failed to create request")
+				t.Fatal("failed to create request")
 			}
 			resp, err := client.Do(req)
 			if err != nil {
@@ -1373,7 +1387,7 @@ func TestProbeHeader(t *testing.T) {
 			appProber, err := json.Marshal(KubeAppProbers{
 				probePath: &Prober{
 					HTTPGet: &apimirror.HTTPGetAction{
-						Port:        intstr.IntOrString{IntVal: int32(appAddress.Port)},
+						Port:        apimirror.IntOrString{IntVal: int32(appAddress.Port)},
 						Host:        appAddress.IP.String(),
 						Path:        "/header",
 						HTTPHeaders: tc.proxyHeaders,
@@ -1381,7 +1395,7 @@ func TestProbeHeader(t *testing.T) {
 				},
 			})
 			if err != nil {
-				t.Fatalf("invalid app probers")
+				t.Fatal("invalid app probers")
 			}
 			config := Options{
 				KubeAppProbers: string(appProber),
@@ -1441,9 +1455,13 @@ func TestHandleQuit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			shutdown := make(chan struct{})
+			drainDisabled := false
 			s := NewTestServer(t, Options{
-				Shutdown: func() {
+				Shutdown: func(err error) {
 					close(shutdown)
+				},
+				DisableDrain: func() {
+					drainDisabled = true
 				},
 			})
 			req, err := http.NewRequest(tt.method, "/quitquitquit", nil)
@@ -1460,17 +1478,19 @@ func TestHandleQuit(t *testing.T) {
 			if resp.Code != tt.expected {
 				t.Fatalf("Expected response code %v got %v", tt.expected, resp.Code)
 			}
-
 			if tt.expected == http.StatusOK {
+				if !drainDisabled {
+					t.Fatalf("Expected drain to be disabled")
+				}
 				select {
 				case <-shutdown:
 				case <-time.After(time.Second):
-					t.Fatalf("Failed to receive expected shutdown")
+					t.Fatal("Failed to receive expected shutdown")
 				}
 			} else {
 				select {
 				case <-shutdown:
-					t.Fatalf("unexpected shutdown")
+					t.Fatal("unexpected shutdown")
 				default:
 				}
 			}

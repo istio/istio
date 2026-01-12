@@ -15,12 +15,8 @@
 package features
 
 import (
-	"runtime"
 	"strings"
 	"time"
-
-	"go.uber.org/atomic"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
@@ -30,131 +26,6 @@ import (
 )
 
 var (
-	MaxConcurrentStreams = env.Register(
-		"ISTIO_GPRC_MAXSTREAMS",
-		100000,
-		"Sets the maximum number of concurrent grpc streams.",
-	).Get()
-
-	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
-	MaxRecvMsgSize = env.Register(
-		"ISTIO_GPRC_MAXRECVMSGSIZE",
-		4*1024*1024,
-		"Sets the max receive buffer size of gRPC stream in bytes.",
-	).Get()
-
-	traceSamplingVar = env.Register(
-		"PILOT_TRACE_SAMPLING",
-		1.0,
-		"Sets the mesh-wide trace sampling percentage. Should be 0.0 - 100.0. Precision to 0.01. "+
-			"Default is 1.0.",
-	)
-
-	TraceSampling = func() float64 {
-		f := traceSamplingVar.Get()
-		if f < 0.0 || f > 100.0 {
-			log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
-			return 1.0
-		}
-		return f
-	}()
-
-	PushThrottle = func() int {
-		v := env.Register(
-			"PILOT_PUSH_THROTTLE",
-			0,
-			"Limits the number of concurrent pushes allowed. On larger machines this can be increased for faster pushes. "+
-				"If set to 0 or unset, the max will be automatically determined based on the machine size",
-		).Get()
-		if v > 0 {
-			return v
-		}
-		procs := runtime.GOMAXPROCS(0)
-		// Heuristic to scale with cores. We end up with...
-		// 1: 20
-		// 2: 25
-		// 4: 35
-		// 32: 100
-		return min(15+5*procs, 100)
-	}()
-
-	RequestLimit = func() float64 {
-		v := env.Register(
-			"PILOT_MAX_REQUESTS_PER_SECOND",
-			0.0,
-			"Limits the number of incoming XDS requests per second. On larger machines this can be increased to handle more proxies concurrently. "+
-				"If set to 0 or unset, the max will be automatically determined based on the machine size",
-		).Get()
-		if v > 0 {
-			return v
-		}
-		procs := runtime.GOMAXPROCS(0)
-		// Heuristic to scale with cores. We end up with...
-		// 1: 20
-		// 2: 25
-		// 4: 35
-		// 32: 100
-		return min(float64(15+5*procs), 100.0)
-	}()
-
-	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
-	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
-		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
-
-	DebounceAfter = env.Register(
-		"PILOT_DEBOUNCE_AFTER",
-		100*time.Millisecond,
-		"The delay added to config/registry events for debouncing. This will delay the push by "+
-			"at least this interval. If no change is detected within this period, the push will happen, "+
-			" otherwise we'll keep delaying until things settle, up to a max of PILOT_DEBOUNCE_MAX.",
-	).Get()
-
-	DebounceMax = env.Register(
-		"PILOT_DEBOUNCE_MAX",
-		10*time.Second,
-		"The maximum amount of time to wait for events while debouncing. If events keep showing up with no breaks "+
-			"for this time, we'll trigger a push.",
-	).Get()
-
-	EnableEDSDebounce = env.Register(
-		"PILOT_ENABLE_EDS_DEBOUNCE",
-		true,
-		"If enabled, Pilot will include EDS pushes in the push debouncing, configured by PILOT_DEBOUNCE_AFTER and PILOT_DEBOUNCE_MAX."+
-			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
-	).Get()
-
-	SendUnhealthyEndpoints = atomic.NewBool(env.Register(
-		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
-		false,
-		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing."+
-			"  To avoid, sending traffic to non ready endpoints, enabling this flag, disables panic threshold in Envoy i.e. Envoy does not load balance requests"+
-			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
-	).Get())
-
-	EnablePersistentSessionFilter = env.Register(
-		"PILOT_ENABLE_PERSISTENT_SESSION_FILTER",
-		false,
-		"If enabled, Istiod sets up persistent session filter for listeners, if services have 'PILOT_PERSISTENT_SESSION_LABEL' set.",
-	).Get()
-
-	PersistentSessionLabel = env.Register(
-		"PILOT_PERSISTENT_SESSION_LABEL",
-		"istio.io/persistent-session",
-		"If not empty, services with this label will use cookie based persistent sessions",
-	).Get()
-
-	PersistentSessionHeaderLabel = env.Register(
-		"PILOT_PERSISTENT_SESSION_HEADER_LABEL",
-		"istio.io/persistent-session-header",
-		"If not empty, services with this label will use header based persistent sessions",
-	).Get()
-
-	DrainingLabel = env.Register(
-		"PILOT_DRAINING_LABEL",
-		"istio.io/draining",
-		"If not empty, endpoints with the label value present will be sent with status DRAINING.",
-	).Get()
-
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	HTTP10 = env.Register(
 		"PILOT_HTTP10",
@@ -162,57 +33,11 @@ var (
 		"Enables the use of HTTP 1.0 in the outbound HTTP listeners, to support legacy applications.",
 	).Get()
 
-	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
-	// Pilot injects this outbound filter if the service port name is `mysql`.
-	EnableMysqlFilter = env.Register(
-		"PILOT_ENABLE_MYSQL_FILTER",
-		false,
-		"EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.",
-	).Get()
-
-	// EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.
-	// Pilot injects this outbound filter if the service port name is `redis`.
-	EnableRedisFilter = env.Register(
-		"PILOT_ENABLE_REDIS_FILTER",
-		false,
-		"EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.",
-	).Get()
-
-	// EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.
-	EnableMongoFilter = env.Register(
-		"PILOT_ENABLE_MONGO_FILTER",
-		true,
-		"EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.",
-	).Get()
-
-	// UseRemoteAddress sets useRemoteAddress to true for sidecar outbound listeners so that it picks up the localhost
-	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
-	UseRemoteAddress = env.Register(
-		"PILOT_SIDECAR_USE_REMOTE_ADDRESS",
-		false,
-		"UseRemoteAddress sets useRemoteAddress to true for sidecar outbound listeners.",
-	).Get()
-
-	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
-	// mTLS is enabled in authentication policy.
-	SkipValidateTrustDomain = env.Register(
-		"PILOT_SKIP_VALIDATE_TRUST_DOMAIN",
-		false,
-		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
-
 	ScopeGatewayToNamespace = env.Register(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,
 		"If enabled, a gateway workload can only select gateway resources in the same namespace. "+
 			"Gateways with same selectors in different namespaces will not be applicable.",
-	).Get()
-
-	EnableHeadlessService = env.Register(
-		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
-		true,
-		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
-			"outbound listener for each pod in a headless service. This feature should be disabled "+
-			"if headless services have a large number of pods.",
 	).Get()
 
 	JwksFetchMode = func() jwt.JwksFetchMode {
@@ -227,125 +52,6 @@ var (
 		return jwt.ConvertToJwksFetchMode(v)
 	}()
 
-	EnableEDSForHeadless = env.Register(
-		"PILOT_ENABLE_EDS_FOR_HEADLESS_SERVICES",
-		false,
-		"If enabled, for headless service in Kubernetes, pilot will send endpoints over EDS, "+
-			"allowing the sidecar to load balance among pods in the headless service. This feature "+
-			"should be enabled if applications access all services explicitly via a HTTP proxy port in the sidecar.",
-	).Get()
-
-	EnableDistributionTracking = env.Register(
-		"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING",
-		false,
-		"If enabled, Pilot will assign meaningful nonces to each Envoy configuration message, and allow "+
-			"users to interrogate which envoy has which config from the debug interface.",
-	).Get()
-
-	DistributionHistoryRetention = env.Register(
-		"PILOT_DISTRIBUTION_HISTORY_RETENTION",
-		time.Minute*1,
-		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
-	).Get()
-
-	MCSAPIGroup = env.Register("MCS_API_GROUP", "multicluster.x-k8s.io",
-		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
-
-	MCSAPIVersion = env.Register("MCS_API_VERSION", "v1alpha1",
-		"The version to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
-
-	EnableMCSAutoExport = env.Register(
-		"ENABLE_MCS_AUTO_EXPORT",
-		false,
-		"If enabled, istiod will automatically generate Kubernetes "+
-			"Multi-Cluster Services (MCS) ServiceExport resources for every "+
-			"service in the mesh. Services defined to be cluster-local in "+
-			"MeshConfig are excluded.",
-	).Get()
-
-	EnableMCSServiceDiscovery = env.Register(
-		"ENABLE_MCS_SERVICE_DISCOVERY",
-		false,
-		"If enabled, istiod will enable Kubernetes Multi-Cluster "+
-			"Services (MCS) service discovery mode. In this mode, service "+
-			"endpoints in a cluster will only be discoverable within the "+
-			"same cluster unless explicitly exported via ServiceExport.").Get()
-
-	EnableMCSHost = env.Register(
-		"ENABLE_MCS_HOST",
-		false,
-		"If enabled, istiod will configure a Kubernetes Multi-Cluster "+
-			"Services (MCS) host (<svc>.<namespace>.svc.clusterset.local) "+
-			"for each service exported (via ServiceExport) in at least one "+
-			"cluster. Clients must, however, be able to successfully lookup "+
-			"these DNS hosts. That means that either Istio DNS interception "+
-			"must be enabled or an MCS controller must be used. Requires "+
-			"that ENABLE_MCS_SERVICE_DISCOVERY also be enabled.").Get() &&
-		EnableMCSServiceDiscovery
-
-	EnableMCSClusterLocal = env.Register(
-		"ENABLE_MCS_CLUSTER_LOCAL",
-		false,
-		"If enabled, istiod will treat the host "+
-			"`<svc>.<namespace>.svc.cluster.local` as defined by the "+
-			"Kubernetes Multi-Cluster Services (MCS) spec. In this mode, "+
-			"requests to `cluster.local` will be routed to only those "+
-			"endpoints residing within the same cluster as the client. "+
-			"Requires that both ENABLE_MCS_SERVICE_DISCOVERY and "+
-			"ENABLE_MCS_HOST also be enabled.").Get() &&
-		EnableMCSHost
-
-	EnableAnalysis = env.Register(
-		"PILOT_ENABLE_ANALYSIS",
-		false,
-		"If enabled, pilot will run istio analyzers and write analysis errors to the Status field of any "+
-			"Istio Resources",
-	).Get()
-
-	AnalysisInterval = func() time.Duration {
-		val, _ := env.Register(
-			"PILOT_ANALYSIS_INTERVAL",
-			10*time.Second,
-			"If analysis is enabled, pilot will run istio analyzers using this value as interval in seconds "+
-				"Istio Resources",
-		).Lookup()
-		if val < 1*time.Second {
-			log.Warnf("PILOT_ANALYSIS_INTERVAL %s is too small, it will be set to default 10 seconds", val.String())
-			return 10 * time.Second
-		}
-		return val
-	}()
-
-	EnableStatus = env.Register(
-		"PILOT_ENABLE_STATUS",
-		false,
-		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
-	).Get()
-
-	StatusUpdateInterval = env.Register(
-		"PILOT_STATUS_UPDATE_INTERVAL",
-		500*time.Millisecond,
-		"Interval to update the XDS distribution status.",
-	).Get()
-
-	StatusQPS = env.Register(
-		"PILOT_STATUS_QPS",
-		100,
-		"If status is enabled, controls the QPS with which status will be updated.  "+
-			"See https://godoc.org/k8s.io/client-go/rest#Config QPS",
-	).Get()
-
-	StatusBurst = env.Register(
-		"PILOT_STATUS_BURST",
-		500,
-		"If status is enabled, controls the Burst rate with which status will be updated.  "+
-			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
-	).Get()
-
-	StatusMaxWorkers = env.Register("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
-		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
-		"but larger numbers may impact CPU in high scale environments.").Get()
-
 	// IstiodServiceCustomHost allow user to bring a custom address or multiple custom addresses for istiod server
 	// for examples: 1. istiod.mycompany.com  2. istiod.mycompany.com,istiod-canary.mycompany.com
 	IstiodServiceCustomHost = env.Register("ISTIOD_CUSTOM_HOST", "",
@@ -353,30 +59,33 @@ var (
 			"Multiple custom host names are supported, and multiple values are separated by commas.").Get()
 
 	PilotCertProvider = env.Register("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
-		"The provider of Pilot DNS certificate.").Get()
+		"The provider of Pilot DNS certificate. K8S RA will be used for k8s.io/NAME. 'istiod' value will sign"+
+			" using Istio build in CA. Other values will not not generate TLS certs, but still "+
+			" distribute ./etc/certs/root-cert.pem. Only used if custom certificates are not mounted.").Get()
 
-	JwtPolicy = env.Register("JWT_POLICY", jwt.PolicyThirdParty,
-		"The JWT validation policy.").Get()
-
-	EnableGatewayAPI = env.Register("PILOT_ENABLE_GATEWAY_API", true,
-		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
-			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
-
-	EnableAlphaGatewayAPI = env.Register("PILOT_ENABLE_ALPHA_GATEWAY_API", false,
-		"If this is set to true, support for alpha APIs in the Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
-			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
-
-	EnableGatewayAPIStatus = env.Register("PILOT_ENABLE_GATEWAY_API_STATUS", true,
-		"If this is set to true, gateway-api resources will have status written to them").Get()
-
-	EnableGatewayAPIDeploymentController = env.Register("PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER", true,
-		"If this is set to true, gateway-api resources will automatically provision in cluster deployment, services, etc").Get()
-
-	EnableGatewayAPIGatewayClassController = env.Register("PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER", true,
-		"If this is set to true, istiod will create and manage its default GatewayClasses").Get()
-
-	ClusterName = env.Register("CLUSTER_ID", "Kubernetes",
+	ClusterName = env.Register("CLUSTER_ID", constants.DefaultClusterName,
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
+
+	// This value defaults to 0 which is interpreted as infinity and causes Envoys to get "stuck" to dead dns pods
+	// (https://github.com/istio/istio/issues/53577).
+	// However, setting this value too high will rate limit the number of DNS requests we can make by using up all
+	// available local udp ports.
+	// Generally, the max dns query rate is
+	//
+	//	(# local dns ports) * (udp_max_queries) / (query duration)
+	//
+	// The longest a query can take should be 5s, the Envoy default timeout.
+	// We underestimate the number of local dns ports to 10,000 (default is ~15,000, but some might be in use).
+	// Setting udp_max_queries to 100 gives us at least 10,000 * 100 / 5 = 200,000 requests / second, which is
+	// hopefully enough for any cluster.
+	PilotDNSCaresUDPMaxQueries = env.Register("PILOT_DNS_CARES_UDP_MAX_QUERIES", uint32(100),
+		"Sets the `udp_max_queries` option in Envoy for the Cares DNS resolver. "+
+			"Defaults to 0, an unlimited number of queries. "+
+			"See `extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig` in "+
+			"https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/network/dns_resolver/cares/v3/cares_dns_resolver.proto "+
+			"and `ARES_OPT_UDP_MAX_QUERIES` in https://c-ares.org/docs/ares_init.html").Get()
+
+	PilotDNSJitterDurationEnv = env.Register("PILOT_DNS_JITTER_DURATION", 100*time.Millisecond, "Jitter added to periodic DNS resolution").Get()
 
 	ExternalIstiod = env.Register("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
@@ -387,68 +96,8 @@ var (
 	EnableDebugOnHTTP = env.Register("ENABLE_DEBUG_ON_HTTP", true,
 		"If this is set to false, the debug interface will not be enabled, recommended for production").Get()
 
-	MutexProfileFraction = env.Register("MUTEX_PROFILE_FRACTION", 1000,
-		"If set to a non-zero value, enables mutex profiling a rate of 1/MUTEX_PROFILE_FRACTION events."+
-			" For example, '1000' will record 0.1% of events. "+
-			"Set to 0 to disable entirely.").Get()
-
 	EnableUnsafeAdminEndpoints = env.Register("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
-
-	XDSAuth = env.Register("XDS_AUTH", true,
-		"If true, will authenticate XDS clients.").Get()
-
-	EnableXDSIdentityCheck = env.Register(
-		"PILOT_ENABLE_XDS_IDENTITY_CHECK",
-		true,
-		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
-	).Get()
-
-	// TODO: Move this to proper API.
-	trustedGatewayCIDR = env.Register(
-		"TRUSTED_GATEWAY_CIDR",
-		"",
-		"If set, any connections from gateway to Istiod with this CIDR range are treated as trusted for using authentication mechanisms like XFCC."+
-			" This can only be used when the network where Istiod and the authenticating gateways are running in a trusted/secure network",
-	)
-
-	TrustedGatewayCIDR = func() []string {
-		cidr := trustedGatewayCIDR.Get()
-
-		// splitting the empty string will result [""]
-		if cidr == "" {
-			return []string{}
-		}
-
-		return strings.Split(cidr, ",")
-	}()
-
-	CATrustedNodeAccounts = func() sets.Set[types.NamespacedName] {
-		accounts := env.Register(
-			"CA_TRUSTED_NODE_ACCOUNTS",
-			"",
-			"If set, the list of service accounts that are allowed to use node authentication for CSRs. "+
-				"Node authentication allows an identity to create CSRs on behalf of other identities, but only if there is a pod "+
-				"running on the same node with that identity. "+
-				"This is intended for use with node proxies.",
-		).Get()
-		res := sets.New[types.NamespacedName]()
-		if accounts == "" {
-			return res
-		}
-		for _, v := range strings.Split(accounts, ",") {
-			ns, sa, valid := strings.Cut(v, "/")
-			if !valid {
-				log.Warnf("Invalid CA_TRUSTED_NODE_ACCOUNTS, ignoring: %v", v)
-				continue
-			}
-			res.Insert(types.NamespacedName{
-				Namespace: ns,
-				Name:      sa,
-			})
-		}
-		return res
-	}()
 
 	EnableServiceEntrySelectPods = env.Register("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
@@ -465,51 +114,11 @@ var (
 		"If not empty, the controller will automatically patch validatingwebhookconfiguration when the CA certificate changes. "+
 			"Only works in kubernetes environment.").Get()
 
-	EnableXDSCaching = env.Register("PILOT_ENABLE_XDS_CACHE", true,
-		"If true, Pilot will cache XDS responses.").Get()
-
-	// EnableCDSCaching determines if CDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
-	// so that in case there are issues with the CDS cache we can just disable the CDS cache.
-	EnableCDSCaching = env.Register("PILOT_ENABLE_CDS_CACHE", true,
-		"If true, Pilot will cache CDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
-
-	// EnableRDSCaching determines if RDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
-	// so that in case there are issues with the RDS cache we can just disable the RDS cache.
-	EnableRDSCaching = env.Register("PILOT_ENABLE_RDS_CACHE", true,
-		"If true, Pilot will cache RDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
-
-	EnableXDSCacheMetrics = env.Register("PILOT_XDS_CACHE_STATS", false,
-		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
-
-	XDSCacheMaxSize = env.Register("PILOT_XDS_CACHE_SIZE", 60000,
-		"The maximum number of cache entries for the XDS cache.").Get()
-
-	XDSCacheIndexClearInterval = env.Register("PILOT_XDS_CACHE_INDEX_CLEAR_INTERVAL", 5*time.Second,
-		"The interval for xds cache index clearing.").Get()
-
-	XdsPushSendTimeout = env.Register(
-		"PILOT_XDS_SEND_TIMEOUT",
-		0*time.Second,
-		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
-	).Get()
-
 	RemoteClusterTimeout = env.Register(
 		"PILOT_REMOTE_CLUSTER_TIMEOUT",
 		30*time.Second,
 		"After this timeout expires, pilot can become ready without syncing data from clusters added via remote-secrets. "+
 			"Setting the timeout to 0 disables this behavior.",
-	).Get()
-
-	EnableTelemetryLabel = env.Register("PILOT_ENABLE_TELEMETRY_LABEL", true,
-		"If true, pilot will add telemetry related metadata to cluster and endpoint resources, which will be consumed by telemetry filter.",
-	).Get()
-
-	EndpointTelemetryLabel = env.Register("PILOT_ENDPOINT_TELEMETRY_LABEL", true,
-		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
-	).Get()
-
-	MetadataExchange = env.Register("PILOT_ENABLE_METADATA_EXCHANGE", true,
-		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
 	).Get()
 
 	DisableMxALPN = env.Register("PILOT_DISABLE_MX_ALPN", false,
@@ -543,30 +152,28 @@ var (
 		"The interval for istiod to fetch the jwks_uri for the jwks public key.",
 	).Get()
 
-	EnableInboundPassthrough = env.Register(
-		"PILOT_ENABLE_INBOUND_PASSTHROUGH",
+	EnableNodeUntaintControllers = env.Register(
+		"PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS",
+		false,
+		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.").Get()
+
+	EnableIPAutoallocate = env.Register(
+		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,
-		"If enabled, inbound clusters will be configured as ORIGINAL_DST clusters. When disabled, "+
-			"requests are always sent to localhost. The primary implication of this is that when enabled, binding to POD_IP "+
-			"will work while localhost will not; when disable, bind to POD_IP will not work, while localhost will. "+
-			"The enabled behavior matches the behavior without Istio enabled at all; this flag exists only for backwards compatibility. "+
-			"Regardless of this setting, the configuration can be overridden with the Sidecar.Ingress.DefaultEndpoint configuration.",
-	).Get()
+		"If enabled, pilot will start a controller that assigns IP addresses to ServiceEntry which do not have a user-supplied IP. "+
+			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.").Get()
 
-	// EnableHBONE provides a global Pilot flag for enabling HBONE.
-	// Generally, this could be a per-proxy setting (and is, via ENABLE_HBONE node metadata).
-	// However, there are some code paths that impact all clients, hence the global flag.
-	// Warning: do not enable by default until endpoint_builder.go caching is fixed (and possibly other locations).
-	EnableHBONE = env.Register(
-		"PILOT_ENABLE_HBONE",
-		false,
-		"If enabled, HBONE support can be configured for proxies. "+
-			"Note: proxies must opt in on a per-proxy basis with ENABLE_HBONE to actually get HBONE config, in addition to this flag.").Get()
+	IPAutoallocateIPv4Prefix = env.Register(
+		"PILOT_IP_AUTOALLOCATE_IPV4_PREFIX",
+		"240.240.0.0/16",
+		"The CIDR range/prefix to use for auto-allocated IPv4 addresses. "+
+			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
 
-	EnableAmbientControllers = env.Register(
-		"PILOT_ENABLE_AMBIENT_CONTROLLERS",
-		false,
-		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
+	IPAutoallocateIPv6Prefix = env.Register(
+		"PILOT_IP_AUTOALLOCATE_IPV6_PREFIX",
+		"2001:2::/48",
+		"The CIDR range/prefix to use for auto-allocated IPv6 addresses. "+
+			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
 
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
@@ -586,10 +193,6 @@ var (
 			"These checks are extremely expensive, so this should be used only for testing, not production.",
 	).Get()
 
-	DeltaXds = env.Register("ISTIO_DELTA_XDS", false,
-		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
-			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
-
 	SharedMeshConfig = env.Register("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
@@ -608,23 +211,8 @@ var (
 	ResolveHostnameGateways = env.Register("RESOLVE_HOSTNAME_GATEWAYS", true,
 		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
 
-	MultiNetworkGatewayAPI = env.Register("PILOT_MULTI_NETWORK_DISCOVER_GATEWAY_API", false,
+	MultiNetworkGatewayAPI = env.Register("PILOT_MULTI_NETWORK_DISCOVER_GATEWAY_API", true,
 		"If true, Pilot will discover labeled Kubernetes gateway objects as multi-network gateways.").Get()
-
-	CertSignerDomain = env.Register("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
-
-	EnableQUICListeners = env.Register("PILOT_ENABLE_QUIC_LISTENERS", false,
-		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways "+
-			"if the gateway service exposes a UDP port with the same number (for example 443/TCP and 443/UDP)").Get()
-
-	VerifyCertAtClient = env.Register("VERIFY_CERTIFICATE_AT_CLIENT", false,
-		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
-
-	EnableTLSOnSidecarIngress = env.Register("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
-		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
-
-	EnableAutoSni = env.Register("ENABLE_AUTO_SNI", false,
-		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
 
 	InsecureKubeConfigOptions = func() sets.String {
 		v := env.Register(
@@ -636,38 +224,12 @@ var (
 		return sets.New(strings.Split(v, ",")...)
 	}()
 
-	VerifySDSCertificate = env.Register("VERIFY_SDS_CERTIFICATE", true,
-		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
-
-	EnableHCMInternalNetworks = env.Register("ENABLE_HCM_INTERNAL_NETWORKS", false,
-		"If enable, endpoints defined in mesh networks will be configured as internal addresses in Http Connection Manager").Get()
-
 	CanonicalServiceForMeshExternalServiceEntry = env.Register("LABEL_CANONICAL_SERVICES_FOR_MESH_EXTERNAL_SERVICE_ENTRIES", false,
 		"If enabled, metadata representing canonical services for ServiceEntry resources with a location of mesh_external will be populated"+
 			"in the cluster metadata for those endpoints.").Get()
 
 	LocalClusterSecretWatcher = env.Register("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
-
-	EnableEnhancedResourceScoping = env.Register("ENABLE_ENHANCED_RESOURCE_SCOPING", false,
-		"If enabled, meshConfig.discoverySelectors will limit the CustomResource configurations(like Gateway,VirtualService,DestinationRule,Ingress, etc)"+
-			"that can be processed by pilot. This will also restrict the root-ca certificate distribution.").Get()
-
-	EnableLeaderElection = env.Register("ENABLE_LEADER_ELECTION", true,
-		"If enabled (default), starts a leader election client and gains leadership before executing controllers. "+
-			"If false, it assumes that only one instance of istiod is running and skips leader election.").Get()
-
-	EnableSidecarServiceInboundListenerMerge = env.Register(
-		"PILOT_ALLOW_SIDECAR_SERVICE_INBOUND_LISTENER_MERGE",
-		false,
-		"If set, it allows creating inbound listeners for service ports and sidecar ingress listeners ",
-	).Get()
-
-	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
-		"If true, Istio will enable the Dual Stack feature.").Get()
-
-	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
-		"If enabled, Istiod will not push changes on arbitrary annotation change.").Get()
 
 	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
 		"If set, limit Kubernetes watches to a single namespace. "+
@@ -677,33 +239,6 @@ var (
 	KubernetesClientContentType = env.Register("ISTIO_KUBE_CLIENT_CONTENT_TYPE", "protobuf",
 		"The content type to use for Kubernetes clients. Defaults to protobuf. Valid options: [protobuf, json]").Get()
 
-	// This is used in injection templates, it is not unused.
-	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
-		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
-
-	EnableExternalNameAlias = env.Register("ENABLE_EXTERNAL_NAME_ALIAS", true,
-		"If enabled, ExternalName Services will be treated as simple aliases: anywhere where we would match the concrete service, "+
-			"we also match the ExternalName. In general, this mirrors Kubernetes behavior more closely. However, it means that policies (routes and DestinationRule) "+
-			"cannot be applied to the ExternalName service. "+
-			"If disabled, ExternalName behaves in fairly unexpected manner. Port matters, while it does not in Kubernetes. If it is a TCP port, "+
-			"all traffic on that port will be matched, which can have disastrous consequences. Additionally, the destination is seen as an opaque destination; "+
-			"even if it is another service in the mesh, policies such as mTLS and load balancing will not be used when connecting to it.").Get()
-
-	// This is an experimental feature flag, can be removed once it became stable, and should introduced to Telemetry API.
-	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,
-		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()
-	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
-		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
-
-	NativeMetadataExchange = env.Register("NATIVE_METADATA_EXCHANGE", true,
-		"If set, uses a native implementation of the HTTP metadata exchange filter").Get()
-
-	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
-		"If enabled, pilot will only rebuild config for resources that have changed").Get()
-
-	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
-		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
-
 	ValidateWorkloadEntryIdentity = env.Register("ISTIO_WORKLOAD_ENTRY_VALIDATE_IDENTITY", true,
 		"If enabled, will validate the identity of a workload matches the identity of the "+
 			"WorkloadEntry it is associating with for health checks and auto registration. "+
@@ -711,10 +246,6 @@ var (
 
 	JwksResolverInsecureSkipVerify = env.Register("JWKS_RESOLVER_INSECURE_SKIP_VERIFY", false,
 		"If enabled, istiod will skip verifying the certificate of the JWKS server.").Get()
-
-	// User should not rely on builtin resource labels, this flag will be removed in future releases(1.20).
-	EnableOTELBuiltinResourceLabels = env.Register("ENABLE_OTEL_BUILTIN_RESOURCE_LABELS", false,
-		"If enabled, envoy will send builtin labels(e.g. node_name) via OTel sink.").Get()
 
 	EnableSelectorBasedK8sGatewayPolicy = env.Register("ENABLE_SELECTOR_BASED_K8S_GATEWAY_POLICY", true,
 		"If disabled, Gateway API gateways will ignore workloadSelector policies, only"+
@@ -725,19 +256,87 @@ var (
 	EnableAdditionalIpv4OutboundListenerForIpv6Only = env.RegisterBoolVar("ISTIO_ENABLE_IPV4_OUTBOUND_LISTENER_FOR_IPV6_CLUSTERS", false,
 		"If true, pilot will configure an additional IPv4 listener for outbound traffic in IPv6 only clusters, e.g. AWS EKS IPv6 only clusters.").Get()
 
-	UseCacertsForSelfSignedCA = env.Register("USE_CACERTS_FOR_SELF_SIGNED_CA", false,
-		"If enabled, istiod will use a secret named cacerts to store its self-signed istio-"+
-			"generated root certificate.").Get()
+	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", true,
+		"If true, will use optimized vtprotobuf based marshaling. Requires a build with -tags=vtprotobuf.").Get()
 
-	StackdriverAuditLog = env.Register("STACKDRIVER_AUDIT_LOG", false, ""+
-		"If enabled, StackDriver audit logging will be enabled.").Get()
+	GatewayAPIDefaultGatewayClass = env.Register("PILOT_GATEWAY_API_DEFAULT_GATEWAYCLASS_NAME", "istio",
+		"Name of the default GatewayClass").Get()
 
-	PersistOldestWinsHeuristicForVirtualServiceHostMatching = env.Register("PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", false,
-		"If enabled, istiod will persist the oldest first heuristic for subtly conflicting traffic policy selection"+
-			"(such as with overlapping wildcard hosts)").Get()
+	ManagedGatewayController = env.Register("PILOT_GATEWAY_API_CONTROLLER_NAME", "istio.io/gateway-controller",
+		"Gateway API controller name. istiod will only reconcile Gateway API resources referencing a GatewayClass with this controller name").Get()
+
+	PreferDestinationRulesTLSForExternalServices = env.Register("PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES", true,
+		"If true, external services will prefer the TLS settings from DestinationRules over the metadata TLS settings.").Get()
+
+	EnableGatewayAPIManualDeployment = env.Register("ENABLE_GATEWAY_API_MANUAL_DEPLOYMENT", true,
+		"If true, allows users to bind Gateway API resources to existing gateway deployments.").Get()
+
+	MaxConnectionsToAcceptPerSocketEvent = env.Register("MAX_CONNECTIONS_PER_SOCKET_EVENT_LOOP", 1,
+		"The maximum number of connections to accept from the kernel per socket event. Set this to '0' to accept unlimited connections.").Get()
+
+	EnableClusterTrustBundles = env.Register("ENABLE_CLUSTER_TRUST_BUNDLE_API", false,
+		"If enabled, uses the ClusterTrustBundle API instead of ConfigMaps to store the root certificate in the cluster.").Get()
+
+	// EnableAbsoluteFqdnVhostDomain controls whether the absolute FQDN (hostname followed by a dot,)
+	// e.g. my-service.my-ns.svc.cluster.local. / google.com. is added to the VirtualHost domains list.
+	// Setting this to false disables the addition.
+	// See https://github.com/istio/istio/issues/56007 for more details of this feature with examples.
+	EnableAbsoluteFqdnVhostDomain = env.Register(
+		"PILOT_ENABLE_ABSOLUTE_FQDN_VHOST_DOMAIN", // Environment variable name
+		true, // Default value (true = feature enabled by default)
+		"If set to false, Istio will not add the absolute FQDN variant"+
+			" (e.g., my-service.my-ns.svc.cluster.local.) to the domains"+
+			" list for VirtualHost entries.",
+	).Get()
+
+	EnableProxyFindPodByIP = env.Register("ENABLE_PROXY_FIND_POD_BY_IP", false,
+		"If enabled, the pod controller will allow finding pods matching proxies by IP if it fails to find them by name.").Get()
+
+	EnableLazySidecarEvaluation = env.Register("ENABLE_LAZY_SIDECAR_EVALUATION", true,
+		"If enabled, pilot will only compute sidecar resources when actually used").Get()
+
+	// EnableCACRL ToDo (nilekh): remove this feature flag once it's stable
+	EnableCACRL = env.Register(
+		"PILOT_ENABLE_CA_CRL",
+		true, // Default value (true = feature enabled by default)
+		"If set to false, Istio will not watch for the ca-crl.pem file in the /etc/cacerts directory "+
+			"and will not distribute CRL data to namespaces for proxies to consume.",
+	).Get()
+
+	EnableNativeSidecars = func() NativeSidecarMode {
+		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
+			"If set to true, use Kubernetes native sidecar container support. Requires SidecarContainer feature flag. "+
+				"Set to true to unconditionally enable, false to unconditionally disable. "+
+				"Set to auto to automatically enable for supported scenarios").Get()
+		switch v {
+		case "false":
+			return NativeSidecarModeDisabled
+		case "true":
+			return NativeSidecarModeEnabled
+		case "auto":
+			return NativeSidecarModeAuto
+		default:
+			log.Warnf("Unknown value for ENABLE_NATIVE_SIDECARS: %s, defaulting to false", v)
+			return NativeSidecarModeDisabled
+		}
+	}()
+
+	DisableShadowHostSuffix = env.Register("DISABLE_SHADOW_HOST_SUFFIX", true,
+		"If disabled, the shadow host suffix will be added to the hostnames of the mirrored requests.").Get()
+
+	DisableTrackRemainingMetrics = env.Register("DISABLE_TRACK_REMAINING_CB_METRICS", true,
+		"If disabled, the remaining metrics for circuit breakers will not be tracked.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
-	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
+	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions || EnableUnsafeDeltaTest
 }
+
+type NativeSidecarMode int
+
+const (
+	NativeSidecarModeEnabled  NativeSidecarMode = iota
+	NativeSidecarModeDisabled                   = iota
+	NativeSidecarModeAuto                       = iota
+)

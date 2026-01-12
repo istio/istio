@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sort"
 
+	"k8s.io/client-go/tools/clientcmd"
+
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -145,7 +147,7 @@ func (c Clusters) MeshClusters(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
-// IsExternalControlPlane indicates whether the clusters are set up in an enternal
+// IsExternalControlPlane indicates whether the clusters are set up in an external
 // control plane configuration. An external control plane is a primary cluster that
 // gets its Istio configuration from a different cluster.
 func (c Clusters) IsExternalControlPlane() bool {
@@ -154,22 +156,6 @@ func (c Clusters) IsExternalControlPlane() bool {
 			return true
 		}
 	}
-	return false
-}
-
-// Kube returns OfKind(cluster.Kubernetes)
-func (c Clusters) Kube() Clusters {
-	return c.OfKind(Kubernetes)
-}
-
-// OfKind filters clusters by their Kind.
-func (c Clusters) OfKind(kind Kind) Clusters {
-	return c.filterClusters(func(cc Cluster) bool {
-		return cc.Kind() == kind
-	}, none)
-}
-
-func none(Cluster) bool {
 	return false
 }
 
@@ -198,4 +184,13 @@ func (c Clusters) filterClusters(included func(Cluster) bool,
 
 func (c Clusters) String() string {
 	return fmt.Sprintf("%v", c.Names())
+}
+
+// The function validates if the cluster is a "Kind" cluster,
+// By looking into a context name. Expects "kind-" prefix.
+// That is required by some tests for specific actions on "Kind".
+func (c Clusters) IsKindCluster() bool {
+	config, _ := clientcmd.NewDefaultClientConfigLoadingRules().Load()
+	currentContext := config.CurrentContext
+	return currentContext == "kind-kind" || len(currentContext) > 5 && currentContext[:5] == "kind-"
 }

@@ -15,6 +15,7 @@
 package crdclient
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -22,11 +23,13 @@ import (
 
 	"go.uber.org/atomic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/gateway-api/pkg/consts"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/api/networking/v1beta1"
+	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
+	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -36,23 +39,30 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func makeClient(t *testing.T, schemas collection.Schemas, f ...func(o Option) Option) (model.ConfigStoreController, kube.CLIClient) {
+func makeClient(t *testing.T, schemas collection.Schemas, f kubetypes.DynamicObjectFilter) (model.ConfigStoreController, kube.CLIClient) {
 	fake := kube.NewFakeClient()
+	if f != nil {
+		kube.SetObjectFilter(fake, f)
+	}
 	for _, s := range schemas.All() {
-		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
+		var annotations map[string]string
+		if s.Group() == gvk.KubernetesGateway.Group {
+			annotations = map[string]string{
+				consts.BundleVersionAnnotation: consts.BundleVersion,
+			}
+		}
+		clienttest.MakeCRDWithAnnotations(t, fake, s.GroupVersionResource(), annotations)
 	}
 	stop := test.NewStop(t)
-	var o Option
-	for _, fn := range f {
-		o = fn(o)
-	}
-	config := New(fake, o)
+	config := New(fake, Option{})
 	go config.Run(stop)
 	fake.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, config.HasSynced)
@@ -78,7 +88,7 @@ func createResource(t *testing.T, store model.ConfigStoreController, r resource.
 // Ensure that the client can run without CRDs present
 func TestClientNoCRDs(t *testing.T) {
 	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
-	store, _ := makeClient(t, schema)
+	store, _ := makeClient(t, schema, nil)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.VirtualService
 	configMeta := config.Meta{
@@ -103,20 +113,17 @@ func TestClientNoCRDs(t *testing.T) {
 // Ensure that the client can run without CRDs present, but then added later
 func TestClientDelayedCRDs(t *testing.T) {
 	// ns1 is allowed, ns2 is not
-	applyFilter := func(o Option) Option {
-		o.NamespacesFilter = func(obj interface{}) bool {
-			// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
-			object := controllers.ExtractObject(obj)
-			if object == nil {
-				return false
-			}
-			ns := object.GetNamespace()
-			return ns == "ns1"
+	f := kubetypes.NewStaticObjectFilter(func(obj interface{}) bool {
+		// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
+		object := controllers.ExtractObject(obj)
+		if object == nil {
+			return false
 		}
-		return o
-	}
+		ns := object.GetNamespace()
+		return ns == "ns1"
+	})
 	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
-	store, fake := makeClient(t, schema, applyFilter)
+	store, fake := makeClient(t, schema, f)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.VirtualService
 
@@ -159,7 +166,7 @@ func TestClientDelayedCRDs(t *testing.T) {
 
 // CheckIstioConfigTypes validates that an empty store can do CRUD operators on all given types
 func TestClient(t *testing.T) {
-	store, _ := makeClient(t, collections.PilotGatewayAPI().Union(collections.Kube))
+	store, _ := makeClient(t, collections.PilotGatewayAPI().Union(collections.Kube), nil)
 	configName := "test"
 	configNamespace := "test-ns"
 	timeout := retry.Timeout(time.Millisecond * 200)
@@ -226,24 +233,6 @@ func TestClient(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				cfg = store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
 				if cfg == nil || !reflect.DeepEqual(cfg.Meta, configMeta) {
-					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
-				}
-				return nil
-			})
-
-			// check we can patch items
-			var patchedCfg config.Config
-			if _, err := store.(*Client).Patch(*cfg, func(cfg config.Config) (config.Config, types.PatchType) {
-				cfg.Annotations["fizz"] = "buzz"
-				patchedCfg = cfg
-				return cfg, types.JSONPatchType
-			}); err != nil {
-				t.Errorf("unexpected err in Patch: %v", err)
-			}
-			// validate it is updated
-			retry.UntilSuccessOrFail(t, func() error {
-				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
-				if cfg == nil || !reflect.DeepEqual(cfg.Meta, patchedCfg.Meta) {
 					return fmt.Errorf("get(%v) => got unexpected object %v", name, cfg)
 				}
 				return nil
@@ -375,31 +364,16 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 			Revision: rev,
 		})
 
-		var cfgsAdded []config.Config
-		store.RegisterEventHandler(
-			gvk.ServiceEntry,
-			func(old config.Config, curr config.Config, event model.Event) {
-				if event != model.EventAdd {
-					t.Fatalf("unexpected event: %v", event)
-				}
-				cfgsAdded = append(cfgsAdded, curr)
-			},
-		)
-
+		tt := assert.NewTracker[string](t)
+		store.RegisterEventHandler(gvk.ServiceEntry, TrackerHandler(tt))
 		stop := test.NewStop(t)
 		fake.RunAndWait(stop)
 		go store.Run(stop)
 
 		kube.WaitForCacheSync("test", stop, store.HasSynced)
-
-		// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
-		sortFunc := func(a config.Config) string {
-			return a.Key()
-		}
-		slices.SortBy(cfgsAdded, sortFunc)
-		slices.SortBy(expected, sortFunc)
-
-		assert.Equal(t, expected, cfgsAdded)
+		tt.WaitUnordered(slices.Map(expected, func(c config.Config) string {
+			return fmt.Sprintf("add/%v/%v", c.GroupVersionKind.Kind, krt.GetKey(c))
+		})...)
 	}
 }
 
@@ -428,4 +402,24 @@ func TestClientSync(t *testing.T) {
 	kube.WaitForCacheSync("test", stop, c.HasSynced)
 	// This MUST have been called by the time HasSynced returns true
 	assert.Equal(t, events.Load(), 1)
+}
+
+func TestAlternativeVersions(t *testing.T) {
+	fake := kube.NewFakeClient()
+	fake.RunAndWait(test.NewStop(t))
+	vs := apiistioioapinetworkingv1beta1.VirtualService{
+		TypeMeta:   metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{Name: "oo"},
+		Spec:       v1beta1.VirtualService{Hosts: []string{"hello"}},
+		Status:     v1alpha1.IstioStatus{},
+	}
+	_, err := fake.Istio().NetworkingV1beta1().VirtualServices("test").Create(context.Background(), &vs, metav1.CreateOptions{})
+	assert.NoError(t, err)
+}
+
+// TrackerHandler returns an object handler that records each event
+func TrackerHandler(tracker *assert.Tracker[string]) func(o config.Config, n config.Config, e model.Event) {
+	return func(o config.Config, n config.Config, e model.Event) {
+		tracker.Record(fmt.Sprintf("%v/%v/%v", e, n.GroupVersionKind.Kind, krt.GetKey(n)))
+	}
 }

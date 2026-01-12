@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 var (
@@ -31,6 +32,27 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 	}
 
 	return schema.GroupVersionResource{}, false
+}
+
+func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
+	switch g {
+{{- range .Entries }}
+	{{- if not (or (eq .Resource.Identifier "Address") (eq .Resource.Identifier "DNSName")) }}
+		case {{.Resource.Identifier}}:
+			return kind.{{.Resource.Identifier}}, true
+	{{- end }}
+{{- end }}
+	}
+
+	return kind.Unknown, false
+}
+
+func MustToKind(g config.GroupVersionKind) kind.Kind {
+	r, ok := ToKind(g)
+	if !ok {
+		panic("unknown kind: " + g.String())
+	}
+	return r
 }
 
 // MustToGVR converts a GVK to a GVR, and panics if it cannot be converted
@@ -63,4 +85,16 @@ func MustFromGVR(g schema.GroupVersionResource) config.GroupVersionKind {
 		panic("unknown kind: " + g.String())
 	}
 	return r
+}
+
+// KebabKind returns the kebab-case version of a Kind string.
+// This is a generated mapping to avoid runtime allocations from string conversion.
+func KebabKind(k string) string {
+	switch k {
+{{- range .UniqueKinds }}
+	case "{{.}}":
+		return "{{ kebabcase . }}"
+{{- end }}
+	}
+	return ""
 }

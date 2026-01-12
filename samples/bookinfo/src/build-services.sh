@@ -27,14 +27,13 @@ if [[ ("${h}" == "istio" || "${h}" == "docker.io/istio") && -z "$CI" && "$*" =~ 
   exit 1
 fi
 
-plat="linux/amd64"
-if [[ "${MULTI_ARCH}" == "true" ]]; then
-  plat="linux/amd64,linux/arm64"
+if [[ "${BOOKINFO_LATEST}" == "true" ]]; then
+  BOOKINFO_TAG="${BOOKINFO_TAG},latest"
 fi
 
 # Pass input args to the command. This allows using --push, --load, etc
-env TAG="${BOOKINFO_TAG}" HUB="${BOOKINFO_HUB}" \
-  docker buildx bake -f samples/bookinfo/src/docker-bake.hcl --set "*.platform=${plat}" "$@"
+env TAGS="${BOOKINFO_TAG}" HUB="${BOOKINFO_HUB}" \
+  docker buildx bake -f samples/bookinfo/src/docker-bake.hcl "$@"
 
 if [[ "${BOOKINFO_UPDATE}" == "true" ]]; then
 # Update image references in the yaml files

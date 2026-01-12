@@ -9,6 +9,7 @@ spec:
         label:
           aaa: aaa-val
           bbb: bbb-val
+          version: "21"
         k8s:
           resources:
             requests:

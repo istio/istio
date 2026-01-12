@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -41,7 +40,6 @@ import (
 func TestGatewayAPIRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authentication.ingressjwt").
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
 			config.New(t).
@@ -193,7 +191,6 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 func TestGatewayAPIAuthorizationPolicy(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("security.authorization.policy-attachment").
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
 			config.New(t).

@@ -33,7 +33,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
-	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -72,11 +72,11 @@ func processExtensionProvider(push *model.PushContext) map[string]*builtExtAuthz
 		// TODO(yangminzhu): Refactor and cache the ext_authz config.
 		switch p := config.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			if err = validation.ValidateExtensionProviderEnvoyExtAuthzHTTP(p.EnvoyExtAuthzHttp); err == nil {
+			if err = agent.ValidateExtensionProviderEnvoyExtAuthzHTTP(p.EnvoyExtAuthzHttp); err == nil {
 				parsed, err = buildExtAuthzHTTP(push, p.EnvoyExtAuthzHttp)
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			if err = validation.ValidateExtensionProviderEnvoyExtAuthzGRPC(p.EnvoyExtAuthzGrpc); err == nil {
+			if err = agent.ValidateExtensionProviderEnvoyExtAuthzGRPC(p.EnvoyExtAuthzGrpc); err == nil {
 				parsed, err = buildExtAuthzGRPC(push, p.EnvoyExtAuthzGrpc)
 			}
 		default:
@@ -166,6 +166,7 @@ func buildExtAuthzHTTP(push *model.PushContext,
 		}
 	}
 	checkWildcard("IncludeRequestHeadersInCheck", config.IncludeRequestHeadersInCheck)
+	//nolint: staticcheck
 	checkWildcard("IncludeHeadersInCheck", config.IncludeHeadersInCheck)
 	checkWildcard("HeadersToDownstreamOnDeny", config.HeadersToDownstreamOnDeny)
 	checkWildcard("HeadersToDownstreamOnAllow", config.HeadersToDownstreamOnAllow)
@@ -241,6 +242,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 	if allowedHeaders == nil {
 		// IncludeHeadersInCheck is deprecated, only use it if IncludeRequestHeadersInCheck is not set.
 		// TODO: Remove the IncludeHeadersInCheck field before promoting to beta.
+		//nolint: staticcheck
 		allowedHeaders = generateHeaders(config.IncludeHeadersInCheck)
 	}
 	var headersToAdd []*core.HeaderValue

@@ -15,12 +15,12 @@
 package istio
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/netip"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sync"
@@ -35,13 +35,11 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	opAPI "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/cmd"
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/manifest"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/operator/pkg/values"
 	istiokube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -56,6 +54,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests
@@ -89,14 +88,13 @@ type istioImpl struct {
 	// ingress components, indexed first by cluster name and then by gateway name.
 	ingress map[string]map[string]ingress.Instance
 	istiod  map[string]istiokube.PortForwarder
-	values  OperatorValues
 	workDir string
 	iopFiles
 }
 
 type iopInfo struct {
 	file string
-	spec *opAPI.IstioOperatorSpec
+	spec *iopv1alpha1.IstioOperatorSpec
 }
 
 type iopFiles struct {
@@ -118,7 +116,7 @@ func (i *istioImpl) Settings() Config {
 
 func (i *istioImpl) Ingresses() ingress.Instances {
 	var out ingress.Instances
-	for _, c := range i.ctx.Clusters().Kube() {
+	for _, c := range i.ctx.Clusters() {
 		// call IngressFor in-case initialization is needed.
 		out = append(out, i.IngressFor(c))
 	}
@@ -147,12 +145,14 @@ func (i *istioImpl) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
 	return i.CustomIngressFor(c, name, eastWestIngressIstioLabel)
 }
 
+func (i *istioImpl) EastWestGatewayForAmbient(c cluster.Cluster) ingress.Instance {
+	name := types.NamespacedName{Name: eastWestGatewayName, Namespace: i.cfg.SystemNamespace}
+	return i.CustomIngressFor(c, name, eastWestGatewayLabel)
+}
+
 func (i *istioImpl) CustomIngressFor(c cluster.Cluster, service types.NamespacedName, labelSelector string) ingress.Instance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if c.Kind() != cluster.Kubernetes {
-		c = c.Primary()
-	}
 
 	if i.ingress[c.Name()] == nil {
 		i.ingress[c.Name()] = map[string]ingress.Instance{}
@@ -189,7 +189,7 @@ func (i *istioImpl) InternalDiscoveryAddressFor(c cluster.Cluster) (string, erro
 	if e, f := i.istiod[c.Name()]; f {
 		return e.Address(), nil
 	}
-	// Find the Prometheus pod and service, and start forwarding a local port.
+	// Find the istiod pod and service, and start forwarding a local port.
 	fetchFn := testKube.NewSinglePodFetch(c, i.cfg.SystemNamespace, "istio=pilot")
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
@@ -214,8 +214,8 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.Ad
 		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
 		// a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
 		address, err := retry.UntilComplete(func() (any, bool, error) {
-			return getRemoteServiceAddress(i.env.Settings(), primary, i.cfg.SystemNamespace, istiodLabel,
-				istiodSvcName, discoveryPort)
+			addrs, outcome, err := getRemoteServiceAddresses(i.env.Settings(), primary, i.cfg.SystemNamespace, istiodLabel, istiodSvcName, discoveryPort)
+			return addrs[0], outcome, err
 		}, getAddressTimeout, getAddressDelay)
 		if err != nil {
 			return netip.AddrPort{}, err
@@ -223,20 +223,12 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.Ad
 		addr = address.(netip.AddrPort)
 	} else {
 		name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.cfg.SystemNamespace}
-		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddress()
+		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddresses()[0]
 	}
 	if !addr.IsValid() {
 		return netip.AddrPort{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
 	}
 	return addr, nil
-}
-
-func (i *istioImpl) Values() (OperatorValues, error) {
-	return i.values, nil
-}
-
-func (i *istioImpl) ValuesOrFail(test.Failer) OperatorValues {
-	return i.values
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
@@ -258,30 +250,26 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	iop, err := genDefaultOperator(ctx, cfg, iopFiles.primaryIOP.file)
-	if err != nil {
-		return nil, err
-	}
-
 	// Populate the revisions for the control plane.
 	var revisions resource.RevVerMap
 	if !cfg.DeployIstio {
 		// Using a pre-installed control plane. Get the revisions from the
 		// command-line.
 		revisions = ctx.Settings().Revisions
-	} else if len(iop.Spec.Revision) > 0 {
+	} else if len(iopFiles.primaryIOP.spec.Revision) > 0 {
 		// Use revisions from the default control plane operator.
 		revisions = resource.RevVerMap{
-			iop.Spec.Revision: "",
+			iopFiles.primaryIOP.spec.Revision: "",
 		}
 	}
 
 	i := &istioImpl{
-		env:                  ctx.Environment().(*kube.Environment),
-		cfg:                  cfg,
-		ctx:                  ctx,
-		workDir:              workDir,
-		values:               iop.Spec.Values.Fields,
+		env:     ctx.Environment().(*kube.Environment),
+		cfg:     cfg,
+		ctx:     ctx,
+		workDir: workDir,
+		// TODO
+		// values:               iop.Spec.Values.Fields,
 		installer:            newInstaller(ctx, workDir),
 		meshConfig:           &meshConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
 		injectConfig:         &injectConfig{configMap: *newConfigMap(ctx, cfg.SystemNamespace, revisions)},
@@ -297,6 +285,15 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}()
 	i.id = ctx.TrackResource(i)
 
+	// Execute External Control Plane Installer Script
+	if cfg.ControlPlaneInstaller != "" && !cfg.DeployIstio {
+		scopes.Framework.Infof("============= Execute Control Plane Installer =============")
+		cmd := exec.Command(cfg.ControlPlaneInstaller, "install", workDir)
+		if err := cmd.Run(); err != nil {
+			scopes.Framework.Errorf("failed to run external control plane installer: %v", err)
+		}
+	}
+
 	if !cfg.DeployIstio {
 		scopes.Framework.Info("skipping deployment as specified in the config")
 		return i, nil
@@ -311,7 +308,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// First install remote-config clusters.
 	// We do this first because the external istiod needs to read the config cluster at startup.
-	for _, c := range ctx.Clusters().Kube().Configs().Remotes() {
+	for _, c := range ctx.Clusters().Configs().Remotes() {
 		if err = i.installConfigCluster(c); err != nil {
 			return i, err
 		}
@@ -319,8 +316,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Install control plane clusters (can be external or primary).
 	errG := multierror.Group{}
-	for _, c := range ctx.AllClusters().Kube().Primaries() {
-		c := c
+	for _, c := range ctx.AllClusters().Primaries() {
 		errG.Go(func() error {
 			return i.installControlPlaneCluster(c)
 		})
@@ -331,7 +327,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	// Update config clusters now that external istiod is running.
-	for _, c := range ctx.Clusters().Kube().Configs().Remotes() {
+	for _, c := range ctx.Clusters().Configs().Remotes() {
 		if err = i.reinstallConfigCluster(c); err != nil {
 			return i, err
 		}
@@ -339,8 +335,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Install (non-config) remote clusters.
 	errG = multierror.Group{}
-	for _, c := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
-		c := c
+	for _, c := range ctx.Clusters().Remotes(ctx.Clusters().Configs()...) {
 		errG.Go(func() error {
 			if err := i.installRemoteCluster(c); err != nil {
 				return fmt.Errorf("failed installing remote cluster %s: %v", c.Name(), err)
@@ -349,18 +344,22 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		})
 	}
 	if errs := errG.Wait(); errs != nil {
+		errs.ErrorFormat = istiomultierror.MultiErrorFormat()
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
-	if ctx.Clusters().IsMulticluster() {
+	if ctx.Clusters().IsMulticluster() && !cfg.SkipDeployCrossClusterSecrets {
 		// Need to determine if there is a setting to watch cluster secret in config cluster
 		// or in external cluster. The flag is named LOCAL_CLUSTER_SECRET_WATCHER and set as
 		// an environment variable for istiod.
 		watchLocalNamespace := false
 		if i.primaryIOP.spec != nil && i.primaryIOP.spec.Values != nil {
-			values := OperatorValues(i.primaryIOP.spec.Values.Fields)
-			localClusterSecretWatcher := values.GetConfigValue("pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
-			if localClusterSecretWatcher.GetStringValue() == "true" && i.externalControlPlane {
+			v, err := values.MapFromJSON(i.primaryIOP.spec.Values)
+			if err != nil {
+				return nil, err
+			}
+			localClusterSecretWatcher := v.GetPathString("pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
+			if localClusterSecretWatcher == "true" && i.externalControlPlane {
 				watchLocalNamespace = true
 			}
 		}
@@ -370,8 +369,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	// Configure gateways for remote clusters.
-	for _, c := range ctx.Clusters().Kube().Remotes() {
-		c := c
+	for _, c := range ctx.Clusters().Remotes() {
 		if i.externalControlPlane || cfg.IstiodlessRemotes {
 			// Install ingress and egress gateways
 			// These need to be installed as a separate step for external control planes because config clusters are installed
@@ -395,13 +393,13 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 			// Wait for the eastwestgateway to have a public IP.
 			name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.cfg.SystemNamespace}
-			_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddress()
+			_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddresses()
 		}
 	}
 
 	if i.env.IsMultiNetwork() {
 		// enable cross network traffic
-		for _, c := range ctx.Clusters().Kube().Configs() {
+		for _, c := range ctx.Clusters().Configs() {
 			if err := i.exposeUserServices(c); err != nil {
 				return nil, err
 			}
@@ -411,8 +409,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	return i, nil
 }
 
-func initIOPFile(ctx resource.Context, cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOperatorSpec, error) {
-	operatorYaml := cfg.IstioOperatorConfigYAML(ctx.Settings(), valuesYaml)
+func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*iopv1alpha1.IstioOperatorSpec, error) {
+	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
 
 	operatorCfg := &iopv1alpha1.IstioOperator{}
 	if err := yaml.Unmarshal([]byte(operatorYaml), operatorCfg); err != nil {
@@ -420,22 +418,16 @@ func initIOPFile(ctx resource.Context, cfg Config, iopFile string, valuesYaml st
 	}
 
 	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta
-	outb, err := yaml.Marshal(operatorCfg.Spec)
+	outb, err := yaml.Marshal(operatorCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed marshaling iop spec: %v", err)
 	}
 
-	out := fmt.Sprintf(`
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-%s`, Indent(string(outb), "  "))
-
-	if err := os.WriteFile(iopFile, []byte(out), os.ModePerm); err != nil {
+	if err := os.WriteFile(iopFile, outb, os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
 
-	return operatorCfg.Spec, nil
+	return &operatorCfg.Spec, nil
 }
 
 // installControlPlaneCluster installs the istiod control plane to the given cluster.
@@ -477,6 +469,15 @@ func (i *istioImpl) installControlPlaneCluster(c cluster.Cluster) error {
 		// exclude these tests from installing eastwest gw for now
 		if !i.cfg.DeployEastWestGW {
 			return nil
+		}
+
+		// only deploy gateway API resources during cluster creation if ambientMultiNetwork
+		// is enabled
+		if i.cfg.DeployGatewayAPI && i.ctx.Settings().AmbientMultiNetwork {
+			if err := DeployGatewayAPI(i.ctx); err != nil {
+				return err
+			}
+			return i.deployAmbientEastWestGateway(c)
 		}
 
 		if err := i.deployEastWestGateway(c, i.primaryIOP.spec.Revision, i.eastwestIOP.file); err != nil {
@@ -603,7 +604,10 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 			iopFile,
 		},
 		Set: []string{
+			"hub=" + ctx.Settings().Image.Hub,
+			"tag=" + ctx.Settings().Image.Tag,
 			"values.global.imagePullPolicy=" + ctx.Settings().Image.PullPolicy,
+			"values.global.variant=" + ctx.Settings().Image.Variant,
 		},
 	}
 
@@ -614,15 +618,15 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 
 	// Include all user-specified values and configuration options.
 	if cfg.EnableCNI {
-		args.AppendSet("components.cni.namespace", "kube-system")
 		args.AppendSet("components.cni.enabled", "true")
 	}
 
-	if ctx.Settings().EnableDualStack {
+	if len(ctx.Settings().IPFamilies) > 1 {
 		args.AppendSet("values.pilot.env.ISTIO_DUAL_STACK", "true")
+		args.AppendSet("values.pilot.ipFamilyPolicy", string(corev1.IPFamilyPolicyRequireDualStack))
 		args.AppendSet("meshConfig.defaultConfig.proxyMetadata.ISTIO_DUAL_STACK", "true")
-		args.AppendSet("values.gateways.istio-ingressgateway.ipFamilyPolicy", "RequireDualStack")
-		args.AppendSet("values.gateways.istio-egressgateway.ipFamilyPolicy", "RequireDualStack")
+		args.AppendSet("values.gateways.istio-ingressgateway.ipFamilyPolicy", string(corev1.IPFamilyPolicyRequireDualStack))
+		args.AppendSet("values.gateways.istio-egressgateway.ipFamilyPolicy", string(corev1.IPFamilyPolicyRequireDualStack))
 	}
 
 	// Include all user-specified values.
@@ -691,7 +695,7 @@ func (i *istioImpl) configureDirectAPIServerAccess(watchLocalNamespace bool) err
 
 	// Now look through entire mesh, create secret for every cluster other than external control plane and
 	// place the secret into the target clusters.
-	for _, c := range i.ctx.Clusters().Kube().MeshClusters() {
+	for _, c := range i.ctx.Clusters().MeshClusters() {
 		theTargetClusters := getTargetClusterListForCluster(targetClusters, c)
 		if len(theTargetClusters) > 0 {
 			if err := i.configureDirectAPIServiceAccessBetweenClusters(c, theTargetClusters...); err != nil {
@@ -875,20 +879,20 @@ func (i *istioImpl) InjectionConfig() (*inject.Config, error) {
 func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i iopFiles, err error) {
 	// Generate the istioctl config file for primary clusters
 	i.primaryIOP.file = filepath.Join(workDir, "iop.yaml")
-	if i.primaryIOP.spec, err = initIOPFile(ctx, cfg, i.primaryIOP.file, cfg.ControlPlaneValues); err != nil {
+	if i.primaryIOP.spec, err = initIOPFile(cfg, i.primaryIOP.file, cfg.ControlPlaneValues); err != nil {
 		return iopFiles{}, err
 	}
 
 	// Generate the istioctl config file for remote cluster
 	i.remoteIOP.file = filepath.Join(workDir, "remote.yaml")
-	if i.remoteIOP.spec, err = initIOPFile(ctx, cfg, i.remoteIOP.file, cfg.RemoteClusterValues); err != nil {
+	if i.remoteIOP.spec, err = initIOPFile(cfg, i.remoteIOP.file, cfg.RemoteClusterValues); err != nil {
 		return iopFiles{}, err
 	}
 
 	// Generate the istioctl config file for config cluster
 	if ctx.AllClusters().IsExternalControlPlane() {
 		i.configIOP.file = filepath.Join(workDir, "config.yaml")
-		if i.configIOP.spec, err = initIOPFile(ctx, cfg, i.configIOP.file, cfg.ConfigClusterValues); err != nil {
+		if i.configIOP.spec, err = initIOPFile(cfg, i.configIOP.file, cfg.ConfigClusterValues); err != nil {
 			return iopFiles{}, err
 		}
 	} else {
@@ -897,36 +901,18 @@ func genCommonOperatorFiles(ctx resource.Context, cfg Config, workDir string) (i
 
 	if cfg.GatewayValues != "" {
 		i.gatewayIOP.file = filepath.Join(workDir, "custom_gateways.yaml")
-		_, err = initIOPFile(ctx, cfg, i.gatewayIOP.file, cfg.GatewayValues)
+		_, err = initIOPFile(cfg, i.gatewayIOP.file, cfg.GatewayValues)
 		if err != nil {
 			return iopFiles{}, err
 		}
 	}
 	if cfg.EastWestGatewayValues != "" {
 		i.eastwestIOP.file = filepath.Join(workDir, "eastwest.yaml")
-		_, err = initIOPFile(ctx, cfg, i.eastwestIOP.file, cfg.EastWestGatewayValues)
+		_, err = initIOPFile(cfg, i.eastwestIOP.file, cfg.EastWestGatewayValues)
 		if err != nil {
 			return iopFiles{}, err
 		}
 	}
 
-	return
-}
-
-func genDefaultOperator(ctx resource.Context, cfg Config, iopFile string) (*iopv1alpha1.IstioOperator, error) {
-	primary := ctx.AllClusters().Configs()[0]
-	args := commonInstallArgs(ctx, cfg, primary, cfg.PrimaryClusterIOPFile, iopFile)
-
-	var stdOut, stdErr bytes.Buffer
-	_, iop, err := manifest.GenerateConfig(
-		args.Files,
-		args.Set,
-		false,
-		nil,
-		cmdLogger(&stdOut, &stdErr))
-	if err != nil {
-		return nil, fmt.Errorf("failed generating primary manifest: %v", err)
-	}
-
-	return iop, nil
+	return i, err
 }

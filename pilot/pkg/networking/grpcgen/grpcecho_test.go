@@ -29,7 +29,7 @@ import (
 	_ "google.golang.org/grpc/xds"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -101,6 +101,8 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 			},
 			ListenerIP: ip,
 			Version:    s.version,
+			ReportRequest: func() {
+			},
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -162,6 +164,7 @@ func (t *configGenTest) dialEcho(addr string) *echo.Client {
 }
 
 func TestTrafficShifting(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/53202")
 	tt := newConfigGenTest(t, xds.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
@@ -181,7 +184,7 @@ spec:
     port: 7070
 `,
 		ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: echo-dr
@@ -196,7 +199,7 @@ spec:
       labels:
         version: v2
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: echo-vs
@@ -240,6 +243,7 @@ spec:
 }
 
 func TestMtls(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/53202")
 	tt := newConfigGenTest(t, xds.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
@@ -259,7 +263,7 @@ spec:
     port: 7070
 `,
 		ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: echo-dr
@@ -270,7 +274,7 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 ---
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -314,7 +318,7 @@ spec:
     port: 7071
 `,
 		ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: echo-delay

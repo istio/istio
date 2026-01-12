@@ -11,11 +11,15 @@
 - [ ] Installation
 - [ ] Networking
 - [ ] Performance and Scalability
-- [ ] Policies and Telemetry
+- [ ] Extensions and Telemetry
 - [ ] Security
 - [ ] Test and Release
 - [ ] User Experience
 - [ ] Developer Infrastructure
+- [ ] Upgrade
+- [ ] Multi Cluster
+- [ ] Virtual Machine
+- [ ] Control Plane Revisions
 
 **Please check any characteristics that apply to this pull request.**
 

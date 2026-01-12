@@ -1,5 +1,21 @@
 # Istio Installer
 
+## WARNING: Do not use the files in this directory to install Istio
+
+This directory contains the helm chart _sources_ which are versioned, built and pushed to following helm
+repositories with each Istio release.  If you want to make changes to Istio helm charts, you're in the
+right place.
+
+If you want to _install_ Istio with Helm, instead please [follow the Helm installation docs here](https://istio.io/latest/docs/setup/install/helm/).
+
+Charts in this folder are published to the following Helm repos:
+ - `https://istio-release.storage.googleapis.com/charts` (charts for official release versions)
+ - `oci://gcr.io/istio-release/charts/` (charts for official release versions and dev build versions)
+
+Chart publishing is handled by [release builder](https://github.com/istio/release-builder).
+
+---
+
 Note: If making any changes to the charts or values.yaml in this dir, first read [UPDATING-CHARTS.md](UPDATING-CHARTS.md)
 
 Istio installer is a modular, 'a-la-carte' installer for Istio. It is based on a
@@ -60,7 +76,7 @@ Each component in the new installer is optional. Users can install the component
 use the equivalent component in `istio-system`, configured with the official installer, or use a different
 version or implementation.
 
-For example you may use your own Prometheus and Grafana installs, or you may use a specialized/custom
+For example, you may use your own Prometheus and Grafana installs, or you may use a specialized/custom
 certificate provisioning tool, or use components that are centrally managed and running in a different cluster.
 
 This is a work in progress - building on top of the multi-cluster installer.
@@ -75,7 +91,7 @@ all CRDs to be present. On each upgrade it is recommended to reapply the file, t
 you get all CRDs.  CRDs are separated by release and by component type in the CRD directory.
 
 Istio has strong integration with certmanager.  Some operators may want to keep their current certmanager
-CRDs in place and not have Istio modify them.  In this case, it is necessary to apply CRD files individually.
+CRDs in place and not have Istio modify them. In this case, it is necessary to apply CRD files individually.
 
 ```bash
 kubectl apply -k github.com/istio/installer/base

@@ -27,15 +27,18 @@ import (
 	"text/template"
 	"time"
 
+	goversion "github.com/hashicorp/go-version"
 	"github.com/prometheus/prometheus/util/strutil"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/yaml"
@@ -43,18 +46,22 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	opconfig "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/platform"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 var (
@@ -105,7 +112,8 @@ type Webhook struct {
 	Config       *Config
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
-	namespaces   kclient.Client[*corev1.Namespace]
+	namespaces   *multicluster.KclientComponent[*corev1.Namespace]
+	nodes        *multicluster.KclientComponent[*corev1.Node]
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -186,7 +194,8 @@ type WebhookParameters struct {
 	// The istio.io/rev this injector is responsible for
 	Revision string
 
-	KubeClient kube.Client
+	// MultiCluster is used to access namespaces across clusters
+	MultiCluster multicluster.ComponentBuilder
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -202,10 +211,16 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		revision:   p.Revision,
 	}
 
-	if p.KubeClient != nil {
+	if p.MultiCluster != nil {
 		if platform.IsOpenShift() {
-			wh.namespaces = kclient.New[*corev1.Namespace](p.KubeClient)
+			wh.namespaces = multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](p.MultiCluster, kubetypes.Filter{})
 		}
+	}
+
+	if features.EnableNativeSidecars != features.NativeSidecarModeDisabled {
+		wh.nodes = multicluster.BuildMultiClusterKclientComponent[*corev1.Node](p.MultiCluster, kubetypes.Filter{
+			ObjectTransform: kube.StripNodeUnusedFields,
+		})
 	}
 
 	mc := NewMulticast(p.Watcher, wh.GetConfig)
@@ -213,10 +228,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	wh.MultiCast = mc
 	sidecarConfig, valuesConfig, err := p.Watcher.Get()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get initial configuration: %v", err)
 	}
 	if err := wh.updateConfig(sidecarConfig, valuesConfig); err != nil {
-		log.Errorf("failed to process webhook config: %v", err)
+		return nil, fmt.Errorf("failed to process webhook config: %v", err)
 	}
 
 	p.Mux.HandleFunc("/inject", wh.serveInject)
@@ -236,21 +251,13 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	go wh.watcher.Run(stop)
 }
 
-func (wh *Webhook) HasSynced() bool {
-	if wh.namespaces != nil {
-		return wh.namespaces.HasSynced()
-	}
-
-	return true
-}
-
 func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) error {
 	wh.mu.Lock()
 	defer wh.mu.Unlock()
 	wh.Config = sidecarConfig
 	vc, err := NewValuesConfig(valuesConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create new values config: %v", err)
 	}
 	wh.valuesConfig = vc
 	return nil
@@ -267,7 +274,6 @@ const (
 func moveContainer(from, to []corev1.Container, name string) ([]corev1.Container, []corev1.Container) {
 	var container *corev1.Container
 	for i, c := range from {
-		c := c
 		if from[i].Name == name {
 			from = slices.Delete(from, i)
 			container = &c
@@ -284,7 +290,6 @@ func modifyContainers(cl []corev1.Container, name string, modifier ContainerReor
 	containers := []corev1.Container{}
 	var match *corev1.Container
 	for _, c := range cl {
-		c := c
 		if c.Name != name {
 			containers = append(containers, c)
 		} else {
@@ -382,8 +387,9 @@ func NewValuesConfig(v string) (ValuesConfig, error) {
 
 type InjectionParameters struct {
 	pod                 *corev1.Pod
-	deployMeta          metav1.ObjectMeta
+	deployMeta          types.NamespacedName
 	namespace           *corev1.Namespace
+	nativeSidecar       bool
 	typeMeta            metav1.TypeMeta
 	templates           map[string]*template.Template
 	defaultTemplate     []string
@@ -469,7 +475,7 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 		return nil, fmt.Errorf("failed to run injection template: %v", err)
 	}
 
-	mergedPod, err = reapplyOverwrittenContainers(mergedPod, req.pod, injectedPodData)
+	mergedPod, err = reapplyOverwrittenContainers(mergedPod, req.pod, injectedPodData, req.proxyConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re apply container: %v", err)
 	}
@@ -500,7 +506,9 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 //
 // Where "overlap" is a container defined in both the original and template pod. Typically, this would mean
 // the user has defined an `istio-proxy` container in their own pod spec.
-func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod, templatePod *corev1.Pod) (*corev1.Pod, error) {
+func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod, templatePod *corev1.Pod,
+	proxyConfig *meshconfig.ProxyConfig,
+) (*corev1.Pod, error) {
 	overrides := ParsedContainers{}
 	existingOverrides := ParsedContainers{}
 	if annotationOverrides, f := originalPod.Annotations[annotation.ProxyOverrides.Name]; f {
@@ -528,7 +536,9 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 			continue
 		}
 		overlay := *match.DeepCopy()
-		resetFieldsInAutoImageContainer(&overlay, &c)
+		if overlay.Image == AutoImage {
+			overlay.Image = ""
+		}
 
 		overrides.Containers = append(overrides.Containers, overlay)
 		newMergedPod, err := applyContainer(finalPod, overlay)
@@ -549,7 +559,9 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 			continue
 		}
 		overlay := *match.DeepCopy()
-		resetFieldsInAutoImageContainer(&overlay, &c)
+		if overlay.Image == AutoImage {
+			overlay.Image = ""
+		}
 
 		overrides.InitContainers = append(overrides.InitContainers, overlay)
 		newMergedPod, err := applyInitContainer(finalPod, overlay)
@@ -571,23 +583,82 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		finalPod.Annotations[annotation.ProxyOverrides.Name] = string(js)
 	}
 
+	adjustInitContainerUser(finalPod, originalPod, proxyConfig)
+
 	return finalPod, nil
 }
 
-func resetFieldsInAutoImageContainer(original *corev1.Container, template *corev1.Container) {
-	if original.Image == AutoImage {
-		original.Image = ""
+// adjustInitContainerUser adjusts the RunAsUser/Group fields and iptables parameter "-u <uid>"
+// in the init/validation container so that they match the value of SecurityContext.RunAsUser/Group
+// when it is present in the custom istio-proxy container supplied by the user.
+func adjustInitContainerUser(finalPod *corev1.Pod, originalPod *corev1.Pod, proxyConfig *meshconfig.ProxyConfig) {
+	userContainer := FindSidecar(originalPod)
+	if userContainer == nil {
+		// if user doesn't override the istio-proxy container, there's nothing to do
+		return
 	}
 
-	// If the original pod comes with SecurityContext.RunAsUser and the template defines a value different than the default (1337),
-	// then ignore the original value and stick with the final (merged one)
-	// This is likely a scenario in OpenShift when the istio-proxy container with image: auto is parsed, if SecurityContext.RunAsUser
-	// does not exist, OpenShift automatically assigns a value which is based on an annotation in the namespace. Regardless if the user
-	// provided that value or if it was assigned by OpenShift, the correct value is the one in the template, as set by the `.ProxyUID` field.
-	if original.SecurityContext != nil && template.SecurityContext != nil && template.SecurityContext.RunAsUser != nil &&
-		*template.SecurityContext.RunAsUser != constants.DefaultProxyUIDInt {
-		original.SecurityContext.RunAsUser = nil
-		original.SecurityContext.RunAsGroup = nil
+	if userContainer.SecurityContext == nil || (userContainer.SecurityContext.RunAsUser == nil && userContainer.SecurityContext.RunAsGroup == nil) {
+		// if user doesn't override SecurityContext.RunAsUser/Group, there's nothing to do
+		return
+	}
+
+	// Locate the istio-init or istio-validation container
+	var initContainer *corev1.Container
+	for _, name := range []string{InitContainerName, ValidationContainerName} {
+		if container := FindContainer(name, finalPod.Spec.InitContainers); container != nil {
+			initContainer = container
+			break
+		}
+	}
+	if initContainer == nil {
+		// should not happen
+		log.Warn("Could not find either istio-init or istio-validation container")
+		return
+	}
+
+	// Overriding RunAsUser is now allowed in TPROXY mode, it must always run with uid=0
+	tproxy := false
+	if proxyConfig.InterceptionMode == meshconfig.ProxyConfig_TPROXY {
+		tproxy = true
+	} else if mode, found := finalPod.Annotations[annotation.SidecarInterceptionMode.Name]; found && mode == "TPROXY" {
+		tproxy = true
+	}
+
+	// RunAsUser cannot be overridden (ie, must remain 0) in TPROXY mode
+	if tproxy && userContainer.SecurityContext.RunAsUser != nil {
+		sidecar := FindSidecar(finalPod)
+		if sidecar == nil {
+			// Should not happen
+			log.Warn("Could not find the istio-proxy container")
+			return
+		}
+		*sidecar.SecurityContext.RunAsUser = 0
+	}
+
+	// Make sure the validation container runs with the same uid/gid as the proxy (init container is untouched, it must run with 0)
+	if !tproxy && initContainer.Name == ValidationContainerName {
+		if initContainer.SecurityContext == nil {
+			initContainer.SecurityContext = &corev1.SecurityContext{}
+		}
+		if userContainer.SecurityContext.RunAsUser != nil {
+			initContainer.SecurityContext.RunAsUser = userContainer.SecurityContext.RunAsUser
+		}
+		if userContainer.SecurityContext.RunAsGroup != nil {
+			initContainer.SecurityContext.RunAsGroup = userContainer.SecurityContext.RunAsGroup
+		}
+	}
+
+	// Find the "-u <uid>" parameter in the init container and replace it with the userid from SecurityContext.RunAsUser
+	// but only if it's not 0. iptables --uid-owner argument must not be 0.
+	if userContainer.SecurityContext.RunAsUser == nil || *userContainer.SecurityContext.RunAsUser == 0 {
+		return
+	}
+	for i := range initContainer.Args {
+		if initContainer.Args[i] == "-u" {
+			initContainer.Args[i+1] = fmt.Sprintf("%d", *userContainer.SecurityContext.RunAsUser)
+			return
+		}
 	}
 }
 
@@ -731,7 +802,6 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	// Proxy container should be last, unless HoldApplicationUntilProxyStarts is set
 	// This is to ensure `kubectl exec` and similar commands continue to default to the user's container
 	pod.Spec.Containers = modifyContainers(pod.Spec.Containers, ProxyContainerName, proxyLocation)
-
 	if hasContainer(pod.Spec.InitContainers, ProxyContainerName) {
 		// This is using native sidecar support in K8s.
 		// We want istio to be first in this case, so init containers are part of the mesh
@@ -806,7 +876,7 @@ func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newP
 			return envVars
 		}
 	}
-	return envVars
+	return append(envVars, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: newProbers})
 }
 
 var emptyScrape = status.PrometheusScrapeConfiguration{}
@@ -1032,10 +1102,11 @@ func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
 }
 
 func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.AdmissionResponse {
+	log := log.WithLabels("path", path)
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
-		handleError(fmt.Sprintf("Could not unmarshal raw object: %v %s", err,
+		handleError(log, fmt.Sprintf("Could not unmarshal raw object: %v %s", err,
 			string(req.Object.Raw)))
 		return toAdmissionResponse(err)
 	}
@@ -1048,13 +1119,15 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	if pod.ObjectMeta.Namespace == "" {
 		pod.ObjectMeta.Namespace = req.Namespace
 	}
-	log.Infof("Sidecar injection request for %v/%v", req.Namespace, podName)
+
+	log = log.WithLabels("pod", pod.Namespace+"/"+podName)
+	log.Infof("Process sidecar injection request")
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
 	wh.mu.RLock()
 	if !injectRequired(IgnoredNamespaces.UnsortedList(), wh.Config, &pod.Spec, pod.ObjectMeta) {
-		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
+		log.Infof("Skipping due to policy check")
 		totalSkippedInjections.Increment()
 		wh.mu.RUnlock()
 		return &kube.AdmissionResponse{
@@ -1065,15 +1138,9 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	proxyConfig := wh.env.GetProxyConfigOrDefault(pod.Namespace, pod.Labels, pod.Annotations, wh.meshConfig)
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 
-	var podNamespace *corev1.Namespace
-	if wh.namespaces != nil {
-		podNamespace = wh.namespaces.Get(pod.Namespace, "")
-	}
-
 	params := InjectionParameters{
 		pod:                 &pod,
 		deployMeta:          deploy,
-		namespace:           podNamespace,
 		typeMeta:            typeMeta,
 		templates:           wh.Config.Templates,
 		defaultTemplate:     wh.Config.DefaultTemplates,
@@ -1085,11 +1152,52 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
 	}
+
+	clusterID, _ := extractClusterAndNetwork(params)
+	if clusterID == "" {
+		clusterID = constants.DefaultClusterName
+	}
+
+	if platform.IsOpenShift() && wh.namespaces != nil {
+		client := wh.namespaces.ForCluster(cluster.ID(clusterID))
+		if client != nil {
+			params.namespace = client.Get(pod.Namespace, "")
+		} else {
+			log.Warnf("unable to fetch namespace, failed to get client for %q", clusterID)
+		}
+
+		// OpenShift automatically assigns a SecurityContext.RunAsUser to all containers in the Pod, even if the Pod's
+		// YAML does not explicitly set this value. Istio treats the values specified in the istio-proxy container as
+		// overrides and preserves them in the final Pod yaml as expected. However, the RunAsUser value which is
+		// automatically set by OpenShift would be the same for all containers within the Pod, which is a problem.
+		// Because the RunAsUser is identical for both the application container and the proxy container, traffic
+		// interception fails for the pod. Here, we ignore the RunAsUser value on the sidecar proxy if it matches the
+		// application container's value. At the same time, if user explicitly configures a RunAsUser in the istio-proxy
+		// container which is different to the application container's value, that setting is still honored.
+		if sideCarProxy := FindSidecar(params.pod); sideCarProxy != nil && sideCarProxy.SecurityContext != nil {
+			if isSidecarUserMatchingAppUser(params.pod) {
+				log.Infof("Resetting the UserID of sideCar proxy as it matches with the app container for Pod %q", params.pod.Name)
+				sideCarProxy.SecurityContext.RunAsUser = nil
+				sideCarProxy.SecurityContext.RunAsGroup = nil
+			}
+		}
+	}
+
+	var nodes kclient.Client[*corev1.Node]
+
+	if wh.nodes != nil {
+		nodes = wh.nodes.ForCluster(cluster.ID(clusterID))
+		params.nativeSidecar = DetectNativeSidecar(nodes, pod.Spec.NodeName)
+	} else {
+		// only enable native sidecars if the feature is explicitly enabled
+		params.nativeSidecar = (features.EnableNativeSidecars == features.NativeSidecarModeEnabled)
+	}
+
 	wh.mu.RUnlock()
 
 	patchBytes, err := injectPod(params)
 	if err != nil {
-		handleError(fmt.Sprintf("Pod injection failed: %v", err))
+		handleError(log, fmt.Sprintf("Pod injection failed: %v", err))
 		return toAdmissionResponse(err)
 	}
 
@@ -1101,11 +1209,84 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 			return &pt
 		}(),
 	}
-	totalSuccessfulInjections.Increment()
 	return &reviewResponse
 }
 
+func isSidecarUserMatchingAppUser(pod *corev1.Pod) bool {
+	containers := append([]corev1.Container{}, pod.Spec.Containers...)
+	containers = append(containers, pod.Spec.InitContainers...)
+
+	var sideCarUser, appUser int64
+	for i := range containers {
+		if containers[i].Name == ProxyContainerName {
+			if containers[i].SecurityContext != nil && containers[i].SecurityContext.RunAsUser != nil {
+				sideCarUser = *containers[i].SecurityContext.RunAsUser
+			}
+		} else if containers[i].Name != ValidationContainerName && containers[i].Name != InitContainerName {
+			if containers[i].SecurityContext != nil && containers[i].SecurityContext.RunAsUser != nil {
+				appUser = *containers[i].SecurityContext.RunAsUser
+			}
+		}
+	}
+
+	return sideCarUser == appUser
+}
+
+func DetectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string) bool {
+	if features.EnableNativeSidecars == features.NativeSidecarModeDisabled {
+		return false
+	}
+
+	if features.EnableNativeSidecars == features.NativeSidecarModeEnabled {
+		return true
+	}
+
+	if nodes == nil {
+		log.Warnf("configured to auto detect native sidecar support, but couldn't find a client")
+		return false
+	}
+
+	// Native sidecars feature graduated to stable in Kubernetes 1.33
+	// See https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/753-sidecar-containers/README.md#implementation-history
+	minVersion := 33
+
+	checkNodeVersion := func(n *corev1.Node) bool {
+		nodeKubeletVersion := n.Status.NodeInfo.KubeletVersion
+		ver, err := goversion.NewVersion(nodeKubeletVersion)
+		if err != nil {
+			log.Warnf("could not read node version for %v %v: %v", n.Name, nodeKubeletVersion, err)
+			return false
+		}
+		minor := ver.Segments()[1]
+		if minor < minVersion {
+			log.Debugf("detected kubelet version 1.%v < 1.%v on node %v; native sidecars disabled",
+				minor, minVersion, n.Name)
+			return false
+		}
+		return true
+	}
+
+	if podNodeName != "" {
+		node := nodes.Get(podNodeName, "")
+		if node != nil {
+			return checkNodeVersion(node)
+		}
+		log.Warnf("pod assigned to node %q but node not found in cluster", podNodeName)
+	}
+	// Check all nodes to see if they are eligible to support native sidecars. If any node is below the minimum version, we disable the feature.
+	// This means when an older ineligible node is added to the cluster and the webhook runs
+	// NativeSidecar will be disabled since that node will fail the kubelet version check.
+	// This avoids issues with mixed clusters where some nodes support native sidecars and others do not.
+	for _, n := range nodes.List(metav1.NamespaceAll, klabels.Everything()) {
+		if !checkNodeVersion(n) {
+			return false
+		}
+	}
+	return true
+}
+
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
+	log := log.WithLabels("path", r.URL.Path)
 	totalInjections.Increment()
 	t0 := time.Now()
 	defer func() { injectionTime.Record(time.Since(t0).Seconds()) }()
@@ -1114,12 +1295,13 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		if data, err := kube.HTTPConfigReader(r); err == nil {
 			body = data
 		} else {
+			handleError(log, err.Error())
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
 	if len(body) == 0 {
-		handleError("no body found")
+		handleError(log, "no body found")
 		http.Error(w, "no body found", http.StatusBadRequest)
 		return
 	}
@@ -1127,7 +1309,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		handleError(fmt.Sprintf("contentType=%s, expect application/json", contentType))
+		handleError(log, fmt.Sprintf("contentType=%s, expect application/json", contentType))
 		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -1141,13 +1323,13 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	var obj runtime.Object
 	var ar *kube.AdmissionReview
 	if out, _, err := deserializer.Decode(body, nil, obj); err != nil {
-		handleError(fmt.Sprintf("Could not decode body: %v", err))
+		handleError(log, fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
 		log.Debugf("AdmissionRequest for path=%s\n", path)
 		ar, err = kube.AdmissionReviewKubeToAdapter(out)
 		if err != nil {
-			handleError(fmt.Sprintf("Could not decode object: %v", err))
+			handleError(log, fmt.Sprintf("Could not decode object: %v", err))
 			reviewResponse = toAdmissionResponse(err)
 		} else {
 			reviewResponse = wh.inject(ar, path)
@@ -1170,14 +1352,17 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	responseKube = kube.AdmissionReviewAdapterToKube(&response, apiVersion)
 	resp, err := json.Marshal(responseKube)
 	if err != nil {
-		log.Errorf("Could not encode response: %v", err)
+		handleError(log, fmt.Sprintf("Could not encode response: %v", err))
 		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
 		return
 	}
 	if _, err := w.Write(resp); err != nil {
 		log.Errorf("Could not write response: %v", err)
+		handleError(log, fmt.Sprintf("could not write response: %v", err))
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+		return
 	}
+	totalSuccessfulInjections.Increment()
 }
 
 // parseInjectEnvs parse new envs from inject url path. format: /inject/k1/v1/k2/v2
@@ -1236,7 +1421,7 @@ func parseInjectEnvs(path string) map[string]string {
 	return newEnvs
 }
 
-func handleError(message string) {
-	log.Errorf(message)
+func handleError(l *log.Scope, message string) {
+	l.Errorf(message)
 	totalFailedInjections.Increment()
 }

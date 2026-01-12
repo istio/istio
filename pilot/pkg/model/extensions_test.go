@@ -242,41 +242,59 @@ func TestToSecretName(t *testing.T) {
 	}
 }
 
-func TestFailStrategy(t *testing.T) {
+func TestFailurePolicy(t *testing.T) {
 	cases := []struct {
-		desc string
-		in   *extensions.WasmPlugin
-		out  bool
+		desc  string
+		proxy *Proxy
+		in    *extensions.WasmPlugin
+		out   wasmextensions.FailurePolicy
 	}{
 		{
-			desc: "close",
+			desc: "UNSPECIFIED",
+			in: &extensions.WasmPlugin{
+				Url: "file://fake.wasm",
+				// FailStrategy not set (zero value) defaults to FAIL_CLOSE, which maps to FAIL_CLOSED
+			},
+			out: wasmextensions.FailurePolicy_FAIL_CLOSED,
+		},
+		{
+			desc: "CLOSED",
 			in: &extensions.WasmPlugin{
 				Url:          "file://fake.wasm",
 				FailStrategy: extensions.FailStrategy_FAIL_CLOSE,
 			},
-			out: false,
+			out: wasmextensions.FailurePolicy_FAIL_CLOSED,
 		},
 		{
-			desc: "open",
+			desc: "OPEN",
 			in: &extensions.WasmPlugin{
 				Url:          "file://fake.wasm",
 				FailStrategy: extensions.FailStrategy_FAIL_OPEN,
 			},
-			out: true,
+			out: wasmextensions.FailurePolicy_FAIL_OPEN,
+		},
+		{
+			desc: "RELOAD",
+			in: &extensions.WasmPlugin{
+				Url:          "file://fake.wasm",
+				FailStrategy: extensions.FailStrategy_FAIL_RELOAD,
+			},
+			out: wasmextensions.FailurePolicy_FAIL_RELOAD,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
 			out := convertToWasmPluginWrapper(config.Config{Spec: tc.in})
 			if out == nil {
-				t.Fatalf("must not get nil")
+				t.Fatal("must not get nil")
 			}
 			filter := out.BuildHTTPWasmFilter()
 			if out == nil {
-				t.Fatalf("filter can not be nil")
+				t.Fatal("filter can not be nil")
 			}
-			if got := filter.Config.FailOpen; got != tc.out {
-				t.Errorf("got %t, want %t", got, tc.out)
+
+			if got := filter.Config.FailurePolicy; got != tc.out {
+				t.Errorf("got %v, want %v", got, tc.out)
 			}
 		})
 	}
@@ -513,11 +531,11 @@ func TestMatchListener(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			opts := WorkloadSelectionOpts{
-				RootNamespace:  "root",
-				Namespace:      "ns",
-				WorkloadLabels: tc.proxyLabels,
-				IsWaypoint:     false,
+			opts := WorkloadPolicyMatcher{
+				WorkloadNamespace: "ns",
+				WorkloadLabels:    tc.proxyLabels,
+				IsWaypoint:        false,
+				RootNamespace:     "istio-system",
 			}
 			got := tc.wasmPlugin.MatchListener(opts, tc.listenerInfo)
 			if tc.want != got {

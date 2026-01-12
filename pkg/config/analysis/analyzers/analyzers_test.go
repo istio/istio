@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/pkg/config/analysis/analyzers/authz"
+	"istio.io/istio/pkg/config/analysis/analyzers/conditions"
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
@@ -124,6 +125,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "externalControlPlaneMissingWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-missing-urls-custom-ns.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.InvalidExternalControlPlaneConfig, "MutatingWebhookConfiguration istio-sidecar-injector-custom-ns"},
+			{msg.InvalidExternalControlPlaneConfig, "ValidatingWebhookConfiguration istio-validator-custom-ns"},
+		},
+	},
+	{
 		name:       "externalControlPlaneUsingIpAddresses",
 		inputFiles: []string{"testdata/externalcontrolplane-using-ip-addr.yaml"},
 		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
@@ -134,6 +144,14 @@ var testGrid = []testCase{
 	{
 		name:       "externalControlPlaneValidWebhooks",
 		inputFiles: []string{"testdata/externalcontrolplane-valid-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "externalControlPlaneValidWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-valid-urls-custom-ns.yaml"},
 		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
 		expected:   []message{
 			// no messages, this test case verifies no false positives
@@ -180,6 +198,22 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gatewayCustomIngressGatewayBadPortWithoutTarget",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport-notarget.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected: []message{
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
+		},
+	},
+	{
+		name:       "gatewayCustomIngressGatewayTranslation",
+		inputFiles: []string{"testdata/gateway-custom-ingressgateway-translation.yaml"},
+		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "gatewayServiceMatchPod",
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
@@ -211,6 +245,32 @@ var testGrid = []testCase{
 	{
 		name:       "conflicting gateways detect",
 		inputFiles: []string{"testdata/conflicting-gateways.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway beta"},
+		},
+	},
+	{
+		name:       "gateways with different port are non-conflicting",
+		inputFiles: []string{"testdata/gateway-different-port.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected:   []message{
+			// no conflict expected, verify that no false-positive conflict is returned
+		},
+	},
+	{
+		name:       "conflicting gateways with multiple port declarations",
+		inputFiles: []string{"testdata/conflicting-gateways-multiple-ports.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway beta"},
+		},
+	},
+	{
+		name:       "conflicting gateways detect by sub selector",
+		inputFiles: []string{"testdata/conflicting-gateways-subSelector.yaml"},
 		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
 		expected: []message{
 			{msg.ConflictingGateways, "Gateway alpha"},
@@ -390,6 +450,7 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogushost"},
+			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogushost"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bookinfo-other"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-mirror-bogushost"},
 			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogusport"},
@@ -458,23 +519,6 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
-		name: "regexes",
-		inputFiles: []string{
-			"testdata/virtualservice_regexes.yaml",
-		},
-		analyzer: &virtualservice.RegexAnalyzer{},
-		expected: []message{
-			{msg.InvalidRegexp, "VirtualService bad-match"},
-			{msg.InvalidRegexp, "VirtualService ecma-not-v2"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
-		},
-	},
-	{
 		name: "unknown service registry in mesh networks",
 		inputFiles: []string{
 			"testdata/multicluster-unknown-serviceregistry.yaml",
@@ -532,6 +576,42 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
 		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at destinationlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at destinationlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, no workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with credentialname, simple at portlevel, workloadSelector",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port-credentialname-selector.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
 	},
 	{
 		name: "destinationrule with no cacert, mutual at portlevel",
@@ -840,7 +920,7 @@ var testGrid = []testCase{
 	{
 		name:       "Analyze invalid telemetry",
 		inputFiles: []string{"testdata/telemetry-invalid-provider.yaml"},
-		analyzer:   &telemetry.ProdiverAnalyzer{},
+		analyzer:   &telemetry.ProviderAnalyzer{},
 		expected: []message{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
@@ -848,7 +928,7 @@ var testGrid = []testCase{
 	{
 		name:       "Analyze invalid telemetry",
 		inputFiles: []string{"testdata/telemetry-disable-provider.yaml"},
-		analyzer:   &telemetry.ProdiverAnalyzer{},
+		analyzer:   &telemetry.ProviderAnalyzer{},
 		expected:   []message{},
 	},
 	{
@@ -893,6 +973,81 @@ var testGrid = []testCase{
 			{msg.IneffectiveSelector, "Telemetry default/telemetry-ineffective"},
 		},
 	},
+	{
+		name:       "ServiceEntry Addresses Required Lowercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-lowercase.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-lowercase"},
+		},
+	},
+	{
+		name:       "ServiceEntry Addresses Required Uppercase Protocol",
+		inputFiles: []string{"testdata/serviceentry-address-required-uppercase.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-uppercase"},
+		},
+	},
+	{
+		name:       "Condition Analyzer",
+		inputFiles: []string{"testdata/condition-analyzer.yaml"},
+		analyzer:   &conditions.ConditionAnalyzer{},
+		expected: []message{
+			{msg.NegativeConditionStatus, "Service default/negative-condition-svc"},
+			{msg.NegativeConditionStatus, "ServiceEntry default/negative-condition-svcEntry"},
+			{msg.NegativeConditionStatus, "AuthorizationPolicy default/negative-condition-authz"},
+			{msg.NegativeConditionStatus, "Gateway default/negative-condition-gateway"},
+			{msg.NegativeConditionStatus, "HTTPRoute default/negative-condition-httproute"},
+			{msg.NegativeConditionStatus, "GRPCRoute default/negative-condition-grpcroute"},
+			{msg.NegativeConditionStatus, "AuthorizationPolicy default/negative-condition-authz-partially-invalid"},
+		},
+	},
+	{
+		name:       "DestinationRuleWithFakeHost",
+		inputFiles: []string{"testdata/destinationrule-with-fake-host.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			{msg.UnknownDestinationRuleHost, "DestinationRule default/fake-host"},
+		},
+	},
+	{
+		name:       "DestinationRuleSubsetsNotSelectPods",
+		inputFiles: []string{"testdata/destinationrule-subsets-not-select-pods.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			{msg.DestinationRuleSubsetNotSelectPods, "DestinationRule default/subsets-not-select-pods"},
+		},
+	},
+	{
+		name:       "DestinationRuleSubsetsWithTopologyLabels",
+		inputFiles: []string{"testdata/destinationrule-subsets-with-topology-labels.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected:   []message{
+			// Should not report false positives for topology labels
+			// All subsets should match because the analyzer augments pod labels with node topology labels:
+			// - "region-us-west": matches topology.kubernetes.io/region from node
+			// - "zone-us-west-1a": matches topology.kubernetes.io/zone from node
+			// - "app-v1": matches version label from pod
+			// - "mixed-labels": matches both version from pod AND topology.kubernetes.io/region from node
+		},
+	},
+	{
+		name:       "DestinationRuleEmptyTopologyLabels",
+		inputFiles: []string{"testdata/destinationrule-empty-topology-labels.yaml"},
+		analyzer:   &destinationrule.PodNotSelectedAnalyzer{},
+		expected: []message{
+			// Istio doesn't match on empty node locality labels.
+			{msg.DestinationRuleSubsetNotSelectPods, "DestinationRule default/empty-topology-labels"},
+		},
+	},
+	{
+		name:           "ServiceEntry Addresses Allocated",
+		inputFiles:     []string{"testdata/serviceentry-address-allocated.yaml"},
+		meshConfigFile: "testdata/serviceentry-address-allocated-mesh-cfg.yaml",
+		analyzer:       &serviceentry.ProtocolAddressesAnalyzer{},
+		expected:       []message{},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
@@ -909,7 +1064,6 @@ func TestAnalyzers(t *testing.T) {
 
 	// For each test case, verify we get the expected messages as output
 	for _, tc := range testGrid {
-		tc := tc // Capture range variable so subtests work correctly
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
 
@@ -944,6 +1098,16 @@ func TestAnalyzers(t *testing.T) {
 		g := NewWithT(t)
 	outer:
 		for _, a := range All() {
+			var isMultiClusterAnalyzer bool
+			for _, mc := range AllMultiCluster() {
+				if a.Metadata().Name == mc.Metadata().Name {
+					isMultiClusterAnalyzer = true
+					break
+				}
+			}
+			if isMultiClusterAnalyzer {
+				continue
+			}
 			analyzerName := a.Metadata().Name
 
 			// Skip this check for explicitly ignored analyzers

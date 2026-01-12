@@ -29,6 +29,7 @@ setup_gcloud_credentials
 export GO111MODULE=on
 
 DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
+HELM_HUB=${HELM_HUB:-gcr.io/istio-testing/charts}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Enable emulation required for cross compiling a few images (VMs)
@@ -36,7 +37,7 @@ docker run --rm --privileged "${DOCKER_HUB}/qemu-user-static" --reset -p yes
 export ISTIO_DOCKER_QEMU=true
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=aa112ec6b6eff14eb35c72e5727865f380f34a86
+BUILDER_SHA=0d2d6c63fa55fd0a059d873f84ffc82d7cb799d9
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -64,12 +65,9 @@ ${DEPENDENCIES:-$(cat <<EOD
   proxy:
     git: https://github.com/istio/proxy
     auto: deps
-  pkg:
-    git: https://github.com/istio/pkg
-    branch: master
   client-go:
     git: https://github.com/istio/client-go
-    branch: master
+    auto: modules
   test-infra:
     git: https://github.com/istio/test-infra
     branch: master
@@ -92,6 +90,7 @@ dashboards:
   istio-workload-dashboard: 7630
   pilot-dashboard: 7645
   istio-extension-dashboard: 13277
+  ztunnel-dashboard: 21306
 ${PROXY_OVERRIDE:-}
 EOF
 )

@@ -47,6 +47,10 @@ var (
 	// nolint: revive, stylecheck
 	TAG Variable = "TAG"
 
+	// VARIANT is the Docker variant to be used for images.
+	// nolint: revive, stylecheck
+	VARIANT Variable = "VARIANT"
+
 	// PULL_POLICY is the image pull policy to use when rendering templates.
 	// nolint: revive, stylecheck
 	PULL_POLICY Variable = "PULL_POLICY"
@@ -76,9 +80,6 @@ var (
 
 	// OtelCollectorInstallFilePath is the OpenTelemetry installation file.
 	OtelCollectorInstallFilePath = path.Join(IstioSrc, getSampleFile("open-telemetry/otel.yaml"))
-
-	// StackdriverInstallFilePath is the stackdriver installation file.
-	StackdriverInstallFilePath = path.Join(IstioSrc, getInstallationFile("stackdriver/stackdriver.yaml"))
 
 	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
 	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("gcemetadata/gce_metadata_server.yaml"))

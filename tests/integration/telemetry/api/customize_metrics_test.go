@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -19,7 +18,6 @@ package api
 
 import (
 	_ "embed"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
@@ -28,8 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 )
@@ -42,13 +38,10 @@ const (
 
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
-		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
-		Features("observability.telemetry.stats.prometheus.customize-metric").
-		Features("observability.telemetry.request-classification").
-		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
+			setupWasmExtension(t)
 			t.ConfigIstio().YAML(apps.Namespace.Name(), `
-apiVersion: telemetry.istio.io/v1alpha1
+apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
   name: ns-default
@@ -61,11 +54,11 @@ spec:
         metric: REQUEST_COUNT
       tagOverrides:
         response_code:
-          value: "istio_responseClass"
+          value: filter_state["wasm.istio_responseClass"]
         request_operation: 
-          value: istio_operationId
+          value: filter_state["wasm.istio_operationId"]
         grpc_response_status: 
-          value: istio_grpcResponseStatus
+          value: filter_state["wasm.istio_grpcResponseStatus"]
         custom_dimension: 
           value: "'test'"
         source_principal:
@@ -116,20 +109,23 @@ spec:
 		})
 }
 
-func setupWasmExtension(ctx resource.Context) error {
-	proxySHA := "359dcd3a19f109c50e97517fe6b1e2676e870c4d"
-	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry.Address(), proxySHA)
+func setupWasmExtension(t framework.TestContext) {
+	isKind := t.Clusters().IsKindCluster()
+
+	// By default, for any platform, the test will pull the test image from public "gcr.io" registry.
+	// For "Kind" environment, it will pull the images from the "kind-registry".
+	// For "Kind", this is due to DNS issues in IPv6 cluster
+	attrGenImageTag := "359dcd3a19f109c50e97517fe6b1e2676e870c4d"
+	if isKind {
+		attrGenImageTag = "0.0.1"
+	}
+	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry.Address(), attrGenImageTag)
 	args := map[string]any{
 		"AttributeGenURL": attrGenImageURL,
-		"DockerConfigJson": base64.StdEncoding.EncodeToString(
-			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
 	}
-	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/attributegen.yaml").
-		Apply(); err != nil {
-		return err
-	}
-
-	return nil
+	t.ConfigIstio().
+		EvalFile(apps.Namespace.Name(), args, "testdata/attributegen.yaml").
+		ApplyOrFail(t)
 }
 
 func sendCustomizeMetricsTraffic() error {

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 56086
+
+releaseNotes:
+  - |
+    **Added** ztunnel tolerations are now configurable via helm

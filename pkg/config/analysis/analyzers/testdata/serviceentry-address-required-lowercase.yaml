@@ -1,0 +1,11 @@
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: address-missing-lowercase
+spec:
+  hosts:
+  - dummy.testing.io # not used
+  ports:
+  - name: tcp
+    number: 22
+    protocol: tcp

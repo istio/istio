@@ -15,10 +15,8 @@
 package version
 
 import (
-	"fmt"
+	"strings"
 	"testing"
-
-	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -26,74 +24,71 @@ import (
 func TestVersion(t *testing.T) {
 	tests := []struct {
 		desc    string
-		yamlStr string
+		input   string
 		want    Version
 		wantErr string
 	}{
 		{
-			desc: "nil success",
-		},
-		{
-			desc:    "major success",
-			yamlStr: "1",
-			want:    NewVersion(1, 0, 0, ""),
+			desc:  "major success",
+			input: "1",
+			want:  NewVersion(1, 0, 0, ""),
 		},
 		{
 			desc:    "major fail",
-			yamlStr: "1..",
+			input:   "1..",
 			wantErr: `Malformed version: 1..`,
 		},
 		{
 			desc:    "major fail prefix",
-			yamlStr: ".1",
+			input:   ".1",
 			wantErr: `Malformed version: .1`,
 		},
 		{
-			desc:    "minor success",
-			yamlStr: "1.2",
-			want:    NewVersion(1, 2, 0, ""),
+			desc:  "minor success",
+			input: "1.2",
+			want:  NewVersion(1, 2, 0, ""),
 		},
 		{
 			desc:    "minor fail",
-			yamlStr: "1.1..",
+			input:   "1.1..",
 			wantErr: `Malformed version: 1.1..`,
 		},
 		{
-			desc:    "patch success",
-			yamlStr: "1.2.3",
-			want:    NewVersion(1, 2, 3, ""),
+			desc:  "patch success",
+			input: "1.2.3",
+			want:  NewVersion(1, 2, 3, ""),
 		},
 		{
 			desc:    "patch fail",
-			yamlStr: "1.1.-1",
+			input:   "1.1.-1",
 			wantErr: `Malformed version: 1.1.-1`,
 		},
 		{
-			desc:    "suffix success",
-			yamlStr: "1.2.3-istio-test",
-			want:    NewVersion(1, 2, 3, "istio-test"),
+			desc:  "suffix success",
+			input: "1.2.3-istio-test",
+			want:  NewVersion(1, 2, 3, "istio-test"),
 		},
 		{
 			desc:    "suffix fail",
-			yamlStr: ".1.1.1-something",
+			input:   ".1.1.1-something",
 			wantErr: `Malformed version: .1.1.1-something`,
 		},
 		{
 			desc:    "Malformed version fail",
-			yamlStr: "istio-testing-distroless",
+			input:   "istio-testing-distroless",
 			wantErr: `Malformed version: istio-testing-distroless`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			got := Version{}
-			err := yaml.Unmarshal([]byte(tt.yamlStr), &got)
-			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
-				t.Fatalf("yaml.Unmarshal(%s): got error: %s, want error: %s", tt.desc, gotErr, wantErr)
+			got, err := NewVersionFromString(tt.input)
+			if gotErr, wantErr := errToString(err), tt.wantErr; !strings.Contains(gotErr, wantErr) {
+				t.Fatalf("got error: %s, want error: %s", gotErr, wantErr)
 			}
 			if tt.wantErr == "" {
-				assert.Equal(t, got, tt.want)
+				assert.Equal(t, true, got != nil)
+				assert.Equal(t, *got, tt.want)
 			}
 		})
 	}
@@ -300,18 +295,5 @@ func TestVersionString(t *testing.T) {
 				t.Errorf("Version.String(): got: %s, want: %s", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestUnmarshalYAML(t *testing.T) {
-	v := &Version{}
-	expectedErr := fmt.Errorf("test error")
-	errReturn := func(any) error { return expectedErr }
-	gotErr := v.UnmarshalYAML(errReturn)
-	if gotErr == nil {
-		t.Errorf("expected error but got nil")
-	}
-	if gotErr != expectedErr {
-		t.Errorf("error mismatch")
 	}
 }

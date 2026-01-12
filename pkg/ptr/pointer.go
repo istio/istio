@@ -69,3 +69,21 @@ func TypeName[T any]() string {
 	var empty T
 	return fmt.Sprintf("%T", empty)
 }
+
+// Flatten converts a double pointer to a single pointer by referencing if its non-nil
+func Flatten[T any](t **T) *T {
+	if t == nil {
+		return nil
+	}
+	return *t
+}
+
+func Equal[T comparable](a, b *T) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	if a == nil {
+		return true
+	}
+	return *a == *b
+}

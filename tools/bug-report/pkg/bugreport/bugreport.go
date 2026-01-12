@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 
 	label2 "istio.io/api/label"
@@ -128,7 +127,7 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
-	client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig), "")
+	client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig))
 	if err != nil {
 		return err
 	}
@@ -140,7 +139,7 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 	defer func() {
 		if time.Until(curTime.Add(commandTimeout)) < 0 {
 			message := "Timeout when running bug report command, please using --include or --exclude to filter"
-			common.LogAndPrintf(message)
+			common.LogAndPrintf("%s", message)
 		}
 		getClusterResourcesCancel()
 	}()
@@ -226,7 +225,7 @@ func dumpRevisionsAndVersions(ctx cli.Context, resources *cluster2.Resources, is
 	for rev, ver := range proxyVersions {
 		text += fmt.Sprintf("Revision %s: Versions {%s}\n", rev, strings.Join(ver, ", "))
 	}
-	common.LogAndPrintf(text)
+	common.LogAndPrintf("%s", text)
 	writeFile(filepath.Join(archive.OutputRootDir(tempDir), "versions"), text, dryRun)
 }
 
@@ -285,7 +284,7 @@ func getIstioVersion(kubeClient kube.CLIClient, istioNamespace string) string {
 	if err != nil {
 		return err.Error()
 	}
-	return pretty.Sprint(versions)
+	return fmt.Sprintf("%#v", versions)
 }
 
 // gatherInfo fetches all logs, resources, debug etc. using goroutines.
@@ -297,7 +296,7 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
 	beginTime := time.Now()
 
-	client, err := kube.NewCLIClient(kube.BuildClientCmd(config.KubeConfigPath, config.Context), "")
+	client, err := kube.NewCLIClient(kube.BuildClientCmd(config.KubeConfigPath, config.Context))
 	if err != nil {
 		appendGlobalErr(err)
 	}
@@ -340,11 +339,11 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 			if !ambient.IsZtunnelPod(client, pod, namespace) {
 				getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
 				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
-				getFromCluster(content.GetProxyInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				getFromCluster(content.GetProxyInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			} else {
 				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
-				getFromCluster(content.GetZtunnelInfo, cp, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				getFromCluster(content.GetZtunnelInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			}
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
@@ -388,12 +387,24 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 		}()
 
 		out, err := f(params)
-		appendGlobalErr(err)
+		appendGlobalErr(filterUnknownBinaryErrors(err))
 		if err == nil {
 			writeFiles(dir, out, params.DryRun)
 		}
 		log.Infof("Done with %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	}()
+}
+
+// filterUnknownBinaryErrors ignores errors about not finding a binary
+// This is expected behavior on distroless
+func filterUnknownBinaryErrors(err error) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "executable file not found in $PATH") {
+		return nil
+	}
+	return err
 }
 
 // getProxyLogs fetches proxy logs for the given namespace/pod/container and stores the output in global structs.
@@ -520,7 +531,7 @@ func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeT
 		return
 	}
 	common.LogAndPrintf("\nAnalysis Report:\n")
-	common.LogAndPrintf(out[common.StrNamespaceAll])
+	common.LogAndPrintf("%s", out[common.StrNamespaceAll])
 	common.LogAndPrintf("\n")
 	writeFiles(archive.AnalyzePath(tempDir, common.StrNamespaceAll), out, config.DryRun)
 }
@@ -576,7 +587,7 @@ func configLogs(opt *log.Options) error {
 	opt2 := *opt
 	opt2.OutputPaths = op
 	opt2.ErrorOutputPaths = op
-	opt2.SetOutputLevel("default", log.InfoLevel)
+	opt2.SetDefaultOutputLevel("default", log.InfoLevel)
 
 	return log.Configure(&opt2)
 }

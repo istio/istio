@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 54696
+releaseNotes:
+- |
+  **Added** support for attaching policy defaults for istio-waypoint by targetting the GatewayClass.

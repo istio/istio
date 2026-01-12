@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 56300
+
+releaseNotes:
+- |
+  **Fixed** Regression in Istio 1.26.0 that caused a panic in istiod when processing Gateway API hostnames. 

@@ -20,12 +20,13 @@ type WorkloadClass = string
 const (
 	Proxyless   WorkloadClass = "proxyless"
 	VM          WorkloadClass = "vm"
-	Delta       WorkloadClass = "delta"
+	Sotw        WorkloadClass = "sotw"
 	TProxy      WorkloadClass = "tproxy"
 	Naked       WorkloadClass = "naked"
 	External    WorkloadClass = "external"
 	StatefulSet WorkloadClass = "statefulset"
 	Headless    WorkloadClass = "headless"
 	Captured    WorkloadClass = "captured"
+	Waypoint    WorkloadClass = "waypoint"
 	Standard    WorkloadClass = "standard"
 )

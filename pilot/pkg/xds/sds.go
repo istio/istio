@@ -61,7 +61,7 @@ func (sr SecretResource) Key() any {
 
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
-	for _, config := range relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
+	for _, config := range relatedConfigs(model.ConfigKey{Kind: sr.ResourceKind, Name: sr.Name, Namespace: sr.Namespace}) {
 		configs = append(configs, config.HashCode())
 	}
 	return configs
@@ -71,15 +71,15 @@ func (sr SecretResource) Cacheable() bool {
 	return true
 }
 
-func sdsNeedsPush(updates model.XdsUpdates) bool {
-	if len(updates) == 0 {
+func sdsNeedsPush(forced bool, updates model.XdsUpdates) bool {
+	if forced {
 		return true
 	}
 	for update := range updates {
 		switch update.Kind {
 		case kind.Secret:
 			return true
-		case kind.ReferenceGrant:
+		case kind.ConfigMap:
 			return true
 		}
 	}
@@ -112,12 +112,12 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		log.Warnf("proxy %s is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	if req == nil || !sdsNeedsPush(req.ConfigsUpdated) {
+	if req == nil || !sdsNeedsPush(req.Forced, req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var updatedSecrets sets.Set[model.ConfigKey]
 	if !req.Full {
-		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
+		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret).Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.ConfigMap))
 	}
 
 	proxyClusterSecrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
@@ -136,13 +136,13 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	// Filter down to resources we can access. We do not return an error if they attempt to access a Secret
 	// they cannot; instead we just exclude it. This ensures that a single bad reference does not break the whole
 	// SDS flow. The pilotSDSCertificateErrors metric and logs handle visibility into invalid references.
-	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames, proxy), proxy, proxyClusterSecrets)
+	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames.UnsortedList(), proxy), proxy, proxyClusterSecrets)
 
-	results := model.Resources{}
+	var results model.Resources
 	cached, regenerated := 0, 0
 	for _, sr := range resources {
 		if updatedSecrets != nil {
-			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
+			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: sr.ResourceKind, Name: sr.Name, Namespace: sr.Namespace})) {
 				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}
@@ -173,24 +173,34 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
 	switch sr.ResourceType {
-	case credentials.KubernetesGatewaySecretType:
+	case credentials.KubernetesGatewaySecretType, credentials.KubernetesConfigMapType:
 		secretController = configClusterSecrets
 	default:
 		secretController = proxyClusterSecrets
 	}
 
 	isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
-	if isCAOnlySecret {
+	if sr.ResourceType == credentials.KubernetesConfigMapType {
+		caCertInfo, err := secretController.GetConfigMapCaCert(sr.Name, sr.Namespace)
+		if err != nil {
+			pilotSDSCertificateErrors.Increment()
+			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+			return nil
+		}
+		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
+			recordInvalidCertificate(sr.Namespace, sr.Name, sr.ResourceName, err)
+		}
+		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
+		return res
+	} else if isCAOnlySecret {
 		caCertInfo, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
 			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
 			return nil
 		}
-		if features.VerifySDSCertificate {
-			if err := ValidateCertificate(caCertInfo.Cert); err != nil {
-				recordInvalidCertificate(sr.ResourceName, err)
-			}
+		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
+			recordInvalidCertificate(sr.Namespace, sr.Name, sr.ResourceName, err)
 		}
 		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
 		return res
@@ -201,10 +211,8 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
 		return nil
 	}
-	if features.VerifySDSCertificate {
-		if err := ValidateCertificate(certInfo.Cert); err != nil {
-			recordInvalidCertificate(sr.ResourceName, err)
-		}
+	if err := ValidateCertificate(certInfo.Cert); err != nil {
+		recordInvalidCertificate(sr.Namespace, sr.Name, sr.ResourceName, err)
 	}
 	res := toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
 	return res
@@ -229,9 +237,9 @@ func ValidateCertificate(data []byte) error {
 	return nil
 }
 
-func recordInvalidCertificate(name string, err error) {
+func recordInvalidCertificate(namespace string, name string, resourceName string, err error) {
 	pilotSDSCertificateErrors.Increment()
-	log.Warnf("invalid certificates: %q: %v", name, err)
+	log.Warnf("invalid certificates: %s/%s %q: %v", namespace, name, resourceName, err)
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
@@ -273,17 +281,30 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			} else {
 				deniedResources = append(deniedResources, r.Name)
 			}
+		case credentials.KubernetesConfigMapType:
+			// Current, we allow any configmap references. We only expose the ca.crt field, which should not be 'private'.
+			// We cannot do a namespace check, as the client is the one reading the configmap of the server, so cross-namespace
+			// lookups are expected.
+			// We could do a check that the ConfigMap is referenced by a DestinationRule, but given the lack of impact here
+			// this seems over-complicated.
+			allowedResources = append(allowedResources, r)
+
 		case credentials.KubernetesSecretType:
+			// CA Certs are public information, so we allows allow these to be accessed (from the same namespace)
+			isCAOnlySecret := strings.HasSuffix(r.Name, securitymodel.SdsCaSuffix)
 			// For Kubernetes, we require the secret to be in the same namespace as the proxy and for it to be
 			// authorized for access.
-			if sameNamespace && isAuthorized() {
+			if sameNamespace && (isCAOnlySecret || isAuthorized()) {
+				// if sameNamespace && isAuthorized() {
 				allowedResources = append(allowedResources, r)
 			} else {
 				deniedResources = append(deniedResources, r.Name)
 			}
+		case credentials.InvalidSecretType:
+			// Do nothing. We return nothing, and logs for why an invalid resource was generated are handled elsewhere.
 		default:
 			// Should never happen
-			log.Warnf("unknown credential type %q", r.Type)
+			log.Warnf("unknown credential type %q", r.Type())
 			pilotSDSCertificateErrors.Increment()
 		}
 	}
@@ -293,27 +314,13 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 	if len(deniedResources) > 0 {
 		errMessage := authzError
 		if errMessage == nil {
-			errMessage = fmt.Errorf("cross namespace secret reference requires ReferencePolicy")
+			errMessage = fmt.Errorf("cross namespace secret reference requires ReferenceGrant")
 		}
 		log.Warnf("proxy %s attempted to access unauthorized certificates %s: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
 		pilotSDSCertificateErrors.Increment()
 	}
 
 	return allowedResources
-}
-
-func atMostNJoin(data []string, limit int) string {
-	if limit == 0 || limit == 1 {
-		// Assume limit >1, but make sure we dpn't crash if someone does pass those
-		return strings.Join(data, ", ")
-	}
-	if len(data) == 0 {
-		return ""
-	}
-	if len(data) < limit {
-		return strings.Join(data, ", ")
-	}
-	return strings.Join(data[:limit-1], ", ") + fmt.Sprintf(", and %d others", len(data)-limit+1)
 }
 
 func toEnvoyCaSecret(name string, certInfo *credscontroller.CertInfo) *discovery.Resource {
@@ -371,6 +378,7 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},
+						Fallback: crypto.GetFallback().GetValue(),
 					},
 				},
 			},
@@ -399,6 +407,7 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},
+						Fallback: qatConf.GetFallback().GetValue(),
 					},
 				},
 			},

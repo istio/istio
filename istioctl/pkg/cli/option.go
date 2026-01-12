@@ -15,6 +15,8 @@
 package cli
 
 import (
+	"time"
+
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,50 +26,76 @@ import (
 )
 
 const (
-	FlagKubeConfig     = "kubeconfig"
-	FlagContext        = "context"
-	FlagNamespace      = "namespace"
-	FlagIstioNamespace = "istioNamespace"
+	FlagKubeConfig       = "kubeconfig"
+	FlagContext          = "context"
+	FlagImpersonate      = "as"
+	FlagImpersonateUID   = "as-uid"
+	FlagImpersonateGroup = "as-group"
+	FlagNamespace        = "namespace"
+	FlagIstioNamespace   = "istioNamespace"
+	FlagKubeTimeout      = "kubeclient-timeout"
 )
 
 type RootFlags struct {
-	kubeconfig     *string
-	configContext  *string
-	namespace      *string
-	istioNamespace *string
+	kubeconfig       *string
+	configContext    *string
+	impersonate      *string
+	impersonateUID   *string
+	impersonateGroup *[]string
+	namespace        *string
+	istioNamespace   *string
+	kubeTimeout      *string
 
 	defaultNamespace string
 }
 
 func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 	r := &RootFlags{
-		kubeconfig:     ptr.Of[string](""),
-		configContext:  ptr.Of[string](""),
-		namespace:      ptr.Of[string](""),
-		istioNamespace: ptr.Of[string](""),
+		kubeconfig:       ptr.Of[string](""),
+		configContext:    ptr.Of[string](""),
+		impersonate:      ptr.Of[string](""),
+		impersonateUID:   ptr.Of[string](""),
+		impersonateGroup: ptr.Of[[]string](nil),
+		namespace:        ptr.Of[string](""),
+		istioNamespace:   ptr.Of[string](""),
+		kubeTimeout:      ptr.Of[string](""),
 	}
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
 		"Kubernetes configuration file")
 	flags.StringVar(r.configContext, FlagContext, "",
 		"Kubernetes configuration context")
+	flags.StringVar(r.impersonate, FlagImpersonate, *r.impersonate,
+		"Username to impersonate for the operation. User could be a regular user or a service account in a namespace")
+	flags.StringVar(r.impersonateUID, FlagImpersonateUID, *r.impersonateUID, "UID to impersonate for the operation.")
+	flags.StringArrayVar(r.impersonateGroup, FlagImpersonateGroup, *r.impersonateGroup,
+		"Group to impersonate for the operation, this flag can be repeated to specify multiple groups.")
 	flags.StringVarP(r.namespace, FlagNamespace, "n", v1.NamespaceAll,
 		"Kubernetes namespace")
 	flags.StringVarP(r.istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
 		"Istio system namespace")
+	flags.StringVar(r.kubeTimeout, FlagKubeTimeout, "15s", "Kubernetes client timeout as a time.Duration string, defaults to 15 seconds.")
+
 	return r
-}
-
-func (r *RootFlags) KubeConfig() string {
-	return *r.kubeconfig
-}
-
-func (r *RootFlags) KubeContext() string {
-	return *r.configContext
 }
 
 // Namespace returns the namespace flag value.
 func (r *RootFlags) Namespace() string {
 	return *r.namespace
+}
+
+// KubeClientTimeout returns the kubeclient-timeout value.
+func (r *RootFlags) KubeClientTimeout() (time.Duration, error) {
+	if *r.kubeTimeout == "" {
+		// Preserve original behavior of defaulting to 15s if not set
+		return time.Second * 15, nil
+	}
+
+	d, err := time.ParseDuration(*r.kubeTimeout)
+	if err != nil {
+		return 0, err
+	}
+
+	return d, nil
 }
 
 // IstioNamespace returns the istioNamespace flag value.
@@ -78,12 +106,12 @@ func (r *RootFlags) IstioNamespace() string {
 // DefaultNamespace returns the default namespace to use.
 func (r *RootFlags) DefaultNamespace() string {
 	if r.defaultNamespace == "" {
-		r.ConfigureDefaultNamespace()
+		r.configureDefaultNamespace()
 	}
 	return r.defaultNamespace
 }
 
-func (r *RootFlags) ConfigureDefaultNamespace() {
+func (r *RootFlags) configureDefaultNamespace() {
 	configAccess := clientcmd.NewDefaultPathOptions()
 
 	kubeconfig := *r.kubeconfig

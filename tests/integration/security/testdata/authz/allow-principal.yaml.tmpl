@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .To.ServiceName }}
@@ -15,7 +15,7 @@ spec:
             methods: [ "GET" ]
       from:
         - source:
-            principals: [ "{{ .Allowed.ServiceAccountName }}" ]
+            principals: [ "{{ .Allowed.SpiffeIdentity }}" ]
     - to:
         - operation: # GRPC
             ports: [ "{{ (.To.PortForName `grpc`).WorkloadPort }}" ]
@@ -23,10 +23,10 @@ spec:
             methods: [ "POST" ]
       from:
         - source:
-            principals: [ "{{ .Allowed.ServiceAccountName }}" ]
+            principals: [ "{{ .Allowed.SpiffeIdentity }}" ]
     - to:
         - operation: # TCP
             ports: [ "{{ (.To.PortForName `tcp`).WorkloadPort }}" ]
       from:
         - source:
-            principals: [ "{{ .Allowed.ServiceAccountName }}" ]
+            principals: [ "{{ .Allowed.SpiffeIdentity }}" ]

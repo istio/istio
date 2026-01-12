@@ -38,7 +38,7 @@ const (
 	StatefulSetSvc   = "statefulset"
 	ProxylessGRPCSvc = "proxyless-grpc"
 	NakedSvc         = "naked"
-	DeltaSvc         = "delta"
+	SotwSvc          = "sotw"
 	WaypointSvc      = "waypoint"
 	CapturedSvc      = "captured"
 )
@@ -54,7 +54,7 @@ type EchoNamespace struct {
 	B echo.Instances
 	// Standard echo app to be used by tests
 	C echo.Instances
-	// Dual-stack echo app to be used by tests if running in dual-stack mode
+	// IPv4 only echo app to be used by tests if running in dual-stack mode
 	D echo.Instances
 	// IPv6 only echo app to be used by tests if running in dual-stack mode
 	E echo.Instances
@@ -70,10 +70,13 @@ type EchoNamespace struct {
 	Naked echo.Instances
 	// A virtual machine echo app (only deployed to one cluster)
 	VM echo.Instances
-	// DeltaXDS echo app uses the delta XDS protocol. This should be functionally equivalent to A.
-	DeltaXDS echo.Instances
+	// Sotw echo app uses the sotw XDS protocol. This should be functionally equivalent to A.
+	Sotw echo.Instances
 	// All echo apps in this namespace
 	All echo.Services
+
+	// Common prefix for Service names
+	ServiceNamePrefix string
 }
 
 func (n EchoNamespace) build(b deployment.Builder, cfg Config) deployment.Builder {
@@ -92,23 +95,23 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 	ns := n.Namespace
 	n.All = match.Namespace(ns).GetMatches(echos).Services()
 
-	n.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: ns}).GetMatches(echos)
-	n.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: ns}).GetMatches(echos)
-	n.C = match.ServiceName(echo.NamespacedName{Name: CSvc, Namespace: ns}).GetMatches(echos)
-	if t.Settings().EnableDualStack {
-		n.D = match.ServiceName(echo.NamespacedName{Name: DSvc, Namespace: ns}).GetMatches(echos)
-		n.E = match.ServiceName(echo.NamespacedName{Name: ESvc, Namespace: ns}).GetMatches(echos)
+	n.A = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + ASvc, Namespace: ns}).GetMatches(echos)
+	n.B = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + BSvc, Namespace: ns}).GetMatches(echos)
+	n.C = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + CSvc, Namespace: ns}).GetMatches(echos)
+	if len(t.Settings().IPFamilies) > 1 {
+		n.D = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + DSvc, Namespace: ns}).GetMatches(echos)
+		n.E = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + ESvc, Namespace: ns}).GetMatches(echos)
 	}
-	n.Tproxy = match.ServiceName(echo.NamespacedName{Name: TproxySvc, Namespace: ns}).GetMatches(echos)
-	n.Headless = match.ServiceName(echo.NamespacedName{Name: HeadlessSvc, Namespace: ns}).GetMatches(echos)
-	n.StatefulSet = match.ServiceName(echo.NamespacedName{Name: StatefulSetSvc, Namespace: ns}).GetMatches(echos)
-	n.Naked = match.ServiceName(echo.NamespacedName{Name: NakedSvc, Namespace: ns}).GetMatches(echos)
-	n.ProxylessGRPC = match.ServiceName(echo.NamespacedName{Name: ProxylessGRPCSvc, Namespace: ns}).GetMatches(echos)
+	n.Tproxy = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + TproxySvc, Namespace: ns}).GetMatches(echos)
+	n.Headless = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + HeadlessSvc, Namespace: ns}).GetMatches(echos)
+	n.StatefulSet = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + StatefulSetSvc, Namespace: ns}).GetMatches(echos)
+	n.Naked = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + NakedSvc, Namespace: ns}).GetMatches(echos)
+	n.ProxylessGRPC = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + ProxylessGRPCSvc, Namespace: ns}).GetMatches(echos)
 	if !t.Settings().Skip(echo.VM) {
-		n.VM = match.ServiceName(echo.NamespacedName{Name: VMSvc, Namespace: ns}).GetMatches(echos)
+		n.VM = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + VMSvc, Namespace: ns}).GetMatches(echos)
 	}
-	if !skipDeltaXDS(t) {
-		n.DeltaXDS = match.ServiceName(echo.NamespacedName{Name: DeltaSvc, Namespace: ns}).GetMatches(echos)
+	if !t.Settings().Skip(echo.Sotw) {
+		n.Sotw = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + SotwSvc, Namespace: ns}).GetMatches(echos)
 	}
 
 	namespaces, err := namespace.GetAll(t)
@@ -121,7 +124,7 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 	cfg.Eval(ns.Name(), map[string]any{
 		"Namespaces": namespaces,
 	}, `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: restrict-to-namespace
@@ -137,23 +140,27 @@ spec:
 	if !t.Settings().DisableDefaultExternalServiceConnectivity {
 		// Create a ServiceEntry to allow apps in this namespace to talk to the external service.
 		if d.External.Namespace != nil {
-			DeployExternalServiceEntry(cfg, ns, d.External.Namespace)
+			DeployExternalServiceEntry(cfg, ns, d.External.Namespace, false)
 		}
 	}
 
 	return cfg.Apply(apply.NoCleanup)
 }
 
-func DeployExternalServiceEntry(cfg config.Factory, deployedNamespace, externalNamespace namespace.Instance) config.Plan {
+func DeployExternalServiceEntry(cfg config.Factory, deployedNamespace, externalNamespace namespace.Instance, manuallyAllocate bool) config.Plan {
 	return cfg.Eval(deployedNamespace.Name(), map[string]any{
-		"Namespace": externalNamespace.Name(),
-		"Hostname":  ExternalHostname,
-		"Ports":     serviceEntryPorts(),
-	}, `apiVersion: networking.istio.io/v1alpha3
+		"Namespace":        externalNamespace.Name(),
+		"Hostname":         ExternalHostname,
+		"Ports":            serviceEntryPorts(),
+		"ManuallyAllocate": manuallyAllocate,
+	}, `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-service
 spec:
+{{- if .ManuallyAllocate }}
+  addresses: [240.240.240.239, 2001:2::f0f0:239] # Semi-random addresses for the range Istio allocates in
+{{- end }}
   exportTo: [.]
   hosts:
   - {{.Hostname}}

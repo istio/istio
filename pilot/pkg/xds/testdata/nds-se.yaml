@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-dns-no-addr
@@ -13,7 +13,7 @@ spec:
       protocol: HTTP
   resolution: DNS
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-dns-with-addr
@@ -29,7 +29,7 @@ spec:
       protocol: HTTP
   resolution: DNS
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-static-no-addr
@@ -49,7 +49,7 @@ spec:
       labels:
         security.istio.io/tlsMode: istio
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-none-wildcard
@@ -66,7 +66,7 @@ spec:
 ---
 # this should not have any name table entry
 # as we dont auto allocate for none mode services
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-none-no-wildcard
@@ -80,7 +80,7 @@ spec:
       protocol: HTTP
   resolution: NONE
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: cidr

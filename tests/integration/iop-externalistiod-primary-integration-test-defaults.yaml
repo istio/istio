@@ -55,6 +55,7 @@ spec:
       enabled: false
   values:
     global:
+      externalIstiod: true
       operatorManageWebhooks: true
       configValidation: false
     base:

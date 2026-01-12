@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -37,7 +38,7 @@ import (
 var fakeCACert = []byte("fake-CA-cert")
 
 var (
-	defaultYAML = `apiVersion: networking.istio.io/v1alpha3
+	defaultYAML = `apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: foo
@@ -48,7 +49,7 @@ spec:
     serviceAccount: default
 `
 
-	customYAML = `apiVersion: networking.istio.io/v1alpha3
+	customYAML = `apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: foo
@@ -65,6 +66,7 @@ spec:
       grpc: 3550
       http: 8080
     serviceAccount: test
+    weight: 100
 `
 )
 
@@ -105,14 +107,14 @@ func TestWorkloadGroupCreate(t *testing.T) {
 		{
 			description: "valid case - create full workload group",
 			args: strings.Split("group create --name foo --namespace bar --labels app=foo,bar=baz "+
-				" --annotations annotation=foobar --ports grpc=3550,http=8080 --serviceAccount test", " "),
+				" --annotations annotation=foobar --ports grpc=3550,http=8080 --serviceAccount test --weight 100", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
 		{
 			description: "valid case - create full workload group with shortnames",
 			args: strings.Split("group create --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
-				" -a annotation=foobar --serviceAccount test", " "),
+				" -a annotation=foobar --serviceAccount test --weight 100", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
@@ -260,7 +262,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
 				"--internalIP", testCases[dir.Name()]["internalIP"],
 				"--ingressIP", testCases[dir.Name()]["ingressIP"],
-				"--clusterID", "Kubernetes",
+				"--clusterID", constants.DefaultClusterName,
 				"--revision", "rev-1",
 				"-o", testdir,
 			}
@@ -358,7 +360,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 		"entry", "configure",
 		"-f", path.Join(testdir, "workloadgroup.yaml"),
 		"--internalIP", "10.10.10.10",
-		"--clusterID", "Kubernetes",
+		"--clusterID", constants.DefaultClusterName,
 		"-o", testdir,
 	}
 	if output, err := runTestCmd(t, createClientFunc, "", cmdWithClusterID); err != nil {
@@ -398,7 +400,7 @@ func runTestCmd(t *testing.T, createResourceFunc func(client kube.CLIClient), re
 	})
 	rootCmd := Cmd(ctx)
 	rootCmd.SetArgs(args)
-	client, err := ctx.CLIClientWithRevision(rev)
+	client, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(rev))
 	if err != nil {
 		return "", err
 	}

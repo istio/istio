@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 52413
+releaseNotes:
+  - |
+    **Fixed** istioctl analyze report IST0145 error with wildcard host and specific subdomain.

@@ -8,9 +8,15 @@ metadata:
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
     release: {{ .Release.Name }}
-    istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "EgressGateways"
+    app.kubernetes.io/name: "istio-egressgateway"
+    # By default, don't enroll gateways into the ambient dataplane
+    # This is hardcoded and not a values override because these charts
+    # are deprecated versus the `gateway` chart and don't separate selectorLabels from labels.
+    istio.io/dataplane-mode: none
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
 {{- if not $gateway.autoscaleEnabled }}
 {{- if $gateway.replicaCount }}
@@ -34,13 +40,19 @@ spec:
         chart: gateways
 {{- end }}
         service.istio.io/canonical-name: {{ $gateway.name }}
-        service.istio.io/canonical-revision: {{ index $gateway.labels "app.kubernetes.io/version" | default (index $gateway.labels "version") | default .Values.revision | default "latest" }}
-        istio.io/rev: {{ .Values.revision | default "default" }}
+        service.istio.io/canonical-revision: {{ index $gateway.labels "app.kubernetes.io/version" | default (index $gateway.labels "version") | default .Values.revision | default "latest" | quote }}
+        istio.io/rev: {{ .Values.revision | default "default" | quote }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         operator.istio.io/component: "EgressGateways"
         sidecar.istio.io/inject: "false"
+        app.kubernetes.io/name: "istio-egressgateway"
+        # By default, don't enroll gateways into the ambient dataplane
+        # This is hardcoded and not a values override because these charts
+        # are deprecated versus the `gateway` chart and don't separate selectorLabels from labels.
+        istio.io/dataplane-mode: none
+        {{- include "istio.labels" . | nindent 8 }}
       annotations:
-        istio.io/rev: {{ .Values.revision | default "default" }}
+        istio.io/rev: {{ .Values.revision | default "default" | quote }}
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
@@ -53,7 +65,7 @@ spec:
     spec:
 {{- if not $gateway.runAsRoot }}
       securityContext:
-{{- if not (eq .Values.global.platform "openshift") }}
+{{- if not (eq ((coalesce .Values.platform .Values.global.platform) | default "") "openshift") }}
         runAsUser: 1337
         runAsGroup: 1337
 {{- end }}
@@ -63,34 +75,12 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
-{{- if .Values.global.proxy.enableCoreDump }}
-      initContainers:
-        - name: enable-core-dump
-{{- if contains "/" .Values.global.proxy.image }}
-          image: "{{ .Values.global.proxy.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}{{with (.Values.global.proxy.variant | default .Values.global.variant)}}-{{.}}{{end}}"
-{{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-{{- end }}
-          command:
-            - /bin/sh
-          args:
-            - -c
-            - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
-          securityContext:
-            runAsUser: 0
-            runAsGroup: 0
-            runAsNonRoot: false
-            privileged: true
-{{- end }}
       containers:
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}{{with (.Values.global.proxy.variant | default .Values.global.variant)}}-{{.}}{{end}}"
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ $gateway.tag | default .Values.global.tag }}{{with (.Values.global.proxy.variant | default .Values.global.variant)}}-{{.}}{{end}}"
 {{- end }}
 {{- if .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -149,8 +139,6 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
-          - name: JWT_POLICY
-            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
           - name: CA_ADDR
@@ -188,6 +176,7 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.cpu
+                divisor: "1"
           - name: SERVICE_ACCOUNT
             valueFrom:
               fieldRef:
@@ -245,11 +234,9 @@ spec:
           - mountPath: /var/run/secrets/istio
             name: istiod-ca-cert
 {{- end }}
-{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-{{- end }}
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
@@ -284,8 +271,16 @@ spec:
         name: workload-certs
 {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
+{{- if eq ((.Values.pilot).env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+              path: root-cert.pem
+{{- else }}
         configMap:
-          name: istio-ca-root-cert
+          name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
+{{- end }}
 {{- end }}
       - name: podinfo
         downwardAPI:
@@ -300,7 +295,6 @@ spec:
         emptyDir: {}
       - name: istio-data
         emptyDir: {}
-{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
@@ -308,7 +302,6 @@ spec:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
-{{- end }}
       {{- if .Values.global.mountMtlsCerts }}
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs

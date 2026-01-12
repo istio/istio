@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 49364
+releaseNotes:
+- |
+  **Fixed** an bug where VirtualServices containing wildcard hosts that aren't present in the service registry are ignored

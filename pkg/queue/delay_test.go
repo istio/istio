@@ -45,7 +45,7 @@ func TestPriorityQueue(t *testing.T) {
 			t.Fatalf("pop %d was not in order", i)
 		}
 		if peeked != popped {
-			t.Fatalf("did not peek at the next item to be popped")
+			t.Fatal("did not peek at the next item to be popped")
 		}
 	}
 }

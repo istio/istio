@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   annotations:
@@ -10,11 +10,16 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
-    istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
-  name: namespace-istio-waypoint
+  name: namespace
   namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    kind: Gateway
+    name: namespace
+    uid: ""
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -22,13 +27,13 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
-    istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
-  name: namespace-istio-waypoint
+  name: namespace
   namespace: default
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: namespace
     uid: ""
@@ -39,16 +44,16 @@ spec:
   template:
     metadata:
       annotations:
-        ambient.istio.io/redirection: disabled
         istio.io/rev: default
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
         gateway.istio.io/managed: istio.io-mesh-controller
+        gateway.networking.k8s.io/gateway-class-name: istio-waypoint
         gateway.networking.k8s.io/gateway-name: namespace
-        istio.io/gateway-name: namespace
-        service.istio.io/canonical-name: namespace-istio-waypoint
+        istio.io/dataplane-mode: none
+        service.istio.io/canonical-name: namespace
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
         topology.istio.io/network: network-1
@@ -60,7 +65,7 @@ spec:
         - --domain
         - $(POD_NAMESPACE).svc.<no value>
         - --serviceCluster
-        - namespace-istio-waypoint.$(POD_NAMESPACE)
+        - namespace.$(POD_NAMESPACE)
         - --proxyLogLevel
         - <nil>
         - --proxyComponentLogLevel
@@ -76,8 +81,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        - name: JWT_POLICY
-          value: <no value>
         - name: PILOT_CERT_PROVIDER
           value: <no value>
         - name: CA_ADDR
@@ -105,6 +108,7 @@ spec:
         - name: ISTIO_CPU_LIMIT
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
@@ -112,10 +116,12 @@ spec:
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.memory
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
@@ -124,14 +130,19 @@ spec:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
-          value: namespace-istio-waypoint
+          value: namespace
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/default/deployments/namespace-istio-waypoint
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/namespace
         - name: ISTIO_META_MESH_ID
+          value: cluster.local
+        - name: TRUST_DOMAIN
           value: cluster.local
         image: test/proxyv2:test
         name: istio-proxy
         ports:
+        - containerPort: 15020
+          name: metrics
+          protocol: TCP
         - containerPort: 15021
           name: status-port
           protocol: TCP
@@ -148,20 +159,16 @@ spec:
           periodSeconds: 15
           successThreshold: 1
           timeoutSeconds: 1
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
           privileged: false
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
-          runAsUser: 0
+          runAsNonRoot: true
+          runAsUser: 1337
         startupProbe:
           failureThreshold: 30
           httpGet:
@@ -185,8 +192,7 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-      serviceAccountName: namespace-istio-waypoint
-      terminationGracePeriodSeconds: 2
+      serviceAccountName: namespace
       volumes:
       - emptyDir: {}
         name: workload-socket
@@ -223,20 +229,22 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations: {}
+  annotations:
+    networking.istio.io/traffic-distribution: PreferClose
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
-    istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
-  name: namespace-istio-waypoint
+  name: namespace
   namespace: default
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: namespace
     uid: ""
 spec:
+  ipFamilyPolicy: PreferDualStack
   ports:
   - appProtocol: tcp
     name: status-port
