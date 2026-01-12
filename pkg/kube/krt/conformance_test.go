@@ -219,7 +219,7 @@ func TestConformance(t *testing.T) {
 			}
 			return rig
 		}
-		// this can't handle lists
+		// singleton only holds one item, so skip full conformance which adds multiple items
 		runReplaceConformance[Named](t, factory(t))
 	})
 	t.Run("join", func(t *testing.T) {
