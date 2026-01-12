@@ -686,7 +686,7 @@ func TestServiceEntryServices(t *testing.T) {
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
-			res := slices.Map(wrapper, func(e ServiceEntryInfo) *workloadapi.Service {
+			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {
 				return e.Service
 			})
 			assert.Equal(t, res, tt.result)
@@ -739,6 +739,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -797,6 +798,7 @@ func TestServiceServices(t *testing.T) {
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 					TargetPort:  0,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -822,6 +824,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -861,6 +864,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 
@@ -901,6 +905,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 
@@ -943,6 +948,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -977,6 +983,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -1033,6 +1040,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -1089,6 +1097,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 	}

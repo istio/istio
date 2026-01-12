@@ -66,9 +66,9 @@ type Cluster struct {
 	// initialSync is marked when RunAndWait completes
 	initialSync *atomic.Bool
 	// initialSyncTimeout is set when RunAndWait timed out
-	initialSyncTimeout *atomic.Bool
-	stop               chan struct{}
-	*RemoteClusterCollections
+	initialSyncTimeout       *atomic.Bool
+	stop                     chan struct{}
+	RemoteClusterCollections *atomic.Pointer[RemoteClusterCollections]
 }
 
 type RemoteClusterCollections struct {
@@ -81,33 +81,33 @@ type RemoteClusterCollections struct {
 }
 
 // Namespaces returns the namespaces collection.
-func (r *RemoteClusterCollections) Namespaces() krt.Collection[*corev1.Namespace] {
-	return r.namespaces
+func (c *Cluster) Namespaces() krt.Collection[*corev1.Namespace] {
+	return c.RemoteClusterCollections.Load().namespaces
 }
 
 // Pods returns the pods collection.
-func (r *RemoteClusterCollections) Pods() krt.Collection[*corev1.Pod] {
-	return r.pods
+func (c *Cluster) Pods() krt.Collection[*corev1.Pod] {
+	return c.RemoteClusterCollections.Load().pods
 }
 
 // Services returns the services collection.
-func (r *RemoteClusterCollections) Services() krt.Collection[*corev1.Service] {
-	return r.services
+func (c *Cluster) Services() krt.Collection[*corev1.Service] {
+	return c.RemoteClusterCollections.Load().services
 }
 
 // EndpointSlices returns the endpointSlices collection.
-func (r *RemoteClusterCollections) EndpointSlices() krt.Collection[*discovery.EndpointSlice] {
-	return r.endpointSlices
+func (c *Cluster) EndpointSlices() krt.Collection[*discovery.EndpointSlice] {
+	return c.RemoteClusterCollections.Load().endpointSlices
 }
 
 // Nodes returns the nodes collection.
-func (r *RemoteClusterCollections) Nodes() krt.Collection[*corev1.Node] {
-	return r.nodes
+func (c *Cluster) Nodes() krt.Collection[*corev1.Node] {
+	return c.RemoteClusterCollections.Load().nodes
 }
 
 // Gateways returns the gateways collection.
-func (r *RemoteClusterCollections) Gateways() krt.Collection[*gatewayv1.Gateway] {
-	return r.gateways
+func (c *Cluster) Gateways() krt.Collection[*gatewayv1.Gateway] {
+	return c.RemoteClusterCollections.Load().gateways
 }
 
 func NewRemoteClusterCollections(
@@ -136,15 +136,16 @@ func NewCluster(
 	collections *RemoteClusterCollections,
 ) *Cluster {
 	c := &Cluster{
-		ID:                 id,
-		Client:             client,
-		stop:               make(chan struct{}),
-		initialSync:        atomic.NewBool(false),
-		initialSyncTimeout: atomic.NewBool(false),
+		ID:                       id,
+		Client:                   client,
+		stop:                     make(chan struct{}),
+		initialSync:              atomic.NewBool(false),
+		initialSyncTimeout:       atomic.NewBool(false),
+		RemoteClusterCollections: atomic.NewPointer[RemoteClusterCollections](nil),
 	}
 
 	if collections != nil {
-		c.RemoteClusterCollections = collections
+		c.RemoteClusterCollections.Store(collections)
 	}
 
 	if source != nil {
@@ -168,15 +169,15 @@ func (c *Cluster) GetStop() <-chan struct{} {
 
 func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
 	// Check and see if this is a local cluster or not
-	if c.RemoteClusterCollections != nil {
+	if c.RemoteClusterCollections.Load() != nil {
 		log.Infof("Configuring cluster %s with existing informers", c.ID)
 		syncers := []krt.Syncer{
-			c.namespaces,
-			c.gateways,
-			c.services,
-			c.nodes,
-			c.endpointSlices,
-			c.pods,
+			c.Namespaces(),
+			c.Gateways(),
+			c.Services(),
+			c.Nodes(),
+			c.EndpointSlices(),
+			c.Pods(),
 		}
 		// Just wait for all syncers to be synced
 		for _, syncer := range syncers {
@@ -202,16 +203,22 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 
 	opts := krt.NewOptionsBuilder(c.stop, fmt.Sprintf("ambient/cluster[%s]", c.ID), debugger)
 	namespaces := kclient.New[*corev1.Namespace](c.Client)
-	// This will start a namespace informer and wait for it to be ready. So we must start it in a go routine to avoid blocking.
-	filter := filter.NewDiscoveryNamespacesFilter(namespaces, localMeshConfig, c.stop)
+	// When this cluster stops, clean up the namespace watcher
+	go func() {
+		<-c.stop
+		namespaces.ShutdownHandlers()
+	}()
+	// This will start a namespace informer but DON'T wait for it to be ready because that will block
+	// assignment of all of the collection fields (leading to races and panics).
+	filter, syncWaiter := filter.NewNonBlockingDiscoveryNamespacesFilter(namespaces, localMeshConfig, c.stop)
 	kube.SetObjectFilter(c.Client, filter)
 	// Register all of the informers before starting the client
 	defaultFilter := kclient.Filter{
 		ObjectFilter: c.Client.ObjectFilter(),
 	}
 
-	Namespaces := krt.WrapClient(namespaces, opts.With(
-		krt.WithName("informer/Namespaces"),
+	Namespaces := krt.WrapClient(namespaces, append(
+		opts.WithName("informer/Namespaces"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
@@ -220,23 +227,23 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
 		FieldSelector:   "status.phase!=Failed",
-	}, opts.With(
-		krt.WithName("informer/Pods"),
+	}, append(
+		opts.WithName("informer/Pods"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
 	)...)
 
 	gatewayClient := kclient.NewDelayedInformer[*gatewayv1.Gateway](c.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, defaultFilter)
-	Gateways := krt.WrapClient[*gatewayv1.Gateway](gatewayClient, opts.With(
-		krt.WithName("informer/Gateways"),
+	Gateways := krt.WrapClient(gatewayClient, append(
+		opts.WithName("informer/Gateways"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
 	)...)
 	servicesClient := kclient.NewFiltered[*corev1.Service](c.Client, defaultFilter)
-	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
-		krt.WithName("informer/Services"),
+	Services := krt.WrapClient(servicesClient, append(
+		opts.WithName("informer/Services"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
@@ -245,8 +252,8 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	Nodes := krt.NewFilteredInformer[*corev1.Node](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
 		ObjectTransform: kube.StripNodeUnusedFields,
-	}, opts.With(
-		krt.WithName("informer/Nodes"),
+	}, append(
+		opts.WithName("informer/Nodes"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
@@ -254,35 +261,37 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 
 	EndpointSlices := krt.NewFilteredInformer[*discovery.EndpointSlice](c.Client, kclient.Filter{
 		ObjectFilter: c.Client.ObjectFilter(),
-	}, opts.With(
-		krt.WithName("informer/EndpointSlices"),
+	}, append(
+		opts.WithName("informer/EndpointSlices"),
 		krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: c.ID,
 		}),
 	)...)
 
-	c.RemoteClusterCollections = &RemoteClusterCollections{
+	c.RemoteClusterCollections.Store(&RemoteClusterCollections{
 		namespaces:     Namespaces,
 		pods:           Pods,
 		services:       Services,
 		endpointSlices: EndpointSlices,
 		nodes:          Nodes,
 		gateways:       Gateways,
-	}
+	})
 
 	go func() {
+		log.Debugf("Waiting for discovery filter sync for cluster %s before starting all the other informers", c.ID)
+		syncWaiter(c.stop)
 		if !c.Client.RunAndWait(c.stop) {
 			log.Warnf("remote cluster %s failed to sync", c.ID)
 			return
 		}
 
 		syncers := []krt.Syncer{
-			c.namespaces,
-			c.gateways,
-			c.services,
-			c.nodes,
-			c.endpointSlices,
-			c.pods,
+			c.Namespaces(),
+			c.Gateways(),
+			c.Services(),
+			c.Nodes(),
+			c.EndpointSlices(),
+			c.Pods(),
 		}
 
 		for _, syncer := range syncers {
@@ -297,9 +306,10 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 }
 
 func (c *Cluster) HasSynced() bool {
-	// It could happen when a wrong credential provide, this cluster has no chance to run.
-	// In this case, the `initialSyncTimeout` will never be set
-	// In order not block istiod start up, check close as well.
+	// It could happen that, when a wrong credential is provided,
+	// this cluster has no chance to run fully and gets prematurely closed.
+	// In this case, the `initialSyncTimeout` will never be set.
+	// In order not block istiod start up, check Closed() as well.
 	if c.Closed() {
 		return true
 	}
@@ -326,7 +336,18 @@ func (c *Cluster) Stop() {
 		return
 	default:
 		close(c.stop)
+		c.Client.Shutdown()
 	}
+}
+
+func (c *Cluster) hasInitialCollections() bool {
+	return c.RemoteClusterCollections.Load() != nil &&
+		c.Namespaces() != nil &&
+		c.Gateways() != nil &&
+		c.Services() != nil &&
+		c.Nodes() != nil &&
+		c.EndpointSlices() != nil &&
+		c.Pods() != nil
 }
 
 func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
@@ -334,14 +355,17 @@ func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
 		return true
 	}
 
+	// Wait for all the syncers to be populated
+	kube.WaitForCacheSync(fmt.Sprintf("cluster[%s] remote collections init", c.ID), stop, c.hasInitialCollections)
+
 	// Wait for all syncers to be synced
 	for _, syncer := range []krt.Syncer{
-		c.namespaces,
-		c.gateways,
-		c.services,
-		c.nodes,
-		c.endpointSlices,
-		c.pods,
+		c.Namespaces(),
+		c.Gateways(),
+		c.Services(),
+		c.Nodes(),
+		c.EndpointSlices(),
+		c.Pods(),
 	} {
 		if !syncer.WaitUntilSynced(stop) {
 			log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)

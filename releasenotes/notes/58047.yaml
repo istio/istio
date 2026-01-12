@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 58047
+releaseNotes:
+- |
+  **Fixed** an issue in ambient multicluster where informer failures for remote clusters wouldn't be fixed until an istiod restart.
