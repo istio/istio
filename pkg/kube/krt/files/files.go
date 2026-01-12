@@ -42,6 +42,7 @@ type FolderWatch[T any] struct {
 	callbacks []func()
 }
 
+// checked
 func NewFolderWatch[T any](fileDir string, parse func([]byte) ([]T, error), stop <-chan struct{}) (*FolderWatch[T], error) {
 	fw := &FolderWatch[T]{root: fileDir, parse: parse}
 	// Read initial state
@@ -54,12 +55,14 @@ func NewFolderWatch[T any](fileDir string, parse func([]byte) ([]T, error), stop
 
 var supportedExtensions = sets.New(".yaml", ".yml")
 
+// checked
 func (f *FolderWatch[T]) get() []T {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	return f.state
 }
 
+// checked
 func (f *FolderWatch[T]) readOnce() error {
 	var result []T
 
@@ -100,6 +103,7 @@ func (f *FolderWatch[T]) readOnce() error {
 	return nil
 }
 
+// checked
 func (f *FolderWatch[T]) watch(stop <-chan struct{}) {
 	c := make(chan struct{}, 1)
 	if err := f.fileTrigger(c, stop); err != nil {
@@ -124,6 +128,7 @@ func (f *FolderWatch[T]) watch(stop <-chan struct{}) {
 
 const watchDebounceDelay = 50 * time.Millisecond
 
+// checked
 // Trigger notifications when a file is mutated
 func (f *FolderWatch[T]) fileTrigger(events chan struct{}, stop <-chan struct{}) error {
 	fs, err := fsnotify.NewWatcher()
@@ -169,6 +174,7 @@ func (f *FolderWatch[T]) fileTrigger(events chan struct{}, stop <-chan struct{})
 	return nil
 }
 
+// checked
 func (f *FolderWatch[T]) subscribe(fn func()) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -204,6 +210,7 @@ type FileCollection[T any] struct {
 	read func() []T
 }
 
+// checked
 func NewFileCollection[F any, O any](w *FolderWatch[F], transform func(F) *O, opts ...krt.CollectionOption) FileCollection[O] {
 	res := FileCollection[O]{
 		read: func() []O {
@@ -219,6 +226,7 @@ func NewFileCollection[F any, O any](w *FolderWatch[F], transform func(F) *O, op
 	return res
 }
 
+// checked
 func readSnapshot[F any, O any](w *FolderWatch[F], transform func(F) *O) []O {
 	res := w.get()
 	return slices.MapFilter(res, transform)

@@ -153,6 +153,7 @@ func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
 	return out
 }
 
+// checked
 // GetExistingClustersFor return existing clusters registered for the given secret
 func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
 	c.RLock()
