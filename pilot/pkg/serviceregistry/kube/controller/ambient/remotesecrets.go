@@ -115,6 +115,7 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 			}
 			// stop previous remote cluster
 			prev.Stop()
+			log.Debugf("Shutdown previous remote cluster %s for secret %s due to update", clusterID, secretKey)
 		} else if a.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
 			logger.Warnf("cluster has already been registered")
@@ -129,10 +130,13 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 			continue
 		}
 
-		// Run returns after initializing the cluster's fields; it runs all of the expensive operations
-		// in a goroutine, so we can safely call it synchronously here.
-		remoteCluster.Run(a.meshConfig, debugger)
+		// Store before we run so that a bad secret doesn't block adding the cluster to the store.
+		// This is necessary so that changes to the bad secret are processed as an update and the bad
+		// cluster is stopped and shutdown.
 		a.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
+		// Run returns after initializing the cluster's fields; it runs all of the expensive operations
+		// in a goroutine (including discovery filter sync), so we can safely call it synchronously here.
+		remoteCluster.Run(a.meshConfig, debugger)
 		addedClusters = append(addedClusters, remoteCluster)
 	}
 
@@ -240,11 +244,7 @@ func (a *index) buildRemoteClustersCollection(
 
 	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*multicluster.Cluster {
 		a.cs.MarkDependant(ctx) // Subscribe to updates from the clusterStore
-		// Wait for the clusterStore to be synced
-		if !kube.WaitForCacheSync("multicluster remote secrets", a.stop, a.cs.HasSynced) {
-			log.Warnf("remote cluster cache sync failed")
-		}
-		remoteClustersBySecretThenID := a.cs.All()
+		remoteClustersBySecretThenID := a.cs.AllReady()
 		var remoteClusters []*multicluster.Cluster
 		for _, clusters := range remoteClustersBySecretThenID {
 			for _, cluster := range clusters {
