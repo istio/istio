@@ -297,6 +297,7 @@ func New(options Options) Index {
 			mcCollections,
 		)
 
+		log.Infof("ambientindex.goL300 Building ambient index for multicluster config cluster %s", options.ClusterID) // hit
 		// We can run this in a goroutine because all of the dependent collections will wait for the initial sync
 		go LocalCluster.Run(a.meshConfig, a.Debugger)
 		a.buildGlobalCollections(
