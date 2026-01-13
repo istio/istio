@@ -70,7 +70,6 @@ func NewKubeconfigCollection(
 	return collection, nil
 }
 
-// checked
 func parseKubeconfig(data []byte) ([]kubeconfigFile, error) {
 	cfg, err := clientcmd.Load(data)
 	if err != nil {
@@ -86,7 +85,6 @@ func parseKubeconfig(data []byte) ([]kubeconfigFile, error) {
 	}}, nil
 }
 
-// checked
 func clusterIDFromKubeconfig(cfg *clientcmdapi.Config) (string, error) {
 	if cfg == nil {
 		return "", fmt.Errorf("kubeconfig is nil")

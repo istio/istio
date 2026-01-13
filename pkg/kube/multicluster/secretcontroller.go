@@ -105,7 +105,6 @@ type Controller struct {
 	handlers    []handler
 }
 
-// checked
 // NewController returns a new secret controller
 func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID,
 	meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config),
