@@ -421,7 +421,7 @@ func (c *Client) handleRecv() error {
 		if err != nil {
 			return err
 		}
-		c.log.WithLabels("type", msg.TypeUrl, "size", len(msg.Resources), "removes", len(msg.RemovedResources)).Infof("received response")
+		c.log.WithLabels("type", msg.TypeUrl, "size", len(msg.Resources), "removes", len(msg.RemovedResources)).Debugf("received response")
 		if err := c.handleDeltaResponse(msg); err != nil {
 			c.log.WithLabels("type", msg.TypeUrl).Infof("handle response failed: %v", err)
 			if err2 := c.xdsClient.CloseSend(); err2 != nil {
