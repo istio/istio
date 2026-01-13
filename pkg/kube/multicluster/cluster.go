@@ -58,6 +58,12 @@ type Cluster struct {
 	// SyncedCh is closed when the cluster has synced (or timed out).
 	// This allows components to wait for sync before performing actions like registry swap.
 	SyncedCh chan struct{}
+
+	// prevComponent holds the previous component during an update operation.
+	// This is set temporarily in clusterUpdated to allow constructors to access the old component
+	// for seamless migration (comparing old vs new state).
+	// This is only set during component construction and cleared afterwards.
+	prevComponent ComponentConstraint
 }
 
 type SyncStatusCallback func(cluster.ID, string)

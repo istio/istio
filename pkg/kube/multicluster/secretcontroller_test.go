@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/cluster"
@@ -334,7 +335,20 @@ func TestSeamlessMigration(t *testing.T) {
 	}
 	component := BuildMultiClusterComponent(c.controller, func(cluster *Cluster) *informerHandler[*v1.ConfigMap] {
 		cl := kclient.New[*v1.ConfigMap](cluster.Client)
-		cl.AddEventHandler(clienttest.TrackerHandler(tt))
+		trackerHandler := clienttest.TrackerHandler(tt)
+		var handler cache.ResourceEventHandler = trackerHandler
+		// If this is an update and we have a previous component, use seamless migration
+		if cluster.Action == Update && cluster.prevComponent != nil {
+			if oldHandler, ok := cluster.prevComponent.(*informerHandler[*v1.ConfigMap]); ok {
+				handler = wrappedEventHandler(
+					oldHandler.client,
+					cl,
+					trackerHandler,
+					cluster.stop,
+				)
+			}
+		}
+		cl.AddEventHandler(handler)
 		return &informerHandler[*v1.ConfigMap]{client: cl}
 	})
 	c.AddSecret("s0", "c0")
@@ -356,17 +370,20 @@ func TestSeamlessMigration(t *testing.T) {
 		}
 		if !have.Equals(sets.New("initial", "common")) {
 			fatal = fmt.Errorf("unexpected contents: %v", have)
-			// TODO: return true here, then assert.NoError(t, fatal) after
-			// This would properly check that we do not go from `old -> empty -> new` and instead go from `old -> new` seamlessly
-			// However, the code does not currently handler this case.
-			return false
+			// Return true immediately to fail fast if we see an unexpected state.
+			// This ensures we do not go from `old -> empty -> new` and instead go from `old -> new` seamlessly.
+			return true
 		}
 		return false
 	})
-	_ = fatal
-	// We get ADD again! Oops. Ideally we would be abstracted from the cluster update and instead get 'delete/initial, add/later, update/common'.
+	// Verify we never saw an unexpected state (like empty) during the transition
+	if fatal != nil {
+		t.Fatalf("should not see empty or unexpected state during cluster update: %v", fatal)
+	}
+	// With seamless migration implemented, we should get 'delete/initial, add/later, update/common'.
+	// The test should fail until seamless migration properly implements UPDATE events for objects that exist in both old and new clusters.
 	// See discussion in https://github.com/istio/enhancements/pull/107
-	tt.WaitUnordered("add/common", "add/later")
+	tt.WaitUnordered("delete/initial", "add/later", "update/common")
 }
 
 func TestSecretController(t *testing.T) {
