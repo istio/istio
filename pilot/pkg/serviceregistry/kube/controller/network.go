@@ -454,6 +454,8 @@ func (n *networkManager) HasSynced() bool {
 
 // updateServiceNodePortAddresses updates ClusterExternalAddresses for Services of nodePort type
 func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool {
+	c.Lock()
+	defer c.Unlock()
 	// node event, update all nodePort gateway services
 	if len(svcs) == 0 {
 		svcs = c.getNodePortGatewayServices()
@@ -463,9 +465,7 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 		return false
 	}
 	for _, svc := range svcs {
-		c.RLock()
 		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
-		c.RUnlock()
 		// update external address
 		var nodeAddresses []string
 		for _, n := range c.nodeInfoMap {
@@ -478,11 +478,9 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)
 	}
-	c.Lock()
 	for _, svc := range svcs {
 		c.servicesMap[svc.Hostname] = svc
 	}
-	c.Unlock()
 	return true
 }
 
