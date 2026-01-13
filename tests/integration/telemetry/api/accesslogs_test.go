@@ -55,6 +55,8 @@ func TestAccessLogs(t *testing.T) {
 				// We should not get logs from the client, since the policy only applies to the Gateway.
 				runAccessLogsTests(t, false, true)
 				deleteTelemetryResource(t, true)
+				// Clean up Gateway API resources to prevent test pollution
+				t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "./testdata/gateway-api.yaml").DeleteOrFail(t)
 			})
 			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
 				applyTelemetryResource(t, false)
