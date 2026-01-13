@@ -34,8 +34,9 @@ type mapCollection[T any, U any] struct {
 
 // nolint: unused // (not true, used in func declared to implement an interface)
 type mappedIndexer[T any, U any] struct {
-	indexer indexer[T]
-	mapFunc func(T) U
+	fromCollection string
+	indexer        indexer[T]
+	mapFunc        func(T) U
 }
 
 var _ Collection[any] = &mapCollection[any, any]{}
@@ -46,7 +47,7 @@ func (m *mappedIndexer[T, U]) Lookup(k string) []U {
 	res := make([]U, 0, len(keys))
 	for _, obj := range keys {
 		if EnableAssertions {
-			assertKeyMatch(obj, m.mapFunc(obj))
+			assertKeyMatch(obj, m.mapFunc(obj), m.fromCollection)
 		}
 		res = append(res, m.mapFunc(obj))
 	}
@@ -56,7 +57,7 @@ func (m *mappedIndexer[T, U]) Lookup(k string) []U {
 func (m *mapCollection[T, U]) GetKey(k string) *U {
 	if obj := m.collection.GetKey(k); obj != nil {
 		if EnableAssertions {
-			assertKeyMatch(*obj, m.mapFunc(*obj))
+			assertKeyMatch(*obj, m.mapFunc(*obj), m.collectionName)
 		}
 		return ptr.Of(m.mapFunc(*obj))
 	}
@@ -71,7 +72,7 @@ func (m *mapCollection[T, U]) List() []U {
 	}
 	if EnableAssertions {
 		for _, obj := range vals {
-			assertKeyMatch(obj, m.mapFunc(obj))
+			assertKeyMatch(obj, m.mapFunc(obj), m.collectionName)
 		}
 	}
 	return res
@@ -132,8 +133,9 @@ func (m *mapCollection[T, U]) index(name string, extract func(o U) []string) ind
 	}
 	idxs := m.collection.index(name, t)
 	return &mappedIndexer[T, U]{
-		indexer: idxs,
-		mapFunc: m.mapFunc,
+		fromCollection: m.collectionName,
+		indexer:        idxs,
+		mapFunc:        m.mapFunc,
 	}
 }
 
@@ -174,11 +176,12 @@ func MapCollection[T, U any](
 
 // Used only to make assertions internally about Collection invariants
 // Will panic on violation. Ensure calls are wrapped by a check for `krt.EnableAssertions`
-func assertKeyMatch[T, U any](original T, mapped U) {
+func assertKeyMatch[T, U any](original T, mapped U, name string) {
 	originalKey := GetKey(original)
 	mappedKey := GetKey(mapped)
 	if originalKey != mappedKey {
-		msg := fmt.Sprintf("MapCollection invariant violation: T and U must have matching keys: (%T)%s != (%T)%s",
+		msg := fmt.Sprintf("MapCollection invariant violation in %s: T and U must have matching keys: (%T)%s != (%T)%s",
+			name,
 			original,
 			originalKey,
 			mapped,
