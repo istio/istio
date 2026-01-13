@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !test
+//go:build !assert
 
 package krt
 
-// EnableAssertions, if true, will enable assertions. These typically are violations of the krt collection requirements.
+// EnableAssertions = false disables krt assertions. These typically are violations of the krt collection requirements.
+// Krt assertions can be enabled using build tags, `-tags=assert`
+// This is const to allow go's dead code elimination to optimize the conditionals out of the krt core
 const EnableAssertions = false
