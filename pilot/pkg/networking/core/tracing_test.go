@@ -77,12 +77,6 @@ func TestConfigureTracing(t *testing.T) {
 			wantReqIDExtCtx: nil,
 		},
 		{
-			name:            "no telemetry api (waypoint)",
-			opts:            fakeOptsNoTelemetryAPIWaypoint(),
-			want:            fakeTracingConfigNoProvider(55.55, 13, waypointTracingTags(fakeEnvTag)),
-			wantReqIDExtCtx: nil,
-		},
-		{
 			name: "default providers",
 			inSpec: &model.TracingConfig{
 				ClientSpec: model.TracingSpec{
@@ -720,12 +714,6 @@ func fakeOptsNoTelemetryAPI() gatewayListenerOpts {
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
-	return opts
-}
-
-func fakeOptsNoTelemetryAPIWaypoint() gatewayListenerOpts {
-	opts := fakeOptsNoTelemetryAPI()
-	opts.proxy.Type = model.Waypoint
 	return opts
 }
 

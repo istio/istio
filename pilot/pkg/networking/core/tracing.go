@@ -608,9 +608,9 @@ func buildWaypointSourceTags() []*tracing.CustomTag {
 
 func buildServiceTags(node *model.Proxy) []*tracing.CustomTag {
 	var revision, service string
-	if node.Labels != nil {
-		revision = node.Labels["service.istio.io/canonical-revision"]
-		service = node.Labels["service.istio.io/canonical-name"]
+	if labels != nil {
+		revision = labels["service.istio.io/canonical-revision"]
+		service = labels["service.istio.io/canonical-name"]
 	}
 	if revision == "" {
 		revision = "latest"
@@ -619,19 +619,19 @@ func buildServiceTags(node *model.Proxy) []*tracing.CustomTag {
 	if service == "" {
 		service = "unknown"
 	}
-	meshID := node.Metadata.MeshID
+	meshID := metadata.MeshID
 	if meshID == "" {
 		meshID = "unknown"
 	}
-	namespace := node.Metadata.Namespace
+	namespace := metadata.Namespace
 	if namespace == "" {
 		namespace = "default"
 	}
-	clusterID := string(node.Metadata.ClusterID)
+	clusterID := string(metadata.ClusterID)
 	if clusterID == "" {
 		clusterID = "unknown"
 	}
-	tags := []*tracing.CustomTag{
+	return []*tracing.CustomTag{
 		{
 			Tag: "istio.canonical_revision",
 			Type: &tracing.CustomTag_Literal_{
@@ -715,10 +715,10 @@ func configureCustomTags(spec *model.TracingSpec, hcmTracing *hcm.HttpConnection
 			enableIstioTags = proxyCfg.GetTracing().GetEnableIstioTags().GetValue()
 		}
 		if enableIstioTags {
-			tags = append(buildServiceTags(node), optionalPolicyTags...)
+			tags = append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
 		}
 	} else if spec.EnableIstioTags {
-		tags = append(buildServiceTags(node), optionalPolicyTags...)
+		tags = append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
 	}
 
 	// For waypoint proxies, add source peer tags to capture client workload info.
