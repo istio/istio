@@ -31,7 +31,6 @@ type remoteConfig struct {
 	Data map[string][]byte
 }
 
-// checked
 type remoteConfigSource interface {
 	AddEventHandler(handler func(key types.NamespacedName, event controllers.EventType))
 	HasSynced() bool
@@ -39,17 +38,14 @@ type remoteConfigSource interface {
 	Get(key types.NamespacedName) *remoteConfig
 }
 
-// checked
 type secretConfigSource struct {
 	client kclient.Client[*corev1.Secret]
 }
 
-// checked
 func newSecretConfigSource(client kclient.Client[*corev1.Secret]) *secretConfigSource {
 	return &secretConfigSource{client: client}
 }
 
-// checked
 func (s *secretConfigSource) AddEventHandler(handler func(key types.NamespacedName, event controllers.EventType)) {
 	s.client.AddEventHandler(controllers.EventHandler[*corev1.Secret]{
 		AddFunc: func(obj *corev1.Secret) {
@@ -64,12 +60,10 @@ func (s *secretConfigSource) AddEventHandler(handler func(key types.NamespacedNa
 	})
 }
 
-// checked
 func (s *secretConfigSource) HasSynced() bool {
 	return s.client.HasSynced()
 }
 
-// checked
 func (s *secretConfigSource) Start(stop <-chan struct{}) {
 	s.client.Start(stop)
 }
@@ -92,7 +86,6 @@ type fileConfigSource struct {
 	pending    []func(types.NamespacedName, controllers.EventType)
 }
 
-// checked
 func newFileConfigSource(root string, defaultNamespace string) *fileConfigSource {
 	return &fileConfigSource{
 		root:             root,

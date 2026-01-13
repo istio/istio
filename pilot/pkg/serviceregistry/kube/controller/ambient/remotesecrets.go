@@ -62,7 +62,6 @@ const (
 	Update
 )
 
-// checked
 func (a ACTION) String() string {
 	switch a {
 	case Add:
@@ -73,7 +72,6 @@ func (a ACTION) String() string {
 	return "Unknown"
 }
 
-// checked
 func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig []byte, clusterID string) (*multicluster.Cluster, error) {
 	client, err := a.clientBuilder(kubeConfig, cluster.ID(clusterID), a.remoteClientConfigOverrides...)
 	if err != nil {
@@ -88,12 +86,10 @@ func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig [
 	), nil
 }
 
-// checked
 func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger *krt.DebugHandler) error {
 	return a.addRemoteConfig(name, s.Data, debugger)
 }
 
-// checked
 func (a *index) addRemoteConfig(name types.NamespacedName, data map[string][]byte, debugger *krt.DebugHandler) error {
 	secretKey := name.String()
 	// First delete clusters
@@ -160,7 +156,6 @@ func (a *index) addRemoteConfig(name types.NamespacedName, data map[string][]byt
 	return errs.ErrorOrNil()
 }
 
-// checked
 func (a *index) deleteSecret(secretKey string) {
 	for _, cluster := range a.cs.GetExistingClustersFor(secretKey) {
 		if cluster.ID == a.ClusterID {
@@ -174,7 +169,6 @@ func (a *index) deleteSecret(secretKey string) {
 	log.Infof("remotesecret.goL171 Number of remote clusters: %d", a.cs.Len())
 }
 
-// checked
 func (a *index) deleteCluster(secretKey string, cluster *multicluster.Cluster) {
 	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
 	cluster.Stop()
@@ -183,7 +177,6 @@ func (a *index) deleteCluster(secretKey string, cluster *multicluster.Cluster) {
 	cluster.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 }
 
-// checked
 func (a *index) processSecretEvent(key types.NamespacedName) error {
 	log.Infof("processing secret event for secret %s", key)
 	scrt := ptr.Flatten(a.secrets.GetKey(key.String()))
