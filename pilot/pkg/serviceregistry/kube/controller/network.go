@@ -486,8 +486,6 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 
 // getNodePortServices returns nodePort type gateway service
 func (c *Controller) getNodePortGatewayServices() []*model.Service {
-	c.RLock()
-	defer c.RUnlock()
 	out := make([]*model.Service, 0, len(c.nodeSelectorsForServices))
 	for hostname := range c.nodeSelectorsForServices {
 		svc := c.servicesMap[hostname]
