@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 58768
+releaseNotes:
+  - |
+    **Fixed** an issue in `istio-cni` where a normal shutdown (including config cleanup) would not be performed
+    if the shutdown was triggered by a change to the NodeAffinity rules of the `istio-cni` DaemonSet.
