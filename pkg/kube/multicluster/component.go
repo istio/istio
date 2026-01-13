@@ -20,8 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/cluster"
-	clusterv1 "istio.io/istio/pkg/cluster"
+	k8scluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
@@ -40,7 +39,7 @@ type ComponentConstraint interface {
 // It tracks both the old and new components, completing the swap only after the new one syncs.
 type pendingSwap[T ComponentConstraint] struct {
 	parent    *Component[T]
-	clusterID clusterv1.ID
+	clusterID k8scluster.ID
 	old       T
 	new       T
 	hasOld    bool
@@ -82,11 +81,11 @@ func (p *pendingSwap[T]) active() T {
 type Component[T ComponentConstraint] struct {
 	mu           sync.RWMutex
 	constructor  func(cluster *Cluster) T
-	clusters     map[clusterv1.ID]T
-	pendingSwaps map[clusterv1.ID]*pendingSwap[T]
+	clusters     map[k8scluster.ID]T
+	pendingSwaps map[k8scluster.ID]*pendingSwap[T]
 }
 
-func (m *Component[T]) ForCluster(clusterID clusterv1.ID) *T {
+func (m *Component[T]) ForCluster(clusterID k8scluster.ID) *T {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	// Check if there's a pending swap for this cluster
@@ -144,7 +143,7 @@ func (m *Component[T]) clusterUpdated(cluster *Cluster) ComponentConstraint {
 	defer m.mu.Unlock()
 	m.clusters[cluster.ID] = comp
 	if m.pendingSwaps == nil {
-		m.pendingSwaps = make(map[clusterv1.ID]*pendingSwap[T])
+		m.pendingSwaps = make(map[k8scluster.ID]*pendingSwap[T])
 	}
 	m.pendingSwaps[cluster.ID] = ps
 
@@ -153,7 +152,7 @@ func (m *Component[T]) clusterUpdated(cluster *Cluster) ComponentConstraint {
 	return ps
 }
 
-func (m *Component[T]) clusterDeleted(cluster cluster.ID) {
+func (m *Component[T]) clusterDeleted(cluster k8scluster.ID) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	// If there is an old one, close it
@@ -198,7 +197,7 @@ func BuildMultiClusterKclientComponent[T controllers.ComparableObject](c Compone
 
 // ForCluster returns the client for the requests cluster
 // Note: this may return nil.
-func (m *KclientComponent[T]) ForCluster(clusterID cluster.ID) kclient.Client[T] {
+func (m *KclientComponent[T]) ForCluster(clusterID k8scluster.ID) kclient.Client[T] {
 	c := m.internal.ForCluster(clusterID)
 	if c == nil {
 		return nil
