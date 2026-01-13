@@ -155,7 +155,8 @@ func (a *index) addRemoteConfig(name types.NamespacedName, data map[string][]byt
 		return fmt.Errorf("timed out waiting for remote clusters %#v to sync", addedClusters)
 	}
 
-	log.Infof("Number of remote clusters: %d", a.cs.Len())
+	log.Info("remotesecret.goL155 addRemoteConfig completed")                  // hit
+	log.Infof("remotesecret.goL156 Number of remote clusters: %d", a.cs.Len()) // hit
 	return errs.ErrorOrNil()
 }
 
@@ -170,7 +171,7 @@ func (a *index) deleteSecret(secretKey string) {
 		a.deleteCluster(secretKey, cluster)
 	}
 
-	log.Infof("Number of remote clusters: %d", a.cs.Len())
+	log.Infof("remotesecret.goL171 Number of remote clusters: %d", a.cs.Len())
 }
 
 // checked

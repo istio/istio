@@ -389,7 +389,7 @@ func (c *Controller) addRemoteConfig(name types.NamespacedName, cfg *remoteConfi
 		}()
 	}
 
-	log.Infof("Number of remote clusters: %d", c.cs.Len())
+	log.Infof("secretcontroller.goL386 Number of remote clusters: %d", c.cs.Len()) // hit
 	return errs.ErrorOrNil()
 }
 
@@ -403,7 +403,7 @@ func (c *Controller) deleteSecret(secretKey string) {
 		c.deleteCluster(secretKey, cluster)
 	}
 
-	log.Infof("Number of remote clusters: %d", c.cs.Len())
+	log.Infof("secretcontroller.goL400 Number of remote clusters: %d", c.cs.Len())
 }
 
 func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
@@ -414,7 +414,7 @@ func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 	c.clearClusterSyncState(cluster.ID)
 	cluster.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 
-	log.Infof("Number of remote clusters: %d", c.cs.Len())
+	log.Infof("secretcontroller.goL414 Number of remote clusters: %d", c.cs.Len())
 }
 
 func (c *Controller) handleAdd(cluster *Cluster) []ComponentConstraint {
