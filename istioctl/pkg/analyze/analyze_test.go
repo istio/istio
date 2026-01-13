@@ -123,3 +123,41 @@ func TestRunSpecificAnalyzer(t *testing.T) {
 		})
 	}
 }
+
+func TestTimeoutHandling(t *testing.T) {
+	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+		IstioNamespace: "istio-system",
+	})
+
+	cases := []struct {
+		caseName string
+		testutil.TestCase
+	}{
+		{
+			caseName: "timeout-occurs-with-very-short-timeout",
+			TestCase: testutil.TestCase{
+				Args: strings.Split(
+					"--use-kube=false --timeout 1ns testdata/analyze-file/public-gateway.yaml",
+					" "),
+				WantException:  true,
+				ExpectedOutput: "Error: analysis timeout exceeded: 1ns\n",
+			},
+		},
+		{
+			caseName: "normal-operation-completes-with-reasonable-timeout",
+			TestCase: testutil.TestCase{
+				Args: strings.Split(
+					"--use-kube=false --timeout 30s testdata/analyze-file/public-gateway.yaml",
+					" "),
+				WantException: false,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.caseName, func(t *testing.T) {
+			analyze := Analyze(ctx)
+			testutil.VerifyOutput(t, analyze, tc.TestCase)
+		})
+	}
+}

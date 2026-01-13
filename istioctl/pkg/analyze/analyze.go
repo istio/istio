@@ -54,6 +54,12 @@ type FileParseError struct{}
 
 const FileParseString = "Some files couldn't be parsed."
 
+// analysisResult holds the result and error from an analysis operation.
+type analysisResult struct {
+	result local.AnalysisResult
+	err    error
+}
+
 func (f AnalyzerFoundIssuesError) Error() string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Analyzers found issues when analyzing %s.\n", analyzeTargetAsString()))
@@ -142,6 +148,13 @@ func Analyze(ctx cli.Context) *cobra.Command {
 				return err
 			}
 			cancel := make(chan struct{})
+
+			analysisCtx, cancelFunc := context.WithTimeout(cmd.Context(), analysisTimeout)
+			defer cancelFunc()
+			go func() {
+				<-analysisCtx.Done()
+				close(cancel)
+			}()
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
@@ -248,10 +261,22 @@ func Analyze(ctx cli.Context) *cobra.Command {
 				}
 			}
 
-			// Do the analysis
-			result, err := sa.Analyze(cancel)
-			if err != nil {
-				return err
+			resultCh := make(chan analysisResult, 1)
+			go func() {
+				// Do the analysis
+				result, err := sa.Analyze(cancel)
+				resultCh <- analysisResult{result: result, err: err}
+			}()
+
+			var result local.AnalysisResult
+			select {
+			case <-analysisCtx.Done():
+				return fmt.Errorf("analysis timeout exceeded: %v", analysisTimeout)
+			case res := <-resultCh:
+				if res.err != nil {
+					return res.err
+				}
+				result = res.result
 			}
 
 			// Maybe output details about which analyzers ran
