@@ -379,15 +379,6 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	c := slices.Map(cs, func(e Collection[T]) internalCollection[T] {
 		return e.(internalCollection[T])
 	})
-	go func() {
-		for _, c := range c {
-			if !c.WaitUntilSynced(o.stop) {
-				return
-			}
-		}
-		close(synced)
-		log.Infof("%v synced", o.name)
-	}()
 	if o.stop == nil {
 		panic("no stop channel")
 	}
@@ -411,6 +402,16 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	// For unchecked mode, we don't need the centralized event handling infrastructure.
 	// Handlers register directly with sub-collections in RegisterBatch.
 	if o.joinUnchecked {
+		// for unchecked, we waitn for the sub-collections to sync here
+		go func() {
+			for _, c := range c {
+				if !c.WaitUntilSynced(o.stop) {
+					return
+				}
+			}
+			close(synced)
+			log.Infof("%v synced", o.name)
+		}()
 		return j
 	}
 
@@ -430,6 +431,18 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		reg := subCol.RegisterBatch(handler, true)
 		subHandlerRegs = append(subHandlerRegs, reg)
 	}
+
+	// in checked mode, we wait for the registrations to sync rather
+	// than the collections directly to ensure processedState is populated
+	go func() {
+		for _, reg := range subHandlerRegs {
+			if !reg.WaitUntilSynced(o.stop) {
+				return
+			}
+		}
+		close(synced)
+		log.Infof("%v synced", o.name)
+	}()
 
 	// Clean up sub-collection handlers when this collection's stop is closed
 	go func() {
