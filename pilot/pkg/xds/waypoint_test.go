@@ -740,3 +740,96 @@ func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServe
 func joinYaml(s ...string) string {
 	return strings.Join(s, "\n---\n")
 }
+
+func TestIngressGatewayListenersAnClustersMultiNetwork(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+
+	// Ingress gateway service with network label
+	ingressGatewaySvc := `apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  labels:
+    istio: ingressgateway
+    topology.istio.io/network: network-1
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+`
+
+	// Gateway resource for ingress
+	ingressGateway := `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: my-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*.example.com"
+`
+
+	c := joinYaml(ingressGatewaySvc, ingressGateway)
+
+	mc := mesh.DefaultMeshConfig()
+	d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		ConfigString:           c,
+		KubernetesObjectString: c,
+		MeshConfig:             mc,
+	})
+
+	// Create an ingress gateway proxy (Router type)
+	proxy := d.SetupProxy(&model.Proxy{
+		Type:            model.Router,
+		ConfigNamespace: "istio-system",
+		Labels: map[string]string{
+			"istio":                    "ingressgateway",
+			label.TopologyNetwork.Name: "network-1",
+		},
+		IPAddresses: []string{"10.0.0.1"},
+		Metadata: &model.NodeMetadata{
+			Labels: map[string]string{
+				"istio":                    "ingressgateway",
+				label.TopologyNetwork.Name: "network-1",
+			},
+		},
+	})
+
+	listeners := d.Listeners(proxy)
+	clusters := d.Clusters(proxy)
+
+	t.Run("expected listeners for 2HBONE are present", func(t *testing.T) {
+		g := NewWithT(t)
+		listenerNames := []string{}
+		for _, l := range listeners {
+			listenerNames = append(listenerNames, l.Name)
+		}
+		g.Expect(listenerNames).To(ContainElements([]string{
+			"inner_connect_originate",
+			"outer_connect_originate",
+		}))
+	})
+
+	t.Run("expected clusters for 2HBONE are present", func(t *testing.T) {
+		g := NewWithT(t)
+		clusterNames := []string{}
+		for _, l := range clusters {
+			clusterNames = append(clusterNames, l.Name)
+		}
+		g.Expect(clusterNames).To(ContainElements([]string{
+			"inner_connect_originate",
+			"outer_connect_originate",
+		}))
+	})
+}
