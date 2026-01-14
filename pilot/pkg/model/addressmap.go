@@ -75,7 +75,9 @@ func (m *AddressMap) GetAddressesFor(c cluster.ID) []string {
 	return m.Addresses[c]
 }
 
-// SetAddressesFor sets the addresses for a cluster, works in a copy-on-write manner.
+// SetAddressesFor sets the addresses for a cluster,
+// works in a copy-on-write manner but is not safe for concurrent use,
+// users should ensure they have a shallow copy of the AddressMap before calling this method.
 func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) {
 	if len(addresses) == 0 {
 		// Setting an empty array for the cluster. Remove the entry for the cluster if it exists.
@@ -106,7 +108,9 @@ func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) {
 	m.Addresses[c] = addresses
 }
 
-// AddAddressesFor adds addresses for a cluster, works in a copy-on-write manner.
+// AddAddressesFor adds addresses for a cluster,
+// works in a copy-on-write manner but is not safe for concurrent use,
+// users should ensure they have a shallow copy of the AddressMap before calling this method.
 func (m *AddressMap) AddAddressesFor(c cluster.ID, addresses []string) {
 	if len(addresses) == 0 {
 		return
