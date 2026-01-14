@@ -146,18 +146,22 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNI
 					return err
 				}
 
-				nodeSelector, err := nodeaffinity.NewNodeSelector(cniDS.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)
-				if err != nil {
-					log.Infof("failed to build NodeSelector for DaemonSet %s, retrying: %v", dsName, err)
-					return err
-				}
+				if cniDS.Spec.Template.Spec.Affinity != nil &&
+					cniDS.Spec.Template.Spec.Affinity.NodeAffinity != nil &&
+					cniDS.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+					nodeSelector, err := nodeaffinity.NewNodeSelector(cniDS.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)
+					if err != nil {
+						log.Infof("failed to build NodeSelector for DaemonSet %s, retrying: %v", dsName, err)
+						return err
+					}
 
-				if !nodeSelector.Match(cniNode) {
-					// If the NodeAffinity of the DaemonSet no longer matches the current Node, this is not an upgrade.
-					// We can safely shut down the plugin.
-					log.Infof("terminating, and parent DaemonSet %s will not schedule to Node %s due to NodeSelector, shutting down normally", dsName, NodeName)
-					shouldStopCleanup = false
-					return nil
+					if !nodeSelector.Match(cniNode) {
+						// If the NodeAffinity of the DaemonSet no longer matches the current Node, this is not an upgrade.
+						// We can safely shut down the plugin.
+						log.Infof("terminating, and parent DaemonSet %s will not schedule to Node %s due to NodeAffinity rules, shutting down normally", dsName, NodeName)
+						shouldStopCleanup = false
+						return nil
+					}
 				}
 
 				log.Infof("terminating, but parent DaemonSet %s is still present, this is an upgrade or a node reboot, leaving plugin in place", dsName)
