@@ -15,7 +15,9 @@
 package krt_test
 
 import (
+	"sync"
 	"testing"
+	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -24,22 +26,59 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
+// NamedValue has the same resource name (from Named) but different values
+// for testing conflict resolution with overlapping keys
+type NamedValue struct {
+	Named
+	Value string
+}
+
 func TestJoinCollection(t *testing.T) {
-	opts := testOptions(t)
-	c1 := krt.NewStatic[Named](nil, true)
-	c2 := krt.NewStatic[Named](nil, true)
-	c3 := krt.NewStatic[Named](nil, true)
+	modes := []struct {
+		name string
+		opts []krt.CollectionOption
+	}{
+		{"checked", nil},
+		{"unchecked", []krt.CollectionOption{krt.WithJoinUnchecked()}},
+	}
+
+	for _, mode := range modes {
+		t.Run(mode.name, func(t *testing.T) {
+			t.Run("basic", func(t *testing.T) {
+				testJoinInner(t, mode.opts...)
+			})
+			t.Run("RegisterBatch", func(t *testing.T) {
+				t.Run("initial state before Join", func(t *testing.T) {
+					testJoinRegisterBatch(t, false, mode.opts...)
+				})
+				t.Run("initial state after Join", func(t *testing.T) {
+					testJoinRegisterBatch(t, true, mode.opts...)
+				})
+			})
+		})
+	}
+}
+
+func testJoinInner(t *testing.T, options ...krt.CollectionOption) {
+	options = append(options, krt.WithName("JoinTest"))
+	opts := testOptions(t).With(options...)
+
+	c1 := krt.NewStatic[Named](nil, true, krt.WithName("c1"))
+	c2 := krt.NewStatic[Named](nil, true, krt.WithName("c2"))
+	c3 := krt.NewStatic[Named](nil, true, krt.WithName("c3"))
 	j := krt.JoinCollection(
 		[]krt.Collection[Named]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()},
-		opts.WithName("Join")...,
+		opts...,
 	)
 	last := atomic.NewString("")
 	j.Register(func(o krt.Event[Named]) {
@@ -70,6 +109,69 @@ func TestJoinCollection(t *testing.T) {
 			{"c3", "a"},
 		}, sortf),
 	)
+}
+
+// TODO: this test fails with NewStatic[Named]; when the key chaneges we don't get a delete
+// event so our collection's processedState doesn't drop the old value!
+func testJoinRegisterBatch(t *testing.T, eventsAfterCollection bool, options ...krt.CollectionOption) {
+	options = append(options, krt.WithName("JoinTestInitialState"))
+	opts := testOptions(t).With(options...)
+
+	// Use NamedValue so the key (from Named) stays stable while Value changes.
+	// This avoids a StaticCollection bug where key changes aren't handled properly.
+	c1 := krt.NewStatic(&NamedValue{Named{"c1", "a"}, "v1"}, true, krt.WithName("c1"))
+	c2 := krt.NewStatic(&NamedValue{Named{"c2", "a"}, "v1"}, true, krt.WithName("c2"))
+
+	if !eventsAfterCollection {
+		// call Set before registering, otherwise Set will generate events and make
+		// and we won't catch bugs in initial state handling
+		c1.Set(&NamedValue{Named{"c1", "a"}, "v1"})
+		c2.Set(&NamedValue{Named{"c2", "a"}, "v2"})
+	}
+
+	j := krt.JoinCollection(
+		[]krt.Collection[NamedValue]{c1.AsCollection(), c2.AsCollection()},
+		opts...,
+	)
+
+	if eventsAfterCollection {
+		// call Set after registering, to ensure that we don't get duplicate events
+		// from Set being called AFTER the Join is set up
+		c1.Set(&NamedValue{Named{"c1", "a"}, "v1"})
+		c2.Set(&NamedValue{Named{"c2", "a"}, "v2"})
+	}
+
+	t.Run("initial state", func(t *testing.T) {
+		mu := sync.RWMutex{}
+		initialStateEvents := []krt.Event[NamedValue]{}
+		reg := j.RegisterBatch(func(events []krt.Event[NamedValue]) {
+			mu.Lock()
+			defer mu.Unlock()
+			initialStateEvents = append(initialStateEvents, events...)
+		}, true)
+
+		assert.EventuallyEqual(t, func() int {
+			mu.RLock()
+			defer mu.RUnlock()
+			return len(initialStateEvents)
+		}, 2, retry.Timeout(5*time.Millisecond))
+		reg.UnregisterHandler()
+	})
+	t.Run("no initial state", func(t *testing.T) {
+		mu := sync.RWMutex{}
+		events := []krt.Event[NamedValue]{}
+		reg := j.RegisterBatch(func(evts []krt.Event[NamedValue]) {
+			mu.Lock()
+			defer mu.Unlock()
+			events = append(events, evts...)
+		}, false)
+		assert.Consistently(t, func() int {
+			mu.RLock()
+			defer mu.RUnlock()
+			return len(events)
+		}, 0)
+		reg.UnregisterHandler()
+	})
 }
 
 func TestCollectionJoin(t *testing.T) {
@@ -205,4 +307,103 @@ func TestCollectionJoinSync(t *testing.T) {
 		{Named{"namespace", "name"}, NewLabeled(map[string]string{"app": "foo"}), "1.2.3.4"},
 		{Named{"namespace", "name-static"}, NewLabeled(map[string]string{"app": "foo"}), "9.9.9.9"},
 	})
+}
+
+// TestJoinCollectionConflictResolution tests conflict resolution with overlapping keys.
+// Priority order: c1 > c2 > c3 (first collection wins)
+func TestJoinCollectionConflictResolution(t *testing.T) {
+	opts := testOptions(t)
+	c1 := krt.NewStatic[NamedValue](nil, true, krt.WithName("c1"))
+	c2 := krt.NewStatic[NamedValue](nil, true, krt.WithName("c2"))
+	c3 := krt.NewStatic[NamedValue](nil, true, krt.WithName("c3"))
+
+	j := krt.JoinCollection(
+		[]krt.Collection[NamedValue]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()},
+		opts.WithName("Join")...,
+	)
+
+	var mu sync.Mutex
+	events := []krt.Event[NamedValue]{}
+	j.Register(func(o krt.Event[NamedValue]) {
+		mu.Lock()
+		defer mu.Unlock()
+		events = append(events, o)
+	})
+
+	getEventsLen := func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(events)
+	}
+	getEvent := func(i int) krt.Event[NamedValue] {
+		mu.Lock()
+		defer mu.Unlock()
+		return events[i]
+	}
+	clearEvents := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		events = nil
+	}
+
+	// Test 1: c2 adds key "a" first - should see ADD
+	c2.Set(&NamedValue{Named{"ns", "a"}, "c2-value"})
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventAdd)
+	assert.Equal(t, getEvent(0).New.Value, "c2-value")
+
+	// Test 2: c1 adds same key - should see UPDATE (c1 has higher priority)
+	clearEvents()
+	c1.Set(&NamedValue{Named{"ns", "a"}, "c1-value"})
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventUpdate)
+	assert.Equal(t, getEvent(0).Old.Value, "c2-value")
+	assert.Equal(t, getEvent(0).New.Value, "c1-value")
+
+	// Test 3: c3 adds same key - should see NO event (c1 has priority)
+	clearEvents()
+	c3.Set(&NamedValue{Named{"ns", "a"}, "c3-value"})
+	assert.Consistently(t, getEventsLen, 0)
+	assert.Equal(t, j.GetKey("ns/a").Value, "c1-value")
+
+	// Test 4: c2 updates - should see NO event (c1 still owns it)
+	clearEvents()
+	c2.Set(&NamedValue{Named{"ns", "a"}, "c2-updated"})
+	assert.Consistently(t, getEventsLen, 0)
+
+	// Test 5: c1 deletes - should see UPDATE to c2's version (fallback)
+	clearEvents()
+	c1.Set(nil)
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventUpdate)
+	assert.Equal(t, getEvent(0).Old.Value, "c1-value")
+	assert.Equal(t, getEvent(0).New.Value, "c2-updated")
+
+	// Test 6: c2 deletes - should see UPDATE to c3's version
+	clearEvents()
+	c2.Set(nil)
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventUpdate)
+	assert.Equal(t, getEvent(0).Old.Value, "c2-updated")
+	assert.Equal(t, getEvent(0).New.Value, "c3-value")
+
+	// Test 7: c3 deletes - should see DELETE (no more fallbacks)
+	clearEvents()
+	c3.Set(nil)
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventDelete)
+	assert.Equal(t, getEvent(0).Old.Value, "c3-value")
+
+	// Test 8: Delete from lower priority collection when higher priority owns it - NO event
+	clearEvents()
+	c1.Set(&NamedValue{Named{"ns", "b"}, "c1-b"})
+	assert.EventuallyEqual(t, getEventsLen, 1) // Wait for c1's ADD
+
+	clearEvents()
+	c2.Set(&NamedValue{Named{"ns", "b"}, "c2-b"})
+	assert.Consistently(t, getEventsLen, 0) // c2 adding should be ignored
+
+	c2.Set(nil)                             // c2 deletes but c1 still owns it
+	assert.Consistently(t, getEventsLen, 0) // c2 delete should be ignored
+	assert.Equal(t, j.GetKey("ns/b").Value, "c1-b")
 }
