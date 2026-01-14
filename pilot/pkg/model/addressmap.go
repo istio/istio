@@ -76,7 +76,6 @@ func (m *AddressMap) GetAddressesFor(c cluster.ID) []string {
 }
 
 // SetAddressesFor sets the addresses for a cluster,
-// works in a copy-on-write manner but is not safe for concurrent use,
 // users should ensure they have a shallow copy of the AddressMap before calling this method.
 func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) {
 	if len(addresses) == 0 {
@@ -88,6 +87,7 @@ func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) {
 				return
 			}
 
+			// ensure we clone the internal map to avoid races with shallow copies
 			m.Addresses = maps.Clone(m.Addresses)
 			delete(m.Addresses, c)
 		}
@@ -104,12 +104,12 @@ func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) {
 		return
 	}
 
+	// ensure we clone the internal map to avoid races with shallow copies
 	m.Addresses = maps.Clone(m.Addresses)
 	m.Addresses[c] = addresses
 }
 
 // AddAddressesFor adds addresses for a cluster,
-// works in a copy-on-write manner but is not safe for concurrent use,
 // users should ensure they have a shallow copy of the AddressMap before calling this method.
 func (m *AddressMap) AddAddressesFor(c cluster.ID, addresses []string) {
 	if len(addresses) == 0 {
@@ -125,6 +125,7 @@ func (m *AddressMap) AddAddressesFor(c cluster.ID, addresses []string) {
 		return
 	}
 
+	// ensure we clone the internal map and slice to avoid races with shallow copies
 	m.Addresses = maps.Clone(m.Addresses)
 	m.Addresses[c] = append(slices.Clone(m.Addresses[c]), addresses...)
 }
