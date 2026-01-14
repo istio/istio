@@ -381,39 +381,66 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 		client = r.secureHTTPClient
 	}
 
-	// If blocked IPs or CIDRs are configured, use a custom dialer to check resolved IPs after DNS lookup
+	// If blocked IPs or CIDRs are configured, resolve once, filter, then dial IP literals
 	if len(features.BlockedCIDRsInJWKURIs) > 0 {
 		transport := client.Transport.(*http.Transport).Clone()
-		defaultDialer := &net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
+
+		baseDialer := &net.Dialer{
+			Timeout:       30 * time.Second,
+			KeepAlive:     30 * time.Second,
+			FallbackDelay: 300 * time.Millisecond,
 		}
+		resolver := net.DefaultResolver
 
 		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			host, _, err := net.SplitHostPort(addr)
+			host, port, err := net.SplitHostPort(addr)
 			if err != nil {
 				return nil, err
 			}
 
-			// Resolve the hostname to get IP addresses
-			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			ips, err := resolver.LookupIP(ctx, "ip", host)
 			if err != nil {
 				return nil, err
 			}
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("no IP addresses found for host %q", host)
+			}
 
-			// Check if any resolved IP is in the blocked list
+			var allowed []net.IP
 			for _, ip := range ips {
-				ipStr := ip.String()
-				// Check CIDR ranges
+				blocked := false
 				for _, cidr := range features.BlockedCIDRsInJWKURIs {
 					if cidr.Contains(ip) {
-						return nil, fmt.Errorf("jwksURI %q resolved to IP %q which is in blocked CIDR range %s", uri, ipStr, cidr.String())
+						blocked = true
+						break
 					}
+				}
+				if !blocked {
+					allowed = append(allowed, ip)
 				}
 			}
 
-			// Proceed with the actual connection
-			return defaultDialer.DialContext(ctx, network, addr)
+			if len(allowed) == 0 {
+				ip := ips[0]
+				return nil, fmt.Errorf("jwksURI %q resolved to IP %q which is in blocked CIDR range", uri, ip.String())
+			}
+
+			var firstErr error
+			for _, ip := range allowed {
+				literal := net.JoinHostPort(ip.String(), port)
+				conn, err := baseDialer.DialContext(ctx, network, literal)
+				if err == nil {
+					return conn, nil
+				}
+				if firstErr == nil {
+					firstErr = err
+				}
+			}
+
+			if firstErr == nil {
+				firstErr = fmt.Errorf("failed to dial any address for %s", addr)
+			}
+			return nil, firstErr
 		}
 
 		client = &http.Client{
