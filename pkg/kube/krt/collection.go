@@ -35,9 +35,6 @@ const (
 	getKeyType       indexedDependencyType = iota
 )
 
-// EnableAssertions, if tr will enable assertions. These typically are violations of the krt collection requirements.
-// const EnableAssertions = false
-
 type dependencyState[I any] struct {
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
 	// These are keyed by the internal uid() function on collections.
