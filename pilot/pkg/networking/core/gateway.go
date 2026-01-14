@@ -32,6 +32,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -228,6 +230,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	if len(mutableopts) == 0 {
 		log.Warnf("gateway has zero listeners for node %v", builder.node.ID)
 		return builder
+	}
+
+	if features.EnableAmbientMultiNetwork && isIngressGateway(builder.node) {
+		listeners = append(listeners,
+			buildWaypointInnerConnectOriginateListener(builder.push, builder.node),
+			buildWaypointOuterConnectOriginateListener(builder.push, builder.node))
 	}
 
 	builder.gatewayListeners = listeners
@@ -1094,4 +1102,15 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 		}
 	}
 	return false
+}
+
+func isIngressGateway(proxy *model.Proxy) bool {
+	if proxy == nil || proxy.Type != model.Router {
+		return false
+	}
+
+	// Not sure "ManagedGatewayControllerLabel" is enough to check for
+	// ingress gateways.
+	return proxy.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayControllerLabel ||
+		proxy.Labels[constants.IstioLabel] == constants.IstioIngressLabelValue
 }

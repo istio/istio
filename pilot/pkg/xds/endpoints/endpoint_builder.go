@@ -959,3 +959,12 @@ func isWaypointProxy(node *model.Proxy) bool {
 func isSidecarProxy(node *model.Proxy) bool {
 	return node != nil && node.Type == model.SidecarProxy
 }
+
+func isIngressGateway(proxy *model.Proxy) bool {
+	if proxy == nil || proxy.Type != model.Router {
+		return false
+	}
+
+	return proxy.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayControllerLabel ||
+		proxy.Labels[constants.IstioLabel] == constants.IstioIngressLabelValue // this is a legacy label
+}

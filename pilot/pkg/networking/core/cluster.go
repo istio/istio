@@ -267,6 +267,13 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
+		if features.EnableAmbientMultiNetwork && isIngressGateway(proxy) {
+			clusters = append(
+				clusters,
+				cb.buildWaypointInnerConnectOriginate(proxy, req.Push),
+				cb.buildWaypointOuterConnectOriginate(proxy, req.Push),
+			)
+		}
 	}
 
 	// OutboundTunnel cluster is needed for sidecar and gateway.
