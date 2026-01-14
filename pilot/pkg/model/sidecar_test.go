@@ -3645,6 +3645,12 @@ func createBenchmarkService(numPorts int, numAliases int) *Service {
 	}
 }
 
+// variables to avoid the compiler from optimizing out the copies
+var (
+	deepCopySink    *Service
+	shallowCopySink *Service
+)
+
 // Benchmark comparison between old DeepCopy approach and new shallow copy approach
 func BenchmarkServiceCopyComparison(b *testing.B) {
 	benchmarks := []struct {
@@ -3663,9 +3669,9 @@ func BenchmarkServiceCopyComparison(b *testing.B) {
 			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
 			b.ResetTimer()
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				copied := svc.DeepCopy()
-				if copied == nil {
+			for b.Loop() {
+				deepCopySink = svc.DeepCopy()
+				if deepCopySink == nil {
 					b.Fatal("expected non-nil copy")
 				}
 			}
@@ -3675,9 +3681,9 @@ func BenchmarkServiceCopyComparison(b *testing.B) {
 			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
 			b.ResetTimer()
 			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				copied := svc.ShallowCopy()
-				if copied == nil {
+			for b.Loop() {
+				shallowCopySink = svc.ShallowCopy()
+				if shallowCopySink == nil {
 					b.Fatal("expected non-nil copy")
 				}
 			}
