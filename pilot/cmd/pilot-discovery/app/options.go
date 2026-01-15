@@ -68,6 +68,10 @@ func validateFlags(serverArgs *bootstrap.PilotArgs) error {
 		return err
 	}
 
+	if _, err := bootstrap.TLSMinVersion(serverArgs.ServerOptions.TLSOptions.TLSMinVersion); err != nil {
+		return err
+	}
+
 	_, err := bootstrap.TLSCipherSuites(serverArgs.ServerOptions.TLSOptions.TLSCipherSuites)
 
 	// TODO: add validation for other flags
