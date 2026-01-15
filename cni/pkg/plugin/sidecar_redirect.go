@@ -18,6 +18,7 @@ package plugin
 import (
 	"fmt"
 	"net/netip"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -71,7 +72,7 @@ var (
 		"includeOutboundPorts":       {includeOutboundPortsKey, defaultIncludeOutboundPorts, validatePortListWithWildcard},
 		"kubevirtInterfaces":         {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc}, // DEPRECATED
 		"reroute-virtual-interfaces": {rerouteVirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
-		"excludeInterfaces":          {excludeInterfacesKey, defaultExcludeInterfaces, alwaysValidFunc},
+		"excludeInterfaces":          {excludeInterfacesKey, defaultExcludeInterfaces, validateInterfaceList},
 	}
 )
 
@@ -187,6 +188,27 @@ func validateCIDRListWithWildcard(ipRanges string) error {
 	if ipRanges != "*" {
 		if e := validateCIDRList(ipRanges); e != nil {
 			return fmt.Errorf("IPRanges invalid: %v", e)
+		}
+	}
+	return nil
+}
+
+var interfaceNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9_.\-]*$`)
+
+func validateInterfaceList(interfaces string) error {
+	if len(interfaces) == 0 {
+		return nil
+	}
+	for _, iface := range strings.Split(interfaces, ",") {
+		iface = strings.TrimSpace(iface)
+		if len(iface) == 0 {
+			return fmt.Errorf("empty interface name")
+		}
+		if len(iface) > 15 {
+			return fmt.Errorf("interface name %q too long (max 15 chars)", iface)
+		}
+		if !interfaceNameRegex.MatchString(iface) {
+			return fmt.Errorf("interface name %q contains invalid characters", iface)
 		}
 	}
 	return nil
