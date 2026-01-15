@@ -119,7 +119,7 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 func shouldCreate2HBONEResources(proxy *model.Proxy) bool {
 	return features.EnableAmbientMultiNetwork &&
 		features.EnableHBONESend &&
-		features.EnableIngressRemoteServiceRouting &&
+		features.EnableAmbientIngressMultiNetwork &&
 		isIngressGateway(proxy)
 }
 
