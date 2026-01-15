@@ -2857,7 +2857,7 @@ func runTestContextForCalls(
 				}
 			}
 			for name := range apps.WaypointProxies {
-				labelServiceGlobal(t, name, t.Clusters()...) 
+				labelServiceGlobal(t, name, t.Clusters()...)
 			}
 		})
 		// Pilot delays pushing changes to be able to batch multiple incoming changes together and push them
@@ -2869,7 +2869,7 @@ func runTestContextForCalls(
 		// service labels it does not mean that pilot will immediately see them - there is a race condition here,
 		// but we do expect pilot to notice the update rather quickly, so we double the DebounceAfter time here
 		// to account for this issue.
-		time.Sleep(2*features.DebounceAfter)
+		time.Sleep(2 * features.DebounceAfter)
 	}
 	for _, src := range svcs {
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
