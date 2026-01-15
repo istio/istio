@@ -741,10 +741,7 @@ func joinYaml(s ...string) string {
 	return strings.Join(s, "\n---\n")
 }
 
-func TestIngressGatewayListenersAnClustersMultiNetwork(t *testing.T) {
-	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
-	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-
+func TestIngressGatewayListenersAndClustersMultiNetwork(t *testing.T) {
 	// Ingress gateway service with network label
 	ingressGatewaySvc := `apiVersion: v1
 kind: Service
@@ -780,56 +777,80 @@ spec:
     - "*.example.com"
 `
 
-	c := joinYaml(ingressGatewaySvc, ingressGateway)
-
-	mc := mesh.DefaultMeshConfig()
-	d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		ConfigString:           c,
-		KubernetesObjectString: c,
-		MeshConfig:             mc,
-	})
-
-	// Create an ingress gateway proxy (Router type)
-	proxy := d.SetupProxy(&model.Proxy{
-		Type:            model.Router,
-		ConfigNamespace: "istio-system",
-		Labels: map[string]string{
-			"istio":                    "ingressgateway",
-			label.TopologyNetwork.Name: "network-1",
+	cases := []struct {
+		name            string
+		enableHBONESend bool
+		expect2HBONE    bool
+	}{
+		{
+			name:            "2HBONE listeners and clusters present when HBONESend enabled",
+			enableHBONESend: true,
+			expect2HBONE:    true,
 		},
-		IPAddresses: []string{"10.0.0.1"},
-		Metadata: &model.NodeMetadata{
-			Labels: map[string]string{
-				"istio":                    "ingressgateway",
-				label.TopologyNetwork.Name: "network-1",
-			},
+		{
+			name:            "no 2HBONE listeners and clusters when HBONESend disabled",
+			enableHBONESend: false,
+			expect2HBONE:    false,
 		},
-	})
+	}
 
-	listeners := d.Listeners(proxy)
-	clusters := d.Clusters(proxy)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set feature flags before creating discovery server
+			test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+			test.SetForTest(t, &features.EnableIngressRemoteServiceRouting, true)
+			test.SetForTest(t, &features.EnableHBONESend, tc.enableHBONESend)
 
-	t.Run("expected listeners for 2HBONE are present", func(t *testing.T) {
-		g := NewWithT(t)
-		listenerNames := []string{}
-		for _, l := range listeners {
-			listenerNames = append(listenerNames, l.Name)
-		}
-		g.Expect(listenerNames).To(ContainElements([]string{
-			"inner_connect_originate",
-			"outer_connect_originate",
-		}))
-	})
+			c := joinYaml(ingressGatewaySvc, ingressGateway)
+			mc := mesh.DefaultMeshConfig()
+			d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				ConfigString:           c,
+				KubernetesObjectString: c,
+				MeshConfig:             mc,
+			})
 
-	t.Run("expected clusters for 2HBONE are present", func(t *testing.T) {
-		g := NewWithT(t)
-		clusterNames := []string{}
-		for _, l := range clusters {
-			clusterNames = append(clusterNames, l.Name)
-		}
-		g.Expect(clusterNames).To(ContainElements([]string{
-			"inner_connect_originate",
-			"outer_connect_originate",
-		}))
-	})
+			// Create an ingress gateway proxy (Router type)
+			proxy := d.SetupProxy(&model.Proxy{
+				Type:            model.Router,
+				ConfigNamespace: "istio-system",
+				Labels: map[string]string{
+					"istio":                    "ingressgateway",
+					label.TopologyNetwork.Name: "network-1",
+				},
+				IPAddresses: []string{"10.0.0.1"},
+				Metadata: &model.NodeMetadata{
+					Labels: map[string]string{
+						"istio":                    "ingressgateway",
+						label.TopologyNetwork.Name: "network-1",
+					},
+				},
+			})
+
+			listeners := d.Listeners(proxy)
+			clusters := d.Clusters(proxy)
+
+			listenerNames := []string{}
+			for _, l := range listeners {
+				listenerNames = append(listenerNames, l.Name)
+			}
+
+			clusterNames := []string{}
+			for _, c := range clusters {
+				clusterNames = append(clusterNames, c.Name)
+			}
+
+			expectedListeners := []string{"inner_connect_originate", "outer_connect_originate"}
+			expectedClusters := []string{"inner_connect_originate", "outer_connect_originate"}
+
+			g := NewWithT(t)
+			if tc.expect2HBONE {
+				g.Expect(listenerNames).To(ContainElements(expectedListeners))
+				g.Expect(clusterNames).To(ContainElements(expectedClusters))
+			} else {
+				g.Expect(listenerNames).ToNot(ContainElements(expectedListeners))
+				g.Expect(clusterNames).ToNot(ContainElements(expectedClusters))
+			}
+		})
+	}
 }

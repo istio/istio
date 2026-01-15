@@ -63,9 +63,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	// After discussing it in the WG meeting, the preference was to change the behavior in ambient mode to not
 	// generate EDS endpoints for remote networks, so that's why the logic between ambient and sidecar mode here
 	// is different.
-	isAmbientMultiNetworkProxy := features.EnableAmbientMultiNetwork && (isWaypointProxy(b.proxy) || isIngressGateway(b.proxy))
 
-	if !b.gateways().IsMultiNetworkEnabled() && !isAmbientMultiNetworkProxy {
+	if !b.gateways().IsMultiNetworkEnabled() {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
 	}
@@ -115,8 +114,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Check if we allow waypoints to talk across networks (EnableAmbientWaypointMultiNetwork feature flag)
 			// and whether we have an E/W gateway we can use. If neither is true, then just ignore the endpoint
 			// completely.
-			if isAmbientMultiNetworkProxy && !b.proxy.InNetwork(epNetwork) {
-				if !features.EnableAmbientWaypointMultiNetwork {
+			if !b.proxy.InNetwork(epNetwork) && features.EnableAmbientMultiNetwork {
+				if !features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(b.proxy) ||
+					!features.EnableIngressRemoteServiceRouting && isIngressGateway(b.proxy) {
 					continue
 				}
 				if len(gateways) == 0 {
@@ -151,11 +151,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
-			// Cross-network traffic relies on double-HBONE in ambient mode and on mTLS for SNI routing in sidecar mode.
+			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
 			// TODO BTS may allow us to work around this
-			if !isAmbientMultiNetworkProxy && !isMtlsEnabled(lbEp) {
+			if isSidecarProxy(b.proxy) && !isMtlsEnabled(lbEp) {
 				continue
 			}
 
@@ -188,7 +188,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// gateways differently as we use somewhat different protocols in those two distinct cases.
 			var gwEp *endpoint.LbEndpoint
 
-			if isAmbientMultiNetworkProxy {
+			if features.EnableAmbientMultiNetwork {
 				gwAddr := gw.Addr
 				gwPort := int(gw.HBONEPort)
 

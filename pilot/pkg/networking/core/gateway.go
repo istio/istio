@@ -116,6 +116,13 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 	return nil
 }
 
+func shouldCreate2HBONEResources(proxy *model.Proxy) bool {
+	return features.EnableAmbientMultiNetwork &&
+		features.EnableHBONESend &&
+		features.EnableIngressRemoteServiceRouting &&
+		isIngressGateway(proxy)
+}
+
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
 	if builder.node.MergedGateway == nil {
 		log.Debugf("buildGatewayListeners: no gateways for router %v", builder.node.ID)
@@ -232,10 +239,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		return builder
 	}
 
-	if features.EnableAmbientMultiNetwork && isIngressGateway(builder.node) {
+	if shouldCreate2HBONEResources(builder.node) {
 		listeners = append(listeners,
-			buildWaypointInnerConnectOriginateListener(builder.push, builder.node),
-			buildWaypointOuterConnectOriginateListener(builder.push, builder.node))
+			buildInnerConnectOriginateListener(builder.push, builder.node),
+			buildOuterConnectOriginateListener(builder.push, builder.node))
 	}
 
 	builder.gatewayListeners = listeners
@@ -1104,13 +1111,12 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 	return false
 }
 
+// TODO: move this to model/context.go to avoid duplications.
 func isIngressGateway(proxy *model.Proxy) bool {
 	if proxy == nil || proxy.Type != model.Router {
 		return false
 	}
 
-	// Not sure "ManagedGatewayControllerLabel" is enough to check for
-	// ingress gateways.
 	return proxy.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayControllerLabel ||
 		proxy.Labels[constants.IstioLabel] == constants.IstioIngressLabelValue
 }
