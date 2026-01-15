@@ -335,7 +335,7 @@ func (c *Controller) Services() []*model.Service {
 					if services[previous].ClusterVIPs.Len() < 2 {
 						// Deep copy before merging, otherwise there is a case
 						// a service in remote cluster can be deleted, but the ClusterIP left.
-						services[previous] = services[previous].DeepCopy()
+						services[previous] = services[previous].ShallowCopy()
 					}
 					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
 					mergeService(services[previous], s, r)
@@ -358,7 +358,7 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 			return service
 		}
 		if out == nil {
-			out = service.DeepCopy()
+			out = service.ShallowCopy()
 		} else {
 			// If we are seeing the service for the second time, it means it is available in multiple clusters.
 			mergeService(out, service, r)
@@ -381,8 +381,10 @@ func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance)
 	// Merge service accounts from different clusters
 	// Each cluster may have a different trust domain, so we need to collect all unique service accounts
 	if len(src.ServiceAccounts) > 0 {
-		dst.ServiceAccounts = append(dst.ServiceAccounts, src.ServiceAccounts...)
-		dst.ServiceAccounts = slices.FilterDuplicates(dst.ServiceAccounts)
+		sas := make([]string, 0, len(dst.ServiceAccounts)+len(src.ServiceAccounts))
+		sas = append(sas, dst.ServiceAccounts...)
+		sas = append(sas, src.ServiceAccounts...)
+		dst.ServiceAccounts = slices.FilterDuplicates(sas)
 	}
 }
 

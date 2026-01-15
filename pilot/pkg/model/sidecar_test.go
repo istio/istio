@@ -31,11 +31,13 @@ import (
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
@@ -3584,6 +3586,106 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 			index := computeWildcardHostVirtualServiceIndex(tt.virtualServices, tt.services)
 			if !reflect.DeepEqual(tt.expectedIndex, index) {
 				t.Errorf("Expected index %v, got %v", tt.expectedIndex, index)
+			}
+		})
+	}
+}
+
+// createBenchmarkService creates a service with realistic attributes for benchmarking
+func createBenchmarkService(numPorts int, numAliases int) *Service {
+	ports := make([]*Port, numPorts)
+	for i := 0; i < numPorts; i++ {
+		ports[i] = &Port{
+			Name:     "http-" + string(rune('0'+i)),
+			Port:     8080 + i,
+			Protocol: protocol.HTTP,
+		}
+	}
+
+	aliases := make([]NamespacedHostname, numAliases)
+	for i := 0; i < numAliases; i++ {
+		aliases[i] = NamespacedHostname{
+			Hostname:  host.Name("alias" + string(rune('0'+i)) + ".example.com"),
+			Namespace: "default",
+		}
+	}
+
+	labels := map[string]string{
+		"app":     "test",
+		"version": "v1",
+		"env":     "prod",
+	}
+
+	labelSelectors := map[string]string{
+		"app": "test",
+	}
+
+	clusterVIPs := AddressMap{
+		Addresses: map[cluster.ID][]string{
+			"cluster-1": {"10.0.0.1"},
+			"cluster-2": {"10.0.0.2"},
+		},
+	}
+
+	return &Service{
+		Hostname: "test.default.svc.cluster.local",
+		Ports:    ports,
+		Attributes: ServiceAttributes{
+			ServiceRegistry: provider.Kubernetes,
+			Name:            "test",
+			Namespace:       "default",
+			Labels:          labels,
+			LabelSelectors:  labelSelectors,
+			Aliases:         aliases,
+		},
+		ServiceAccounts: []string{
+			"spiffe://cluster.local/ns/default/sa/test",
+		},
+		ClusterVIPs: *clusterVIPs.DeepCopy(),
+	}
+}
+
+// variables to avoid the compiler from optimizing out the copies
+var (
+	deepCopySink    *Service
+	shallowCopySink *Service
+)
+
+// Benchmark comparison between old DeepCopy approach and new shallow copy approach
+func BenchmarkServiceCopyComparison(b *testing.B) {
+	benchmarks := []struct {
+		name       string
+		numPorts   int
+		numAliases int
+	}{
+		{"tiny-service", 1, 0},
+		{"small-service", 3, 5},
+		{"medium-service", 10, 10},
+		{"large-service", 20, 30},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name+"-DeepCopy", func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for b.Loop() {
+				deepCopySink = svc.DeepCopy()
+				if deepCopySink == nil {
+					b.Fatal("expected non-nil copy")
+				}
+			}
+		})
+
+		b.Run(bm.name+"-ShallowCopy", func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for b.Loop() {
+				shallowCopySink = svc.ShallowCopy()
+				if shallowCopySink == nil {
+					b.Fatal("expected non-nil copy")
+				}
 			}
 		})
 	}

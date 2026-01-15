@@ -44,18 +44,18 @@ func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
 }
 
 func buildMockController() *Controller {
-	discovery1 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV1.DeepCopy(),
-		mock.HelloService.DeepCopy(),
-		mock.ExtHTTPService.DeepCopy(),
+	discovery1 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV1.ShallowCopy(),
+		mock.HelloService.ShallowCopy(),
+		mock.ExtHTTPService.ShallowCopy(),
 	)
 	for _, port := range mock.HelloService.Ports {
 		discovery1.AddInstance(mock.MakeServiceInstance(mock.HelloService, port, 0, model.Locality{}))
 		discovery1.AddInstance(mock.MakeServiceInstance(mock.HelloService, port, 1, model.Locality{}))
 	}
 
-	discovery2 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV2.DeepCopy(),
-		mock.WorldService.DeepCopy(),
-		mock.ExtHTTPSService.DeepCopy(),
+	discovery2 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV2.ShallowCopy(),
+		mock.WorldService.ShallowCopy(),
+		mock.ExtHTTPSService.ShallowCopy(),
 	)
 	for _, port := range mock.WorldService.Ports {
 		discovery2.AddInstance(mock.MakeServiceInstance(mock.WorldService, port, 0, model.Locality{}))
@@ -110,7 +110,7 @@ func buildMockControllerForMultiCluster() (*Controller, *memory.ServiceDiscovery
 }
 
 func TestServicesForMultiCluster(t *testing.T) {
-	originalHelloService := mock.HelloService.DeepCopy()
+	originalHelloService := mock.HelloService.ShallowCopy()
 	aggregateCtl, _, registry2 := buildMockControllerForMultiCluster()
 	// List Services from aggregate controller
 	services := aggregateCtl.Services()

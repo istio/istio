@@ -772,9 +772,9 @@ func matchingAliasService(importedHosts hostClassification, service *Service) *S
 	if len(matched) == len(service.Attributes.Aliases) {
 		return service
 	}
-	service = service.DeepCopy()
-	service.Attributes.Aliases = matched
-	return service
+	sc := service.ShallowCopy()
+	sc.Attributes.Aliases = matched
+	return sc
 }
 
 // serviceMatchingListenerPort constructs service with listener port.
@@ -788,8 +788,14 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 				return service
 			}
 			// when there are multiple ports, construct service with listener port
-			sc := service.DeepCopy()
-			sc.Ports = []*Port{port}
+			sc := service.ShallowCopy()
+			sc.Ports = []*Port{
+				{
+					Name:     port.Name,
+					Port:     port.Port,
+					Protocol: port.Protocol,
+				},
+			}
 			return sc
 		}
 	}
@@ -806,7 +812,8 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 	foundPorts := make([]*Port, 0)
 	for _, port := range service.Ports {
 		if vsDestPorts.Contains(port.Port) {
-			foundPorts = append(foundPorts, port)
+			p := *port
+			foundPorts = append(foundPorts, &p)
 		}
 	}
 
@@ -815,7 +822,7 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 	}
 
 	if len(foundPorts) > 0 {
-		sc := service.DeepCopy()
+		sc := service.ShallowCopy()
 		sc.Ports = foundPorts
 		return sc
 	}
@@ -939,7 +946,14 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		// If it comes here, it means we can merge the services.
 		// Merge the ports to service when each listener generates partial service.
 		// We only merge if the found service is in the same namespace as the one we're trying to add
-		copied := foundSvc.svc.DeepCopy()
+		copied := foundSvc.svc.ShallowCopy()
+		// Deep copy existing ports
+		copied.Ports = make(PortList, 0, len(foundSvc.svc.Ports)+len(s.Ports))
+		for _, port := range foundSvc.svc.Ports {
+			p := *port
+			copied.Ports = append(copied.Ports, &p)
+		}
+		// Add new ports from s, avoiding duplicates
 		for _, p := range s.Ports {
 			found := false
 			for _, osp := range copied.Ports {

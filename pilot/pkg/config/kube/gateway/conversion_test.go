@@ -90,7 +90,7 @@ var services = []*model.Service{
 		Attributes: model.ServiceAttributes{
 			Name:      "istio-ingressgateway",
 			Namespace: "istio-system",
-			ClusterExternalAddresses: &model.AddressMap{
+			ClusterExternalAddresses: model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					constants.DefaultClusterName: {"1.2.3.4"},
 				},

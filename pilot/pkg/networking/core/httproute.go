@@ -333,7 +333,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			servicesByName[h] = &model.Service{
 				Hostname:       h,
 				DefaultAddress: svc.GetAddressForProxy(node),
-				ClusterVIPs:    *svc.ClusterVIPs.DeepCopy(),
+				ClusterVIPs:    model.AddressMap{Addresses: svc.ClusterVIPs.Addresses},
 				MeshExternal:   svc.MeshExternal,
 				Resolution:     svc.Resolution,
 				Ports:          []*model.Port{svcPort},
