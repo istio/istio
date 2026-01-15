@@ -267,11 +267,15 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
-		if features.EnableAmbientMultiNetwork && isIngressGateway(proxy) {
+		// Ingress gateway needs the clusters necessary for 2HBONE communications
+		// that happen cross cluster. A request arrives at the ingress and the LB
+		// configuration may straightaway redirect the request to a backend in a
+		// remote cluster/network.
+		if shouldCreate2HBONEResources(proxy) {
 			clusters = append(
 				clusters,
-				cb.buildWaypointInnerConnectOriginate(proxy, req.Push),
-				cb.buildWaypointOuterConnectOriginate(proxy, req.Push),
+				cb.buildInnerConnectOriginateCluster(proxy, req.Push),
+				cb.buildOuterConnectOriginateCluster(proxy, req.Push),
 			)
 		}
 	}
