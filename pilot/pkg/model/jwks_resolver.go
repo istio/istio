@@ -99,6 +99,24 @@ var (
 	jwksuriChannel = make(chan jwtKey, 5)
 )
 
+// blockedCIDRError wraps an error to mark it as a blocked CIDR without changing the message
+type blockedCIDRError struct {
+	err error
+}
+
+func (e *blockedCIDRError) Error() string {
+	return e.err.Error()
+}
+
+func (e *blockedCIDRError) Unwrap() error {
+	return e.err
+}
+
+func isBlockedCIDRError(err error) bool {
+	var blocked *blockedCIDRError
+	return errors.As(err, &blocked)
+}
+
 // jwtPubKeyEntry is a single cached entry for jwt public key and the http context options
 type jwtPubKeyEntry struct {
 	pubKey string
@@ -422,7 +440,7 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 
 			if len(allowed) == 0 {
 				ip := ips[0]
-				return nil, fmt.Errorf("jwksURI %q resolved to IP %q which is in blocked CIDR range", uri, ip.String())
+				return nil, &blockedCIDRError{err: fmt.Errorf("jwksURI %q resolved to IP %q which is in blocked CIDR range", uri, ip.String())}
 			}
 
 			var firstErr error
@@ -488,6 +506,10 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 		body, err := getPublicKey()
 		if err == nil {
 			return body, nil
+		}
+		// Don't retry if the IP is blocked - it will never succeed
+		if isBlockedCIDRError(err) {
+			return nil, err
 		}
 		log.Warnf("Failed to GET from %q: %s. Retry in %v", uri, err, r.retryInterval)
 		time.Sleep(r.retryInterval)
