@@ -5,5 +5,5 @@ issue:
   - 58768
 releaseNotes:
   - |
-    **Fixed** an issue in `istio-cni` where a normal shutdown (including config cleanup) would not be performed
-    if the shutdown was triggered by a change to the NodeAffinity rules of the `istio-cni` DaemonSet.
+    **Fixed** an issue where the `istio-cni` daemonSet treated NodeAffinity changes as upgrades,
+    causing CNI config to be incorrectly left in place when a node no longer matched the DaemonSet's NodeAffinity rules.
