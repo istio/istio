@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58781
+releaseNotes:
+  - |
+    **Added** input validation for `traffic.sidecar.istio.io/excludeInterfaces` annotation
+    to ensure interface names follow Linux naming rules (max 15 chars, alphanumeric, underscore,
+    hyphen, and dot only).

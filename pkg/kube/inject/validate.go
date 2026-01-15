@@ -17,7 +17,6 @@ package inject
 import (
 	"fmt"
 	"net/netip"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation/agent"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -185,24 +185,7 @@ func parsePorts(portsString string) ([]int, error) {
 	return ports, nil
 }
 
-var interfaceNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9_.\-]*$`)
-
 // ValidateExcludeInterfaces validates the excludeInterfaces parameter
 func ValidateExcludeInterfaces(interfaces string) error {
-	if len(interfaces) == 0 {
-		return nil
-	}
-	for _, iface := range strings.Split(interfaces, ",") {
-		iface = strings.TrimSpace(iface)
-		if len(iface) == 0 {
-			return fmt.Errorf("empty interface name")
-		}
-		if len(iface) > 15 {
-			return fmt.Errorf("interface name %q too long (max 15 chars)", iface)
-		}
-		if !interfaceNameRegex.MatchString(iface) {
-			return fmt.Errorf("interface name %q contains invalid characters", iface)
-		}
-	}
-	return nil
+	return netutil.ValidateInterfaceNames(interfaces)
 }
