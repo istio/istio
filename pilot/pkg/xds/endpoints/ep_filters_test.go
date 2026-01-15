@@ -681,6 +681,7 @@ func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
+	test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, true)
 	env := environment(t)
 	env.Env().InitNetworksManager(env.Discovery)
 	ambientNetworkFiltered := []networkFilterCase{

@@ -60,9 +60,6 @@ var (
 	EnableIngressWaypointRouting = registerAmbient("ENABLE_INGRESS_WAYPOINT_ROUTING", true, false,
 		"If true, Gateways will call service waypoints if the 'istio.io/ingress-use-waypoint' label set on the Service.")
 
-	EnableIngressRemoteServiceRouting = registerAmbient("ENABLE_INGRESS_REMOTE_SERVICE_ROUTING", true, false,
-		"If true, Gateways will call exposed services in remote clusters through their E/W Gateways.")
-
 	EnableAmbientMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK", false, false,
 		"If true, the multi-network functionality will be enabled.")
 
@@ -74,6 +71,10 @@ var (
 	EnableAmbientWaypointMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK_WAYPOINT", true, false,
 		"If true and AMBIENT_ENABLE_MULTI_NETWORK is also true, it will enable waypoints to route requests to clusters on remote networks, "+
 			"while by default waypoints will keep traffic local.")
+
+	EnableAmbientIngressMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK_INGRESS", false, false,
+		"If true and AMBIENT_ENABLE_MULTI_NETWORK is also true, it will enable ingress gateways to route requests to clusters on remote "+
+			"networks while by default ingress gateways will keep traffic local.")
 
 	WaypointLayeredAuthorizationPolicies = env.Register(
 		"ENABLE_LAYERED_WAYPOINT_AUTHORIZATION_POLICIES",

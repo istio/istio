@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management 
+releaseNotes:
+  - |
+    **Fixed** an issue where ingress gateways in ambient multi-cluster did not route requests to exposed remote backends.

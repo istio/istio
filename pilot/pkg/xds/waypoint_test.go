@@ -799,7 +799,7 @@ spec:
 			// Set feature flags before creating discovery server
 			test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 			test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-			test.SetForTest(t, &features.EnableIngressRemoteServiceRouting, true)
+			test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, true)
 			test.SetForTest(t, &features.EnableHBONESend, tc.enableHBONESend)
 
 			c := joinYaml(ingressGatewaySvc, ingressGateway)

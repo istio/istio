@@ -116,7 +116,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// completely.
 			if !b.proxy.InNetwork(epNetwork) && features.EnableAmbientMultiNetwork {
 				if !features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(b.proxy) ||
-					!features.EnableIngressRemoteServiceRouting && isIngressGateway(b.proxy) {
+					!features.EnableAmbientIngressMultiNetwork && isIngressGateway(b.proxy) {
 					continue
 				}
 				if len(gateways) == 0 {
