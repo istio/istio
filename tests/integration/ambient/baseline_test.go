@@ -35,6 +35,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -2844,11 +2845,10 @@ func runTestContextForCalls(
 				labelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
 			}
 		}
-		// waypoint proxies also need to be labeled as global
-		for _, cls := range t.Clusters() {
-			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), cls)
-			labelServiceGlobal(t, apps.WorkloadAddressedWaypoint.ServiceName(), cls)
+		for name := range apps.WaypointProxies {
+			labelServiceGlobal(t, name, t.Clusters()...)
 		}
+
 		t.Cleanup(func() {
 			// cleanup services which other tests expect to be local
 			for _, app := range apps.Mesh {
@@ -2856,11 +2856,20 @@ func runTestContextForCalls(
 					unlabelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
 				}
 			}
-			for _, cls := range t.Clusters() {
-				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), cls)
-				unlabelServiceGlobal(t, apps.WorkloadAddressedWaypoint.ServiceName(), cls)
+			for name := range apps.WaypointProxies {
+				labelServiceGlobal(t, name, t.Clusters()...) 
 			}
 		})
+		// Pilot delays pushing changes to be able to batch multiple incoming changes together and push them
+		// all at once. That means that there is a delay after the last detect change and the push of that
+		// change to the all the relevant nodes.
+		//
+		// We don't expect any changes that should trigger the push in parallel, so it should be enough to
+		// wait for the DebounceAfter time, after the pilot sees the update. Naturally, just because we updated
+		// service labels it does not mean that pilot will immediately see them - there is a race condition here,
+		// but we do expect pilot to notice the update rather quickly, so we double the DebounceAfter time here
+		// to account for this issue.
+		time.Sleep(2*features.DebounceAfter)
 	}
 	for _, src := range svcs {
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
