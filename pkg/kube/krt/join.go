@@ -187,9 +187,6 @@ func (j *join[T]) getFromColIdx(idx int, key string) *T {
 
 	// HACK: StaticCollectoin (which we use in test) does not care what key you pass to Get
 	if GetKey(*obj) != key {
-		if EnableAssertions {
-			panic("join: getFromColIdx: collection returned object with wrong key. Wanted: " + key + " got: " + GetKey(*obj))
-		}
 		return nil
 	}
 
