@@ -812,7 +812,7 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 			}
 		}
 		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
-	} else if !gateway.IsPassThroughServer(server) {
+	} else if !gateway.IsPassThroughServer(server) && server.Port.Name != "default-terminate" {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 		// and forward to backend
 		// Validation ensures that non-passthrough servers will have certs
@@ -937,11 +937,18 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 						}
 
 						// the sni hosts in the match will become part of a filter chain match
-						filterChains = append(filterChains, &filterChainOpts{
+						filterChain := &filterChainOpts{
 							sniHosts:       match.SniHosts,
 							tlsContext:     nil, // NO TLS context because this is passthrough
 							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false),
-						})
+						}
+
+						if server.Port.Name == "default-terminate" {
+							filterChain.tlsContext = buildGatewayListenerTLSContext(lb.push, server, lb.node, istionetworking.TransportProtocolTCP)
+						}
+
+						// the sni hosts in the match will become part of a filter chain match
+						filterChains = append(filterChains, filterChain)
 					}
 				}
 			}
