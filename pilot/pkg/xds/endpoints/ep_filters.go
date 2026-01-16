@@ -64,7 +64,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	// generate EDS endpoints for remote networks, so that's why the logic between ambient and sidecar mode here
 	// is different.
 
-	if !b.gateways().IsMultiNetworkEnabled() {
+	// If we don't have multiple networks, we just return the plain endpoints. Otherwise we only return plain
+	// endpoints for sidecars not running in ambient multi cluster.
+	if !b.gateways().IsMultiNetworkEnabled() && (!features.EnableAmbientMultiNetwork && isSidecarProxy(b.proxy)) {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
 	}
