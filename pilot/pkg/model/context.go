@@ -1095,7 +1095,7 @@ func IsIngressGateway(proxy *Proxy) bool {
 	}
 
 	return proxy.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayControllerLabel ||
-		proxy.Labels[constants.IstioLabel] == constants.IstioIngressLabelValue
+		proxy.Labels[constants.IstioLabel] == constants.IstioIngressLabelValue // This is a legacy label
 }
 
 func IsWaypointProxy(node *Proxy) bool {
