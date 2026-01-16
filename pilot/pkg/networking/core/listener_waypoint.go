@@ -853,6 +853,11 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
+
+	// Add downstream peer metadata filter to main_internal chains so source workload
+	// metadata is available for tracing in this HCM (not just in connect_terminate)
+	pre = append(pre, xdsfilters.WaypointDownstreamMetadataFilter)
+
 	pre = append(pre, authzCustomBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHN)
 	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
