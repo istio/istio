@@ -267,7 +267,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
-		// Ingress gateway needs the clusters necessary for 2HBONE communications
+		// Ingress gateway needs the clusters necessary for Double HBONE communications
 		// that happen cross cluster. A request arrives at the ingress and the LB
 		// configuration may straightaway redirect the request to a backend in a
 		// remote cluster/network.
