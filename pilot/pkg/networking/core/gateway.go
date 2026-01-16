@@ -32,7 +32,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
-	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -45,7 +44,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -114,13 +112,6 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 	}
 
 	return nil
-}
-
-func shouldCreate2HBONEResources(proxy *model.Proxy) bool {
-	return features.EnableAmbientMultiNetwork &&
-		features.EnableHBONESend &&
-		features.EnableAmbientIngressMultiNetwork &&
-		isIngressGateway(proxy)
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
@@ -239,7 +230,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		return builder
 	}
 
-	if shouldCreate2HBONEResources(builder.node) {
+	if model.ShouldCreateDoubleHBONEResources(builder.node) {
 		listeners = append(listeners,
 			buildInnerConnectOriginateListener(builder.push, builder.node),
 			buildOuterConnectOriginateListener(builder.push, builder.node))
@@ -1112,11 +1103,3 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 }
 
 // TODO: move this to model/context.go to avoid duplications.
-func isIngressGateway(proxy *model.Proxy) bool {
-	if proxy == nil || proxy.Type != model.Router {
-		return false
-	}
-
-	return proxy.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayControllerLabel ||
-		proxy.Labels[constants.IstioLabel] == constants.IstioIngressLabelValue
-}

@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
@@ -1086,4 +1087,29 @@ func OutboundListenerClass(t NodeType) istionetworking.ListenerClass {
 		return istionetworking.ListenerClassGateway
 	}
 	return istionetworking.ListenerClassSidecarOutbound
+}
+
+func IsIngressGateway(proxy *Proxy) bool {
+	if proxy == nil || proxy.Type != Router {
+		return false
+	}
+
+	return proxy.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayControllerLabel
+}
+
+func IsWaypointProxy(node *Proxy) bool {
+	if node == nil || node.Type != Waypoint {
+		return false
+	}
+	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
+
+	return isManagedGateway && controller == constants.ManagedGatewayMeshControllerLabel
+}
+
+func ShouldCreateDoubleHBONEResources(p *Proxy) bool {
+	if !features.EnableHBONESend || !features.EnableAmbientMultiNetwork {
+		return false
+	}
+	return IsIngressGateway(p) && features.EnableAmbientIngressMultiNetwork ||
+		IsWaypointProxy(p) && features.EnableAmbientWaypointMultiNetwork
 }

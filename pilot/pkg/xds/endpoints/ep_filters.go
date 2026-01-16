@@ -115,8 +115,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// and whether we have an E/W gateway we can use. If neither is true, then just ignore the endpoint
 			// completely.
 			if !b.proxy.InNetwork(epNetwork) && features.EnableAmbientMultiNetwork {
-				if !features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(b.proxy) ||
-					!features.EnableAmbientIngressMultiNetwork && isIngressGateway(b.proxy) {
+				if !features.EnableAmbientWaypointMultiNetwork && model.IsWaypointProxy(b.proxy) ||
+					!features.EnableAmbientIngressMultiNetwork && model.IsIngressGateway(b.proxy) {
 					continue
 				}
 				if len(gateways) == 0 {
@@ -285,7 +285,7 @@ func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []m
 	}
 
 	// If we operate in ambient multi-network mode skip gateways that don't have HBONE port
-	if features.EnableAmbientMultiNetwork && isWaypointProxy(b.proxy) {
+	if features.EnableAmbientMultiNetwork && model.IsWaypointProxy(b.proxy) {
 		var ambientGws []model.NetworkGateway
 		for _, gw := range gws {
 			if gw.HBONEPort == 0 {
