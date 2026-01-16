@@ -65,8 +65,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	// is different.
 
 	// If we don't have multiple networks, we just return the plain endpoints. Otherwise we only return plain
-	// endpoints for sidecars not running in ambient multi cluster.
-	if !b.gateways().IsMultiNetworkEnabled() && (!features.EnableAmbientMultiNetwork && isSidecarProxy(b.proxy)) {
+	// endpoints when ambient multi network is disabled or it's a sidecar proxy.
+	if !b.gateways().IsMultiNetworkEnabled() && (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
 	}
