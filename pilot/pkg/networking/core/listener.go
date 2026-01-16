@@ -1444,6 +1444,16 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+			HeadersToAdd: []*core.HeaderValueOption{
+				// Set x-forwarded-network header to the value of the proxy's network
+				{
+					AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+					Header: &core.HeaderValue{
+						Key:   downstreamOriginNetworkHeader,
+						Value: string(proxy.Metadata.Network),
+					},
+				},
+			},
 		},
 	}
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
