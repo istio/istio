@@ -237,7 +237,8 @@ type IstioEgressListenerWrapper struct {
 	// namespace A that has some path rewrite, while listener2 could import
 	// a private virtual service for serviceA from the local namespace,
 	// with a different path rewrite or no path rewrites.
-	virtualServices []config.Config
+	// Stored as pointers to avoid copying config.Config structs.
+	virtualServices []*config.Config
 
 	// An index of hostname to the namespaced name of the VirtualService containing the most
 	// specific host match.
@@ -543,8 +544,8 @@ func (ilw *IstioEgressListenerWrapper) Services() []*Service {
 }
 
 // VirtualServices returns the list of virtual services imported by this
-// egress listener
-func (ilw *IstioEgressListenerWrapper) VirtualServices() []config.Config {
+// egress listener. Returns pointers to avoid copying config.Config structs.
+func (ilw *IstioEgressListenerWrapper) VirtualServices() []*config.Config {
 	return ilw.virtualServices
 }
 
@@ -835,9 +836,9 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 //
 // N.B the caller MUST presort virtualServices based on the desired precedence for duplicate hostnames.
 // This function will persist that order and not overwrite any previous entries for a given hostname.
-func computeWildcardHostVirtualServiceIndex(virtualServices []config.Config, services []*Service) map[host.Name]types.NamespacedName {
-	fqdnVirtualServiceHostIndex := make(map[host.Name]config.Config, len(virtualServices))
-	wildcardVirtualServiceHostIndex := make(map[host.Name]config.Config, len(virtualServices))
+func computeWildcardHostVirtualServiceIndex(virtualServices []*config.Config, services []*Service) map[host.Name]types.NamespacedName {
+	fqdnVirtualServiceHostIndex := make(map[host.Name]*config.Config, len(virtualServices))
+	wildcardVirtualServiceHostIndex := make(map[host.Name]*config.Config, len(virtualServices))
 	for _, vs := range virtualServices {
 		v := vs.Spec.(*networking.VirtualService)
 		for _, h := range v.Hosts {

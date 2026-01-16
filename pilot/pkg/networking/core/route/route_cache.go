@@ -52,7 +52,7 @@ type Cache struct {
 
 	ListenerPort            int
 	Services                []*model.Service
-	VirtualServices         []config.Config
+	VirtualServices         []*config.Config
 	DelegateVirtualServices []model.ConfigHash
 	DestinationRules        []*model.ConsolidatedDestRule
 	EnvoyFilterKeys         []string
