@@ -604,11 +604,24 @@ func defaultTracingTags() []*tracing.CustomTag {
 
 func waypointTracingTags(extra ...*tracing.CustomTag) []*tracing.CustomTag {
 	tags := append([]*tracing.CustomTag{}, defaultTracingTags()...)
+	// CEL-based tags for downstream/upstream peer info
 	tags = append(tags,
 		&tracing.CustomTag{Tag: "istio.downstream.namespace", Type: &tracing.CustomTag_Value{Value: "%CEL(filter_state.downstream_peer.namespace)%"}},
 		&tracing.CustomTag{Tag: "istio.downstream.workload", Type: &tracing.CustomTag_Value{Value: "%CEL(filter_state.downstream_peer.workload)%"}},
 		&tracing.CustomTag{Tag: "istio.upstream.namespace", Type: &tracing.CustomTag_Value{Value: "%CEL(filter_state.upstream_peer.namespace)%"}},
 		&tracing.CustomTag{Tag: "istio.upstream.workload", Type: &tracing.CustomTag_Value{Value: "%CEL(filter_state.upstream_peer.workload)%"}},
+	)
+	// FIELD accessor tags for waypoint source tracking (uses downstream_peer_obj key)
+	tags = append(tags,
+		&tracing.CustomTag{Tag: "istio.source_app", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:app)%"}},
+		&tracing.CustomTag{Tag: "istio.source_app_version", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:version)%"}},
+		&tracing.CustomTag{Tag: "istio.source_canonical_revision", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:revision)%"}},
+		&tracing.CustomTag{Tag: "istio.source_canonical_service", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:service)%"}},
+		&tracing.CustomTag{Tag: "istio.source_cluster_id", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:cluster)%"}},
+		&tracing.CustomTag{Tag: "istio.source_instance_name", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:name)%"}},
+		&tracing.CustomTag{Tag: "istio.source_namespace", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:namespace)%"}},
+		&tracing.CustomTag{Tag: "istio.source_workload", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:workload)%"}},
+		&tracing.CustomTag{Tag: "istio.source_workload_type", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:type)%"}},
 	)
 	tags = append(tags, extra...)
 	sort.Slice(tags, func(i, j int) bool { return tags[i].Tag < tags[j].Tag })
