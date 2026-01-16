@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+  - |
+    **Added** support to block CIDRs in JWKS URIs when fetching public keys for JWT validation.
+    If any resolved IP from a JWKS URI matches a blocked CIDR, Istio will skip fetching the public key 
+    and use a fake JWKS instead to reject requests with JWT tokens.
