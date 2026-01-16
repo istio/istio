@@ -1101,5 +1101,3 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 	}
 	return false
 }
-
-// TODO: move this to model/context.go to avoid duplications.
