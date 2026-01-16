@@ -232,6 +232,10 @@ func EnvoyStatusPort(value int) Instance {
 	return newOption("envoy_status_port", value)
 }
 
+func GlobalDownstreamMaxConnections(value int) Instance {
+	return newOption("global_downstream_max_connections", value)
+}
+
 func EnvoyStatusPortEnableProxyProtocol(value bool) Instance {
 	return newOption("envoy_status_port_enable_proxy_protocol", value)
 }
