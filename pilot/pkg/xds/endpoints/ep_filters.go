@@ -63,9 +63,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	// After discussing it in the WG meeting, the preference was to change the behavior in ambient mode to not
 	// generate EDS endpoints for remote networks, so that's why the logic between ambient and sidecar mode here
 	// is different.
-	isAmbientWaypoint := features.EnableAmbientMultiNetwork && isWaypointProxy(b.proxy)
 
-	if !b.gateways().IsMultiNetworkEnabled() && !isAmbientWaypoint {
+	// If we don't have multiple networks, we just return the plain endpoints. Otherwise we only return plain
+	// endpoints when ambient multi network is disabled or it's a sidecar proxy.
+	if !b.gateways().IsMultiNetworkEnabled() && (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
 	}
@@ -115,8 +116,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Check if we allow waypoints to talk across networks (EnableAmbientWaypointMultiNetwork feature flag)
 			// and whether we have an E/W gateway we can use. If neither is true, then just ignore the endpoint
 			// completely.
-			if isAmbientWaypoint && !b.proxy.InNetwork(epNetwork) {
-				if !features.EnableAmbientWaypointMultiNetwork {
+			if !b.proxy.InNetwork(epNetwork) && features.EnableAmbientMultiNetwork {
+				if !features.EnableAmbientWaypointMultiNetwork && model.IsWaypointProxy(b.proxy) ||
+					!features.EnableAmbientIngressMultiNetwork && model.IsIngressGateway(b.proxy) {
 					continue
 				}
 				if len(gateways) == 0 {
@@ -151,11 +153,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
-			// Cross-network traffic relies on double-HBONE in ambient mode and on mTLS for SNI routing in sidecar mode.
+			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
 			// TODO BTS may allow us to work around this
-			if !isAmbientWaypoint && !isMtlsEnabled(lbEp) {
+			if isSidecarProxy(b.proxy) && !isMtlsEnabled(lbEp) {
 				continue
 			}
 
@@ -188,7 +190,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// gateways differently as we use somewhat different protocols in those two distinct cases.
 			var gwEp *endpoint.LbEndpoint
 
-			if isAmbientWaypoint {
+			if features.EnableAmbientMultiNetwork {
 				gwAddr := gw.Addr
 				gwPort := int(gw.HBONEPort)
 
@@ -285,7 +287,7 @@ func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []m
 	}
 
 	// If we operate in ambient multi-network mode skip gateways that don't have HBONE port
-	if features.EnableAmbientMultiNetwork && isWaypointProxy(b.proxy) {
+	if features.EnableAmbientMultiNetwork && model.IsWaypointProxy(b.proxy) {
 		var ambientGws []model.NetworkGateway
 		for _, gw := range gws {
 			if gw.HBONEPort == 0 {

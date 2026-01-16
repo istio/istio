@@ -230,6 +230,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		return builder
 	}
 
+	if model.ShouldCreateDoubleHBONEResources(builder.node) {
+		listeners = append(listeners,
+			buildInnerConnectOriginateListener(builder.push, builder.node),
+			buildOuterConnectOriginateListener(builder.push, builder.node))
+	}
+
 	builder.gatewayListeners = listeners
 	return builder
 }
