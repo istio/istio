@@ -271,7 +271,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// that happen cross cluster. A request arrives at the ingress and the LB
 		// configuration may straightaway redirect the request to a backend in a
 		// remote cluster/network.
-		if shouldCreate2HBONEResources(proxy) {
+		if model.ShouldCreateDoubleHBONEResources(proxy) {
 			clusters = append(
 				clusters,
 				cb.buildInnerConnectOriginateCluster(proxy, req.Push),

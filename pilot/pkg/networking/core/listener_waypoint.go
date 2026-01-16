@@ -106,7 +106,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 		listeners = append(listeners, buildWaypointConnectOriginateListener(lb.push, lb.node))
 	}
 
-	if features.EnableAmbientMultiNetwork && features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(lb.node) {
+	if model.ShouldCreateDoubleHBONEResources(lb.node) {
 		listeners = append(listeners,
 			buildInnerConnectOriginateListener(lb.push, lb.node),
 			buildOuterConnectOriginateListener(lb.push, lb.node))
