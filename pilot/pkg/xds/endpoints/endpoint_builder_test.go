@@ -357,6 +357,15 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		},
 		Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 	}
+	ingressGw := &model.Proxy{
+		Type: model.Router,
+		Metadata: &model.NodeMetadata{
+			Namespace: "default",
+			NodeName:  "example",
+			ClusterID: "local",
+		},
+		Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayControllerLabel},
+	}
 	ep0 := &model.IstioEndpoint{
 		Addresses: []string{"1.1.1.1"},
 		NodeName:  "example",
@@ -447,6 +456,34 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		{
 			name:     "test ambient endpoint in remote cluster for local service",
 			proxy:    waypoint,
+			ep:       remoteEp,
+			svcInfo:  localSvc,
+			expected: false,
+		},
+		{
+			name:     "test ambient endpoint in local cluster for global service",
+			proxy:    ingressGw,
+			ep:       localEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in remote cluster for global service",
+			proxy:    ingressGw,
+			ep:       remoteEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in local cluster for local service",
+			proxy:    ingressGw,
+			ep:       localEp,
+			svcInfo:  localSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in remote cluster for local service",
+			proxy:    ingressGw,
 			ep:       remoteEp,
 			svcInfo:  localSvc,
 			expected: false,
