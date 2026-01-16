@@ -311,6 +311,7 @@ func (j *mergejoin[T]) refreshEventsLocked(items []Event[T]) []Event[T] {
 				// Not finding the key in our cache for update or delete events is probably a bug
 				msg := fmt.Sprintf("POTENTIAL BUG: key %s not found in cache for event %s", iKey, ev.Event)
 				if EnableAssertions {
+					msg += fmt.Sprintf(" in %s(%T)", j.collectionName, j)
 					panic(msg)
 				}
 				j.log.Debug(msg)
