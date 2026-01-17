@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy-resources-zero
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxy-resources-zero
+  template:
+    metadata:
+      labels:
+        app: proxy-resources-zero
+    spec:
+      initContainers:
+      - name: existing-init
+        image: busybox
+        command: ["sh", "-c", "true"]
+      containers:
+      - name: hello
+        image: "fake.docker.io/google-samples/hello-go-gke:1.0"

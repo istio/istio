@@ -64,6 +64,7 @@ func createInjectionFuncmap() template.FuncMap {
 		"strdict":             strdict,
 		"toJsonMap":           toJSONMap,
 		"mergeMaps":           mergeMaps,
+		"omitNil":             omitNil,
 	}
 }
 
@@ -409,4 +410,36 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 		}
 	}
 	return res
+}
+
+// omitNil recursively removes nil values from maps and slices.
+func omitNil(v any) any {
+	switch v := v.(type) {
+	case map[string]any:
+		res := make(map[string]any)
+		for k, val := range v {
+			filtered := omitNil(val)
+			if filtered != nil {
+				res[k] = filtered
+			}
+		}
+		if len(res) == 0 {
+			return nil
+		}
+		return res
+	case []any:
+		res := make([]any, 0, len(v))
+		for _, val := range v {
+			filtered := omitNil(val)
+			if filtered != nil {
+				res = append(res, filtered)
+			}
+		}
+		if len(res) == 0 {
+			return nil
+		}
+		return res
+	default:
+		return v
+	}
 }
