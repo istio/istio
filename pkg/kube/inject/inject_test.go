@@ -554,6 +554,11 @@ func TestInjection(t *testing.T) {
 			inFilePath: "proxy-resources-null.iop.yaml",
 		},
 		{
+			in:         "proxy-resources-null-no-init.yaml",
+			want:       "proxy-resources-null-no-init.yaml.injected",
+			inFilePath: "proxy-resources-null.iop.yaml",
+		},
+		{
 			in:         "proxy-resources-zero.yaml",
 			want:       "proxy-resources-zero.yaml.injected",
 			inFilePath: "proxy-resources-zero.iop.yaml",

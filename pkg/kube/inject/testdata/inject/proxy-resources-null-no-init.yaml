@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy-resources-null-no-init
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxy-resources-null-no-init
+  template:
+    metadata:
+      labels:
+        app: proxy-resources-null-no-init
+    spec:
+      containers:
+      - name: hello
+        image: "fake.docker.io/google-samples/hello-go-gke:1.0"
