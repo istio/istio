@@ -304,10 +304,6 @@ func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
 	return newOption("histogram_buckets", value)
 }
 
-func EnvoyStatsCompression(value string) Instance {
-	return newOption("stats_compression", value)
-}
-
 func EnvoyStatsFlushInterval(interval time.Duration) Instance {
 	return newOption("stats_flush_interval", interval)
 }
