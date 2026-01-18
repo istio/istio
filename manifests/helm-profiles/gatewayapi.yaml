@@ -1,0 +1,4 @@
+# The gateway api profile makes pilot ignore any Istio resource and reconciles just GatewayAPI resources
+pilot:
+  env:
+    PILOT_IGNORE_RESOURCES: "*.istio.io"
