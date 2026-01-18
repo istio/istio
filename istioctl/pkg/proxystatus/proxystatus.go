@@ -22,10 +22,13 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/ambient"
@@ -133,6 +136,20 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				if err != nil {
 					return err
 				}
+				pod, err := kubeClient.Kube().CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				annotations := klabels.Set(pod.ObjectMeta.Annotations)
+				revision := describe.GetRevisionFromPodAnnotation(annotations)
+				if opts.Revision != revision {
+					fmt.Printf("Pod %s.%s is running in revision %s, the --revision flag %s will be ignored \n", podName, ns, revision, opts.Revision)
+				}
+				kubeClient, err = ctx.CLIClientWithRevision(revision)
+				if err != nil {
+					return err
+				}
+
 				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
 					_, _ = fmt.Fprintf(c.OutOrStdout(),
 						"Sync diff is not available for ztunnel pod %s.%s\n", podName, ns)
