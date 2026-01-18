@@ -54,6 +54,9 @@ func TestMergeGateways(t *testing.T) {
 	// Even if we allow any SA name, we still should do namespace checks
 	gwMutualCredInNotAllowedNSNoSA := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace), "")
 
+	gwNamespacedHost1 := makeConfig("foo1", "user1", "user1/foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "", "sa")
+	gwNamespacedHost2 := makeConfig("foo1", "user2", "user2/foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "", "sa")
+
 	proxyNoInput := makeProxy(func() *spiffe.Identity { return nil })
 	proxyIdentity := makeProxy(func() *spiffe.Identity {
 		identity, _ := spiffe.ParseIdentity("spiffe://td/ns/ns/sa/sa")
@@ -264,6 +267,16 @@ func TestMergeGateways(t *testing.T) {
 			1,
 			map[string]int{"http.7": 1},
 			1,
+			0,
+		},
+		{
+			"namespaced host collision",
+			[]config.Config{gwNamespacedHost1, gwNamespacedHost2},
+			otherProxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			2,
 			0,
 		},
 	}
