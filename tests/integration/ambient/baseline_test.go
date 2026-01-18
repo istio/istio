@@ -18,6 +18,7 @@ package ambient
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/netip"
@@ -3723,7 +3724,8 @@ func restartZtunnel(t framework.TestContext, c cluster.Cluster) {
 				}
 			}
 		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
-	ds := c.Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
+	ztunnelNS := getZtunnelNamespace()
+	ds := c.Kube().AppsV1().DaemonSets(ztunnelNS)
 	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
@@ -3741,9 +3743,25 @@ func restartZtunnel(t framework.TestContext, c cluster.Cluster) {
 	}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
 		t.Fatalf("failed to wait for ztunnel rollout status for: %v", err)
 	}
-	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], i.Settings().SystemNamespace, "app=ztunnel")); err != nil {
+	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], ztunnelNS, "app=ztunnel")); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// getZtunnelNamespace returns the ztunnel namespace from helm values flag or defaults to "istio-system"
+func getZtunnelNamespace() string {
+	ztunnelNS := "istio-system"
+	if flagValue := flag.Lookup("istio.test.kube.helm.values"); flagValue != nil && flagValue.Value.String() != "" {
+		helmValues := flagValue.Value.String()
+		// Parse helm values for pilot.trustedZtunnelNamespace
+		for _, pair := range strings.Split(helmValues, ",") {
+			if strings.HasPrefix(pair, "pilot.trustedZtunnelNamespace=") {
+				ztunnelNS = strings.TrimPrefix(pair, "pilot.trustedZtunnelNamespace=")
+				break
+			}
+		}
+	}
+	return ztunnelNS
 }
 
 func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
