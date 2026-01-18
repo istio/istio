@@ -43,6 +43,7 @@ _internal_defaults_do_not_set:
   # It should be noted that cluster operator/owner is responsible for having the taint set by their infrastructure provider when new nodes are added to the cluster; the untaint controller does not taint nodes
   taint:
     # Controls whether or not the untaint controller is active
+    # When enabled, this automatically sets PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS environment variable to true in the istiod deployment.
     enabled: false
     # What namespace the untaint controller should watch for istio-cni pods. This is only required when istio-cni is running in a different namespace than istiod
     namespace: ""
@@ -367,7 +368,7 @@ _internal_defaults_do_not_set:
 
       #If set to true, istio-proxy container will have privileged securityContext
       privileged: false
-      
+
       seccompProfile: {}
 
       # The number of successive failed probes before indicating readiness failure.
@@ -571,7 +572,7 @@ _internal_defaults_do_not_set:
   #         type: ClusterIP
   # Per-Gateway configuration can also be set in the `Gateway.spec.infrastructure.parametersRef` field.
   gatewayClasses: {}
-  
+
   pdb:
     # -- Minimum available pods set in PodDisruptionBudget.
     # Define either 'minAvailable' or 'maxUnavailable', never both.
