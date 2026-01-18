@@ -549,6 +549,36 @@ var optionalPolicyTags = []*tracing.CustomTag{
 	dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.result", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEngineResult),
 }
 
+// buildWaypointSourceTags creates custom trace tags for waypoints that capture source (client) peer info.
+// Uses Envoy FILTER_STATE FIELD accessor to extract all available fields from downstream_peer_obj.
+// The peer_metadata filter stores WorkloadMetadataObject under downstream_peer_obj key,
+// while CelState is stored under downstream_peer key for CEL expression compatibility.
+// All fields are extracted individually to support dynamic addition of new fields in WorkloadMetadataObject.
+func buildWaypointSourceTags() []*tracing.CustomTag {
+	buildFilterStateTag := func(tagName, fieldName string) *tracing.CustomTag {
+		return &tracing.CustomTag{
+			Tag: tagName,
+			Type: &tracing.CustomTag_Value{
+				Value: fmt.Sprintf("%%FILTER_STATE(downstream_peer_obj:FIELD:%s)%%", fieldName),
+			},
+		}
+	}
+
+	// Extract all available fields from WorkloadMetadataObject
+	// See: proxy/extensions/common/metadata_object.h for field definitions
+	return []*tracing.CustomTag{
+		buildFilterStateTag("istio.source_workload", "workload"),
+		buildFilterStateTag("istio.source_namespace", "namespace"),
+		buildFilterStateTag("istio.source_cluster_id", "cluster"),
+		buildFilterStateTag("istio.source_canonical_service", "service"),
+		buildFilterStateTag("istio.source_canonical_revision", "revision"),
+		buildFilterStateTag("istio.source_app", "app"),
+		buildFilterStateTag("istio.source_app_version", "version"),
+		buildFilterStateTag("istio.source_workload_type", "type"),
+		buildFilterStateTag("istio.source_instance_name", "name"),
+	}
+}
+
 func buildServiceTags(node *model.Proxy) []*tracing.CustomTag {
 	var revision, service string
 	if node.Labels != nil {
@@ -692,6 +722,11 @@ func configureCustomTags(spec *model.TracingSpec, hcmTracing *hcm.HttpConnection
 		}
 	} else if spec.EnableIstioTags {
 		tags = append(buildServiceTags(node), optionalPolicyTags...)
+	}
+
+	// For waypoint proxies, add source peer tags to capture client workload info.
+	if node.Type == model.Waypoint {
+		tags = append(tags, buildWaypointSourceTags()...)
 	}
 
 	if len(providerTags) == 0 {
