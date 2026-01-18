@@ -93,4 +93,11 @@ var (
 	UseCacertsForSelfSignedCA = env.Register("USE_CACERTS_FOR_SELF_SIGNED_CA", false,
 		"If enabled, istiod will use a secret named cacerts to store its self-signed istio-"+
 			"generated root certificate.").Get()
+
+	EnableMultipleCustomAuthzProviders = env.Register(
+		"PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS",
+		false,
+		"If enabled, allows multiple CUSTOM authorization providers per workload, "+
+			"enabling different authentication schemes (OAuth, LDAP, API keys) for different API paths. "+
+			"Each provider gets its own filter chain with provider-specific metadata matching.").Get()
 )
