@@ -373,7 +373,7 @@ func MergedGlobalWorkloadsCollection(
 			}
 
 			if slices.Contains(existing, nil) {
-				// At least of of these isn't initialized yet; remove everything for this cluster
+				// At least one of these isn't initialized yet; remove everything for this cluster
 				podWorkloadInfosCache.Remove(c.ID)
 				workloadEntryWorkloadInfosCache.Remove(c.ID)
 				serviceEntryWorkloadInfosCache.Remove(c.ID)
