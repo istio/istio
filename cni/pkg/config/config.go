@@ -67,6 +67,7 @@ type AmbientConfig struct {
 	Reconcile              bool       `json:"RECONCILE"`
 	CleanupOnly            bool       `json:"CLEANUP_ONLY"`
 	ForceApply             bool       `json:"FORCE_APPLY"`
+	KubeletCgroup          string     `json:"KUBELET_CGROUP"`
 }
 
 // GetConfig converts AmbientConfig to tools common config format
@@ -161,6 +162,10 @@ type InstallConfig struct {
 
 	// Choose which iptables binary to use (legacy or nft)
 	ForceIptablesBinary string
+
+	// Cgroup that kubelet runs in, used to identify health check traffic. If left unset, all host network traffic is considered
+	// health check traffic and will bypass the proxy.
+	KubeletCgroup string
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -238,6 +243,7 @@ func (c InstallConfig) String() string {
 
 	b.WriteString("NativeNftables: " + fmt.Sprint(c.NativeNftables) + "\n")
 	b.WriteString("ForceIptablesBinary: " + fmt.Sprint(c.ForceIptablesBinary) + "\n")
+	b.WriteString("KubeletCgroup: " + fmt.Sprint(c.KubeletCgroup) + "\n")
 	return b.String()
 }
 
