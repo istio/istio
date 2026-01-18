@@ -320,7 +320,7 @@ func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint 
 }
 
 func mustReadFile(t *testing.T, fpaths ...string) string {
-	result := ""
+	var result strings.Builder
 	for _, fpath := range fpaths {
 		if !strings.HasPrefix(fpath, ".") {
 			fpath = filepath.Join(env.IstioSrc, fpath)
@@ -329,14 +329,14 @@ func mustReadFile(t *testing.T, fpaths ...string) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		result += "---\n"
-		result += string(bytes)
+		result.WriteString("---\n")
+		result.WriteString(string(bytes))
 	}
-	return result
+	return result.String()
 }
 
 func mustReadfolder(t *testing.T, folder string) string {
-	result := ""
+	var result strings.Builder
 	fpathRoot := folder
 	if !strings.HasPrefix(fpathRoot, ".") {
 		fpathRoot = filepath.Join(env.IstioSrc, folder)
@@ -350,10 +350,10 @@ func mustReadfolder(t *testing.T, folder string) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		result += "---\n"
-		result += string(bytes)
+		result.WriteString("---\n")
+		result.WriteString(string(bytes))
 	}
-	return result
+	return result.String()
 }
 
 func TestEdsWeightedServiceEntry(t *testing.T) {
