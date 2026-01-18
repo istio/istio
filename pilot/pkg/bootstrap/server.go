@@ -794,7 +794,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 			}
 			return err
 		},
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   args.ServerOptions.TLSOptions.MinVersion,
 		CipherSuites: args.ServerOptions.TLSOptions.CipherSuites,
 	}
 	// Compliance for xDS server TLS.
