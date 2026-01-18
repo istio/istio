@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc
+spec:
+  selector:
+    matchLabels:
+      app: grpc
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: grpc-agent
+      labels:
+        app: grpc
+    spec:
+      containers:
+      - name: traffic
+        image: "fake.docker.io/google-samples/traffic-go-gke:1.0"
+        readinessProbe:
+          httpGet:
+            port: 80

@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: waypoint
+spec:
+  selector:
+    matchLabels:
+      app: waypoint
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: waypoint
+      labels:
+        app: waypoint
+    spec:
+      containers:
+      - name: traffic
+        image: "fake.docker.io/google-samples/traffic-go-gke:1.0"
