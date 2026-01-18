@@ -485,7 +485,7 @@ func serviceClusterOrDefault(name string, metadata *model.BootstrapNodeMetadata)
 	if name != "" && name != "istio-proxy" {
 		return name
 	}
-	if app, ok := metadata.Labels["app"]; ok {
+	if app, ok := labels.GetAppNameBackwardCompatible(metadata.Labels); ok {
 		return app + "." + metadata.Namespace
 	}
 	if metadata.WorkloadName != "" {
