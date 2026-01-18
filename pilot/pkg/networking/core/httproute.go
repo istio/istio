@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -322,17 +323,20 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 	includeRequestAttemptCount := util.GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound).IncludeRequestAttemptCount
 
-	servicesByName := make(map[host.Name]*model.Service)
+	// First pass: collect all services by hostname to handle multiple addresses from ServiceEntry
+	// ServiceEntry with multiple addresses creates multiple Service objects with the same hostname
+	servicesByHostname := make(map[host.Name][]*model.Service)
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
-			// Expect virtualServices to resolve to right port
-			servicesByName[svc.Hostname] = svc
+			h := host.Name(strings.ToLower(string(svc.Hostname)))
+			servicesByHostname[h] = append(servicesByHostname[h], svc)
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			h := host.Name(strings.ToLower(string(svc.Hostname)))
-			servicesByName[h] = &model.Service{
+			// Create a new service object with only the matching port for consistent handling
+			svcCopy := &model.Service{
 				Hostname:       h,
-				DefaultAddress: svc.GetAddressForProxy(node),
+				DefaultAddress: svc.DefaultAddress,
 				ClusterVIPs:    *svc.ClusterVIPs.DeepCopy(),
 				MeshExternal:   svc.MeshExternal,
 				Resolution:     svc.Resolution,
@@ -344,8 +348,101 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 					Aliases:         svc.Attributes.Aliases,
 					K8sAttributes:   svc.Attributes.K8sAttributes,
 				},
+				AutoAllocatedIPv4Address: svc.AutoAllocatedIPv4Address,
+				AutoAllocatedIPv6Address: svc.AutoAllocatedIPv6Address,
+			}
+			servicesByHostname[h] = append(servicesByHostname[h], svcCopy)
+		}
+	}
+
+	// Second pass: merge services with the same hostname, collecting all addresses
+	// This fixes issue #58692 where ServiceEntry with multiple addresses only exposes one address
+	servicesByName := make(map[host.Name]*model.Service)
+	for hostname, svcList := range servicesByHostname {
+		if len(svcList) == 0 {
+			continue
+		}
+
+		// If there's only one service with this hostname, keep it as-is (no merging needed)
+		if len(svcList) == 1 {
+			servicesByName[hostname] = svcList[0]
+			continue
+		}
+
+		// Multiple services with the same hostname - merge them
+		// This handles ServiceEntry with multiple addresses where each address creates a separate Service
+		// Start with the first service as the base
+		merged := svcList[0].DeepCopy()
+		merged.Hostname = hostname
+
+		// Collect all addresses from all services with the same hostname
+		allAddresses := sets.New[string]()
+		clusterID := cluster.ID("")
+		if node.Metadata != nil {
+			clusterID = node.Metadata.ClusterID
+		}
+
+		// Collect addresses from ClusterVIPs and DefaultAddress of each service
+		// For ServiceEntry with multiple addresses, each service has a DefaultAddress
+		// We need to collect all of them and merge them into ClusterVIPs
+		for _, svc := range svcList {
+			// Get addresses from ClusterVIPs if available
+			if clusterID != "" {
+				addresses := svc.ClusterVIPs.GetAddressesFor(clusterID)
+				for _, addr := range addresses {
+					if addr != constants.UnspecifiedIP && len(addr) > 0 {
+						allAddresses.Insert(addr)
+					}
+				}
+			}
+			// Also check for addresses stored with empty cluster ID (for ServiceEntry without clusterID)
+			if addresses := svc.ClusterVIPs.GetAddressesFor(cluster.ID("")); len(addresses) > 0 {
+				for _, addr := range addresses {
+					if addr != constants.UnspecifiedIP && len(addr) > 0 {
+						allAddresses.Insert(addr)
+					}
+				}
+			}
+
+			// Always include DefaultAddress if it's set and not unspecified
+			// This is the primary source for ServiceEntry with multiple addresses
+			if svc.DefaultAddress != constants.UnspecifiedIP && len(svc.DefaultAddress) > 0 {
+				allAddresses.Insert(svc.DefaultAddress)
+			}
+
+			// Include auto-allocated addresses if available
+			var dnsAutoAllocate, dnsCapture bool
+			if node.Metadata != nil {
+				dnsAutoAllocate = bool(node.Metadata.DNSAutoAllocate)
+				dnsCapture = bool(node.Metadata.DNSCapture)
+			}
+			autoallocationEnabled := dnsAutoAllocate || features.EnableIPAutoallocate
+			nodeConsumesAutoIP := dnsCapture || node.Type == model.Waypoint
+			if autoallocationEnabled && nodeConsumesAutoIP {
+				if svc.AutoAllocatedIPv4Address != "" {
+					allAddresses.Insert(svc.AutoAllocatedIPv4Address)
+				}
+				if svc.AutoAllocatedIPv6Address != "" {
+					allAddresses.Insert(svc.AutoAllocatedIPv6Address)
+				}
 			}
 		}
+
+		// Store all collected addresses in ClusterVIPs so GetAllAddressesForProxy returns them
+		if allAddresses.Len() > 0 {
+			addressList := sets.SortedList(allAddresses)
+			if clusterID != "" {
+				merged.ClusterVIPs.SetAddressesFor(clusterID, addressList)
+			} else {
+				// For nodes without clusterID, store with empty cluster ID
+				// generateVirtualHostDomains will check ClusterVIPs directly when needed
+				merged.ClusterVIPs.SetAddressesFor(cluster.ID(""), addressList)
+			}
+			// Set DefaultAddress to the first address for backward compatibility
+			merged.DefaultAddress = addressList[0]
+		}
+
+		servicesByName[hostname] = merged
 	}
 
 	var routeCache *istio_route.Cache
@@ -574,7 +671,23 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		}
 	}
 
-	for _, svcAddr := range service.GetAllAddressesForProxy(node) {
+	// Get addresses for virtual host domains
+	// First try GetAllAddressesForProxy which handles ClusterVIPs correctly when clusterID is set
+	addresses := service.GetAllAddressesForProxy(node)
+
+	// If GetAllAddressesForProxy returns only one address but we might have more (e.g., ServiceEntry
+	// with multiple addresses when clusterID is empty), also check ClusterVIPs directly
+	// This fixes issue #58692 where multiple addresses from ServiceEntry are collapsed to one
+	if len(addresses) <= 1 && node.Metadata != nil && node.Metadata.ClusterID == "" {
+		// When clusterID is empty, getAllAddressesForProxy only returns DefaultAddress (single)
+		// But we might have multiple addresses stored in ClusterVIPs, so check directly
+		if clusterVIPAddresses := service.ClusterVIPs.GetAddressesFor(cluster.ID("")); len(clusterVIPAddresses) > 0 {
+			// Use the addresses from ClusterVIPs if available
+			addresses = clusterVIPAddresses
+		}
+	}
+
+	for _, svcAddr := range addresses {
 		if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 			domains = appendDomainPort(domains, svcAddr, port)
 		}
