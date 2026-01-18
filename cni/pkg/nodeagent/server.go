@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/pkg/kube"
@@ -139,12 +140,36 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNI
 			cniDS, err := s.kubeClient.Kube().AppsV1().DaemonSets(selfNamespace).Get(context.Background(), dsName, metav1.GetOptions{})
 
 			if err == nil && cniDS != nil && cniDS.DeletionTimestamp == nil {
+				cniNode, err := s.kubeClient.Kube().CoreV1().Nodes().Get(context.Background(), NodeName, metav1.GetOptions{})
+				if err != nil {
+					log.Infof("failed to get CNI node %s, retrying: %v", NodeName, err)
+					return err
+				}
+
+				if cniDS.Spec.Template.Spec.Affinity != nil &&
+					cniDS.Spec.Template.Spec.Affinity.NodeAffinity != nil &&
+					cniDS.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+					nodeSelector, err := nodeaffinity.NewNodeSelector(cniDS.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)
+					if err != nil {
+						log.Infof("failed to build NodeSelector for DaemonSet %s, retrying: %v", dsName, err)
+						return err
+					}
+
+					if !nodeSelector.Match(cniNode) {
+						// If the NodeAffinity of the DaemonSet no longer matches the current Node, this is not an upgrade.
+						// We can safely shut down the plugin.
+						log.Infof("terminating, and parent DaemonSet %s will not schedule to Node %s due to NodeAffinity rules, shutting down normally", dsName, NodeName)
+						shouldStopCleanup = false
+						return nil
+					}
+				}
+
 				log.Infof("terminating, but parent DaemonSet %s is still present, this is an upgrade or a node reboot, leaving plugin in place", dsName)
 				shouldStopCleanup = true
 				return nil
 			}
 			if errors.IsNotFound(err) || (cniDS != nil && cniDS.DeletionTimestamp != nil) {
-				// If the DS is gone, or marked for deletion, this is not an upgrade.
+				// If the DaemonSet is gone, or marked for deletion, this is not an upgrade.
 				// We can safely shut down the plugin.
 				log.Infof("parent DaemonSet %s is not found or marked for deletion, this is not an upgrade, shutting down normally", dsName)
 				shouldStopCleanup = false
@@ -156,7 +181,7 @@ func (s *Server) ShouldStopCleanup(selfName, selfNamespace string, istioOwnedCNI
 				shouldStopCleanup = false
 				return nil
 			}
-			log.Infof("failed to get parent DS %s, retrying: %v", dsName, err)
+			log.Infof("failed to get parent DaemonSet %s, retrying: %v", dsName, err)
 			return err
 		},
 		// Limiting retries to 3 so other shutdown tasks can complete before the graceful shutdown period ends
