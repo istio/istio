@@ -58,6 +58,11 @@ var (
 		gvk.CustomResourceDefinition.Kubernetes(),
 		schema.GroupVersionKind{Group: "k8s.cni.cncf.io", Version: "v1", Kind: "NetworkAttachmentDefinition"},
 	)
+
+	// WaypointResources List the waypoint resources that should be deleted.
+	WaypointResources = schema.GroupVersionKind{
+		Group: "gateway.networking.k8s.io", Version: "v1", Kind: "Gateway",
+	}
 )
 
 // NamespacedResources gets specific pruning resources based on the k8s version
@@ -155,7 +160,46 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 		usList = append(usList, result)
 	}
 
+	waypointSelector := klabels.Set(labels).AsSelectorPreValidated()
+	waypointResult, err := getWaypointResources(clt, waypointSelector.String())
+	if err != nil {
+		return nil, err
+	}
+
+	usList = append(usList, waypointResult)
 	return usList, nil
+}
+
+func getWaypointResources(clt kube.CLIClient, waypointSelector string) (*unstructured.UnstructuredList, error) {
+	c, err := clt.DynamicClientFor(WaypointResources, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	allWaypoint, err := c.List(context.Background(), metav1.ListOptions{
+		LabelSelector: waypointSelector,
+	},
+	)
+	if err != nil {
+		return nil, err
+	}
+	waypointResult := unstructured.UnstructuredList{
+		Object: allWaypoint.Object,
+	}
+	for _, item := range allWaypoint.Items {
+		specMap, ok := item.Object["spec"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		if specMap["gatewayClassName"] == "istio-waypoint" {
+			if err != nil {
+				continue
+			}
+
+			waypointResult.Items = append(waypointResult.Items, item)
+		}
+	}
+	return &waypointResult, nil
 }
 
 func PrunedResourcesSchemas() []schema.GroupVersionKind {
