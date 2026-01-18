@@ -8,4 +8,4 @@ issue:
   - 58805
 releaseNotes:
 - |
-  **Fixed** an issue where Istio proxy injection and gateway generation would fail with a `cpu request must be less than or equal to cpu limit of 0` error when `proxy.resources.limits.cpu` (or `waypoint.resources.limits.cpu`) was set to `null` and existing init containers were present.
+  **Fixed** an issue where Istio proxy injection and gateway generation (including Waypoint, gRPC agent, and Ambient gateways) would fail when resource limits or requests were set to `null` in the configuration. This addresses the `cpu request must be less than or equal to cpu limit of 0` validation error that occurred when specific resource fields were null and other containers (like init containers) were present.

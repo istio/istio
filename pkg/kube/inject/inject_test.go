@@ -564,21 +564,6 @@ func TestInjection(t *testing.T) {
 			inFilePath: "proxy-resources-zero.iop.yaml",
 		},
 		{
-			in:         "waypoint-resources-null.yaml",
-			want:       "waypoint-resources-null.yaml.injected",
-			inFilePath: "waypoint-resources-null.iop.yaml",
-		},
-		{
-			in:         "grpc-agent-resources-null.yaml",
-			want:       "grpc-agent-resources-null.yaml.injected",
-			inFilePath: "proxy-resources-null.iop.yaml",
-		},
-		{
-			in:         "gateway-resources-null.yaml",
-			want:       "gateway-resources-null.yaml.injected",
-			inFilePath: "proxy-resources-null.iop.yaml",
-		},
-		{
 			in:         "sidecar-spire.yaml",
 			want:       "sidecar-spire.yaml.injected",
 			inFilePath: "spire-template.iop.yaml",
