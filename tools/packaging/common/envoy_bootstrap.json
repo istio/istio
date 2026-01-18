@@ -614,6 +614,15 @@
                         "routes": [
                           {
                             "match": {
+                              "prefix": "/stats/prometheus/agent"
+                            },
+                            "route": {
+                              "prefix_rewrite": "/stats/prometheus",
+                              "cluster": "agent"
+                            }
+                          },
+                          {
+                            "match": {
                               "prefix": "/stats/prometheus"
                             },
                             "route": {
