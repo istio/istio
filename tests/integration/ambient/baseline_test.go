@@ -172,6 +172,32 @@ func hboneClient(instance echo.Instance) bool {
 	return instance.Config().ZTunnelCaptured()
 }
 
+// getIngressGatewayServiceAccount dynamically retrieves the service account name
+// used by the ingress gateway deployment. This handles differences between
+// deployment methods (Helm vs External Control Plane) which could use different naming conventions.
+func getIngressGatewayServiceAccount(t framework.TestContext) string {
+	cluster := t.Clusters().Default()
+	appsClient := cluster.Kube().AppsV1()
+
+	// Get the ingress gateway deployment
+	dep, err := appsClient.Deployments("istio-system").Get(
+		context.TODO(),
+		"istio-ingressgateway",
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		t.Fatalf("Failed to get ingress gateway deployment: %v", err)
+	}
+
+	serviceAccountName := dep.Spec.Template.Spec.ServiceAccountName
+	if serviceAccountName == "" {
+		t.Fatalf("Ingress gateway deployment has no service account name specified")
+	}
+
+	t.Logf("Using ingress gateway service account: %s", serviceAccountName)
+	return serviceAccountName
+}
+
 func TestServices(t *testing.T) {
 	runAllCallsTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 		if supportsL7(opt, src, dst) {
@@ -1162,7 +1188,7 @@ func TestAuthorizationGateway(t *testing.T) {
 `
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination":       dst.Config().Service,
-				"Source":            "istio-ingressgateway-service-account",
+				"Source":            getIngressGatewayServiceAccount(t),
 				"Namespace":         apps.Namespace.Name(),
 				"PortAllow":         strconv.Itoa(ports.HTTP.ServicePort),
 				"PortAllowWorkload": strconv.Itoa(ports.HTTP.WorkloadPort),
