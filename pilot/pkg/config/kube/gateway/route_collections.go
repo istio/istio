@@ -64,7 +64,7 @@ func HTTPRouteCollection(
 	opts krt.OptionsBuilder,
 ) RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, httpRoutes, gvk.HTTPRoute, opts)
-	ancestorBackends := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.HTTPRoute) []AncestorBackend {
+	ancestorBackends := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) []AncestorBackend {
 		return extractAncestorBackends(
 			obj.ObjectMeta,
 			kind.FromString(obj.Kind),
