@@ -233,9 +233,6 @@ func tryGetKey[T any](a T) (string, bool) {
 	if ok {
 		return arn.ResourceName(), true
 	}
-	if EnableAssertions {
-		panic(fmt.Sprintf("type %T used in krt.Singleton but does not support key extraction", a))
-	}
 	return "", false
 }
 
