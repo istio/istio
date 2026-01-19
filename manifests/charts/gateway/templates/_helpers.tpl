@@ -38,3 +38,27 @@ istio.io/rev: {{ . | quote }}
 {{- .Values.serviceAccount.name | default "default" }}
 {{- end }}
 {{- end }}
+
+{{/*
+Render resource requirements, omitting any nil values.
+*/}}
+{{- define "gateway.resources" -}}
+{{- with .limits }}{{- if or .cpu .memory }}
+limits:
+  {{- with .cpu }}
+  cpu: {{ . }}
+  {{- end }}
+  {{- with .memory }}
+  memory: {{ . }}
+  {{- end }}
+{{- end }}{{- end }}
+{{- with .requests }}{{- if or .cpu .memory }}
+requests:
+  {{- with .cpu }}
+  cpu: {{ . }}
+  {{- end }}
+  {{- with .memory }}
+  memory: {{ . }}
+  {{- end }}
+{{- end }}{{- end }}
+{{- end -}}
