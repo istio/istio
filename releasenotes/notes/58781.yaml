@@ -6,5 +6,4 @@ issue:
 releaseNotes:
   - |
     **Added** input validation for `traffic.sidecar.istio.io/excludeInterfaces` annotation
-    to ensure interface names follow Linux naming rules (max 15 chars, alphanumeric, underscore,
-    hyphen, and dot only).
+    to ensure only valid Linux interface names are accepted, preventing iptables parameter injection.
