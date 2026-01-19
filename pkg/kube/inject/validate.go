@@ -47,8 +47,8 @@ var (
 		annotation.SidecarTrafficExcludeInboundPorts.Name:         ValidateExcludeInboundPorts,
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
 		annotation.SidecarTrafficExcludeInterfaces.Name:           ValidateExcludeInterfaces,
-		annotation.SidecarTrafficKubevirtInterfaces.Name:         ValidateExcludeInterfaces,
-		annotation.IoIstioRerouteVirtualInterfaces.Name:          ValidateExcludeInterfaces,
+		annotation.SidecarTrafficKubevirtInterfaces.Name:          ValidateExcludeInterfaces,
+		annotation.IoIstioRerouteVirtualInterfaces.Name:           ValidateExcludeInterfaces,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
 		annotation.ProxyConfig.Name:                               validateProxyConfig,
 	}
