@@ -228,8 +228,8 @@ func extractListenerPort(routeName string) (int, bool, error) {
 
 // TODO: merge with IstioEgressListenerWrapper.selectVirtualServices
 // selectVirtualServices selects the virtual services by matching given services' host names.
-func selectVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*model.Service) []config.Config {
-	out := make([]config.Config, 0)
+func selectVirtualServices(virtualServices []*config.Config, servicesByName map[host.Name]*model.Service) []*config.Config {
+	out := make([]*config.Config, 0)
 	// As a performance optimization, find out wildcard service hosts first, so that
 	// if non wildcard vs hosts can't be looked up directly in the service map, only need to
 	// loop through wildcard service hosts instead of all.

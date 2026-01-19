@@ -49,7 +49,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 	delegate := model.ConfigKey{Kind: kind.VirtualService, Name: "delegate", Namespace: "default"}
 	// rds cache entry
 	entry := Cache{
-		VirtualServices:         []config.Config{root},
+		VirtualServices:         []*config.Config{&root},
 		DelegateVirtualServices: []model.ConfigHash{delegate.HashCode()},
 		ListenerPort:            8080,
 	}

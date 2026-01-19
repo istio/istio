@@ -681,6 +681,7 @@ func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
+	test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, true)
 	env := environment(t)
 	env.Env().InitNetworksManager(env.Discovery)
 	ambientNetworkFiltered := []networkFilterCase{
@@ -762,6 +763,35 @@ func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 				";ns;example;;cluster2a",
 				";ns;example;;cluster2b",
 				";ns;example;;cluster2b",
+			},
+		},
+		{
+			name:  "ingress_in_cluster1",
+			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						// Local endpoints
+						{Address: "10.0.0.1", Weight: 6},
+						{Address: "10.0.0.2", Weight: 6},
+						{Address: "10.0.0.3", Weight: 6},
+						// 3 EW gateways in network2
+						{Address: "2.2.2.2", Weight: 6},
+						{Address: "2.2.2.20", Weight: 6},
+						{Address: "2.2.2.21", Weight: 6},
+						// network3 has no endpoints
+						// network4 has no EW gateway
+					},
+					Weight: 36,
+				},
+			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1b",
+				";;;;cluster2a",
+				";;;;cluster2b",
+				";;;;cluster2b",
 			},
 		},
 	}
@@ -896,6 +926,16 @@ func makeWaypointProxy(nw network.ID, c cluster.ID) *model.Proxy {
 	}
 	proxy.Labels[label.GatewayManaged.Name] = constants.ManagedGatewayMeshControllerLabel
 	proxy.Type = model.Waypoint
+	return proxy
+}
+
+func makeIngressGatewayProxy(nw network.ID, c cluster.ID) *model.Proxy {
+	proxy := makeProxy(nw, c)
+	if proxy.Labels == nil {
+		proxy.Labels = make(map[string]string)
+	}
+	proxy.Labels[label.GatewayManaged.Name] = constants.ManagedGatewayControllerLabel
+	proxy.Type = model.Router
 	return proxy
 }
 

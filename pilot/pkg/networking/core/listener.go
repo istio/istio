@@ -24,10 +24,14 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -765,10 +769,10 @@ func buildSidecarOutboundHTTPListenerOpts(
 	}}
 }
 
-func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []config.Config) []*filterChainOpts {
+func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []*config.Config) []*filterChainOpts {
 	meshGateway := sets.New(constants.IstioMeshGateway)
 	out := make([]*filterChainOpts, 0)
-	var svcConfigs []config.Config
+	var svcConfigs []*config.Config
 	if opts.service != nil {
 		// Do not filter namespace for now.
 		// TODO(https://github.com/istio/istio/issues/46146) we may need to, or something more sophisticated
@@ -790,7 +794,7 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
 func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundListenerOpts,
-	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []config.Config, actualWildcards []string,
+	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []*config.Config, actualWildcards []string,
 ) {
 	// Alias services do not get listeners generated
 	if listenerOpts.service.Resolution == model.Alias {
@@ -1385,4 +1389,130 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 type listenerKey struct {
 	bind string
 	port int
+}
+
+// buildInnerConnectOriginateListener creates configuration for the waypoint inner_connect_originate listener.
+// This listener together with the corresponding cluster is responsible for the creating the inner HBONE tunnel of the
+// double-HBONE connection needed to communicate across networks in ambient mode.
+//
+// In terms of Envoy configuration this listener has two important bits:
+//
+// 1. It uses TCP Proxy network filter to establish a CONNECT tunnel
+// 2. It captures and propagates metadata about the actual destination and service name required for double-HBONE.
+func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	setFilterState := &sfsnetwork.Config{
+		OnNewConnection: []*sfsvalue.FilterStateValue{
+			{
+				Key: &sfsvalue.FilterStateValue_ObjectKey{
+					ObjectKey: "envoy.filters.listener.original_dst.local_ip",
+				},
+				Value: &sfsvalue.FilterStateValue_FormatString{
+					FormatString: &core.SubstitutionFormatString{
+						Format: &core.SubstitutionFormatString_TextFormatSource{
+							TextFormatSource: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: "%DYNAMIC_METADATA(envoy.filters.listener.original_dst:local)%",
+								},
+							},
+						},
+					},
+				},
+				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+			},
+			{
+				Key: &sfsvalue.FilterStateValue_ObjectKey{
+					ObjectKey: "istio.double_hbone.hbone_target_address",
+				},
+				Value: &sfsvalue.FilterStateValue_FormatString{
+					FormatString: &core.SubstitutionFormatString{
+						Format: &core.SubstitutionFormatString_TextFormatSource{
+							TextFormatSource: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: "%DYNAMIC_METADATA(istio:double_hbone:hbone_target_address)%",
+								},
+							},
+						},
+					},
+				},
+				FactoryKey:         "envoy.string",
+				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+			},
+		},
+	}
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       DoubleHBONEInnerConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+		},
+	}
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+
+	l := &listener.Listener{
+		Name:              DoubleHBONEInnerConnectOriginate,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{
+				{
+					Name: "propagate_endpoint_metadata",
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(setFilterState),
+					},
+				},
+				{
+					Name: wellknown.TCPProxy,
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(tcpProxy),
+					},
+				},
+			},
+		}},
+	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	return l
+}
+
+// buildOuterConnectOriginateListener creates configuration for the waypoint outer_connect_originate listener.
+// This listener together with the corresponding cluster is responsible for the creating the outer HBONE tunnel of the
+// double-HBONE connection needed to communicate across networks in ambient mode.
+//
+// Just like the inner_connect_originate listener above it uses TCP Proxy network filter to wrap traffic in HTTP CONNECT
+// tunnel, but unlike the inner_connect_originate it does not need to capture any metadata - it uses what
+// inner_connect_originate already captured and put in the filter state.
+func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       DoubleHBONEOuterConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEOuterConnectOriginate},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+			HeadersToAdd: []*core.HeaderValueOption{{
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				Header: &core.HeaderValue{
+					Key:   downstreamSourceHeader,
+					Value: "waypoint",
+				},
+			}},
+		},
+	}
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+
+	l := &listener.Listener{
+		Name:              DoubleHBONEOuterConnectOriginate,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		ListenerFilters: []*listener.ListenerFilter{
+			xdsfilters.OriginalDestination,
+		},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(tcpProxy),
+				},
+			}},
+		}},
+	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	return l
 }

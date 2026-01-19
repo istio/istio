@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: documentation
+issue:
+- 56948
+releaseNotes:
+- |
+  **Updated** Gateway API Inference Extension documentation is now located in the architecture section.

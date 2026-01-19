@@ -7,3 +7,8 @@ pilot:
     PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY: "false"
     # 1.29 behavioral changes
     DISABLE_TRACK_REMAINING_CB_METRICS: "false"
+
+cni:
+  ambient:
+    # 1.29 behavioral changes - reconcileIptablesOnStartup was false by default in 1.26
+    reconcileIptablesOnStartup: false
