@@ -101,7 +101,7 @@ func IsRequestFromLocalhost(r *http.Request) bool {
 	return userIP.IsLoopback()
 }
 
-var interfaceNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9_.\-]*$`)
+var interfaceNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_.\-]*$`)
 
 // ValidateInterfaceNames validates a comma-separated list of Linux interface names.
 func ValidateInterfaceNames(interfaces string) error {
