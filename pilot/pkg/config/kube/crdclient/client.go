@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages")
@@ -144,7 +143,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 }
 
 func (cl *Client) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
-	if c, ok := cl.kind(kind); ok {
+	if c, ok := cl.kinds[kind]; ok {
 		return c.collection
 	}
 
@@ -152,7 +151,7 @@ func (cl *Client) KrtCollection(kind config.GroupVersionKind) krt.Collection[con
 }
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
-	if c, ok := cl.kind(kind); ok {
+	if c, ok := cl.kinds[kind]; ok {
 		c.handlers = append(c.handlers, c.collection.RegisterBatch(func(o []krt.Event[config.Config]) {
 			for _, event := range o {
 				switch event.Event {
@@ -188,7 +187,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	<-stop
 	close(cl.stop)
 	// Cleanup handlers
-	for _, h := range cl.allKinds() {
+	for _, h := range cl.kinds {
 		for _, reg := range h.handlers {
 			reg.UnregisterHandler()
 		}
@@ -197,7 +196,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 }
 
 func (cl *Client) informerSynced() bool {
-	for gk, ctl := range cl.allKinds() {
+	for gk, ctl := range cl.kinds {
 		if !ctl.collection.HasSynced() {
 			cl.logger.Infof("controller %q is syncing...", gk)
 			return false
@@ -207,7 +206,7 @@ func (cl *Client) informerSynced() bool {
 }
 
 func (cl *Client) HasSynced() bool {
-	for _, ctl := range cl.allKinds() {
+	for _, ctl := range cl.kinds {
 		if !ctl.collection.HasSynced() {
 			return false
 		}
@@ -229,7 +228,7 @@ func (cl *Client) Schemas() collection.Schemas {
 
 // Get implements store interface
 func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
-	h, f := cl.kind(typ)
+	h, f := cl.kinds[typ]
 	if !f {
 		cl.logger.Warnf("unknown type: %s", typ)
 		return nil
@@ -297,7 +296,7 @@ func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, re
 
 // List implements store interface
 func (cl *Client) List(kind config.GroupVersionKind, namespace string) []config.Config {
-	h, f := cl.kind(kind)
+	h, f := cl.kinds[kind]
 	if !f {
 		return nil
 	}
@@ -307,15 +306,6 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) []config.
 	}
 
 	return h.index.Lookup(namespace)
-}
-
-func (cl *Client) allKinds() map[config.GroupVersionKind]nsStore {
-	return maps.Clone(cl.kinds)
-}
-
-func (cl *Client) kind(r config.GroupVersionKind) (nsStore, bool) {
-	ch, ok := cl.kinds[r]
-	return ch, ok
 }
 
 func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) config.Config {
