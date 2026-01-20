@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation/agent"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -45,6 +46,9 @@ var (
 		annotation.SidecarTrafficIncludeInboundPorts.Name:         ValidateIncludeInboundPorts,
 		annotation.SidecarTrafficExcludeInboundPorts.Name:         ValidateExcludeInboundPorts,
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
+		annotation.SidecarTrafficExcludeInterfaces.Name:           ValidateExcludeInterfaces,
+		annotation.SidecarTrafficKubevirtInterfaces.Name:          ValidateExcludeInterfaces,
+		annotation.IoIstioRerouteVirtualInterfaces.Name:           ValidateExcludeInterfaces,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
 		annotation.ProxyConfig.Name:                               validateProxyConfig,
 	}
@@ -181,4 +185,9 @@ func parsePorts(portsString string) ([]int, error) {
 		}
 	}
 	return ports, nil
+}
+
+// ValidateExcludeInterfaces validates the excludeInterfaces parameter
+func ValidateExcludeInterfaces(interfaces string) error {
+	return netutil.ValidateInterfaceNames(interfaces)
 }
