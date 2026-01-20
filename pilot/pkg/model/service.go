@@ -146,12 +146,6 @@ func (s *Service) Key() string {
 	return s.Attributes.Namespace + "/" + string(s.Hostname)
 }
 
-var serviceCmpOpts = []cmp.Option{cmpopts.IgnoreFields(AddressMap{}, "mutex")}
-
-func (s *Service) CmpOpts() []cmp.Option {
-	return serviceCmpOpts
-}
-
 func (s *Service) SupportsDrainingEndpoints() bool {
 	return (features.PersistentSessionLabel != "" && s.Attributes.Labels[features.PersistentSessionLabel] != "") ||
 		(features.PersistentSessionHeaderLabel != "" && s.Attributes.Labels[features.PersistentSessionHeaderLabel] != "")
@@ -329,7 +323,6 @@ type ServiceInstance struct {
 func (instance *ServiceInstance) CmpOpts() []cmp.Option {
 	res := []cmp.Option{}
 	res = append(res, istioEndpointCmpOpts...)
-	res = append(res, serviceCmpOpts...)
 	return res
 }
 
@@ -360,6 +353,12 @@ func ServiceInstanceToTarget(e *ServiceInstance) ServiceTarget {
 			TargetPort:  e.Endpoint.EndpointPort,
 		},
 	}
+}
+
+// ShallowCopy creates a shallow copy of ServiceInstance.
+func (instance *ServiceInstance) ShallowCopy() *ServiceInstance {
+	cpy := *instance
+	return &cpy
 }
 
 // DeepCopy creates a copy of ServiceInstance.
@@ -744,7 +743,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses *AddressMap
+	ClusterExternalAddresses AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -824,8 +823,6 @@ func GetTrafficDistribution(specValue *string, annotations map[string]string) Tr
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
 func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
-	// AddressMap contains a mutex, which is safe to copy in this case.
-	// nolint: govet
 	out := *s
 
 	out.Labels = maps.Clone(s.Labels)
@@ -834,7 +831,7 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	}
 
 	out.LabelSelectors = maps.Clone(s.LabelSelectors)
-	out.ClusterExternalAddresses = s.ClusterExternalAddresses.DeepCopy()
+	out.ClusterExternalAddresses = *s.ClusterExternalAddresses.DeepCopy()
 
 	if s.ClusterExternalPorts != nil {
 		out.ClusterExternalPorts = make(map[cluster.ID]map[uint32]uint32, len(s.ClusterExternalPorts))
@@ -846,8 +843,6 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	out.Aliases = slices.Clone(s.Aliases)
 	out.PassthroughTargetPorts = maps.Clone(out.PassthroughTargetPorts)
 
-	// AddressMap contains a mutex, which is safe to return a copy in this case.
-	// nolint: govet
 	return out
 }
 
@@ -1866,9 +1861,14 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	return DisabledTLSModeLabel
 }
 
+// ShallowCopy creates a shallow clone of IstioEndpoint.
+func (s *Service) ShallowCopy() *Service {
+	cpy := *s
+	return &cpy
+}
+
 // DeepCopy creates a clone of Service.
 func (s *Service) DeepCopy() *Service {
-	// nolint: govet
 	out := *s
 	out.Attributes = s.Attributes.DeepCopy()
 	if s.Ports != nil {
@@ -1940,7 +1940,6 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 
 // ShallowCopy creates a shallow clone of IstioEndpoint.
 func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
-	// nolint: govet
 	cpy := *ep
 	return &cpy
 }
