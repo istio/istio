@@ -43,22 +43,23 @@ istio.io/rev: {{ . | quote }}
 Render resource requirements, omitting any nil values.
 */}}
 {{- define "gateway.resources" -}}
-{{- with .limits }}{{- if or .cpu .memory }}
-limits:
-  {{- with .cpu }}
-  cpu: {{ . }}
+{{- range $key := list "limits" "requests" }}
+  {{- $resources := index $ $key }}
+  {{- if $resources }}
+    {{- $hasValues := false }}
+    {{- range $name, $value := $resources }}
+      {{- if $value }}
+        {{- $hasValues = true }}
+      {{- end }}
+    {{- end }}
+    {{- if $hasValues }}
+{{ $key }}:
+      {{- range $name, $value := $resources }}
+        {{- if $value }}
+  {{ $name }}: {{ $value }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
   {{- end }}
-  {{- with .memory }}
-  memory: {{ . }}
-  {{- end }}
-{{- end }}{{- end }}
-{{- with .requests }}{{- if or .cpu .memory }}
-requests:
-  {{- with .cpu }}
-  cpu: {{ . }}
-  {{- end }}
-  {{- with .memory }}
-  memory: {{ . }}
-  {{- end }}
-{{- end }}{{- end }}
+{{- end }}
 {{- end -}}
