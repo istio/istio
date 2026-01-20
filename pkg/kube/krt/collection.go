@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
