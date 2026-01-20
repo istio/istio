@@ -120,11 +120,11 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// For context, ambient E/W gateway will terminiate the outer HBONE tunnel and will redirect the inner
 	// HBONE tunnel to either a waypoint or service backend as an opaque stream of bytes - E/W gateway does
 	// not know that the data is actually an HBONE tunnel.
-	if features.EnableAmbientMultiNetwork && features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(proxy) {
+	if model.ShouldCreateDoubleHBONEResources(proxy) {
 		clusters = append(
 			clusters,
-			cb.buildWaypointInnerConnectOriginate(proxy, push),
-			cb.buildWaypointOuterConnectOriginate(proxy, push),
+			cb.buildInnerConnectOriginateCluster(proxy, push),
+			cb.buildOuterConnectOriginateCluster(proxy, push),
 		)
 	}
 
@@ -350,10 +350,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 	return clusters
 }
 
-// buildWaypointInnerConnectOriginate creates a cluster that innitiate inner HBONE tunnel of double-HBONE.
+// buildInnerConnectOriginateCluster creates a cluster that innitiate inner HBONE tunnel of double-HBONE.
 // InnerConnectOrigiante cluster is responsible for creating the inner CONNECT tunnel and forwarding to an internal listener that
 // will wrap the traffic into outer HBONE tunnel.
-func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	// Normally for clusters that just redirect to internal listeners we would use util.DefaultInternalUpstreamTransportSocket.
 	// util.DefaultInternalUpstreamTransportSocket is a InternalUpstreamTransport socket wrapping a RawBufferTransport socket.
 	// For double HBONE we want something slightly different - we still need to use InternalUpstreamTransport socket because
@@ -378,7 +378,7 @@ func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy,
 			ClusterName: DoubleHBONEInnerConnectOriginate,
 			Endpoints:   util.BuildInternalEndpoint(DoubleHBONEOuterConnectOriginate, nil),
 		},
-		TypedExtensionProtocolOptions: h2connectUpgradeWithNoPooling(),
+		TypedExtensionProtocolOptions: cb.h2connectUpgradeWithNoPooling(),
 		TransportSocket:               transportSocket,
 	}
 
@@ -387,10 +387,10 @@ func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy,
 	return c
 }
 
-// buildWaypointOuterConnectOriginate creates a cluster that finishes wrapping traffic in double HBONE by finalizing outer HBONE tunnel.
+// buildOuterConnectOriginateCluster creates a cluster that finishes wrapping traffic in double HBONE by finalizing outer HBONE tunnel.
 // It's basically equivalent to the regular waypoint ConnectOriginate cluster and does the same thing, the only real difference is that
 // it wraps the data already wrapped into a CONNECT once.
-func (cb *ClusterBuilder) buildWaypointOuterConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+func (cb *ClusterBuilder) buildOuterConnectOriginateCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	ctx := buildCommonConnectTLSContext(proxy, push)
 	sec_model.EnforceCompliance(ctx)
 	c := &cluster.Cluster{
@@ -400,7 +400,7 @@ func (cb *ClusterBuilder) buildWaypointOuterConnectOriginate(proxy *model.Proxy,
 		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
-		TypedExtensionProtocolOptions: h2connectUpgradeWithNoPooling(),
+		TypedExtensionProtocolOptions: cb.h2connectUpgradeWithNoPooling(),
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UpstreamPortOverride: &wrappers.UInt32Value{
@@ -496,7 +496,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
-		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		TypedExtensionProtocolOptions: cb.h2connectUpgrade(),
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UpstreamPortOverride: &wrappers.UInt32Value{
@@ -526,9 +526,20 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 	return c
 }
 
-func h2connectUpgrade() map[string]*anypb.Any {
+func (cb *ClusterBuilder) getHBONEIdleTimeout() *durationpb.Duration {
+	// Use configured HBONE idle timeout from MeshConfig, or default to 1 hour if not set
+	if cb.req.Push.Mesh.HboneIdleTimeout != nil {
+		return cb.req.Push.Mesh.HboneIdleTimeout
+	}
+	return durationpb.New(3600 * time.Second)
+}
+
+func (cb *ClusterBuilder) h2connectUpgrade() map[string]*anypb.Any {
 	return map[string]*anypb.Any{
 		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				IdleTimeout: cb.getHBONEIdleTimeout(),
+			},
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
@@ -540,7 +551,7 @@ func h2connectUpgrade() map[string]*anypb.Any {
 	}
 }
 
-func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
+func (cb *ClusterBuilder) h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
 	return map[string]*anypb.Any{
 		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
 			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
@@ -554,6 +565,7 @@ func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
 				// TODO(https://github.com/istio/istio/issues/58039): remove it after deploying a sensible
 				// connection pooling fix for ambient multi-network.
 				MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 1},
+				IdleTimeout:              cb.getHBONEIdleTimeout(),
 			},
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{

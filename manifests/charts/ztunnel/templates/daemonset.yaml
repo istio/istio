@@ -168,12 +168,8 @@ spec:
         {{- end }}
         {{- end }}
         {{- if .Values.peerCaCrl.enabled }}
-        - name: ENABLE_CRL
-          value: "true"
         - name: CRL_PATH
           value: "/var/run/secrets/istio/crl/ca-crl.pem"
-        - name: ALLOW_EXPIRED_CRL
-          value: "false"
         {{- end }}
         volumeMounts:
         - mountPath: /var/run/secrets/istio

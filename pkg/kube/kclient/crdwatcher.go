@@ -16,6 +16,7 @@ package kclient
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
@@ -54,10 +55,19 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 		callbacks: map[string][]func(){},
 	}
 
+	filters := []filterFunction{minimumVersionFilter}
+
+	pilotIgnoreResources := fetchResourceFilter(features.PilotIgnoreResourcesEnv)
+	if len(pilotIgnoreResources) > 0 {
+		filters = append(filters,
+			filterPilotResources(pilotIgnoreResources, fetchResourceFilter(features.PilotIncludeResourcesEnv)),
+		)
+	}
+
 	c.queue = controllers.NewQueue("crd watcher",
 		controllers.WithReconciler(c.Reconcile))
 	c.crds = NewMetadata(client, gvr.CustomResourceDefinition, Filter{
-		ObjectFilter: kubetypes.NewStaticObjectFilter(minimumVersionFilter),
+		ObjectFilter: kubetypes.NewStaticObjectFilter(unionFilter(filters)),
 	})
 	c.crds.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	return c
@@ -66,6 +76,94 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 var minimumCRDVersions = map[string]*semver.Version{
 	"grpcroutes.gateway.networking.k8s.io":         semver.New(1, 1, 0, "", ""),
 	"backendtlspolicies.gateway.networking.k8s.io": semver.New(1, 4, 0, "", ""),
+}
+
+// resourceFilterConfig contains a filter definition parsed from the flags. In case
+// the filter is passed with "*." the filter will be marked as Prefix type and
+// the check will match the value as a suffix, and not as an exact match
+type resourceFilterConfig struct {
+	prefix bool
+	value  string
+}
+
+// fetchResourceFilter is used to fetch the filters (ignore or include) from the
+// flags.
+func fetchResourceFilter(filters string) []resourceFilterConfig {
+	resourceFilter := make([]resourceFilterConfig, 0)
+
+	for filter := range strings.SplitSeq(filters, ",") {
+		val := strings.TrimSpace(filter)
+		prefix := false
+		if strings.HasPrefix(val, "*.") {
+			prefix = true
+			val = strings.TrimPrefix(val, "*.")
+		}
+		filterConf := resourceFilterConfig{
+			value:  val,
+			prefix: prefix,
+		}
+		resourceFilter = append(resourceFilter, filterConf)
+	}
+	return resourceFilter
+}
+
+type filterFunction = func(obj any) bool
+
+// unionFilter can be used to establish multiple object filters on CRD types.
+// We can use it for cases where we care about filtering out a CRD for a specific
+// version, or a specific group.
+// As an example, it may be desired to not reconcile CRDs from istio.io group and also
+// not reconcile CRDs that contains an older Gateway API version
+func unionFilter(fns []filterFunction) filterFunction {
+	return func(obj any) bool {
+		// if any of the functions returns false, early return the union
+		for _, f := range fns {
+			if !f(obj) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// filterPilotResources can be used in case we want to start the controller
+// ignoring any Pilot resource.
+// Two lists of resources will be passed. The passed resources can be prefixed with
+// "*." meaning the match should be against the whole suffix and not the exact resource:
+// - One list contains an array of resources that should be ignored/excluded.
+// - One list contains an array of resources that should be always included, regardless
+// of the exclusion list.
+// As an example, some cluster admin that wants to ignore all Istio resources
+// but still allow the usage of wasmplugins can pass the ignoreList as ["*.istio.io"]
+// and the inclusion list as ["wasmplugins.extensions.istio.io"]
+func filterPilotResources(pilotIgnoreResources, pilotIncludeResources []resourceFilterConfig) filterFunction {
+	return func(t any) bool {
+		crd := t.(*metav1.PartialObjectMetadata)
+
+		// In case this resource is not on exclusion list, just return true vale
+		if !resourceMatchFilters(crd.Name, pilotIgnoreResources) {
+			log.Infof("CRD %v is not at ignore list, adding to CRD watcher", crd.Name)
+			return true
+		}
+
+		// Before excluding this resource, check if it belongs to inclusion list
+		if resourceMatchFilters(crd.Name, pilotIncludeResources) {
+			log.Infof("CRD %v is being explicitly included, adding to CRD watcher", crd.Name)
+			return true
+		}
+		log.Infof("CRD %v has been excluded from watcher, ignoring", crd.Name)
+		return false
+	}
+}
+
+func resourceMatchFilters(name string, filters []resourceFilterConfig) bool {
+	for _, filter := range filters {
+		if (filter.prefix && strings.HasSuffix(name, filter.value)) ||
+			(!filter.prefix && name == filter.value) {
+			return true
+		}
+	}
+	return false
 }
 
 // minimumVersionFilter filters CRDs that do not meet a minimum "version".

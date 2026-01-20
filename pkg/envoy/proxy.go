@@ -46,12 +46,14 @@ type ProxyConfig struct {
 	OutlierLogPath     string
 	SkipDeprecatedLogs bool
 
-	BinaryPath    string
-	ConfigPath    string
-	ConfigCleanup bool
-	AdminPort     int32
-	DrainDuration *durationpb.Duration
-	Concurrency   int32
+	BinaryPath         string
+	ConfigPath         string
+	ConfigCleanup      bool
+	AdminPort          int32
+	DrainDuration      *durationpb.Duration
+	Concurrency        int32
+	FileFlushInterval  *durationpb.Duration
+	FileFlushMinSizeKB uint32
 
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
 	TestOnly    bool
@@ -126,6 +128,11 @@ func (e *envoy) args(fname string, overrideFname string) []string {
 	if network.AllIPv6(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	}
+	fileFlushInterval := "1000" // Default 1s
+	if e.FileFlushInterval != nil {
+		fileFlushInterval = fmt.Sprint(e.FileFlushInterval.AsDuration().Milliseconds())
+	}
+
 	startupArgs := []string{
 		"-c", fname,
 		"--drain-time-s", fmt.Sprint(int(e.DrainDuration.AsDuration().Seconds())),
@@ -137,9 +144,13 @@ func (e *envoy) args(fname string, overrideFname string) []string {
 		// At low QPS access logs are unlikely a bottleneck, and these users will now see logs after 1s rather than 10s.
 		// At high QPS (>250 QPS) we will log the same amount as we will log due to exceeding buffer size, rather
 		// than the flush interval.
-		"--file-flush-interval-msec", "1000",
+		"--file-flush-interval-msec", fileFlushInterval,
 		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
 		"--allow-unknown-static-fields",
+	}
+
+	if e.FileFlushMinSizeKB > 0 {
+		startupArgs = append(startupArgs, "--file-flush-min-size-kb", fmt.Sprint(e.FileFlushMinSizeKB))
 	}
 
 	startupArgs = append(startupArgs, e.extraArgs...)

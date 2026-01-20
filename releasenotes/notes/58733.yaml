@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 58733
+releaseNotes:
+  - |
+    **Added** CRL support in zTunnel. When ca-crl.pen file is provided via plugged-in CA, Istiod automatically
+    distributes Certificate Revocation Lists to all participating namespaces in the cluster. This enhancement allows 
+    zTunnel to validate and reject revoked certificates, strengthening the security posture of service mesh deployments 
+    using plugged-in CAs.

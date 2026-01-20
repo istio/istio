@@ -6626,7 +6626,6 @@ spec:
                               type: object
                           type: object
                         waypoint:
-                          description: Match on waypoint attributes.
                           properties:
                             filter:
                               description: The name of a specific filter to apply
