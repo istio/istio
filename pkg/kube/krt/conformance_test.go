@@ -224,8 +224,14 @@ func TestConformance(t *testing.T) {
 	})
 	t.Run("join", func(t *testing.T) {
 		factory := func(t *testing.T) Rig[Named] {
-			col1 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithName("join-conformance-1"))
-			col2 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithName("join-conformance-2"))
+			col1 := krt.NewStaticCollection[Named](nil, nil,
+				krt.WithStop(test.NewStop(t)),
+				krt.WithDebugging(krt.GlobalDebugHandler),
+				krt.WithName("join-conformance-1"))
+			col2 := krt.NewStaticCollection[Named](nil, nil,
+				krt.WithStop(test.NewStop(t)),
+				krt.WithDebugging(krt.GlobalDebugHandler),
+				krt.WithName("join-conformance-2"))
 			j := krt.JoinCollection(
 				[]krt.Collection[Named]{col1, col2},
 				krt.WithStop(test.NewStop(t)),
