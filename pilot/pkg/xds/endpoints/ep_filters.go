@@ -157,7 +157,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
 			// TODO BTS may allow us to work around this
-			if isSidecarProxy(b.proxy) && !isMtlsEnabled(lbEp) {
+			if (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) && !isMtlsEnabled(lbEp) {
 				continue
 			}
 
@@ -190,7 +190,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// gateways differently as we use somewhat different protocols in those two distinct cases.
 			var gwEp *endpoint.LbEndpoint
 
-			if features.EnableAmbientMultiNetwork {
+			if features.EnableAmbientMultiNetwork && !isSidecarProxy(b.proxy) {
 				gwAddr := gw.Addr
 				gwPort := int(gw.HBONEPort)
 
@@ -287,7 +287,7 @@ func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []m
 	}
 
 	// If we operate in ambient multi-network mode skip gateways that don't have HBONE port
-	if features.EnableAmbientMultiNetwork && model.IsWaypointProxy(b.proxy) {
+	if features.EnableAmbientMultiNetwork && !isSidecarProxy(b.proxy) {
 		var ambientGws []model.NetworkGateway
 		for _, gw := range gws {
 			if gw.HBONEPort == 0 {
