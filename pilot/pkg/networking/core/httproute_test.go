@@ -1999,6 +1999,128 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 }
 
+// TestServiceEntryMultipleAddresses reproduces issue #58692:
+// ServiceEntry with multiple addresses only exposes one address for HTTP traffic (RDS).
+// This test demonstrates that when a ServiceEntry has multiple addresses in spec.addresses,
+// only one IP is actually exposed as a domain in the generated HTTP RDS configuration.
+// The other IPs are silently ignored for HTTP routing.
+func TestServiceEntryMultipleAddresses(t *testing.T) {
+	// Create a ServiceEntry with multiple addresses
+	// This should create multiple model.Service objects, each with the same hostname
+	// but different DefaultAddress values (10.2.2.118 and 10.4.2.206)
+	serviceEntryConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.ServiceEntry,
+			Name:              "multi-address-http",
+			Namespace:         "default",
+			CreationTimestamp: time.Now(),
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"example.com"},
+			Addresses: []string{
+				"10.2.2.118",
+				"10.4.2.206",
+			},
+			Ports: []*networking.ServicePort{
+				{
+					Name:     "http-port-80",
+					Number:   80,
+					Protocol: "HTTP",
+				},
+			},
+			Endpoints: []*networking.WorkloadEntry{
+				{
+					Address: "10.0.0.1",
+				},
+			},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Configs: []config.Config{serviceEntryConfig},
+	})
+
+	proxy := cg.SetupProxy(nil)
+	proxy.DNSDomain = "default.svc.cluster.local"
+
+	// Generate RDS configuration for port 80
+	vHostCache := make(map[int][]*route.VirtualHost)
+	resource, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
+		proxy, &model.PushRequest{Push: cg.PushContext()}, "80", vHostCache, nil, nil)
+
+	if resource == nil {
+		t.Fatal("Expected route configuration, got nil")
+	}
+
+	routeCfg := &route.RouteConfiguration{}
+	err := resource.Resource.UnmarshalTo(routeCfg)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal route configuration: %v", err)
+	}
+
+	xdstest.ValidateRouteConfiguration(t, routeCfg)
+
+	// Find the virtual host for example.com:80
+	var exampleVHost *route.VirtualHost
+	for _, vh := range routeCfg.VirtualHosts {
+		if vh.Name == "example.com:80" {
+			exampleVHost = vh
+			break
+		}
+	}
+
+	if exampleVHost == nil {
+		// List all virtual hosts for debugging
+		vhostNames := make([]string, 0, len(routeCfg.VirtualHosts))
+		for _, vh := range routeCfg.VirtualHosts {
+			vhostNames = append(vhostNames, vh.Name)
+		}
+		t.Fatalf("Expected to find virtual host 'example.com:80', but found: %v", vhostNames)
+	}
+
+	// Check the domains in the virtual host
+	domainsSet := sets.New[string]()
+	for _, domain := range exampleVHost.Domains {
+		domainsSet.Insert(domain)
+	}
+
+	t.Logf("Virtual host 'example.com:80' domains: %v", exampleVHost.Domains)
+
+	// Check if both addresses are present
+	hasFirstAddress := domainsSet.Contains("10.2.2.118") || domainsSet.Contains("10.2.2.118:80")
+	hasSecondAddress := domainsSet.Contains("10.4.2.206") || domainsSet.Contains("10.4.2.206:80")
+
+	t.Logf("Has first address (10.2.2.118): %v", hasFirstAddress)
+	t.Logf("Has second address (10.4.2.206): %v", hasSecondAddress)
+
+	// Verify both addresses are present in the virtual host domains
+	// This test verifies the fix for issue #58692 where ServiceEntry with multiple addresses
+	// only exposed one address for HTTP traffic (RDS)
+	// See: https://github.com/istio/istio/issues/58692
+	if !hasFirstAddress && !hasSecondAddress {
+		t.Fatalf("Neither address found in virtual host domains! Expected at least one of: ['10.2.2.118', '10.2.2.118:80', '10.4.2.206', '10.4.2.206:80']")
+	} else if hasFirstAddress && !hasSecondAddress {
+		t.Fatalf("Only first address (10.2.2.118) found, second address (10.4.2.206) is missing! Found domains: %v", exampleVHost.Domains)
+	} else if !hasFirstAddress && hasSecondAddress {
+		t.Fatalf("Only second address (10.4.2.206) found, first address (10.2.2.118) is missing! Found domains: %v", exampleVHost.Domains)
+	}
+
+	// Both addresses are present - verify the fix is working
+	t.Logf("SUCCESS: Both addresses are present in virtual host domains (fix for issue #58692 verified)")
+
+	// Verify that both IP addresses appear in domains (the key fix for issue #58692)
+	// Note: Port variants may not appear if SidecarIgnorePort is true, which is acceptable
+	// The critical requirement is that both addresses (10.2.2.118 and 10.4.2.206) are present
+	if !domainsSet.Contains("10.2.2.118") && !domainsSet.Contains("10.2.2.118:80") {
+		t.Errorf("First address (10.2.2.118) missing from domains: %v", exampleVHost.Domains)
+	}
+	if !domainsSet.Contains("10.4.2.206") && !domainsSet.Contains("10.4.2.206:80") {
+		t.Errorf("Second address (10.4.2.206) missing from domains: %v", exampleVHost.Domains)
+	}
+}
+
 func buildHTTPServiceWithLabels(hostname string, v visibility.Instance, ip, namespace string, labels map[string]string, ports ...int) *model.Service {
 	svc := buildHTTPService(hostname, v, ip, namespace, ports...)
 	svc.Attributes.Labels = labels
