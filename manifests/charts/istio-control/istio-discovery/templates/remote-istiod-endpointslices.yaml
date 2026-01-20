@@ -25,7 +25,7 @@ metadata:
     {{- end }}
     app.kubernetes.io/name: "istiod"
     {{- include "istio.labels" . | nindent 4 }}
-addressType: {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}IPv4{{- else }}IPv6{{- end }}
+addressType: {{ if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}IPv4{{ else }}IPv6{{ end }}
 endpoints:
 - addresses:
   - {{ .Values.global.remotePilotAddress }}
