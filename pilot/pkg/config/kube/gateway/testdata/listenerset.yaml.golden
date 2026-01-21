@@ -19,6 +19,7 @@ spec:
       protocol: HTTPS
     tls:
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      minProtocolVersion: TLSV1_3
       mode: SIMPLE
 ---
 apiVersion: networking.istio.io/v1
@@ -101,6 +102,7 @@ spec:
       protocol: HTTPS
     tls:
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      minProtocolVersion: TLSV1_3
       mode: SIMPLE
 ---
 apiVersion: networking.istio.io/v1

@@ -16,7 +16,8 @@ spec:
       name: default
       number: 34000
       protocol: TLS
-    tls: {}
+    tls:
+      minProtocolVersion: TLSV1_3
 ---
 apiVersion: networking.istio.io/v1
 kind: Gateway
@@ -36,7 +37,8 @@ spec:
       name: default
       number: 34000
       protocol: TLS
-    tls: {}
+    tls:
+      minProtocolVersion: TLSV1_3
 ---
 apiVersion: networking.istio.io/v1
 kind: Gateway
@@ -59,6 +61,7 @@ spec:
     tls:
       caCertCredentialName: configmap://istio-system/my-cert-http-cacert
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      minProtocolVersion: TLSV1_3
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
@@ -125,6 +128,7 @@ spec:
     tls:
       caCertCredentialName: configmap://istio-system/my-cert-http-cacert
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      minProtocolVersion: TLSV1_3
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
@@ -148,6 +152,7 @@ spec:
     tls:
       caCertCredentialName: configmap://istio-system/my-cert-http-cacert
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      minProtocolVersion: TLSV1_3
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
@@ -171,6 +176,7 @@ spec:
     tls:
       caCertCredentialName: configmap://istio-system/my-cert-http-cacert
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      minProtocolVersion: TLSV1_3
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
@@ -196,6 +202,7 @@ spec:
       credentialNames:
       - kubernetes-gateway://istio-system/my-cert-http
       - kubernetes-gateway://istio-system/my-cert-http2
+      minProtocolVersion: TLSV1_3
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1

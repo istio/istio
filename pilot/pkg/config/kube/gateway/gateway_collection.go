@@ -94,7 +94,6 @@ func ListenerSetCollection(
 			if context == nil {
 				return nil, nil
 			}
-
 			if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
 				return nil, nil
 			}

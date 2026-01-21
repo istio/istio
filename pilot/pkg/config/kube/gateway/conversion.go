@@ -2243,7 +2243,7 @@ func buildTLS(
 }
 
 func applyListenerTLSettings(cfg *istio.ServerTLSSettings, tlsDefaults *meshconfig.MeshConfig_TLSConfig) {
-	if cfg == nil {
+	if cfg == nil || tlsDefaults == nil {
 		return
 	}
 	if len(tlsDefaults.CipherSuites) > 0 {
@@ -2255,13 +2255,15 @@ func applyListenerTLSettings(cfg *istio.ServerTLSSettings, tlsDefaults *meshconf
 	}
 }
 
+// The enum for MeshConfig TLSProtocol is not the same for istio ServerTLSSettings
+// so we need to convert it accordingly, or fallback to TLSv1.2
 func convertTLSProtocol(in meshconfig.MeshConfig_TLSConfig_TLSProtocol) istio.ServerTLSSettings_TLSProtocol {
 	converted, ok := istio.ServerTLSSettings_TLSProtocol_value[in.String()]
 	if !ok {
 		log.Warnf("was not able to map TLS protocol to Gateway API TLS protocol")
 		return istio.ServerTLSSettings_TLSV1_2
 	}
-	out := istio.ServerTLSSettings_TLSProtocol(converted) // There should be a one-to-one enum mapping
+	out := istio.ServerTLSSettings_TLSProtocol(converted)
 	if out < istio.ServerTLSSettings_TLS_AUTO || out > istio.ServerTLSSettings_TLSV1_3 {
 		log.Warnf("was not able to map TLS protocol to Gateway API TLS protocol")
 		return istio.ServerTLSSettings_TLSV1_2

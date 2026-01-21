@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/gateway-api/pkg/consts"
 	"sigs.k8s.io/yaml"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
@@ -775,6 +776,11 @@ func TestConvertResources(t *testing.T) {
 			cg := core.NewConfigGenTest(t, core.TestOptions{
 				Services:  services,
 				Instances: instances,
+				MeshConfig: &meshconfig.MeshConfig{
+					TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+						MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+					},
+				},
 			})
 
 			dbg := &krt.DebugHandler{}
@@ -1822,4 +1828,70 @@ func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 
 func firstValue[T, U any](val T, _ U) T {
 	return val
+}
+
+func Test_applyListenerTLSettings(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         *istio.ServerTLSSettings
+		tlsDefaults *meshconfig.MeshConfig_TLSConfig
+		expectedCfg *istio.ServerTLSSettings
+	}{
+		{
+			name:        "nil input should return nil output",
+			cfg:         nil,
+			expectedCfg: nil,
+		},
+		{
+			name: "passing a default cipher-suite must be added to the output configuration",
+			cfg: &istio.ServerTLSSettings{
+				HttpsRedirect: true,
+			},
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				CipherSuites: []string{"a", "b"},
+			},
+			expectedCfg: &istio.ServerTLSSettings{
+				HttpsRedirect: true,
+				CipherSuites:  []string{"a", "b"},
+			},
+		},
+		{
+			name: "passing an invalid minProtocolVersion must fallback to TLSv1.2",
+			cfg: &istio.ServerTLSSettings{
+				HttpsRedirect: true,
+			},
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				CipherSuites:       []string{"a", "b"},
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSProtocol(200),
+			},
+			expectedCfg: &istio.ServerTLSSettings{
+				HttpsRedirect:      true,
+				CipherSuites:       []string{"a", "b"},
+				MinProtocolVersion: istio.ServerTLSSettings_TLSV1_2,
+			},
+		},
+		{
+			name: "passing a minProtocolVersion must be added to the output configuration with the right value",
+			cfg: &istio.ServerTLSSettings{
+				HttpsRedirect: true,
+			},
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				CipherSuites:       []string{"a", "b"},
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+			},
+			expectedCfg: &istio.ServerTLSSettings{
+				HttpsRedirect:      true,
+				CipherSuites:       []string{"a", "b"},
+				MinProtocolVersion: istio.ServerTLSSettings_TLSV1_3,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			applyListenerTLSettings(tt.cfg, tt.tlsDefaults)
+		})
+		if !reflect.DeepEqual(tt.cfg, tt.expectedCfg) {
+			t.Fatalf("expected %v, got %v", tt.expectedCfg, tt.cfg)
+		}
+	}
 }

@@ -17,6 +17,7 @@ spec:
       number: 35443
       protocol: TLS
     tls:
+      minProtocolVersion: TLSV1_3
       mode: AUTO_PASSTHROUGH
 ---
 apiVersion: networking.istio.io/v1
@@ -37,7 +38,8 @@ spec:
       name: default
       number: 15012
       protocol: TLS
-    tls: {}
+    tls:
+      minProtocolVersion: TLSV1_3
 ---
 apiVersion: networking.istio.io/v1
 kind: Gateway
@@ -57,7 +59,8 @@ spec:
       name: default
       number: 15017
       protocol: TLS
-    tls: {}
+    tls:
+      minProtocolVersion: TLSV1_3
 ---
 apiVersion: networking.istio.io/v1
 kind: VirtualService
