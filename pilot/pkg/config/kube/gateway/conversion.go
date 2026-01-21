@@ -38,6 +38,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/credentials"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
@@ -1972,6 +1973,7 @@ func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info classInf
 
 func buildListener(
 	ctx krt.HandlerContext,
+	gwCtx *GatewayContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
@@ -2005,7 +2007,7 @@ func buildListener(
 	}
 
 	ok := true
-	tls, err := buildTLS(ctx, configMaps, secrets, grants, resolveGatewayTLS(l.Port, gw.TLS), l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
+	tls, err := buildTLS(ctx, gwCtx, configMaps, secrets, grants, resolveGatewayTLS(l.Port, gw.TLS), l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
 		listenerConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
@@ -2112,6 +2114,7 @@ func resolveGatewayTLS(port k8s.PortNumber, gw *k8s.GatewayTLSConfig) *k8s.TLSCo
 
 func buildTLS(
 	ctx krt.HandlerContext,
+	gwCtx *GatewayContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
@@ -2225,6 +2228,11 @@ func buildTLS(
 			out.Mode = istio.ServerTLSSettings_AUTO_PASSTHROUGH
 		}
 	}
+
+	if gwCtx != nil && gwCtx.ps != nil && gwCtx.ps.Mesh != nil && gwCtx.ps.Mesh.GetTlsDefaults() != nil {
+		applyListenerTLSettings(out, gwCtx.ps.Mesh.GetTlsDefaults())
+	}
+
 	if opts := tls.Options[gatewayTLSCipherSuites]; opts != "" {
 		ciphers := security.FilterCipherSuites(slices.Map(strings.Split(string(opts), ","), strings.TrimSpace))
 		if len(ciphers) > 0 {
@@ -2232,6 +2240,33 @@ func buildTLS(
 		}
 	}
 	return out, nil
+}
+
+func applyListenerTLSettings(cfg *istio.ServerTLSSettings, tlsDefaults *meshconfig.MeshConfig_TLSConfig) {
+	if cfg == nil {
+		return
+	}
+	if len(tlsDefaults.CipherSuites) > 0 {
+		cfg.CipherSuites = tlsDefaults.CipherSuites
+	}
+	log.Warnf("minProtocolVersion: %v", tlsDefaults.GetMinProtocolVersion())
+	if tlsDefaults.GetMinProtocolVersion() != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
+		cfg.MinProtocolVersion = convertTLSProtocol(tlsDefaults.GetMinProtocolVersion())
+	}
+}
+
+func convertTLSProtocol(in meshconfig.MeshConfig_TLSConfig_TLSProtocol) istio.ServerTLSSettings_TLSProtocol {
+	converted, ok := istio.ServerTLSSettings_TLSProtocol_value[in.String()]
+	if !ok {
+		log.Warnf("was not able to map TLS protocol to Gateway API TLS protocol")
+		return istio.ServerTLSSettings_TLSV1_2
+	}
+	out := istio.ServerTLSSettings_TLSProtocol(converted) // There should be a one-to-one enum mapping
+	if out < istio.ServerTLSSettings_TLS_AUTO || out > istio.ServerTLSSettings_TLSV1_3 {
+		log.Warnf("was not able to map TLS protocol to Gateway API TLS protocol")
+		return istio.ServerTLSSettings_TLSV1_2
+	}
+	return out
 }
 
 func buildSecretReference(

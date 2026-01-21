@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58864
+releaseNotes:
+- |
+  **Added** the capability on Gateway API to respect meshConfig.tlsDefaults when constructing
+  the cipher suite list and the setting the minProtocolVersion
