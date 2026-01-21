@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/issues/56594
+  - https://github.com/istio/istio/issues/52988
+
+releaseNotes:
+  - |
+    **Fixed** namespace controller leader election being shared across revisions, which could prevent
+    `istio-ca-root-cert` ConfigMaps from being created for namespaces selected by other revisions when
+    `meshConfig.discoverySelectors` differ.

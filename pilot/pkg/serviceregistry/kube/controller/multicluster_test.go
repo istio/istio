@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -26,6 +27,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
+	"istio.io/istio/pilot/pkg/leaderelection"
+	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/cluster"
@@ -90,6 +93,108 @@ func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *mul
 	}
 	client.RunAndWait(stop)
 	return sc
+}
+
+func TestNamespaceControllerElectionID(t *testing.T) {
+	cases := []struct {
+		name     string
+		revision string
+		want     string
+	}{
+		{
+			name:     "empty revision uses default election",
+			revision: "",
+			want:     leaderelection.NamespaceController,
+		},
+		{
+			name:     "default revision uses default election",
+			revision: "default",
+			want:     leaderelection.NamespaceController,
+		},
+		{
+			name:     "non-default revision gets suffix",
+			revision: "1-22",
+			want:     leaderelection.NamespaceController + "-1-22",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, namespaceControllerElectionID(tc.revision), tc.want)
+		})
+	}
+}
+
+func TestLegacyNamespaceControllerLockHeld(t *testing.T) {
+	cases := []struct {
+		name        string
+		annotations map[string]string
+		want        bool
+		wantErr     bool
+	}{
+		{
+			name:    "no configmap",
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name:        "missing annotation",
+			annotations: map[string]string{"other": "value"},
+			want:        false,
+			wantErr:     false,
+		},
+		{
+			name:        "empty holder identity",
+			annotations: map[string]string{k8sresourcelock.LeaderElectionRecordAnnotationKey: `{"holderIdentity":""}`},
+			want:        false,
+			wantErr:     false,
+		},
+		{
+			name:        "invalid annotation json",
+			annotations: map[string]string{k8sresourcelock.LeaderElectionRecordAnnotationKey: "{bad"},
+			want:        false,
+			wantErr:     true,
+		},
+		{
+			name: "holder identity set",
+			annotations: func() map[string]string {
+				payload, err := json.Marshal(map[string]string{"holderIdentity": "old-leader"})
+				if err != nil {
+					t.Fatalf("failed to marshal leader election record: %v", err)
+				}
+				return map[string]string{k8sresourcelock.LeaderElectionRecordAnnotationKey: string(payload)}
+			}(),
+			want:    true,
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := kube.NewFakeClient()
+			stop := test.NewStop(t)
+			_ = client.RunAndWait(stop)
+			if tc.annotations != nil {
+				cm := &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        leaderelection.NamespaceController,
+						Namespace:   testSecretNameSpace,
+						Annotations: tc.annotations,
+					},
+				}
+				_, err := client.Kube().CoreV1().ConfigMaps(testSecretNameSpace).Create(context.Background(), cm, metav1.CreateOptions{})
+				if err != nil {
+					t.Fatalf("failed to create configmap: %v", err)
+				}
+			}
+
+			got, err := legacyNamespaceControllerLockHeld(client, testSecretNameSpace)
+			if tc.wantErr != (err != nil) {
+				t.Fatalf("legacyNamespaceControllerLockHeld error = %v, wantErr %t", err, tc.wantErr)
+			}
+			assert.Equal(t, got, tc.want)
+		})
+	}
 }
 
 func Test_KubeSecretController(t *testing.T) {

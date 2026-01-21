@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -27,12 +28,14 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/leaderelection"
+	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/backoff"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -223,7 +226,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 					log.Infof("joining leader-election for %s in %s on cluster %s",
 						leaderelection.ClusterTrustBundleController, options.SystemNamespace, options.ClusterID)
 					election := leaderelection.
-						NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
+						NewPerRevisionLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, client).
 						AddRunFunction(func(leaderStop <-chan struct{}) {
 							log.Infof("starting clustertrustbundle controller for cluster %s", cluster.ID)
 							c := clustertrustbundle.NewController(client, m.caBundleWatcher)
@@ -235,12 +238,25 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 				})
 			} else {
 				// Block server exit on graceful termination of the leader controller.
+				// This check is for backwards compatibility with older (non per-revision) namespace controller leader election.
+				// If the ConfigMap for leader election exists and has a holder, the non-revision leader election will be joined.
+				// Once the leader election is acquired, it will signal the channel to activate the per-revision namespace controller.
+				activateNamespaceControllerCh := make(chan struct{})
+				m.checkAndRunNonRevisionNamespaceControllerElectionIfRequired(
+					client,
+					options.SystemNamespace,
+					options.ClusterID,
+					clusterStopCh,
+					activateNamespaceControllerCh,
+				)
 				m.s.RunComponentAsyncAndWait("namespace controller", func(_ <-chan struct{}) error {
 					log.Infof("joining leader-election for %s in %s on cluster %s",
 						leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 					election := leaderelection.
-						NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
+						NewPerRevisionLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, client).
 						AddRunFunction(func(leaderStop <-chan struct{}) {
+							log.Infof("waiting for namespace controller activation for cluster %s", cluster.ID)
+							<-activateNamespaceControllerCh
 							log.Infof("starting namespace controller for cluster %s", cluster.ID)
 							nc := NewNamespaceController(client, m.caBundleWatcher)
 							// Start informers again. This fixes the case where informers for namespace do not start,
@@ -302,6 +318,78 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			return nil
 		})
 	}
+}
+
+func legacyNamespaceControllerLockHeld(client kubelib.Client, systemNamespace string) (bool, error) {
+	cm, err := client.Kube().CoreV1().ConfigMaps(systemNamespace).Get(context.Background(), leaderelection.NamespaceController, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	leaderAnn := cm.Annotations[k8sresourcelock.LeaderElectionRecordAnnotationKey]
+	if leaderAnn == "" {
+		return false, nil
+	}
+	var leaderInfo struct {
+		HolderIdentity string `json:"holderIdentity"`
+	}
+	if err := json.Unmarshal([]byte(leaderAnn), &leaderInfo); err != nil {
+		return false, err
+	}
+	return leaderInfo.HolderIdentity != "", nil
+}
+
+func (m *Multicluster) checkAndRunNonRevisionNamespaceControllerElectionIfRequired(
+	client kubelib.Client,
+	systemNamespace string,
+	clusterID cluster.ID,
+	stop <-chan struct{},
+	activateCh chan struct{},
+) {
+	held, err := legacyNamespaceControllerLockHeld(client, systemNamespace)
+	if err != nil {
+		log.Warnf("failed checking legacy namespace controller election for cluster %s: %v", clusterID, err)
+		close(activateCh)
+		return
+	}
+	if !held {
+		close(activateCh)
+		return
+	}
+
+	m.s.RunComponentAsyncAndWait("namespace controller legacy lock", func(componentStop <-chan struct{}) error {
+		secondStop := make(chan struct{})
+		go func() {
+			select {
+			case <-stop:
+			case <-componentStop:
+			}
+			select {
+			case <-secondStop:
+			default:
+				close(secondStop)
+			}
+		}()
+		leaderelection.
+			NewLeaderElection(systemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, client).
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				log.Infof("activating per-revision namespace controller for cluster %s", clusterID)
+				select {
+				case <-activateCh:
+				default:
+					close(activateCh)
+				}
+				select {
+				case <-secondStop:
+				default:
+					close(secondStop)
+				}
+			}).
+			Run(secondStop)
+		return nil
+	})
 }
 
 // checkShouldLead returns true if the caller should attempt leader election for a remote cluster.
