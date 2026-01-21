@@ -417,10 +417,18 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort() map[uint32]inboundChai
 		}
 		// First, make sure there is a distinct instance used per port.
 		// The Service is *almost* not relevant, but some Telemetry is per-service.
-		// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
+		// If there is a conflict, we will use the oldest Service (or the service with shorter name if
+		// LISTENER_DECONFLICT_BY_LENGTH is enabled). This impacts the protocol used as well.
 		if old, f := chainsByPort[port.TargetPort]; f {
-			reportInboundConflict(lb, old, cc)
-			continue
+			if features.ListenerDeconflictByLength {
+				if len(old.telemetryMetadata.InstanceHostname) < len(cc.telemetryMetadata.InstanceHostname) {
+					reportInboundConflict(lb, old, cc)
+					continue
+				}
+			} else {
+				reportInboundConflict(lb, old, cc)
+				continue
+			}
 		}
 		chainsByPort[port.TargetPort] = cc
 	}

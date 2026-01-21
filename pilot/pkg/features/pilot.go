@@ -275,6 +275,10 @@ var (
 	MaxConnectionsToAcceptPerSocketEvent = env.Register("MAX_CONNECTIONS_PER_SOCKET_EVENT_LOOP", 1,
 		"The maximum number of connections to accept from the kernel per socket event. Set this to '0' to accept unlimited connections.").Get()
 
+	ListenerDeconflictByLength = env.Register("LISTENER_DECONFLICT_BY_LENGTH", false,
+		"If enabled, when there are conflicting inbound listener filter chains on the same port, "+
+			"the service with the shorter hostname will be used instead of the oldest service.").Get()
+
 	EnableClusterTrustBundles = env.Register("ENABLE_CLUSTER_TRUST_BUNDLE_API", false,
 		"If enabled, uses the ClusterTrustBundle API instead of ConfigMaps to store the root certificate in the cluster.").Get()
 
