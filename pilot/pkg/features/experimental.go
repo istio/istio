@@ -228,4 +228,8 @@ var (
 			"This value should be a comma-separated list of resources names."+
 			"Items on this list can be prefixed with a '*.' meaning a whole group should be included regardless of the ignore list.",
 	).Get()
+
+	GatewayAPIUseTLSDefaults = env.Register("GATEWAY_API_USE_TLS_DEFAULTS", false,
+		"If true, Envoy instances provisioned for Gateway API will use the same value of meshConfig.tlsDefaults as their default TLS configuration.",
+	).Get()
 )

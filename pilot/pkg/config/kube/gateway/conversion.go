@@ -2229,8 +2229,10 @@ func buildTLS(
 		}
 	}
 
-	if gwCtx != nil && gwCtx.ps != nil && gwCtx.ps.Mesh != nil && gwCtx.ps.Mesh.GetTlsDefaults() != nil {
-		applyListenerTLSettings(out, gwCtx.ps.Mesh.GetTlsDefaults())
+	if features.GatewayAPIUseTLSDefaults {
+		if gwCtx != nil && gwCtx.ps != nil && gwCtx.ps.Mesh != nil && gwCtx.ps.Mesh.GetTlsDefaults() != nil {
+			applyListenerTLSettings(out, gwCtx.ps.Mesh.GetTlsDefaults())
+		}
 	}
 
 	if opts := tls.Options[gatewayTLSCipherSuites]; opts != "" {

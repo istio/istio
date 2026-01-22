@@ -751,6 +751,7 @@ func TestConvertResources(t *testing.T) {
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
+	test.SetForTest(t, &features.GatewayAPIUseTLSDefaults, true)
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
