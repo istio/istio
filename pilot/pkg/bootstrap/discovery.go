@@ -65,5 +65,11 @@ func InitGenerators(
 
 	generators["event"] = xds.NewStatusGen(s)
 	generators[v3.DebugType] = xds.NewDebugGen(s, systemNameSpace, internalDebugMux)
+
+	// Agentgateway generators
+	agwGen := s.Collections
+	generators["agentgateway/"+v3.AddressType] = agwGen[v3.AddressType]
+	generators[v3.AgwResourceType] = agwGen[v3.AgwResourceType]
+
 	s.Generators = generators
 }

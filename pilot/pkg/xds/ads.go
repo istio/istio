@@ -258,6 +258,13 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 		return fmt.Errorf("ztunnel requires PILOT_ENABLE_AMBIENT=true")
 	}
 
+	// TODO(jaellio): Check agentgatewayID
+	/*if id != nil {
+		reqId := kgwxds.AgentgatewayID(con.node)
+		if reqId != *id {
+			return fmt.Errorf("requested gateway %v but authenticated as %v", reqId, *id)
+		}
+	}*/
 	// Authorize xds clients
 	if err := s.authorize(con, identities); err != nil {
 		return err

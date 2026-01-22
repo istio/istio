@@ -1163,6 +1163,13 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	if err := s.initServiceControllers(args); err != nil {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
+
+	// TODO(jaellio): Embed this into the config controller?
+	if features.EnableAgentgateway {
+		if err := s.initAgentGatewayController(args); err != nil {
+			return fmt.Errorf("error initializing agent gateway controller: %v", err)
+		}
+	}
 	return nil
 }
 

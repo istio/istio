@@ -2184,6 +2184,7 @@ func buildTLS(
 			credNames[i] = cred
 			validCertCount++
 		}
+		// Istio supports having dual certificates in different formats
 		if validCertCount == 0 {
 			// If we have no valid certificates, return an error
 			return out, combinedErr
