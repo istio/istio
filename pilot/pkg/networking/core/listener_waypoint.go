@@ -131,6 +131,9 @@ func (lb *ListenerBuilder) generateWaypointDownstreamMetadataFilter() *hcm.HttpF
 		// use baggage for the discovery.
 		cfg["downstream_discovery"] = []any{
 			map[string]any{
+				"workload_discovery": map[string]any{},
+			},
+			map[string]any{
 				"baggage": map[string]any{},
 			},
 		}

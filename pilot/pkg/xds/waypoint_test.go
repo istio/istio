@@ -715,19 +715,19 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 	testCases := []struct {
 		name                                string
 		enableAmbientMultiNetwork           bool
-		expectedDownstreamDiscoveryMethod   string
+		expectedDownstreamDiscoveryMethods  []string
 		expectedDownstreamPropagationMethod string
 	}{
 		{
 			name:                                "single network ambient uses workload_discovery",
 			enableAmbientMultiNetwork:           false,
-			expectedDownstreamDiscoveryMethod:   "workload_discovery",
+			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
 			expectedDownstreamPropagationMethod: "",
 		},
 		{
 			name:                                "multi-network ambient uses baggage",
 			enableAmbientMultiNetwork:           true,
-			expectedDownstreamDiscoveryMethod:   "baggage",
+			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
 			expectedDownstreamPropagationMethod: "baggage",
 		},
 	}
@@ -767,12 +767,17 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 
 			downstreamDiscovery := typedStruct.Value.Fields["downstream_discovery"].GetListValue()
 			g.Expect(downstreamDiscovery).NotTo(BeNil())
-			g.Expect(len(downstreamDiscovery.Values)).To(BeNumerically("==", 1))
+			g.Expect(len(downstreamDiscovery.Values)).To(BeNumerically("==", len(tc.expectedDownstreamDiscoveryMethods)))
 
-			discoveryMethod := downstreamDiscovery.Values[0].GetStructValue()
-			g.Expect(discoveryMethod).NotTo(BeNil())
-			_, hasExpectedDiscoveryMethod := discoveryMethod.Fields[tc.expectedDownstreamDiscoveryMethod]
-			g.Expect(hasExpectedDiscoveryMethod).To(BeTrue())
+			var discoveryMethods []string
+			for _, v := range downstreamDiscovery.Values {
+				for key := range v.GetStructValue().GetFields() {
+					discoveryMethods = append(discoveryMethods, key)
+				}
+			}
+			for _, expectedDiscoveryMethod := range tc.expectedDownstreamDiscoveryMethods {
+				g.Expect(discoveryMethods).To(ContainElement(expectedDiscoveryMethod))
+			}
 
 			sharedWithUpstream := typedStruct.Value.Fields["shared_with_upstream"].GetBoolValue()
 			g.Expect(sharedWithUpstream).To(BeTrue())
