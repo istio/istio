@@ -646,36 +646,6 @@ func buildServiceTags(node *model.Proxy) []*tracing.CustomTag {
 			},
 		},
 	}
-	// Waypoints use filter state to expose upstream/downstream workloads.
-	if node.IsWaypointProxy() {
-		waypointTags := []*tracing.CustomTag{
-			{
-				Tag: "istio.downstream.workload",
-				Type: &tracing.CustomTag_Value{
-					Value: "%CEL(filter_state.downstream_peer.workload)%",
-				},
-			},
-			{
-				Tag: "istio.downstream.namespace",
-				Type: &tracing.CustomTag_Value{
-					Value: "%CEL(filter_state.downstream_peer.namespace)%",
-				},
-			},
-			{
-				Tag: "istio.upstream.workload",
-				Type: &tracing.CustomTag_Value{
-					Value: "%CEL(filter_state.upstream_peer.workload)%",
-				},
-			},
-			{
-				Tag: "istio.upstream.namespace",
-				Type: &tracing.CustomTag_Value{
-					Value: "%CEL(filter_state.upstream_peer.namespace)%",
-				},
-			},
-		}
-		tags = append(tags, waypointTags...)
-	}
 
 	return tags
 }
