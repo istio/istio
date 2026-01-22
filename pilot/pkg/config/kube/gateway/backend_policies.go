@@ -29,6 +29,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -126,7 +127,7 @@ func DestinationRuleCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
 	ancestors krt.Index[TypedNamespacedName, AncestorBackend],
-	references *ReferenceSet,
+	references *gatewaycommon.ReferenceSet,
 	domainSuffix string,
 	c *Controller,
 	services krt.Collection[*v1.Service],
@@ -282,7 +283,7 @@ func DestinationRuleCollection(
 func BackendTLSPolicyCollection(
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
 	ancestors krt.IndexCollection[TypedNamespacedName, AncestorBackend],
-	references *ReferenceSet,
+	references *gatewaycommon.ReferenceSet,
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gw.BackendTLSPolicy, gw.PolicyStatus], krt.Collection[BackendPolicy]) {
@@ -436,7 +437,7 @@ func getBackendTLSCredentialName(
 	validation gw.BackendTLSPolicyValidation,
 	policyNamespace string,
 	conds map[string]*condition,
-	references *ReferenceSet,
+	references *gatewaycommon.ReferenceSet,
 ) string {
 	if wk := validation.WellKnownCACertificates; wk != nil {
 		switch *wk {
@@ -512,7 +513,7 @@ func getBackendTLSCredentialName(
 
 func BackendTrafficPolicyCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
-	references *ReferenceSet,
+	references *gatewaycommon.ReferenceSet,
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gatewayx.XBackendTrafficPolicy, gatewayx.PolicyStatus], krt.Collection[BackendPolicy]) {

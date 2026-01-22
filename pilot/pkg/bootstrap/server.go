@@ -331,6 +331,9 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
 
+	if features.EnableAgentgateway {
+		InitCollections(s.XDSServer)
+	}
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
 		return nil, err
@@ -1166,6 +1169,7 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	if err := s.initServiceControllers(args); err != nil {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
+
 	return nil
 }
 

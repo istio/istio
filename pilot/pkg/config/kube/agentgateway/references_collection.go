@@ -12,35 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package agentgateway
 
 import (
+	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
-	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 )
 
-func SecretAllowed(refs gatewaycommon.ReferenceGrants, ctx krt.HandlerContext, kind config.GroupVersionKind, resourceName string, namespace string) bool {
-	p, err := creds.ParseResourceName(resourceName, "", "", "")
-	if err != nil {
-		log.Warnf("failed to parse resource name %q: %v", resourceName, err)
-		return false
-	}
-	resourceKind := config.GroupVersionKind{Kind: p.ResourceKind.String()}
-	resourceSchema, resourceSchemaFound := collections.All.FindByGroupKind(resourceKind)
-	if resourceSchemaFound {
-		resourceKind = resourceSchema.GroupVersionKind()
-	}
+func AgwSecretAllowed(refs gatewaycommon.ReferenceGrants, ctx krt.HandlerContext, kind config.GroupVersionKind, resourceName types.NamespacedName, namespace string) bool {
 	from := gatewaycommon.Reference{Kind: kind, Namespace: gateway.Namespace(namespace)}
-	to := gatewaycommon.Reference{Kind: resourceKind, Namespace: gateway.Namespace(p.Namespace)}
+	to := gatewaycommon.Reference{Kind: gvk.Secret, Namespace: gateway.Namespace(resourceName.Namespace)}
 	pair := gatewaycommon.ReferencePair{From: from, To: to}
 	grants := krt.FetchOrList(ctx, refs.Collection, krt.FilterIndex(refs.Index, pair))
 	for _, g := range grants {
-		if g.AllowAll || g.AllowedName == p.Name {
+		if g.AllowAll || g.AllowedName == resourceName.Name {
 			return true
 		}
 	}

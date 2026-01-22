@@ -12,21 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package agentgateway
 
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/json"
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/config/constants"
@@ -34,8 +28,13 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
@@ -47,22 +46,6 @@ const (
 	InferencePoolExtensionRefFailureMode = "istio.io/inferencepool-extension-failure-mode"
 	InferencePoolFieldManager            = "istio.io/inference-pool-controller"
 )
-
-// // ManagedLabel is the label used to identify resources managed by this controller
-// const ManagedLabel = "inference.x-k8s.io/managed-by"
-
-// ControllerName is the name of this controller for labeling resources it manages
-const ControllerName = "inference-controller"
-
-var supportedControllers = getSupportedControllers()
-
-func getSupportedControllers() sets.Set[gatewayv1.GatewayController] {
-	ret := sets.New[gatewayv1.GatewayController]()
-	for _, controller := range gatewaycommon.BuiltinClasses {
-		ret.Insert(controller)
-	}
-	return ret
-}
 
 type shadowServiceInfo struct {
 	key      types.NamespacedName
@@ -92,6 +75,16 @@ type InferencePool struct {
 
 func (i InferencePool) ResourceName() string {
 	return i.shadowService.key.Namespace + "/" + i.shadowService.poolName
+}
+
+var supportedControllers = getSupportedControllers()
+
+func getSupportedControllers() sets.Set[gatewayv1.GatewayController] {
+	ret := sets.New[gatewayv1.GatewayController]()
+	for _, controller := range gatewaycommon.BuiltinClasses {
+		ret.Insert(controller)
+	}
+	return ret
 }
 
 func InferencePoolCollection(
@@ -130,100 +123,31 @@ func InferencePoolCollection(
 			return status, inferencePool
 		}, opts.WithName("InferenceExtension")...)
 }
+// routeReferencesInferencePool checks if an HTTPRoute references the given InferencePool
+func routeReferencesInferencePool(route *gatewayv1.HTTPRoute, pool *inferencev1.InferencePool) bool {
+	for _, rule := range route.Spec.Rules {
+		for _, backendRef := range rule.BackendRefs {
+			if !isInferencePoolBackendRef(backendRef.BackendRef) {
+				continue
+			}
 
-// createInferencePoolObject creates the InferencePool object with shadow service and extension ref info
-func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents sets.Set[types.NamespacedName]) *InferencePool {
-	// Build extension reference info
-	extRef := extRefInfo{
-		name: string(pool.Spec.EndpointPickerRef.Name),
-	}
+			// Check if this backend ref points to our InferencePool
+			if string(backendRef.BackendRef.Name) != pool.ObjectMeta.Name {
+				continue
+			}
 
-	if pool.Spec.EndpointPickerRef.Port == nil {
-		log.Errorf("invalid InferencePool %s/%s; endpointPickerRef port is required", pool.Namespace, pool.Name)
-		return nil
-	}
-	extRef.port = int32(pool.Spec.EndpointPickerRef.Port.Number)
+			// Check namespace match
+			backendRefNamespace := route.Namespace
+			if ptr.OrEmpty(backendRef.BackendRef.Namespace) != "" {
+				backendRefNamespace = string(*backendRef.BackendRef.Namespace)
+			}
 
-	extRef.failureMode = string(inferencev1.EndpointPickerFailClose) // Default failure mode
-	if pool.Spec.EndpointPickerRef.FailureMode != inferencev1.EndpointPickerFailClose {
-		extRef.failureMode = string(pool.Spec.EndpointPickerRef.FailureMode)
-	}
-
-	svcName, err := InferencePoolServiceName(pool.Name)
-	if err != nil {
-		log.Errorf("failed to generate service name for InferencePool %s: %v", pool.Name, err)
-		return nil
-	}
-
-	shadowSvcInfo := shadowServiceInfo{
-		key: types.NamespacedName{
-			Name:      svcName,
-			Namespace: pool.GetNamespace(),
-		},
-		selector:    make(map[string]string, len(pool.Spec.Selector.MatchLabels)),
-		poolName:    pool.GetName(),
-		targetPorts: make([]targetPort, 0, len(pool.Spec.TargetPorts)),
-		poolUID:     pool.GetUID(),
-	}
-
-	for k, v := range pool.Spec.Selector.MatchLabels {
-		shadowSvcInfo.selector[string(k)] = string(v)
-	}
-
-	for _, port := range pool.Spec.TargetPorts {
-		shadowSvcInfo.targetPorts = append(shadowSvcInfo.targetPorts, targetPort{port: int32(port.Number)})
-	}
-
-	return &InferencePool{
-		shadowService:  shadowSvcInfo,
-		extRef:         extRef,
-		gatewayParents: gatewayParents,
-	}
-}
-
-// calculateInferencePoolStatus calculates the complete status for an InferencePool
-func calculateInferencePoolStatus(
-	pool *inferencev1.InferencePool,
-	gatewayParents sets.Set[types.NamespacedName],
-	services krt.Collection[*corev1.Service],
-	gateways krt.Collection[*gatewayv1.Gateway],
-	routeList []*gatewayv1.HTTPRoute,
-) *inferencev1.InferencePoolStatus {
-	// Calculate status for each gateway parent
-	existingParents := pool.Status.DeepCopy().Parents
-	finalParents := []inferencev1.ParentStatus{}
-
-	// Add existing parents from other controllers (not managed by us)
-	for _, existingParent := range existingParents {
-		gtwName := string(existingParent.ParentRef.Name)
-		gtwNamespace := pool.Namespace
-		if existingParent.ParentRef.Namespace != "" {
-			gtwNamespace = string(existingParent.ParentRef.Namespace)
-		}
-		parentKey := types.NamespacedName{
-			Name:      gtwName,
-			Namespace: gtwNamespace,
-		}
-
-		isCurrentlyOurs := gatewayParents.Contains(parentKey)
-
-		// Keep parents that are not ours and not default status parents
-		if !isCurrentlyOurs &&
-			!isOurManagedGateway(gateways, gtwNamespace, gtwName) &&
-			!isDefaultStatusParent(existingParent) {
-			finalParents = append(finalParents, existingParent)
+			if backendRefNamespace == pool.Namespace {
+				return true
+			}
 		}
 	}
-
-	// Calculate status for each of our gateway parents
-	for gatewayParent := range gatewayParents {
-		parentStatus := calculateSingleParentStatus(pool, gatewayParent, services, existingParents, routeList)
-		finalParents = append(finalParents, parentStatus)
-	}
-
-	return &inferencev1.InferencePoolStatus{
-		Parents: finalParents,
-	}
+	return false
 }
 
 // findGatewayParents finds all Gateway parents that reference this InferencePool through HTTPRoutes
@@ -263,37 +187,90 @@ func findGatewayParents(
 	return gatewayParents
 }
 
-// routeReferencesInferencePool checks if an HTTPRoute references the given InferencePool
-func routeReferencesInferencePool(route *gatewayv1.HTTPRoute, pool *inferencev1.InferencePool) bool {
-	for _, rule := range route.Spec.Rules {
-		for _, backendRef := range rule.BackendRefs {
-			if !isInferencePoolBackendRef(backendRef.BackendRef) {
-				continue
-			}
-
-			// Check if this backend ref points to our InferencePool
-			if string(backendRef.BackendRef.Name) != pool.ObjectMeta.Name {
-				continue
-			}
-
-			// Check namespace match
-			backendRefNamespace := route.Namespace
-			if ptr.OrEmpty(backendRef.BackendRef.Namespace) != "" {
-				backendRefNamespace = string(*backendRef.BackendRef.Namespace)
-			}
-
-			if backendRefNamespace == pool.Namespace {
-				return true
-			}
-		}
-	}
-	return false
+// generateHash generates an 8-character SHA256 hash of the input string.
+func generateHash(input string, length int) string {
+	hashBytes := sha256.Sum256([]byte(input))
+	hashString := fmt.Sprintf("%x", hashBytes) // Convert to hexadecimal string
+	return hashString[:length]                 // Truncate to desired length
 }
 
-// isInferencePoolBackendRef checks if a BackendRef is pointing to an InferencePool
-func isInferencePoolBackendRef(backendRef gatewayv1.BackendRef) bool {
-	return ptr.OrEmpty(backendRef.Group) == gatewayv1.Group(gvk.InferencePool.Group) &&
-		ptr.OrEmpty(backendRef.Kind) == gatewayv1.Kind(gvk.InferencePool.Kind)
+func InferencePoolServiceName(poolName string) (string, error) {
+	ipSeparator := "-ip-"
+	hash := generateHash(poolName, hashSize)
+	svcName := poolName + ipSeparator + hash
+	// Truncate if necessary to meet the Kubernetes naming constraints
+	if len(svcName) > maxServiceNameLength {
+		// Calculate the maximum allowed base name length
+		maxBaseLength := maxServiceNameLength - len(ipSeparator) - hashSize
+		if maxBaseLength < 0 {
+			return "", fmt.Errorf("inference pool name: %s is too long", poolName)
+		}
+
+		// Truncate the base name and reconstruct the service name
+		truncatedBase := poolName[:maxBaseLength]
+		svcName = truncatedBase + ipSeparator + hash
+	}
+	return svcName, nil
+}
+
+// createInferencePoolObject creates the InferencePool object with shadow service and extension ref info
+func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents sets.Set[types.NamespacedName]) *InferencePool {
+	// Build extension reference info
+	extRef := extRefInfo{
+		name: string(pool.Spec.EndpointPickerRef.Name),
+	}
+
+	if pool.Spec.EndpointPickerRef.Port == nil {
+		logger.Errorf("invalid InferencePool %s/%s; endpointPickerRef port is required", pool.Namespace, pool.Name)
+		return nil
+	}
+	extRef.port = int32(pool.Spec.EndpointPickerRef.Port.Number)
+
+	extRef.failureMode = string(inferencev1.EndpointPickerFailClose) // Default failure mode
+	if pool.Spec.EndpointPickerRef.FailureMode != inferencev1.EndpointPickerFailClose {
+		extRef.failureMode = string(pool.Spec.EndpointPickerRef.FailureMode)
+	}
+
+	svcName, err := InferencePoolServiceName(pool.Name)
+	if err != nil {
+		logger.Errorf("failed to generate service name for InferencePool %s: %v", pool.Name, err)
+		return nil
+	}
+
+	shadowSvcInfo := shadowServiceInfo{
+		key: types.NamespacedName{
+			Name:      svcName,
+			Namespace: pool.GetNamespace(),
+		},
+		selector:    make(map[string]string, len(pool.Spec.Selector.MatchLabels)),
+		poolName:    pool.GetName(),
+		targetPorts: make([]targetPort, 0, len(pool.Spec.TargetPorts)),
+		poolUID:     pool.GetUID(),
+	}
+
+	for k, v := range pool.Spec.Selector.MatchLabels {
+		shadowSvcInfo.selector[string(k)] = string(v)
+	}
+
+	for _, port := range pool.Spec.TargetPorts {
+		shadowSvcInfo.targetPorts = append(shadowSvcInfo.targetPorts, targetPort{port: int32(port.Number)})
+	}
+
+	return &InferencePool{
+		shadowService:  shadowSvcInfo,
+		extRef:         extRef,
+		gatewayParents: gatewayParents,
+	}
+}
+
+func filterUsedConditions(conditions []metav1.Condition, usedConditions ...inferencev1.InferencePoolConditionType) []metav1.Condition {
+	var result []metav1.Condition
+	for _, condition := range conditions {
+		if slices.Contains(usedConditions, inferencev1.InferencePoolConditionType(condition.Type)) {
+			result = append(result, condition)
+		}
+	}
+	return result
 }
 
 // calculateSingleParentStatus calculates the status for a single gateway parent
@@ -469,40 +446,51 @@ func isOurManagedGateway(gateways krt.Collection[*gatewayv1.Gateway], namespace,
 	return ok
 }
 
-func filterUsedConditions(conditions []metav1.Condition, usedConditions ...inferencev1.InferencePoolConditionType) []metav1.Condition {
-	var result []metav1.Condition
-	for _, condition := range conditions {
-		if slices.Contains(usedConditions, inferencev1.InferencePoolConditionType(condition.Type)) {
-			result = append(result, condition)
+// calculateInferencePoolStatus calculates the complete status for an InferencePool
+func calculateInferencePoolStatus(
+	pool *inferencev1.InferencePool,
+	gatewayParents sets.Set[types.NamespacedName],
+	services krt.Collection[*corev1.Service],
+	gateways krt.Collection[*gatewayv1.Gateway],
+	routeList []*gatewayv1.HTTPRoute,
+) *inferencev1.InferencePoolStatus {
+	// Calculate status for each gateway parent
+	existingParents := pool.Status.DeepCopy().Parents
+	finalParents := []inferencev1.ParentStatus{}
+
+	// Add existing parents from other controllers (not managed by us)
+	for _, existingParent := range existingParents {
+		gtwName := string(existingParent.ParentRef.Name)
+		gtwNamespace := pool.Namespace
+		if existingParent.ParentRef.Namespace != "" {
+			gtwNamespace = string(existingParent.ParentRef.Namespace)
 		}
-	}
-	return result
-}
-
-func generateHash(input string, length int) string {
-	hashBytes := sha256.Sum256([]byte(input))
-	hashString := fmt.Sprintf("%x", hashBytes) // Convert to hexadecimal string
-	return hashString[:length]                 // Truncate to desired length
-}
-
-func InferencePoolServiceName(poolName string) (string, error) {
-	ipSeparator := "-ip-"
-	hash := generateHash(poolName, hashSize)
-	svcName := poolName + ipSeparator + hash
-	// Truncate if necessary to meet the Kubernetes naming constraints
-	if len(svcName) > maxServiceNameLength {
-		// Calculate the maximum allowed base name length
-		maxBaseLength := maxServiceNameLength - len(ipSeparator) - hashSize
-		if maxBaseLength < 0 {
-			return "", fmt.Errorf("inference pool name: %s is too long", poolName)
+		parentKey := types.NamespacedName{
+			Name:      gtwName,
+			Namespace: gtwNamespace,
 		}
 
-		// Truncate the base name and reconstruct the service name
-		truncatedBase := poolName[:maxBaseLength]
-		svcName = truncatedBase + ipSeparator + hash
+		isCurrentlyOurs := gatewayParents.Contains(parentKey)
+
+		// Keep parents that are not ours and not default status parents
+		if !isCurrentlyOurs &&
+			!isOurManagedGateway(gateways, gtwNamespace, gtwName) &&
+			!isDefaultStatusParent(existingParent) {
+			finalParents = append(finalParents, existingParent)
+		}
 	}
-	return svcName, nil
+
+	// Calculate status for each of our gateway parents
+	for gatewayParent := range gatewayParents {
+		parentStatus := calculateSingleParentStatus(pool, gatewayParent, services, existingParents, routeList)
+		finalParents = append(finalParents, parentStatus)
+	}
+
+	return &inferencev1.InferencePoolStatus{
+		Parents: finalParents,
+	}
 }
+
 
 func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo) *corev1.Service {
 	// Create multiple ports for the shadow service - one for each InferencePool targetPort.
@@ -558,6 +546,17 @@ func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo
 	return svc
 }
 
+func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bool, string) {
+	if obj == nil {
+		// No object exists, we can manage it
+		return true, ""
+	}
+
+	_, inferencePoolManaged := obj.GetLabels()[InferencePoolRefLabel]
+	// We can manage if it has no manager or if we are the manager
+	return inferencePoolManaged, obj.GetResourceVersion()
+}
+
 func (c *Controller) reconcileShadowService(
 	kubeClient kube.Client,
 	inferencePools krt.Collection[InferencePool],
@@ -568,7 +567,7 @@ func (c *Controller) reconcileShadowService(
 		pool := inferencePools.GetKey(key.String())
 		if pool == nil {
 			// we'll generally ignore these scenarios, since the InferencePool may have been deleted
-			log.Debugf("inferencepool no longer exists", key.String())
+			logger.Debugf("inferencepool no longer exists", key.String())
 			return nil
 		}
 
@@ -580,7 +579,7 @@ func (c *Controller) reconcileShadowService(
 		if existingService != nil {
 			canManage, reason := c.canManageShadowServiceForInference(existingService)
 			if !canManage {
-				log.Debugf("skipping service %s/%s, already managed by another controller: %s", key.Namespace, key.Name, reason)
+				logger.Debugf("skipping service %s/%s, already managed by another controller: %s", key.Namespace, key.Name, reason)
 				return nil
 			}
 		}
@@ -606,15 +605,10 @@ func (c *Controller) applyShadowService(kubeClient kube.Client, service *corev1.
 	return err
 }
 
-func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bool, string) {
-	if obj == nil {
-		// No object exists, we can manage it
-		return true, ""
-	}
-
-	_, inferencePoolManaged := obj.GetLabels()[InferencePoolRefLabel]
-	// We can manage if it has no manager or if we are the manager
-	return inferencePoolManaged, obj.GetResourceVersion()
+// isInferencePoolBackendRef checks if a BackendRef is pointing to an InferencePool
+func isInferencePoolBackendRef(backendRef gatewayv1.BackendRef) bool {
+	return ptr.OrEmpty(backendRef.Group) == gatewayv1.Group(gvk.InferencePool.Group) &&
+		ptr.OrEmpty(backendRef.Kind) == gatewayv1.Kind(gvk.InferencePool.Kind)
 }
 
 func indexHTTPRouteByInferencePool(o *gatewayv1.HTTPRoute) []string {

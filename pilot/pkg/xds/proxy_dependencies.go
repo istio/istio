@@ -116,7 +116,7 @@ func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) (*model.P
 		return req, true
 	}
 
-	if proxy.IsWaypointProxy() || proxy.IsZTunnel() {
+	if proxy.IsWaypointProxy() || proxy.IsZTunnel() || proxy.IsAgentgateway() {
 		// Optimizations do not apply since scoping uses different mechanism
 		// TODO: implement ambient aware scoping
 		return req, true
