@@ -204,31 +204,38 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			identityVerified := proxy.VerifiedIdentity != nil &&
 				proxy.VerifiedIdentity.Namespace == expectedNS &&
 				(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
-			cn := s.GetTls().GetCredentialName()
-			if cn != "" && identityVerified {
-				gwKind := gvk.KubernetesGateway
-				lookupNamespace := proxy.VerifiedIdentity.Namespace
-				if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.XListenerSet.Kind+"/") {
-					gwKind = gvk.XListenerSet
-					lookupNamespace = gatewayConfig.Namespace
-				}
-				// Ignore BuiltinGatewaySecretTypeURI, as it is not referencing a Secret at all
-				if !strings.HasPrefix(cn, credentials.BuiltinGatewaySecretTypeURI) {
-					rn := credentials.ToResourceName(cn)
-					parse, err := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
-					// For ListenerSet, we do not require the config to live in the same namespace. However, there is a trust handshake via AllowedListeners.
-					configAndProxyAllowed := gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace || gwKind == gvk.XListenerSet
-					if err == nil && configAndProxyAllowed && parse.Namespace == lookupNamespace {
-						// Same namespace is always allowed
-						verifiedCertificateReferences.Insert(rn)
-						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
-							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
-						}
-					} else if ps.SecretAllowed(gwKind, rn, lookupNamespace) {
-						// Explicitly allowed by some policy
-						verifiedCertificateReferences.Insert(rn)
-						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
-							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
+
+			cns := s.GetTls().GetCredentialNames()
+			if len(cns) == 0 {
+				cns = append(cns, s.GetTls().GetCredentialName())
+			}
+
+			for _, cn := range cns {
+				if cn != "" && identityVerified {
+					gwKind := gvk.KubernetesGateway
+					lookupNamespace := proxy.VerifiedIdentity.Namespace
+					if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.XListenerSet.Kind+"/") {
+						gwKind = gvk.XListenerSet
+						lookupNamespace = gatewayConfig.Namespace
+					}
+					// Ignore BuiltinGatewaySecretTypeURI, as it is not referencing a Secret at all
+					if !strings.HasPrefix(cn, credentials.BuiltinGatewaySecretTypeURI) {
+						rn := credentials.ToResourceName(cn)
+						parse, err := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
+						// For ListenerSet, we do not require the config to live in the same namespace. However, there is a trust handshake via AllowedListeners.
+						configAndProxyAllowed := gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace || gwKind == gvk.XListenerSet
+						if err == nil && configAndProxyAllowed && parse.Namespace == lookupNamespace {
+							// Same namespace is always allowed
+							verifiedCertificateReferences.Insert(rn)
+							if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
+								verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
+							}
+						} else if ps.SecretAllowed(gwKind, rn, lookupNamespace) {
+							// Explicitly allowed by some policy
+							verifiedCertificateReferences.Insert(rn)
+							if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
+								verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
+							}
 						}
 					}
 				}
