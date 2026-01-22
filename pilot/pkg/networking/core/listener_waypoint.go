@@ -115,26 +115,30 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 }
 
 func (lb *ListenerBuilder) generateWaypointDownstreamMetadataFilter() *hcm.HttpFilter {
-	// This is our default/legacy strategy, the waypoint
-	// will use WDS information to obtain peer metadata.
-	wlDiscoveryStrategy := map[string]any{
-		"workload_discovery": map[string]any{},
+	cfg := map[string]any{
+		"downstream_discovery": []any{
+			// This is our default/legacy strategy, the waypoint
+			// will use WDS information to obtain peer metadata.
+			map[string]any{
+				"workload_discovery": map[string]any{},
+			},
+		},
+		"shared_with_upstream": true,
 	}
 
 	if features.EnableAmbientMultiNetwork {
 		// Though if we're in a ambient multinetwork scenario we'll
-		// use baggage for the discovery, which will give us more
-		// information when split horizon request routing is in place.
-		wlDiscoveryStrategy = map[string]any{
-			"baggage": map[string]any{},
+		// use baggage for the discovery.
+		cfg["downstream_discovery"] = []any{
+			map[string]any{
+				"baggage": map[string]any{},
+			},
 		}
-	}
-
-	cfg := map[string]any{
-		"downstream_discovery": []any{
-			wlDiscoveryStrategy,
-		},
-		"shared_with_upstream": true,
+		cfg["downstream_propagation"] = []any{
+			map[string]any{
+				"baggage": map[string]any{},
+			},
+		}
 	}
 
 	return &hcm.HttpFilter{

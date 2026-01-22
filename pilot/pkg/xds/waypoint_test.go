@@ -713,19 +713,22 @@ spec:
 
 func TestWaypointPeerMetadataFilters(t *testing.T) {
 	testCases := []struct {
-		name                              string
-		enableAmbientMultiNetwork         bool
-		expectedDownstreamDiscoveryMethod string
+		name                                string
+		enableAmbientMultiNetwork           bool
+		expectedDownstreamDiscoveryMethod   string
+		expectedDownstreamPropagationMethod string
 	}{
 		{
-			name:                              "single network ambient uses workload_discovery",
-			enableAmbientMultiNetwork:         false,
-			expectedDownstreamDiscoveryMethod: "workload_discovery",
+			name:                                "single network ambient uses workload_discovery",
+			enableAmbientMultiNetwork:           false,
+			expectedDownstreamDiscoveryMethod:   "workload_discovery",
+			expectedDownstreamPropagationMethod: "",
 		},
 		{
-			name:                              "multi-network ambient uses baggage",
-			enableAmbientMultiNetwork:         true,
-			expectedDownstreamDiscoveryMethod: "baggage",
+			name:                                "multi-network ambient uses baggage",
+			enableAmbientMultiNetwork:           true,
+			expectedDownstreamDiscoveryMethod:   "baggage",
+			expectedDownstreamPropagationMethod: "baggage",
 		},
 	}
 
@@ -768,11 +771,25 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 
 			discoveryMethod := downstreamDiscovery.Values[0].GetStructValue()
 			g.Expect(discoveryMethod).NotTo(BeNil())
-			_, hasExpectedMethod := discoveryMethod.Fields[tc.expectedDownstreamDiscoveryMethod]
-			g.Expect(hasExpectedMethod).To(BeTrue())
+			_, hasExpectedDiscoveryMethod := discoveryMethod.Fields[tc.expectedDownstreamDiscoveryMethod]
+			g.Expect(hasExpectedDiscoveryMethod).To(BeTrue())
 
 			sharedWithUpstream := typedStruct.Value.Fields["shared_with_upstream"].GetBoolValue()
 			g.Expect(sharedWithUpstream).To(BeTrue())
+
+			if tc.expectedDownstreamPropagationMethod != "" {
+				downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
+				g.Expect(downstreamPropagation).NotTo(BeNil())
+				g.Expect(len(downstreamPropagation.Values)).To(BeNumerically("==", 1))
+
+				propagationMethod := downstreamPropagation.Values[0].GetStructValue()
+				g.Expect(propagationMethod).NotTo(BeNil())
+				_, hasExpectedPropagationMethod := propagationMethod.Fields[tc.expectedDownstreamPropagationMethod]
+				g.Expect(hasExpectedPropagationMethod).To(BeTrue())
+			} else {
+				downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
+				g.Expect(downstreamPropagation).To(BeNil())
+			}
 		})
 	}
 }
