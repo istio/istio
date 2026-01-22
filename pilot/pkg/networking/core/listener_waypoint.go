@@ -114,6 +114,37 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	return listeners
 }
 
+func (lb *ListenerBuilder) generateWaypointDownstreamMetadataFilter() *hcm.HttpFilter {
+	// This is our default/legacy strategy, the waypoint
+	// will use WDS information to obtain peer metadata.
+	wlDiscoveryStrategy := map[string]any{
+		"workload_discovery": map[string]any{},
+	}
+
+	if features.EnableAmbientMultiNetwork {
+		// Though if we're in a ambient multinetwork scenario we'll
+		// use baggage for the discovery, which will give us more
+		// information when split horizon request routing is in place.
+		wlDiscoveryStrategy = map[string]any{
+			"baggage": map[string]any{},
+		}
+	}
+
+	cfg := map[string]any{
+		"downstream_discovery": []any{
+			wlDiscoveryStrategy,
+		},
+		"shared_with_upstream": true,
+	}
+
+	return &hcm.HttpFilter{
+		Name: "waypoint_downstream_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(xdsfilters.PeerMetadataTypeURL, cfg),
+		},
+	}
+}
+
 func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) []*listener.Filter {
 	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	h := &hcm.HttpConnectionManager{
@@ -174,7 +205,7 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
 	}
 	filters = append(filters,
-		xdsfilters.WaypointDownstreamMetadataFilter,
+		lb.generateWaypointDownstreamMetadataFilter(),
 		xdsfilters.ConnectAuthorityFilter)
 
 	// This filter checks whether the request went through a waypoint already and thefore whether L7 policies have

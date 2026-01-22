@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -708,6 +709,72 @@ spec:
 	}
 	g.Expect(dfpFilter).NotTo(BeNil())
 	g.Expect(dfpFilter.GetTypedConfig().TypeUrl).To(Equal("type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig"))
+}
+
+func TestWaypointPeerMetadataFilters(t *testing.T) {
+	testCases := []struct {
+		name                              string
+		enableAmbientMultiNetwork         bool
+		expectedDownstreamDiscoveryMethod string
+	}{
+		{
+			name:                              "single network ambient uses workload_discovery",
+			enableAmbientMultiNetwork:         false,
+			expectedDownstreamDiscoveryMethod: "workload_discovery",
+		},
+		{
+			name:                              "multi-network ambient uses baggage",
+			enableAmbientMultiNetwork:         true,
+			expectedDownstreamDiscoveryMethod: "baggage",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableAmbientMultiNetwork)
+
+			d, proxy := setupWaypointTest(t,
+				waypointGateway,
+				waypointSvc,
+				waypointInstance,
+				appServiceEntry)
+
+			connectTerminateListener := xdstest.ExtractListener("connect_terminate", d.Listeners(proxy))
+			g.Expect(connectTerminateListener).NotTo(BeNil())
+
+			connectTerminateHCM := xdstest.ExtractHTTPConnectionManager(t,
+				xdstest.ExtractFilterChain("default", connectTerminateListener))
+			g.Expect(connectTerminateHCM).NotTo(BeNil(), "connect_terminate HCM should exist")
+
+			var downstreamMetadataFilter *hcm.HttpFilter
+			for _, f := range connectTerminateHCM.HttpFilters {
+				if f.Name == "waypoint_downstream_peer_metadata" {
+					downstreamMetadataFilter = f
+					break
+				}
+			}
+			g.Expect(downstreamMetadataFilter).NotTo(BeNil())
+
+			typedStruct := &udpa.TypedStruct{}
+			err := downstreamMetadataFilter.GetTypedConfig().UnmarshalTo(typedStruct)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			g.Expect(typedStruct.TypeUrl).To(Equal("type.googleapis.com/io.istio.http.peer_metadata.Config"))
+
+			downstreamDiscovery := typedStruct.Value.Fields["downstream_discovery"].GetListValue()
+			g.Expect(downstreamDiscovery).NotTo(BeNil())
+			g.Expect(len(downstreamDiscovery.Values)).To(BeNumerically("==", 1))
+
+			discoveryMethod := downstreamDiscovery.Values[0].GetStructValue()
+			g.Expect(discoveryMethod).NotTo(BeNil())
+			_, hasExpectedMethod := discoveryMethod.Fields[tc.expectedDownstreamDiscoveryMethod]
+			g.Expect(hasExpectedMethod).To(BeTrue())
+
+			sharedWithUpstream := typedStruct.Value.Fields["shared_with_upstream"].GetBoolValue()
+			g.Expect(sharedWithUpstream).To(BeTrue())
+		})
+	}
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
