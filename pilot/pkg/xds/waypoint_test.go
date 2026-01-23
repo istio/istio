@@ -734,11 +734,11 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			expectedDownstreamPropagationMethod: "",
 		},
 		{
-			name:                                "ENABLE_AMBIENT_MULTI_NETWORK=false, ENABLE_AMBIENT_MULTI_NETWORK_BAGGAGE=true",
+			name:                                "single network ambient uses baggage",
 			enableAmbientMultiNetwork:           false,
-			enableAmbientMultiNetworkBaggage:    true,
-			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
-			expectedDownstreamPropagationMethod: "",
+			enableAmbientMultiNetworkBaggage:    false,
+			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
+			expectedDownstreamPropagationMethod: "baggage",
 		},
 		{
 			name:                                "multi-network ambient uses baggage",
@@ -753,7 +753,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
 			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableAmbientMultiNetwork)
-			test.SetForTest(t, &features.EnableAmbientMultiNetworkBaggage, tc.enableAmbientMultiNetworkBaggage)
+			test.SetForTest(t, &features.EnableAmbientBaggage, tc.enableAmbientMultiNetworkBaggage)
 
 			d, proxy := setupWaypointTest(t,
 				waypointGateway,

@@ -38,6 +38,7 @@ import (
 	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -231,6 +232,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
 	maybeApplyEdsConfig(localCluster.cluster)
+	cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
 
 	// TLS and PROXY are more involved, since these impact the transport socket which is customized for HBONE.
 	opts := &buildClusterOpts{
@@ -575,5 +577,14 @@ func (cb *ClusterBuilder) h2connectUpgradeWithNoPooling() map[string]*anypb.Any 
 				},
 			}},
 		}),
+	}
+}
+
+func (cb *ClusterBuilder) maybeApplyBaggageMetadataDiscovery(c *cluster.Cluster) {
+	if features.EnableAmbientBaggage {
+		if c.GetType() != cluster.Cluster_EDS {
+			return
+		}
+		c.Filters = append(c.Filters, xdsfilters.WaypointClusterBaggagePeerMetadata)
 	}
 }
