@@ -63,6 +63,9 @@ var (
 	EnableAmbientMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK", false, false,
 		"If true, the multi-network functionality will be enabled.")
 
+	EnableAmbientMultiNetworkBaggage = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK_BAGGAGE", false, false,
+		"If true, and if AMBIENT_ENABLE_MULTI_NETWORK is also true, this enables waypoints to use baggage in downstream discovery and propagation of peer metadata.")
+
 	// Using just EnableAmbientMultiNetwork is not enough for users that already experiment with ambient multi-network and use istio from head.
 	// While we don't provide much guarantees for alpha features like ambient multi-network, if it's easy to avoid breaking users unnecessarily
 	// we should do that.

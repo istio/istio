@@ -218,21 +218,6 @@ var (
 		},
 	}
 
-	WaypointDownstreamMetadataFilter = &hcm.HttpFilter{
-		Name: "waypoint_downstream_peer_metadata",
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
-				map[string]any{
-					"downstream_discovery": []any{
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-					"shared_with_upstream": true,
-				}),
-		},
-	}
-
 	WaypointUpstreamMetadataFilter = &hcm.HttpFilter{
 		Name: "waypoint_upstream_peer_metadata",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
