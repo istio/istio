@@ -879,7 +879,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		}
 
 		// Fallback to TLS in case this is a TLSRoute with Termination
-		if isTlsRoute, ok := v.Annotations[constants.InternalParentNames]; ok && strings.HasPrefix(isTlsRoute, "TLSRoute/") {
+		if isTLSRoute, ok := v.Annotations[constants.InternalParentNames]; ok && strings.HasPrefix(isTLSRoute, "TLSRoute/") {
 			includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
 			for _, tls := range vsvc.Tls {
 				for _, match := range tls.Match {
