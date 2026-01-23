@@ -812,7 +812,7 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 			}
 		}
 		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
-	} else if !gateway.IsPassThroughServer(server) && server.Port.Name != "default-terminate" {
+	} else if !gateway.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 		// and forward to backend
 		// Validation ensures that non-passthrough servers will have certs
@@ -853,6 +853,8 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 	if len(virtualServices) == 0 {
 		log.Warnf("no virtual service bound to gateway: %v", gateway)
 	}
+
+	filters := make([]*listener.Filter, 0)
 	for _, v := range virtualServices {
 		vsvc := v.Spec.(*networking.VirtualService)
 		// We have two cases here:
@@ -874,8 +876,20 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
 			}
 		}
-	}
 
+		// Fallback to TLS in case this is a TLSRoute with Termination
+		includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
+		for _, tls := range vsvc.Tls {
+			for _, match := range tls.Match {
+				if l4SingleMatch(convertTLSMatchToL4Match(match), server, gateway) {
+					filters = append(filters, lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx)...)
+				}
+			}
+		}
+	}
+	if len(filters) > 0 {
+		return filters
+	}
 	return nil
 }
 
@@ -937,18 +951,11 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 						}
 
 						// the sni hosts in the match will become part of a filter chain match
-						filterChain := &filterChainOpts{
+						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
 							tlsContext:     nil, // NO TLS context because this is passthrough
 							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false),
-						}
-
-						if server.Port.Name == "default-terminate" {
-							filterChain.tlsContext = buildGatewayListenerTLSContext(lb.push, server, lb.node, istionetworking.TransportProtocolTCP)
-						}
-
-						// the sni hosts in the match will become part of a filter chain match
-						filterChains = append(filterChains, filterChain)
+						})
 					}
 				}
 			}

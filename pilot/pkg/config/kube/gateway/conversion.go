@@ -2047,7 +2047,6 @@ func buildListener(
 			}
 		}
 	}
-
 	server := &istio.Server{
 		Port: &istio.Port{
 			// Name is required. We only have one server per Gateway, so we can just name them all the same
@@ -2057,11 +2056,6 @@ func buildListener(
 		},
 		Hosts: hostnames,
 		Tls:   tls,
-	}
-
-	// TODO: is this acceptable as a way to flag to conversion that we want to make a TLS filter and not a TCP filter?
-	if l.Protocol == k8s.TLSProtocolType && l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModeTerminate {
-		server.Port.Name = "default-terminate"
 	}
 
 	updatedStatus := reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
