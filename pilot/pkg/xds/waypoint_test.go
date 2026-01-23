@@ -715,18 +715,35 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 	testCases := []struct {
 		name                                string
 		enableAmbientMultiNetwork           bool
+		enableAmbientMultiNetworkBaggage    bool
 		expectedDownstreamDiscoveryMethods  []string
 		expectedDownstreamPropagationMethod string
 	}{
 		{
 			name:                                "single network ambient uses workload_discovery",
 			enableAmbientMultiNetwork:           false,
+			enableAmbientMultiNetworkBaggage:    false,
+			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
+			expectedDownstreamPropagationMethod: "",
+		},
+		{
+			name:                                "ENABLE_AMBIENT_MULTI_NETWORK=true, ENABLE_AMBIENT_MULTI_NETWORK_BAGGAGE=false",
+			enableAmbientMultiNetwork:           true,
+			enableAmbientMultiNetworkBaggage:    false,
+			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
+			expectedDownstreamPropagationMethod: "",
+		},
+		{
+			name:                                "ENABLE_AMBIENT_MULTI_NETWORK=false, ENABLE_AMBIENT_MULTI_NETWORK_BAGGAGE=true",
+			enableAmbientMultiNetwork:           false,
+			enableAmbientMultiNetworkBaggage:    true,
 			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
 			expectedDownstreamPropagationMethod: "",
 		},
 		{
 			name:                                "multi-network ambient uses baggage",
 			enableAmbientMultiNetwork:           true,
+			enableAmbientMultiNetworkBaggage:    true,
 			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
 			expectedDownstreamPropagationMethod: "baggage",
 		},
@@ -736,6 +753,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
 			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableAmbientMultiNetwork)
+			test.SetForTest(t, &features.EnableAmbientMultiNetworkBaggage, tc.enableAmbientMultiNetworkBaggage)
 
 			d, proxy := setupWaypointTest(t,
 				waypointGateway,

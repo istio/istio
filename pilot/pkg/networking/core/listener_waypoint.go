@@ -126,7 +126,7 @@ func (lb *ListenerBuilder) generateWaypointDownstreamMetadataFilter() *hcm.HttpF
 		"shared_with_upstream": true,
 	}
 
-	if features.EnableAmbientMultiNetwork {
+	if features.EnableAmbientMultiNetwork && features.EnableAmbientMultiNetworkBaggage {
 		// Though if we're in a ambient multinetwork scenario we'll
 		// use baggage for the discovery.
 		cfg["downstream_discovery"] = []any{
