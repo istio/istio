@@ -565,6 +565,8 @@ The test framework supports the following command-line flags:
 | --istio.test.openshift             | bool | Set to `true` when running the tests in an OpenShift cluster, rather than in KinD.                                                                            |
 | --istio.test.stableNamespaces      | bool | Set to `true` to use stable namespaces for the test. Useful with nocleanup to develop tests                                                                   |
 | --istio.test.nativeNftables        | bool | Set to `true` to use native nftable rules instead of iptable rules                      |
+| --istio.test.kube.gatewayClassName | string | The name of the GatewayClass to use for Gateway API tests. (default is "istio"). |
+| --istio.test.meshless              | bool | Indicate a meshless cluster (no sidecar injection). Echo apps will be deployed without istio-proxy overlay. Useful for testing Gateway API on clusters without full Istio mesh capabilities. (default is "false"). |
 
 ## Notes
 

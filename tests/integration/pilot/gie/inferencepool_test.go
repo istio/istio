@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -47,6 +48,10 @@ func TestInferencePoolMultipleTargetPorts(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			if ctx.Settings().Meshless {
+				ctx.Skip("InferencePool tests require full mesh - skipping in meshless mode")
+			}
+			cfg := istio.DefaultConfigOrFail(t, ctx)
 			crd.DeployGatewayAPIOrSkip(ctx)
 			crd.DeployGatewayAPIInferenceExtensionOrSkip(ctx)
 
@@ -168,7 +173,7 @@ metadata:
   annotations:
     sidecar.istio.io/componentLogLevel: "ext_proc:debug,connection:debug,filter:debug,router:debug"
 spec:
-  gatewayClassName: istio
+  gatewayClassName: %s
   listeners:
   - name: http
     port: 80
@@ -193,7 +198,7 @@ spec:
       kind: InferencePool
       name: test-pool
       port: 80
-`, ns.Name(), ns.Name())
+`, ns.Name(), cfg.GatewayClassName, ns.Name())
 			ctx.ConfigIstio().YAML(ns.Name(), gatewayManifest).ApplyOrFail(ctx)
 
 			// Verify shadow service was created with correct properties
@@ -305,7 +310,7 @@ spec:
 
 			// Send request through the gateway with x-endpoint header
 			// This tests the EPP protocol end-to-end
-			gatewayAddr := fmt.Sprintf("inference-gateway-istio.%s.svc.cluster.local", ns.Name())
+			gatewayAddr := fmt.Sprintf("inference-gateway-%s.%s.svc.cluster.local", cfg.GatewayClassName, ns.Name())
 			ctx.Logf("Sending request to gateway: %s", gatewayAddr)
 
 			// Test routing to each of the three ports to verify EPP can select different endpoints

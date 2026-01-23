@@ -78,4 +78,7 @@ func init() {
 	flag.BoolVar(&settingsFromCommandline.DeployGatewayAPI, "istio.test.kube.deployGatewayAPI",
 		settingsFromCommandline.DeployGatewayAPI,
 		"Deploy Gateway API into the target Kubernetes environment.")
+	flag.StringVar(&settingsFromCommandline.GatewayClassName, "istio.test.kube.gatewayClassName",
+		settingsFromCommandline.GatewayClassName,
+		"Specifies the name of the GatewayClass to use for Gateway API tests. Defaults to 'istio'.")
 }
