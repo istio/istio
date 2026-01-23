@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -878,11 +879,13 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		}
 
 		// Fallback to TLS in case this is a TLSRoute with Termination
-		includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
-		for _, tls := range vsvc.Tls {
-			for _, match := range tls.Match {
-				if l4SingleMatch(convertTLSMatchToL4Match(match), server, gateway) {
-					filters = append(filters, lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx)...)
+		if isTlsRoute, ok := v.Annotations[constants.InternalParentNames]; ok && strings.HasPrefix(isTlsRoute, "TLSRoute/") {
+			includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
+			for _, tls := range vsvc.Tls {
+				for _, match := range tls.Match {
+					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gateway) {
+						filters = append(filters, lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx)...)
+					}
 				}
 			}
 		}
