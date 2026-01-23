@@ -49,8 +49,8 @@ type GatewayListener struct {
 	// The Gateway this listener is bound to
 	ParentGateway types.NamespacedName
 	// The actual real parent (could be a ListenerSet)
-	ParentObject ParentKey
-	ParentInfo   ParentInfo
+	ParentObject AgwParentKey
+	ParentInfo   AgwParentInfo
 	TLSInfo      *TLSInfo
 	Valid        bool
 }
@@ -73,7 +73,7 @@ func (g GatewayListener) Equals(other GatewayListener) bool {
 	return g.Valid == other.Valid && g.Name == other.Name && g.ParentGateway == other.ParentGateway && g.ParentObject == other.ParentObject && g.ParentInfo.Equals(other.ParentInfo)
 }
 
-func (g ParentInfo) Equals(other ParentInfo) bool {
+func (g AgwParentInfo) Equals(other AgwParentInfo) bool {
 	return g.ParentGateway == other.ParentGateway &&
 		g.InternalName == other.InternalName &&
 		g.OriginalHostname == other.OriginalHostname &&
@@ -93,7 +93,7 @@ type ListenerSet struct {
 	// +krtEqualsTodo include parent gateway identity in equality check
 	Parent types.NamespacedName `json:"parent"`
 	// +krtEqualsTodo ensure parent metadata differences trigger equality
-	ParentInfo    ParentInfo           `json:"parentInfo"`
+	ParentInfo    AgwParentInfo           `json:"parentInfo"`
 	TLSInfo       *TLSInfo             `json:"tlsInfo"`
 	GatewayParent types.NamespacedName `json:"gatewayParent"`
 	Valid         bool                 `json:"valid"`
@@ -209,7 +209,7 @@ func ListenerSetCollection(
 				name := InternalGatewayName(obj.Namespace, obj.Name, string(l.Name))
 
 				allowed, _ := generateSupportedKinds(standardListener)
-				pri := ParentInfo{
+				pri := AgwParentInfo{
 					ParentGateway:    config.NamespacedName(parentGwObj),
 					InternalName:     obj.Namespace + "/" + name,
 					AllowedKinds:     allowed,
@@ -384,7 +384,7 @@ func GatewayCollection(
 			// TODO(jaellio): Set all listener conditions from status - Not sure what reportGatewayStatus is doing
 			// reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), err)
 			name := InternalGatewayName(obj.Namespace, obj.Name, string(l.Name))
-			pri := ParentInfo{
+			pri := AgwParentInfo{
 				ParentGateway:          config.NamespacedName(obj),
 				ParentGatewayClassName: string(obj.Spec.GatewayClassName),
 				InternalName:           InternalGatewayName(obj.Namespace, name, ""),
@@ -402,7 +402,7 @@ func GatewayCollection(
 				Valid:         programmed,
 				TLSInfo:       tlsInfo,
 				ParentGateway: config.NamespacedName(obj),
-				ParentObject: ParentKey{
+				ParentObject: AgwParentKey{
 					Kind:      gvk.Gateway.Kubernetes(),
 					Name:      obj.Name,
 					Namespace: obj.Namespace,
@@ -417,7 +417,7 @@ func GatewayCollection(
 			result = append(result, &GatewayListener{
 				Name:          ls.Name,
 				ParentGateway: config.NamespacedName(obj),
-				ParentObject: ParentKey{
+				ParentObject: AgwParentKey{
 					Kind:      gvk.XListenerSet.Kubernetes(),
 					Name:      ls.Parent.Name,
 					Namespace: ls.Parent.Namespace,
@@ -480,10 +480,10 @@ func FinalGatewayStatusCollection(
 // RouteParents holds information about things routes can reference as parents.
 type RouteParents struct {
 	gateways     krt.Collection[*GatewayListener]
-	gatewayIndex krt.Index[ParentKey, *GatewayListener]
+	gatewayIndex krt.Index[AgwParentKey, *GatewayListener]
 }
 
-func (p RouteParents) fetch(ctx krt.HandlerContext, pk ParentKey) []*ParentInfo {
+func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
 	// TODO(jaellio): do we need special handling for mesh parent? This seems to be istio specific
 	/*if pk == meshParentKey {
 		// Special case
@@ -500,7 +500,7 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk ParentKey) []*ParentInfo 
 			},
 		}
 	}*/
-	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw *GatewayListener) *ParentInfo {
+	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw *GatewayListener) *AgwParentInfo {
 		return &gw.ParentInfo
 	})
 }
@@ -508,8 +508,8 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk ParentKey) []*ParentInfo 
 func BuildRouteParents(
 	gateways krt.Collection[*GatewayListener],
 ) RouteParents {
-	idx := krt.NewIndex(gateways, "parent", func(o *GatewayListener) []ParentKey {
-		return []ParentKey{o.ParentObject}
+	idx := krt.NewIndex(gateways, "parent", func(o *GatewayListener) []AgwParentKey {
+		return []AgwParentKey{o.ParentObject}
 	})
 	return RouteParents{
 		gateways:     gateways,

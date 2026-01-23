@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/cluster"
@@ -309,7 +308,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	gatewayFinalStatus := c.buildFinalGatewayStatus(gatewayInitialStatus, routeAttachments, opts)
 	status.RegisterStatus(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	// TODO(jaellio): Update this for agentgateway - Do we need this before the final gateway status? Or at all?
+	httpRoutesByInferencePool := krt.NewIndex(c.inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
 	InferencePoolStatus, InferencePools := InferencePoolCollection(
 		c.inputs.InferencePools,
 		c.inputs.Services,
@@ -404,13 +403,13 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		opts,
 		true,
 	)
-	// Istio doesn't include InferencePools, but we need them; add our own after the Istio build
-	inferencePoolsInfo := krt.NewCollection(inputs.InferencePools, inferencePoolBuilder(),
+
+	// TODO(jaellio): do we need to include domainsuffix here
+	inferencePoolsInfo := krt.NewCollection(inputs.InferencePools, inferencePoolBuilder(c.domainSuffix),
 		opts.WithName("InferencePools")...)
 	services = krt.JoinCollection([]krt.Collection[model.ServiceInfo]{services, inferencePoolsInfo}, krt.WithJoinUnchecked())
 
 	// TODO: add InferencePools
-	// TODO(jaellio): Do we need endpoint slices here?
 	nodeLocality := ambient.NodesCollection(inputs.Nodes, opts.WithName("NodeLocality")...)
 	workloads := builder.WorkloadsCollection(
 		inputs.Pods,
@@ -443,17 +442,17 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 func (c *Controller) buildXDSCollection(
 	agwResources krt.Collection[AgwResource],
 	xdsAddresses krt.Collection[Address],
-	krtopts krt.OptionsBuilder,
+	opts krt.OptionsBuilder,
 ) {
 	// Create an index on adpResources by Gateway to avoid fetching all resources
 	agwResourcesByGateway := func(resource AgwResource) types.NamespacedName {
 		return resource.Gateway
 	}
-	c.Registrations = append(c.Registrations, krt.Collection[Address, *workloadapi.Address](xdsAddresses, opts))
-	c.Registrations = append(c.Registrations, krt.PerGatewayCollection[AgwResource, *api.Resource](agwResources, agwResourcesByGateway, krtopts))
+	c.Registrations = append(c.Registrations, xds.Collection[Address, *workloadapi.Address](xdsAddresses, opts))
+	c.Registrations = append(c.Registrations, xds.PerGatewayCollection[AgwResource, *api.Resource](agwResources, agwResourcesByGateway, opts))
 }
 
-// TODO(jaellio): Not sure what this means for istio
+// TODO(jaellio)
 func (c *Controller) setupSyncDependencies(
 	agwResources krt.Collection[AgwResource],
 	addresses krt.Collection[Address],

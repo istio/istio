@@ -146,7 +146,6 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	return nil
 }
 
-// TODO(jaellio): Initialize agentgateway controller (?)
 func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	if s.kubeClient == nil {
 		return nil
@@ -209,6 +208,13 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 				Run(stop)
 			return nil
 		})
+		if features.EnableAgentgateway {
+			agwc := agentgateway.NewAgwController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions, s.XDSServer)
+			// TODO(jaellio): Does this need to be a part of the environment?
+			s.environment.AgentgatewayController = agwc
+			s.ConfigStores = append(s.ConfigStores, s.environment.AgentgatewayController)
+			// TODO(jaellio): Handle status writing for AGW
+		}
 		if features.EnableGatewayAPIDeploymentController {
 			s.addTerminatingStartFunc("gateway deployment controller", func(stop <-chan struct{}) error {
 				leaderelection.

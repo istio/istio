@@ -82,7 +82,7 @@ func getKey[T any](t T) string {
 	return krt.GetKey(t)
 }
 
-// TODO(jaellio): Handle
+// TODO(jaellio)
 func PerGatewayCollection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T], extract func(o T) types.NamespacedName, krtopts krt.OptionsBuilder) Registration {
 	return func(m map[string]CollectionGenerator, pushChannel chan *model.PushRequest) CollectionRegistration {
 		nc := krt.NewCollection(collection, func(ctx krt.HandlerContext, i T) *DiscoveryResource {
@@ -150,7 +150,7 @@ func Collection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T],
 
 // TODO(jaellio): Add back gw param? Or can this be derived from proxy?
 //
-//	Not sure of the meaning of the bool val
+// Not sure of the meaning of the bool val
 //
 // GenerateDeltas computes Workload resources. This is design to be highly optimized to delta updates,
 // and supports *on-demand* client usage. A client can subscribe with a wildcard subscription and get all
@@ -184,7 +184,7 @@ func (e CollectionGenerator) GenerateDeltas(
 	var deletes []string
 
 	for k := range req.ConfigsUpdated {
-		// TODO(jaellio): Fix hack - we stored TypeUrl in namespace and should be indexing by type rather than iterating
+		// TODO(jaellio): Fix hack - Stored TypeUrl in namespace and should be indexing by type rather than iterating
 		if k.Namespace != w.TypeUrl {
 			continue
 		}

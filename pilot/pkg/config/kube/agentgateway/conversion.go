@@ -65,9 +65,9 @@ const (
 	gatewayTLSCipherSuites     = "gateway.istio.io/tls-cipher-suites"
 )
 
-// ParentKey holds info about a parentRef (eg route binding to a Gateway). This is a mirror of
+// AgwParentKey holds info about a parentRef (eg route binding to a Gateway). This is a mirror of
 // gwv1.ParentReference in a form that can be stored in a map
-type ParentKey struct {
+type AgwParentKey struct {
 	Kind schema.GroupVersionKind
 	// Name is the original name of the resource (eg Kubernetes Gateway name)
 	Name string
@@ -75,25 +75,25 @@ type ParentKey struct {
 	Namespace string
 }
 
-func (p ParentKey) String() string {
+func (p AgwParentKey) String() string {
 	return p.Kind.String() + "/" + p.Namespace + "/" + p.Name
 }
 
 // ParentReference holds the parent key, section name and port for a parent reference.
 type ParentReference struct {
-	ParentKey
+	AgwParentKey
 
 	SectionName gatewayv1.SectionName
 	Port        gatewayv1.PortNumber
 }
 
 func (p ParentReference) String() string {
-	return p.ParentKey.String() + "/" + string(p.SectionName) + "/" + fmt.Sprint(p.Port)
+	return p.AgwParentKey.String() + "/" + string(p.SectionName) + "/" + fmt.Sprint(p.Port)
 }
 
-// ParentInfo holds info about a "Parent" - something that can be referenced as a ParentRef in the API.
+// AgwParentInfo holds info about a "Parent" - something that can be referenced as a ParentRef in the API.
 // Today, this is just Gateway
-type ParentInfo struct {
+type AgwParentInfo struct {
 	ParentGateway types.NamespacedName
 	// +krtEqualsTodo ensure gateway class changes trigger equality differences
 	ParentGatewayClassName string
@@ -691,7 +691,7 @@ type RouteParentReference struct {
 	// Hostname is the hostname match of the Parent, if any
 	Hostname        string
 	BannedHostnames sets.Set[string]
-	ParentKey       ParentKey
+	ParentKey       AgwParentKey
 	ParentSection   gatewayv1.SectionName
 	Accepted        bool
 	ParentGateway   types.NamespacedName
@@ -1463,12 +1463,12 @@ func defaultString[T ~string](s *T, def string) string {
 	return string(*s)
 }
 
-func toInternalParentReference(p k8s.ParentReference, localNamespace string) (ParentKey, error) {
+func toInternalParentReference(p k8s.ParentReference, localNamespace string) (AgwParentKey, error) {
 	ref := normalizeReference(p.Group, p.Kind, gvk.KubernetesGateway)
 	if !allowedParentReferences.Contains(ref) {
-		return ParentKey{}, fmt.Errorf("unsupported parent: %v/%v", p.Group, p.Kind)
+		return AgwParentKey{}, fmt.Errorf("unsupported parent: %v/%v", p.Group, p.Kind)
 	}
-	return ParentKey{
+	return AgwParentKey{
 		Kind: ref.Kubernetes(),
 		Name: string(p.Name),
 		// Unset namespace means "same namespace"
@@ -1489,7 +1489,7 @@ func waypointConfigured(labels map[string]string) bool {
 // Returns nil if the reference is valid and permitted for the given route and ParentInfo.
 func ReferenceAllowed(
 	ctx RouteContext,
-	parent *ParentInfo,
+	parent *AgwParentInfo,
 	routeKind schema.GroupVersionKind,
 	parentRef ParentReference,
 	hostnames []gatewayv1.Hostname,
@@ -1619,13 +1619,13 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 			continue
 		}
 		pk := ParentReference{
-			ParentKey:   ir,
+			AgwParentKey:   ir,
 			SectionName: ptr.OrEmpty(ref.SectionName),
 			Port:        ptr.OrEmpty(ref.Port),
 		}
 		gk := ir
 		currentParents := parents.fetch(ctx.Krt, gk)
-		appendParent := func(pr *ParentInfo, pk ParentReference) {
+		appendParent := func(pr *AgwParentInfo, pk ParentReference) {
 			bannedHostnames := sets.New[string]()
 			for _, gw := range currentParents {
 				if gw == pr {

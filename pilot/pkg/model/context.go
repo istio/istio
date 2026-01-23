@@ -144,7 +144,6 @@ type Environment struct {
 
 	GatewayAPIController GatewayController
 
-	// TODO(jaellio): Do we need an AgentGatewayController here? No?
 	AgentgatewayController AgentgatewayController
 
 	// EndpointShards for a service. This is a global (per-server) list, built from
