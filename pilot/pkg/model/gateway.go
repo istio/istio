@@ -211,7 +211,9 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 
 			for _, cn := range cns {
-				if cn != "" && identityVerified {
+				if !(cn != "" && identityVerified) {
+				        continue
+				}
 					gwKind := gvk.KubernetesGateway
 					lookupNamespace := proxy.VerifiedIdentity.Namespace
 					if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.XListenerSet.Kind+"/") {
