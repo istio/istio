@@ -101,13 +101,12 @@ type Controller struct {
 
 	stop chan struct{}
 
-	// do not need
+	// TODO(jaellio): do not need
 	xdsUpdater model.XDSUpdater
 
 	// Handlers tracks all registered handlers, so that syncing can be detected
 	handlers []krt.HandlerRegistration
 
-	// TODO(jaellio): Update description. Not sure about controller type in general
 	outputs OutputCollections
 
 	inputs *AgwInputs
@@ -117,7 +116,6 @@ type Controller struct {
 	shadowServiceReconciler controllers.Queue
 
 	// features
-	// TODO(jaellio): Circular dependency?
 	Registrations []xds.Registration
 }
 
@@ -132,7 +130,7 @@ type OutputCollections struct {
 	Addresses krt.Collection[Address]
 }
 
-// Similar type to agwcollections in kgateway, but adapted for Istio types.
+// Similar type to agwcollections in kgateway.
 type AgwInputs struct {
 	// Core k8s resources
 	Namespaces krt.Collection[*corev1.Namespace]
@@ -172,7 +170,6 @@ func NewAgwController(
 	xdsUpdater model.XDSUpdater,
 ) *Controller {
 	stop := make(chan struct{})
-	// similar to krtOpts
 	opts := krt.NewOptionsBuilder(stop, "agentgateway", options.KrtDebugger)
 
 	tw := revisions.NewTagWatcher(kc, options.Revision, options.SystemNamespace)
@@ -193,14 +190,9 @@ func NewAgwController(
 		c.tagWatcher.TriggerRecomputation()
 	})
 
-	// build input collections
 	// TODO(jaellio): pass in inputs. Allowing reinitialization is risky (but idempotent?)
 	c.initializeInputs(kc, opts)
 	c.buildResourceCollections(opts)
-
-	// build collections for IRs (ordering borrowed from kgateway)
-	// TODO(jaellio): gatewayclass and reference grants very similar in gateway and agentgateway
-	// Consider abstraction out
 
 	return c
 }
@@ -259,6 +251,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		inputs.ListenerSets = krt.NewStaticCollection[*gatewayx.XListenerSet](nil, nil, opts.WithName("disable/XListenerSet")...)
 	}
 
+	// TODO(jeallio): This has to be enabled, so remove conditional check?
 	if features.EnableGatewayAPIInferenceExtension {
 		inputs.InferencePools = buildClient[*inferencev1.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
@@ -271,7 +264,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	_, gatewayClasses := GatewayClassesCollection(c.inputs.GatewayClasses, opts)
 	referenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
-	// do we need all of these params - in kgateway this is a lot simpler (TODO)
+	// TODO(jaellio): Consider simplifying listenerset collection
 	listenerSetStatus, listenerSets := ListenerSetCollection(
 		c.inputs.ListenerSets,
 		c.inputs.Gateways,
@@ -309,7 +302,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	status.RegisterStatus(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	httpRoutesByInferencePool := krt.NewIndex(c.inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
-	InferencePoolStatus, InferencePools := InferencePoolCollection(
+	InferencePoolStatus, _ := InferencePoolCollection(
 		c.inputs.InferencePools,
 		c.inputs.Services,
 		c.inputs.HTTPRoutes,
@@ -322,20 +315,14 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 	}
 
-	// Create a queue for handling service updates.
-	// We create the queue even if the env var is off just to prevent nil pointer issues.
-	c.shadowServiceReconciler = controllers.NewQueue("inference pool shadow service reconciler",
-		controllers.WithReconciler(c.reconcileShadowService(c.client, InferencePools, c.inputs.Services)),
-		controllers.WithMaxAttempts(5))
-
 	// Build address collections
 	addresses := c.buildAddressCollections(opts)
 
 	// Build XDS collection
 	c.buildXDSCollection(agwResources, addresses, opts)
 
-	// Set up sync dependencies
-	c.setupSyncDependencies(agwResources, addresses)
+	// TODO(jaellio): Determine what additional sync dependencies are needed in addition to WaitForCacheSync
+	// c.setupSyncDependencies(agwResources, addresses)
 
 	c.outputs.Resources = agwResources
 	c.outputs.Addresses = addresses
@@ -404,12 +391,11 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		true,
 	)
 
-	// TODO(jaellio): do we need to include domainsuffix here
+	// TODO(jaellio): Is this the correct domain suffix?
 	inferencePoolsInfo := krt.NewCollection(inputs.InferencePools, inferencePoolBuilder(c.domainSuffix),
 		opts.WithName("InferencePools")...)
 	services = krt.JoinCollection([]krt.Collection[model.ServiceInfo]{services, inferencePoolsInfo}, krt.WithJoinUnchecked())
 
-	// TODO: add InferencePools
 	nodeLocality := ambient.NodesCollection(inputs.Nodes, opts.WithName("NodeLocality")...)
 	workloads := builder.WorkloadsCollection(
 		inputs.Pods,
@@ -450,20 +436,6 @@ func (c *Controller) buildXDSCollection(
 	}
 	c.Registrations = append(c.Registrations, xds.Collection[Address, *workloadapi.Address](xdsAddresses, opts))
 	c.Registrations = append(c.Registrations, xds.PerGatewayCollection[AgwResource, *api.Resource](agwResources, agwResourcesByGateway, opts))
-}
-
-// TODO(jaellio)
-func (c *Controller) setupSyncDependencies(
-	agwResources krt.Collection[AgwResource],
-	addresses krt.Collection[Address],
-) {
-	/*c.waitForSync = []cache.InformerSynced{
-		c.agwCollections.HasSynced,
-		c.agwPlugins.HasSynced,
-		agwResources.HasSynced,
-		addresses.HasSynced,
-		c.NackPublisher.HasSynced,
-	}*/
 }
 
 // buildClient is a small wrapper to build a krt collection based on a delayed informer.
@@ -558,65 +530,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	close(c.stop)
 }
 
-// TODO(jaellio): How is this similar to syncer logic? Remove since we don't want to convert
-// to virtual services
 func (c *Controller) HasSynced() bool {
-	/*if !(c.outputs.VirtualServices.HasSynced() &&
-		c.outputs.DestinationRules.HasSynced() &&
-		c.outputs.Gateways.HasSynced() &&
-		c.outputs.ReferenceGrants.collection.HasSynced()) {
+	if !(c.outputs.Addresses.HasSynced() &&
+		c.outputs.Resources.HasSynced()) {
 		return false
 	}
-	for _, h := range c.handlers {
-		if !h.HasSynced() {
-			return false
-		}
-	}
-	return true
-	*/
-	return true
-}
-
-// TODO(jaellio): implement properly
-func (c *Controller) SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool {
-	// return c.outputs.ReferenceGrants.SecretAllowed(nil, ourKind, resourceName, namespace)
-	return true
-}
-
-// potentially change?
-func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {
-	return func(events []krt.Event[T]) {
-		if xds == nil {
-			return
-		}
-		cu := sets.New[model.ConfigKey]()
-		for _, e := range events {
-			for _, i := range e.Items() {
-				c := f(i)
-				if c != (model.ConfigKey{}) {
-					cu.Insert(c)
-				}
-			}
-		}
-		if len(cu) == 0 {
-			return
-		}
-
-		// Push context
-		// If a internal representation changes, here is where xds we need to change
-		// Take a krt event to get config key from that
-
-		xds.ConfigUpdate(&model.PushRequest{
-			Full:           true,
-			ConfigsUpdated: cu,
-			Reason:         model.NewReasonStats(model.ConfigUpdate),
-		})
-	}
-}
-
-// TODO(jaellio): Fix or remove
-func (c *Controller) HasInferencePool(gw types.NamespacedName) bool {
-	// return len(c.outputs.InferencePoolsByGateway.Lookup(gw)) > 0
 	return true
 }
 
@@ -644,7 +562,7 @@ func ToAgwResource(t any) *api.Resource {
 	case *api.Resource:
 		return tt
 	}
-	// TODO(jaellio): handle more gracefully
+	// TODO(jaellio): handle more gracefully (borrowed from kgateway gateway_collection.go)
 	panic(fmt.Sprintf("unknown resource kind %T", t))
 }
 
@@ -667,7 +585,7 @@ func (c *Controller) buildAgwResources(
 	// filter gateway collections to only include gateways which use a built-in gateway class
 	// (resources for additional gateway classes should be created by the downstream providing them)
 	filteredGateways := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gw *GatewayListener) **GatewayListener {
-		// TODO(jaellio): check if this is the correct filtering logic. Opposite of kgateway
+		// TODO(jaellio): check if this is the correct filtering logic. Opposite of kgateway which uses additionalGatewayClasses
 		if _, builtInClass := builtinClasses[gatewayv1.ObjectName(gw.Name)]; !builtInClass {
 			return nil
 		}
@@ -702,11 +620,6 @@ func (c *Controller) buildAgwResources(
 			return ToResourceForGateway(e, bind)
 		})
 	}, opts.WithName("Binds")...)
-
-	/* TODO(jaellio): figure out if this needs to be here
-	if c.agwPlugins.AddResourceExtension != nil && s.agwPlugins.AddResourceExtension.Binds != nil {
-		binds = krt.JoinCollection([]krt.Collection[AgwResource]{binds, s.agwPlugins.AddResourceExtension.Binds})
-	}*/
 
 	// Build listeners
 	listeners := krt.NewCollection(filteredGateways, func(ctx krt.HandlerContext, obj *GatewayListener) *AgwResource {
@@ -771,8 +684,9 @@ func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource
 // getProtocolAndTLSConfig extracts protocol and TLS configuration from a gateway
 // TODO(jaellio): Update this? Should this be handling TLS config this way?
 func (C *Controller) getProtocolAndTLSConfig(obj *GatewayListener) (api.Protocol, *api.TLSConfig, bool) {
-	// Build TLS config if needed
 	var tlsConfig *api.TLSConfig
+
+	// Build TLS config if needed
 	if obj.TLSInfo != nil {
 		tlsConfig = &api.TLSConfig{
 			Cert:       obj.TLSInfo.Cert,
@@ -787,9 +701,21 @@ func (C *Controller) getProtocolAndTLSConfig(obj *GatewayListener) (api.Protocol
 	case gatewayv1.HTTPProtocolType:
 		return api.Protocol_HTTP, nil, true
 	case gatewayv1.HTTPSProtocolType:
-		return api.Protocol_HTTPS, nil, false // TLS required but not configured
+		if tlsConfig == nil {
+			return api.Protocol_HTTPS, nil, false // TLS required but not configured
+		}
+		return api.Protocol_HTTPS, tlsConfig, true
 	case gatewayv1.TLSProtocolType:
-		return api.Protocol_TLS, nil, true
+		if tlsConfig == nil {
+			if obj.ParentInfo.TLSPassthrough {
+				// For passthrough, we don't want TLS config
+				return api.Protocol_TLS, nil, true
+			} else {
+				// TLS required but not configured
+				return api.Protocol_TLS, nil, false
+			}
+		}
+		return api.Protocol_TLS, tlsConfig, true
 	case gatewayv1.TCPProtocolType:
 		return api.Protocol_TCP, nil, true
 	default:

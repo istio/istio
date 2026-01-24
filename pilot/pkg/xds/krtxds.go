@@ -148,7 +148,7 @@ func Collection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T],
 	return PerGatewayCollection(collection, nil, krtopts)
 }
 
-// TODO(jaellio): Add back gw param? Or can this be derived from proxy?
+// TODO(jaellio): Get namespaced name from proxy
 //
 // Not sure of the meaning of the bool val
 //

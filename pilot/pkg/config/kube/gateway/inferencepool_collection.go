@@ -478,7 +478,11 @@ func filterUsedConditions(conditions []metav1.Condition, usedConditions ...infer
 	return result
 }
 
-C
+func generateHash(input string, length int) string {
+	hashBytes := sha256.Sum256([]byte(input))
+	hashString := fmt.Sprintf("%x", hashBytes) // Convert to hexadecimal string
+	return hashString[:length]                 // Truncate to desired length
+}
 
 func InferencePoolServiceName(poolName string) (string, error) {
 	ipSeparator := "-ip-"

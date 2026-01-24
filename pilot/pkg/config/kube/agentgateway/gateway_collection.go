@@ -431,7 +431,7 @@ func GatewayCollection(
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
-	// TODO(jaellio): compute status?
+	// TODO(jaellio): compute status
 	return gwstatus, gw
 }
 

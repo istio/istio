@@ -1091,15 +1091,6 @@ type GatewayController interface {
 
 type AgentgatewayController interface {
 	ConfigStoreController
-	InferenceGatewayContext
-	// TODO(jaellio): remove this
-	// Reconcile updates the internal state of the gateway controller for a given input. This should be
-	// called before any List/Get calls if the state has changed
-	// Reconcile(ctx *PushContext)
-	// SecretAllowed determines if a SDS credential is accessible to a given namespace.
-	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
-	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.
-	// SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool
 }
 
 // OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.

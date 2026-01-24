@@ -122,7 +122,6 @@ func (g ReferenceGrant) ResourceName() string {
 	return g.Source.String() + "/" + g.From.String() + "/" + g.To.String()
 }
 
-// TODO(jaellio): Resource must be a Secret. Simplified similarly to references_collections.go in kgateway
 func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, kind schema.GroupVersionKind, resourceName types.NamespacedName, namespace string) bool {
 	from := Reference{Kind: kind, Namespace: gateway.Namespace(namespace)}
 	to := Reference{Kind: gvk.Secret.Kubernetes(), Namespace: gateway.Namespace(resourceName.Namespace)}
