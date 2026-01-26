@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** Apply Helm tpl() on podAnnotations of gateway deplyoment to allow dynamic values or references
