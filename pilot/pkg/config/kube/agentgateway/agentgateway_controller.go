@@ -101,9 +101,6 @@ type Controller struct {
 
 	stop chan struct{}
 
-	// TODO(jaellio): do not need
-	xdsUpdater model.XDSUpdater
-
 	// Handlers tracks all registered handlers, so that syncing can be detected
 	handlers []krt.HandlerRegistration
 
@@ -167,7 +164,6 @@ func NewAgwController(
 	kc kube.Client,
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool,
 	options controller.Options,
-	xdsUpdater model.XDSUpdater,
 ) *Controller {
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "agentgateway", options.KrtDebugger)
@@ -183,7 +179,6 @@ func NewAgwController(
 		waitForCRD:     waitForCRD,
 		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[GatewayContext](nil), false, opts.WithName("gatewayContext")...),
 		stop:           stop,
-		xdsUpdater:     xdsUpdater,
 		domainSuffix:   options.DomainSuffix,
 	}
 	tw.AddHandler(func(s sets.String) {
@@ -530,6 +525,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	close(c.stop)
 }
 
+// TODO(jaellio): Verify sufficient
 func (c *Controller) HasSynced() bool {
 	if !(c.outputs.Addresses.HasSynced() &&
 		c.outputs.Resources.HasSynced()) {
@@ -682,8 +678,7 @@ func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource
 }
 
 // getProtocolAndTLSConfig extracts protocol and TLS configuration from a gateway
-// TODO(jaellio): Update this? Should this be handling TLS config this way?
-func (C *Controller) getProtocolAndTLSConfig(obj *GatewayListener) (api.Protocol, *api.TLSConfig, bool) {
+func (c *Controller) getProtocolAndTLSConfig(obj *GatewayListener) (api.Protocol, *api.TLSConfig, bool) {
 	var tlsConfig *api.TLSConfig
 
 	// Build TLS config if needed
@@ -723,8 +718,8 @@ func (C *Controller) getProtocolAndTLSConfig(obj *GatewayListener) (api.Protocol
 	}
 }
 
-// getProtocolAndTLSConfig extracts protocol and TLS configuration from a gateway
-func (s *Controller) getBindProtocol(obj *GatewayListener) api.Bind_Protocol {
+// getBindProtocol extracts the bind protocol from a gateway
+func (c *Controller) getBindProtocol(obj *GatewayListener) api.Bind_Protocol {
 	switch obj.ParentInfo.Protocol {
 	case gatewayv1.HTTPProtocolType:
 		return api.Bind_HTTP
