@@ -756,7 +756,7 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 	if features.EnableAmbientBaggage && tunnel {
 		tcpProxy.TunnelingConfig.PropagateResponseHeaders = true
 		tcpProxy.TunnelingConfig.HeadersToAdd = []*core.HeaderValueOption{
-			&core.HeaderValueOption{
+			{
 				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 				Header: &core.HeaderValue{
 					Key:   "baggage",
@@ -844,7 +844,7 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 	if features.EnableAmbientBaggage {
 		tunnel.PropagateResponseHeaders = true
 		tunnel.HeadersToAdd = []*core.HeaderValueOption{
-			&core.HeaderValueOption{
+			{
 				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 				Header: &core.HeaderValue{
 					Key:   "baggage",
