@@ -715,35 +715,35 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 	testCases := []struct {
 		name                                string
 		enableAmbientMultiNetwork           bool
-		enableAmbientMultiNetworkBaggage    bool
+		enableAmbientBaggage                bool
 		expectedDownstreamDiscoveryMethods  []string
 		expectedDownstreamPropagationMethod string
 	}{
 		{
 			name:                                "single network ambient uses workload_discovery",
 			enableAmbientMultiNetwork:           false,
-			enableAmbientMultiNetworkBaggage:    false,
+			enableAmbientBaggage:                false,
 			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
 			expectedDownstreamPropagationMethod: "",
 		},
 		{
-			name:                                "ENABLE_AMBIENT_MULTI_NETWORK=true, ENABLE_AMBIENT_MULTI_NETWORK_BAGGAGE=false",
+			name:                                "ENABLE_AMBIENT_MULTI_NETWORK=true, ENABLE_AMBIENT_BAGGAGE=false",
 			enableAmbientMultiNetwork:           true,
-			enableAmbientMultiNetworkBaggage:    false,
+			enableAmbientBaggage:                false,
 			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
 			expectedDownstreamPropagationMethod: "",
 		},
 		{
 			name:                                "single network ambient uses baggage",
 			enableAmbientMultiNetwork:           false,
-			enableAmbientMultiNetworkBaggage:    false,
+			enableAmbientBaggage:                true,
 			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
 			expectedDownstreamPropagationMethod: "baggage",
 		},
 		{
 			name:                                "multi-network ambient uses baggage",
 			enableAmbientMultiNetwork:           true,
-			enableAmbientMultiNetworkBaggage:    true,
+			enableAmbientBaggage:                true,
 			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
 			expectedDownstreamPropagationMethod: "baggage",
 		},
@@ -753,7 +753,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
 			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableAmbientMultiNetwork)
-			test.SetForTest(t, &features.EnableAmbientBaggage, tc.enableAmbientMultiNetworkBaggage)
+			test.SetForTest(t, &features.EnableAmbientBaggage, tc.enableAmbientBaggage)
 
 			d, proxy := setupWaypointTest(t,
 				waypointGateway,

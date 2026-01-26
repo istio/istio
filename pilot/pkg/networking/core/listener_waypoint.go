@@ -750,13 +750,8 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 			},
 		})
 	}
-	tcp := &listener.Filter{
-		Name: wellknown.TCPProxy,
-		ConfigType: &listener.Filter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(tcpProxy),
-		},
-	}
-	filters := []*listener.Filter{tcp}
+
+	var filters []*listener.Filter
 
 	if features.EnableAmbientBaggage && tunnel {
 		tcpProxy.TunnelingConfig.PropagateResponseHeaders = true
@@ -769,8 +764,16 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 				},
 			},
 		}
-		filters = []*listener.Filter{xdsfilters.WaypointListenerBaggagePeerMetadata, tcp}
+		filters = []*listener.Filter{xdsfilters.WaypointListenerBaggagePeerMetadata}
 	}
+
+	tcp := &listener.Filter{
+		Name: wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(tcpProxy),
+		},
+	}
+	filters = append(filters, tcp)
 
 	l := &listener.Listener{
 		Name:              clusterName,
@@ -838,11 +841,6 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 	tunnel := &tcp.TcpProxy_TunnelingConfig{
 		Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
 	}
-	tcpProxy := &tcp.TcpProxy{
-		StatPrefix:       DoubleHBONEInnerConnectOriginate,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
-		TunnelingConfig:  tunnel,
-	}
 	if features.EnableAmbientBaggage {
 		tunnel.PropagateResponseHeaders = true
 		tunnel.HeadersToAdd = []*core.HeaderValueOption{
@@ -854,6 +852,12 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 				},
 			},
 		}
+	}
+
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       DoubleHBONEInnerConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
+		TunnelingConfig:  tunnel,
 	}
 
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
