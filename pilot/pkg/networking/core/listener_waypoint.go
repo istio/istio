@@ -114,6 +114,32 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	return listeners
 }
 
+func (lb *ListenerBuilder) generateWaypointUpstreamMetadataFilter() *hcm.HttpFilter {
+	workloadDiscovery := map[string]any{
+		"workload_discovery": map[string]any{},
+	}
+	baggageDiscovery := map[string]any{
+		"upstream_filter_state": map[string]any{
+			"peer_metadata_key": "upstream_peer",
+		},
+	}
+
+	discoveryMethods := []any{workloadDiscovery}
+	if features.EnableAmbientBaggage {
+		discoveryMethods = append(discoveryMethods, baggageDiscovery)
+	}
+
+	return &hcm.HttpFilter{
+		Name: "waypoint_upstream_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(xdsfilters.PeerMetadataTypeURL,
+				map[string]any{
+					"upstream_discovery": discoveryMethods,
+				}),
+		},
+	}
+}
+
 func (lb *ListenerBuilder) generateWaypointDownstreamMetadataFilter() *hcm.HttpFilter {
 	cfg := map[string]any{
 		"downstream_discovery": []any{
@@ -126,7 +152,7 @@ func (lb *ListenerBuilder) generateWaypointDownstreamMetadataFilter() *hcm.HttpF
 		"shared_with_upstream": true,
 	}
 
-	if features.EnableAmbientMultiNetwork && features.EnableAmbientMultiNetworkBaggage {
+	if features.EnableAmbientBaggage {
 		// Though if we're in a ambient multinetwork scenario we'll
 		// use baggage for the discovery.
 		cfg["downstream_discovery"] = []any{
@@ -725,6 +751,30 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 		})
 	}
 
+	var filters []*listener.Filter
+
+	if features.EnableAmbientBaggage && tunnel {
+		tcpProxy.TunnelingConfig.PropagateResponseHeaders = true
+		tcpProxy.TunnelingConfig.HeadersToAdd = []*core.HeaderValueOption{
+			{
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				Header: &core.HeaderValue{
+					Key:   "baggage",
+					Value: "%FILTER_STATE(io.istio.baggage:PLAIN)%",
+				},
+			},
+		}
+		filters = []*listener.Filter{xdsfilters.WaypointListenerBaggagePeerMetadata}
+	}
+
+	tcp := &listener.Filter{
+		Name: wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(tcpProxy),
+		},
+	}
+	filters = append(filters, tcp)
+
 	l := &listener.Listener{
 		Name:              clusterName,
 		UseOriginalDst:    wrappers.Bool(false),
@@ -733,12 +783,7 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 			xdsfilters.OriginalDestination,
 		},
 		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(tcpProxy),
-				},
-			}},
+			Filters: filters,
 		}},
 	}
 	accessLogBuilder.setListenerAccessLog(push, proxy, l, class)
@@ -793,34 +838,53 @@ func buildWaypointInnerConnectOriginateListener(push *model.PushContext, proxy *
 			},
 		},
 	}
+	tunnel := &tcp.TcpProxy_TunnelingConfig{
+		Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+	}
+	if features.EnableAmbientBaggage {
+		tunnel.PropagateResponseHeaders = true
+		tunnel.HeadersToAdd = []*core.HeaderValueOption{
+			{
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				Header: &core.HeaderValue{
+					Key:   "baggage",
+					Value: "%FILTER_STATE(io.istio.baggage:PLAIN)%",
+				},
+			},
+		}
+	}
+
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       DoubleHBONEInnerConnectOriginate,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
-		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+		TunnelingConfig:  tunnel,
+	}
+
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+
+	sfs := &listener.Filter{
+		Name: "propagate_endpoint_metadata",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(setFilterState),
 		},
 	}
-	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+	tcp := &listener.Filter{
+		Name: wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(tcpProxy),
+		},
+	}
+	filters := []*listener.Filter{sfs, tcp}
+	if features.EnableAmbientBaggage {
+		filters = []*listener.Filter{sfs, xdsfilters.WaypointListenerBaggagePeerMetadata, tcp}
+	}
 
 	l := &listener.Listener{
 		Name:              DoubleHBONEInnerConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{
-				{
-					Name: "propagate_endpoint_metadata",
-					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(setFilterState),
-					},
-				},
-				{
-					Name: wellknown.TCPProxy,
-					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(tcpProxy),
-					},
-				},
-			},
+			Filters: filters,
 		}},
 	}
 	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
@@ -899,7 +963,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
-	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
+	post = append(post, lb.generateWaypointUpstreamMetadataFilter())
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return pre, post
 }

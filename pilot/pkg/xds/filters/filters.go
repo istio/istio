@@ -66,8 +66,10 @@ const (
 	// EnvoyJwtFilterPayload is the struct field for the payload in dynamic metadata in Envoy JWT filter.
 	EnvoyJwtFilterPayload = "payload"
 
-	PeerMetadataTypeURL     = "type.googleapis.com/io.istio.http.peer_metadata.Config"
-	MetadataExchangeTypeURL = "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange"
+	PeerMetadataTypeURL              = "type.googleapis.com/io.istio.http.peer_metadata.Config"
+	MetadataExchangeTypeURL          = "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange"
+	HBONEListenerPeerMetadataTypeURL = "type.googleapis.com/envoy.extensions.network_filters.peer_metadata.Config"
+	HBONEClusterPeerMetadataTypeURL  = "type.googleapis.com/envoy.extensions.network_filters.peer_metadata.UpstreamConfig"
 	// OriginalDstFilterStateKey is a filter state key where we store the :authority. This has traditionally been an
 	// IP address, but it can also be a hostname if the incoming CONNECT tunnel was sent via double-HBONE.
 	// It will fail if the value is not a valid IP address.
@@ -215,20 +217,6 @@ var (
 					},
 				},
 			}),
-		},
-	}
-
-	WaypointUpstreamMetadataFilter = &hcm.HttpFilter{
-		Name: "waypoint_upstream_peer_metadata",
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
-				map[string]any{
-					"upstream_discovery": []any{
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-				}),
 		},
 	}
 
@@ -465,6 +453,20 @@ var (
 			},
 		}
 	}()
+
+	WaypointClusterBaggagePeerMetadata = &cluster.Filter{
+		Name:        "upstream_hbone_peer_metadata",
+		TypedConfig: protoconv.TypedStructWithFields(HBONEClusterPeerMetadataTypeURL, map[string]any{}),
+	}
+
+	WaypointListenerBaggagePeerMetadata = &listener.Filter{
+		Name: "upstream_hbone_peer_metadata",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(HBONEListenerPeerMetadataTypeURL, map[string]any{
+				"baggage_key": "io.istio.baggage",
+			}),
+		},
+	}
 
 	SidecarInboundMetadataFilter = func() *hcm.HttpFilter {
 		cfg := map[string]any{
