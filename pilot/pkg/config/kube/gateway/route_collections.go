@@ -22,6 +22,7 @@ import (
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
@@ -45,14 +47,15 @@ import (
 type AncestorBackend struct {
 	Gateway types.NamespacedName
 	Backend TypedNamespacedName
+	Source  TypedNamespacedName
 }
 
 func (a AncestorBackend) Equals(other AncestorBackend) bool {
-	return a.Gateway == other.Gateway && a.Backend == other.Backend
+	return a.Gateway == other.Gateway && a.Backend == other.Backend && a.Source == other.Source
 }
 
 func (a AncestorBackend) ResourceName() string {
-	return a.Gateway.String() + "/" + a.Backend.String()
+	return a.Source.String() + "/" + a.Gateway.String() + "/" + a.Backend.String()
 }
 
 func HTTPRouteCollection(
@@ -62,9 +65,15 @@ func HTTPRouteCollection(
 ) RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, httpRoutes, gvk.HTTPRoute, opts)
 	ancestorBackends := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) []AncestorBackend {
-		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gateway.HTTPRouteRule) []gateway.HTTPBackendRef {
-			return r.BackendRefs
-		})
+		return extractAncestorBackends(
+			obj.ObjectMeta,
+			kind.FromString(obj.Kind),
+			obj.Spec.ParentRefs,
+			obj.Spec.Rules,
+			func(r gatewayv1.HTTPRouteRule) []gatewayv1.HTTPBackendRef {
+				return r.BackendRefs
+			},
+		)
 	}, opts.WithName("HTTPAncestors")...)
 	status, baseVirtualServices := krt.NewStatusManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (
 		*gateway.HTTPRouteStatus,
@@ -212,7 +221,21 @@ func HTTPRouteCollection(
 	}
 }
 
-func extractAncestorBackends[RT, BT any](ns string, prefs []gateway.ParentReference, rules []RT, extract func(RT) []BT) []AncestorBackend {
+func extractAncestorBackends[RT, BT any](
+	obj metav1.ObjectMeta,
+	kind kind.Kind,
+	prefs []gatewayv1.ParentReference,
+	rules []RT,
+	extract func(RT) []BT,
+) []AncestorBackend {
+	ns := obj.Namespace
+	source := TypedNamespacedName{
+		NamespacedName: types.NamespacedName{
+			Namespace: obj.Namespace,
+			Name:      obj.Name,
+		},
+		Kind: kind,
+	}
 	gateways := sets.Set[types.NamespacedName]{}
 	for _, r := range prefs {
 		ref := normalizeReference(r.Group, r.Kind, gvk.KubernetesGateway)
@@ -250,6 +273,7 @@ func extractAncestorBackends[RT, BT any](ns string, prefs []gateway.ParentRefere
 			res = append(res, AncestorBackend{
 				Gateway: gw,
 				Backend: be,
+				Source:  source,
 			})
 		}
 	}
@@ -268,9 +292,15 @@ func GRPCRouteCollection(
 ) RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, grpcRoutes, gvk.GRPCRoute, opts)
 	ancestorBackends := krt.NewManyCollection(grpcRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) []AncestorBackend {
-		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayv1.GRPCRouteRule) []gatewayv1.GRPCBackendRef {
-			return r.BackendRefs
-		})
+		return extractAncestorBackends(
+			obj.ObjectMeta,
+			kind.FromString(obj.Kind),
+			obj.Spec.ParentRefs,
+			obj.Spec.Rules,
+			func(r gatewayv1.GRPCRouteRule) []gatewayv1.GRPCBackendRef {
+				return r.BackendRefs
+			},
+		)
 	}, opts.WithName("GRPCAncestors")...)
 	status, baseVirtualServices := krt.NewStatusManyCollection(grpcRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) (
 		*gatewayv1.GRPCRouteStatus,
@@ -412,9 +442,15 @@ func TCPRouteCollection(
 ) RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tcpRoutes, gvk.TCPRoute, opts)
 	ancestorBackends := krt.NewManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []AncestorBackend {
-		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayalpha.TCPRouteRule) []gateway.BackendRef {
-			return r.BackendRefs
-		})
+		return extractAncestorBackends(
+			obj.ObjectMeta,
+			kind.FromString(obj.Kind),
+			obj.Spec.ParentRefs,
+			obj.Spec.Rules,
+			func(r gatewayalpha.TCPRouteRule) []gatewayv1.BackendRef {
+				return r.BackendRefs
+			},
+		)
 	}, opts.WithName("TCPAncestors")...)
 	status, virtualServices := krt.NewStatusManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (
 		*gatewayalpha.TCPRouteStatus,
@@ -503,9 +539,15 @@ func TLSRouteCollection(
 ) RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tlsRoutes, gvk.TLSRoute, opts)
 	ancestorBackends := krt.NewManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) []AncestorBackend {
-		return extractAncestorBackends(obj.Namespace, obj.Spec.ParentRefs, obj.Spec.Rules, func(r gatewayalpha.TLSRouteRule) []gateway.BackendRef {
-			return r.BackendRefs
-		})
+		return extractAncestorBackends(
+			obj.ObjectMeta,
+			kind.FromString(obj.Kind),
+			obj.Spec.ParentRefs,
+			obj.Spec.Rules,
+			func(r gatewayalpha.TLSRouteRule) []gatewayv1.BackendRef {
+				return r.BackendRefs
+			},
+		)
 	}, opts.WithName("TLSAncestors")...)
 	status, virtualServices := krt.NewStatusManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (
 		*gatewayalpha.TLSRouteStatus,
