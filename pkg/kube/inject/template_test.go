@@ -89,10 +89,6 @@ func TestOmitNil(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}
-			// Verify immutability for non-nil input
-			if tt.in != nil && !reflect.DeepEqual(tt.in, tt.in) {
-				t.Error("input was mutated")
-			}
 		})
 	}
 }

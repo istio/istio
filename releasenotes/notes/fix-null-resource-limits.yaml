@@ -1,9 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area:
-  - installation
-  - ambient
-  - networking
+area: installation
 issue:
   - 58805
 releaseNotes:
