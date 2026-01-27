@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -55,6 +56,9 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
+
+// CallerNamespaceKey is used to store caller namespace in request context
+type CallerNamespaceKey struct{}
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
 <head>
@@ -264,12 +268,15 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 			return
 		}
 		// Check namespace-based authorization for debug endpoints
+		namespace := s.extractNamespace(ids)
 		if !s.AuthorizeDebugRequest(ids, req) {
 			istiolog.Warnf("Unauthorized debug request from %v to %s", ids, req.URL.Path)
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-		next.ServeHTTP(w, req)
+		// Store caller namespace in context for handlers to enforce proxy-level access
+		ctx := context.WithValue(req.Context(), CallerNamespaceKey{}, namespace)
+		next.ServeHTTP(w, req.WithContext(ctx))
 	}
 }
 
@@ -283,18 +290,21 @@ func isRequestFromLocalhost(r *http.Request) bool {
 	return userIP.IsLoopback()
 }
 
-// AuthorizeDebugRequest checks if authenticated identities are authorized to access the requested debug endpoint
-func (s *DiscoveryServer) AuthorizeDebugRequest(identities []string, req *http.Request) bool {
-	// Parse identities to extract namespace
-	var namespace string
+// extractNamespace extracts namespace from authenticated identities
+func (s *DiscoveryServer) extractNamespace(identities []string) string {
 	for _, id := range identities {
 		spiffeID, err := spiffe.ParseIdentity(id)
 		if err != nil {
 			continue
 		}
-		namespace = spiffeID.Namespace
-		break
+		return spiffeID.Namespace
 	}
+	return ""
+}
+
+// AuthorizeDebugRequest checks if authenticated identities are authorized to access the requested debug endpoint
+func (s *DiscoveryServer) AuthorizeDebugRequest(identities []string, req *http.Request) bool {
+	namespace := s.extractNamespace(identities)
 
 	// deny if no valid identity found
 	if namespace == "" {
@@ -1125,9 +1135,23 @@ func (s *DiscoveryServer) handlePushRequest(w http.ResponseWriter, req *http.Req
 }
 
 // getDebugConnection fetches the Connection requested by proxyID
+// For non-system namespaces, restricts access to proxies in the caller's namespace only
 func (s *DiscoveryServer) getDebugConnection(req *http.Request) (string, *Connection) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		return proxyID, s.getProxyConnection(proxyID)
+		con := s.getProxyConnection(proxyID)
+		// Verify namespace if caller is not from system namespace
+		callerNamespace, _ := req.Context().Value(CallerNamespaceKey{}).(string)
+		if con != nil && callerNamespace != "" {
+			systemNamespace := constants.IstioSystemNamespace
+			if s.Env != nil && s.Env.Mesh() != nil && s.Env.Mesh().GetRootNamespace() != "" {
+				systemNamespace = s.Env.Mesh().GetRootNamespace()
+			}
+			// Non-system namespaces can only access proxies in their own namespace
+			if callerNamespace != systemNamespace && con.proxy.ConfigNamespace != callerNamespace {
+				return proxyID, nil // Return nil connection to deny access
+			}
+		}
+		return proxyID, con
 	}
 	return "", nil
 }
