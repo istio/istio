@@ -49,7 +49,7 @@ func (k KubeconfigEntry) ResourceName() string {
 // kubeconfig contents and used as the entry name.
 func NewKubeconfigCollection(
 	root string,
-	defaultNamespace string,
+	namespace string,
 	opts ...krt.CollectionOption,
 ) (krt.Collection[KubeconfigEntry], error) {
 	stop := krt.GetStop(opts...)
@@ -61,7 +61,7 @@ func NewKubeconfigCollection(
 	collection := krtfiles.NewFileCollection[kubeconfigFile, KubeconfigEntry](fw, func(k kubeconfigFile) *KubeconfigEntry {
 		return &KubeconfigEntry{
 			Name:       k.clusterID,
-			Namespace:  defaultNamespace,
+			Namespace:  namespace,
 			ClusterID:  k.clusterID,
 			Kubeconfig: k.kubeconfig,
 		}
