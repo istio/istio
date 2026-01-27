@@ -17,7 +17,6 @@
 package crl
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -66,8 +65,8 @@ func TestZtunnelCRL(t *testing.T) {
 			// revoke the intermediate certificate
 			util.RevokeIntermediate(t, certBundle)
 
-			// wait for CRL file to be synced to ztunnel pods (ConfigMap volume propagation)
-			waitForZtunnelCRLFile(t, certBundle)
+			// wait for ztunnel to reload the CRL
+			waitForZtunnelCRLReload(t)
 
 			// deploy NEW apps and test (should fail)
 			// create new namespaces for post-revocation apps
@@ -109,23 +108,20 @@ func TestZtunnelCRL(t *testing.T) {
 		})
 }
 
-// waitForZtunnelCRLFile waits for the CRL file content inside ztunnel pods to match the expected CRL.
-// this is needed because Kubernetes ConfigMap volume updates are eventually consistent.
-func waitForZtunnelCRLFile(t framework.TestContext, bundle *util.Bundle) {
+// waitForZtunnelCRLReload waits for ztunnel to log that it has reloaded the CRL.
+func waitForZtunnelCRLReload(t framework.TestContext) {
 	t.Helper()
-	t.Logf("waiting for CRL file to sync in ztunnel pods...")
+	t.Logf("waiting for ztunnel to reload CRL...")
 
 	systemNS, err := istio.ClaimSystemNamespace(t)
 	if err != nil {
 		t.Fatalf("failed to get system namespace: %v", err)
 	}
 
-	expectedCRL := strings.TrimSpace(string(bundle.CRLPEM()))
-
 	retry.UntilSuccessOrFail(t, func() error {
 		for _, c := range t.AllClusters() {
 			pods, err := c.Kube().CoreV1().Pods(systemNS.Name()).List(
-				context.TODO(),
+				t.Context(),
 				metav1.ListOptions{LabelSelector: "app=ztunnel"},
 			)
 			if err != nil {
@@ -133,27 +129,20 @@ func waitForZtunnelCRLFile(t framework.TestContext, bundle *util.Bundle) {
 			}
 
 			for _, pod := range pods.Items {
-				stdout, stderr, err := c.PodExec(
-					pod.Name,
-					systemNS.Name(),
-					"istio-proxy",
-					"cat /var/run/secrets/istio/crl/ca-crl.pem",
-				)
+				logs, err := c.PodLogs(t.Context(), pod.Name, systemNS.Name(), "istio-proxy", false)
 				if err != nil {
-					return fmt.Errorf("failed to read CRL file in %s: %v, stderr: %s", pod.Name, err, stderr)
+					return fmt.Errorf("failed to get logs from %s: %w", pod.Name, err)
 				}
 
-				actualCRL := strings.TrimSpace(stdout)
-				if actualCRL != expectedCRL {
-					return fmt.Errorf("CRL file in %s not yet updated (expected len=%d, got len=%d)",
-						pod.Name, len(expectedCRL), len(actualCRL))
+				if !strings.Contains(logs, "crl reloaded successfully") {
+					return fmt.Errorf("ztunnel %s has not reloaded CRL yet", pod.Name)
 				}
 			}
 		}
 		return nil
 	}, retry.Timeout(3*time.Minute), retry.Delay(5*time.Second))
 
-	t.Logf("CRL file synced to all ztunnel pods")
+	t.Logf("ztunnel CRL reload confirmed via logs")
 }
 
 // deployRevokedApps deploys new echo apps in the given namespaces

@@ -71,11 +71,6 @@ type Bundle struct {
 	revoked            bool
 }
 
-// CRLPEM returns the combined CRL PEM data
-func (b *Bundle) CRLPEM() []byte {
-	return b.crlPEM
-}
-
 func GenerateBundle(ctx resource.Context) (*Bundle, error) {
 	bundle := &Bundle{}
 

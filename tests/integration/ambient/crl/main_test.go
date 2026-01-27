@@ -44,6 +44,7 @@ values:
       enabled: false
   ztunnel:
     terminationGracePeriodSeconds: 5
+    logLevel: debug
     env:
       SECRET_TTL: 5m
     peerCaCrl:
