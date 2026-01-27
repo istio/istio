@@ -1736,7 +1736,7 @@ func gatewayCases(t TrafficContext) {
 		}
 	}
 
-	// clears the To to avoid echo internals trying to match the protocol with the port on echo.Config
+	// clears the To field to avoid echo internals trying to match the protocol with the port on echo.Config
 	noTarget := func(_ echo.Caller, opts *echo.CallOptions) {
 		opts.To = nil
 	}

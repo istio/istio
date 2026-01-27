@@ -75,6 +75,10 @@ var (
 		"If true and AMBIENT_ENABLE_MULTI_NETWORK is also true, it will enable waypoints to route requests to clusters on remote networks, "+
 			"while by default waypoints will keep traffic local.")
 
+	EnableAmbientIngressMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK_INGRESS", false, false,
+		"If true and AMBIENT_ENABLE_MULTI_NETWORK is also true, it will enable ingress gateways to route requests to clusters on remote "+
+			"networks while by default ingress gateways will keep traffic local.")
+
 	WaypointLayeredAuthorizationPolicies = env.Register(
 		"ENABLE_LAYERED_WAYPOINT_AUTHORIZATION_POLICIES",
 		false,
