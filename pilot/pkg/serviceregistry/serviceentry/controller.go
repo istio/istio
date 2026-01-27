@@ -678,7 +678,7 @@ func sortServicesByCreationTime(services []ServiceWithInstances) {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if r := cmp.Compare(i.Service.Attributes.K8sAttributes.ObjectName, j.Service.Attributes.K8sAttributes.ObjectName); r != 0 {
+		if r := cmp.Compare(i.Service.Attributes.Name, j.Service.Attributes.Name); r != 0 {
 			return r
 		}
 
