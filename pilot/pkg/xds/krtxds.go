@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+var agentgatewayName = "gateway.networking.k8s.io/gateway-name"
+
 type DiscoveryResource struct {
 	*discovery.Resource
 	ForGateway *types.NamespacedName
@@ -82,7 +84,6 @@ func getKey[T any](t T) string {
 	return krt.GetKey(t)
 }
 
-// TODO(jaellio)
 func PerGatewayCollection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T], extract func(o T) types.NamespacedName, krtopts krt.OptionsBuilder) Registration {
 	return func(m map[string]CollectionGenerator, pushChannel chan *model.PushRequest) CollectionRegistration {
 		nc := krt.NewCollection(collection, func(ctx krt.HandlerContext, i T) *DiscoveryResource {
@@ -118,6 +119,7 @@ func PerGatewayCollection[T IntoProto[TT], TT proto.Message](collection krt.Coll
 				for _, oo := range o {
 					last := oo.Latest()
 					// TODO(jaellio): Consider how this will impact merge
+					// TODO(jaellio): Fix hack - Stored TypeUrl in namespace and should be indexing by type rather than iterating
 					un.Insert(model.ConfigKey{
 						// TODO(jaellio): Should name be the gateway name?
 						Name: last.Name,
@@ -148,10 +150,6 @@ func Collection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T],
 	return PerGatewayCollection(collection, nil, krtopts)
 }
 
-// TODO(jaellio): Get namespaced name from proxy
-//
-// Not sure of the meaning of the bool val
-//
 // GenerateDeltas computes Workload resources. This is design to be highly optimized to delta updates,
 // and supports *on-demand* client usage. A client can subscribe with a wildcard subscription and get all
 // resources (with delta updates), or on-demand and only get responses for specifically subscribed resources.
@@ -159,17 +157,27 @@ func Collection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T],
 // Incoming requests may be for VIP or Pod IP addresses. However, all responses are Workload resources, which are pod based.
 // This means subscribing to a VIP may end up pushing many resources of different name than the request.
 // On-demand clients are expected to handle this (for wildcard, this is not applicable, as they don't specify any resources at all).
-func (e CollectionGenerator) GenerateDeltas(
+func (c CollectionGenerator) GenerateDeltas(
 	proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	// Get gw NamespacedName from proxy
+	agwName, ok := proxy.Labels[agentgatewayName]
+	if !ok {
+		return nil, nil, model.XdsLogDetails{}, false, fmt.Errorf("proxy missing %s label", agentgatewayName)
+	}
+	gw := types.NamespacedName{
+		Namespace: proxy.Metadata.Namespace,
+		Name: agwName,
+	}
+
 	if req.IsRequest() {
 		// Full update, expect everything
-		res := slices.MapFilter(e.Col.List(), func(e DiscoveryResource) **discovery.Resource {
-			/*if !e.IsForGateway(gw) {
+		res := slices.MapFilter(c.Col.List(), func(e DiscoveryResource) **discovery.Resource {
+			if !e.IsForGateway(gw) {
 				return nil
-			}*/
+			}
 			return &e.Resource
 		})
 		toDeleted := w.ResourceNames.Copy()
@@ -190,21 +198,19 @@ func (e CollectionGenerator) GenerateDeltas(
 		}
 		originalKey := k
 		var keys []string
-		if e.PerGateway {
-			// TODO(jaellio)
+		if c.PerGateway {
 			// Lookup both unscoped and for our gateway
-			// keys = []string{types.NamespacedName{}.String() + "/" + k.Name, gw.String() + "/" + k.Name}
+			keys = []string{types.NamespacedName{}.String() + "/" + k.Name, gw.String() + "/" + k.Name}
 		} else {
 			// Just lookup the key, no need to worry about gateways
 			keys = []string{k.Name}
 		}
 		found := false
 		for _, key := range keys {
-			v := e.Col.GetKey(key)
-			// TODO(jaellio)
-			/*if v != nil && !v.IsForGateway(gw) {
+			v := c.Col.GetKey(key)
+			if v != nil && !v.IsForGateway(gw) {
 				v = nil
-			}*/
+			}
 			if v != nil {
 				found = true
 				res = append(res, v.Resource)
@@ -225,7 +231,7 @@ func (e CollectionGenerator) GenerateDeltas(
 }
 
 // Defined to implement XdsResourceGenerator interface
-func (e CollectionGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	resources, _, details, _, err := e.GenerateDeltas(proxy, req, w)
+func (c CollectionGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	resources, _, details, _, err := c.GenerateDeltas(proxy, req, w)
 	return resources, details, err
 }

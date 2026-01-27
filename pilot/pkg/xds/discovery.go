@@ -73,7 +73,7 @@ type DiscoveryServer struct {
 	// Normal istio clients use the default generator - will not be impacted by this.
 	Generators map[string]model.XdsResourceGenerator
 
-	// TODO(jaellio): Could anything be shared here with Generators?
+	// Collections holds the KRT based collections when agentgateway is enabled
 	Collections map[string]CollectionGenerator
 
 	// ProxyNeedsPush is a function that determines whether a push can be completely skipped. Individual generators
@@ -139,11 +139,7 @@ type DiscoveryServer struct {
 
 	krtDebugger *krt.DebugHandler
 
-	// TODO(jaellio): Remove unused fields
-	//pushOrder     []string
 	registrations []CollectionRegistration
-
-	//nackPublisher *nack.Publisher
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures

@@ -171,7 +171,6 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		}
 	}
 
-	// TODO(jaellio): Do we need something different here for agentgateway?
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
 }
@@ -261,7 +260,6 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newReso
 	return err
 }
 
-// TODO(jaellio): where can we shortcut for agentgateway?
 // processDeltaRequest is handling one request. This is currently called from the 'main' thread, which also
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.

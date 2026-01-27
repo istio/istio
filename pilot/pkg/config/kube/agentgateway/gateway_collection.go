@@ -340,7 +340,7 @@ func GatewayCollection(
 			return nil, nil
 		}
 		if classInfo.disableRouteGeneration {
-			// TODO(jaellio): reportUnmanagedGatewayStatus
+			// TODO(jaellio): status
 			// reportUnmanagedGatewayStatus(status, obj)
 			// We found it, but don't want to handle this class
 			return status, nil
@@ -352,7 +352,7 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			// TODO(jaellio): reportStatus
+			// TODO(jaellio): status
 			// reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err)
 			return status, nil
 		}
@@ -381,7 +381,7 @@ func GatewayCollection(
 
 			allowed, _ := generateSupportedKinds(l)
 
-			// TODO(jaellio): Set all listener conditions from status - Not sure what reportGatewayStatus is doing
+			// TODO(jaellio): Set all listener conditions from status
 			// reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), err)
 			name := InternalGatewayName(obj.Namespace, obj.Name, string(l.Name))
 			pri := AgwParentInfo{
@@ -409,7 +409,7 @@ func GatewayCollection(
 				},
 				ParentInfo: pri,
 			}
-			// TODO(jaellio): Report condition?
+			// TODO(jaellio): Report condition
 			result = append(result, res)
 		}
 		listenersFromSets := krt.Fetch(ctx, listenerSets, krt.FilterIndex(listenerIndex, config.NamespacedName(obj)))
@@ -431,7 +431,7 @@ func GatewayCollection(
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
-	// TODO(jaellio): compute status
+	// TODO(jaellio): status
 	return gwstatus, gw
 }
 

@@ -470,8 +470,6 @@ type RouteContextInputs struct {
 	Namespaces     krt.Collection[*corev1.Namespace]
 	ServiceEntries krt.Collection[*networkingclient.ServiceEntry]
 	InferencePools krt.Collection[*inferencev1.InferencePool]
-	// TODO(jaellio): what is gatewayContext for?
-	//internalContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
 }
 
 func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {

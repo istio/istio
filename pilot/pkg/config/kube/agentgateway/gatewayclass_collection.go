@@ -33,17 +33,10 @@ func GatewayClassesCollection(
 	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	opts krt.OptionsBuilder,
 ) (
-	krt.StatusCollection[*gatewayv1.GatewayClass, gatewayv1.GatewayClassStatus],
 	krt.Collection[GatewayClass],
 ) {
-	return krt.NewStatusCollection(gatewayClasses, func(ctx krt.HandlerContext, obj *gatewayv1.GatewayClass) (*gatewayv1.GatewayClassStatus, *GatewayClass) {
-		_, known := classInfos[obj.Spec.ControllerName]
-		if !known {
-			return nil, nil
-		}
-		status := obj.Status.DeepCopy()
-		status = GetClassStatus(status, obj.Generation)
-		return status, &GatewayClass{
+	return krt.NewCollection(gatewayClasses, func(ctx krt.HandlerContext, obj *gatewayv1.GatewayClass) *GatewayClass {
+		return &GatewayClass{
 			Name:       obj.Name,
 			Controller: obj.Spec.ControllerName,
 		}

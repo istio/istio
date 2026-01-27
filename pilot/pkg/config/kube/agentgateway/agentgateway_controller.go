@@ -110,8 +110,6 @@ type Controller struct {
 
 	domainSuffix string // the domain suffix to use for generated resources
 
-	shadowServiceReconciler controllers.Queue
-
 	// features
 	Registrations []xds.Registration
 }
@@ -220,6 +218,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("informer/Services")...,
 		),
+		GatewayClasses:     buildClient[*gatewayv1.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
 		Gateways:           buildClient[*gatewayv1.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
 		HTTPRoutes:         buildClient[*gatewayv1.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
 		GRPCRoutes:         buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
@@ -257,7 +256,8 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 }
 
 func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
-	_, gatewayClasses := GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+	gatewayClasses := GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+
 	referenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
 	// TODO(jaellio): Consider simplifying listenerset collection
 	listenerSetStatus, listenerSets := ListenerSetCollection(
@@ -318,7 +318,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 
 	// TODO(jaellio): Determine what additional sync dependencies are needed in addition to WaitForCacheSync
 	// c.setupSyncDependencies(agwResources, addresses)
-
+	logger.Debugf("jaellio - Agentgateway controller initialized with %d agw resources", agwResources.List())
 	c.outputs.Resources = agwResources
 	c.outputs.Addresses = addresses
 }
@@ -431,6 +431,7 @@ func (c *Controller) buildXDSCollection(
 	}
 	c.Registrations = append(c.Registrations, xds.Collection[Address, *workloadapi.Address](xdsAddresses, opts))
 	c.Registrations = append(c.Registrations, xds.PerGatewayCollection[AgwResource, *api.Resource](agwResources, agwResourcesByGateway, opts))
+	logger.Debugf("jaellio - built XDS collection with %v resources", c.Registrations)
 }
 
 // buildClient is a small wrapper to build a krt collection based on a delayed informer.
@@ -515,7 +516,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	tw := c.tagWatcher.AccessUnprotected()
 	go tw.Run(stop)
-	go c.shadowServiceReconciler.Run(stop)
 	go func() {
 		kube.WaitForCacheSync("gateway tag watcher", stop, tw.HasSynced)
 		c.tagWatcher.MarkSynced()
