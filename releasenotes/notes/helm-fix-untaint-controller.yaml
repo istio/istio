@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 52050
+releaseNotes:
+  - |
+    **Fixed** missing `PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS` environment variable in `istiod` deployment when enabling untaint controller.
+upgradeNotes:
+  - title: Untaint controller
+    content: |
+      If you enabled untaint controller using `taint.enabled` Helm value when deploying `istiod` chart, you previously also had to set the `PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS` environment variable in the `istiod` deployment to `true`. This is no longer required, as the variable is now set automatically when the untaint controller is enabled.
