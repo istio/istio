@@ -37,6 +37,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authnutils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -206,7 +207,7 @@ func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ct
 		tlsParamsOrNew(ctx).CipherSuites = tlsDefaults.CipherSuites
 	}
 	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
-		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = authnutils.GetMinTLSVersion(tlsDefaults.MinProtocolVersion)
 	}
 }
 
