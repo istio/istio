@@ -13,3 +13,8 @@ releaseNotes:
   cni.istioOwnedCNIConfigFilename, the Istio owned CNI config file will be named 02-istio-cni.conflist.
   The istioOwnedCNIConfigFilename must have a higher lexicographical priority than the primary CNI.
   Ambient and chained CNI plugins must be enabled for this feature to work.
+- |
+  **Added** a retry mechanism when checking if a pod is ambient enabled in istio-cni.
+  This is to address potential transient failures resulting in potential mesh bypassing. This feature
+  is disabled by default and can be enabled by setting cni.istioOwnedCNIConfig to true in the istio-cni
+  Helm chart values.
