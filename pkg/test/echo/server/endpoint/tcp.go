@@ -59,7 +59,12 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 		if cerr != nil {
 			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
-		config := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+		// nolint: gosec // test only code, TLS version is configurable for testing
+		config := &tls.Config{
+			Certificates:     []tls.Certificate{cert},
+			MinVersion:       parseTLSVersion(s.TLSMinVersion),
+			CurvePreferences: parseTLSCurves(s.TLSCurvePreferences),
+		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)
 		// Store the actual listening port back to the argument.
