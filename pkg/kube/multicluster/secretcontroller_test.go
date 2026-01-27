@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
@@ -106,6 +107,10 @@ func TestKubeConfigOverride(t *testing.T) {
 func TestControllerFileSource(t *testing.T) {
 	root := t.TempDir()
 	test.SetForTest(t, &features.RemoteClusterSecretPath, root)
+	test.SetForTest(t, &features.LocalClusterSecretWatcher, true)
+	test.SetForTest(t, &features.ExternalIstiod, true)
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	t.Setenv("KUBERNETES_SERVICE_PORT", "")
 
 	client := kube.NewFakeClient()
 	stopCh := test.NewStop(t)
