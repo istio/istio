@@ -249,24 +249,6 @@ func TestServicesEqual(t *testing.T) {
 		name     string
 	}{
 		{
-			first:    nil,
-			other:    &Service{},
-			shouldEq: false,
-			name:     "first nil services",
-		},
-		{
-			first:    &Service{},
-			other:    nil,
-			shouldEq: false,
-			name:     "other nil services",
-		},
-		{
-			first:    nil,
-			other:    nil,
-			shouldEq: true,
-			name:     "both nil services",
-		},
-		{
 			first:    &Service{},
 			other:    &Service{},
 			shouldEq: true,

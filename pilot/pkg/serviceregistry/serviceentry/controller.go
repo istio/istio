@@ -91,8 +91,9 @@ type Controller struct {
 }
 
 type Inputs struct {
-	ServiceEntries    krt.Collection[config.Config]
-	WorkloadEntries   krt.Collection[config.Config]
+	ServiceEntries  krt.Collection[config.Config]
+	WorkloadEntries krt.Collection[config.Config]
+	// TODO: this should be a joined collection with multi cluster workloads
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
 	MeshConfig        krt.Collection[meshwatcher.MeshConfigResource]
 }
@@ -139,9 +140,11 @@ func (s InstancesByNamespaceHost) ResourceName() string {
 }
 
 func (s InstancesByNamespaceHost) Equals(other InstancesByNamespaceHost) bool {
-	return s.HasDNSServiceEndpoint == other.HasDNSServiceEndpoint && slices.EqualFunc(s.Instances, other.Instances, func(a, b *model.ServiceInstance) bool {
-		return a.Equals(b)
-	})
+	return s.Namespace == other.Namespace && s.Hostname == other.Hostname &&
+		s.HasDNSServiceEndpoint == other.HasDNSServiceEndpoint &&
+		slices.EqualFunc(s.Instances, other.Instances, func(a, b *model.ServiceInstance) bool {
+			return a.Equals(b)
+		})
 }
 
 type Option func(*Controller)
@@ -317,7 +320,7 @@ func (s *Controller) pushWorkloadUpdates(events []krt.Event[*model.WorkloadInsta
 }
 
 func (s *Controller) pushServiceUpdates(events []krt.Event[ServiceWithInstances]) {
-	cu := sets.New[model.ConfigKey]()
+	configsUpdated := sets.New[model.ConfigKey]()
 	shard := model.ShardKeyFromRegistry(s)
 	for _, e := range events {
 		if e.Event == controllers.EventUpdate &&
@@ -325,16 +328,16 @@ func (s *Controller) pushServiceUpdates(events []krt.Event[ServiceWithInstances]
 			// only instances have changed
 			continue
 		}
-		cu.Insert(makeConfigKey(e.Latest().Service))
+		configsUpdated.Insert(makeConfigKey(e.Latest().Service))
 		if e.Event != controllers.EventDelete {
 			// full service deletions are not handled here
 			s.XdsUpdater.SvcUpdate(shard, string(e.Latest().Service.Hostname), e.Latest().Service.Attributes.Namespace, model.Event(e.Event))
 		}
 	}
-	if len(cu) > 0 {
+	if len(configsUpdated) > 0 {
 		s.XdsUpdater.ConfigUpdate(&model.PushRequest{
 			Full:           true,
-			ConfigsUpdated: cu,
+			ConfigsUpdated: configsUpdated,
 			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		})
 	}
@@ -580,9 +583,9 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
 		} else {
-			thirdOctect := x / 255
-			fourthOctect := x % 255
-			pair := octetPair{thirdOctect, fourthOctect}
+			thirdOctet := x / 255
+			fourthOctet := x % 255
+			pair := octetPair{thirdOctet, fourthOctet}
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair
 		}

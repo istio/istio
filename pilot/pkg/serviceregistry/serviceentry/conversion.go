@@ -247,9 +247,9 @@ func convertServices(cfg config.Config) []*model.Service {
 	}
 
 	out := make([]*model.Service, 0, len(hostAddresses))
-	lbls := cfg.Labels
+	labels := cfg.Labels
 	if features.CanonicalServiceForMeshExternalServiceEntry && serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL {
-		lbls = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
+		labels = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
 	}
 	for _, ha := range hostAddresses {
 		svc := &model.Service{
@@ -264,7 +264,7 @@ func convertServices(cfg config.Config) []*model.Service {
 				PassthroughTargetPorts: portOverrides,
 				Name:                   ha.host,
 				Namespace:              cfg.Namespace,
-				Labels:                 lbls,
+				Labels:                 labels,
 				ExportTo:               exportTo,
 				LabelSelectors:         labelSelectors,
 				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution},
@@ -305,10 +305,6 @@ func convertServiceEntryToInstances(
 	networkIDFn networkIDCallback,
 ) []*model.ServiceInstance {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
-	if serviceEntry == nil {
-		return nil
-	}
-
 	endpointsNum := len(serviceEntry.Endpoints)
 	hostnameToServiceInstance := false
 	if len(serviceEntry.Endpoints) == 0 && serviceEntry.WorkloadSelector == nil && isDNSTypeService(service) {
