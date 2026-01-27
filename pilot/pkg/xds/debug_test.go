@@ -233,3 +233,88 @@ func TestDebugHandlers(t *testing.T) {
 		t.Errorf("Error in generatating debug endpoint list")
 	}
 }
+
+func TestDebugAuthorization(t *testing.T) {
+	tests := []struct {
+		name       string
+		identities []string
+		path       string
+		wantAllow  bool
+	}{
+		{
+			name:       "istio-system namespace allowed all endpoints",
+			identities: []string{"spiffe://cluster.local/ns/istio-system/sa/istiod"},
+			path:       "/debug/configz",
+			wantAllow:  true,
+		},
+		{
+			name:       "istio-system namespace allowed sidecarz",
+			identities: []string{"spiffe://cluster.local/ns/istio-system/sa/istiod"},
+			path:       "/debug/sidecarz",
+			wantAllow:  true,
+		},
+		{
+			name:       "non-istio-system namespace denied configz",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/configz",
+			wantAllow:  false,
+		},
+		{
+			name:       "non-istio-system namespace denied sidecarz",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/sidecarz",
+			wantAllow:  false,
+		},
+		{
+			name:       "non-istio-system namespace denied adsz",
+			identities: []string{"spiffe://cluster.local/ns/malicious/sa/attacker"},
+			path:       "/debug/adsz",
+			wantAllow:  false,
+		},
+		{
+			name:       "non-istio-system namespace allowed config_dump",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/config_dump",
+			wantAllow:  true,
+		},
+		{
+			name:       "non-istio-system namespace allowed ndsz",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/ndsz",
+			wantAllow:  true,
+		},
+		{
+			name:       "non-istio-system namespace allowed edsz",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/edsz",
+			wantAllow:  true,
+		},
+		{
+			name:       "invalid identity denied",
+			identities: []string{"not-a-spiffe-id"},
+			path:       "/debug/configz",
+			wantAllow:  false,
+		},
+		{
+			name:       "empty identities denied",
+			identities: []string{},
+			path:       "/debug/configz",
+			wantAllow:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+			req, err := http.NewRequest(http.MethodGet, tt.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := s.Discovery.AuthorizeDebugRequest(tt.identities, req)
+			if got != tt.wantAllow {
+				t.Errorf("AuthorizeDebugRequest() = %v, want %v", got, tt.wantAllow)
+			}
+		})
+	}
+}
