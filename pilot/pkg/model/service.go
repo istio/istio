@@ -139,6 +139,7 @@ func (s *Service) NamespacedName() types.NamespacedName {
 }
 
 func (s *Service) ResourceName() string {
+	// convertServices creates a service for each Service entry address and hostname.
 	return s.Attributes.Namespace + "/" +
 		s.Attributes.K8sAttributes.ObjectName + "/" +
 		s.Hostname.String() + "/" +
@@ -332,7 +333,7 @@ func (instance *ServiceInstance) ResourceName() string {
 }
 
 func (instance *ServiceInstance) Equals(other *ServiceInstance) bool {
-	return instance.Service.Equals(other.Service) && instance.ServicePort.Equals(other.ServicePort) && instance.Endpoint.Equals(other.Endpoint)
+	return instance.ServicePort.Equals(other.ServicePort) && instance.Service.Equals(other.Service) && instance.Endpoint.Equals(other.Endpoint)
 }
 
 func (instance *ServiceInstance) CmpOpts() []cmp.Option {

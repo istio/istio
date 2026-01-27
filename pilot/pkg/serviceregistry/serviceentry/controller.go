@@ -120,8 +120,8 @@ func (swi ServiceWithInstances) ResourceName() string {
 }
 
 func (swi ServiceWithInstances) Equals(other ServiceWithInstances) bool {
-	return swi.Service.Equals(other.Service) &&
-		slices.Equal(swi.TargetPorts, other.TargetPorts) &&
+	return slices.Equal(swi.TargetPorts, other.TargetPorts) &&
+		swi.Service.Equals(other.Service) &&
 		slices.EqualFunc(swi.Instances, other.Instances, func(a, b *model.ServiceInstance) bool {
 			return a.Endpoint.Equals(b.Endpoint)
 		})
