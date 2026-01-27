@@ -10,10 +10,4 @@ issue: []
 releaseNotes:
 - |
   **Fixed** unauthorized cross-namespace access to debug endpoints on port 15014. Non-system namespace service accounts
-  can now only access their own namespace debug information via config_dump, ndsz, and edsz endpoints.
-
-securityNotes:
-- |
-  Debug endpoints on port 15014 (HTTP) now enforce namespace-based authorization matching the existing port 15012 (XDS) behavior.
-  Service accounts in non-system namespaces are restricted to specific debug endpoints and cannot access debug information
-  from other namespaces.
+  are now restricted to config_dump, ndsz, and edsz endpoints for their own namespace only.
