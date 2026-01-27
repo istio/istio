@@ -31,8 +31,8 @@
       "ambient_enabled": true,
       "cni_agent_run_dir": "/path/to/kubeconfig",
       "dns": {},
-      "enablement_selectors": [],
       "enable_is_ambient_retry": true,
+      "enablement_selectors": [],
       "exclude_namespaces": [
         ""
       ],
