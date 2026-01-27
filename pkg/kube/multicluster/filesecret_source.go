@@ -77,8 +77,8 @@ func (s *secretConfigSource) Get(key types.NamespacedName) *remoteConfig {
 }
 
 type fileConfigSource struct {
-	root             string
-	defaultNamespace string
+	root      string
+	namespace string
 
 	mu         sync.RWMutex
 	collection krt.Collection[filesecrets.KubeconfigEntry]
@@ -86,10 +86,10 @@ type fileConfigSource struct {
 	pending    []func(types.NamespacedName, controllers.EventType)
 }
 
-func newFileConfigSource(root string, defaultNamespace string) *fileConfigSource {
+func newFileConfigSource(root string, namespace string) *fileConfigSource {
 	return &fileConfigSource{
-		root:             root,
-		defaultNamespace: defaultNamespace,
+		root:      root,
+		namespace: namespace,
 	}
 }
 
@@ -104,7 +104,7 @@ func (f *fileConfigSource) Start(stop <-chan struct{}) {
 	opts := krt.NewOptionsBuilder(stop, "remote-kubeconfig-file", nil)
 	collection, err := filesecrets.NewKubeconfigCollection(
 		f.root,
-		f.defaultNamespace,
+		f.namespace,
 		opts.WithName("RemoteKubeconfigs")...,
 	)
 	if err != nil {

@@ -16,6 +16,8 @@ package multicluster
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -28,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
@@ -38,6 +41,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -100,6 +104,34 @@ func TestKubeConfigOverride(t *testing.T) {
 			Burst: expectedBurst,
 		})
 	})
+}
+
+func TestControllerFileSource(t *testing.T) {
+	root := t.TempDir()
+	test.SetForTest(t, &features.RemoteClusterSecretPath, root)
+
+	client := kube.NewFakeClient()
+	stopCh := test.NewStop(t)
+	controller := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	if controller == nil {
+		t.Fatal("expected controller to be created")
+	}
+	controller.ClientBuilder = TestingBuildClientsFromConfig
+	client.RunAndWait(stopCh)
+	assert.NoError(t, controller.Run(stopCh))
+
+	remotePath := filepath.Join(root, "remote.yaml")
+	file.WriteOrFail(t, remotePath, kubeconfigYAML("remote-1"))
+	retry.UntilOrFail(t, func() bool {
+		return controller.cs.GetByID("remote-1") != nil
+	}, retry.Timeout(2*time.Second))
+
+	if err := os.Remove(remotePath); err != nil {
+		t.Fatalf("failed to remove kubeconfig file: %v", err)
+	}
+	retry.UntilOrFail(t, func() bool {
+		return controller.cs.GetByID("remote-1") == nil
+	}, retry.Timeout(2*time.Second))
 }
 
 func TestingBuildClientsFromConfig(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
