@@ -264,7 +264,7 @@ func TestIsAmbientPod(t *testing.T) {
 
 	client := kube.NewFakeClientWithRetries(3, pod, ns)
 
-	isAmbient, err := isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors)
+	isAmbient, err := isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors, conf.EnableIsAmbientRetry)
 	assert.NoError(t, err)
 	assert.Equal(t, true, isAmbient, "expected pod to be ambient")
 }

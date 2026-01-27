@@ -64,13 +64,14 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	PluginLogLevel      string                    `json:"plugin_log_level"`
-	CNIAgentRunDir      string                    `json:"cni_agent_run_dir"`
-	AmbientEnabled      bool                      `json:"ambient_enabled"`
-	EnablementSelectors []util.EnablementSelector `json:"enablement_selectors"`
-	ExcludeNamespaces   []string                  `json:"exclude_namespaces"`
-	PodNamespace        string                    `json:"pod_namespace"`
-	NativeNftables      bool                      `json:"native_nftables"`
+	PluginLogLevel       string                    `json:"plugin_log_level"`
+	CNIAgentRunDir       string                    `json:"cni_agent_run_dir"`
+	AmbientEnabled       bool                      `json:"ambient_enabled"`
+	EnablementSelectors  []util.EnablementSelector `json:"enablement_selectors"`
+	ExcludeNamespaces    []string                  `json:"exclude_namespaces"`
+	PodNamespace         string                    `json:"pod_namespace"`
+	NativeNftables       bool                      `json:"native_nftables"`
+	EnableIsAmbientRetry bool                      `json:"enable_is_ambient_retry"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -239,9 +240,14 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 	// For ambient pods, this is all the logic we need to run
 	if conf.AmbientEnabled {
 		log.Debugf("istio-cni ambient cmdAdd podName: %s - checking if ambient enabled", podName)
-		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace, conf.EnablementSelectors)
+		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace, conf.EnablementSelectors, conf.EnableIsAmbientRetry)
 		if err != nil {
-			log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
+			log.Errorf("istio-cni cmdAdd failed to check if pod is ambient: %s", err)
+			// Conditionally return the error based on whether istio owned CNI is configured
+			// to support gradual rollout of feature in critical code path
+			if conf.EnableIsAmbientRetry {
+				return err
+			}
 		}
 
 		var prevResIps []*cniv1.IPConfig
@@ -384,16 +390,22 @@ func CmdDelete(args *skel.CmdArgs) (err error) {
 	return nil
 }
 
-func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, selectors []util.EnablementSelector) (bool, error) {
+func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, selectors []util.EnablementSelector, enableRetry bool) (bool, error) {
 	compiledSelectors, err := util.NewCompiledEnablementSelectors(selectors)
 	if err != nil {
 		return false, fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 	}
 
+	maxAttempts := podRetrievalMaxRetries
+	if !enableRetry {
+		maxAttempts = 1
+	}
+
 	var pod *v1.Pod
 	var ns *v1.Namespace
 	var podErr, nsErr error
-	for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// attempt to get pod and namespace
 		if pod == nil || podErr != nil {
 			pod, podErr = client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 		}
@@ -402,8 +414,13 @@ func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, sel
 		}
 		if podErr != nil || nsErr != nil {
 			log.Debugf("failed to get pod or namespace info, retrying: podErr=%v, nsErr=%v", podErr, nsErr)
+			// reset pod and ns to force re-get to avoid stale resources
+			pod, ns = nil, nil
 			time.Sleep(podRetrievalInterval)
-			continue
+		}
+		// successfully got both pod and namespace
+		if pod != nil && ns != nil {
+			break
 		}
 	}
 	if podErr != nil || nsErr != nil || pod == nil || ns == nil {
