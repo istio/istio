@@ -22,6 +22,7 @@
       "cni_agent_run_dir": "/path/to/kubeconfig",
       "dns": {},
       "enablement_selectors": [],
+      "enable_is_ambient_retry": true,
       "exclude_namespaces": [
         ""
       ],

@@ -29,6 +29,7 @@
       "cni_agent_run_dir": "/tmp",
       "dns": {},
       "enablement_selectors": [],
+      "enable_is_ambient_retry": false,
       "exclude_namespaces": [
         "istio-system"
       ],
