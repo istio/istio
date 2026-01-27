@@ -220,9 +220,9 @@ spec:
             value: "{{ coalesce .Values.global.platform .Values.platform }}"
           resources:
 {{- if .Values.resources }}
-{{ include "istiod.resources" .Values.resources | indent 12 }}
+{{ include "istiod.resources" .Values.resources | trim | indent 12 }}
 {{- else }}
-{{ include "istiod.resources" .Values.global.defaultResources | indent 12 }}
+{{ include "istiod.resources" .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
