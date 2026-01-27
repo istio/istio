@@ -15,6 +15,7 @@
 package xds_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	xdsfake "istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestSyncz(t *testing.T) {
@@ -315,6 +317,59 @@ func TestDebugAuthorization(t *testing.T) {
 			if got != tt.wantAllow {
 				t.Errorf("AuthorizeDebugRequest() = %v, want %v", got, tt.wantAllow)
 			}
+		})
+	}
+}
+
+// TestDebugProxyNamespaceRestriction verifies that non-system namespaces can only access
+// debug info for proxies in their own namespace. This test would FAIL before the fix.
+func TestDebugProxyNamespaceRestriction(t *testing.T) {
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+
+	// Create a proxy in production namespace
+	ads := s.ConnectADS().WithID("sidecar~10.0.0.1~test.production~production.svc.cluster.local")
+	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+
+	tests := []struct {
+		name       string
+		callerNS   string
+		proxyID    string
+		wantStatus int
+	}{
+		{
+			name:       "system namespace accesses any proxy",
+			callerNS:   "istio-system",
+			proxyID:    "test.production",
+			wantStatus: 200,
+		},
+		{
+			name:       "same namespace allowed",
+			callerNS:   "production",
+			proxyID:    "test.production",
+			wantStatus: 200,
+		},
+		{
+			name:       "cross-namespace denied - this would FAIL before fix",
+			callerNS:   "staging",
+			proxyID:    "test.production",
+			wantStatus: 404, // Returns 404 when proxy not accessible
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest(http.MethodGet, "/debug/config_dump?proxyID="+tt.proxyID, nil)
+
+			// Inject caller namespace into context (simulating auth middleware)
+			ctx := context.WithValue(req.Context(), xds.CallerNamespaceKey{}, tt.callerNS)
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(s.Discovery.ConfigDump)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, rr.Code, tt.wantStatus,
+				"namespace=%s accessing proxyID=%s", tt.callerNS, tt.proxyID)
 		})
 	}
 }
