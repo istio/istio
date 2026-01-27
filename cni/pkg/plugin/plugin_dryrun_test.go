@@ -80,6 +80,7 @@ func buildDryrunConf() string {
 		testSandboxDirectory,
 		filepath.Dir("/tmp"),
 		false,
+		false,
 		"iptables",
 	)
 }
