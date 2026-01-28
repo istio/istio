@@ -243,7 +243,8 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.
 
 func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		// Request is from localhost, no need to authenticate
+		// Localhost gets unrestricted access (istiod talking to itself on 127.0.0.1:8080)
+		// No namespace context set, so namespace checks are skipped
 		if isRequestFromLocalhost(req) {
 			next.ServeHTTP(w, req)
 			return
@@ -268,15 +269,19 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 			return
 		}
 		// Check namespace-based authorization for debug endpoints
-		namespace := s.extractNamespace(ids)
-		if !s.AuthorizeDebugRequest(ids, req) {
-			istiolog.Warnf("Unauthorized debug request from %v to %s", ids, req.URL.Path)
-			w.WriteHeader(http.StatusForbidden)
-			return
+		if features.EnableDebugEndpointAuth {
+			namespace := s.extractNamespace(ids)
+			if !s.AuthorizeDebugRequest(ids, req) {
+				istiolog.Warnf("Unauthorized debug request from %v to %s", ids, req.URL.Path)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			// Store caller namespace in context for handlers to enforce proxy-level access
+			ctx := context.WithValue(req.Context(), CallerNamespaceKey{}, namespace)
+			next.ServeHTTP(w, req.WithContext(ctx))
+		} else {
+			next.ServeHTTP(w, req)
 		}
-		// Store caller namespace in context for handlers to enforce proxy-level access
-		ctx := context.WithValue(req.Context(), CallerNamespaceKey{}, namespace)
-		next.ServeHTTP(w, req.WithContext(ctx))
 	}
 }
 
@@ -1139,16 +1144,18 @@ func (s *DiscoveryServer) handlePushRequest(w http.ResponseWriter, req *http.Req
 func (s *DiscoveryServer) getDebugConnection(req *http.Request) (string, *Connection) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		con := s.getProxyConnection(proxyID)
-		// Verify namespace if caller is not from system namespace
-		callerNamespace, _ := req.Context().Value(CallerNamespaceKey{}).(string)
-		if con != nil && callerNamespace != "" {
-			systemNamespace := constants.IstioSystemNamespace
-			if s.Env != nil && s.Env.Mesh() != nil && s.Env.Mesh().GetRootNamespace() != "" {
-				systemNamespace = s.Env.Mesh().GetRootNamespace()
-			}
-			// Non-system namespaces can only access proxies in their own namespace
-			if callerNamespace != systemNamespace && con.proxy.ConfigNamespace != callerNamespace {
-				return proxyID, nil // Return nil connection to deny access
+		// Verify namespace if caller is not from system namespace (when auth is enabled)
+		if features.EnableDebugEndpointAuth {
+			callerNamespace, _ := req.Context().Value(CallerNamespaceKey{}).(string)
+			if con != nil && callerNamespace != "" {
+				systemNamespace := constants.IstioSystemNamespace
+				if s.Env != nil && s.Env.Mesh() != nil && s.Env.Mesh().GetRootNamespace() != "" {
+					systemNamespace = s.Env.Mesh().GetRootNamespace()
+				}
+				// Non-system namespaces can only access proxies in their own namespace
+				if callerNamespace != systemNamespace && con.proxy.ConfigNamespace != callerNamespace {
+					return proxyID, nil // Return nil connection to deny access
+				}
 			}
 		}
 		return proxyID, con
