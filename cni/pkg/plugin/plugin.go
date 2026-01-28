@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
@@ -396,34 +397,29 @@ func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, sel
 		return false, fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 	}
 
-	maxAttempts := podRetrievalMaxRetries
+	maxRetries := podRetrievalMaxRetries
 	if !enableRetry {
-		maxAttempts = 1
+		maxRetries = 1
 	}
 
 	var pod *v1.Pod
 	var ns *v1.Namespace
 	var podErr, nsErr error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
+
+	err = backoff.Retry(func() error {
 		// attempt to get pod and namespace
-		if pod == nil || podErr != nil {
-			pod, podErr = client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
-		}
-		if ns == nil || nsErr != nil {
-			ns, nsErr = client.CoreV1().Namespaces().Get(context.Background(), podNamespace, metav1.GetOptions{})
-		}
+		pod, podErr = client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+		ns, nsErr = client.CoreV1().Namespaces().Get(context.Background(), podNamespace, metav1.GetOptions{})
 		if podErr != nil || nsErr != nil {
-			log.Debugf("failed to get pod or namespace info, retrying: podErr=%v, nsErr=%v", podErr, nsErr)
+			errMsg := fmt.Sprintf("failed to get pod or namespace info, retrying: podErr=%v, nsErr=%v", podErr, nsErr)
+			log.Debug(errMsg)
 			// reset pod and ns to force re-get to avoid stale resources
 			pod, ns = nil, nil
-			time.Sleep(podRetrievalInterval)
+			return errors.New(errMsg)
 		}
-		// successfully got both pod and namespace
-		if pod != nil && ns != nil {
-			break
-		}
-	}
-	if podErr != nil || nsErr != nil || pod == nil || ns == nil {
+		return nil
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(podRetrievalInterval), uint64(maxRetries)))
+	if err != nil {
 		return false, fmt.Errorf("failed to get pod or namespace info: podErr=%v, nsErr=%v", podErr, nsErr)
 	}
 

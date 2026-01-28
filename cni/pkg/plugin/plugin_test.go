@@ -29,8 +29,10 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -264,11 +266,21 @@ func TestIsAmbientPod(t *testing.T) {
 		t.Fatalf("config parse failed with error: %v", err)
 	}
 
-	client := kube.NewFakeClientWithRetries(3, pod, ns)
+	podGVR, _ := gvk.ToGVR(gvk.Pod)
+	nsGVR, _ := gvk.ToGVR(gvk.Namespace)
+	// Fail first 3 attempts to get pod/namespace, then succeed
+	client := kube.NewFakeClientWithFailures(3, sets.New(podGVR, nsGVR), pod, ns)
 
 	isAmbient, err := isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors, conf.EnableIsAmbientRetry)
 	assert.NoError(t, err)
 	assert.Equal(t, true, isAmbient, "expected pod to be ambient")
+
+	// Fail all attempts to get pod/namespace
+	podRetrievalMaxRetries = 5
+	client = kube.NewFakeClientWithFailures(podRetrievalMaxRetries+1, sets.New(podGVR, nsGVR), pod, ns)
+
+	_, err = isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors, conf.EnableIsAmbientRetry)
+	assert.Error(t, err)
 }
 
 func TestCmdAddAmbientEnabledOnNS(t *testing.T) {
