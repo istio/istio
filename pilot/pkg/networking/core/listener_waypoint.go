@@ -71,7 +71,8 @@ const (
 	// We use this header to indicate to the next proxy (e.g., E/W gateway), that the request
 	// came from a waypoint and the next proxy then can infer that L7 policies have been
 	// applied already.
-	downstreamSourceHeader = "x-istio-source"
+	downstreamSourceHeader        = "x-istio-source"
+	downstreamOriginNetworkHeader = "x-forwarded-network"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
