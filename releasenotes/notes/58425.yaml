@@ -10,3 +10,4 @@ releaseNotes:
     using the variable `PILOT_INCLUDE_RESOURCES`.
     This feature enables administrators that want to deploy Istio as a Gateway API only controller, ignoring mesh resources, 
     or allowing the deployment of Istio with support only for Gateway API HTTPRoutes (eg.: GAMMA support).
+    **Added** a new `gatewayapi` profile that will make Istio operate as a Gateway API controller only
