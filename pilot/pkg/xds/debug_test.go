@@ -25,10 +25,12 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	xdsfake "istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -324,6 +326,7 @@ func TestDebugAuthorization(t *testing.T) {
 // TestDebugProxyNamespaceRestriction verifies that non-system namespaces can only access
 // debug info for proxies in their own namespace. This test would FAIL before the fix.
 func TestDebugProxyNamespaceRestriction(t *testing.T) {
+	test.SetForTest(t, &features.EnableDebugEndpointAuth, true)
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 	// Create a proxy in production namespace
