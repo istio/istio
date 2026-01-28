@@ -755,7 +755,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			g := NewWithT(t)
 			// The filters need to be reset because they're initialized only once
 			// at the startup, so everytime we apply these flags we have to do this.
-			filters.ResetWaypointFiltersForTest()
+			filters.ResetWaypointFiltersForTest(t)
 			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableAmbientMultiNetwork)
 			test.SetForTest(t, &features.EnableAmbientBaggage, tc.enableAmbientBaggage)
 
