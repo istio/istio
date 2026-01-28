@@ -343,7 +343,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	case model.EventDelete:
 		s.inputs.ExternalWorkloads.DeleteObject(wi.ResourceName())
 	default:
-		s.inputs.ExternalWorkloads.UpdateObject(wi)
+		s.inputs.ExternalWorkloads.ConditionalUpdateObject(wi)
 	}
 }
 
