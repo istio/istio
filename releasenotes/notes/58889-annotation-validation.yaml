@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+issue:
+  - https://github.com/istio/istio/issues/58889
+
+releaseNotes:
+- |
+  **Fixed** resource annotation validation to reject newlines and control characters that could inject containers into pod specs via template rendering.
