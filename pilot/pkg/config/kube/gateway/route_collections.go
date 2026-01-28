@@ -30,6 +30,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -685,14 +686,14 @@ func (r RouteContext) LookupHostname(hostname string, namespace string) *model.S
 }
 
 type RouteContextInputs struct {
-	Grants          ReferenceGrants
+	Grants          gatewaycommon.ReferenceGrants
 	RouteParents    RouteParents
 	DomainSuffix    string
 	Services        krt.Collection[*corev1.Service]
 	Namespaces      krt.Collection[*corev1.Namespace]
 	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
 	InferencePools  krt.Collection[*inferencev1.InferencePool]
-	internalContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
+	internalContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]]
 }
 
 func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {

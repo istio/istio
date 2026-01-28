@@ -19,10 +19,12 @@ import (
 	"strings"
 
 	"github.com/agentgateway/agentgateway/go/api"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // CreateAgwMethodMatch creates an agw MethodMatch from a HTTPRouteMatch.
@@ -205,7 +207,7 @@ func CreateAgwMirrorFilter(
 	ctx RouteContext,
 	filter *gatewayv1.HTTPRequestMirrorFilter,
 	ns string,
-	k schema.GroupVersionKind,
+	k config.GroupVersionKind,
 ) *api.RequestMirrors_Mirror {
 	if filter == nil {
 		return nil
@@ -244,7 +246,7 @@ func CreateAgwExternalAuthFilter(
 	ctx RouteContext,
 	filter *gatewayv1.HTTPExternalAuthFilter,
 	ns string,
-	k schema.GroupVersionKind,
+	k config.GroupVersionKind,
 ) *api.TrafficPolicySpec {
 	if filter == nil {
 		return nil
@@ -424,11 +426,7 @@ func BuildAgwGRPCTrafficPolicies(
 			}
 			mergedRespHdr = mergeHeaderModifiers(mergedRespHdr, h)
 		case gatewayv1.GRPCRouteFilterRequestMirror:
-			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, schema.GroupVersionKind{
-				Group:   "gateway.networking.k8s.io",
-				Version: "v1",
-				Kind:    "GRPCRoute",
-			})
+			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.GRPCRoute)
 			mergedMirror = append(mergedMirror, h)
 		default:
 			return nil
@@ -472,11 +470,7 @@ func BuildAgwGRPCBackendPolicies(
 			}
 			mergedRespHdr = mergeHeaderModifiers(mergedRespHdr, h)
 		case gatewayv1.GRPCRouteFilterRequestMirror:
-			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, schema.GroupVersionKind{
-				Group:   "gateway.networking.k8s.io",
-				Version: "v1",
-				Kind:    "GRPCRoute",
-			})
+			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.GRPCRoute)
 			mergedMirror = append(mergedMirror, h)
 		default:
 			return nil
@@ -510,11 +504,7 @@ func buildAgwGRPCDestination(
 		dst := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
 			BackendRef: fwd.BackendRef,
 			Filters:    nil, // GRPC filters are handled separately
-		}, ns, schema.GroupVersionKind{
-			Group:   "gateway.networking.k8s.io",
-			Version: "v1",
-			Kind:    "GRPCRoute",
-		})
+		}, ns, gvk.GRPCRoute)
 		// TODO(jaellio): handle error building agw destination
 		if dst != nil {
 			policies := BuildAgwGRPCBackendPolicies(ctx, ns, fwd.Filters)

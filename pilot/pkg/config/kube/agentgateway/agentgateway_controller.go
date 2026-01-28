@@ -31,6 +31,7 @@ import (
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -93,7 +94,7 @@ type Controller struct {
 	// gatewayContext exposes us to the internal Istio service registry. This is outside krt knowledge (currently), so,
 	// so we wrap it in a RecomputeProtected.
 	// Most usages in the API are directly referenced typed objects (Service, ServiceEntry, etc) so this is not needed typically.
-	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]]
 	// tagWatcher allows us to check which tags are ours. Unlike most Istio codepaths, we read istio.io/rev=<tag> and not just
 	// revisions for Gateways. This is because a Gateway is sort of a mix of a Deployment and Config.
 	// Since the TagWatcher is not yet krt-aware, we wrap this in RecomputeProtected.
@@ -175,7 +176,7 @@ func NewAgwController(
 		status:         &status.StatusCollections{},
 		tagWatcher:     krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
 		waitForCRD:     waitForCRD,
-		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[GatewayContext](nil), false, opts.WithName("gatewayContext")...),
+		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[gatewaycommon.GatewayContext](nil), false, opts.WithName("gatewayContext")...),
 		stop:           stop,
 		domainSuffix:   options.DomainSuffix,
 	}
@@ -256,9 +257,9 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 }
 
 func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
-	gatewayClasses := GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+	_, gatewayClasses := gatewaycommon.GatewayClassesCollection(c.inputs.GatewayClasses, opts)
 
-	referenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
+	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
 	// TODO(jaellio): Consider simplifying listenerset collection
 	listenerSetStatus, listenerSets := ListenerSetCollection(
 		c.inputs.ListenerSets,
@@ -507,7 +508,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if features.EnableGatewayAPIGatewayClassController {
 		go func() {
 			if c.waitForCRD(gvr.GatewayClass, stop) {
-				gcc := NewClassController(c.client)
+				gcc := gatewaycommon.NewClassController(c.client, gatewaycommon.ClassControllerOptions{})
 				c.client.RunAndWait(stop)
 				gcc.Run(stop)
 			}
@@ -572,7 +573,7 @@ func ToResourceForGateway(gw types.NamespacedName, resource any) AgwResource {
 // TODO(jaellio): Verify implementation
 func (c *Controller) buildAgwResources(
 	gateways krt.Collection[*GatewayListener],
-	refGrants ReferenceGrants,
+	refGrants gatewaycommon.ReferenceGrants,
 	opts krt.OptionsBuilder,
 ) (
 	krt.Collection[AgwResource],
@@ -582,7 +583,7 @@ func (c *Controller) buildAgwResources(
 	// (resources for additional gateway classes should be created by the downstream providing them)
 	filteredGateways := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gw *GatewayListener) **GatewayListener {
 		// TODO(jaellio): check if this is the correct filtering logic. Opposite of kgateway which uses additionalGatewayClasses
-		if _, builtInClass := builtinClasses[gatewayv1.ObjectName(gw.Name)]; !builtInClass {
+		if _, builtInClass := gatewaycommon.BuiltinClasses[gatewayv1.ObjectName(gw.Name)]; !builtInClass {
 			return nil
 		}
 		return &gw

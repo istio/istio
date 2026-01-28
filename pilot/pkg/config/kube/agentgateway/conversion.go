@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -327,7 +328,7 @@ func buildTLS(
 	ctx krt.HandlerContext,
 	secrets krt.Collection[*corev1.Secret],
 	configMaps krt.Collection[*corev1.ConfigMap],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	gatewayTLS *gatewayv1.TLSConfig,
 	tls *gatewayv1.ListenerTLSConfig,
 	gw controllers.Object,
@@ -354,7 +355,7 @@ func buildTLS(
 		// If we are going to send a cert, validate we can access it
 		sameNamespace := tlsRes.Source.Namespace == namespace
 		objectKind := schematypes.GvkFromObject(gw)
-		if !sameNamespace && !grants.SecretAllowed(ctx, objectKind.Kubernetes(), tlsRes.Source, namespace) {
+		if !sameNamespace && !AgwSecretAllowed(grants, ctx, objectKind, tlsRes.Source, namespace) {
 			return dummyTls, &ConfigError{
 				Reason: InvalidListenerRefNotPermitted,
 				Message: fmt.Sprintf(
@@ -379,7 +380,7 @@ func buildTLS(
 			}
 			sameNamespace := cred.Source.Namespace == namespace
 			isSecret := cred.Kind == gvk.Secret.Kind
-			if isSecret && !sameNamespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw).Kubernetes(), cred.Source, namespace) {
+			if isSecret && !sameNamespace && !AgwSecretAllowed(grants, ctx, schematypes.GvkFromObject(gw), cred.Source, namespace) {
 				return dummyTls, &ConfigError{
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
@@ -465,7 +466,7 @@ func buildListener(
 	ctx krt.HandlerContext,
 	secrets krt.Collection[*corev1.Secret],
 	configMaps krt.Collection[*corev1.ConfigMap],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	namespaces krt.Collection[*corev1.Namespace],
 	obj controllers.Object,
 	status []gatewayv1.ListenerStatus,
@@ -581,53 +582,9 @@ func resolveGatewayTLS(port gatewayv1.PortNumber, gw *gatewayv1.GatewayTLSConfig
 	return &f.Default
 }
 
-// IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
-// This is based on the address field of the spec. If address is set with a Hostname type, it should point to an existing
-// Service that handles the gateway traffic. If it is not set, or refers to only a single IP, we will consider it managed and provision the Service.
-// If there is an IP, we will set the `loadBalancerIP` type.
-// While there is no defined standard for this in the API yet, it is tracked in https://github.com/kubernetes-sigs/gateway-api/issues/892.
-// So far, this mirrors how out of clusters work (address set means to use existing IP, unset means to provision one),
-// and there has been growing consensus on this model for in cluster deployments.
-//
-// Currently, the supported options are:
-// * 1 Hostname value. This can be short Service name ingress, or FQDN ingress.ns.svc.cluster.local, example.com. If its a non-k8s FQDN it is a ServiceEntry.
-// * 1 IP address. This is managed, with IP explicit
-// * Nothing. This is managed, with IP auto assigned
-//
-// Not supported:
-// Multiple hostname/IP - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
-// Mixed hostname and IP - doesn't make sense; user should define the IP in service
-// NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
-//
-//	which users can add to the Gateway.
-//
-// If manual deployments are disabled, IsManaged() always returns true.
-func IsManaged(gw *k8s.GatewaySpec) bool {
-	if !features.EnableGatewayAPIManualDeployment {
-		return true
-	}
-	if len(gw.Addresses) == 0 {
-		return true
-	}
-	if len(gw.Addresses) > 1 {
-		return false
-	}
-	if t := gw.Addresses[0].Type; t == nil || *t == k8s.IPAddressType {
-		return true
-	}
-	return false
-}
-
-func getDefaultName(name string, kgw *k8s.GatewaySpec, disableNameSuffix bool) string {
-	if disableNameSuffix {
-		return name
-	}
-	return fmt.Sprintf("%v-%v", name, kgw.GatewayClassName)
-}
-
-func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info classInfo) ([]string, *ConfigError) {
-	if IsManaged(&kgw.Spec) {
-		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], getDefaultName(kgw.Name, &kgw.Spec, info.disableNameSuffix))
+func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewaycommon.ClassInfo) ([]string, *ConfigError) {
+	if gatewaycommon.IsManaged(&kgw.Spec) {
+		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], gatewaycommon.GetDefaultName(kgw.Name, &kgw.Spec, info.DisableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, kgw.Namespace, domainSuffix)}, nil
 	}
 	gatewayServices := []string{}
@@ -838,7 +795,7 @@ func buildAgwTCPDestination(
 		dst := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
 			BackendRef: fwd,
 			Filters:    nil, // TCP Routes don't have per-backend filters?
-		}, ns, gvk.TCPRoute.Kubernetes())
+		}, ns, gvk.TCPRoute)
 		res = append(res, dst)
 	}
 	return res
@@ -859,7 +816,7 @@ func buildAgwTLSDestination(
 		dst := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
 			BackendRef: fwd,
 			Filters:    nil, // TLS Routes don't have per-backend filters
-		}, ns, gvk.TLSRoute.Kubernetes())
+		}, ns, gvk.TLSRoute)
 		res = append(res, dst)
 	}
 	return res
@@ -869,12 +826,12 @@ func buildAgwDestination(
 	ctx RouteContext,
 	to gatewayv1.HTTPBackendRef,
 	ns string,
-	k schema.GroupVersionKind,
+	k config.GroupVersionKind,
 ) *api.RouteBackend {
 	ref := normalizeReference(to.Group, to.Kind, gvk.Service)
 	// check if the reference is allowed
 	if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
-		if !ctx.Grants.BackendAllowed(ctx.Krt, k, to.Name, *toNs, ns, ref.Kubernetes()) {
+		if !ctx.Grants.BackendAllowed(ctx.Krt, k, ref, to.Name, *toNs, ns) {
 			return nil
 		}
 	}
@@ -969,45 +926,6 @@ func buildAgwDestination(
 		return nil
 	}
 	return rb
-}
-
-// namespaceAcceptedByAllowListeners determines a list of allowed namespaces for a given AllowedListener
-func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8s.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
-	lr := parent.Spec.AllowedListeners
-	// Default allows none
-	if lr == nil || lr.Namespaces == nil {
-		return false
-	}
-	n := *lr.Namespaces
-	if n.From != nil {
-		switch *n.From {
-		case k8s.NamespacesFromAll:
-			return true
-		case k8s.NamespacesFromSame:
-			return localNamespace == parent.Namespace
-		case k8s.NamespacesFromNone:
-			return false
-		case k8s.NamespacesFromSelector:
-			// Fallthrough
-		default:
-			// Unknown?
-			return false
-		}
-	}
-	if lr.Namespaces.Selector == nil {
-		// Should never happen, invalid config
-		return false
-	}
-	ls, err := metav1.LabelSelectorAsSelector(lr.Namespaces.Selector)
-	if err != nil {
-		return false
-	}
-	localNamespaceObject := lookupNamespace(localNamespace)
-	if localNamespaceObject == nil {
-		// Couldn't find the namespace
-		return false
-	}
-	return ls.Matches(toNamespaceSet(localNamespaceObject.Name, localNamespaceObject.Labels))
 }
 
 func humanReadableJoin(ss []string) string {
@@ -1138,7 +1056,7 @@ func BuildAgwTrafficPolicyFilters(
 			policies = append(policies, &api.TrafficPolicySpec{Kind: &api.TrafficPolicySpec_RequestRedirect{RequestRedirect: h}})
 			hasTerminalFilter = true
 		case gatewayv1.HTTPRouteFilterRequestMirror:
-			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.HTTPRoute.Kubernetes())
+			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.HTTPRoute)
 			if h == nil {
 				continue
 			} else {
@@ -1157,7 +1075,7 @@ func BuildAgwTrafficPolicyFilters(
 			}
 			policies = append(policies, h)
 		case gatewayv1.HTTPRouteFilterExternalAuth:
-			h := CreateAgwExternalAuthFilter(ctx, filter.ExternalAuth, ns, gvk.HTTPRoute.Kubernetes())
+			h := CreateAgwExternalAuthFilter(ctx, filter.ExternalAuth, ns, gvk.HTTPRoute)
 			if h == nil {
 				continue
 			}
@@ -1225,7 +1143,7 @@ func BuildAgwBackendPolicyFilters(
 			policies = append(policies, &api.BackendPolicySpec{Kind: &api.BackendPolicySpec_RequestRedirect{RequestRedirect: h}})
 			hasTerminalFilter = true
 		case gatewayv1.HTTPRouteFilterRequestMirror:
-			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.HTTPRoute.Kubernetes())
+			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.HTTPRoute)
 			if h == nil {
 				continue
 			} else {
@@ -1260,7 +1178,7 @@ func buildAgwHTTPDestination(
 
 	var res []*api.RouteBackend
 	for _, fwd := range forwardTo {
-		dst := buildAgwDestination(ctx, fwd, ns, gvk.HTTPRoute.Kubernetes())
+		dst := buildAgwDestination(ctx, fwd, ns, gvk.HTTPRoute)
 		if dst != nil {
 			policies := BuildAgwBackendPolicyFilters(ctx, ns, fwd.Filters)
 			dst.BackendPolicies = policies

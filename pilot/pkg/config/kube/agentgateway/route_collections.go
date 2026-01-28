@@ -28,6 +28,7 @@ import (
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -463,7 +464,7 @@ type RouteContext struct {
 }
 
 type RouteContextInputs struct {
-	Grants         ReferenceGrants
+	Grants         gatewaycommon.ReferenceGrants
 	RouteParents   RouteParents
 	DomainSuffix   string
 	Services       krt.Collection[*corev1.Service]

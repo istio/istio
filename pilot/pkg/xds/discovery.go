@@ -139,7 +139,7 @@ type DiscoveryServer struct {
 
 	krtDebugger *krt.DebugHandler
 
-	registrations []CollectionRegistration
+	Registrations []CollectionRegistration
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures

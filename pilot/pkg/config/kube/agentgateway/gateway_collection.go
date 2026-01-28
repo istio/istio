@@ -25,6 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -120,13 +121,13 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 func ListenerSetCollection(
 	listenerSets krt.Collection[*gatewayx.XListenerSet],
 	gateways krt.Collection[*gatewayv1.Gateway],
-	gatewayClasses krt.Collection[GatewayClass],
+	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
-	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) (
@@ -160,26 +161,26 @@ func ListenerSetCollection(
 				return nil, nil
 			}
 
-			class := fetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
+			class := gatewaycommon.FetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
 			if class == nil {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
 			}
 
 			controllerName := class.Controller
-			classInfo, f := classInfos[controllerName]
+			classInfo, f := gatewaycommon.ClassInfos[controllerName]
 			if !f {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
 			}
 
 			// TODO(jaellio): Add back once we've added listener errors for agentgateway
-			if !classInfo.supportsListenerSet {
+			if !classInfo.SupportsListenerSet {
 				reportUnsupportedListenerSet(class.Name, status, obj)
 				return status, nil
 			}
 
-			if !namespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
+			if !gatewaycommon.NamespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
 				return ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(s)))
 			}) {
 				reportNotAllowedListenerSet(status, obj)
@@ -196,7 +197,7 @@ func ListenerSetCollection(
 			for i, l := range ls.Listeners {
 				port, portErr := detectListenerPortNumber(l)
 				l.Port = port
-				standardListener := convertListenerSetToListener(l)
+				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
 				hostnames, tlsInfo, updatedStatus, programmed := buildListener(ctx, secrets, configMaps, grants, namespaces,
 					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
@@ -241,7 +242,7 @@ func ListenerSetCollection(
 
 // TODO(jaeellio): Pass hostnames
 func reportListenerSetStatus(
-	r *GatewayContext,
+	r *gatewaycommon.GatewayContext,
 	parentGwObj *gatewayv1.Gateway,
 	obj *gatewayx.XListenerSet,
 	gs *gatewayx.ListenerSetStatus,
@@ -308,9 +309,9 @@ func reportListenerSetStatus(
 func GatewayCollection(
 	gateways krt.Collection[*gatewayv1.Gateway],
 	listenerSets krt.Collection[ListenerSet],
-	gatewayClasses krt.Collection[GatewayClass],
+	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
@@ -330,16 +331,16 @@ func GatewayCollection(
 		result := []*GatewayListener{}
 		kgw := obj.Spec
 		status := obj.Status.DeepCopy()
-		class := fetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
+		class := gatewaycommon.FetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
 		if class == nil {
 			return nil, nil
 		}
 		controllerName := class.Controller
-		classInfo, f := classInfos[controllerName]
+		classInfo, f := gatewaycommon.ClassInfos[controllerName]
 		if !f {
 			return nil, nil
 		}
-		if classInfo.disableRouteGeneration {
+		if classInfo.DisableRouteGeneration {
 			// TODO(jaellio): status
 			// reportUnmanagedGatewayStatus(status, obj)
 			// We found it, but don't want to handle this class
@@ -365,7 +366,7 @@ func GatewayCollection(
 		if IsManaged(&obj.Spec) {
 			serviceAccountName = model.GetOrDefault(
 				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-				getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix),
+				getDefaultName(obj.GetName(), &kgw, classInfo.DisableNameSuffix),
 			)
 		}*/
 
@@ -549,11 +550,6 @@ func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) ga
 		AttachedRoutes: e.AttachedRoutes,
 		Conditions:     e.Conditions,
 	}
-}
-
-func convertListenerSetToListener(l gatewayx.ListenerEntry) gatewayv1.Listener {
-	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
-	return gatewayv1.Listener(l)
 }
 
 // AgwRoute is a wrapper type that contains the route on the gateway, as well as the status for the route.

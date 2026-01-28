@@ -22,6 +22,7 @@ import (
 	"slices"
 	"strconv"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
@@ -80,7 +81,7 @@ var supportedControllers = getSupportedControllers()
 
 func getSupportedControllers() sets.Set[gatewayv1.GatewayController] {
 	ret := sets.New[gatewayv1.GatewayController]()
-	for _, controller := range builtinClasses {
+	for _, controller := range gatewaycommon.BuiltinClasses {
 		ret.Insert(controller)
 	}
 	return ret
@@ -441,7 +442,7 @@ func isOurManagedGateway(gateways krt.Collection[*gatewayv1.Gateway], namespace,
 	if gtw == nil {
 		return false
 	}
-	_, ok := builtinClasses[gtw.Spec.GatewayClassName]
+	_, ok := gatewaycommon.BuiltinClasses[gtw.Spec.GatewayClassName]
 	return ok
 }
 

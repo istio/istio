@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package gatewaycommon
 
 import (
 	"fmt"
@@ -22,20 +22,39 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+const (
+	testControllerName = "test.io/gateway-controller"
+	testClassName      = "test-class"
+)
+
 func TestClassController(t *testing.T) {
 	client := kube.NewFakeClient()
-	cc := NewClassController(client)
-	classes := clienttest.Wrap(t, cc.classes)
+
+	builtinClasses := map[gateway.ObjectName]gateway.GatewayController{
+		testClassName: gateway.GatewayController(testControllerName),
+	}
+	classInfos := map[gateway.GatewayController]ClassInfo{
+		gateway.GatewayController(testControllerName): {
+			Controller:  testControllerName,
+			Description: "Test gateway class",
+		},
+	}
+
+	cc := NewClassController(client, ClassControllerOptions{
+		BuiltinClasses: builtinClasses,
+		ClassInfos:     classInfos,
+	})
+	classes := clienttest.Wrap(t, cc.Classes())
 	stop := test.NewStop(t)
 	client.RunAndWait(stop)
 	go cc.Run(stop)
+
 	createClass := func(name, controller string) {
 		gc := &gateway.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
@@ -71,23 +90,50 @@ func TestClassController(t *testing.T) {
 	}
 
 	// Class should be created initially
-	expectClass(features.GatewayAPIDefaultGatewayClass, features.ManagedGatewayController)
+	expectClass(testClassName, testControllerName)
 
 	// Once we delete it, it should be added back
-	deleteClass(features.GatewayAPIDefaultGatewayClass)
-	expectClass(features.GatewayAPIDefaultGatewayClass, features.ManagedGatewayController)
+	deleteClass(testClassName)
+	expectClass(testClassName, testControllerName)
 
 	// Overwrite the class, controller should not reconcile it back
-	createClass(features.GatewayAPIDefaultGatewayClass, "different-controller")
-	expectClass(features.GatewayAPIDefaultGatewayClass, "different-controller")
+	createClass(testClassName, "different-controller")
+	expectClass(testClassName, "different-controller")
 
 	// Once we delete it, it should be added back
-	deleteClass(features.GatewayAPIDefaultGatewayClass)
-	expectClass(features.GatewayAPIDefaultGatewayClass, features.ManagedGatewayController)
+	deleteClass(testClassName)
+	expectClass(testClassName, testControllerName)
 
 	// Create an unrelated GatewayClass, we should not do anything to it
 	createClass("something-else", "different-controller")
 	expectClass("something-else", "different-controller")
 	deleteClass("something-else")
 	expectClass("something-else", "")
+}
+
+func TestGetClassStatus(t *testing.T) {
+	status := GetClassStatus(nil, 1)
+	if status == nil {
+		t.Fatal("GetClassStatus returned nil")
+	}
+	if len(status.Conditions) == 0 {
+		t.Fatal("GetClassStatus returned no conditions")
+	}
+
+	// Check that the condition is set correctly
+	found := false
+	for _, c := range status.Conditions {
+		if c.Type == string(gateway.GatewayClassConditionStatusAccepted) {
+			found = true
+			if c.Status != metav1.ConditionTrue {
+				t.Errorf("expected condition status True, got %v", c.Status)
+			}
+			if c.ObservedGeneration != 1 {
+				t.Errorf("expected observed generation 1, got %v", c.ObservedGeneration)
+			}
+		}
+	}
+	if !found {
+		t.Error("Accepted condition not found")
+	}
 }
