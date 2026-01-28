@@ -9,5 +9,6 @@ issue: []
 
 releaseNotes:
 - |
-  **Fixed** unauthorized cross-namespace access to debug endpoints on port 15014.
+  **Added** namespace-based authorization for debug endpoints on port 15014.
   Non-system namespaces restricted to config_dump/ndsz/edsz endpoints and same-namespace proxies only.
+  Disable with ENABLE_DEBUG_ENDPOINT_AUTH=false if needed for compatibility.
