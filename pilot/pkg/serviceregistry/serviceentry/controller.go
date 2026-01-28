@@ -79,12 +79,29 @@ type Inputs struct {
 }
 
 type Outputs struct {
-	Services                        krt.Collection[ServiceWithInstances]
-	ServicesByHost                  krt.Index[string, ServiceWithInstances]
+	// Services is a collection of unique services with their corresponding instances,
+	// these instances include ServiceEntry inlined WorkloadEntries as well as selected
+	// instances based on WorkloadSelector.
+	// Use cases:
+	// - source of truth for controller services.
+	// - XDS ConfigUpdates for service updates.
+	Services       krt.Collection[ServiceWithInstances]
+	ServicesByHost krt.Index[string, ServiceWithInstances]
+	// ServiceInstancesByNamespaceHost is a collection of service instances keyed by namespace and hostname.
+	// Use cases:
+	// - as an input to EDS Updates
+	// - recognize full service deletions which currently require special handling.
+	// - to force an XDS ConfigUpdate when a DNS service endpoint is modified.
 	ServiceInstancesByNamespaceHost krt.Collection[InstancesByNamespaceHost]
-	ServiceInstances                krt.Collection[*model.ServiceInstance]
-	ServiceInstancesByIP            krt.Index[string, *model.ServiceInstance]
-	Workloads                       krt.Collection[*model.WorkloadInstance]
+	// ServiceInstances is a collection of all service instances.
+	// Its main purpose is to allow searching for service instances by IP.
+	ServiceInstances     krt.Collection[*model.ServiceInstance]
+	ServiceInstancesByIP krt.Index[string, *model.ServiceInstance]
+	// Workloads is a collection of local workload instances.
+	// Use cases:
+	// - Notifying workload instance handlers.
+	// - XDS ProxyUpdates for workload instance updates.
+	Workloads krt.Collection[*model.WorkloadInstance]
 }
 
 type ServiceWithInstances struct {
@@ -265,6 +282,8 @@ func (s *Controller) pushServiceEndpointUpdates(events []krt.Event[InstancesByNa
 	for _, e := range events {
 		obj := e.Latest()
 		if e.Event == controllers.EventDelete {
+			// TODO: SvcUpdate should not be necessary here since EDSUpdate with no endpoints will already delete the service shard,
+			// it only increments the counter and does not request a push.
 			s.XdsUpdater.SvcUpdate(shard, obj.Hostname, obj.Namespace, model.EventDelete)
 			s.XdsUpdater.EDSUpdate(shard, obj.Hostname, obj.Namespace, nil)
 		} else {
