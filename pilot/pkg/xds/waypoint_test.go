@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -446,7 +447,7 @@ status:
 kind: ServiceEntry
 metadata:
   name: app
-  namespace: app 
+  namespace: app
   labels:
     istio.io/use-waypoint: waypoint
     istio.io/use-waypoint-namespace: default
@@ -708,6 +709,163 @@ spec:
 	}
 	g.Expect(dfpFilter).NotTo(BeNil())
 	g.Expect(dfpFilter.GetTypedConfig().TypeUrl).To(Equal("type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig"))
+}
+
+func TestWaypointPeerMetadataFilters(t *testing.T) {
+	testCases := []struct {
+		name                                string
+		enableAmbientMultiNetwork           bool
+		enableAmbientBaggage                bool
+		expectedDownstreamDiscoveryMethods  []string
+		expectedDownstreamPropagationMethod string
+		expectedUpstreamDiscoveryMethods    []string
+	}{
+		{
+			name:                                "single network ambient uses workload_discovery",
+			enableAmbientMultiNetwork:           false,
+			enableAmbientBaggage:                false,
+			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
+			expectedDownstreamPropagationMethod: "",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery"},
+		},
+		{
+			name:                                "ENABLE_AMBIENT_MULTI_NETWORK=true, ENABLE_AMBIENT_BAGGAGE=false",
+			enableAmbientMultiNetwork:           true,
+			enableAmbientBaggage:                false,
+			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
+			expectedDownstreamPropagationMethod: "",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery"},
+		},
+		{
+			name:                                "single network ambient uses baggage",
+			enableAmbientMultiNetwork:           false,
+			enableAmbientBaggage:                true,
+			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
+			expectedDownstreamPropagationMethod: "baggage",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery", "upstream_filter_state"},
+		},
+		{
+			name:                                "multi-network ambient uses baggage",
+			enableAmbientMultiNetwork:           true,
+			enableAmbientBaggage:                true,
+			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
+			expectedDownstreamPropagationMethod: "baggage",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery", "upstream_filter_state"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableAmbientMultiNetwork)
+			test.SetForTest(t, &features.EnableAmbientBaggage, tc.enableAmbientBaggage)
+
+			d, proxy := setupWaypointTest(t,
+				waypointGateway,
+				waypointSvc,
+				waypointInstance,
+				appServiceEntry)
+
+			connectTerminateListener := xdstest.ExtractListener("connect_terminate", d.Listeners(proxy))
+			g.Expect(connectTerminateListener).NotTo(BeNil())
+
+			connectTerminateHCM := xdstest.ExtractHTTPConnectionManager(t,
+				xdstest.ExtractFilterChain("default", connectTerminateListener))
+			g.Expect(connectTerminateHCM).NotTo(BeNil(), "connect_terminate HCM should exist")
+
+			// testing downstream first
+			{
+				var downstreamMetadataFilter *hcm.HttpFilter
+				for _, f := range connectTerminateHCM.HttpFilters {
+					if f.Name == "waypoint_downstream_peer_metadata" {
+						downstreamMetadataFilter = f
+						break
+					}
+				}
+				g.Expect(downstreamMetadataFilter).NotTo(BeNil())
+
+				typedStruct := &udpa.TypedStruct{}
+				err := downstreamMetadataFilter.GetTypedConfig().UnmarshalTo(typedStruct)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(typedStruct.TypeUrl).To(Equal("type.googleapis.com/io.istio.http.peer_metadata.Config"))
+
+				downstreamDiscovery := typedStruct.Value.Fields["downstream_discovery"].GetListValue()
+				g.Expect(downstreamDiscovery).NotTo(BeNil())
+				g.Expect(len(downstreamDiscovery.Values)).To(BeNumerically("==", len(tc.expectedDownstreamDiscoveryMethods)))
+
+				var discoveryMethods []string
+				for _, v := range downstreamDiscovery.Values {
+					for key := range v.GetStructValue().GetFields() {
+						discoveryMethods = append(discoveryMethods, key)
+					}
+				}
+				for _, expectedDiscoveryMethod := range tc.expectedDownstreamDiscoveryMethods {
+					g.Expect(discoveryMethods).To(ContainElement(expectedDiscoveryMethod))
+				}
+
+				sharedWithUpstream := typedStruct.Value.Fields["shared_with_upstream"].GetBoolValue()
+				g.Expect(sharedWithUpstream).To(BeTrue())
+
+				if tc.expectedDownstreamPropagationMethod != "" {
+					downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
+					g.Expect(downstreamPropagation).NotTo(BeNil())
+					g.Expect(len(downstreamPropagation.Values)).To(BeNumerically("==", 1))
+
+					propagationMethod := downstreamPropagation.Values[0].GetStructValue()
+					g.Expect(propagationMethod).NotTo(BeNil())
+					_, hasExpectedPropagationMethod := propagationMethod.Fields[tc.expectedDownstreamPropagationMethod]
+					g.Expect(hasExpectedPropagationMethod).To(BeTrue())
+				} else {
+					downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
+					g.Expect(downstreamPropagation).To(BeNil())
+				}
+			}
+
+			// Now we're going to test upstream
+			{
+				listeners := make(map[string]*listenerv3.Listener)
+				for _, l := range d.Listeners(proxy) {
+					listeners[l.Name] = l
+				}
+
+				// Making sure the filter chains are there
+				mainInternalListener := listeners["main_internal"]
+				filterChain := xdstest.ExtractFilterChain("inbound-vip|80|http|app.com", mainInternalListener)
+				g.Expect(filterChain).NotTo(BeNil())
+				httpConnMngr := xdstest.ExtractHTTPConnectionManager(t, filterChain)
+				var upstreamMetadataFilter *hcm.HttpFilter
+				for _, f := range httpConnMngr.HttpFilters {
+					if f.Name == "waypoint_upstream_peer_metadata" {
+						upstreamMetadataFilter = f
+						break
+					}
+				}
+				g.Expect(upstreamMetadataFilter).NotTo(BeNil())
+
+				typedStruct := &udpa.TypedStruct{}
+				err := upstreamMetadataFilter.GetTypedConfig().UnmarshalTo(typedStruct)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(typedStruct.TypeUrl).To(Equal("type.googleapis.com/io.istio.http.peer_metadata.Config"))
+
+				upstreamDiscovery := typedStruct.Value.Fields["upstream_discovery"].GetListValue()
+				g.Expect(upstreamDiscovery).NotTo(BeNil())
+				g.Expect(len(upstreamDiscovery.Values)).To(BeNumerically("==", len(tc.expectedUpstreamDiscoveryMethods)))
+
+				var discoveryMethods []string
+				for _, v := range upstreamDiscovery.Values {
+					for key := range v.GetStructValue().GetFields() {
+						discoveryMethods = append(discoveryMethods, key)
+					}
+				}
+				for _, expectedDiscoveryMethod := range tc.expectedUpstreamDiscoveryMethods {
+					g.Expect(discoveryMethods).To(ContainElement(expectedDiscoveryMethod))
+				}
+				// No upstream propagation expected
+			}
+		})
+	}
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
