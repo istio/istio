@@ -57,7 +57,6 @@ type Controller struct {
 	outputs     Outputs
 	handlers    []krt.HandlerRegistration
 
-	// external workload handlers (unchanged API)
 	workloadHandlers []func(*model.WorkloadInstance, model.Event)
 
 	// callback function used to get the networkID according to workload ip and labels.
@@ -193,7 +192,6 @@ func newController(
 		s.inputs.ExternalWorkloads = krt.NewStaticCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
 	}
 
-	// Build derived collections
 	s.buildCollections()
 
 	if !s.workloadEntryController {
@@ -240,10 +238,10 @@ func (s *Controller) buildCollections() {
 			s.opts,
 		)
 
-		mergedServices := mergeServicesByNamespaceHost(servicesByNsHost.AsCollection(), s.opts)
+		mergedServicesInstances := mergeServicesInstancesByNamespaceHost(servicesByNsHost.AsCollection(), s.opts)
 
 		// derive service instances from merged services
-		serviceInstances := krt.NewManyCollection(mergedServices, func(ctx krt.HandlerContext, swi InstancesByNamespaceHost) []*model.ServiceInstance {
+		serviceInstances := krt.NewManyCollection(mergedServicesInstances, func(ctx krt.HandlerContext, swi InstancesByNamespaceHost) []*model.ServiceInstance {
 			return swi.Instances
 		}, s.opts.WithName("outputs/ServiceInstances")...)
 
@@ -254,7 +252,7 @@ func (s *Controller) buildCollections() {
 		s.outputs = Outputs{
 			Services:                        services,
 			ServicesByHost:                  servicesByHost,
-			ServiceInstancesByNamespaceHost: mergedServices,
+			ServiceInstancesByNamespaceHost: mergedServicesInstances,
 			ServiceInstances:                serviceInstances,
 			ServiceInstancesByIP:            serviceInstancesByIP,
 		}

@@ -584,7 +584,7 @@ func services(
 
 // Merge services with the same namespace and hostname into a single service instance with all the instances.
 // Also filters multiple DNS round robin service instances with the same host and port.
-func mergeServicesByNamespaceHost(
+func mergeServicesInstancesByNamespaceHost(
 	servicesByNsHost krt.Collection[krt.IndexObject[string, ServiceWithInstances]],
 	opts krt.OptionsBuilder,
 ) krt.Collection[InstancesByNamespaceHost] {
