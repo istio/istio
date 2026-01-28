@@ -1,0 +1,17 @@
+spec:
+  values:
+    dnsPolicy: None
+    dnsConfig:
+      nameservers:
+      - 111.222.123.234
+      options:
+      - name: ndots
+        value: "2"
+      - name: timeout
+        value: "2"
+      - name: attempts
+        value: "5"
+      searches:
+      - istio-system.svc.cluster.local
+      - svc.cluster.local
+      - cluster.local
