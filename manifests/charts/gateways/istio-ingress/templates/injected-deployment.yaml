@@ -98,9 +98,9 @@ spec:
         {{- end }}
           resources:
 {{- if $gateway.resources }}
-{{ toYaml $gateway.resources | indent 12 }}
+{{ include "istio-ingress.resources" $gateway.resources | trim | indent 12 }}
 {{- else }}
-{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{ include "istio-ingress.resources" .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
           env:
           {{- if not $gateway.runAsRoot }}

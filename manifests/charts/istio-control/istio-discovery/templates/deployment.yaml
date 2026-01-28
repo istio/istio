@@ -224,9 +224,9 @@ spec:
             value: "{{ coalesce .Values.global.platform .Values.platform }}"
           resources:
 {{- if .Values.resources }}
-{{ toYaml .Values.resources | trim | indent 12 }}
+{{ include "istiod.resources" .Values.resources | trim | indent 12 }}
 {{- else }}
-{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
+{{ include "istiod.resources" .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
