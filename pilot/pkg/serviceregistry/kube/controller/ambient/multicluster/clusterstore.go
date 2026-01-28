@@ -91,6 +91,10 @@ func (c *ClusterStore) Contains(clusterID cluster.ID) bool {
 func (c *ClusterStore) GetByID(clusterID cluster.ID) *Cluster {
 	c.RLock()
 	defer c.RUnlock()
+	return c.getByIDLocked(clusterID)
+}
+
+func (c *ClusterStore) getByIDLocked(clusterID cluster.ID) *Cluster {
 	for _, clusters := range c.remoteClusters {
 		c, ok := clusters[clusterID]
 		if ok {
@@ -106,17 +110,20 @@ func (c *ClusterStore) AllReady() map[string]map[cluster.ID]*Cluster {
 		return nil
 	}
 	c.RLock()
-	defer c.RUnlock()
+	clusterSnapshot := c.remoteClusters
+	// manually unlock since we may have to call triggerRecomputeOnSyncLocked
+	// which requires a write lock
+	c.RUnlock()
 	out := make(map[string]map[cluster.ID]*Cluster)
-	for secret, clusters := range c.remoteClusters {
+	for secret, clusters := range clusterSnapshot {
 		for cid, cl := range clusters {
 			if cl.Closed() || cl.SyncDidTimeout() {
 				log.Warnf("remote cluster %s is closed or timed out, omitting it from the clusters collection", cl.ID)
 				continue
 			}
 			if !cl.HasSynced() {
-				log.Debugf("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cl.ID)
-				c.triggerRecomputeOnSyncLocked(cl.ID)
+				log.Infof("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cl.ID)
+				c.triggerRecomputeOnSync(cl.ID)
 				continue
 			}
 			outCluster := *cl
@@ -175,7 +182,7 @@ func (c *ClusterStore) HasSynced() bool {
 	for _, clusterMap := range c.remoteClusters {
 		for _, cl := range clusterMap {
 			if !cl.HasSynced() {
-				log.Debugf("remote cluster %s registered informers have not been synced up yet", cl.ID)
+				log.Infof("remote cluster %s registered informers have not been synced up yet", cl.ID)
 				return false
 			}
 		}
@@ -184,12 +191,19 @@ func (c *ClusterStore) HasSynced() bool {
 	return true
 }
 
-// triggerRecomputeOnSyncLocked sets up a goroutine to wait for the cluster to be synced,
-// and then triggers a recompute when it is. Ensure you hold the lock before calling this.
-func (c *ClusterStore) triggerRecomputeOnSyncLocked(id cluster.ID) {
-	cluster := c.GetByID(id)
+// triggerRecomputeOnSync sets up a goroutine to wait for the cluster to be synced,
+// and then triggers a recompute when it is. Takes a write lock while executing.
+func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
+	log.Infof("setting up recompute trigger for cluster %s when it is synced", id)
+	c.Lock()
+	log.Infof("acquired lock for recomputing cluster %s", id)
+	defer func() {
+		c.Unlock()
+		log.Infof("released lock for recomputing cluster %s", id)
+	}()
+	cluster := c.getByIDLocked(id)
 	if cluster == nil {
-		log.Debugf("cluster %s not found in store to trigger recompute", id)
+		log.Infof("cluster %s not found in store to trigger recompute", id)
 		return
 	}
 	exists := c.clustersAwaitingSync.InsertContains(id)
@@ -203,14 +217,17 @@ func (c *ClusterStore) triggerRecomputeOnSyncLocked(id cluster.ID) {
 		// it's fully synced, this will return because of the stop.
 		// Double check to make sure this cluster is still in the store
 		// and that it wasn't closed/timed out (we don't want to send an event for bad clusters)
+		log.Infof("about to check cluster %s for sync", id)
 		if cluster.WaitUntilSynced(cluster.stop) && !cluster.Closed() && !cluster.SyncDidTimeout() && c.GetByID(id) != nil {
+			log.Infof("cluster %s has synced, triggering recompute", id)
 			// Let dependent krt collections know that this cluster is ready to use
 			c.TriggerRecomputation()
 			// And clean up our tracking set
 			c.Lock()
+			log.Infof("acquired lock to remove cluster %s from awaiting sync set", id)
 			c.clustersAwaitingSync.Delete(id)
 			c.Unlock()
-			log.Debugf("remote cluster %s informers synced, triggering recompute", id)
+			log.Infof("remote cluster %s informers synced, triggering recompute", id)
 		}
 	}()
 }
