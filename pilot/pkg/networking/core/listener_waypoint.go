@@ -114,70 +114,6 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	return listeners
 }
 
-func (lb *ListenerBuilder) generateWaypointUpstreamMetadataFilter() *hcm.HttpFilter {
-	workloadDiscovery := map[string]any{
-		"workload_discovery": map[string]any{},
-	}
-	baggageDiscovery := map[string]any{
-		"upstream_filter_state": map[string]any{
-			"peer_metadata_key": "upstream_peer",
-		},
-	}
-
-	discoveryMethods := []any{workloadDiscovery}
-	if features.EnableAmbientBaggage {
-		discoveryMethods = append(discoveryMethods, baggageDiscovery)
-	}
-
-	return &hcm.HttpFilter{
-		Name: "waypoint_upstream_peer_metadata",
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields(xdsfilters.PeerMetadataTypeURL,
-				map[string]any{
-					"upstream_discovery": discoveryMethods,
-				}),
-		},
-	}
-}
-
-func (lb *ListenerBuilder) generateWaypointDownstreamMetadataFilter() *hcm.HttpFilter {
-	cfg := map[string]any{
-		"downstream_discovery": []any{
-			// This is our default/legacy strategy, the waypoint
-			// will use WDS information to obtain peer metadata.
-			map[string]any{
-				"workload_discovery": map[string]any{},
-			},
-		},
-		"shared_with_upstream": true,
-	}
-
-	if features.EnableAmbientBaggage {
-		// Though if we're in a ambient multinetwork scenario we'll
-		// use baggage for the discovery.
-		cfg["downstream_discovery"] = []any{
-			map[string]any{
-				"workload_discovery": map[string]any{},
-			},
-			map[string]any{
-				"baggage": map[string]any{},
-			},
-		}
-		cfg["downstream_propagation"] = []any{
-			map[string]any{
-				"baggage": map[string]any{},
-			},
-		}
-	}
-
-	return &hcm.HttpFilter{
-		Name: "waypoint_downstream_peer_metadata",
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields(xdsfilters.PeerMetadataTypeURL, cfg),
-		},
-	}
-}
-
 func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) []*listener.Filter {
 	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	h := &hcm.HttpConnectionManager{
@@ -238,7 +174,7 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
 	}
 	filters = append(filters,
-		lb.generateWaypointDownstreamMetadataFilter(),
+		xdsfilters.GenerateWaypointDownstreamMetadataFilter(),
 		xdsfilters.ConnectAuthorityFilter)
 
 	// This filter checks whether the request went through a waypoint already and thefore whether L7 policies have
@@ -754,6 +690,8 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 	var filters []*listener.Filter
 
 	if features.EnableAmbientBaggage && tunnel {
+		// Make headers from the response available in the filter state for
+		// consumption by WaypointListenerBaggagePeerMetadata (peer_metadata filter).
 		tcpProxy.TunnelingConfig.PropagateResponseHeaders = true
 		tcpProxy.TunnelingConfig.HeadersToAdd = []*core.HeaderValueOption{
 			{
@@ -818,7 +756,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
-	post = append(post, lb.generateWaypointUpstreamMetadataFilter())
+	post = append(post, xdsfilters.GenerateWaypointUpstreamMetadataFilter())
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return pre, post
 }

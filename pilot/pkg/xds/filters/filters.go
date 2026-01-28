@@ -15,6 +15,8 @@
 package filters
 
 import (
+	"sync"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -550,7 +552,94 @@ var (
 			},
 		}
 	}()
+
+	waypointUpstreamMetadataFilterOnce   sync.Once
+	waypointUpstreamMetadataFilter       *hcm.HttpFilter
+	waypointDownstreamMetadataFilterOnce sync.Once
+	waypointDownstreamMetadataFilter     *hcm.HttpFilter
 )
+
+// ResetWaypointFiltersForTest clears the cached waypoint metadata filters,
+// allowing them to be reinitialized with new feature flag values.
+// This function is for testing only and should not be called in production code.
+func ResetWaypointFiltersForTest() {
+	waypointUpstreamMetadataFilterOnce = sync.Once{}
+	waypointDownstreamMetadataFilterOnce = sync.Once{}
+}
+
+// GenerateWaypointUpstreamMetadataFilter returns the waypoint upstream peer metadata filter.
+// The filter is lazily initialized and cached.
+func GenerateWaypointUpstreamMetadataFilter() *hcm.HttpFilter {
+	waypointUpstreamMetadataFilterOnce.Do(func() {
+		workloadDiscovery := map[string]any{
+			"workload_discovery": map[string]any{},
+		}
+		baggageDiscovery := map[string]any{
+			"upstream_filter_state": map[string]any{
+				"peer_metadata_key": "upstream_peer",
+			},
+		}
+
+		discoveryMethods := []any{workloadDiscovery}
+		if features.EnableAmbientBaggage {
+			discoveryMethods = append(discoveryMethods, baggageDiscovery)
+		}
+
+		waypointUpstreamMetadataFilter = &hcm.HttpFilter{
+			Name: "waypoint_upstream_peer_metadata",
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
+					map[string]any{
+						"upstream_discovery": discoveryMethods,
+					}),
+			},
+		}
+	})
+	return waypointUpstreamMetadataFilter
+}
+
+// GenerateWaypointDownstreamMetadataFilter returns the waypoint downstream peer metadata filter.
+// The filter is lazily initialized and cached.
+func GenerateWaypointDownstreamMetadataFilter() *hcm.HttpFilter {
+	waypointDownstreamMetadataFilterOnce.Do(func() {
+		cfg := map[string]any{
+			"downstream_discovery": []any{
+				// This is our default/legacy strategy, the waypoint
+				// will use WDS information to obtain peer metadata.
+				map[string]any{
+					"workload_discovery": map[string]any{},
+				},
+			},
+			"shared_with_upstream": true,
+		}
+
+		if features.EnableAmbientBaggage {
+			// Though if we're in a ambient multinetwork scenario we'll
+			// use baggage for the discovery.
+			cfg["downstream_discovery"] = []any{
+				map[string]any{
+					"workload_discovery": map[string]any{},
+				},
+				map[string]any{
+					"baggage": map[string]any{},
+				},
+			}
+			cfg["downstream_propagation"] = []any{
+				map[string]any{
+					"baggage": map[string]any{},
+				},
+			}
+		}
+
+		waypointDownstreamMetadataFilter = &hcm.HttpFilter{
+			Name: "waypoint_downstream_peer_metadata",
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL, cfg),
+			},
+		}
+	})
+	return waypointDownstreamMetadataFilter
+}
 
 func additionalLabels(cfg map[string]any) {
 	if additionalLabels := features.MetadataExchangeAdditionalLabels; len(additionalLabels) != 0 {
