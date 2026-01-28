@@ -170,6 +170,7 @@ func (c *Cluster) GetStop() <-chan struct{} {
 func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
 	// Check and see if this is a local cluster or not
 	if c.RemoteClusterCollections.Load() != nil {
+		log.Infof("Configuring cluster %s with existing informers", c.ID)
 		syncers := []krt.Syncer{
 			c.Namespaces(),
 			c.Gateways(),
@@ -277,7 +278,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	})
 
 	go func() {
-		log.Debugf("Waiting for discovery filter sync for cluster %s before starting all the other informers", c.ID)
+		log.Infof("Waiting for discovery filter sync for cluster %s before starting all the other informers", c.ID)
 		syncWaiter(c.stop)
 		if !c.Client.RunAndWait(c.stop) {
 			log.Warnf("remote cluster %s failed to sync", c.ID)
@@ -300,7 +301,9 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 			}
 		}
 
+		log.Infof("remote cluster %s successfully synced after run", c.ID)
 		c.initialSync.Store(true)
+		log.Infof("remote cluster %s initial sync complete", c.ID)
 	}()
 }
 
@@ -354,23 +357,9 @@ func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
 		return true
 	}
 
-	// Wait for all the syncers to be populated
-	kube.WaitForCacheSync(fmt.Sprintf("cluster[%s] assigned remote collections", c.ID), stop, c.hasInitialCollections)
-
-	// Wait for all syncers to be synced
-	for _, syncer := range []krt.Syncer{
-		c.Namespaces(),
-		c.Gateways(),
-		c.Services(),
-		c.Nodes(),
-		c.EndpointSlices(),
-		c.Pods(),
-	} {
-		if !syncer.WaitUntilSynced(stop) {
-			log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
-			return false
-		}
-	}
+	// First wait to confirm all of the collections are assigned
+	// and then check if they are synced.
+	kube.WaitForCacheSync(fmt.Sprintf("cluster[%s] synced", c.ID), stop, c.hasInitialCollections, c.HasSynced)
 
 	return true
 }
