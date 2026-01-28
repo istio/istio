@@ -170,6 +170,8 @@ func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
 			InsecureSkipVerify: opts.DoubleHBONE.InsecureSkipVerify,
 		},
 		ProxyProtocolVersion: getProxyProtoVersion(opts.ProxyProtocolVersion),
+		TlsMinVersion:        opts.TLS.MinVersion,
+		TlsCurvePreferences:  opts.TLS.CurvePreferences,
 	}
 }
 

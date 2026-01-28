@@ -17,6 +17,7 @@ package endpoint
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -106,11 +107,19 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	}
 	if s.Port.TLS {
 		epLog.Infof("Listening GRPC (over TLS) on %v", p)
-		// Create the TLS credentials
-		creds, errCreds := credentials.NewServerTLSFromFile(s.TLSCert, s.TLSKey)
+		// Create the TLS credentials with configurable TLS settings
+		cert, errCreds := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
 		if errCreds != nil {
 			epLog.Errorf("could not load TLS keys: %s", errCreds)
+			return errCreds
 		}
+		// nolint: gosec // test only code, TLS version is configurable for testing
+		tlsConfig := &tls.Config{
+			Certificates:     []tls.Certificate{cert},
+			MinVersion:       parseTLSVersion(s.TLSMinVersion),
+			CurvePreferences: parseTLSCurves(s.TLSCurvePreferences),
+		}
+		creds := credentials.NewTLS(tlsConfig)
 		opts = append(opts, grpc.Creds(creds))
 	} else if s.Port.XDSServer {
 		epLog.Infof("Listening GRPC (over xDS-configured mTLS) on %v", p)
