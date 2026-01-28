@@ -352,6 +352,9 @@ var (
 		}
 		return blockedCIDRs
 	}()
+
+	BypassOverloadManagerForSidecarOutboundListeners = env.Register("BYPASS_OVERLOAD_MANAGER_FOR_SIDECAR_OUTBOUND_LISTENERS", false,
+		"If enabled, the overload manager will be bypassed for sidecar outbound listeners.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
