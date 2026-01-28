@@ -219,6 +219,10 @@ const (
 	// The metadata key used for endpoint selection. This key is set from the InferencePool EPP (Endpoint Picker)
 	GatewayInferenceExtensionEndpointHintKey string = "x-gateway-destination-endpoint"
 
+	// Is used to disable auto_san_validation on DYNAMIC_DNS ServiceEntries (sidecar only).
+	// Is expected to be set if certificates don't have DNS SANs required for auto_san_validation (e.g. ISTIO_MUTUAL certs).
+	ServiceEntryDisableAutoSanValidationAnnotation = "networking.istio.io/disableAutoSanValidation"
+
 	// config.Config.Extra well-known key values
 
 	// TODO: think about a better name?

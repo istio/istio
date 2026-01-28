@@ -648,6 +648,18 @@ func additionalLabels(cfg map[string]any) {
 // using the specified DNS cache config name. This name must match the name used in the corresponding
 // dynamic forward proxy cluster.
 func BuildWaypointInboundDFPFilter(dnsCacheConfigName string) *hcm.HttpFilter {
+	return buildDynamicForwardProxyFilter(dnsCacheConfigName)
+}
+
+// BuildSidecarOutboundDynamicForwardProxyFilter builds a dynamic forward proxy filter for sidecar outbound listeners
+// using the specified DNS cache config name. This name must match the name used in the corresponding
+// dynamic forward proxy cluster.
+func BuildSidecarOutboundDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
+	return buildDynamicForwardProxyFilter(dnsCacheConfigName)
+}
+
+// buildDynamicForwardProxyFilter builds a DFP HTTP filter using the specified DNS cache config name.
+func buildDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
 		Name: "envoy.filters.http.dynamic_forward_proxy",
 		ConfigType: &hcm.HttpFilter_TypedConfig{

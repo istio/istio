@@ -303,7 +303,7 @@ func TestConfigureTracing(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hcm := &hcm.HttpConnectionManager{}
-			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0, nil)
+			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
@@ -430,7 +430,7 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 			want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 			hcm := &hcm.HttpConnectionManager{}
-			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
+			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
 
 			if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -574,7 +574,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 	hcm := &hcm.HttpConnectionManager{}
-	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
+	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
 
 	if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 		t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
