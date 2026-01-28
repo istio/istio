@@ -147,8 +147,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(sec_model.SDSRootResourceName),
 			},
 		}
-		// Set default SNI of cluster name for istio_mutual if sni is not set.
-		if len(tlsContext.Sni) == 0 {
+		// Set default SNI of cluster name for istio_mutual if sni is not set and if not a DFP cluster.
+		if len(tlsContext.Sni) == 0 && !c.isDFPCluster {
 			tlsContext.Sni = c.cluster.Name
 		}
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
@@ -168,6 +168,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 			}
+		}
+		// Set auto_sni, auto_san_validation and allow_insecure_cluster_options for sidecar DFP clusters.
+		if c.isDFPCluster && opts.direction == model.TrafficDirectionOutbound {
+			setAutoSniAndAutoSanValidation(c, tls)
 		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext, err = constructUpstreamTLS(opts, tls, c, false)
@@ -278,18 +282,24 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 		return
 	}
 
+	insecureSkipVerify := tls.GetInsecureSkipVerify().GetValue()
 	setAutoSni := false
 	setAutoSanValidation := false
 	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
-	// For DFP clusters, we only set auto_san_validation if insecure_skip_verify is false.
-	if (setAutoSni && len(tls.SubjectAltNames) == 0 || mc.isDFPCluster) && !tls.GetInsecureSkipVerify().GetValue() {
+
+	// If insecureSkipVerify is true, we do not set auto_san_validation in all cases.
+	// For DFP clusters, set auto_san_validation if tls.Mode is not ISTIO_MUTUAL as these certs do not have DNS SANs required for auto_san_validation.
+	// SIMPLE_TLS and MUTUAL_TLS certs need to have DNS SANs that match hostname used for the connection for auto_san_validation to work.
+	// For non-DFP clusters, require auto_san_validation if auto_sni is set and there are no explicit SANs
+	if ((mc.isDFPCluster && tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL) ||
+		(!mc.isDFPCluster && setAutoSni && len(tls.SubjectAltNames) == 0)) && !insecureSkipVerify {
 		setAutoSanValidation = true
 	}
 
-	// For DFP clusters, we need to allow_insecure_cluster_options if insecure_skip_verify is true.
-	if mc.isDFPCluster && tls.GetInsecureSkipVerify().GetValue() {
+	// For DFP clusters, we need to allow_insecure_cluster_options if insecure_skip_verify is true or if auto_sni or auto_san_validation is not set.
+	if mc.isDFPCluster && (insecureSkipVerify || !setAutoSni || !setAutoSanValidation) {
 		clusterType, ok := mc.cluster.ClusterDiscoveryType.(*cluster.Cluster_ClusterType)
 		if !ok {
 			log.Warnf("failed to set allow_insecure_cluster_options for DFP cluster %s: invalid cluster type", mc.cluster.Name)
@@ -318,9 +328,11 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
 		}
 		if setAutoSni {
+			log.Debugf("set auto_sni for DFP cluster %s", mc.cluster.Name)
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
 		}
 		if setAutoSanValidation {
+			log.Debugf("set auto_san_validation for DFP cluster %s", mc.cluster.Name)
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
 		}
 	}

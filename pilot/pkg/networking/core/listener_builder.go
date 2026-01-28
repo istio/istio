@@ -390,7 +390,11 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	accessLogBuilder.setHTTPAccessLog(lb.push, lb.node, connectionManager, httpOpts.class, httpOpts.policySvc)
 
-	reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class, httpOpts.policySvc)
+	var tracingSvc *model.Service
+	if lb.node.Type == model.Waypoint {
+		tracingSvc = httpOpts.policySvc
+	}
+	reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class, tracingSvc)
 
 	filters := []*hcm.HttpFilter{}
 	if !httpOpts.isWaypoint {
@@ -444,10 +448,19 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
 
-	// Create DFP filter for wildcard hosts
+	// Create DFP filter for wildcard hosts in waypoint inbound for ambient mode
 	if httpOpts.policySvc != nil && httpOpts.policySvc.Hostname.IsWildCarded() && httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
 		filters = append(filters, xdsfilters.BuildWaypointInboundDFPFilter(dfpCacheName))
+	}
+
+	// Create DFP filter for wildcard hosts in sidecar outbound for DYNAMIC_DNS ServiceEntries
+	if httpOpts.policySvc != nil &&
+		httpOpts.policySvc.Hostname.IsWildCarded() &&
+		httpOpts.policySvc.Resolution == model.DynamicDNS &&
+		httpOpts.class == istionetworking.ListenerClassSidecarOutbound {
+		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
+		filters = append(filters, xdsfilters.BuildSidecarOutboundDynamicForwardProxyFilter(dfpCacheName))
 	}
 
 	// Router filter must be last
