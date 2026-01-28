@@ -37,7 +37,6 @@ const (
 values:
   pilot:
     env:
-      ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
       ENABLE_CA_CRL: "true"
   cni:
     repair:
@@ -49,8 +48,6 @@ values:
       SECRET_TTL: 5m
     peerCaCrl:
       enabled: true
-    podLabels:
-      networking.istio.io/tunnel: "http"
 `
 )
 

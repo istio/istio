@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	testlabel "istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/crl/util"
 )
@@ -45,7 +44,6 @@ import (
 //  3. Calls between new apps fail due to revoked certificate
 func TestZtunnelCRL(t *testing.T) {
 	framework.NewTest(t).
-		Label(testlabel.CustomSetup).
 		Run(func(t framework.TestContext) {
 			// test pre-revocation apps (should succeed)
 			opts := echo.CallOptions{
