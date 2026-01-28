@@ -352,7 +352,7 @@ func TestDebugProxyNamespaceRestriction(t *testing.T) {
 			wantStatus: 200,
 		},
 		{
-			name:       "cross-namespace denied - this would FAIL before fix",
+			name:       "cross-namespace denied",
 			callerNS:   "staging",
 			proxyID:    "test.production",
 			wantStatus: 404, // Returns 404 when proxy not accessible
