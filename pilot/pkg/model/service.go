@@ -24,7 +24,6 @@ package model
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/netip"
 	"sort"
@@ -1141,13 +1140,6 @@ type ServiceInfo struct {
 	// CreationTime is the time when the service was created. Note this is used internally only
 	// for conflict resolution.
 	CreationTime time.Time
-}
-
-func (i ServiceInfo) MarshalJSON() ([]byte, error) {
-	if i.AsAddress.Marshaled == nil {
-		panic(fmt.Sprintf("ServiceInfo.MarshalJSON called without pre-marshaled Address, marshaling on-demand for %#v", i.Service))
-	}
-	return json.Marshal(i)
 }
 
 func (i ServiceInfo) GetLabelSelector() map[string]string {

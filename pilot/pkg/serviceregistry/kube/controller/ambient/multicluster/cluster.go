@@ -170,7 +170,6 @@ func (c *Cluster) GetStop() <-chan struct{} {
 func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
 	// Check and see if this is a local cluster or not
 	if c.RemoteClusterCollections.Load() != nil {
-		log.Infof("Configuring cluster %s with existing informers", c.ID)
 		syncers := []krt.Syncer{
 			c.Namespaces(),
 			c.Gateways(),
@@ -294,16 +293,13 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		}
 
 		for _, syncer := range syncers {
-			log.Infof("Waiting for cluster %s to sync %v", c.ID, syncer)
 			if !syncer.WaitUntilSynced(c.stop) {
 				log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
 				return
 			}
 		}
 
-		log.Infof("remote cluster %s successfully synced", c.ID)
 		c.initialSync.Store(true)
-		log.Infof("remote cluster %s initial sync complete", c.ID)
 	}()
 }
 
@@ -313,7 +309,6 @@ func (c *Cluster) HasSynced() bool {
 	// In this case, the `initialSyncTimeout` will never be set.
 	// In order not block istiod start up, check Closed() as well.
 	if c.Closed() {
-		log.Infof("remote cluster %s is closed", c.ID)
 		return true
 	}
 	return c.initialSync.Load() || c.initialSyncTimeout.Load()
@@ -355,7 +350,6 @@ func (c *Cluster) hasInitialCollections() bool {
 
 func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
 	if c.HasSynced() {
-		log.Infof("Fast path; cluster is synced")
 		return true
 	}
 
