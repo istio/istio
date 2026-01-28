@@ -246,6 +246,9 @@ func convertServices(cfg config.Config) []*model.Service {
 	if features.CanonicalServiceForMeshExternalServiceEntry && serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL {
 		lbls = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
 	}
+	disableAutoSanValidation := resolution == model.DynamicDNS &&
+		strings.EqualFold(strings.TrimSpace(cfg.Annotations[constants.ServiceEntryDisableAutoSanValidationAnnotation]), "true")
+
 	for _, ha := range hostAddresses {
 		svc := &model.Service{
 			CreationTime:   creationTime,
@@ -255,14 +258,15 @@ func convertServices(cfg config.Config) []*model.Service {
 			Ports:          svcPorts,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry:        provider.External,
-				PassthroughTargetPorts: portOverrides,
-				Name:                   ha.host,
-				Namespace:              cfg.Namespace,
-				Labels:                 lbls,
-				ExportTo:               exportTo,
-				LabelSelectors:         labelSelectors,
-				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution},
+				ServiceRegistry:          provider.External,
+				PassthroughTargetPorts:   portOverrides,
+				Name:                     ha.host,
+				Namespace:                cfg.Namespace,
+				Labels:                   lbls,
+				ExportTo:                 exportTo,
+				LabelSelectors:           labelSelectors,
+				DisableAutoSanValidation: disableAutoSanValidation,
+				K8sAttributes:            model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution},
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}
