@@ -99,6 +99,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
 )
 
@@ -455,9 +456,10 @@ func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient
 	return c
 }
 
-// NewFakeClientWithRetries creates a fake client that fails for pod/namespace get operations
-// for the first failureCount attempts, then succeeds.
-func NewFakeClientWithRetries(failureCount int, objects ...runtime.Object) CLIClient {
+// NewFakeClientWithFailures creates a fake client that fails for get operations on the specified
+// resource kinds for the first failureCount attempts, then succeeds.
+// failingResources is a set of resource (e.g., "pods", "namespaces") that should fail.
+func NewFakeClientWithFailures(failureCount int, failingResources sets.Set[schema.GroupVersionResource], objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
 
 	// Track retry attempts per resource
@@ -465,12 +467,12 @@ func NewFakeClientWithRetries(failureCount int, objects ...runtime.Object) CLICl
 
 	// Create a reactor that fails initially then succeeds
 	retryReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
-		// Only handle Get actions for pods and namespaces
+		// Only handle Get actions for failingResources
 		if action.GetVerb() != "get" {
 			return false, nil, nil
 		}
-		resource := action.GetResource().Resource
-		if resource != "pods" && resource != "namespaces" {
+		resource := action.GetResource()
+		if !failingResources.Contains(resource) {
 			return false, nil, nil
 		}
 
@@ -489,9 +491,10 @@ func NewFakeClientWithRetries(failureCount int, objects ...runtime.Object) CLICl
 		return false, nil, nil
 	}
 
-	// Prepend the reactor so it runs before the default handlers
-	c.kube.(*fake.Clientset).PrependReactor("get", "pods", retryReactor)
-	c.kube.(*fake.Clientset).PrependReactor("get", "namespaces", retryReactor)
+	// Prepend the reactor for each failing kind
+	for resource := range failingResources {
+		c.kube.(*fake.Clientset).PrependReactor("get", resource.Resource, retryReactor)
+	}
 
 	return c
 }
