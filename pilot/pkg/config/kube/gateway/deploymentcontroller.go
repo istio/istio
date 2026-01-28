@@ -562,7 +562,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		return nil
 	}
 	for _, t := range rendered {
-		if err := d.apply(gi.controller, t); err != nil {
+		if err := d.apply(gi.controller, t, input); err != nil {
 			return fmt.Errorf("apply failed: %v", err)
 		}
 	}
@@ -877,13 +877,38 @@ func (d *DeploymentController) setGatewayControllerVersion(gws gateway.Gateway) 
 }
 
 // apply server-side applies a template to the cluster.
-func (d *DeploymentController) apply(controller string, yml string) error {
+func (d *DeploymentController) apply(controller string, yml string, input TemplateInput) error {
 	data := map[string]any{}
 	err := yaml.Unmarshal([]byte(yml), &data)
 	if err != nil {
 		return err
 	}
 	us := unstructured.Unstructured{Object: data}
+
+	// safeguard: validate object type matches default template
+	// only allow the 5 kinds defined in kube-gateway.yaml
+	kind := us.GetKind()
+	allowedKinds := sets.New("Deployment", "Service", "ServiceAccount", "HorizontalPodAutoscaler", "PodDisruptionBudget")
+	if !allowedKinds.Contains(kind) {
+		return fmt.Errorf("unexpected object kind %q, only %v are allowed", kind, allowedKinds.UnsortedList())
+	}
+
+	// safeguard: validate object namespace matches gateway namespace
+	objNamespace := us.GetNamespace()
+	if objNamespace != input.Namespace {
+		return fmt.Errorf("object namespace %q does not match gateway namespace %q", objNamespace, input.Namespace)
+	}
+
+	// safeguard: validate object name matches expected names from template
+	// expected names: DeploymentName for most resources, ServiceAccount for SA
+	objName := us.GetName()
+	expectedNames := sets.New(input.DeploymentName, input.ServiceAccount)
+	// also accept gateway name as prefix for backward compat
+	validName := expectedNames.Contains(objName) || strings.HasPrefix(objName, input.Name)
+	if !validName {
+		return fmt.Errorf("object name %q does not match expected pattern (expected %v or prefix of %q)", objName, expectedNames.UnsortedList(), input.Name)
+	}
+
 	// set managed-by label
 	clabel := strings.ReplaceAll(controller, "/", "-")
 	err = unstructured.SetNestedField(us.Object, clabel, "metadata", "labels", label.GatewayManaged.Name)
