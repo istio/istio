@@ -588,7 +588,9 @@ var (
 					"downstream_discovery": []any{
 						map[string]any{
 							"workload_discovery": map[string]any{},
-							"baggage":            map[string]any{},
+						},
+						map[string]any{
+							"baggage": map[string]any{},
 						},
 					},
 					"downstream_propagation": []any{
@@ -609,6 +611,8 @@ var (
 					"upstream_discovery": []any{
 						map[string]any{
 							"workload_discovery": map[string]any{},
+						},
+						map[string]any{
 							"upstream_filter_state": map[string]any{
 								"peer_metadata_key": "upstream_peer",
 							},
@@ -620,7 +624,6 @@ var (
 )
 
 // GenerateWaypointDownstreamMetadataFilter returns the waypoint downstream peer metadata filter.
-// The filter is lazily initialized and cached.
 func GenerateWaypointDownstreamMetadataFilter() *hcm.HttpFilter {
 	if features.EnableAmbientBaggage {
 		return WaypointDownstreamMetadataFilterForAmbientBaggage

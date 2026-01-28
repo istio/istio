@@ -718,6 +718,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 		enableAmbientBaggage                bool
 		expectedDownstreamDiscoveryMethods  []string
 		expectedDownstreamPropagationMethod string
+		expectedUpstreamDiscoveryMethods    []string
 	}{
 		{
 			name:                                "single network ambient uses workload_discovery",
@@ -725,6 +726,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			enableAmbientBaggage:                false,
 			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
 			expectedDownstreamPropagationMethod: "",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery"},
 		},
 		{
 			name:                                "ENABLE_AMBIENT_MULTI_NETWORK=true, ENABLE_AMBIENT_BAGGAGE=false",
@@ -732,6 +734,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			enableAmbientBaggage:                false,
 			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
 			expectedDownstreamPropagationMethod: "",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery"},
 		},
 		{
 			name:                                "single network ambient uses baggage",
@@ -739,6 +742,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			enableAmbientBaggage:                true,
 			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
 			expectedDownstreamPropagationMethod: "baggage",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery", "upstream_filter_state"},
 		},
 		{
 			name:                                "multi-network ambient uses baggage",
@@ -746,6 +750,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			enableAmbientBaggage:                true,
 			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
 			expectedDownstreamPropagationMethod: "baggage",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery", "upstream_filter_state"},
 		},
 	}
 
@@ -768,50 +773,96 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 				xdstest.ExtractFilterChain("default", connectTerminateListener))
 			g.Expect(connectTerminateHCM).NotTo(BeNil(), "connect_terminate HCM should exist")
 
-			var downstreamMetadataFilter *hcm.HttpFilter
-			for _, f := range connectTerminateHCM.HttpFilters {
-				if f.Name == "waypoint_downstream_peer_metadata" {
-					downstreamMetadataFilter = f
-					break
+			// testing downstream first
+			{
+				var downstreamMetadataFilter *hcm.HttpFilter
+				for _, f := range connectTerminateHCM.HttpFilters {
+					if f.Name == "waypoint_downstream_peer_metadata" {
+						downstreamMetadataFilter = f
+						break
+					}
+				}
+				g.Expect(downstreamMetadataFilter).NotTo(BeNil())
+
+				typedStruct := &udpa.TypedStruct{}
+				err := downstreamMetadataFilter.GetTypedConfig().UnmarshalTo(typedStruct)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(typedStruct.TypeUrl).To(Equal("type.googleapis.com/io.istio.http.peer_metadata.Config"))
+
+				downstreamDiscovery := typedStruct.Value.Fields["downstream_discovery"].GetListValue()
+				g.Expect(downstreamDiscovery).NotTo(BeNil())
+				g.Expect(len(downstreamDiscovery.Values)).To(BeNumerically("==", len(tc.expectedDownstreamDiscoveryMethods)))
+
+				var discoveryMethods []string
+				for _, v := range downstreamDiscovery.Values {
+					for key := range v.GetStructValue().GetFields() {
+						discoveryMethods = append(discoveryMethods, key)
+					}
+				}
+				for _, expectedDiscoveryMethod := range tc.expectedDownstreamDiscoveryMethods {
+					g.Expect(discoveryMethods).To(ContainElement(expectedDiscoveryMethod))
+				}
+
+				sharedWithUpstream := typedStruct.Value.Fields["shared_with_upstream"].GetBoolValue()
+				g.Expect(sharedWithUpstream).To(BeTrue())
+
+				if tc.expectedDownstreamPropagationMethod != "" {
+					downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
+					g.Expect(downstreamPropagation).NotTo(BeNil())
+					g.Expect(len(downstreamPropagation.Values)).To(BeNumerically("==", 1))
+
+					propagationMethod := downstreamPropagation.Values[0].GetStructValue()
+					g.Expect(propagationMethod).NotTo(BeNil())
+					_, hasExpectedPropagationMethod := propagationMethod.Fields[tc.expectedDownstreamPropagationMethod]
+					g.Expect(hasExpectedPropagationMethod).To(BeTrue())
+				} else {
+					downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
+					g.Expect(downstreamPropagation).To(BeNil())
 				}
 			}
-			g.Expect(downstreamMetadataFilter).NotTo(BeNil())
 
-			typedStruct := &udpa.TypedStruct{}
-			err := downstreamMetadataFilter.GetTypedConfig().UnmarshalTo(typedStruct)
-			g.Expect(err).NotTo(HaveOccurred())
-
-			g.Expect(typedStruct.TypeUrl).To(Equal("type.googleapis.com/io.istio.http.peer_metadata.Config"))
-
-			downstreamDiscovery := typedStruct.Value.Fields["downstream_discovery"].GetListValue()
-			g.Expect(downstreamDiscovery).NotTo(BeNil())
-			g.Expect(len(downstreamDiscovery.Values)).To(BeNumerically("==", len(tc.expectedDownstreamDiscoveryMethods)))
-
-			var discoveryMethods []string
-			for _, v := range downstreamDiscovery.Values {
-				for key := range v.GetStructValue().GetFields() {
-					discoveryMethods = append(discoveryMethods, key)
+			// Now we're going to test upstream
+			{
+				listeners := make(map[string]*listenerv3.Listener)
+				for _, l := range d.Listeners(proxy) {
+					listeners[l.Name] = l
 				}
-			}
-			for _, expectedDiscoveryMethod := range tc.expectedDownstreamDiscoveryMethods {
-				g.Expect(discoveryMethods).To(ContainElement(expectedDiscoveryMethod))
-			}
 
-			sharedWithUpstream := typedStruct.Value.Fields["shared_with_upstream"].GetBoolValue()
-			g.Expect(sharedWithUpstream).To(BeTrue())
+				// Making sure the filter chains are there
+				mainInternalListener := listeners["main_internal"]
+				filterChain := xdstest.ExtractFilterChain("inbound-vip|80|http|app.com", mainInternalListener)
+				g.Expect(filterChain).NotTo(BeNil())
+				httpConnMngr := xdstest.ExtractHTTPConnectionManager(t, filterChain)
+				var upstreamMetadataFilter *hcm.HttpFilter
+				for _, f := range httpConnMngr.HttpFilters {
+					if f.Name == "waypoint_upstream_peer_metadata" {
+						upstreamMetadataFilter = f
+						break
+					}
+				}
+				g.Expect(upstreamMetadataFilter).NotTo(BeNil())
 
-			if tc.expectedDownstreamPropagationMethod != "" {
-				downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
-				g.Expect(downstreamPropagation).NotTo(BeNil())
-				g.Expect(len(downstreamPropagation.Values)).To(BeNumerically("==", 1))
+				typedStruct := &udpa.TypedStruct{}
+				err := upstreamMetadataFilter.GetTypedConfig().UnmarshalTo(typedStruct)
+				g.Expect(err).NotTo(HaveOccurred())
 
-				propagationMethod := downstreamPropagation.Values[0].GetStructValue()
-				g.Expect(propagationMethod).NotTo(BeNil())
-				_, hasExpectedPropagationMethod := propagationMethod.Fields[tc.expectedDownstreamPropagationMethod]
-				g.Expect(hasExpectedPropagationMethod).To(BeTrue())
-			} else {
-				downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
-				g.Expect(downstreamPropagation).To(BeNil())
+				g.Expect(typedStruct.TypeUrl).To(Equal("type.googleapis.com/io.istio.http.peer_metadata.Config"))
+
+				upstreamDiscovery := typedStruct.Value.Fields["upstream_discovery"].GetListValue()
+				g.Expect(upstreamDiscovery).NotTo(BeNil())
+				g.Expect(len(upstreamDiscovery.Values)).To(BeNumerically("==", len(tc.expectedUpstreamDiscoveryMethods)))
+
+				var discoveryMethods []string
+				for _, v := range upstreamDiscovery.Values {
+					for key := range v.GetStructValue().GetFields() {
+						discoveryMethods = append(discoveryMethods, key)
+					}
+				}
+				for _, expectedDiscoveryMethod := range tc.expectedUpstreamDiscoveryMethods {
+					g.Expect(discoveryMethods).To(ContainElement(expectedDiscoveryMethod))
+				}
+				// No upstream propagation expected
 			}
 		})
 	}
