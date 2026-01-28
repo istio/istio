@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: installation
+issue:
+  - 58891
+releaseNotes:
+  - |
+    **Added** safeguards to the gateway deployment controller to validate object types, names, and namespaces,
+    preventing creation of arbitrary Kubernetes resources through template injection.
