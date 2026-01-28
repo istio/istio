@@ -96,10 +96,6 @@ func (c *ClusterStore) Contains(clusterID cluster.ID) bool {
 func (c *ClusterStore) GetByID(clusterID cluster.ID) *Cluster {
 	c.RLock()
 	defer c.RUnlock()
-	return c.getByIDLocked(clusterID)
-}
-
-func (c *ClusterStore) getByIDLocked(clusterID cluster.ID) *Cluster {
 	for _, clusters := range c.remoteClusters {
 		c, ok := clusters[clusterID]
 		if ok {
