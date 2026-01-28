@@ -1199,7 +1199,7 @@ metadata:
   name: test-gateway
   namespace: default`,
 			input: TemplateInput{
-				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				Gateway:        &k8sbeta.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
 				DeploymentName: "test-gateway",
 				ServiceAccount: "test-gateway",
 			},
@@ -1213,7 +1213,7 @@ metadata:
   name: test-gateway
   namespace: default`,
 			input: TemplateInput{
-				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				Gateway:        &k8sbeta.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
 				DeploymentName: "test-gateway",
 				ServiceAccount: "test-gateway",
 			},
@@ -1227,7 +1227,7 @@ metadata:
   name: custom-sa
   namespace: default`,
 			input: TemplateInput{
-				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				Gateway:        &k8sbeta.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
 				DeploymentName: "test-gateway",
 				ServiceAccount: "custom-sa",
 			},
@@ -1241,7 +1241,7 @@ metadata:
   name: test-gateway
   namespace: default`,
 			input: TemplateInput{
-				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				Gateway:        &k8sbeta.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
 				DeploymentName: "test-gateway",
 				ServiceAccount: "test-gateway",
 			},
@@ -1256,7 +1256,7 @@ metadata:
   name: test-gateway
   namespace: default`,
 			input: TemplateInput{
-				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				Gateway:        &k8sbeta.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
 				DeploymentName: "test-gateway",
 				ServiceAccount: "test-gateway",
 			},
@@ -1271,7 +1271,7 @@ metadata:
   name: test-gateway
   namespace: wrong-namespace`,
 			input: TemplateInput{
-				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				Gateway:        &k8sbeta.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
 				DeploymentName: "test-gateway",
 				ServiceAccount: "test-gateway",
 			},
@@ -1286,7 +1286,7 @@ metadata:
   name: malicious-deployment
   namespace: default`,
 			input: TemplateInput{
-				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				Gateway:        &k8sbeta.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
 				DeploymentName: "test-gateway",
 				ServiceAccount: "test-gateway",
 			},
@@ -1301,7 +1301,7 @@ metadata:
   name: test-gateway-istio
   namespace: default`,
 			input: TemplateInput{
-				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test-gateway", Namespace: "default"}},
+				Gateway:        &k8sbeta.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test-gateway", Namespace: "default"}},
 				DeploymentName: "test-gateway-istio",
 				ServiceAccount: "test-gateway-istio",
 			},
