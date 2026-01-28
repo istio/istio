@@ -562,7 +562,7 @@ var (
 // ResetWaypointFiltersForTest clears the cached waypoint metadata filters,
 // allowing them to be reinitialized with new feature flag values.
 // This function is for testing only and should not be called in production code.
-func ResetWaypointFiltersForTest() {
+func ResetWaypointFiltersForTest(_ *testing.T) {
 	waypointUpstreamMetadataFilterOnce = sync.Once{}
 	waypointDownstreamMetadataFilterOnce = sync.Once{}
 }
