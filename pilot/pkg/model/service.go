@@ -422,7 +422,7 @@ type WorkloadInstance struct {
 }
 
 func (instance *WorkloadInstance) ResourceName() string {
-	return instance.Kind.String() + "/" + instance.Namespace + "/" + instance.Name
+	return instance.Namespace + "/" + instance.Name
 }
 
 func (instance *WorkloadInstance) GetLabels() map[string]string {
