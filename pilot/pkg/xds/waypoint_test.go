@@ -29,6 +29,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/mesh"
@@ -752,6 +753,9 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
+			// The filters need to be reset because they're initialized only once
+			// at the startup, so everytime we apply these flags we have to do this.
+			filters.ResetWaypointFiltersForTest(t)
 			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableAmbientMultiNetwork)
 			test.SetForTest(t, &features.EnableAmbientBaggage, tc.enableAmbientBaggage)
 
