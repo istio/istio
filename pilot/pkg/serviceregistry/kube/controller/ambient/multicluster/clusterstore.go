@@ -27,9 +27,10 @@ import (
 type ClusterStore struct {
 	sync.RWMutex
 	// keyed by secret key(ns/name)->clusterID
-	remoteClusters       map[string]map[cluster.ID]*Cluster
-	clusters             sets.String
-	clustersAwaitingSync sets.Set[cluster.ID]
+	remoteClusters         map[string]map[cluster.ID]*Cluster
+	clusters               sets.String
+	clustersAwaitingSync   sets.Set[cluster.ID]
+	clustersAwaitingSyncMu sync.Mutex
 	*krt.RecomputeTrigger
 }
 
@@ -46,6 +47,8 @@ func NewClustersStore() *ClusterStore {
 func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Cluster) {
 	c.Lock()
 	defer c.Unlock()
+	c.clustersAwaitingSyncMu.Lock()
+	defer c.clustersAwaitingSyncMu.Unlock()
 	if _, ok := c.remoteClusters[secretKey]; !ok {
 		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
 	}
@@ -62,6 +65,8 @@ func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Clus
 func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
 	c.Lock()
 	defer c.Unlock()
+	c.clustersAwaitingSyncMu.Lock()
+	defer c.clustersAwaitingSyncMu.Unlock()
 	delete(c.remoteClusters[secretKey], clusterID)
 	c.clusters.Delete(string(clusterID))
 	if c.clustersAwaitingSync.Contains(clusterID) {
@@ -110,12 +115,9 @@ func (c *ClusterStore) AllReady() map[string]map[cluster.ID]*Cluster {
 		return nil
 	}
 	c.RLock()
-	clusterSnapshot := c.remoteClusters
-	// manually unlock since we may have to call triggerRecomputeOnSyncLocked
-	// which requires a write lock
-	c.RUnlock()
+	defer c.RUnlock()
 	out := make(map[string]map[cluster.ID]*Cluster)
-	for secret, clusters := range clusterSnapshot {
+	for secret, clusters := range c.remoteClusters {
 		for cid, cl := range clusters {
 			if cl.Closed() || cl.SyncDidTimeout() {
 				log.Warnf("remote cluster %s is closed or timed out, omitting it from the clusters collection", cl.ID)
@@ -195,13 +197,13 @@ func (c *ClusterStore) HasSynced() bool {
 // and then triggers a recompute when it is. Takes a write lock while executing.
 func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
 	log.Infof("setting up recompute trigger for cluster %s when it is synced", id)
-	c.Lock()
-	log.Infof("acquired lock for recomputing cluster %s", id)
+	c.clustersAwaitingSyncMu.Lock()
+	log.Infof("acquired lock for clustersAwaitingSyncMu for cluster %s", id)
 	defer func() {
-		c.Unlock()
-		log.Infof("released lock for recomputing cluster %s", id)
+		c.clustersAwaitingSyncMu.Unlock()
+		log.Infof("released lock for clustersAwaitingSyncMu for cluster %s", id)
 	}()
-	cluster := c.getByIDLocked(id)
+	cluster := c.GetByID(id)
 	if cluster == nil {
 		log.Infof("cluster %s not found in store to trigger recompute", id)
 		return
@@ -223,10 +225,10 @@ func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
 			// Let dependent krt collections know that this cluster is ready to use
 			c.TriggerRecomputation()
 			// And clean up our tracking set
-			c.Lock()
+			c.clustersAwaitingSyncMu.Lock()
 			log.Infof("acquired lock to remove cluster %s from awaiting sync set", id)
 			c.clustersAwaitingSync.Delete(id)
-			c.Unlock()
+			c.clustersAwaitingSyncMu.Unlock()
 			log.Infof("remote cluster %s informers synced, triggering recompute", id)
 		}
 	}()
