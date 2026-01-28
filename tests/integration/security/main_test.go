@@ -54,9 +54,10 @@ values:
   global:
     logging:
       level: delta:debug
-  pilot: 
-    env: 
+  pilot:
+    env:
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
+      PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS: true
 meshConfig:
   defaultConfig:
     gatewayTopology:
