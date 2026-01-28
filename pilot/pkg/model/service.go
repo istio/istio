@@ -441,47 +441,27 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	return &out
 }
 
-// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
-// Returns true if equal, false otherwise.
-func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
-	if first.Endpoint == nil || second.Endpoint == nil {
-		return first.Endpoint == second.Endpoint
-	}
-
-	if !slices.EqualUnordered(first.Endpoint.Addresses, second.Endpoint.Addresses) {
+func (instance *WorkloadInstance) Equals(other *WorkloadInstance) bool {
+	eql := instance.Namespace == other.Namespace &&
+		instance.Name == other.Name &&
+		instance.Kind == other.Kind &&
+		instance.DNSServiceEntryOnly == other.DNSServiceEntryOnly
+	if !eql {
 		return false
 	}
 
-	if first.Endpoint.Network != second.Endpoint.Network {
+	if !maps.Equal(instance.PortMap, other.PortMap) {
 		return false
 	}
-	if first.Endpoint.TLSMode != second.Endpoint.TLSMode {
+
+	if instance.Endpoint == nil || other.Endpoint == nil {
+		return instance.Endpoint == other.Endpoint
+	}
+
+	if !instance.Endpoint.Equals(other.Endpoint) {
 		return false
 	}
-	if !first.Endpoint.Labels.Equals(second.Endpoint.Labels) {
-		return false
-	}
-	if first.Endpoint.ServiceAccount != second.Endpoint.ServiceAccount {
-		return false
-	}
-	if first.Endpoint.Locality != second.Endpoint.Locality {
-		return false
-	}
-	if first.Endpoint.GetLoadBalancingWeight() != second.Endpoint.GetLoadBalancingWeight() {
-		return false
-	}
-	if first.Namespace != second.Namespace {
-		return false
-	}
-	if first.Name != second.Name {
-		return false
-	}
-	if first.Kind != second.Kind {
-		return false
-	}
-	if !maps.Equal(first.PortMap, second.PortMap) {
-		return false
-	}
+
 	return true
 }
 
