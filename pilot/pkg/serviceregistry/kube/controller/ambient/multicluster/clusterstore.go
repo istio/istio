@@ -47,31 +47,31 @@ func NewClustersStore() *ClusterStore {
 func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Cluster) {
 	c.Lock()
 	defer c.Unlock()
-	c.casMu.Lock()
-	defer c.casMu.Unlock()
 	if _, ok := c.remoteClusters[secretKey]; !ok {
 		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
 	}
 	c.remoteClusters[secretKey][clusterID] = value
 	exists := c.clusters.InsertContains(string(clusterID))
+	c.casMu.Lock()
 	if exists && c.clustersAwaitingSync.Contains(clusterID) {
 		// If there was an old version of this cluster that existed and was waiting for sync,
 		// we can remove it from the awaiting set since we have a new version now.
 		c.clustersAwaitingSync.Delete(clusterID)
 	}
+	c.casMu.Unlock()
 	c.TriggerRecomputation()
 }
 
 func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
 	c.Lock()
 	defer c.Unlock()
-	c.casMu.Lock()
-	defer c.casMu.Unlock()
 	delete(c.remoteClusters[secretKey], clusterID)
 	c.clusters.Delete(string(clusterID))
+	c.casMu.Lock()
 	if c.clustersAwaitingSync.Contains(clusterID) {
 		c.clustersAwaitingSync.Delete(clusterID)
 	}
+	c.casMu.Unlock()
 	if len(c.remoteClusters[secretKey]) == 0 {
 		delete(c.remoteClusters, secretKey)
 	}
@@ -119,7 +119,7 @@ func (c *ClusterStore) AllReady() map[string]map[cluster.ID]*Cluster {
 				continue
 			}
 			if !cl.HasSynced() {
-				log.Debugf("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cl.ID)
+				log.Infof("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cl.ID)
 				c.triggerRecomputeOnSync(cl.ID)
 				continue
 			}
@@ -191,16 +191,23 @@ func (c *ClusterStore) HasSynced() bool {
 // triggerRecomputeOnSync sets up a goroutine to wait for the cluster to be synced,
 // and then triggers a recompute when it is.
 func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
+	log.Infof("setting up recompute trigger for remote cluster %s when informers are synced", id)
 	c.casMu.Lock()
-	defer c.casMu.Unlock()
+	log.Infof("acquired lock to trigger recompute for cluster %s", id)
+	defer func() {
+		c.casMu.Unlock()
+		log.Infof("released lock after setting up recompute for cluster %s", id)
+	}()
 	cluster := c.GetByID(id)
+	log.Infof("fetched cluster %s from store to trigger recompute", id)
 	if cluster == nil {
-		log.Debugf("cluster %s not found in store to trigger recompute", id)
+		log.Infof("cluster %s not found in store to trigger recompute", id)
 		return
 	}
 	exists := c.clustersAwaitingSync.InsertContains(id)
 	if exists {
 		// Already waiting for sync
+		log.Infof("cluster %s is already awaiting sync, not setting up another recompute trigger", id)
 		return
 	}
 
@@ -213,10 +220,13 @@ func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
 			// Let dependent krt collections know that this cluster is ready to use
 			c.TriggerRecomputation()
 			// And clean up our tracking set
+			log.Infof("acquiring lock for CAS delete")
 			c.casMu.Lock()
+			log.Infof("acquired lock for CAS delete")
 			c.clustersAwaitingSync.Delete(id)
 			c.casMu.Unlock()
-			log.Debugf("remote cluster %s informers synced, triggering recompute", id)
+			log.Infof("released lock for CAS delete")
+			log.Infof("remote cluster %s informers synced, triggering recompute", id)
 		}
 	}()
 }
