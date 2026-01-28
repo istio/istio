@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/configdump"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
@@ -765,8 +766,32 @@ spec:
 				Count:   1,
 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			})
+			// 1. Apply BackendTLSPolicy + HTTPRoute explicitly
+			t.ConfigIstio().
+				YAML(apps.Namespace.Name(), backendTLSPolicy("https")+httpRoute).
+				ApplyOrFail(t)
 
-			runTest(t, "http origination route with BackendTLSPolicy", backendTLSPolicy("https")+httpRoute, "", echo.CallOptions{
+			// 2. Wait until waypoint Envoy has TLS transport socket
+			waypoint := apps.WaypointOrFail(t, egressNamespace.Name())
+
+			waypoint.WaitForConfig(t, func(cfg *configdump.Wrapper) bool {
+				clusters, err := cfg.GetDynamicClusters()
+				if err != nil {
+					return false
+				}
+
+				for _, c := range clusters {
+					// Cluster generated for HTTPRoute
+					if strings.Contains(c.Name, "http_origination_route") {
+						// BackendTLSPolicy must result in TLS config
+						return c.TransportSocket != nil
+					}
+				}
+				return false
+			})
+
+			// 3. Send traffic ONCE (no retry, no timeout)
+			runTest(t, "http origination route with BackendTLSPolicy", "", "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
