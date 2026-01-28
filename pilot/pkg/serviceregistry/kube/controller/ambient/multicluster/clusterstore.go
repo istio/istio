@@ -189,7 +189,7 @@ func (c *ClusterStore) HasSynced() bool {
 }
 
 // triggerRecomputeOnSync sets up a goroutine to wait for the cluster to be synced,
-// and then triggers a recompute when it is. Takes a write lock while executing.
+// and then triggers a recompute when it is.
 func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
 	c.casMu.Lock()
 	defer c.casMu.Unlock()
