@@ -22,8 +22,10 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -37,11 +39,13 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/maps"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -53,7 +57,7 @@ func convertPort(port *networking.ServicePort) *model.Port {
 	}
 }
 
-type HostAddress struct {
+type hostAddress struct {
 	host           string
 	address        string
 	autoAssignedV4 string
@@ -161,6 +165,35 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 	return cfg
 }
 
+// ConvertClientWorkloadEntry merges the metadata.labels and spec.labels
+func ConvertClientWorkloadEntry(cfg *clientnetworking.WorkloadEntry) *clientnetworking.WorkloadEntry {
+	if cfg.Spec.Labels == nil {
+		// Short circuit, we don't have to do any conversion
+		return cfg
+	}
+	cfg = cfg.DeepCopy()
+	// Set both fields to be the merged result, so either can be used
+	cfg.Spec.Labels = maps.MergeCopy(cfg.Spec.Labels, cfg.Labels)
+	cfg.Labels = cfg.Spec.Labels
+
+	return cfg
+}
+
+// ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
+func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
+	wle := cfg.Spec.(*networking.WorkloadEntry)
+	if wle == nil {
+		return nil
+	}
+
+	// we will merge labels from metadata with spec, with precedence to the metadata
+	labels := maps.MergeCopy(wle.Labels, cfg.Labels)
+	// shallow copy
+	copied := protomarshal.ShallowClone(wle)
+	copied.Labels = labels
+	return copied
+}
+
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
 func convertServices(cfg config.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
@@ -214,20 +247,20 @@ func convertServices(cfg config.Config) []*model.Service {
 	if serviceEntry.WorkloadSelector != nil {
 		labelSelectors = serviceEntry.WorkloadSelector.Labels
 	}
-	hostAddresses := []*HostAddress{}
+	hostAddresses := []*hostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
 				// Check if address is an IP first because that is the most common case.
 				if netutil.IsValidIPAddress(address) {
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, address, "", ""})
+					hostAddresses = append(hostAddresses, &hostAddress{hostname, address, "", ""})
 				} else if cidr, cidrErr := netip.ParsePrefix(address); cidrErr == nil {
 					newAddress := address
 					if cidr.Bits() == cidr.Addr().BitLen() {
 						// /32 mask. Remove the /32 and make it a normal IP address
 						newAddress = cidr.Addr().String()
 					}
-					hostAddresses = append(hostAddresses, &HostAddress{hostname, newAddress, "", ""})
+					hostAddresses = append(hostAddresses, &hostAddress{hostname, newAddress, "", ""})
 				}
 			}
 		} else {
@@ -242,7 +275,7 @@ func convertServices(cfg config.Config) []*model.Service {
 					}
 				}
 			}
-			hostAddresses = append(hostAddresses, &HostAddress{hostname, constants.UnspecifiedIP, v4, v6})
+			hostAddresses = append(hostAddresses, &hostAddress{hostname, constants.UnspecifiedIP, v4, v6})
 		}
 	}
 
@@ -608,4 +641,27 @@ func isDNSTypeService(se *model.Service) bool {
 		return false
 	}
 	return se.Resolution == model.DNSLB || se.Resolution == model.DNSRoundRobinLB
+}
+
+// isHealthy checks that the provided WorkloadEntry is healthy. If health checks are not enabled,
+// it is assumed to always be healthy
+func isHealthy(cfg config.Config) bool {
+	if parseHealthAnnotation(cfg.Annotations[status.WorkloadEntryHealthCheckAnnotation]) {
+		// We default to false if the condition is not set. This ensures newly created WorkloadEntries
+		// are treated as unhealthy until we prove they are healthy by probe success.
+		return status.GetBoolConditionFromSpec(cfg, status.ConditionHealthy, false)
+	}
+	// If health check is not enabled, assume its healthy
+	return true
+}
+
+func parseHealthAnnotation(s string) bool {
+	if s == "" {
+		return false
+	}
+	p, err := strconv.ParseBool(s)
+	if err != nil {
+		return false
+	}
+	return p
 }

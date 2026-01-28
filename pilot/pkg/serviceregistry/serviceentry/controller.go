@@ -16,20 +16,13 @@ package serviceentry
 
 import (
 	"cmp"
-	"fmt"
-	"hash/fnv"
-	"strconv"
 
-	networking "istio.io/api/networking/v1alpha3"
-	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
@@ -38,10 +31,8 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -49,16 +40,6 @@ var (
 	_   serviceregistry.Instance = &Controller{}
 	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry")
 )
-
-var (
-	prime  = 65011     // Used for secondary hash function.
-	maxIPs = 256 * 254 // Maximum possible IPs for address allocation.
-)
-
-type octetPair struct {
-	thirdOctet  int
-	fourthOctet int
-}
 
 type networkIDCallback func(endpointIP string, labels labels.Instance) network.ID
 
@@ -91,11 +72,11 @@ type Controller struct {
 }
 
 type Inputs struct {
-	ServiceEntries  krt.Collection[config.Config]
+	MeshConfig      krt.Collection[meshwatcher.MeshConfigResource]
 	WorkloadEntries krt.Collection[config.Config]
+	ServiceEntries  krt.Collection[config.Config]
 	// TODO: this should be a joined collection with multi cluster workloads
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
-	MeshConfig        krt.Collection[meshwatcher.MeshConfigResource]
 }
 
 type Outputs struct {
@@ -306,19 +287,6 @@ func (s *Controller) pushServiceEndpointUpdates(events []krt.Event[InstancesByNa
 	}
 }
 
-func (s *Controller) pushWorkloadUpdates(events []krt.Event[*model.WorkloadInstance]) {
-	for _, e := range events {
-		if !e.Latest().DNSServiceEntryOnly {
-			s.NotifyWorkloadInstanceHandlers(e.Latest(), model.Event(e.Event))
-		}
-
-		if e.Event == controllers.EventAdd ||
-			e.Event == controllers.EventUpdate && !(*e.Old).Endpoint.Labels.Equals((*e.New).Endpoint.Labels) {
-			s.XdsUpdater.ProxyUpdate(s.Cluster(), (*e.New).Endpoint.FirstAddressOrNil())
-		}
-	}
-}
-
 func (s *Controller) pushServiceUpdates(events []krt.Event[ServiceWithInstances]) {
 	configsUpdated := sets.New[model.ConfigKey]()
 	shard := model.ShardKeyFromRegistry(s)
@@ -343,33 +311,17 @@ func (s *Controller) pushServiceUpdates(events []krt.Event[ServiceWithInstances]
 	}
 }
 
-// ConvertClientWorkloadEntry merges the metadata.labels and spec.labels
-func ConvertClientWorkloadEntry(cfg *clientnetworking.WorkloadEntry) *clientnetworking.WorkloadEntry {
-	if cfg.Spec.Labels == nil {
-		// Short circuit, we don't have to do any conversion
-		return cfg
+func (s *Controller) pushWorkloadUpdates(events []krt.Event[*model.WorkloadInstance]) {
+	for _, e := range events {
+		if !e.Latest().DNSServiceEntryOnly {
+			s.NotifyWorkloadInstanceHandlers(e.Latest(), model.Event(e.Event))
+		}
+
+		if e.Event == controllers.EventAdd ||
+			e.Event == controllers.EventUpdate && !(*e.Old).Endpoint.Labels.Equals((*e.New).Endpoint.Labels) {
+			s.XdsUpdater.ProxyUpdate(s.Cluster(), (*e.New).Endpoint.FirstAddressOrNil())
+		}
 	}
-	cfg = cfg.DeepCopy()
-	// Set both fields to be the merged result, so either can be used
-	cfg.Spec.Labels = maps.MergeCopy(cfg.Spec.Labels, cfg.Labels)
-	cfg.Labels = cfg.Spec.Labels
-
-	return cfg
-}
-
-// ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
-func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
-	wle := cfg.Spec.(*networking.WorkloadEntry)
-	if wle == nil {
-		return nil
-	}
-
-	// we will merge labels from metadata with spec, with precedence to the metadata
-	labels := maps.MergeCopy(wle.Labels, cfg.Labels)
-	// shallow copy
-	copied := protomarshal.ShallowClone(wle)
-	copied.Labels = labels
-	return copied
 }
 
 func (s *Controller) NotifyWorkloadInstanceHandlers(wi *model.WorkloadInstance, event model.Event) {
@@ -495,146 +447,6 @@ func (s *Controller) MCSServices() []model.MCSServiceInfo {
 	return nil
 }
 
-// Automatically allocates IPs for service entry services WITHOUT an
-// address field if the hostname is not a wildcard, or when resolution
-// is not NONE. The IPs are allocated from the reserved Class E subnet
-// (240.240.0.0/16) that is not reachable outside the pod or reserved
-// Benchmarking IP range (2001:2::/48) in RFC5180. When DNS
-// capture is enabled, Envoy will resolve the DNS to these IPs. The
-// listeners for TCP services will also be set up on these IPs. The
-// IPs allocated to a service entry may differ from istiod to istiod
-// but it does not matter because these IPs only affect the listener
-// IPs on a given proxy managed by a given istiod.
-//
-// NOTE: If DNS capture is not enabled by the proxy, the automatically
-// allocated IP addresses do not take effect.
-//
-// The current algorithm to allocate IPs is deterministic across all istiods.
-func autoAllocateIPs(services []*model.Service) []*model.Service {
-	// if we are using the IP Autoallocate controller then we can short circuit this
-	if features.EnableIPAutoallocate {
-		return services
-	}
-	hashedServices := make([]*model.Service, maxIPs)
-	hash := fnv.New32a()
-	// First iterate through the range of services and determine its position by hash
-	// so that we can deterministically allocate an IP.
-	// We use "Double Hashning" for collision detection.
-	// The hash algorithm is
-	// - h1(k) = Sum32 hash of the service key (namespace + "/" + hostname)
-	// - Check if we have an empty slot for h1(x) % MAXIPS. Use it if available.
-	// - If there is a collision, apply second hash i.e. h2(x) = PRIME - (Key % PRIME)
-	//   where PRIME is the max prime number below MAXIPS.
-	// - Calculate new hash iteratively till we find an empty slot with (h1(k) + i*h2(k)) % MAXIPS
-	j := 0
-	for _, svc := range services {
-		// we can allocate IPs only if
-		// 1. the service has resolution set to static/dns. We cannot allocate
-		//   for NONE because we will not know the original DST IP that the application requested.
-		// 2. the address is not set (0.0.0.0)
-		// 3. the hostname is not a wildcard
-		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() && svc.Resolution != model.Passthrough {
-			if j >= maxIPs {
-				log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
-				break
-			}
-			// First hash is calculated by hashing the service key i.e. (namespace + "/" + hostname).
-			hash.Write([]byte(svc.Key()))
-			s := hash.Sum32()
-			firstHash := s % uint32(maxIPs)
-			// Check if there is a service with this hash first. If there is no service
-			// at this location - then we can safely assign this position for this service.
-			if hashedServices[firstHash] == nil {
-				hashedServices[firstHash] = svc
-			} else {
-				// This means we have a collision. Resolve collision by "DoubleHashing".
-				i := uint32(1)
-				secondHash := uint32(prime) - (s % uint32(prime))
-				for {
-					nh := (s + i*secondHash) % uint32(maxIPs-1)
-					if hashedServices[nh] == nil {
-						hashedServices[nh] = svc
-						break
-					}
-					i++
-				}
-			}
-			hash.Reset()
-			j++
-		}
-	}
-
-	x := 0
-	hnMap := make(map[string]octetPair)
-	for _, svc := range hashedServices {
-		x++
-		if svc == nil {
-			// There is no service in the slot. Just increment x and move forward.
-			continue
-		}
-		n := svc.Key()
-		// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-		// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-		// So we bump X to 511, so that the resulting IP is 240.240.2.1
-		if x%255 == 0 {
-			x++
-		}
-		if v, ok := hnMap[n]; ok {
-			log.Debugf("Reuse IP for domain %s", n)
-			setAutoAllocatedIPs(svc, v)
-		} else {
-			thirdOctet := x / 255
-			fourthOctet := x % 255
-			pair := octetPair{thirdOctet, fourthOctet}
-			setAutoAllocatedIPs(svc, pair)
-			hnMap[n] = pair
-		}
-	}
-	return services
-}
-
-func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {
-	a := octets.thirdOctet
-	b := octets.fourthOctet
-	svc.AutoAllocatedIPv4Address = fmt.Sprintf("240.240.%d.%d", a, b)
-	if a == 0 {
-		svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x", b)
-	} else {
-		svc.AutoAllocatedIPv6Address = fmt.Sprintf("2001:2::f0f0:%x%x", a, b)
-	}
-}
-
-func makeConfigKey(svc *model.Service) model.ConfigKey {
-	return model.ConfigKey{
-		Kind:      kind.ServiceEntry,
-		Name:      string(svc.Hostname),
-		Namespace: svc.Attributes.Namespace,
-	}
-}
-
-// isHealthy checks that the provided WorkloadEntry is healthy. If health checks are not enabled,
-// it is assumed to always be healthy
-func isHealthy(cfg config.Config) bool {
-	if parseHealthAnnotation(cfg.Annotations[status.WorkloadEntryHealthCheckAnnotation]) {
-		// We default to false if the condition is not set. This ensures newly created WorkloadEntries
-		// are treated as unhealthy until we prove they are healthy by probe success.
-		return status.GetBoolConditionFromSpec(cfg, status.ConditionHealthy, false)
-	}
-	// If health check is not enabled, assume its healthy
-	return true
-}
-
-func parseHealthAnnotation(s string) bool {
-	if s == "" {
-		return false
-	}
-	p, err := strconv.ParseBool(s)
-	if err != nil {
-		return false
-	}
-	return p
-}
-
 func (s *Controller) Provider() provider.ID {
 	return provider.External
 }
@@ -672,6 +484,9 @@ func (s *Controller) HasSynced() bool {
 	return true
 }
 
+// similar to model.SortServicesByCreationTime but for ServiceWithInstances and with a fallback
+// on Attributes.K8sAttributes.ObjectName to ensure determinism when we have multiple services
+// with the same hostname in the same namespace.
 func sortServicesByCreationTime(services []ServiceWithInstances) {
 	slices.SortStableFunc(services, func(i, j ServiceWithInstances) int {
 		if r := i.Service.CreationTime.Compare(j.Service.CreationTime); r != 0 {
