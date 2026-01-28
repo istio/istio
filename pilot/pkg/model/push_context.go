@@ -268,6 +268,9 @@ type PushContext struct {
 	// GatewayAPIController holds a reference to the gateway API controller.
 	GatewayAPIController GatewayController
 
+	// AgentgatewayController holds a reference to the agent gateway controller when enabled.
+	AgentgatewayController AgentgatewayController
+
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkMgr *NetworkManager
@@ -1450,6 +1453,9 @@ func (ps *PushContext) updateContext(
 		ps.initKubernetesGateways(env)
 	} else {
 		ps.GatewayAPIController = oldPushContext.GatewayAPIController
+		if features.EnableAgentgateway {
+			ps.AgentgatewayController = oldPushContext.AgentgatewayController
+		}
 	}
 
 	if virtualServicesChanged {
@@ -2584,8 +2590,13 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 		ps.GatewayAPIController = env.GatewayAPIController
 		env.GatewayAPIController.Reconcile(ps)
 	}
+	// TODO(jaellio): do we need this? Do we need to reconcile?
+	if env.AgentgatewayController != nil && features.EnableAgentgateway {
+		ps.AgentgatewayController = env.AgentgatewayController
+	}
 }
 
+// TODO(jaellio): Modify to support check on agentgatewayController?
 // SecretAllowed determines if a given resource (of type `Secret` and name `resourceName`) can be
 // accessed by `namespace`, based of specific reference policies.
 // Note: this function only determines if a reference is *explicitly* allowed; the reference may not require

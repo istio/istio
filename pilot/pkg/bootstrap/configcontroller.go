@@ -34,6 +34,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/file"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
@@ -230,6 +231,13 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					Run(stop)
 				return nil
 			})
+		}
+		if features.EnableAgentgateway {
+			args.RegistryOptions.KubeOptions.KrtDebugger = args.KrtDebugger
+			gwc := agentgateway.NewAgwController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions)
+			// TODO(jaellio): Does this need to be a part of the environment?
+			s.environment.AgentgatewayController = gwc
+			s.ConfigStores = append(s.ConfigStores, s.environment.AgentgatewayController)
 		}
 	}
 	if features.EnableAmbientStatus {

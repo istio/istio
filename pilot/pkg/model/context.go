@@ -76,6 +76,7 @@ const (
 	Router       = pm.Router
 	Waypoint     = pm.Waypoint
 	Ztunnel      = pm.Ztunnel
+	Agentgateway = pm.Agentgateway
 
 	IPv4 = pm.IPv4
 	IPv6 = pm.IPv6
@@ -142,6 +143,8 @@ type Environment struct {
 	CredentialsController credentials.MulticlusterController
 
 	GatewayAPIController GatewayController
+
+	AgentgatewayController AgentgatewayController
 
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
@@ -433,7 +436,12 @@ func (node *Proxy) IsAmbient() bool {
 	return node.IsWaypointProxy() || node.IsZTunnel()
 }
 
-var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
+// IsAgentgateway returns true if the proxy is acting as an agentgateway.
+func (node *Proxy) IsAgentgateway() bool {
+	return node.Type == Agentgateway
+}
+
+var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel, Agentgateway}
 
 // SetSidecarScope identifies the sidecar scope object associated with this
 // proxy and updates the proxy Node. This is a convenience hack so that
@@ -1079,6 +1087,10 @@ type GatewayController interface {
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.
 	SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool
+}
+
+type AgentgatewayController interface {
+	ConfigStoreController
 }
 
 // OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.

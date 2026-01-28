@@ -69,6 +69,7 @@ func ControlPlane(typ string) *core.ControlPlane {
 	return cp
 }
 
+// TODO(jaellio): find agentgateway generator based on typeURL and connection metadata
 func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
 	if g, f := s.Generators[con.proxy.Metadata.Generator+"/"+typeURL]; f {
 		return g
@@ -95,6 +96,7 @@ func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.X
 	return g
 }
 
+// TODO(jaellio)
 // Push an XDS resource for the given connection. Configuration will be generated
 // based on the passed in generator. Based on the updates field, generators may
 // choose to send partial or even no response if there are no changes.
@@ -115,6 +117,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	// See https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#deleting-resources.
 	// This means if there are only removals, we will not respond.
 	var logFiltered string
+	// TODO(jaellio): keep this agentgateway or skip?
 	if !req.Delta.IsEmpty() && !con.proxy.IsProxylessGrpc() {
 		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{

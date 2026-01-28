@@ -621,6 +621,11 @@ func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 		if len(cu) == 0 {
 			return
 		}
+
+		// Push context
+		// If a internal representation changes, here is where xds we need to change
+		// Take a krt event to get config key from that
+
 		xds.ConfigUpdate(&model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: cu,
