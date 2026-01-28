@@ -167,7 +167,8 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceVarP(&alpn, "alpn", "", nil, "alpn to set")
 	rootCmd.PersistentFlags().StringVarP(&serverName, "server-name", "", serverName, "server name to set")
 	rootCmd.PersistentFlags().StringVar(&tlsMinVersion, "tls-min-version", "", "minimum TLS version to use (1.0, 1.1, 1.2, 1.3)")
-	rootCmd.PersistentFlags().StringSliceVar(&tlsCurvePreferences, "tls-curve-preferences", nil, "TLS curve preferences. Valid values: X25519, X25519MLKEM768, P256, P384, P521")
+	rootCmd.PersistentFlags().StringSliceVar(&tlsCurvePreferences, "tls-curve-preferences", nil,
+		"TLS curve preferences. Valid values: X25519, X25519MLKEM768, P256, P384, P521")
 
 	rootCmd.PersistentFlags().StringVar(&hboneAddress, "hbone", "", "address to send HBONE request to")
 	rootCmd.PersistentFlags().StringVar(&doubleHboneAddress, "double-hbone", "", "address to send double HBONE request to")
