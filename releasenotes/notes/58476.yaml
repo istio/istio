@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** alpha support for a baggage-based telemetry system for ambient mesh. Users of multinetwork
+  ambient will want to enable this feature via the `AMBIENT_ENABLE_BAGGAGE` pilot env var so that the
+  metrics for cross-network traffic are properly attributed with source and destination labels. Note that
+  ztunnel already sends baggage in requests; this feature just augments that functionality with waypoint
+  generated baggage as well. As such, this feature is off by default for waypoints and on by default
+  in ztunnels (configurable via the `ENABLE_RESPONSE_BAGGAGE` environment variable in ztunnel).
