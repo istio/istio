@@ -447,14 +447,20 @@ Examples will use `extinst` as script name.
 Installs the Istio control plane for this test run. Takes 1 argument, work directory of integration test.
 
 Example:
-extinst install /work/test1/integ-test
+
+```console
+$ extinst install /work/test1/integ-test
+```
 
 ##### 'cleanup' command
 
 Cleans up the previously-installed control plane. Takes 1 argument, work directory of integration test.
 
 Example:
-extinst cleanup /work/test1/integ-test
+
+```console
+$ extinst cleanup /work/test1/integ-test
+```
 
 ## Environments
 
