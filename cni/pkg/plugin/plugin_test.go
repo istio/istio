@@ -81,7 +81,7 @@ var mockConfTmpl = `{
     "plugin_log_level": "debug",
     "cni_agent_run_dir": "%s",
     "ambient_enabled": %t,
-	"enable_is_ambient_retry": %t,
+	"enable_ambient_detection_retry": %t,
 	"enablement_selectors": [
 		{
 			"podSelector": {
