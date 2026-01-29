@@ -29,8 +29,10 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -79,6 +81,7 @@ var mockConfTmpl = `{
     "plugin_log_level": "debug",
     "cni_agent_run_dir": "%s",
     "ambient_enabled": %t,
+	"enable_ambient_detection_retry": %t,
 	"enablement_selectors": [
 		{
 			"podSelector": {
@@ -116,7 +119,7 @@ type mockInterceptRuleMgr struct {
 	lastRedirect []*Redirect
 }
 
-func buildMockConf(ambientEnabled bool) string {
+func buildMockConfWithRetryOption(ambientEnabled bool, enableAmbientDetectionRetry bool) string {
 	return fmt.Sprintf(
 		mockConfTmpl,
 		"1.0.0",
@@ -125,8 +128,13 @@ func buildMockConf(ambientEnabled bool) string {
 		testSandboxDirectory,
 		"", // unused here
 		ambientEnabled,
+		enableAmbientDetectionRetry,
 		"mock",
 	)
+}
+
+func buildMockConf(ambientEnabled bool) string {
+	return buildMockConfWithRetryOption(ambientEnabled, false)
 }
 
 func buildFakePodAndNSForClient() (*corev1.Pod, *corev1.Namespace) {
@@ -248,6 +256,35 @@ func testDoAddRun(t *testing.T, stdinData, nsName string, objects ...runtime.Obj
 	}
 
 	return mockRedir
+}
+
+func TestIsAmbientPod(t *testing.T) {
+	cniConf := buildMockConfWithRetryOption(true, true)
+	pod, ns := buildFakePodAndNSForClient()
+	ns.ObjectMeta.Labels = map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient}
+
+	args := buildCmdArgs(cniConf, testPodName, ns.Name)
+
+	conf, err := parseConfig(args.StdinData)
+	if err != nil {
+		t.Fatalf("config parse failed with error: %v", err)
+	}
+
+	podGVR, _ := gvk.ToGVR(gvk.Pod)
+	nsGVR, _ := gvk.ToGVR(gvk.Namespace)
+	// Fail first 3 attempts to get pod/namespace, then succeed
+	client := kube.NewFakeClientWithNFailures(3, sets.New(podGVR, nsGVR), pod, ns)
+
+	isAmbient, err := isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors, conf.EnableAmbientDetectionRetry)
+	assert.NoError(t, err)
+	assert.Equal(t, true, isAmbient, "expected pod to be ambient")
+
+	// Fail all attempts to get pod/namespace
+	podRetrievalMaxRetries = 5
+	client = kube.NewFakeClientWithNFailures(podRetrievalMaxRetries+1, sets.New(podGVR, nsGVR), pod, ns)
+
+	_, err = isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors, conf.EnableAmbientDetectionRetry)
+	assert.Error(t, err)
 }
 
 func TestCmdAddAmbientEnabledOnNS(t *testing.T) {
