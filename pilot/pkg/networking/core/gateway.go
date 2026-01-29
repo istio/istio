@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -853,6 +854,8 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 	if len(virtualServices) == 0 {
 		log.Warnf("no virtual service bound to gateway: %v", gateway)
 	}
+
+	filters := make([]*listener.Filter, 0)
 	for _, v := range virtualServices {
 		vsvc := v.Spec.(*networking.VirtualService)
 		// We have two cases here:
@@ -874,8 +877,22 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
 			}
 		}
-	}
 
+		// Fallback to TLS in case this is a TLSRoute with Termination
+		if isTLSRoute, ok := v.Annotations[constants.InternalParentNames]; ok && strings.HasPrefix(isTLSRoute, "TLSRoute/") {
+			includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
+			for _, tls := range vsvc.Tls {
+				for _, match := range tls.Match {
+					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gateway) {
+						filters = append(filters, lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx)...)
+					}
+				}
+			}
+		}
+	}
+	if len(filters) > 0 {
+		return filters
+	}
 	return nil
 }
 
