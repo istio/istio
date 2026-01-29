@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -43,16 +44,21 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/xds"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
+
+// CallerNamespaceKey is used to store caller namespace in request context
+type CallerNamespaceKey struct{}
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
 <head>
@@ -237,7 +243,8 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.
 
 func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		// Request is from localhost, no need to authenticate
+		// Localhost gets unrestricted access (istiod talking to itself on 127.0.0.1:8080)
+		// No namespace context set, so namespace checks are skipped
 		if isRequestFromLocalhost(req) {
 			next.ServeHTTP(w, req)
 			return
@@ -261,9 +268,20 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		// TODO: Check that the identity contains istio-system namespace, else block or restrict to only info that
-		// is visible to the authenticated SA. Will require changes in docs and istioctl too.
-		next.ServeHTTP(w, req)
+		// Check namespace-based authorization for debug endpoints
+		if features.EnableDebugEndpointAuth {
+			namespace := s.extractNamespace(ids)
+			if !s.AuthorizeDebugRequest(ids, req) {
+				istiolog.Warnf("Unauthorized debug request from %v to %s", ids, req.URL.Path)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			// Store caller namespace in context for handlers to enforce proxy-level access
+			ctx := context.WithValue(req.Context(), CallerNamespaceKey{}, namespace)
+			next.ServeHTTP(w, req.WithContext(ctx))
+		} else {
+			next.ServeHTTP(w, req)
+		}
 	}
 }
 
@@ -275,6 +293,45 @@ func isRequestFromLocalhost(r *http.Request) bool {
 
 	userIP, _ := netip.ParseAddr(ip)
 	return userIP.IsLoopback()
+}
+
+// extractNamespace extracts namespace from authenticated identities
+func (s *DiscoveryServer) extractNamespace(identities []string) string {
+	for _, id := range identities {
+		spiffeID, err := spiffe.ParseIdentity(id)
+		if err != nil {
+			continue
+		}
+		return spiffeID.Namespace
+	}
+	return ""
+}
+
+// AuthorizeDebugRequest checks if authenticated identities are authorized to access the requested debug endpoint.
+// Note: non-system namespace requests are further verified at connection time to ensure same-namespace proxy access only.
+func (s *DiscoveryServer) AuthorizeDebugRequest(identities []string, req *http.Request) bool {
+	namespace := s.extractNamespace(identities)
+
+	// deny if no valid identity found
+	if namespace == "" {
+		return false
+	}
+
+	// get system namespace (istio-system by default, or mesh root namespace)
+	systemNamespace := constants.IstioSystemNamespace
+	if s.Env != nil && s.Env.Mesh() != nil && s.Env.Mesh().GetRootNamespace() != "" {
+		systemNamespace = s.Env.Mesh().GetRootNamespace()
+	}
+
+	// allow all if identity is from system namespace
+	if namespace == systemNamespace {
+		return true
+	}
+
+	// non-system namespace: only allow specific endpoints
+	debugPath := strings.TrimPrefix(req.URL.Path, "/debug/")
+	_, allowed := activeNamespaceDebuggers[debugPath]
+	return allowed
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
@@ -1084,9 +1141,25 @@ func (s *DiscoveryServer) handlePushRequest(w http.ResponseWriter, req *http.Req
 }
 
 // getDebugConnection fetches the Connection requested by proxyID
+// For non-system namespaces, restricts access to proxies in the caller's namespace only
 func (s *DiscoveryServer) getDebugConnection(req *http.Request) (string, *Connection) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		return proxyID, s.getProxyConnection(proxyID)
+		con := s.getProxyConnection(proxyID)
+		// Verify namespace if caller is not from system namespace (when auth is enabled)
+		if features.EnableDebugEndpointAuth {
+			callerNamespace, _ := req.Context().Value(CallerNamespaceKey{}).(string)
+			if con != nil && callerNamespace != "" {
+				systemNamespace := constants.IstioSystemNamespace
+				if s.Env != nil && s.Env.Mesh() != nil && s.Env.Mesh().GetRootNamespace() != "" {
+					systemNamespace = s.Env.Mesh().GetRootNamespace()
+				}
+				// Non-system namespaces can only access proxies in their own namespace
+				if callerNamespace != systemNamespace && con.proxy.ConfigNamespace != callerNamespace {
+					return proxyID, nil // Return nil connection to deny access
+				}
+			}
+		}
+		return proxyID, con
 	}
 	return "", nil
 }
