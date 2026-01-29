@@ -38,13 +38,14 @@ func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string
 		return "", fmt.Errorf("failed to parse ambient enablement selector: %v", err)
 	}
 	pluginConfig := plugin.Config{
-		PluginLogLevel:      cfg.PluginLogLevel,
-		CNIAgentRunDir:      cfg.CNIAgentRunDir,
-		AmbientEnabled:      cfg.AmbientEnabled,
-		EnablementSelectors: selectors,
-		ExcludeNamespaces:   strings.Split(cfg.ExcludeNamespaces, ","),
-		PodNamespace:        cfg.PodNamespace,
-		NativeNftables:      cfg.NativeNftables,
+		PluginLogLevel:              cfg.PluginLogLevel,
+		CNIAgentRunDir:              cfg.CNIAgentRunDir,
+		AmbientEnabled:              cfg.AmbientEnabled,
+		EnablementSelectors:         selectors,
+		ExcludeNamespaces:           strings.Split(cfg.ExcludeNamespaces, ","),
+		PodNamespace:                cfg.PodNamespace,
+		NativeNftables:              cfg.NativeNftables,
+		EnableAmbientDetectionRetry: cfg.EnableAmbientDetectionRetry,
 	}
 
 	pluginConfig.Name = "istio-cni"

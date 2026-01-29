@@ -46,6 +46,7 @@ const (
 	AmbientIPv6                       = "ambient-ipv6"
 	AmbientDisableSafeUpgrade         = "ambient-disable-safe-upgrade"
 	AmbientReconcilePodRulesOnStartup = "ambient-reconcile-pod-rules-on-startup"
+	EnableAmbientDetectionRetry       = "enable-ambient-detection-retry"
 
 	NativeNftables = "native-nftables"
 
