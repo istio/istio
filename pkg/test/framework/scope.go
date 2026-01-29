@@ -217,11 +217,9 @@ func (s *scope) dump(ctx resource.Context, recursive bool) {
 	for _, c := range s.resources {
 		if d, ok := c.(resource.Dumper); ok {
 			d := d
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				d.Dump(ctx)
-				wg.Done()
-			}()
+			})
 		}
 	}
 	wg.Wait()
