@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package remotekubeconfig
+package remotesecretfs
 
 import (
 	"context"
@@ -44,10 +44,6 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		SkipIf("requires at least 2 clusters", func(ctx resource.Context) bool {
 			return ctx.Clusters().Len() < 2
-		}).
-		Setup(func(t resource.Context) error {
-			t.Settings().Ambient = true
-			return nil
 		}).
 		Setup(func(t resource.Context) error {
 			return ensureRemoteKubeconfigSecret(t, istio.DefaultSystemNamespace)
