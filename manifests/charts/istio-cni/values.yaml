@@ -76,7 +76,7 @@ _internal_defaults_do_not_set:
     # If enabled, and ambient is enabled, the CNI agent will always share the network namespace of the host node it is running on
     shareHostNetworkNamespace: false
     # If enabled, the CNI agent will retry checking if a pod is ambient enabled when there are errors
-    enableIsAmbientRetry: false
+    enableAmbientDetectionRetry: false
 
 
   repair:
