@@ -156,6 +156,9 @@ type InstallConfig struct {
 	// Whether reconciliation of iptables at post startup is enabled for Ambient workloads
 	AmbientReconcilePodRulesOnStartup bool
 
+	// Whether to retry checking if a pod is ambient in the cni plugin when there are errors
+	EnableAmbientDetectionRetry bool
+
 	// Whether native nftables should be used instead of iptable rules for traffic redirection
 	NativeNftables bool
 
@@ -235,6 +238,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("AmbientIPv6: " + fmt.Sprint(c.AmbientIPv6) + "\n")
 	b.WriteString("AmbientDisableSafeUpgrade: " + fmt.Sprint(c.AmbientDisableSafeUpgrade) + "\n")
 	b.WriteString("AmbientReconcilePodRulesOnStartup: " + fmt.Sprint(c.AmbientReconcilePodRulesOnStartup) + "\n")
+	b.WriteString("EnableAmbientDetectionRetry: " + fmt.Sprint(c.EnableAmbientDetectionRetry) + "\n")
 
 	b.WriteString("NativeNftables: " + fmt.Sprint(c.NativeNftables) + "\n")
 	b.WriteString("ForceIptablesBinary: " + fmt.Sprint(c.ForceIptablesBinary) + "\n")
