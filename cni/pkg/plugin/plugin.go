@@ -397,9 +397,9 @@ func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, sel
 		return false, fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 	}
 
-	maxRetries := podRetrievalMaxRetries
-	if !enableRetry {
-		maxRetries = 1
+	maxRetries := 1
+	if enableRetry {
+		maxRetries = podRetrievalMaxRetries
 	}
 
 	var pod *v1.Pod
