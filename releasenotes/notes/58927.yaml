@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: multicluster
+releaseNotes:
+- |
+  **Added** support for loading multicluster remote secrets from a local filesystem path specified by
+  `PILOT_REMOTE_CLUSTER_SECRET_PATH`. When set, Istiod watches the mounted directory (for
+  `.yaml` or `.yml` keys) and dynamically updates remote cluster registrations.
