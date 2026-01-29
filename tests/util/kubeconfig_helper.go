@@ -45,17 +45,12 @@ func KubeconfigForCluster(c cluster.Cluster) ([]byte, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("kubeconfig missing context %q", contextName)
 	}
+
 	clusterName := ctx.Cluster
 	authName := ctx.AuthInfo
 	clusterCfg := cfg.Clusters[clusterName]
 	if clusterCfg == nil {
 		return nil, fmt.Errorf("kubeconfig missing cluster %q", clusterName)
-	}
-	if authName == "" {
-		for name := range cfg.AuthInfos {
-			authName = name
-			break
-		}
 	}
 	authCfg := cfg.AuthInfos[authName]
 	if authCfg == nil {
