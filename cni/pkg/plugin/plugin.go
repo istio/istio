@@ -72,7 +72,7 @@ type Config struct {
 	ExcludeNamespaces           []string                  `json:"exclude_namespaces"`
 	PodNamespace                string                    `json:"pod_namespace"`
 	NativeNftables              bool                      `json:"native_nftables"`
-	EnableAmbientDetectionRetry bool                      `json:"enable_is_ambient_retry"`
+	EnableAmbientDetectionRetry bool                      `json:"enable_ambient_detection_retry"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
