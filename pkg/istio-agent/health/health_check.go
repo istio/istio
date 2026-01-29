@@ -99,7 +99,9 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Pro
 	if envoyProbe != nil {
 		probers = append(probers, &EnvoyProber{envoyProbe})
 	}
-	probers = append(probers, prober)
+	if prober != nil {
+		probers = append(probers, prober)
+	}
 	return &WorkloadHealthChecker{
 		config: applicationHealthCheckConfig{
 			InitialDelay:   time.Duration(cfg.InitialDelaySeconds) * time.Second,
