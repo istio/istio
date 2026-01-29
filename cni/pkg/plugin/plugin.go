@@ -65,14 +65,14 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	PluginLogLevel       string                    `json:"plugin_log_level"`
-	CNIAgentRunDir       string                    `json:"cni_agent_run_dir"`
-	AmbientEnabled       bool                      `json:"ambient_enabled"`
-	EnablementSelectors  []util.EnablementSelector `json:"enablement_selectors"`
-	ExcludeNamespaces    []string                  `json:"exclude_namespaces"`
-	PodNamespace         string                    `json:"pod_namespace"`
-	NativeNftables       bool                      `json:"native_nftables"`
-	EnableIsAmbientRetry bool                      `json:"enable_is_ambient_retry"`
+	PluginLogLevel              string                    `json:"plugin_log_level"`
+	CNIAgentRunDir              string                    `json:"cni_agent_run_dir"`
+	AmbientEnabled              bool                      `json:"ambient_enabled"`
+	EnablementSelectors         []util.EnablementSelector `json:"enablement_selectors"`
+	ExcludeNamespaces           []string                  `json:"exclude_namespaces"`
+	PodNamespace                string                    `json:"pod_namespace"`
+	NativeNftables              bool                      `json:"native_nftables"`
+	EnableAmbientDetectionRetry bool                      `json:"enable_is_ambient_retry"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -241,12 +241,12 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 	// For ambient pods, this is all the logic we need to run
 	if conf.AmbientEnabled {
 		log.Debugf("istio-cni ambient cmdAdd podName: %s - checking if ambient enabled", podName)
-		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace, conf.EnablementSelectors, conf.EnableIsAmbientRetry)
+		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace, conf.EnablementSelectors, conf.EnableAmbientDetectionRetry)
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd failed to check if pod is ambient: %s", err)
 			// Conditionally return the error based on whether istio owned CNI is configured
 			// to support gradual rollout of feature in critical code path
-			if conf.EnableIsAmbientRetry {
+			if conf.EnableAmbientDetectionRetry {
 				return err
 			}
 		}

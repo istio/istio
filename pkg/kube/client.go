@@ -456,10 +456,10 @@ func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient
 	return c
 }
 
-// NewFakeClientWithFailures creates a fake client that fails for get operations on the specified
+// NewFakeClientWithNFailures creates a fake client that fails for get operations on the specified
 // resource kinds for the first failureCount attempts, then succeeds.
 // failingResources is a set of resource (e.g., "pods", "namespaces") that should fail.
-func NewFakeClientWithFailures(failureCount int, failingResources sets.Set[schema.GroupVersionResource], objects ...runtime.Object) CLIClient {
+func NewFakeClientWithNFailures(failureCount int, failingResources sets.Set[schema.GroupVersionResource], objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
 
 	// Track retry attempts per resource
