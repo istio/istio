@@ -307,7 +307,8 @@ func (s *DiscoveryServer) extractNamespace(identities []string) string {
 	return ""
 }
 
-// AuthorizeDebugRequest checks if authenticated identities are authorized to access the requested debug endpoint
+// AuthorizeDebugRequest checks if authenticated identities are authorized to access the requested debug endpoint.
+// Note: non-system namespace requests are further verified at connection time to ensure same-namespace proxy access only.
 func (s *DiscoveryServer) AuthorizeDebugRequest(identities []string, req *http.Request) bool {
 	namespace := s.extractNamespace(identities)
 
