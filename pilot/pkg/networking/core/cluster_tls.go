@@ -127,6 +127,12 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	}
 
 	c := opts.mutable
+
+	// Configure all DFP-specific TLS settings upfront for sidecar DFP clusters
+	if c.isDFPCluster && opts.direction == model.TrafficDirectionOutbound {
+		configureSidecarDFPClusterTLS(c, tls)
+	}
+
 	var tlsContext *tlsv3.UpstreamTlsContext
 	var err error
 	switch tls.Mode {
@@ -135,22 +141,43 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext = &tlsv3.UpstreamTlsContext{
 			CommonTlsContext: defaultUpstreamCommonTLSContext(),
-			Sni:              tls.Sni,
+		}
+		// For DFP clusters, don't set static SNI - let auto_sni handle it dynamically
+		// For non-DFP clusters, use static SNI if provided
+		if !c.isDFPCluster && len(tls.Sni) > 0 {
+			tlsContext.Sni = tls.Sni
 		}
 
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 			sec_model.ConstructSdsSecretConfig(sec_model.SDSDefaultResourceName))
 
-		tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &tlsv3.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(sec_model.SDSRootResourceName),
-			},
+		// For DFP clusters with ISTIO_MUTUAL, use empty default_validation_context
+		// This validates certificate chain (CA trust) but not specific SANs
+		// TODO: Populate with dynamic service accounts from ServicesForHostname() for proper SAN validation
+		if c.isDFPCluster {
+			tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         &tlsv3.CertificateValidationContext{}, // Empty - no SAN validation for now
+					ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(sec_model.SDSRootResourceName),
+				},
+			}
+			log.Debugf("DFP cluster %s: using empty validation context (CA trust only, no SAN validation)", c.cluster.Name)
+		} else {
+			// Regular ISTIO_MUTUAL clusters use explicit SANs from DestinationRule
+			tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         &tlsv3.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+					ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(sec_model.SDSRootResourceName),
+				},
+			}
 		}
+
 		// Set default SNI of cluster name for istio_mutual if sni is not set.
-		if len(tlsContext.Sni) == 0 {
+		// For DFP clusters, we use auto_sni instead of static SNI.
+		if len(tlsContext.Sni) == 0 && !c.isDFPCluster {
 			tlsContext.Sni = c.cluster.Name
 		}
+
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
 		// We add `istio-peer-exchange` to the list of alpn strings.
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
@@ -190,7 +217,11 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		CommonTlsContext: defaultUpstreamCommonTLSContext(),
 		Sni:              tls.Sni,
 	}
-	setAutoSniAndAutoSanValidation(c, tls)
+	// For sidecar DFP clusters, TLS configuration was already done via configureSidecarDFPClusterTLS.
+	// For waypoint DFP and all non-DFP clusters, use standard auto_sni/auto_san_validation.
+	if !c.isDFPCluster || opts.direction != model.TrafficDirectionOutbound {
+		setAutoSniAndAutoSanValidation(c, tls)
+	}
 
 	// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
 	if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
@@ -273,6 +304,8 @@ func applyTLSDefaults(tlsContext *tlsv3.UpstreamTlsContext, tlsDefaults *v1alpha
 
 // Set auto_sni if sni field is not explicitly set in DR.
 // Set auto_san_validation if there is no explicit SubjectAltNames specified in DR.
+// Note: For sidecar DFP clusters, TLS configuration is handled by configureSidecarDFPClusterTLS.
+// For waypoint DFP clusters, we also handle allow_insecure_cluster_options here.
 func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTLSSettings) {
 	if mc == nil {
 		return
@@ -283,12 +316,13 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
-	// For DFP clusters, we only set auto_san_validation if insecure_skip_verify is false.
+	// For DFP clusters (waypoint), set auto_san_validation if insecureSkipVerify is false
+	// For non-DFP clusters, require auto_sni && no explicit SANs
 	if (setAutoSni && len(tls.SubjectAltNames) == 0 || mc.isDFPCluster) && !tls.GetInsecureSkipVerify().GetValue() {
 		setAutoSanValidation = true
 	}
 
-	// For DFP clusters, we need to allow_insecure_cluster_options if insecure_skip_verify is true.
+	// For waypoint DFP clusters with insecureSkipVerify=true, set allow_insecure_cluster_options
 	if mc.isDFPCluster && tls.GetInsecureSkipVerify().GetValue() {
 		clusterType, ok := mc.cluster.ClusterDiscoveryType.(*cluster.Cluster_ClusterType)
 		if !ok {
@@ -307,7 +341,7 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 		}
 		dfpCluster.AllowInsecureClusterOptions = true
 		customClusterType.TypedConfig = protoconv.MessageToAny(dfpCluster)
-		log.Debugf("set allow_insecure_cluster_options for DFP cluster %s", mc.cluster.Name)
+		log.Debugf("set allow_insecure_cluster_options for waypoint DFP cluster %s", mc.cluster.Name)
 	}
 
 	if setAutoSni || setAutoSanValidation {
@@ -324,6 +358,99 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
 		}
 	}
+}
+
+// configureSidecarDFPClusterTLS sets up all TLS-related configuration for sidecar DFP clusters:
+// - UpstreamProtocolOptions initialization (required by Envoy)
+// - auto_sni and auto_san_validation (mode-specific, including ISTIO_MUTUAL handling)
+// - allow_insecure_cluster_options (based on validation capabilities)
+func configureSidecarDFPClusterTLS(mc *clusterWrapper, tls *networking.ClientTLSSettings) {
+	// === COMMON: Initialize HTTP protocol options for all TLS modes ===
+	if tls.Mode != networking.ClientTLSSettings_DISABLE {
+		if mc.httpProtocolOptions == nil {
+			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+		}
+		// Initialize UpstreamProtocolOptions if not already set by setUpstreamProtocol
+		if mc.httpProtocolOptions.UpstreamProtocolOptions == nil {
+			mc.httpProtocolOptions.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
+				},
+			}
+		}
+	}
+
+	// === COMMON: Get DFP cluster config ===
+	clusterType, ok := mc.cluster.ClusterDiscoveryType.(*cluster.Cluster_ClusterType)
+	if !ok {
+		log.Warnf("failed to update DFP cluster options for %s: invalid cluster type", mc.cluster.Name)
+		return
+	}
+	customClusterType := clusterType.ClusterType
+	if customClusterType == nil {
+		log.Warnf("failed to update DFP cluster options for %s: missing custom cluster type", mc.cluster.Name)
+		return
+	}
+	dfpCluster := &dfpcluster.ClusterConfig{}
+	if err := customClusterType.TypedConfig.UnmarshalTo(dfpCluster); err != nil {
+		log.Warnf("failed to unmarshal dynamic forward proxy config: %v", err)
+		return
+	}
+
+	// === MODE-SPECIFIC: Configure auto_sni, auto_san_validation, and allow_insecure_cluster_options ===
+	// Envoy DFP requirement: (auto_sni=true AND auto_san_validation=true) OR allow_insecure_cluster_options=true
+	switch tls.Mode {
+	case networking.ClientTLSSettings_DISABLE:
+		// Plain HTTP requires allow_insecure_cluster_options since there's no TLS validation
+		dfpCluster.AllowInsecureClusterOptions = true
+		log.Debugf("DFP cluster %s: DISABLE mode - allow_insecure_cluster_options=true", mc.cluster.Name)
+
+	case networking.ClientTLSSettings_ISTIO_MUTUAL:
+		// ISTIO_MUTUAL certificates contain SPIFFE URI SANs, not DNS SANs.
+		// auto_sni works (extracts hostname from Host header), but auto_san_validation
+		// cannot be used because it validates against DNS SANs which are absent.
+		// Must set allow_insecure_cluster_options=true to satisfy DFP requirements.
+		// Note: Ambient/waypoint does not support ISTIO_MUTUAL with DFP.
+		if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
+		}
+		if len(tls.Sni) == 0 {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+		}
+		dfpCluster.AllowInsecureClusterOptions = true
+		log.Debugf("DFP cluster %s: ISTIO_MUTUAL - auto_sni=true, auto_san_validation=false, allow_insecure_cluster_options=true", mc.cluster.Name)
+
+	case networking.ClientTLSSettings_SIMPLE, networking.ClientTLSSettings_MUTUAL:
+		// SIMPLE/MUTUAL use user-provided certificates with DNS SANs.
+		// Both auto_sni and auto_san_validation work, allowing strict validation.
+		// Set allow_insecure_cluster_options=false when both are enabled.
+		if mc.httpProtocolOptions.UpstreamHttpProtocolOptions == nil {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
+		}
+
+		setAutoSni := len(tls.Sni) == 0
+		setAutoSanValidation := !tls.GetInsecureSkipVerify().GetValue()
+
+		if setAutoSni {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
+		}
+		if setAutoSanValidation {
+			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
+		}
+
+		if setAutoSni && setAutoSanValidation {
+			dfpCluster.AllowInsecureClusterOptions = false
+			log.Debugf("DFP cluster %s: %s - auto_sni+auto_san_validation enabled, allow_insecure_cluster_options=false",
+				mc.cluster.Name, tls.Mode.String())
+		} else {
+			dfpCluster.AllowInsecureClusterOptions = true
+			log.Debugf("DFP cluster %s: %s - insecure_skip_verify set, allow_insecure_cluster_options=true",
+				mc.cluster.Name, tls.Mode.String())
+		}
+	}
+
+	// === COMMON: Apply configuration back to cluster ===
+	customClusterType.TypedConfig = protoconv.MessageToAny(dfpCluster)
 }
 
 func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, tls *networking.ClientTLSSettings,
