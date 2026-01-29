@@ -269,17 +269,17 @@ func TestIsAmbientPod(t *testing.T) {
 	podGVR, _ := gvk.ToGVR(gvk.Pod)
 	nsGVR, _ := gvk.ToGVR(gvk.Namespace)
 	// Fail first 3 attempts to get pod/namespace, then succeed
-	client := kube.NewFakeClientWithFailures(3, sets.New(podGVR, nsGVR), pod, ns)
+	client := kube.NewFakeClientWithNFailures(3, sets.New(podGVR, nsGVR), pod, ns)
 
-	isAmbient, err := isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors, conf.EnableIsAmbientRetry)
+	isAmbient, err := isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors, conf.EnableAmbientDetectionRetry)
 	assert.NoError(t, err)
 	assert.Equal(t, true, isAmbient, "expected pod to be ambient")
 
 	// Fail all attempts to get pod/namespace
 	podRetrievalMaxRetries = 5
-	client = kube.NewFakeClientWithFailures(podRetrievalMaxRetries+1, sets.New(podGVR, nsGVR), pod, ns)
+	client = kube.NewFakeClientWithNFailures(podRetrievalMaxRetries+1, sets.New(podGVR, nsGVR), pod, ns)
 
-	_, err = isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors, conf.EnableIsAmbientRetry)
+	_, err = isAmbientPod(client.Kube(), pod.Name, pod.Namespace, conf.EnablementSelectors, conf.EnableAmbientDetectionRetry)
 	assert.Error(t, err)
 }
 
