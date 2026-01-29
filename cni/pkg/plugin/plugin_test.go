@@ -119,7 +119,7 @@ type mockInterceptRuleMgr struct {
 	lastRedirect []*Redirect
 }
 
-func buildMockConf(ambientEnabled bool) string {
+func buildMockConfWithRetryOption(ambientEnabled bool, enableAmbientDetectionRetry bool) string {
 	return fmt.Sprintf(
 		mockConfTmpl,
 		"1.0.0",
@@ -128,9 +128,13 @@ func buildMockConf(ambientEnabled bool) string {
 		testSandboxDirectory,
 		"", // unused here
 		ambientEnabled,
-		ambientEnabled,
+		enableAmbientDetectionRetry,
 		"mock",
 	)
+}
+
+func buildMockConf(ambientEnabled bool) string {
+	return buildMockConfWithRetryOption(ambientEnabled, false)
 }
 
 func buildFakePodAndNSForClient() (*corev1.Pod, *corev1.Namespace) {
@@ -255,7 +259,7 @@ func testDoAddRun(t *testing.T, stdinData, nsName string, objects ...runtime.Obj
 }
 
 func TestIsAmbientPod(t *testing.T) {
-	cniConf := buildMockConf(true)
+	cniConf := buildMockConfWithRetryOption(true, true)
 	pod, ns := buildFakePodAndNSForClient()
 	ns.ObjectMeta.Labels = map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient}
 
