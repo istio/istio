@@ -138,6 +138,14 @@ func (s *Service) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: s.Attributes.Name, Namespace: s.Attributes.Namespace}
 }
 
+func (s *Service) ResourceName() string {
+	// convertServices creates a service for each ServiceEntry address and hostname.
+	return s.Attributes.Namespace + "/" +
+		s.Attributes.K8sAttributes.ObjectName + "/" +
+		s.Hostname.String() + "/" +
+		s.DefaultAddress
+}
+
 func (s *Service) Key() string {
 	if s == nil {
 		return ""
@@ -320,6 +328,14 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
+func (instance *ServiceInstance) ResourceName() string {
+	return instance.Service.ResourceName() + "/" + instance.Endpoint.Key() + "/" + strconv.Itoa(instance.ServicePort.Port)
+}
+
+func (instance *ServiceInstance) Equals(other *ServiceInstance) bool {
+	return instance.ServicePort.Equals(other.ServicePort) && instance.Service.Equals(other.Service) && instance.Endpoint.Equals(other.Endpoint)
+}
+
 func (instance *ServiceInstance) CmpOpts() []cmp.Option {
 	res := []cmp.Option{}
 	res = append(res, istioEndpointCmpOpts...)
@@ -405,6 +421,18 @@ type WorkloadInstance struct {
 	DNSServiceEntryOnly bool `json:"dnsServiceEntryOnly,omitempty"`
 }
 
+func (instance *WorkloadInstance) ResourceName() string {
+	return instance.Namespace + "/" + instance.Name
+}
+
+func (instance *WorkloadInstance) GetLabels() map[string]string {
+	return instance.Endpoint.Labels
+}
+
+func (instance *WorkloadInstance) GetNamespace() string {
+	return instance.Namespace
+}
+
 func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
 	return istioEndpointCmpOpts
 }
@@ -417,47 +445,27 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	return &out
 }
 
-// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
-// Returns true if equal, false otherwise.
-func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
-	if first.Endpoint == nil || second.Endpoint == nil {
-		return first.Endpoint == second.Endpoint
-	}
-
-	if !slices.EqualUnordered(first.Endpoint.Addresses, second.Endpoint.Addresses) {
+func (instance *WorkloadInstance) Equals(other *WorkloadInstance) bool {
+	eql := instance.Namespace == other.Namespace &&
+		instance.Name == other.Name &&
+		instance.Kind == other.Kind &&
+		instance.DNSServiceEntryOnly == other.DNSServiceEntryOnly
+	if !eql {
 		return false
 	}
 
-	if first.Endpoint.Network != second.Endpoint.Network {
+	if !maps.Equal(instance.PortMap, other.PortMap) {
 		return false
 	}
-	if first.Endpoint.TLSMode != second.Endpoint.TLSMode {
+
+	if instance.Endpoint == nil || other.Endpoint == nil {
+		return instance.Endpoint == other.Endpoint
+	}
+
+	if !instance.Endpoint.Equals(other.Endpoint) {
 		return false
 	}
-	if !first.Endpoint.Labels.Equals(second.Endpoint.Labels) {
-		return false
-	}
-	if first.Endpoint.ServiceAccount != second.Endpoint.ServiceAccount {
-		return false
-	}
-	if first.Endpoint.Locality != second.Endpoint.Locality {
-		return false
-	}
-	if first.Endpoint.GetLoadBalancingWeight() != second.Endpoint.GetLoadBalancingWeight() {
-		return false
-	}
-	if first.Namespace != second.Namespace {
-		return false
-	}
-	if first.Name != second.Name {
-		return false
-	}
-	if first.Kind != second.Kind {
-		return false
-	}
-	if !maps.Equal(first.PortMap, second.PortMap) {
-		return false
-	}
+
 	return true
 }
 
@@ -641,7 +649,7 @@ func (ep *IstioEndpoint) FirstAddressOrNil() string {
 
 // Key returns a function suitable for usage to distinguish this IstioEndpoint from another
 func (ep *IstioEndpoint) Key() string {
-	return ep.FirstAddressOrNil() + "/" + ep.WorkloadName + "/" + ep.ServicePortName
+	return ep.Namespace + "/" + ep.WorkloadName + "/" + ep.FirstAddressOrNil() + "/" + ep.ServicePortName
 }
 
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
@@ -848,11 +856,10 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 
 // Equals checks whether the attributes are equal from the passed in service.
 func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
-	if s == nil {
-		return other == nil
-	}
-	if other == nil {
-		return s == nil
+	eql := s.Name == other.Name && s.Namespace == other.Namespace &&
+		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+	if !eql {
+		return false
 	}
 
 	if !maps.Equal(s.Labels, other.Labels) {
@@ -890,8 +897,8 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 			return false
 		}
 	}
-	return s.Name == other.Name && s.Namespace == other.Namespace &&
-		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+
+	return true
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -1557,12 +1564,6 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 }
 
 func (p *Port) Equals(other *Port) bool {
-	if p == nil {
-		return other == nil
-	}
-	if other == nil {
-		return p == nil
-	}
 	return p.Name == other.Name && p.Port == other.Port && p.Protocol == other.Protocol
 }
 
@@ -1893,11 +1894,11 @@ func (s *Service) DeepCopy() *Service {
 
 // Equals compares two service objects.
 func (s *Service) Equals(other *Service) bool {
-	if s == nil {
-		return other == nil
-	}
-	if other == nil {
-		return s == nil
+	eql := s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
+		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname &&
+		s.Resolution == other.Resolution && s.MeshExternal == other.MeshExternal
+	if !eql {
+		return false
 	}
 
 	if !s.Attributes.Equals(&other.Attributes) {
@@ -1920,9 +1921,7 @@ func (s *Service) Equals(other *Service) bool {
 		}
 	}
 
-	return s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
-		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname &&
-		s.Resolution == other.Resolution && s.MeshExternal == other.MeshExternal
+	return true
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
@@ -1946,13 +1945,6 @@ func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
 
 // Equals checks whether the attributes are equal from the passed in service.
 func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
-	if ep == nil {
-		return other == nil
-	}
-	if other == nil {
-		return ep == nil
-	}
-
 	// Check things we can directly compare...
 	eq := ep.ServicePortName == other.ServicePortName &&
 		ep.LegacyClusterPortKey == other.LegacyClusterPortKey &&
