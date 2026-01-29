@@ -277,7 +277,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	})
 
 	go func() {
-		log.Infof("Waiting for discovery filter sync for cluster %s before starting all the other informers", c.ID)
+		log.Debugf("Waiting for discovery filter sync for cluster %s before starting all the other informers", c.ID)
 		syncWaiter(c.stop)
 		if !c.Client.RunAndWait(c.stop) {
 			log.Warnf("remote cluster %s failed to sync", c.ID)
@@ -300,9 +300,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 			}
 		}
 
-		log.Infof("remote cluster %s successfully synced after run", c.ID)
 		c.initialSync.Store(true)
-		log.Infof("remote cluster %s initial sync complete", c.ID)
 	}()
 }
 
