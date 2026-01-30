@@ -380,7 +380,7 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, 
 			ClusterName: DoubleHBONEInnerConnectOriginate,
 			Endpoints:   util.BuildInternalEndpoint(DoubleHBONEOuterConnectOriginate, nil),
 		},
-		TypedExtensionProtocolOptions: h2connectUpgradeWithNoPooling(),
+		TypedExtensionProtocolOptions: cb.h2connectUpgradeWithNoPooling(),
 		TransportSocket:               transportSocket,
 	}
 
@@ -402,7 +402,7 @@ func (cb *ClusterBuilder) buildOuterConnectOriginateCluster(proxy *model.Proxy, 
 		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
-		TypedExtensionProtocolOptions: h2connectUpgradeWithNoPooling(),
+		TypedExtensionProtocolOptions: cb.h2connectUpgradeWithNoPooling(),
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UpstreamPortOverride: &wrappers.UInt32Value{
@@ -498,7 +498,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
-		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		TypedExtensionProtocolOptions: cb.h2connectUpgrade(),
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UpstreamPortOverride: &wrappers.UInt32Value{
@@ -528,9 +528,20 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 	return c
 }
 
-func h2connectUpgrade() map[string]*anypb.Any {
+func (cb *ClusterBuilder) getHBONEIdleTimeout() *durationpb.Duration {
+	// Use configured HBONE idle timeout from MeshConfig, or default to 1 hour if not set
+	if cb.req.Push.Mesh.HboneIdleTimeout != nil {
+		return cb.req.Push.Mesh.HboneIdleTimeout
+	}
+	return durationpb.New(3600 * time.Second)
+}
+
+func (cb *ClusterBuilder) h2connectUpgrade() map[string]*anypb.Any {
 	return map[string]*anypb.Any{
 		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				IdleTimeout: cb.getHBONEIdleTimeout(),
+			},
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
@@ -542,7 +553,7 @@ func h2connectUpgrade() map[string]*anypb.Any {
 	}
 }
 
-func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
+func (cb *ClusterBuilder) h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
 	return map[string]*anypb.Any{
 		v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
 			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
@@ -556,6 +567,7 @@ func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
 				// TODO(https://github.com/istio/istio/issues/58039): remove it after deploying a sensible
 				// connection pooling fix for ambient multi-network.
 				MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 1},
+				IdleTimeout:              cb.getHBONEIdleTimeout(),
 			},
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
