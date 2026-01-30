@@ -3723,7 +3723,9 @@ func restartZtunnel(t framework.TestContext, c cluster.Cluster) {
 				}
 			}
 		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
-	ds := c.Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
+	istioCfg := i.Settings()
+	ztunnelNS := istioCfg.ZtunnelNamespace
+	ds := c.Kube().AppsV1().DaemonSets(ztunnelNS)
 	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
@@ -3741,7 +3743,7 @@ func restartZtunnel(t framework.TestContext, c cluster.Cluster) {
 	}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
 		t.Fatalf("failed to wait for ztunnel rollout status for: %v", err)
 	}
-	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], i.Settings().SystemNamespace, "app=ztunnel")); err != nil {
+	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], ztunnelNS, "app=ztunnel")); err != nil {
 		t.Fatal(err)
 	}
 }
