@@ -98,7 +98,7 @@ func buildSNIDFPFilter(port int, svc *model.Service) *listener.Filter {
 // and builds a stack of network filters.
 func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	statPrefix, clusterName, subsetName string, port *model.Port, destinationRule *networking.DestinationRule, applyTunnelingConfig tunnelingconfig.ApplyFunc,
-	includeMx bool,
+	includeMx bool, service *model.Service,
 ) []*listener.Filter {
 	idleTimeout := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetIdleTimeout()
 	if idleTimeout == nil {
@@ -117,6 +117,10 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
 	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
+	// Only pass service for DYNAMIC_DNS wildcard services that need SNI DFP filtering
+	if service != nil && service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
+		return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, service)
+	}
 	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
 }
 
@@ -159,6 +163,15 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, class, policySvc)...)
+
+	// Add SNI DFP filter for sidecar outbound with DYNAMIC_DNS wildcard ServiceEntries (TLS traffic)
+	if class == istionetworking.ListenerClassSidecarOutbound &&
+		policySvc != nil &&
+		policySvc.Hostname.IsWildCarded() &&
+		policySvc.Resolution == model.DynamicDNS {
+		sniDFPFilter := buildSNIDFPFilter(port, policySvc)
+		filters = append(filters, sniDFPFilter)
+	}
 
 	// Terminal filters
 	filters = append(filters, networkFilterStack...)
@@ -293,7 +306,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFilters(
 		}
 
 		return lb.buildOutboundNetworkFiltersWithSingleDestination(
-			statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply, includeMx)
+			statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply, includeMx, nil)
 	}
 	return lb.buildOutboundNetworkFiltersWithWeightedClusters(routes, port, configMeta, destinationRule, includeMx)
 }
