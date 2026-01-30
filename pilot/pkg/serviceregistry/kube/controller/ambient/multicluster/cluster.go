@@ -355,22 +355,9 @@ func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
 		return true
 	}
 
-	// Wait for all the syncers to be populated
-	kube.WaitForCacheSync(fmt.Sprintf("cluster[%s] remote collections init", c.ID), stop, c.hasInitialCollections)
+	// First wait to confirm all of the collections are assigned
+	// and then check if they are synced.
+	kube.WaitForCacheSync(fmt.Sprintf("cluster[%s] synced", c.ID), stop, c.hasInitialCollections, c.HasSynced)
 
-	// Wait for all syncers to be synced
-	for _, syncer := range []krt.Syncer{
-		c.Namespaces(),
-		c.Gateways(),
-		c.Services(),
-		c.Nodes(),
-		c.EndpointSlices(),
-		c.Pods(),
-	} {
-		if !syncer.WaitUntilSynced(stop) {
-			log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
-			return false
-		}
-	}
 	return true
 }
