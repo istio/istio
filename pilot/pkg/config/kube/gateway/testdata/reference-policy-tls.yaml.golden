@@ -19,6 +19,7 @@ spec:
     tls:
       caCertCredentialName: configmap://default/auth-cert-cacert
       credentialName: kubernetes-gateway://cert/cert
+      minProtocolVersion: TLSV1_3
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
