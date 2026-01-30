@@ -1058,7 +1058,9 @@ func serviceEntryWorkloadBuilder(
 		eps := se.Spec.Endpoints
 		// If we have a DNS service, endpoints are not required
 		implicitEndpoints := len(eps) == 0 &&
-			(se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DNS || se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DNS_ROUND_ROBIN) &&
+			(se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DNS ||
+				se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DYNAMIC_DNS ||
+				se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DNS_ROUND_ROBIN) &&
 			se.Spec.WorkloadSelector == nil
 		if len(eps) == 0 && !implicitEndpoints {
 			return nil
@@ -1686,6 +1688,12 @@ func toAppProtocolFromProtocol(p protocol.Instance) workloadapi.AppProtocol {
 		return workloadapi.AppProtocol_HTTP2
 	case protocol.GRPC:
 		return workloadapi.AppProtocol_GRPC
+	case protocol.TLS:
+		return workloadapi.AppProtocol_TLS
+	case protocol.HTTPS:
+		return workloadapi.AppProtocol_TLS
+	case protocol.TCP:
+		return workloadapi.AppProtocol_TCP
 	}
 	return workloadapi.AppProtocol_UNKNOWN
 }
