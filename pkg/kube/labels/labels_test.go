@@ -96,78 +96,7 @@ func TestCanonicalService(t *testing.T) {
 	}
 }
 
-func TestGetAppName(t *testing.T) {
-	tests := []struct {
-		name          string
-		labels        map[string]string
-		expectedValue string
-		expectedOk    bool
-	}{
-		{
-			name:          "empty labels",
-			labels:        map[string]string{},
-			expectedValue: "",
-			expectedOk:    false,
-		},
-		{
-			name: "canonical service label takes priority",
-			labels: map[string]string{
-				model.IstioCanonicalServiceLabelName: "canonical-name",
-				"app.kubernetes.io/name":             "k8s-name",
-				"app":                                "legacy-app",
-			},
-			expectedValue: "canonical-name",
-			expectedOk:    true,
-		},
-		{
-			name: "app.kubernetes.io/name takes priority over app",
-			labels: map[string]string{
-				"app.kubernetes.io/name": "k8s-name",
-				"app":                    "legacy-app",
-			},
-			expectedValue: "k8s-name",
-			expectedOk:    true,
-		},
-		{
-			name: "legacy app label works as fallback",
-			labels: map[string]string{
-				"app": "legacy-app",
-			},
-			expectedValue: "legacy-app",
-			expectedOk:    true,
-		},
-		{
-			name: "only app.kubernetes.io/name set",
-			labels: map[string]string{
-				"app.kubernetes.io/name": "k8s-name",
-			},
-			expectedValue: "k8s-name",
-			expectedOk:    true,
-		},
-		{
-			name: "unrelated labels only",
-			labels: map[string]string{
-				"foo": "bar",
-			},
-			expectedValue: "",
-			expectedOk:    false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			value, ok := GetAppName(tt.labels)
-			if value != tt.expectedValue {
-				t.Errorf("GetAppName() value = %v, want %v", value, tt.expectedValue)
-			}
-			if ok != tt.expectedOk {
-				t.Errorf("GetAppName() ok = %v, want %v", ok, tt.expectedOk)
-			}
-		})
-	}
-}
-
-func TestGetAppNameBackwardCompatible(t *testing.T) {
+func TestGetApp(t *testing.T) {
 	tests := []struct {
 		name          string
 		labels        map[string]string
@@ -235,12 +164,12 @@ func TestGetAppNameBackwardCompatible(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			value, ok := GetAppNameBackwardCompatible(tt.labels)
+			value, ok := GetApp(tt.labels)
 			if value != tt.expectedValue {
-				t.Errorf("GetAppNameBackwardCompatible() value = %v, want %v", value, tt.expectedValue)
+				t.Errorf("GetApp() value = %v, want %v", value, tt.expectedValue)
 			}
 			if ok != tt.expectedOk {
-				t.Errorf("GetAppNameBackwardCompatible() ok = %v, want %v", ok, tt.expectedOk)
+				t.Errorf("GetApp() ok = %v, want %v", ok, tt.expectedOk)
 			}
 		})
 	}

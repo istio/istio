@@ -105,16 +105,7 @@ func canonicalServiceName(labels map[string]string, workloadName string) string 
 	return value
 }
 
-// GetAppName returns the app name from labels, checking the following labels in order:
-// 1. service.istio.io/canonical-name
-// 2. app.kubernetes.io/name
-// 3. app
-// Returns the value and true if found, or empty string and false if none of the labels are present.
-func GetAppName(labels map[string]string) (string, bool) {
-	return lookupLabelValue(labels, nameLabels...)
-}
-
-// GetAppNameBackwardCompatible returns the app name from labels using a backward-compatible
+// GetApp returns the app name from labels using a backward-compatible
 // priority order that checks "app" first for backward compatibility:
 // 1. app
 // 2. app.kubernetes.io/name
@@ -122,6 +113,6 @@ func GetAppName(labels map[string]string) (string, bool) {
 // This is used in serviceClusterOrDefault to maintain backward compatibility for existing users
 // who have both "app" and "app.kubernetes.io/name" labels with different values.
 // Returns the value and true if found, or empty string and false if none of the labels are present.
-func GetAppNameBackwardCompatible(labels map[string]string) (string, bool) {
+func GetApp(labels map[string]string) (string, bool) {
 	return lookupLabelValue(labels, nameLabelsBackwardCompatible...)
 }
