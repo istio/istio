@@ -116,6 +116,7 @@ func (c *ClusterStore) AllReady() map[string]map[cluster.ID]*Cluster {
 	for secret, clusters := range c.remoteClusters {
 		for cid, cl := range clusters {
 			if cl.Closed() || cl.SyncDidTimeout() {
+				log.Warnf("remote cluster %s is closed or timed out, omitting it from the clusters collection", cl.ID)
 				continue
 			}
 			if !cl.HasSynced() {
@@ -217,6 +218,7 @@ func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
 			c.casMu.Lock()
 			c.clustersAwaitingSync.Delete(id)
 			c.casMu.Unlock()
+			log.Debugf("remote cluster %s informers synced, triggering recompute", id)
 		}
 	}()
 }
