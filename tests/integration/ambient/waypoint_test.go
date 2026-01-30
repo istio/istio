@@ -454,7 +454,7 @@ func TestWaypointDNS(t *testing.T) {
 			})
 			t.NewSubTest("with waypoint").Run(func(t framework.TestContext) {
 				// Update use-waypoint for Captured service
-				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint")
+				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint-service")
 				runTest(t, check.And(check.OK(), IsL7()))
 			})
 		})
