@@ -18,8 +18,8 @@ package remotesecretfs
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,9 +65,9 @@ func TestRemoteSecretFromFS(t *testing.T) {
 			}
 
 			retry.UntilOrFail(t, func() bool {
-				infos, err := fetchClusterz(t, primary, i.Settings().SystemNamespace)
+				infos, err := fetchRemoteClusters(t, primary, i.Settings().SystemNamespace)
 				if err != nil {
-					t.Logf("clusterz fetch error: %v", err)
+					t.Logf("remote-clusters fetch error: %v", err)
 					return false
 				}
 				remaining := map[clusterdebug.ID]struct{}{}
@@ -75,6 +75,9 @@ func TestRemoteSecretFromFS(t *testing.T) {
 					remaining[clusterdebug.ID(remote.Name())] = struct{}{}
 				}
 				for _, info := range infos {
+					if !strings.EqualFold(info.SyncStatus, "synced") {
+						return false
+					}
 					delete(remaining, info.ID)
 				}
 				return len(remaining) == 0
@@ -82,26 +85,43 @@ func TestRemoteSecretFromFS(t *testing.T) {
 		})
 }
 
-func fetchClusterz(t framework.TestContext, c cluster.Cluster, namespace string) ([]clusterdebug.DebugInfo, error) {
+func fetchRemoteClusters(t framework.TestContext, c cluster.Cluster, namespace string) ([]clusterdebug.DebugInfo, error) {
 	istioctlClient, err := istioctl.New(t, istioctl.Config{Cluster: c, IstioNamespace: namespace})
 	if err != nil {
 		return nil, err
 	}
-	out, _, err := istioctlClient.Invoke([]string{"x", "internal-debug", "--all", "clusterz"})
+	out, _, err := istioctlClient.Invoke([]string{"remote-clusters"})
 	if err != nil {
 		return nil, err
 	}
-	var perIstiod map[string]string
-	if err := json.Unmarshal([]byte(out), &perIstiod); err != nil {
-		return nil, err
+	return parseRemoteClusters(out)
+}
+
+func parseRemoteClusters(out string) ([]clusterdebug.DebugInfo, error) {
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
+		return nil, fmt.Errorf("remote-clusters returned empty output")
 	}
+
+	// Expect tabular output: NAME\tSECRET\tSTATUS\tISTIOD
 	var infos []clusterdebug.DebugInfo
-	for _, raw := range perIstiod {
-		var entry []clusterdebug.DebugInfo
-		if err := json.Unmarshal([]byte(raw), &entry); err != nil {
-			return nil, err
+	for i, line := range lines {
+		if i == 0 && strings.HasPrefix(line, "NAME") {
+			continue
 		}
-		infos = append(infos, entry...)
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		// Skip local/config clusters that do not have a remote secret.
+		if fields[1] == "" || fields[1] == "-" || fields[1] == "<none>" {
+			continue
+		}
+		infos = append(infos, clusterdebug.DebugInfo{
+			ID:         clusterdebug.ID(fields[0]),
+			SecretName: fields[1],
+			SyncStatus: fields[2],
+		})
 	}
 	return infos, nil
 }
