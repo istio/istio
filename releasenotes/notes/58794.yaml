@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 58794
+- 58476
+releaseNotes:
+- |
+  **Fixed** an issue causing metrics to be reported with unknown labels in ambient multi-network deployments even
+  when baggage-based peer metadata discovery is enabled by setting `AMBIENT_ENABLE_BAGGAGE` environment variable
+  to true for pilot.

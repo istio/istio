@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -719,6 +720,9 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 		expectedDownstreamDiscoveryMethods  []string
 		expectedDownstreamPropagationMethod string
 		expectedUpstreamDiscoveryMethods    []string
+		expectedClusterFilters              []string
+		expectedConnectFilters              []string
+		expectedInnerConnectFilters         []string
 	}{
 		{
 			name:                                "single network ambient uses workload_discovery",
@@ -727,6 +731,9 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
 			expectedDownstreamPropagationMethod: "",
 			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery"},
+			expectedClusterFilters:              []string{},
+			expectedConnectFilters:              []string{wellknown.TCPProxy},
+			expectedInnerConnectFilters:         nil,
 		},
 		{
 			name:                                "ENABLE_AMBIENT_MULTI_NETWORK=true, ENABLE_AMBIENT_BAGGAGE=false",
@@ -735,6 +742,9 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
 			expectedDownstreamPropagationMethod: "",
 			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery"},
+			expectedClusterFilters:              []string{},
+			expectedConnectFilters:              []string{"envoy.filters.network.tcp_proxy"},
+			expectedInnerConnectFilters:         []string{"propagate_endpoint_metadata", wellknown.TCPProxy},
 		},
 		{
 			name:                                "single network ambient uses baggage",
@@ -743,6 +753,9 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
 			expectedDownstreamPropagationMethod: "baggage",
 			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery", "upstream_filter_state"},
+			expectedClusterFilters:              []string{"upstream_hbone_peer_metadata"},
+			expectedConnectFilters:              []string{"upstream_hbone_peer_metadata", wellknown.TCPProxy},
+			expectedInnerConnectFilters:         nil,
 		},
 		{
 			name:                                "multi-network ambient uses baggage",
@@ -751,6 +764,9 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
 			expectedDownstreamPropagationMethod: "baggage",
 			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery", "upstream_filter_state"},
+			expectedClusterFilters:              []string{"upstream_hbone_peer_metadata"},
+			expectedConnectFilters:              []string{"upstream_hbone_peer_metadata", wellknown.TCPProxy},
+			expectedInnerConnectFilters:         []string{"propagate_endpoint_metadata", "upstream_hbone_peer_metadata", "envoy.filters.network.tcp_proxy"},
 		},
 	}
 
@@ -758,6 +774,7 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
 			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableAmbientMultiNetwork)
+			test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, tc.enableAmbientMultiNetwork)
 			test.SetForTest(t, &features.EnableAmbientBaggage, tc.enableAmbientBaggage)
 
 			d, proxy := setupWaypointTest(t,
@@ -863,6 +880,32 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 					g.Expect(discoveryMethods).To(ContainElement(expectedDiscoveryMethod))
 				}
 				// No upstream propagation expected
+
+				c := xdstest.ExtractCluster("inbound-vip|80|http|app.com", d.Clusters(proxy))
+				g.Expect(c).NotTo(BeNil())
+				g.Expect(xdstest.ExtractClusterFilterNames(c.Filters)).To(HaveExactElements(tc.expectedClusterFilters))
+
+				if tc.expectedConnectFilters == nil {
+					g.Expect(listeners).NotTo(HaveKey("connect_originate"))
+				} else {
+					g.Expect(listeners).To(HaveKey("connect_originate"))
+					l := listeners["connect_originate"]
+					fc := xdstest.ExtractFilterChain("", l)
+					g.Expect(fc).NotTo(BeNil())
+					fs, _ := xdstest.ExtractFilterNames(t, fc)
+					g.Expect(fs).To(HaveExactElements(tc.expectedConnectFilters))
+				}
+
+				if tc.expectedInnerConnectFilters == nil {
+					g.Expect(listeners).NotTo(HaveKey("inner_connect_originate"))
+				} else {
+					g.Expect(listeners).To(HaveKey("inner_connect_originate"))
+					l := listeners["inner_connect_originate"]
+					fc := xdstest.ExtractFilterChain("", l)
+					g.Expect(fc).NotTo(BeNil())
+					fs, _ := xdstest.ExtractFilterNames(t, fc)
+					g.Expect(fs).To(HaveExactElements(tc.expectedInnerConnectFilters))
+				}
 			}
 		})
 	}
@@ -889,8 +932,11 @@ func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServe
 	proxy := d.SetupProxy(&model.Proxy{
 		Type:            model.Waypoint,
 		ConfigNamespace: "default",
-		Labels:          map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint"},
-		IPAddresses:     []string{"3.0.0.1"}, // match the WE
+		Labels: map[string]string{
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+		},
+		IPAddresses: []string{"3.0.0.1"}, // match the WE
 	})
 	return d, proxy
 }
