@@ -274,13 +274,52 @@ func getHBONEClientConfig(r *proto.HBONE) (func(info *tls.CertificateRequestInfo
 	return nil, nil
 }
 
+func parseTLSVersion(version string) uint16 {
+	switch version {
+	case "1.0":
+		return tls.VersionTLS10
+	case "1.1":
+		return tls.VersionTLS11
+	case "1.2":
+		return tls.VersionTLS12
+	case "1.3":
+		return tls.VersionTLS13
+	default:
+		return tls.VersionTLS12
+	}
+}
+
+func parseTLSCurves(curves []string) []tls.CurveID {
+	if len(curves) == 0 {
+		return nil
+	}
+	var result []tls.CurveID
+	for _, curve := range curves {
+		switch curve {
+		case "P256", "P-256":
+			result = append(result, tls.CurveP256)
+		case "P384", "P-384":
+			result = append(result, tls.CurveP384)
+		case "P521", "P-521":
+			result = append(result, tls.CurveP521)
+		case "X25519":
+			result = append(result, tls.X25519)
+		case "X25519MLKEM768":
+			result = append(result, tls.X25519MLKEM768)
+		}
+	}
+	return result
+}
+
 func newTLSConfig(c *Config) (*tls.Config, error) {
 	r := c.Request
+	// nolint: gosec // test only code, TLS version is configurable for testing
 	tlsConfig := &tls.Config{
 		GetClientCertificate: c.getClientCertificate,
 		NextProtos:           r.GetAlpn().GetValue(),
 		ServerName:           r.ServerName,
-		MinVersion:           tls.VersionTLS12,
+		MinVersion:           parseTLSVersion(r.TlsMinVersion),
+		CurvePreferences:     parseTLSCurves(r.TlsCurvePreferences),
 	}
 	if r.CaCertFile != "" {
 		certData, err := os.ReadFile(r.CaCertFile)
