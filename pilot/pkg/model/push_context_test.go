@@ -3435,7 +3435,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	ef := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.EnvoyFilter,
-			Annotations:      map[string]string{"envoyfilter.istio.io/referenced-services": "envoyfilter.example.com"},
+			Annotations:      map[string]string{"envoyfilter.istio.io/referenced-services": "envoyfilter.example.com,ratelimiting/grls.ratelimiting.svc.cluster.local"},
 			Name:             "ef",
 			Namespace:        "istio-system",
 		},
@@ -3471,6 +3471,10 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 				Hostname:   "envoyfilter.example.com",
 				Attributes: ServiceAttributes{Namespace: "some-ns"},
 			},
+			{
+				Hostname:   "grls.ratelimiting.svc.cluster.local",
+				Attributes: ServiceAttributes{Namespace: "ratelimiting"},
+			},
 		},
 	}
 	ps.initDefaultExportMaps()
@@ -3484,7 +3488,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 		return e.Hostname.String()
 	})...)
 	// Should match 2 of the 3 providers; one has a mismatched namespace though
-	assert.Equal(t, got, sets.New("otel.foo.svc.cluster.local", "otel.example.com", "envoyfilter.example.com"))
+	assert.Equal(t, got, sets.New("otel.foo.svc.cluster.local", "otel.example.com", "envoyfilter.example.com", "grls.ratelimiting.svc.cluster.local"))
 }
 
 func TestWellKnownProvidersCount(t *testing.T) {

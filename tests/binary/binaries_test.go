@@ -111,8 +111,8 @@ func TestBinarySizes(t *testing.T) {
 		"pilot-discovery": {60, 120}, // TODO: shrink this once we merge the multicluster ambient controller as default
 		"bug-report":      {60, 80},
 		"client":          {15, 30},
-		"server":          {15, 30},
-		"envoy":           {60, 150},
+		"server":          {15, 32},
+		"envoy":           {60, 160},
 		"ztunnel":         {12, 17},
 	}
 

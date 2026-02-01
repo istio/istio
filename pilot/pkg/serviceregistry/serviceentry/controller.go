@@ -582,7 +582,8 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			if len(addressesToDelete) > 0 {
 				cfgInstancesDeleted := []*model.ServiceInstance{}
 				for _, i := range currInstance {
-					di := i.DeepCopy()
+					di := i.ShallowCopy()
+					di.Endpoint = di.Endpoint.ShallowCopy()
 					di.Endpoint.Addresses = addressesToDelete
 					cfgInstancesDeleted = append(cfgInstancesDeleted, di)
 				}
@@ -683,9 +684,7 @@ func (s *Controller) Services() []*model.Service {
 	for i, svc := range allServices {
 		// shallow copy, copy `AutoAllocatedIPv4Address` and `AutoAllocatedIPv6Address`
 		// if return the pointer directly, there will be a race with `BuildNameTable`
-		// nolint: govet
-		shallowSvc := *svc
-		allServices[i] = &shallowSvc
+		allServices[i] = svc.ShallowCopy()
 	}
 	return allServices
 }

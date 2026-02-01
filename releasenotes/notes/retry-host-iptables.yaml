@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue where CNI initialization could fail when creating host iptables/nftables rules for health check probes. The initialization now retries up to 10 times with a 2-second delay between attempts to handle transient failures.

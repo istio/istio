@@ -57,6 +57,9 @@ func (this *Authorization) EqualVT(that *Authorization) bool {
 			}
 		}
 	}
+	if this.DryRun != that.DryRun {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -514,6 +517,16 @@ func (m *Authorization) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.DryRun {
+		i--
+		if m.DryRun {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x30
 	}
 	if len(m.Groups) > 0 {
 		for iNdEx := len(m.Groups) - 1; iNdEx >= 0; iNdEx-- {
@@ -1080,6 +1093,9 @@ func (m *Authorization) SizeVT() (n int) {
 			l = e.SizeVT()
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
+	}
+	if m.DryRun {
+		n += 2
 	}
 	n += len(m.unknownFields)
 	return n

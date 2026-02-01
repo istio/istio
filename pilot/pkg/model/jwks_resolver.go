@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -291,10 +292,45 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string, timeout time.Duration) *envoy_jwt.JwtProvider_LocalJwks {
 	var err error
 	if jwtPubKey == "" {
-		// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
-		// workflow, where the JWT key resolver should have already been initialized on server creation.
-		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI, timeout)
-		if err != nil {
+		// Check if the jwksURI resolves to any blocked CIDRs before fetching the key
+		// If it does, we skip fetching and use the fake jwks instead
+		blocked := false
+		if len(features.BlockedCIDRsInJWKURIs) > 0 {
+			// Parse the URL to get the hostname
+			u, parseErr := url.Parse(jwksURI)
+			if parseErr != nil {
+				log.Errorf("Failed to parse jwksURI %q: %v", jwksURI, parseErr)
+			} else {
+				host := u.Hostname()
+				// Resolve the hostname to get IP addresses
+				ips, resolveErr := net.DefaultResolver.LookupIP(context.Background(), "ip", host)
+				if resolveErr != nil {
+					log.Warnf("Failed to resolve hostname %q from jwksURI %q: %v", host, jwksURI, resolveErr)
+				}
+
+				// Check if any resolved IP is in the blocked list
+				for _, ip := range ips {
+					ipStr := ip.String()
+					// Check CIDR ranges
+					for _, cidr := range features.BlockedCIDRsInJWKURIs {
+						if cidr.Contains(ip) {
+							log.Errorf("jwksURI %q resolved to IP %q which is in blocked CIDR range %s", jwksURI, ipStr, cidr.String())
+							blocked = true
+							break
+						}
+					}
+					if blocked {
+						break
+					}
+				}
+			}
+		}
+		if !blocked {
+			// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
+			// workflow, where the JWT key resolver should have already been initialized on server creation.
+			jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI, timeout)
+		}
+		if err != nil || blocked {
 			log.Infof("The JWKS key is not yet fetched for issuer %s (%s), using a fake JWKS for now", jwtIssuer, jwksURI)
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.

@@ -549,11 +549,59 @@ var optionalPolicyTags = []*tracing.CustomTag{
 	dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.result", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEngineResult),
 }
 
-func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []*tracing.CustomTag {
+// buildWaypointSourceTags creates custom trace tags for waypoints that capture source (client) peer info.
+// Uses Envoy FILTER_STATE FIELD accessor to extract all available fields from downstream_peer_obj.
+// The peer_metadata filter stores WorkloadMetadataObject under downstream_peer_obj key,
+// while CelState is stored under downstream_peer key for CEL expression compatibility.
+// All fields are extracted individually to support dynamic addition of new fields in WorkloadMetadataObject.
+func buildWaypointSourceTags() []*tracing.CustomTag {
+	buildDownstreamFilterStateTag := func(tagName, fieldName string) *tracing.CustomTag {
+		return &tracing.CustomTag{
+			Tag: tagName,
+			Type: &tracing.CustomTag_Value{
+				Value: fmt.Sprintf("%%FILTER_STATE(downstream_peer_obj:FIELD:%s)%%", fieldName),
+			},
+		}
+	}
+	buildUpstreamFilterStateTag := func(tagName, fieldName string) *tracing.CustomTag {
+		return &tracing.CustomTag{
+			Tag: tagName,
+			Type: &tracing.CustomTag_Value{
+				Value: fmt.Sprintf("%%FILTER_STATE(upstream_peer_obj:FIELD:%s)%%", fieldName),
+			},
+		}
+	}
+
+	// Extract all available fields from WorkloadMetadataObject
+	// See: proxy/extensions/common/metadata_object.h for field definitions
+	return []*tracing.CustomTag{
+		buildUpstreamFilterStateTag("istio.destination_workload", "workload"),
+		buildUpstreamFilterStateTag("istio.destination_namespace", "namespace"),
+		buildUpstreamFilterStateTag("istio.destination_cluster_id", "cluster"),
+		buildUpstreamFilterStateTag("istio.destination_canonical_service", "service"),
+		buildUpstreamFilterStateTag("istio.destination_canonical_revision", "revision"),
+		buildUpstreamFilterStateTag("istio.destination_app", "app"),
+		buildUpstreamFilterStateTag("istio.destination_app_version", "version"),
+		buildUpstreamFilterStateTag("istio.destination_workload_type", "type"),
+		buildUpstreamFilterStateTag("istio.destination_instance_name", "name"),
+
+		buildDownstreamFilterStateTag("istio.source_workload", "workload"),
+		buildDownstreamFilterStateTag("istio.source_namespace", "namespace"),
+		buildDownstreamFilterStateTag("istio.source_cluster_id", "cluster"),
+		buildDownstreamFilterStateTag("istio.source_canonical_service", "service"),
+		buildDownstreamFilterStateTag("istio.source_canonical_revision", "revision"),
+		buildDownstreamFilterStateTag("istio.source_app", "app"),
+		buildDownstreamFilterStateTag("istio.source_app_version", "version"),
+		buildDownstreamFilterStateTag("istio.source_workload_type", "type"),
+		buildDownstreamFilterStateTag("istio.source_instance_name", "name"),
+	}
+}
+
+func buildServiceTags(node *model.Proxy) []*tracing.CustomTag {
 	var revision, service string
-	if labels != nil {
-		revision = labels["service.istio.io/canonical-revision"]
-		service = labels["service.istio.io/canonical-name"]
+	if node.Labels != nil {
+		revision = node.Labels["service.istio.io/canonical-revision"]
+		service = node.Labels["service.istio.io/canonical-name"]
 	}
 	if revision == "" {
 		revision = "latest"
@@ -562,19 +610,19 @@ func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []
 	if service == "" {
 		service = "unknown"
 	}
-	meshID := metadata.MeshID
+	meshID := node.Metadata.MeshID
 	if meshID == "" {
 		meshID = "unknown"
 	}
-	namespace := metadata.Namespace
+	namespace := node.Metadata.Namespace
 	if namespace == "" {
 		namespace = "default"
 	}
-	clusterID := string(metadata.ClusterID)
+	clusterID := string(node.Metadata.ClusterID)
 	if clusterID == "" {
 		clusterID = "unknown"
 	}
-	return []*tracing.CustomTag{
+	tags := []*tracing.CustomTag{
 		{
 			Tag: "istio.canonical_revision",
 			Type: &tracing.CustomTag_Literal_{
@@ -616,6 +664,8 @@ func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []
 			},
 		},
 	}
+
+	return tags
 }
 
 func configureSampling(hcmTracing *hcm.HttpConnectionManager_Tracing, providerPercentage float64) {
@@ -656,10 +706,15 @@ func configureCustomTags(spec *model.TracingSpec, hcmTracing *hcm.HttpConnection
 			enableIstioTags = proxyCfg.GetTracing().GetEnableIstioTags().GetValue()
 		}
 		if enableIstioTags {
-			tags = append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
+			tags = append(buildServiceTags(node), optionalPolicyTags...)
 		}
 	} else if spec.EnableIstioTags {
-		tags = append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
+		tags = append(buildServiceTags(node), optionalPolicyTags...)
+	}
+
+	// For waypoint proxies, add source peer tags to capture client workload info.
+	if node.Type == model.Waypoint {
+		tags = append(tags, buildWaypointSourceTags()...)
 	}
 
 	if len(providerTags) == 0 {

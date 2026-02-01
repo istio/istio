@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+area: installation
+issue:
+  - 58277
+releaseNotes:
+- |
+  **Fixed** `istio-gateway` helm chart values schema to allow top-level `enabled` field.

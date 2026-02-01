@@ -26,6 +26,8 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	ktypes "istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestCustomRegistration(t *testing.T) {
@@ -51,6 +53,8 @@ func TestCustomRegistration(t *testing.T) {
 	if inf.Informer == nil {
 		t.Errorf("Expected valid informer, got empty")
 	}
+	inf.Start(test.NewStop(t))
+	assert.Equal(t, true, kube.WaitForCacheSync("test", test.NewStop(t), inf.Informer.HasSynced))
 }
 
 var _ TypeRegistration[*v1.NetworkPolicy] = (*internalTypeReg[*v1.NetworkPolicy])(nil)

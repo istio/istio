@@ -78,8 +78,8 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, ga
 }
 
 // Select the config pertaining to the service being processed.
-func getConfigsForHost(filterNamespace string, hostname host.Name, configs []config.Config) []config.Config {
-	svcConfigs := make([]config.Config, 0)
+func getConfigsForHost(filterNamespace string, hostname host.Name, configs []*config.Config) []*config.Config {
+	svcConfigs := make([]*config.Config, 0)
 	for _, cfg := range configs {
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
@@ -102,7 +102,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 
 func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDRs []string,
 	service *model.Service, bind string, listenPort *model.Port,
-	gateways sets.String, configs []config.Config,
+	gateways sets.String, configs []*config.Config,
 ) []*filterChainOpts {
 	if !listenPort.Protocol.IsTLS() {
 		return nil
@@ -229,7 +229,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 
 func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDRs []string,
 	service *model.Service, listenPort *model.Port,
-	gateways sets.String, configs []config.Config,
+	gateways sets.String, configs []*config.Config,
 ) []*filterChainOpts {
 	if listenPort.Protocol.IsTLS() {
 		return nil

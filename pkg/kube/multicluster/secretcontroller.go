@@ -66,6 +66,13 @@ var (
 		"Current synchronization state of remote clusters managed by istiod. "+
 			"One sample per cluster and state; a value of 1 indicates the cluster is in that state.",
 	)
+
+	eventLabel = monitoring.CreateLabel("event")
+
+	secretEvents = monitoring.NewSum(
+		"remote_cluster_secret_events_total",
+		"Number of remote cluster secret events.",
+	)
 )
 
 type handler interface {
@@ -151,7 +158,20 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	controller.queue = controllers.NewQueue("multicluster secret",
 		controllers.WithReconciler(controller.processItem))
 
-	secrets.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
+	secrets.AddEventHandler(controllers.EventHandler[*corev1.Secret]{
+		AddFunc: func(obj *corev1.Secret) {
+			secretEvents.With(eventLabel.Value("add")).Increment()
+			controller.queue.AddObject(obj)
+		},
+		UpdateFunc: func(oldObj, newObj *corev1.Secret) {
+			secretEvents.With(eventLabel.Value("update")).Increment()
+			controller.queue.AddObject(newObj)
+		},
+		DeleteFunc: func(obj *corev1.Secret) {
+			secretEvents.With(eventLabel.Value("delete")).Increment()
+			controller.queue.AddObject(obj)
+		},
+	})
 	return controller
 }
 

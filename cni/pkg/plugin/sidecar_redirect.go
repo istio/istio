@@ -23,6 +23,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/log"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 )
 
@@ -69,9 +70,9 @@ var (
 		"includeInboundPorts":        {includeInboundPortsKey, defaultIncludeInboundPorts, validatePortListWithWildcard},
 		"excludeOutboundPorts":       {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
 		"includeOutboundPorts":       {includeOutboundPortsKey, defaultIncludeOutboundPorts, validatePortListWithWildcard},
-		"kubevirtInterfaces":         {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc}, // DEPRECATED
-		"reroute-virtual-interfaces": {rerouteVirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
-		"excludeInterfaces":          {excludeInterfacesKey, defaultExcludeInterfaces, alwaysValidFunc},
+		"kubevirtInterfaces":         {kubevirtInterfacesKey, defaultKubevirtInterfaces, netutil.ValidateInterfaceNames}, // DEPRECATED
+		"reroute-virtual-interfaces": {rerouteVirtInterfacesKey, defaultKubevirtInterfaces, netutil.ValidateInterfaceNames},
+		"excludeInterfaces":          {excludeInterfacesKey, defaultExcludeInterfaces, netutil.ValidateInterfaceNames},
 	}
 )
 

@@ -24,9 +24,9 @@ RUN apt-get update && \
     /var/lib/dpkg/*-old \
     /var/cache/debconf/*-old
 
-RUN go get -u github.com/dvyukov/go-fuzz/go-fuzz \
-    github.com/dvyukov/go-fuzz/go-fuzz-dep \
-    github.com/dvyukov/go-fuzz/go-fuzz-build
+RUN go get -u github.com/dvyukov/go-fuzz/go-fuzz@e577bee5275c42f9a3ff598ade77fe9806191345 \
+    github.com/dvyukov/go-fuzz/go-fuzz-dep@e577bee5275c42f9a3ff598ade77fe9806191345 \
+    github.com/dvyukov/go-fuzz/go-fuzz-build@e577bee5275c42f9a3ff598ade77fe9806191345
 
 COPY . /istio
 WORKDIR /istio

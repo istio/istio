@@ -264,6 +264,14 @@ func ExtractFilterNames(t test.Failer, fcs *listener.FilterChain) ([]string, []s
 	return nwFilters, httpFilters
 }
 
+func ExtractClusterFilterNames(filters []*cluster.Filter) []string {
+	names := []string{}
+	for _, f := range filters {
+		names = append(names, f.Name)
+	}
+	return names
+}
+
 func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *tcpproxy.TcpProxy {
 	for _, fc := range fcs.Filters {
 		if fc.Name == wellknown.TCPProxy {

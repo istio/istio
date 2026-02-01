@@ -25,4 +25,5 @@ add chain inet istio-ambient-mangle istio-prerouting
 add chain inet istio-ambient-mangle istio-output
 add rule inet istio-ambient-mangle prerouting jump istio-prerouting
 add rule inet istio-ambient-mangle output jump istio-output
+add rule inet istio-ambient-mangle istio-prerouting meta mark & 0xfff == 0x539 counter ct mark set ct mark & 0xfffff000 |  0x111
 add rule inet istio-ambient-mangle istio-output ct mark and 0xfff == 0x111 counter meta mark set ct mark

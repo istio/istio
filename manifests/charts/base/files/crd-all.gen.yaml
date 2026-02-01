@@ -6626,7 +6626,6 @@ spec:
                               type: object
                           type: object
                         waypoint:
-                          description: Match on waypoint attributes.
                           properties:
                             filter:
                               description: The name of a specific filter to apply
@@ -10704,7 +10703,7 @@ spec:
                           properties:
                             bytes:
                               description: response body as base64 encoded bytes.
-                              format: binary
+                              format: byte
                               type: string
                             string:
                               type: string
@@ -11756,7 +11755,7 @@ spec:
                           properties:
                             bytes:
                               description: response body as base64 encoded bytes.
-                              format: binary
+                              format: byte
                               type: string
                             string:
                               type: string
@@ -12808,7 +12807,7 @@ spec:
                           properties:
                             bytes:
                               description: response body as base64 encoded bytes.
-                              format: binary
+                              format: byte
                               type: string
                             string:
                               type: string

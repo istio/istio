@@ -230,6 +230,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		return builder
 	}
 
+	if model.ShouldCreateDoubleHBONEResources(builder.node) {
+		listeners = append(listeners,
+			buildInnerConnectOriginateListener(builder.push, builder.node),
+			buildOuterConnectOriginateListener(builder.push, builder.node))
+	}
+
 	builder.gatewayListeners = listeners
 	return builder
 }
@@ -407,13 +413,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	isH3DiscoveryNeeded := merged.HTTP3AdvertisingRoutes.Contains(routeName)
 
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
-	gatewayVirtualServices := make(map[string][]config.Config)
+	gatewayVirtualServices := make(map[string][]*config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		port := int(server.Port.Number)
 
-		var virtualServices []config.Config
+		var virtualServices []*config.Config
 		var exists bool
 
 		if virtualServices, exists = gatewayVirtualServices[gatewayName]; !exists {
@@ -434,7 +440,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 
 			// Make sure we can obtain services which are visible to this virtualService as much as possible.
-			nameToServiceMap := buildNameToServiceMapForHTTPRoutes(node, push, virtualService)
+			nameToServiceMap := buildNameToServiceMapForHTTPRoutes(node, push, *virtualService)
 
 			var routes []*route.Route
 			var exists bool
@@ -443,12 +449,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				gatewayRoutes[gatewayName] = make(map[string][]*route.Route)
 			}
 
-			infPoolConfigs := istio_route.CheckAndGetInferencePoolConfigs(virtualService)
+			infPoolConfigs := istio_route.CheckAndGetInferencePoolConfigs(*virtualService)
 
 			vskey := virtualService.Name + "/" + virtualService.Namespace
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
-				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService)
+				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, *virtualService)
 				opts := istio_route.RouteOptions{
 					IsTLS:                     server.Tls != nil,
 					IsHTTP3AltSvcHeaderNeeded: isH3DiscoveryNeeded,
@@ -463,7 +469,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					},
 					InferencePoolExtensionRefs: infPoolConfigs,
 				}
-				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, port, sets.New(gatewayName), opts)
+				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, *virtualService, port, sets.New(gatewayName), opts)
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 					continue
@@ -1018,7 +1024,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
-func pickMatchingGatewayHosts(gatewayServerHosts sets.Set[host.Name], virtualService config.Config) map[string]host.Name {
+func pickMatchingGatewayHosts(gatewayServerHosts sets.Set[host.Name], virtualService *config.Config) map[string]host.Name {
 	matchingHosts := make(map[string]host.Name)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {

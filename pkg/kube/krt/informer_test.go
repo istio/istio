@@ -46,25 +46,25 @@ func TestNewInformer(t *testing.T) {
 
 	assert.Equal(t, ConfigMaps.List(), nil)
 
-	cmA := &corev1.ConfigMap{
+	cmA := kube.EnsureTypeMeta(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "a",
 			Namespace: "ns",
 		},
-	}
-	cmA2 := &corev1.ConfigMap{
+	})
+	cmA2 := kube.EnsureTypeMeta(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "a",
 			Namespace: "ns",
 		},
 		Data: map[string]string{"foo": "bar"},
-	}
-	cmB := &corev1.ConfigMap{
+	})
+	cmB := kube.EnsureTypeMeta(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "b",
 			Namespace: "ns",
 		},
-	}
+	})
 	cmt.Create(cmA)
 	tt.WaitOrdered("add/ns/a")
 	assert.Equal(t, ConfigMaps.List(), []*corev1.ConfigMap{cmA})
@@ -113,7 +113,7 @@ func TestUnregisteredTypeCollection(t *testing.T) {
 	)
 	npcoll := krt.NewInformer[*v1.NetworkPolicy](c, opts.WithName("NetworkPolicies")...)
 	c.RunAndWait(test.NewStop(t))
-	assert.Equal(t, npcoll.List(), []*v1.NetworkPolicy{np})
+	assert.Equal(t, npcoll.List(), []*v1.NetworkPolicy{kube.EnsureTypeMeta(np)})
 }
 
 func TestInformerCollectionMetadata(t *testing.T) {

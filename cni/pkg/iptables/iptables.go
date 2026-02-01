@@ -275,15 +275,15 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		}
 	}
 
-	if !podOverrides.IngressMode {
-		// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
-		//
-		// DESC: If we have a packet mark, set a connmark.
-		iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle", "-m", "mark",
-			"--mark", inpodMark,
-			"-j", "CONNMARK",
-			"--set-xmark", inpodTproxyMark)
+	// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
+	//
+	// DESC: If we have a packet mark, set a connmark.
+	iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle", "-m", "mark",
+		"--mark", inpodMark,
+		"-j", "CONNMARK",
+		"--set-xmark", inpodTproxyMark)
 
+	if !podOverrides.IngressMode {
 		// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
 		// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
 		//

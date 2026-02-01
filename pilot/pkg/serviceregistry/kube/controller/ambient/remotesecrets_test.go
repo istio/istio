@@ -17,6 +17,7 @@ package ambient
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -84,6 +85,7 @@ func makeSecret(namespace string, secret string, clusterConfigs ...clusterCreden
 
 func TestBuildRemoteClustersCollection(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	test.SetForTest(t, &features.RemoteClusterTimeout, 1*time.Second)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "remote-cluster-secret",
@@ -160,6 +162,8 @@ func TestBuildRemoteClustersCollection(t *testing.T) {
 
 			if tt.expectedError {
 				assert.Equal(t, listClusters(), 0)
+				// Wait for a little after the cluster timeout to confirm no segfaults or panics
+				time.Sleep(features.RemoteClusterTimeout + 500*time.Millisecond)
 			} else {
 				assert.EventuallyEqual(t, listClusters, 1)
 			}
@@ -550,10 +554,12 @@ func TestSeamlessMigration(t *testing.T) {
 
 func TestSecretController(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	test.SetForTest(t, &features.RemoteClusterTimeout, 1*time.Second)
 	client := kube.NewFakeClient()
 
 	var (
-		secret0 = makeSecret(secretNamespace, "s0",
+		secret0Bad = makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("bad-kubeconfig")})
+		secret0    = makeSecret(secretNamespace, "s0",
 			clusterCredential{"c0", []byte("kubeconfig0-0")})
 		secret0UpdateKubeconfigChanged = makeSecret(secretNamespace, "s0",
 			clusterCredential{"c0", []byte("kubeconfig0-1")})
@@ -585,16 +591,23 @@ func TestSecretController(t *testing.T) {
 	steps := []struct {
 		name string
 		// only set one of these per step. The others should be nil.
-		add    *corev1.Secret
-		update *corev1.Secret
-		delete *corev1.Secret
-
-		want []result
+		add             *corev1.Secret
+		update          *corev1.Secret
+		delete          *corev1.Secret
+		want            []result
+		wantClientError bool
+		afterTestDelay  time.Duration
 	}{
 		{
-			name: "Create secret s0 and add kubeconfig for cluster c0, which will add remote cluster c0",
-			add:  secret0,
-			want: []result{{"config", 1}, {"c0", 2}},
+			name:            "Create secret s0 with bad kubeconfig for cluster c0, which will lead to the cluster object being unsynced and timing out",
+			add:             secret0Bad,
+			want:            []result{{"config", 1}}, // We don't expect to see the failed cluster here because it was never healthy
+			wantClientError: true,
+		},
+		{
+			name:   "Create secret s0 and add kubeconfig for cluster c0, which will add remote cluster c0",
+			update: secret0,
+			want:   []result{{"config", 1}, {"c0", 2}},
 		},
 		{
 			name:   "Update secret s0 and update the kubeconfig of cluster c0, which will update remote cluster c0",
@@ -685,6 +698,27 @@ func TestSecretController(t *testing.T) {
 		DomainSuffix:    "company.com",
 		MeshConfig:      watcher,
 	}
+	// Mostly the same as testingBuildClientsFromConfig(), but we will make the client return an error
+	// if the test case asks
+	options.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		client := kube.NewFakeClient()
+
+		if strings.Contains(string(kubeConfig), "bad-kubeconfig") {
+			// Create a bad fake client instead
+			client = kube.NewErroringFakeClient()
+		}
+		for _, crd := range []schema.GroupVersionResource{
+			gvr.AuthorizationPolicy,
+			gvr.PeerAuthentication,
+			gvr.KubernetesGateway,
+			gvr.GatewayClass,
+			gvr.WorkloadEntry,
+			gvr.ServiceEntry,
+		} {
+			clienttest.MakeCRD(t, client, crd)
+		}
+		return client, nil
+	}
 	t.Cleanup(options.Client.Shutdown)
 	// The creation of the stop has to be after the cleanup is registered because cleanup is LIFO
 	stopCh := test.NewStop(t)
@@ -722,7 +756,6 @@ func TestSecretController(t *testing.T) {
 		retry.UntilOrFail(t, tc.clusters.HasSynced, retry.Timeout(2*time.Second))
 	})
 	kube.WaitForCacheSync("test", stopCh, tc.clusters.HasSynced, handlers.HasSynced)
-
 	for _, step := range steps {
 		t.Run(step.name, func(t *testing.T) {
 			switch {
@@ -733,13 +766,16 @@ func TestSecretController(t *testing.T) {
 			case step.delete != nil:
 				secrets.Delete(step.delete.Name, step.delete.Namespace)
 			}
-
 			assert.EventuallyEqual(t, func() []result {
 				res := slices.Map(handlers.List(), func(e testHandler) result {
 					return result{e.ID, e.Iter}
 				})
 				return res
 			}, step.want)
+			if step.afterTestDelay > 0 {
+				// Wait for the cluster to time out to confirm we don't segfault
+				time.Sleep(features.RemoteClusterTimeout + 500*time.Millisecond)
+			}
 		})
 	}
 }

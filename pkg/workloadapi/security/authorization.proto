@@ -34,6 +34,10 @@ message Authorization {
   // take place.
   // Groups are OR-ed.
   repeated Group groups = 5;
+
+  // Whether or not this is a dry run policy.
+  // Dry run policies are not enforced, but their matches are logged
+  bool dry_run = 6;
 }
 
 message Group {

@@ -162,6 +162,8 @@ spec:
           name: tcp-health-port
 {{- else if and ($appContainer.ImageFullPath) (eq .Port 17171) }}
           name: tcp-health-port
+{{- else if and $p.Name (le (len $p.Name) 15) }}
+          name: {{ $p.Name }}
 {{- end }}
 {{- end }}
         env:

@@ -58,14 +58,31 @@ func (j *join[T]) List() []T {
 	var res []T
 	if j.uncheckedOverlap {
 		first := true
+		var seen sets.String
+		if EnableAssertions {
+			seen = sets.New[string]()
+		}
 		for _, c := range j.collections {
 			objs := c.List()
 			// As an optimization, take the first (non-empty) result as-is without copying
 			if len(objs) > 0 && first {
 				res = objs
 				first = false
+				if EnableAssertions {
+					for _, i := range objs {
+						seen.Insert(GetKey(i))
+					}
+				}
 			} else {
 				// After the first, safely merge into the result
+				if EnableAssertions {
+					for _, i := range objs {
+						key := GetKey(i)
+						if seen.InsertContains(key) {
+							panic("Join collection has overlapping keys in unchecked mode: " + key)
+						}
+					}
+				}
 				res = append(res, objs...)
 			}
 		}
@@ -98,24 +115,24 @@ func (j *join[T]) List() []T {
 }
 
 func (j *join[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched[T](j, f)
+	return registerHandlerAsBatched(j, f)
 }
 
 func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
-	// Fast path for unchecked overlap: use List() directly without locking or tracking processedState
+	// Fast path for unchecked overlap: register directly with sub-collections (old behavior)
+	// This avoids the indirection layer of handleSubCollectionEvents and eventHandlers.Distribute
 	if j.uncheckedOverlap {
-		var initialEvents []Event[T]
-		if runExistingState {
-			for _, obj := range j.List() {
-				objCopy := obj
-				initialEvents = append(initialEvents, Event[T]{
-					New:   &objCopy,
-					Event: controllers.EventAdd,
-				})
-			}
+		sync := multiSyncer{}
+		removes := []func(){}
+		for _, c := range j.collections {
+			reg := c.RegisterBatch(f, runExistingState)
+			removes = append(removes, reg.UnregisterHandler)
+			sync.syncers = append(sync.syncers, reg)
 		}
-		reg := j.eventHandlers.Insert(f, j, initialEvents, j.stop)
-		return reg
+		return joinHandlerRegistration{
+			Syncer:  sync,
+			removes: removes,
+		}
 	}
 
 	j.mu.Lock()
@@ -140,15 +157,21 @@ func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Han
 	return reg
 }
 
+type joinHandlerRegistration struct {
+	Syncer
+	removes []func()
+}
+
+func (j joinHandlerRegistration) UnregisterHandler() {
+	for _, remover := range j.removes {
+		remover()
+	}
+}
+
 // handleSubCollectionEvents processes events from a sub-collection, refreshing them
 // based on the current state of all collections, then distributes to registered handlers.
+// This is only used for checked mode (uncheckedOverlap=false).
 func (j *join[T]) handleSubCollectionEvents(events []Event[T], sourceCollectionIdx int) {
-	// Fast path for unchecked overlap: no conflict resolution, no state tracking, no locking
-	if j.uncheckedOverlap {
-		j.eventHandlers.Distribute(events, !j.HasSynced())
-		return
-	}
-
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
@@ -187,9 +210,6 @@ func (j *join[T]) getFromColIdx(idx int, key string) *T {
 
 	// HACK: StaticCollectoin (which we use in test) does not care what key you pass to Get
 	if GetKey(*obj) != key {
-		if EnableAssertions {
-			panic("join: getFromColIdx: collection returned object with wrong key. Wanted: " + key + " got: " + GetKey(*obj))
-		}
 		return nil
 	}
 
@@ -356,15 +376,6 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	c := slices.Map(cs, func(e Collection[T]) internalCollection[T] {
 		return e.(internalCollection[T])
 	})
-	go func() {
-		for _, c := range c {
-			if !c.WaitUntilSynced(o.stop) {
-				return
-			}
-		}
-		close(synced)
-		log.Infof("%v synced", o.name)
-	}()
 	if o.stop == nil {
 		panic("no stop channel")
 	}
@@ -374,8 +385,6 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		synced:           synced,
 		collections:      c,
 		uncheckedOverlap: o.joinUnchecked,
-		eventHandlers:    newHandlerSet[T](),
-		processedState:   make(map[string]*T),
 		stop:             o.stop,
 		syncer: channelSyncer{
 			name:   o.name,
@@ -387,6 +396,26 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		j.metadata = o.metadata
 	}
 
+	// For unchecked mode, we don't need the centralized event handling infrastructure.
+	// Handlers register directly with sub-collections in RegisterBatch.
+	if o.joinUnchecked {
+		// for unchecked, we waitn for the sub-collections to sync here
+		go func() {
+			for _, c := range c {
+				if !c.WaitUntilSynced(o.stop) {
+					return
+				}
+			}
+			close(synced)
+			log.Infof("%v synced", o.name)
+		}()
+		return j
+	}
+
+	// Checked mode: set up centralized event handling with conflict resolution
+	j.eventHandlers = newHandlerSet[T]()
+	j.processedState = make(map[string]*T)
+
 	// Register handlers on sub-collections ONCE during construction
 	// These handlers will process events from sub-collections and distribute to registered handlers
 	var subHandlerRegs []HandlerRegistration
@@ -395,10 +424,22 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		handler := func(events []Event[T]) {
 			j.handleSubCollectionEvents(events, collectionIdx)
 		}
-		// Don't run existing state - we handle that in RegisterBatch
-		reg := subCol.RegisterBatch(handler, false)
+		// run existing state to populate processedState
+		reg := subCol.RegisterBatch(handler, true)
 		subHandlerRegs = append(subHandlerRegs, reg)
 	}
+
+	// in checked mode, we wait for the registrations to sync rather
+	// than the collections directly to ensure processedState is populated
+	go func() {
+		for _, reg := range subHandlerRegs {
+			if !reg.WaitUntilSynced(o.stop) {
+				return
+			}
+		}
+		close(synced)
+		log.Infof("%v synced", o.name)
+	}()
 
 	// Clean up sub-collection handlers when this collection's stop is closed
 	go func() {

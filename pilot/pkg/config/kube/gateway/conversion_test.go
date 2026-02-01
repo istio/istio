@@ -90,7 +90,7 @@ var services = []*model.Service{
 		Attributes: model.ServiceAttributes{
 			Name:      "istio-ingressgateway",
 			Namespace: "istio-system",
-			ClusterExternalAddresses: &model.AddressMap{
+			ClusterExternalAddresses: model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					constants.DefaultClusterName: {"1.2.3.4"},
 				},
@@ -157,6 +157,30 @@ var services = []*model.Service{
 		},
 		Ports:    inferencePoolPorts,
 		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen2")))),
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+			Labels: map[string]string{
+				InferencePoolExtensionRefSvc:         "model1-epp",
+				InferencePoolExtensionRefPort:        "9002",
+				InferencePoolExtensionRefFailureMode: "FailClose",
+			},
+		},
+		Ports:    ports,
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-model1")))),
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+			Labels: map[string]string{
+				InferencePoolExtensionRefSvc:         "model2-epp",
+				InferencePoolExtensionRefPort:        "9002",
+				InferencePoolExtensionRefFailureMode: "FailClose",
+			},
+		},
+		Ports:    ports,
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-model2")))),
 	},
 
 	{
@@ -568,6 +592,7 @@ func init() {
 	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientWaypoints = true
 	features.EnableAmbientMultiNetwork = true
+	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
 	classInfos = getClassInfos()
 	builtinClasses = getBuiltinClasses()

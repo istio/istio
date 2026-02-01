@@ -102,7 +102,7 @@ type VirtualHostWrapper struct {
 // and a list of Services from the service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
 func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
-	virtualServices []config.Config, listenPort int, mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
+	virtualServices []*config.Config, listenPort int, mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
@@ -112,7 +112,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 
 	// First build virtual host wrappers for services that have virtual services.
 	for _, virtualService := range virtualServices {
-		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService)
+		hashByDestination, destinationRules := hashForVirtualService(push, node, *virtualService)
 		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
 		wrappers := buildSidecarVirtualHostsForVirtualService(
 			node, virtualService, serviceRegistry, hashByDestination, listenPort, push, mostSpecificWildcardVsIndex,
@@ -240,7 +240,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 // It may return an empty list if no VirtualService rule has a matching service.
 func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
-	virtualService config.Config,
+	virtualService *config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination DestinationHashMap,
 	listenPort int,
@@ -249,7 +249,7 @@ func buildSidecarVirtualHostsForVirtualService(
 ) []VirtualHostWrapper {
 	meshGateway := sets.New(constants.IstioMeshGateway)
 
-	infPoolConfigs := CheckAndGetInferencePoolConfigs(virtualService)
+	infPoolConfigs := CheckAndGetInferencePoolConfigs(*virtualService)
 
 	opts := RouteOptions{
 		// Sidecar is never terminating TLS
@@ -268,16 +268,16 @@ func buildSidecarVirtualHostsForVirtualService(
 		InferencePoolExtensionRefs: infPoolConfigs,
 	}
 
-	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService,
+	routes, err := BuildHTTPRoutesForVirtualService(node, *virtualService,
 		listenPort, meshGateway, opts)
 	if err != nil || len(routes) == 0 {
 		return nil
 	}
 
-	hosts, matchingRegistryServices := separateVSHostsAndServices(virtualService, serviceRegistry, mostSpecificWildcardVsIndex)
+	hosts, matchingRegistryServices := separateVSHostsAndServices(*virtualService, serviceRegistry, mostSpecificWildcardVsIndex)
 
 	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
-	if model.UseGatewaySemantics(virtualService) {
+	if model.UseGatewaySemantics(*virtualService) {
 		res := make([]*model.Service, 0, len(matchingRegistryServices))
 		for _, s := range matchingRegistryServices {
 			if s.Attributes.Namespace != virtualService.Namespace && node.ConfigNamespace != virtualService.Namespace {

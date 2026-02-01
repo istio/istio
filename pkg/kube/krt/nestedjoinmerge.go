@@ -236,6 +236,7 @@ func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 			// This is a bug; the old items map should only contain items that are in the outputs.
 			msg := fmt.Sprintf("BUG: Expected to find key %v in outputs during a collection update in %s, but it was not found", key, j.collectionName)
 			if EnableAssertions {
+				msg += fmt.Sprintf(" in %s(%T)", j.collectionName, j)
 				panic(msg)
 			}
 			j.log.Warn(msg)

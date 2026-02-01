@@ -15,6 +15,8 @@
 package core
 
 import (
+	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -72,6 +74,12 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "no telemetry api",
 			opts:            fakeOptsNoTelemetryAPI(),
 			want:            fakeTracingConfigNoProvider(55.55, 13, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: nil,
+		},
+		{
+			name:            "no telemetry api (waypoint)",
+			opts:            fakeOptsNoTelemetryAPIWaypoint(),
+			want:            fakeTracingConfigNoProvider(55.55, 13, waypointTracingTags(fakeEnvTag)),
 			wantReqIDExtCtx: nil,
 		},
 		{
@@ -594,6 +602,35 @@ func defaultTracingTags() []*tracing.CustomTag {
 		})
 }
 
+func waypointTracingTags(extra ...*tracing.CustomTag) []*tracing.CustomTag {
+	tags := append([]*tracing.CustomTag{}, defaultTracingTags()...)
+	tags = append(tags,
+		// FIELD accessor tags for waypoint source tracking (uses {downstream,upstream}_peer_obj key)
+		&tracing.CustomTag{Tag: "istio.destination_app", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:app)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_app_version", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:version)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_canonical_revision", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:revision)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_canonical_service", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:service)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_cluster_id", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:cluster)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_instance_name", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:name)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_namespace", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:namespace)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_workload", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:workload)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_workload_type", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:type)%"}},
+
+		&tracing.CustomTag{Tag: "istio.source_app", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:app)%"}},
+		&tracing.CustomTag{Tag: "istio.source_app_version", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:version)%"}},
+		&tracing.CustomTag{Tag: "istio.source_canonical_revision", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:revision)%"}},
+		&tracing.CustomTag{Tag: "istio.source_canonical_service", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:service)%"}},
+		&tracing.CustomTag{Tag: "istio.source_cluster_id", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:cluster)%"}},
+		&tracing.CustomTag{Tag: "istio.source_instance_name", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:name)%"}},
+		&tracing.CustomTag{Tag: "istio.source_namespace", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:namespace)%"}},
+		&tracing.CustomTag{Tag: "istio.source_workload", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:workload)%"}},
+		&tracing.CustomTag{Tag: "istio.source_workload_type", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:type)%"}},
+	)
+	tags = append(tags, extra...)
+	sort.Slice(tags, func(i, j int) bool { return tags[i].Tag < tags[j].Tag })
+	return tags
+}
+
 func fakeOptsWithDefaultProviders() gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
@@ -659,6 +696,12 @@ func fakeOptsNoTelemetryAPI() gatewayListenerOpts {
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
+	return opts
+}
+
+func fakeOptsNoTelemetryAPIWaypoint() gatewayListenerOpts {
+	opts := fakeOptsNoTelemetryAPI()
+	opts.proxy.Type = model.Waypoint
 	return opts
 }
 
@@ -2020,6 +2063,88 @@ func TestGetHeaderValue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := getHeaderValue(tc.input)
 			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestConfigureCustomTagsForWaypoint(t *testing.T) {
+	tests := []struct {
+		name       string
+		proxyType  model.NodeType
+		wantSource bool
+	}{
+		{
+			name:       "waypoint proxy should have source tag",
+			proxyType:  model.Waypoint,
+			wantSource: true,
+		},
+		{
+			name:       "sidecar proxy should not have source tag",
+			proxyType:  model.SidecarProxy,
+			wantSource: false,
+		},
+		{
+			name:       "router proxy should not have source tag",
+			proxyType:  model.Router,
+			wantSource: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := &model.Proxy{
+				Type:     tt.proxyType,
+				Metadata: &model.NodeMetadata{},
+			}
+			proxyCfg := &meshconfig.ProxyConfig{
+				Tracing: &meshconfig.Tracing{},
+			}
+			hcmTracing := &hcm.HttpConnectionManager_Tracing{}
+
+			// Configure custom tags
+			configureCustomTags(nil, hcmTracing, map[string]*tpb.Tracing_CustomTag{}, proxyCfg, proxy)
+
+			// Expected FILTER_STATE tags for waypoint source tracking.
+			// Field names must match WorkloadMetadataObject token constants from:
+			// proxy/extensions/common/metadata_object.h
+			expectedTags := map[string]string{
+				"istio.source_workload":           "workload",
+				"istio.source_namespace":          "namespace",
+				"istio.source_cluster_id":         "cluster",
+				"istio.source_canonical_service":  "service",
+				"istio.source_canonical_revision": "revision",
+				"istio.source_app":                "app",
+				"istio.source_app_version":        "version",
+				"istio.source_workload_type":      "type",
+				"istio.source_instance_name":      "name",
+			}
+			foundTags := make(map[string]bool)
+			for _, tag := range hcmTracing.CustomTags {
+				if expectedField, ok := expectedTags[tag.Tag]; ok {
+					foundTags[tag.Tag] = true
+					// Verify FILTER_STATE format with FIELD accessor
+					value := tag.GetValue()
+					if value == "" {
+						t.Errorf("tag %s should use Value type with FILTER_STATE, but got empty", tag.Tag)
+					} else {
+						expectedValue := fmt.Sprintf("%%FILTER_STATE(downstream_peer_obj:FIELD:%s)%%", expectedField)
+						assert.Equal(t, expectedValue, value,
+							"tag %s should have FILTER_STATE format", tag.Tag)
+					}
+				}
+			}
+
+			if tt.wantSource {
+				for tagName := range expectedTags {
+					if !foundTags[tagName] {
+						t.Errorf("waypoint proxy should have tag %s, but it doesn't", tagName)
+					}
+				}
+			} else {
+				for tagName := range foundTags {
+					t.Errorf("non-waypoint proxy should not have tag %s, but it does", tagName)
+				}
+			}
 		})
 	}
 }

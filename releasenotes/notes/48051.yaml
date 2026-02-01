@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 48051
+releaseNotes:
+  - |
+    **Added** introduce `statsCompression` option in proxyConfig to allow global configuration of HTTP compression for the Envoy stats endpoint exposing its metrics. This is enabled by default, offering `brotli`, `gzip` and `zstd` depending on the `Accept-Header` sent by the client.
+    **Deprecated** remove the `sidecar.istio.io/statsCompression` annotation, which is replaced by the `statsCompression` proxyConfig option. Per Pod overrides are still possible via `proxy.istio.io/config` annotation.
+
+upgradeNotes:
+  - title: HTTP compression of Envoy metrics (`prometheus_stats`) enabled by default.
+    content: |
+        The annotation `sidecar.istio.io/statsCompression` was deprecated and removed.
+
+        There now is the `statsCompression` option in proxyConfig to globally control compression support of the metrics endpoint (`prometheus_stats`) of Envoy.
+        The default of this value is `true`, offering `brotli`, `gzip` and `zstd` depending on the `Accept-Header` sent by the client.
+
+        Most metric scrapers allow individual configuration of compression. If you still need to override this per Pod, you can set `statsCompression: false` via the `proxy.istio.io/config` annotation.

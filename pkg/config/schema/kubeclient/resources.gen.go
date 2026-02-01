@@ -705,7 +705,7 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 	}
 	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
 		inf := cache.NewSharedIndexInformer(
-			&cache.ListWatch{
+			cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
@@ -716,7 +716,7 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 					options.LabelSelector = opts.LabelSelector
 					return w(options)
 				},
-			},
+			}, c),
 			gvrToObject(g),
 			0,
 			cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},

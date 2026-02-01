@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 58594
+releaseNotes:
+- |
+  **Fixed** an issue where the overload manager resource monitor for global downstream max connections
+  was hardcoded to the maximum integer value and could not be configured via Runtime Flags. 
+  Users can now configure the global downstream max connections limit via proxy metadata `ISTIO_META_GLOBAL_DOWNSTREAM_MAX_CONNECTIONS`.
+  The runtime flag `overload.global_downstream_max_connections` is still honoured if specified for backwards compatibility but is deprecated in favor
+  of this new approach of using proxy metadata. 
+
+  If `overload.global_downstream_max_connections` is specified, Envoy deprecated warnings will appear.
+
+  If both `ISTIO_META_GLOBAL_DOWNSTREAM_MAX_CONNECTIONS` and `overload.global_downstream_max_connections` are specified,
+  proxy metadata will take precedence over the runtime flag.
+  

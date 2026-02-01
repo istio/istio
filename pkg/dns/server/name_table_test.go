@@ -200,10 +200,10 @@ func TestNameTable(t *testing.T) {
 			ServiceRegistry: provider.External,
 		},
 	}
-	serviceWithVIP2 := serviceWithVIP1.DeepCopy()
+	serviceWithVIP2 := serviceWithVIP1.ShallowCopy()
 	serviceWithVIP2.DefaultAddress = "10.0.0.6"
 
-	decoratedService := serviceWithVIP1.DeepCopy()
+	decoratedService := serviceWithVIP1.ShallowCopy()
 	decoratedService.DefaultAddress = "10.0.0.7"
 	decoratedService.Attributes.ServiceRegistry = provider.Kubernetes
 

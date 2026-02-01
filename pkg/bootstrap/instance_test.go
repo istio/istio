@@ -203,30 +203,6 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
-			base: "stats_compression_gzip",
-			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "gzip",
-			},
-		},
-		{
-			base: "stats_compression_brotli",
-			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "brotli",
-			},
-		},
-		{
-			base: "stats_compression_zstd",
-			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "zstd",
-			},
-		},
-		{
-			base: "stats_compression_unknown",
-			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "unknown",
-			},
-		},
-		{
 			base: "stats_flush_interval",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsFlushInterval": "10s",
@@ -251,6 +227,24 @@ func TestGolden(t *testing.T) {
 				"sidecar.istio.io/statsEvictionInterval": "20s",
 			},
 		},
+		{
+			base: "global_downstream_max_connections_meta",
+			envVars: map[string]string{
+				GlobalDownstreamMaxConnections: "10000",
+			},
+		},
+		{
+			base: "global_downstream_max_connections_runtime",
+		},
+		{
+			base: "global_downstream_max_connections_both",
+			envVars: map[string]string{
+				GlobalDownstreamMaxConnections: "20000",
+			},
+		},
+		{
+			base: "stats_compression",
+		},
 	}
 
 	test.SetForTest(t, &version.Info.Version, "binary-1.0")
@@ -268,6 +262,14 @@ func TestGolden(t *testing.T) {
 			proxyConfig, err := loadProxyConfig(c.base, out, t)
 			if err != nil {
 				t.Fatalf("unable to load proxy config: %s\n%v", c.base, err)
+			}
+
+			// Set ProxyMetadata from env vars for global downstream max connections
+			if proxyConfig.ProxyMetadata == nil {
+				proxyConfig.ProxyMetadata = make(map[string]string)
+			}
+			if val, ok := c.envVars[GlobalDownstreamMaxConnections]; ok {
+				proxyConfig.ProxyMetadata[GlobalDownstreamMaxConnections] = val
 			}
 
 			_, localEnv := createEnv(t, map[string]string{}, c.annotations)

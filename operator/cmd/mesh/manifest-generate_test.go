@@ -784,6 +784,24 @@ func TestBogusControlPlaneSec(t *testing.T) {
 	}
 }
 
+func TestBadK8sSpec(t *testing.T) {
+	inPathBase := filepath.Join(testDataDir, "input/invalid-k8s.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts, []string{"templates/deployment.yaml"})
+	if err == nil {
+		t.Fatal("expected error for invalid k8s spec")
+	}
+	assert.Equal(t, true, strings.Contains(err.Error(), "could not unmarshal"))
+}
+
+func TestBadK8sSpecValues(t *testing.T) {
+	inPathBase := filepath.Join(testDataDir, "input/invalid-k8s-values.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts, []string{"templates/deployment.yaml"})
+	if err == nil {
+		t.Fatal("expected error for invalid k8s spec")
+	}
+	assert.Equal(t, true, strings.Contains(err.Error(), "invalid schema for"))
+}
+
 func TestInstallPackagePath(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{

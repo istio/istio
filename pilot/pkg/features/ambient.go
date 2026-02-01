@@ -63,6 +63,9 @@ var (
 	EnableAmbientMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK", false, false,
 		"If true, the multi-network functionality will be enabled.")
 
+	EnableAmbientBaggage = registerAmbient("AMBIENT_ENABLE_BAGGAGE", false, false,
+		"If true, enables waypoints to use baggage header to discover and propagate peer metadata for metrics.")
+
 	// Using just EnableAmbientMultiNetwork is not enough for users that already experiment with ambient multi-network and use istio from head.
 	// While we don't provide much guarantees for alpha features like ambient multi-network, if it's easy to avoid breaking users unnecessarily
 	// we should do that.
@@ -72,10 +75,19 @@ var (
 		"If true and AMBIENT_ENABLE_MULTI_NETWORK is also true, it will enable waypoints to route requests to clusters on remote networks, "+
 			"while by default waypoints will keep traffic local.")
 
+	EnableAmbientIngressMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK_INGRESS", false, false,
+		"If true and AMBIENT_ENABLE_MULTI_NETWORK is also true, it will enable ingress gateways to route requests to clusters on remote "+
+			"networks while by default ingress gateways will keep traffic local.")
+
 	WaypointLayeredAuthorizationPolicies = env.Register(
 		"ENABLE_LAYERED_WAYPOINT_AUTHORIZATION_POLICIES",
 		false,
 		"If enabled, selector based authorization policies will be enforced as L4 policies in front of the waypoint.").Get()
+
+	EnableWdsDryRunAuthzPol = registerAmbient("AMBIENT_ENABLE_DRY_RUN_AUTHORIZATION_POLICY", false, false,
+		"If enabled, ztunnel will be configured with dry-run authorizationPolicies. "+
+			"Ensure ztunnel is 1.29 or above before enabling this feature. "+
+			"Older ztunnel will accept dry-run policies, but enforce them instead of only logging.")
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set

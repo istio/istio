@@ -37,6 +37,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/util/sets"
 	istioversion "istio.io/istio/pkg/version"
 )
@@ -493,4 +494,8 @@ func AllSynced[T Syncer](syncers []T) bool {
 		}
 	}
 	return true
+}
+
+func EnsureTypeMeta[T kubetypes.TypeMetaSetGVK](t T) T {
+	return kubetypes.EnsureTypeMeta(t)
 }

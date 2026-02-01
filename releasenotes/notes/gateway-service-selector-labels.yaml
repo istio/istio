@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: installation
+
+releaseNotes:
+- |
+  **Added** `service.selectorLabels` field to gateway Helm chart for custom service selector labels during revision-based migrations.
