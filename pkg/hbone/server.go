@@ -116,16 +116,14 @@ func handleDoubleConnect(w http.ResponseWriter, r *http.Request, tlsConfig *tls.
 
 	w.WriteHeader(http.StatusOK)
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		// downstream (hbone client) <-- upstream (single hbone server)
 		copyBuffered(w, clientConn, log.WithLabels("name", "pipe to outer client"))
 		err := r.Body.Close()
 		if err != nil {
 			log.Infof("connection to hbone client is not closed: %v", err)
 		}
-		wg.Done()
-	}()
+	})
 
 	// downstream (hbone client) --> upstream (app)
 	copyBuffered(clientConn, r.Body, log.WithLabels("name", "body to inner server"))
@@ -151,16 +149,14 @@ func handleConnect(w http.ResponseWriter, r *http.Request) bool {
 	log.Infof("Connected to %v", r.Host)
 	w.WriteHeader(http.StatusOK)
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		// downstream (hbone client) <-- upstream (app)
 		copyBuffered(w, dst, log.WithLabels("name", "dst to w"))
 		err = r.Body.Close()
 		if err != nil {
 			log.Infof("connection to hbone client is not closed: %v", err)
 		}
-		wg.Done()
-	}()
+	})
 
 	// downstream (hbone client) --> upstream (app)
 	copyBuffered(dst, r.Body, log.WithLabels("name", "body to dst"))
