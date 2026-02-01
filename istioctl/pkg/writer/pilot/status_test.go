@@ -17,7 +17,6 @@ package pilot
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
 	istioversion "istio.io/istio/pkg/version"
@@ -205,10 +205,8 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			want, _ := os.ReadFile(tt.wantFile)
-			if got.String() != string(want) {
-				t.Errorf("Unexpected output for '%s' (verbosity=%d)\n got: %q\nwant: %q", tt.name, tt.verbosity, got.String(), string(want))
-			}
+
+			util.CompareContent(t, got.Bytes(), tt.wantFile)
 		})
 	}
 }
