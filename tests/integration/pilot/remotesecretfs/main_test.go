@@ -17,16 +17,10 @@
 package remotesecretfs
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -45,9 +39,6 @@ func TestMain(m *testing.M) {
 		SkipIf("requires at least 2 clusters", func(ctx resource.Context) bool {
 			return ctx.Clusters().Len() < 2
 		}).
-		Setup(func(t resource.Context) error {
-			return ensureRemoteKubeconfigSecret(t, istio.DefaultSystemNamespace)
-		}).
 		Setup(istio.Setup(&i, func(_ resource.Context, cfg *istio.Config) {
 			cfg.SkipDeployCrossClusterSecrets = true
 			cfg.ControlPlaneValues = fmt.Sprintf(`values:
@@ -64,25 +55,4 @@ func TestMain(m *testing.M) {
 `, remoteKubeconfigMountPath, remoteKubeconfigMountPath, remoteKubeconfigSecret)
 		})).
 		Run()
-}
-
-func ensureRemoteKubeconfigSecret(ctx resource.Context, namespace string) error {
-	for _, c := range ctx.Clusters().Primaries() {
-		if err := ensureNamespace(c, namespace); err != nil {
-			return err
-		}
-		if err := upsertSecret(c, namespace, map[string][]byte{}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func ensureNamespace(c cluster.Cluster, name string) error {
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
-	_, err := c.Kube().CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return err
-	}
-	return nil
 }
