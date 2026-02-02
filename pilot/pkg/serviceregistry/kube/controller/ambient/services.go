@@ -121,7 +121,7 @@ func (a *index) ServicesCollection(
 	return WorkloadServices
 }
 
-func GlobalMergedWorkloadServicesCollection(
+func GlobalNestedWorkloadServicesCollection(
 	localCluster *multicluster.Cluster,
 	localServiceInfos krt.Collection[model.ServiceInfo],
 	localWaypoints krt.Collection[Waypoint],
