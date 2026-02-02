@@ -53,6 +53,7 @@ func TestMain(m *testing.M) {
 			return ensureRemoteKubeconfigSecret(t, istio.DefaultSystemNamespace)
 		}).
 		Setup(istio.Setup(&i, func(_ resource.Context, cfg *istio.Config) {
+			cfg.SkipDeployCrossClusterSecrets = true
 			cfg.ControlPlaneValues = fmt.Sprintf(`values:
   pilot:
     env:
