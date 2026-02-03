@@ -677,6 +677,108 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	runNetworkFilterTest(t, ds, networkFiltered, "")
 }
 
+func TestEndpointsByNetworkFilter_ProxyWithEmptyNetwork(t *testing.T) {
+	network1 := network.ID("network-1")
+	network1IP := "1.1.1.1"
+	network2 := network.ID("network-2")
+	network2IP := "2.2.2.2"
+	workloadIP := "3.3.3.3"
+
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		Services: []*model.Service{{
+			Hostname:   "example.ns.svc.cluster.local",
+			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+			Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+		}},
+		Gateways: []model.NetworkGateway{
+			{
+				Network: network1,
+				Addr:    network1IP,
+				Port:    15443,
+			},
+			{
+				Network: network2,
+				Addr:    network2IP,
+				Port:    15443,
+			},
+		},
+	})
+	ds.Env().InitNetworksManager(ds.Discovery)
+
+	shards := model.NewEndpointIndex(model.NewXdsCache())
+	svc, _ := shards.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+	svc.Lock()
+	svc.Shards[model.ShardKey{Cluster: constants.DefaultClusterName}] = []*model.IstioEndpoint{
+		// Case 1: Endpoint with an address in an unknown network
+		{
+			Network:         "network-without-gateway",
+			Addresses:       []string{workloadIP},
+			ServicePortName: "http",
+			Namespace:       "ns",
+			HostName:        "example.ns.svc.cluster.local",
+			EndpointPort:    8080,
+			TLSMode:         "istio",
+			Labels:          map[string]string{"app": "example"},
+		},
+		// Case 2: Endpoint with an address on network with gateway
+		{
+			Network:         network1,
+			Addresses:       []string{"10.10.10.10"},
+			ServicePortName: "http",
+			Namespace:       "ns",
+			HostName:        "example.ns.svc.cluster.local",
+			EndpointPort:    8080,
+			TLSMode:         "istio",
+			Labels:          map[string]string{"app": "example"},
+		},
+		// Case 3: Endpoint without addresses on a known network
+		{
+			Network:         network2,
+			Addresses:       []string{""},
+			ServicePortName: "http",
+			Namespace:       "ns",
+			HostName:        "example.ns.svc.cluster.local",
+			EndpointPort:    8080,
+			TLSMode:         "istio",
+			Labels:          map[string]string{"app": "example"},
+		},
+		// Case 4: Endpoint without addresses on an unknown network
+		{
+			Network:         "network-without-gateway",
+			Addresses:       []string{""},
+			ServicePortName: "http",
+			Namespace:       "ns",
+			HostName:        "example.ns.svc.cluster.local",
+			EndpointPort:    8080,
+			TLSMode:         "istio",
+			Labels:          map[string]string{"app": "example"},
+		},
+	}
+	svc.Unlock()
+
+	proxy := ds.SetupProxy(&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Network: "",
+		},
+	})
+	cn := "outbound|80||example.ns.svc.cluster.local"
+	b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+	filtered := b.BuildClusterLoadAssignment(shards).Endpoints
+
+	want := []xdstest.LocLbEpInfo{
+		{
+			LbEps: []xdstest.LbEpInfo{
+				{Address: workloadIP, Weight: 1}, // Case 1
+				{Address: network1IP, Weight: 1}, // Case 2
+				{Address: network2IP, Weight: 1}, // Case 3
+				// Case 4 not included
+			},
+			Weight: 3,
+		},
+	}
+	xdstest.CompareEndpointsOrFail(t, cn, filtered, want)
+}
+
 func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
