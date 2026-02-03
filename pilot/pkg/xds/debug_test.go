@@ -15,6 +15,7 @@
 package xds_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -24,10 +25,13 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	xdsfake "istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestSyncz(t *testing.T) {
@@ -231,5 +235,144 @@ func TestDebugHandlers(t *testing.T) {
 	debug.ServeHTTP(rr, req)
 	if rr.Code != 200 {
 		t.Errorf("Error in generatating debug endpoint list")
+	}
+}
+
+func TestDebugAuthorization(t *testing.T) {
+	tests := []struct {
+		name       string
+		identities []string
+		path       string
+		wantAllow  bool
+	}{
+		{
+			name:       "istio-system namespace allowed all endpoints",
+			identities: []string{"spiffe://cluster.local/ns/istio-system/sa/istiod"},
+			path:       "/debug/configz",
+			wantAllow:  true,
+		},
+		{
+			name:       "istio-system namespace allowed sidecarz",
+			identities: []string{"spiffe://cluster.local/ns/istio-system/sa/istiod"},
+			path:       "/debug/sidecarz",
+			wantAllow:  true,
+		},
+		{
+			name:       "non-istio-system namespace denied configz",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/configz",
+			wantAllow:  false,
+		},
+		{
+			name:       "non-istio-system namespace denied sidecarz",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/sidecarz",
+			wantAllow:  false,
+		},
+		{
+			name:       "non-istio-system namespace denied adsz",
+			identities: []string{"spiffe://cluster.local/ns/malicious/sa/attacker"},
+			path:       "/debug/adsz",
+			wantAllow:  false,
+		},
+		{
+			name:       "non-istio-system namespace allowed config_dump",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/config_dump",
+			wantAllow:  true,
+		},
+		{
+			name:       "non-istio-system namespace allowed ndsz",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/ndsz",
+			wantAllow:  true,
+		},
+		{
+			name:       "non-istio-system namespace allowed edsz",
+			identities: []string{"spiffe://cluster.local/ns/production/sa/payment"},
+			path:       "/debug/edsz",
+			wantAllow:  true,
+		},
+		{
+			name:       "invalid identity denied",
+			identities: []string{"not-a-spiffe-id"},
+			path:       "/debug/configz",
+			wantAllow:  false,
+		},
+		{
+			name:       "empty identities denied",
+			identities: []string{},
+			path:       "/debug/configz",
+			wantAllow:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+			req, err := http.NewRequest(http.MethodGet, tt.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got := s.Discovery.AuthorizeDebugRequest(tt.identities, req)
+			if got != tt.wantAllow {
+				t.Errorf("AuthorizeDebugRequest() = %v, want %v", got, tt.wantAllow)
+			}
+		})
+	}
+}
+
+// TestDebugProxyNamespaceRestriction verifies that non-system namespaces can only access
+// debug info for proxies in their own namespace. This test would FAIL before the fix.
+func TestDebugProxyNamespaceRestriction(t *testing.T) {
+	test.SetForTest(t, &features.EnableDebugEndpointAuth, true)
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+
+	// Create a proxy in production namespace
+	ads := s.ConnectADS().WithID("sidecar~10.0.0.1~test.production~production.svc.cluster.local")
+	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+
+	tests := []struct {
+		name       string
+		callerNS   string
+		proxyID    string
+		wantStatus int
+	}{
+		{
+			name:       "system namespace accesses any proxy",
+			callerNS:   "istio-system",
+			proxyID:    "test.production",
+			wantStatus: 200,
+		},
+		{
+			name:       "same namespace allowed",
+			callerNS:   "production",
+			proxyID:    "test.production",
+			wantStatus: 200,
+		},
+		{
+			name:       "cross-namespace denied",
+			callerNS:   "staging",
+			proxyID:    "test.production",
+			wantStatus: 404, // Returns 404 when proxy not accessible
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest(http.MethodGet, "/debug/config_dump?proxyID="+tt.proxyID, nil)
+
+			// Inject caller namespace into context (simulating auth middleware)
+			ctx := context.WithValue(req.Context(), xds.CallerNamespaceKey{}, tt.callerNS)
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(s.Discovery.ConfigDump)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, rr.Code, tt.wantStatus,
+				"namespace=%s accessing proxyID=%s", tt.callerNS, tt.proxyID)
+		})
 	}
 }
