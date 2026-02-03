@@ -287,11 +287,16 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Execute External Control Plane Installer Script
 	if cfg.ControlPlaneInstaller != "" && !cfg.DeployIstio {
-		scopes.Framework.Infof("============= Execute Control Plane Installer =============")
+		scopes.Framework.Infof("=== BEGIN: Execute Control Plane Installer ===")
 		cmd := exec.Command(cfg.ControlPlaneInstaller, "install", workDir)
-		if err := cmd.Run(); err != nil {
-			scopes.Framework.Errorf("failed to run external control plane installer: %v", err)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			scopes.Framework.Errorf("Execute Control Plane Installer failed on: %v\nInstaller output:\n%s", err, string(output))
+			scopes.Framework.Infof("=== FAILED: Execute Control Plane Installer ===")
+			return nil, err
 		}
+		scopes.Framework.Debugf("Control Plane Installer output:\n%s", string(output))
+		scopes.Framework.Infof("=== DONE: Execute Control Plane Installer ===")
 	}
 
 	if !cfg.DeployIstio {
