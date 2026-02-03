@@ -110,9 +110,14 @@ func New(client kube.Client, opts Option) *Client {
 func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) *Client {
 	schemasByCRDName := map[string]resource.Schema{}
 	for _, s := range schemas.All() {
-		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
-		name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
-		schemasByCRDName[name] = s
+		// Exclude Synthetic resources from watching
+		if !s.IsSynthetic() {
+			// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
+			name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
+			schemasByCRDName[name] = s
+		} else {
+			scope.Debugf("excluded %s synthetic resource from watching in crdclient", s.Identifier())
+		}
 	}
 
 	stop := make(chan struct{})
