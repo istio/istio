@@ -238,6 +238,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			gwc := agentgateway.NewAgwController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions)
 			// TODO(jaellio): Does this need to be a part of the environment?
 			s.environment.AgentgatewayController = gwc
+			s.agentgatewayController = gwc
 			s.ConfigStores = append(s.ConfigStores, s.environment.AgentgatewayController)
 		}
 	}

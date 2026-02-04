@@ -40,6 +40,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
@@ -112,9 +113,12 @@ type Server struct {
 
 	multiclusterController *multicluster.Controller
 
+	// TODO(jaellio): Why do we need configController and ConfigStores
 	configController       model.ConfigStoreController
 	ConfigStores           []model.ConfigStoreController
 	serviceEntryController *serviceentry.Controller
+	// TODO(jaellio): Consider just referencing registrations here directly
+	agentgatewayController *agentgateway.Controller
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
@@ -331,9 +335,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
 
-	if features.EnableAgentgateway {
-		InitCollections(s.XDSServer)
-	}
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
 		return nil, err
@@ -423,6 +424,11 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if s.kubeClient != nil {
 		s.addStartFunc("kube client", func(stop <-chan struct{}) error {
 			s.kubeClient.RunAndWait(stop)
+			if features.EnableAgentgateway {
+				// TODO(jaellio): is this needed?
+				s.waitForCacheSync(stop)
+				s.XDSServer.InitCollections(s.agentgatewayController.Registrations...)
+			}
 			return nil
 		})
 	}

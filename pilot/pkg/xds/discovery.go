@@ -139,7 +139,7 @@ type DiscoveryServer struct {
 
 	krtDebugger *krt.DebugHandler
 
-	Registrations []CollectionRegistration
+	registrations []CollectionRegistration
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -174,14 +174,18 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 
 	out.initJwksResolver()
 
-	if features.EnableAgentgateway {
-		out.Collections = make(map[string]CollectionGenerator)
-		for _, r := range reg {
-			out.registrations = append(out.registrations, r(out.Collections, out.pushChannel))
-		}
-	}
-
 	return out
+}
+
+func (s *DiscoveryServer) InitCollections(reg ...Registration) {
+	if s.Collections != nil {
+		log.Debug("skipping collection initialization since Collections is already set")
+		return
+	}
+	s.Collections = make(map[string]CollectionGenerator)
+	for _, r := range reg {
+		s.registrations = append(s.registrations, r(s.Collections, s.pushChannel))
+	}
 }
 
 // initJwkResolver initializes the JWT key resolver to be used.
