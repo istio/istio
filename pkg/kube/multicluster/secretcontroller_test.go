@@ -108,7 +108,7 @@ func TestKubeConfigOverride(t *testing.T) {
 
 func TestControllerFileSource(t *testing.T) {
 	root := t.TempDir()
-	test.SetForTest(t, &features.RemoteClusterSecretPath, root)
+	test.SetForTest(t, &features.MulticlusterKubeconfigPath, root)
 	test.SetForTest(t, &features.LocalClusterSecretWatcher, true)
 	test.SetForTest(t, &features.ExternalIstiod, true)
 	t.Setenv("KUBERNETES_SERVICE_HOST", "")

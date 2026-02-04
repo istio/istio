@@ -110,10 +110,10 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config),
 ) *Controller {
 	var source remoteConfigSource
-	enableSourceStart := (features.LocalClusterSecretWatcher && features.ExternalIstiod) || features.RemoteClusterSecretPath != ""
+	enableSourceStart := (features.LocalClusterSecretWatcher && features.ExternalIstiod) || features.MulticlusterKubeconfigPath != ""
 
-	if features.RemoteClusterSecretPath != "" {
-		source = newFileConfigSource(features.RemoteClusterSecretPath, namespace)
+	if features.MulticlusterKubeconfigPath != "" {
+		source = newFileConfigSource(features.MulticlusterKubeconfigPath, namespace)
 	} else {
 		informerClient := kubeclientset
 		// When these two are set to true, Istiod will be watching the namespace in which
