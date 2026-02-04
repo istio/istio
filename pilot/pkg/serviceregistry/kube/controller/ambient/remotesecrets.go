@@ -86,10 +86,6 @@ func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig [
 	), nil
 }
 
-func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger *krt.DebugHandler) error {
-	return a.addRemoteConfig(name, s.Data, debugger)
-}
-
 func (a *index) addRemoteConfig(name types.NamespacedName, data map[string][]byte, debugger *krt.DebugHandler) error {
 	secretKey := name.String()
 	// First delete clusters
@@ -181,7 +177,7 @@ func (a *index) processSecretEvent(key types.NamespacedName) error {
 	scrt := ptr.Flatten(a.secrets.GetKey(key.String()))
 	if scrt != nil {
 		log.Debugf("secret %s exists in secret collection, processing it", key)
-		if err := a.addSecret(key, scrt, a.Debugger); err != nil {
+		if err := a.addRemoteConfig(key, scrt.Data, a.Debugger); err != nil {
 			return fmt.Errorf("error adding secret %s: %v", key, err)
 		}
 	} else {
@@ -218,14 +214,14 @@ func (a *index) buildRemoteClustersCollection(
 	localClusters.Record(1.0)
 	remoteClusters.Record(0.0)
 
-	if features.RemoteClusterSecretPath != "" {
+	if features.MulticlusterKubeconfigPath != "" {
 		kubeconfigs, err := filesecrets.NewKubeconfigCollection(
-			features.RemoteClusterSecretPath,
+			features.MulticlusterKubeconfigPath,
 			options.SystemNamespace,
 			opts.WithName("RemoteKubeconfigs")...,
 		)
 		if err != nil {
-			log.Errorf("Failed to load remote kubeconfigs from %q: %v", features.RemoteClusterSecretPath, err)
+			log.Errorf("Failed to load remote kubeconfigs from %q: %v", features.MulticlusterKubeconfigPath, err)
 			kubeconfigs = krt.NewStaticCollection[filesecrets.KubeconfigEntry](nil, nil, opts.WithName("RemoteKubeconfigs")...)
 		}
 		a.kubeconfigs = kubeconfigs
