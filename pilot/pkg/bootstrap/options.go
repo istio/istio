@@ -199,12 +199,12 @@ func TLSCipherSuites(cipherNames []string) ([]uint16, error) {
 func TLSMinVersion(version string) (uint16, error) {
 	switch version {
 	case "1.0", "1.1":
-		return 0, fmt.Errorf("TLS version: %s is not supported. Only %s and %s are supported.", version, TLSMinVersion1_2, TLSMinVersion1_3)
+		return tls.VersionTLS12, fmt.Errorf("tls version: %s is not supported. Only %s and %s are supported", version, TLSMinVersion1_2, TLSMinVersion1_3)
 	case TLSMinVersion1_2:
 		return tls.VersionTLS12, nil
 	case TLSMinVersion1_3:
 		return tls.VersionTLS13, nil
 	}
 
-	return 0, fmt.Errorf("Unknown TLS version: %s. Only %s and %s are supported.", version, TLSMinVersion1_2, TLSMinVersion1_3)
+	return tls.VersionTLS12, fmt.Errorf("unknown TLS version: %s. Only %s and %s are supported", version, TLSMinVersion1_2, TLSMinVersion1_3)
 }

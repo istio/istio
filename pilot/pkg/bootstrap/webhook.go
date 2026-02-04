@@ -53,7 +53,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 
 	tlsConfig := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
-		MinVersion:     args.ServerOptions.TLSOptions.MinVersion,
+		MinVersion:     args.ServerOptions.TLSOptions.MinVersion, // #nosec G402 -- the floor is enforced when creating options
 		CipherSuites:   args.ServerOptions.TLSOptions.CipherSuites,
 	}
 	// Compliance for control plane validation and injection webhook server.

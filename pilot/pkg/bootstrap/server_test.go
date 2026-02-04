@@ -635,7 +635,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 				Timeout: time.Second,
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
+						InsecureSkipVerify: true, //nolint:gosec
 						CipherSuites:       c.clientCipherSuites,
 						MinVersion:         tls.VersionTLS12,
 						MaxVersion:         tls.VersionTLS12,
@@ -736,7 +736,7 @@ func TestIstiodMinTLSVersion(t *testing.T) {
 				Timeout: time.Second,
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
+						InsecureSkipVerify: true, //nolint:gosec
 						MinVersion:         c.clientMinTLSVersion,
 						MaxVersion:         c.clientMaxTLSVersion,
 					},
