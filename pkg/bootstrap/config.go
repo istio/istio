@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"sort"
@@ -54,6 +55,9 @@ const (
 	// IstioMetaJSONPrefix is used to pass annotations and similar environment info.
 	IstioMetaJSONPrefix = "ISTIO_METAJSON_"
 
+	// GlobalDownstreamMaxConnections is the metadata key for global downstream max connections.
+	GlobalDownstreamMaxConnections = "ISTIO_META_GLOBAL_DOWNSTREAM_MAX_CONNECTIONS"
+
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
 	// required stats are used by readiness checks.
@@ -72,12 +76,6 @@ const (
 	v2Prefixes = "reporter=,"
 	v2Suffix   = ",component,istio"
 )
-
-var envoyWellKnownCompressorLibrary = sets.String{
-	"gzip":   {},
-	"zstd":   {},
-	"brotli": {},
-}
 
 // Config for creating a bootstrap file.
 type Config struct {
@@ -309,12 +307,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		}
 	}
 
-	var compression string
-	if statsCompression, ok := meta.Annotations[annotation.SidecarStatsCompression.Name]; ok &&
-		envoyWellKnownCompressorLibrary.Contains(statsCompression) {
-		compression = statsCompression
-	}
-
 	options := []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -323,7 +315,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 		option.EnvoyHistogramBuckets(buckets),
-		option.EnvoyStatsCompression(compression),
 	}
 
 	statsFlushInterval := 5 * time.Second // Default value is 5s.
@@ -367,6 +358,29 @@ func getNodeMetadataOptions(node *model.Node, policy string) []option.Instance {
 		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig, policy)),
 		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
+	// Default value of max connections is the maximum integer value.
+	globalDownstreamMaxConnections := math.MaxInt32
+	// If proxy metadata is set, use it to set the global downstream max connections.
+	// If not set, use the default value of max connections.
+	// TODO: Consider moving this to proxy config A
+	metadataExists := false
+	if node.Metadata.ProxyConfig.ProxyMetadata != nil {
+		if maxConnections, err := strconv.Atoi(node.Metadata.ProxyConfig.ProxyMetadata[GlobalDownstreamMaxConnections]); err == nil {
+			globalDownstreamMaxConnections = maxConnections
+			metadataExists = true
+		}
+	}
+	if !metadataExists {
+		// If the runtime flag overload.global_downstream_max_connections is set, honor it
+		// for backwards compatibility. This will be removed in a future release.
+		globalDownstreamMaxConnectionsRuntime := globalDownstreamMaxConnectionsRuntimeFlag(node.Metadata.ProxyConfig)
+		if globalDownstreamMaxConnectionsRuntime != "" {
+			if maxConnections, err := strconv.Atoi(globalDownstreamMaxConnectionsRuntime); err == nil {
+				globalDownstreamMaxConnections = maxConnections
+			}
+		}
+	}
+	opts = append(opts, option.GlobalDownstreamMaxConnections(globalDownstreamMaxConnections))
 	return opts
 }
 
@@ -409,6 +423,15 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig, policy string) map[stri
 	return runtimeFlags
 }
 
+func globalDownstreamMaxConnectionsRuntimeFlag(cfg *model.NodeMetaProxyConfig) string {
+	for k, v := range cfg.RuntimeValues {
+		if k == "overload.global_downstream_max_connections" {
+			return v
+		}
+	}
+	return ""
+}
+
 func getLocalityOptions(l *core.Locality) []option.Instance {
 	return []option.Instance{option.Region(l.Region), option.Zone(l.Zone), option.SubZone(l.SubZone)}
 }
@@ -449,7 +472,7 @@ func serviceClusterOrDefault(name string, metadata *model.BootstrapNodeMetadata)
 	if name != "" && name != "istio-proxy" {
 		return name
 	}
-	if app, ok := metadata.Labels["app"]; ok {
+	if app, ok := labels.GetApp(metadata.Labels); ok {
 		return app + "." + metadata.Namespace
 	}
 	if metadata.WorkloadName != "" {
@@ -517,6 +540,13 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 			option.EnvoyMetricsServiceTCPKeepalive(config.EnvoyMetricsService.TcpKeepalive))
 	} else if config.EnvoyMetricsServiceAddress != "" { // nolint: staticcheck
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address))
+	}
+
+	// Configure stats compression or use default.
+	if config.StatsCompression != nil {
+		opts = append(opts, option.EnvoyMetricsStatsCompression(config.StatsCompression.GetValue()))
+	} else {
+		opts = append(opts, option.EnvoyMetricsStatsCompression(true))
 	}
 
 	// Add options for Envoy access log.

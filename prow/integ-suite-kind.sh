@@ -157,7 +157,12 @@ export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  export DEFAULT_CLUSTER_YAML="${ROOT}/${CLUSTER_YAML}"
+  # Use KIND_CONFIG if specified, otherwise fall back to CLUSTER_YAML
+  if [[ -n "${KIND_CONFIG}" ]]; then
+    export DEFAULT_CLUSTER_YAML="${ROOT}/${KIND_CONFIG}"
+  else
+    export DEFAULT_CLUSTER_YAML="${ROOT}/${CLUSTER_YAML}"
+  fi
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then

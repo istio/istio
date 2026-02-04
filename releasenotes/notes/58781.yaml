@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58781
+releaseNotes:
+  - |
+    **Added** input validation for `traffic.sidecar.istio.io/excludeInterfaces` annotation
+    to ensure only valid Linux interface names are accepted, preventing iptables parameter injection.

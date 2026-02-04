@@ -53,6 +53,13 @@ spec:
       tolerations:
 {{ toYaml .Values.tolerations | trim | indent 8 }}
 {{- end }}
+{{- if .Values.dnsPolicy }}
+      dnsPolicy: {{ .Values.dnsPolicy }}
+{{- end }}
+{{- if .Values.dnsConfig }}
+      dnsConfig:
+{{ toYaml .Values.dnsConfig | trim | indent 8 }}
+{{- end }}
       containers:
       - name: istio-proxy
 {{- if contains "/" .Values.image }}
@@ -168,12 +175,8 @@ spec:
         {{- end }}
         {{- end }}
         {{- if .Values.peerCaCrl.enabled }}
-        - name: ENABLE_CRL
-          value: "true"
         - name: CRL_PATH
           value: "/var/run/secrets/istio/crl/ca-crl.pem"
-        - name: ALLOW_EXPIRED_CRL
-          value: "false"
         {{- end }}
         volumeMounts:
         - mountPath: /var/run/secrets/istio

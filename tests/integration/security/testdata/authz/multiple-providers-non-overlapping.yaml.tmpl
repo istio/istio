@@ -1,0 +1,43 @@
+# Template for testing multiple CUSTOM authorization providers with non-overlapping paths
+# Provider1 handles /api/* paths
+# Provider2 handles /admin/* paths
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: multi-provider-api-{{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: CUSTOM
+  provider:
+    name: "{{ .Provider1.Name }}"
+  rules:
+  - to:
+    - operation: # HTTP
+        ports: [ "{{ (.To.PortForName `http`).WorkloadPort }}", "{{ (.To.PortForName `http2`).WorkloadPort }}" ]
+        paths: [ "/api", "/api/*" ]
+        methods: [ "GET" ]
+  - to:
+    - operation: # GRPC
+        ports: [ "{{ (.To.PortForName `grpc`).WorkloadPort }}" ]
+        paths: [ "/proto.EchoTestService/Echo" ]
+        methods: [ "POST" ]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: multi-provider-admin-{{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: CUSTOM
+  provider:
+    name: "{{ .Provider2.Name }}"
+  rules:
+  - to:
+    - operation: # HTTP
+        ports: [ "{{ (.To.PortForName `http`).WorkloadPort }}", "{{ (.To.PortForName `http2`).WorkloadPort }}" ]
+        paths: [ "/admin", "/admin/*" ]
+        methods: [ "GET" ]

@@ -239,6 +239,7 @@ func init() {
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
+	registerBooleanParameter(constants.EnableAmbientDetectionRetry, false, "Whether or not is ambient check is retried on error in the cni plugin")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
@@ -329,6 +330,7 @@ func constructConfig() (*config.Config, error) {
 		AmbientIPv6:                       viper.GetBool(constants.AmbientIPv6),
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),
 		AmbientReconcilePodRulesOnStartup: viper.GetBool(constants.AmbientReconcilePodRulesOnStartup),
+		EnableAmbientDetectionRetry:       viper.GetBool(constants.EnableAmbientDetectionRetry),
 
 		NativeNftables:      viper.GetBool(constants.NativeNftables),
 		ForceIptablesBinary: os.Getenv("FORCE_IPTABLES_BINARY"),

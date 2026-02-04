@@ -35,9 +35,6 @@ const (
 	getKeyType       indexedDependencyType = iota
 )
 
-// EnableAssertions, if true, will enable assertions. These typically are violations of the krt collection requirements.
-const EnableAssertions = false
-
 type dependencyState[I any] struct {
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
 	// These are keyed by the internal uid() function on collections.
@@ -503,7 +500,7 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 					h.collectionState.outputs[key] = newRes
 				} else {
 					if !oldExists && EnableAssertions {
-						panic(fmt.Sprintf("!oldExists and !newExists, how did we get here? for output key %v input key %v", key, iKey))
+						panic(fmt.Sprintf("!oldExists and !newExists in %s(%T), how did we get here? for output key %v input key %v", h.collectionName, h, key, iKey))
 					}
 					e.Event = controllers.EventDelete
 					e.Old = &oldRes
@@ -754,15 +751,15 @@ func (h *manyCollection[I, O]) assertIndexConsistency() {
 	oToI := map[Key[O]]Key[I]{}
 	for i, os := range h.collectionState.mappings {
 		if _, f := h.collectionState.inputs[i]; !f {
-			panic(fmt.Sprintf("for mapping key %v, no input found", i))
+			panic(fmt.Sprintf("for mapping key %v in %s(%T), no input found", i, h.collectionName, h))
 		}
 		for o := range os {
 			if ci, f := oToI[o]; f {
-				panic(fmt.Sprintf("duplicate mapping %v: input %v and %v both map to it", o, ci, i))
+				panic(fmt.Sprintf("duplicate mapping %v in %s(%T): input %v and %v both map to it", o, h.collectionName, h, ci, i))
 			}
 			oToI[o] = i
 			if _, f := h.collectionState.outputs[o]; !f {
-				panic(fmt.Sprintf("for mapping key %v->%v, no output found", i, o))
+				panic(fmt.Sprintf("for mapping key %v->%v in %s(%T), no output found", i, o, h.collectionName, h))
 			}
 		}
 	}

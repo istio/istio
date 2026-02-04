@@ -1668,7 +1668,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 		ExportTo:                 nil,
 		LabelSelectors:           nil,
 		Aliases:                  nil,
-		ClusterExternalAddresses: nil,
+		ClusterExternalAddresses: model.AddressMap{},
 		ClusterExternalPorts:     nil,
 		K8sAttributes: model.K8sAttributes{
 			Type:         string(corev1.ServiceTypeExternalName),

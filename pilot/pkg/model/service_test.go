@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	fuzz "github.com/google/gofuzz"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -565,7 +564,7 @@ func TestFuzzServiceDeepCopy(t *testing.T) {
 	originalSvc := &Service{}
 	fuzzer.Fuzz(originalSvc)
 	copied := originalSvc.DeepCopy()
-	opts := []cmp.Option{cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex")}
+	opts := []cmp.Option{cmp.AllowUnexported()}
 	if !cmp.Equal(originalSvc, copied, opts...) {
 		diff := cmp.Diff(originalSvc, copied, opts...)
 		t.Errorf("unexpected diff %v", diff)
@@ -878,7 +877,7 @@ func TestWaypointKeyForProxy(t *testing.T) {
 						Service: &Service{
 							Hostname: host.Name("service1.default.svc.cluster.local"),
 							Attributes: ServiceAttributes{
-								ClusterExternalAddresses: &AddressMap{
+								ClusterExternalAddresses: AddressMap{
 									Addresses: map[cluster.ID][]string{
 										"cluster1": {"192.168.0.1"},
 									},
