@@ -14,6 +14,7 @@
 package agentgateway
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -61,24 +62,22 @@ import (
 
 var logger = istiolog.RegisterScope("agentgateway", "agentgateway controller")
 
-var errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
+var errUnsupportedOp = errors.New("unsupported operation: the gateway config store is a read-only view")
 
-// Controller defines the controller for the gateway-api. The controller reads a variety of resources (Gateway types, as well
-// as adjacent types like Namespace and Service), and through `krt`, translates them into Istio types (Gateway/VirtualService).
+// Controller defines the controller for agentgateway. The controller reads a variety of resources (Gateway types, as well
+// as adjacent types like Namespace and Service).
 //
-// Most resources are fully "self-contained" with krt, but there are a few usages breaking out of `krt`; these are managed by `krt.RecomputeProtected`.
-// These are recomputed on each new PushContext initialization, which will call Controller.Reconcile().
+// Most resources are fully "self-contained" with krt, but there are a few usages breaking out of `krt` for status reporting;
+// these are managed by `krt.RecomputeProtected`. These are recomputed on each new PushContext initialization, which will
+// call Controller.Reconcile().
 //
-// The generated Istio types are not stored in the cluster at all and are purely internal. Calls to List() (from PushContext)
-// will expose these. They can be introspected at /debug/configz.
-//
-// The status on all gateway-api types is also tracked. Each collection emits downstream objects, but also status about the
+// The status on all Gateway types is also tracked. Each collection emits downstream objects, but also status about the
 // input type. If the status changes, it is queued to asynchronously update the status of the object in Kubernetes.
 type Controller struct {
 	// client for accessing Kubernetes
 	client kube.Client
 
-	// the cluster where the gateway-api controller runs
+	// the cluster where the agentgateway controller runs
 	cluster cluster.ID
 	// revision the controller is running under
 	revision string
@@ -129,12 +128,12 @@ type OutputCollections struct {
 // Similar type to agwcollections in kgateway.
 type AgwInputs struct {
 	// Core k8s resources
-	Namespaces krt.Collection[*corev1.Namespace]
-	Nodes      krt.Collection[*corev1.Node]
-	Pods       krt.Collection[*corev1.Pod]
-	Services   krt.Collection[*corev1.Service]
-	Secrets    krt.Collection[*corev1.Secret]
-	ConfigMaps krt.Collection[*corev1.ConfigMap]
+	Namespaces     krt.Collection[*corev1.Namespace]
+	Nodes          krt.Collection[*corev1.Node]
+	Pods           krt.Collection[*corev1.Pod]
+	Services       krt.Collection[*corev1.Service]
+	Secrets        krt.Collection[*corev1.Secret]
+	ConfigMaps     krt.Collection[*corev1.ConfigMap]
 	EndpointSlices krt.Collection[*discovery.EndpointSlice]
 
 	// Gateway API resources
@@ -184,7 +183,7 @@ func NewAgwController(
 		c.tagWatcher.TriggerRecomputation()
 	})
 
-	// TODO(jaellio): pass in inputs. Allowing reinitialization is risky (but idempotent?)
+	// TODO(jaellio): pass in inputs. Allowing reinitialization is risky
 	c.initializeInputs(kc, opts)
 	c.buildResourceCollections(opts)
 
@@ -228,7 +227,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
 		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 		WorkloadEntries: buildClient[*networkingclient.WorkloadEntry](c, kc, gvr.WorkloadEntry, opts, "informer/WorkloadEntries"),
-		EndpointSlices : krt.NewFilteredInformer[*discovery.EndpointSlice](kc, kclient.Filter{
+		EndpointSlices: krt.NewFilteredInformer[*discovery.EndpointSlice](kc, kclient.Filter{
 			ObjectFilter: kc.ObjectFilter(),
 		}, opts.WithName("informer/EndpointSlices")...),
 	}
@@ -251,16 +250,19 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		inputs.InferencePools = buildClient[*inferencev1.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
 		// If disabled, still build a collection but make it always empty
+		logger.Warnf("GatewayAPI Inference Extension is disabled, not watching InferencePool resources")
 		inputs.InferencePools = krt.NewStaticCollection[*inferencev1.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...)
 	}
 	c.inputs = inputs
 }
 
+// TODO(jaellio): Consider refactoring so actual collection creation happen in a common BaseGatewayController type so
+// collections are only built once across controller and agentgateway_controller
 func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
-	_, gatewayClasses := gatewaycommon.GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+	gatewayClassStatus, gatewayClasses := gatewaycommon.GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
-	// TODO(jaellio): Consider simplifying listenerset collection
 	listenerSetStatus, listenerSets := ListenerSetCollection(
 		c.inputs.ListenerSets,
 		c.inputs.Gateways,
@@ -287,6 +289,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		c.inputs.ConfigMaps,
 		c.inputs.Secrets,
 		c.domainSuffix,
+		c.gatewayContext,
 		c.tagWatcher,
 		opts,
 	)
@@ -311,6 +314,8 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 	}
 
+	// TODO(jaellio): Source addresses from the ambientindex so the agentgateway proxies get the same
+	// representation of addresses as ambient proxies (for multicluster)
 	// Build address collections
 	addresses := c.buildAddressCollections(opts)
 
@@ -319,7 +324,6 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 
 	// TODO(jaellio): Determine what additional sync dependencies are needed in addition to WaitForCacheSync
 	// c.setupSyncDependencies(agwResources, addresses)
-	logger.Debugf("jaellio - Agentgateway controller initialized with %d agw resources", agwResources.List())
 	c.outputs.Resources = agwResources
 	c.outputs.Addresses = addresses
 }
@@ -337,7 +341,6 @@ func (c *Controller) buildFinalGatewayStatus(
 		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus]) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
 			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
 			counts := map[string]int32{}
-			// TODO(jaellio): why only tcp routes?
 			for _, r := range tcpRoutes {
 				counts[r.ListenerName]++
 			}
@@ -426,13 +429,12 @@ func (c *Controller) buildXDSCollection(
 	xdsAddresses krt.Collection[Address],
 	opts krt.OptionsBuilder,
 ) {
-	// Create an index on adpResources by Gateway to avoid fetching all resources
+	// Used to create an index on adpResources by Gateway to avoid fetching all resources
 	agwResourcesByGateway := func(resource AgwResource) types.NamespacedName {
 		return resource.Gateway
 	}
 	c.Registrations = append(c.Registrations, xds.Collection[Address, *workloadapi.Address](xdsAddresses, opts))
 	c.Registrations = append(c.Registrations, xds.PerGatewayCollection[AgwResource, *api.Resource](agwResources, agwResourcesByGateway, opts))
-	logger.Debugf("jaellio - built XDS collection with %v resources", c.Registrations)
 }
 
 // buildClient is a small wrapper to build a krt collection based on a delayed informer.
@@ -484,6 +486,15 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 	}
 }
 
+// Reconcile is called each time the `gatewayContext` may change. We use this to mark it as updated.
+func (c *Controller) Reconcile(ps *model.PushContext) {
+	ctx := gatewaycommon.NewGatewayContext(ps, c.cluster)
+	c.gatewayContext.Modify(func(i **atomic.Pointer[gatewaycommon.GatewayContext]) {
+		(*i).Store(&ctx)
+	})
+	c.gatewayContext.MarkSynced()
+}
+
 func (c *Controller) Create(config config.Config) (revision string, err error) {
 	return "", errUnsupportedOp
 }
@@ -526,13 +537,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	close(c.stop)
 }
 
-// TODO(jaellio): Verify sufficient
 func (c *Controller) HasSynced() bool {
-	if !(c.outputs.Addresses.HasSynced() &&
-		c.outputs.Resources.HasSynced()) {
-		return false
-	}
-	return true
+	return c.outputs.Addresses.HasSynced() &&
+		c.outputs.Resources.HasSynced()
 }
 
 func (c *Controller) inRevision(obj any) bool {
@@ -559,7 +566,7 @@ func ToAgwResource(t any) *api.Resource {
 	case *api.Resource:
 		return tt
 	}
-	// TODO(jaellio): handle more gracefully (borrowed from kgateway gateway_collection.go)
+	// borrowed from kgateway gateway_collection.go
 	panic(fmt.Sprintf("unknown resource kind %T", t))
 }
 
@@ -570,7 +577,6 @@ func ToResourceForGateway(gw types.NamespacedName, resource any) AgwResource {
 	}
 }
 
-// TODO(jaellio): Verify implementation
 func (c *Controller) buildAgwResources(
 	gateways krt.Collection[*GatewayListener],
 	refGrants gatewaycommon.ReferenceGrants,
@@ -582,7 +588,7 @@ func (c *Controller) buildAgwResources(
 	// filter gateway collections to only include gateways which use a built-in gateway class
 	// (resources for additional gateway classes should be created by the downstream providing them)
 	filteredGateways := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gw *GatewayListener) **GatewayListener {
-		// TODO(jaellio): check if this is the correct filtering logic. Opposite of kgateway which uses additionalGatewayClasses
+		// Note: This filtering logic is opposite of kgateway which uses additionalGatewayClasses
 		if _, builtInClass := gatewaycommon.BuiltinClasses[gatewayv1.ObjectName(gw.Name)]; !builtInClass {
 			return nil
 		}

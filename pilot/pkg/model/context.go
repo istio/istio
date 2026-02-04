@@ -1091,6 +1091,10 @@ type GatewayController interface {
 
 type AgentgatewayController interface {
 	ConfigStoreController
+	// Reconcile updates the internal state of the agentgateway controller for a given input. This should be
+	// called before any List/Get calls if the state has changed
+	// Required for current status implementation
+	Reconcile(ctx *PushContext)
 }
 
 // OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.

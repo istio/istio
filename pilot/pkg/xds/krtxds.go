@@ -61,9 +61,10 @@ type CollectionRegistration struct {
 	HasSynced func() bool
 }
 
+// Registration defines the function to configure and synchronize krt collections per gateway for agentgateway
 type Registration func(map[string]CollectionGenerator, chan *model.PushRequest) CollectionRegistration
 
-// TODO(jaellio): Is this what we want?
+// TODO(jaellio): Verify type name construction
 func TypeName[T proto.Message]() string {
 	ft := new(T)
 	return "type.googleapis.com/" + string((*ft).ProtoReflect().Descriptor().FullName())
@@ -84,7 +85,7 @@ func getKey[T any](t T) string {
 	return krt.GetKey(t)
 }
 
-func PerGatewayCollection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T], extract func(o T) types.NamespacedName, krtopts krt.OptionsBuilder) Registration {
+func baseCollection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T], extract func(o T) types.NamespacedName, krtopts krt.OptionsBuilder) Registration {
 	return func(m map[string]CollectionGenerator, pushChannel chan *model.PushRequest) CollectionRegistration {
 		nc := krt.NewCollection(collection, func(ctx krt.HandlerContext, i T) *DiscoveryResource {
 			var forGateway *types.NamespacedName
@@ -118,18 +119,11 @@ func PerGatewayCollection[T IntoProto[TT], TT proto.Message](collection krt.Coll
 				un := make(sets.Set[model.ConfigKey], len(o))
 				for _, oo := range o {
 					last := oo.Latest()
-					// TODO(jaellio): Consider how this will impact merge
-					// TODO(jaellio): Fix hack - Stored TypeUrl in namespace and should be indexing by type rather than iterating
 					un.Insert(model.ConfigKey{
-						// TODO(jaellio): Should name be the gateway name?
-						Name: last.Name,
-						// Kind: kind.FromString(t),
-						// TODO(jaellio): Set namespace? Potential bug if not set? Is this the same as the gateway namespace?
-						// Hack for now to avoid changing behavior - store type in namespace
-						Namespace: t,
+						Name:    last.Name,
+						TypeUrl: t,
 					})
 				}
-				// TODO(jaellio): Consider using simplified PushRequest from kgateway
 				pr := model.PushRequest{
 					ConfigsUpdated: un,
 				}
@@ -147,10 +141,14 @@ func PerGatewayCollection[T IntoProto[TT], TT proto.Message](collection krt.Coll
 }
 
 func Collection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T], krtopts krt.OptionsBuilder) Registration {
-	return PerGatewayCollection(collection, nil, krtopts)
+	return baseCollection(collection, nil, krtopts)
 }
 
-// GenerateDeltas computes Workload resources. This is design to be highly optimized to delta updates,
+func PerGatewayCollection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T], extract func(o T) types.NamespacedName, krtopts krt.OptionsBuilder) Registration {
+	return baseCollection(collection, extract, krtopts)
+}
+
+// GenerateDeltas computes discovery resources. This is design to be highly optimized to delta updates,
 // and supports *on-demand* client usage. A client can subscribe with a wildcard subscription and get all
 // resources (with delta updates), or on-demand and only get responses for specifically subscribed resources.
 //
@@ -169,7 +167,7 @@ func (c CollectionGenerator) GenerateDeltas(
 	}
 	gw := types.NamespacedName{
 		Namespace: proxy.Metadata.Namespace,
-		Name: agwName,
+		Name:      agwName,
 	}
 
 	if req.IsRequest() {
@@ -192,8 +190,8 @@ func (c CollectionGenerator) GenerateDeltas(
 	var deletes []string
 
 	for k := range req.ConfigsUpdated {
-		// TODO(jaellio): Fix hack - Stored TypeUrl in namespace and should be indexing by type rather than iterating
-		if k.Namespace != w.TypeUrl {
+		if k.TypeUrl != w.TypeUrl {
+			log.Debugf("Skipped config update for type %s. Watched type is %s", k.TypeUrl, w.TypeUrl)
 			continue
 		}
 		originalKey := k

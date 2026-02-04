@@ -2590,9 +2590,10 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 		ps.GatewayAPIController = env.GatewayAPIController
 		env.GatewayAPIController.Reconcile(ps)
 	}
-	// TODO(jaellio): do we need this? Do we need to reconcile?
+	// TODO(jaellio): Modify to use a shared gatewayContext
 	if env.AgentgatewayController != nil && features.EnableAgentgateway {
 		ps.AgentgatewayController = env.AgentgatewayController
+		env.AgentgatewayController.Reconcile(ps)
 	}
 }
 

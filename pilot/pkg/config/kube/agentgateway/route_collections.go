@@ -47,22 +47,7 @@ type TypedNamespacedName struct {
 	Kind kind.Kind
 }
 
-// TODO(jaellio): Clean up this struct if not used
-type AncestorBackend struct {
-	Gateway types.NamespacedName
-	Backend TypedNamespacedName
-}
-
-func (a AncestorBackend) Equals(other AncestorBackend) bool {
-	return a.Gateway == other.Gateway && a.Backend == other.Backend
-}
-
-func (a AncestorBackend) ResourceName() string {
-	return a.Gateway.String() + "/" + a.Backend.String()
-}
-
 // AgwRouteCollection creates the collection of translated Routes
-// TODO(jaellio): handle reporting errors properly
 func AgwRouteCollection(
 	queue *status.StatusCollections,
 	httpRouteCol krt.Collection[*gatewayv1.HTTPRoute],
@@ -74,9 +59,9 @@ func AgwRouteCollection(
 	krtopts krt.OptionsBuilder,
 ) (krt.Collection[AgwResource], krt.Collection[*RouteAttachment]) {
 	httpRouteStatus, httpRoutes := createRouteCollection(httpRouteCol, inputs, krtopts, "HTTPRoutes",
-		func(ctx RouteContext, obj *gatewayv1.HTTPRoute) (RouteContext, iter.Seq[AgwRoute]) {
+		func(ctx RouteContext, obj *gatewayv1.HTTPRoute) (RouteContext, iter.Seq2[AgwRoute, *condition]) {
 			route := obj.Spec
-			return ctx, func(yield func(AgwRoute) bool) {
+			return ctx, func(yield func(AgwRoute, *condition) bool) {
 				for n, r := range route.Rules {
 					// split the rule to make sure each rule has up to one match
 					matches := slices.Reference(r.Matches)
@@ -87,8 +72,8 @@ func AgwRouteCollection(
 						if m != nil {
 							r.Matches = []gatewayv1.HTTPRouteMatch{*m}
 						}
-						res := ConvertHTTPRouteToAgw(ctx, r, obj, n, idx)
-						if !yield(AgwRoute{Route: res}) {
+						res, err := ConvertHTTPRouteToAgw(ctx, r, obj, n, idx)
+						if !yield(AgwRoute{Route: res}, err) {
 							return
 						}
 					}
@@ -100,13 +85,13 @@ func AgwRouteCollection(
 	status.RegisterStatus(queue, httpRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
 
 	grpcRouteStatus, grpcRoutes := createRouteCollection(grpcRouteCol, inputs, krtopts, "GRPCRoutes",
-		func(ctx RouteContext, obj *gatewayv1.GRPCRoute) (RouteContext, iter.Seq[AgwRoute]) {
+		func(ctx RouteContext, obj *gatewayv1.GRPCRoute) (RouteContext, iter.Seq2[AgwRoute, *condition]) {
 			route := obj.Spec
-			return ctx, func(yield func(AgwRoute) bool) {
+			return ctx, func(yield func(AgwRoute, *condition) bool) {
 				for n, r := range route.Rules {
 					// Convert the entire rule with all matches at once
-					res := ConvertGRPCRouteToAgw(ctx, r, obj, n)
-					if !yield(AgwRoute{Route: res}) {
+					res, err := ConvertGRPCRouteToAgw(ctx, r, obj, n)
+					if !yield(AgwRoute{Route: res}, err) {
 						return
 					}
 				}
@@ -117,13 +102,13 @@ func AgwRouteCollection(
 	status.RegisterStatus(queue, grpcRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
 
 	tcpRouteStatus, tcpRoutes := createTCPRouteCollection(tcpRouteCol, inputs, krtopts, "TCPRoutes",
-		func(ctx RouteContext, obj *gatewayalpha.TCPRoute) (RouteContext, iter.Seq[AgwTCPRoute]) {
+		func(ctx RouteContext, obj *gatewayalpha.TCPRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *condition]) {
 			route := obj.Spec
-			return ctx, func(yield func(AgwTCPRoute) bool) {
+			return ctx, func(yield func(AgwTCPRoute, *condition) bool) {
 				for n, r := range route.Rules {
 					// Convert the entire rule with all matches at once
-					res := ConvertTCPRouteToAgw(ctx, r, obj, n)
-					if !yield(AgwTCPRoute{TCPRoute: res}) {
+					res, err := ConvertTCPRouteToAgw(ctx, r, obj, n)
+					if !yield(AgwTCPRoute{TCPRoute: res}, err) {
 						return
 					}
 				}
@@ -134,13 +119,13 @@ func AgwRouteCollection(
 	status.RegisterStatus(queue, tcpRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
 
 	tlsRouteStatus, tlsRoutes := createTCPRouteCollection(tlsRouteCol, inputs, krtopts, "TLSRoutes",
-		func(ctx RouteContext, obj *gatewayalpha.TLSRoute) (RouteContext, iter.Seq[AgwTCPRoute]) {
+		func(ctx RouteContext, obj *gatewayalpha.TLSRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *condition]) {
 			route := obj.Spec
-			return ctx, func(yield func(AgwTCPRoute) bool) {
+			return ctx, func(yield func(AgwTCPRoute, *condition) bool) {
 				for n, r := range route.Rules {
 					// Convert the entire rule with all matches at once
-					res := ConvertTLSRouteToAgw(ctx, r, obj, n)
-					if !yield(AgwTCPRoute{TCPRoute: res}) {
+					res, err := ConvertTLSRouteToAgw(ctx, r, obj, n)
+					if !yield(AgwTCPRoute{TCPRoute: res}, err) {
 						return
 					}
 				}
@@ -168,7 +153,7 @@ func createTCPRouteCollection[T controllers.Object, ST any](
 	inputs RouteContextInputs,
 	krtopts krt.OptionsBuilder,
 	collectionName string,
-	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq[AgwTCPRoute]),
+	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq2[AgwTCPRoute, *condition]),
 	buildStatus func(status gatewayv1.RouteStatus) ST,
 ) (
 	krt.StatusCollection[T, ST],
@@ -195,9 +180,8 @@ func createTCPRouteCollection[T controllers.Object, ST any](
 	)
 }
 
-// TODO(jaellio): Remove reporter reference or define something similar in
 type ConversionResult[O any] struct {
-	// Error  *reporter.RouteCondition
+	Error  *condition
 	Routes []O
 }
 
@@ -353,7 +337,7 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 	inputs RouteContextInputs,
 	krtopts krt.OptionsBuilder,
 	collectionName string,
-	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq[R]),
+	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq2[R, *condition]),
 	resourceTransformer func(route R, parent RouteParentReference) *api.Resource,
 	buildStatus func(status gatewayv1.RouteStatus) ST,
 ) (
@@ -368,7 +352,7 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 		// Apply route-specific preprocessing and get the translator
 		ctx, translatorSeq := translator(ctx, obj)
 
-		parentRefs, gwResult := computeRoute(ctx, obj, func(obj T) iter.Seq[R] {
+		parentRefs, gwResult := computeRoute(ctx, obj, func(obj T) iter.Seq2[R, *condition] {
 			return translatorSeq
 		})
 
@@ -385,11 +369,117 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 			routeNN,
 			resourceTransformer,
 		)
-		// TODO(jaellio): generate status
-		//status := rm.BuildRouteStatusWithParentRefDefaulting(context.Background(), obj, inputs.ControllerName, true)
+		// status := BuildRouteStatusWithParentRefDefaulting(context.Background(), obj, inputs.ControllerName, true)
+		// return ptr.Of(buildStatus(*status)), resources
 		return nil, resources
 	}, krtopts.WithName(collectionName)...)
 }
+
+// TODO(jaellio): use this buildroutestatus or istio's existing implementation
+/*
+func BuildRouteStatusWithParentRefDefaulting(
+	ctx context.Context,
+	obj client.Object,
+	controller string,
+	defaultParentRef bool,
+) *gatewayv1.RouteStatus {
+	logger.Debugf("building status", "type", obj.GetObjectKind().GroupVersionKind().Kind, "name", obj.GetName(), "namespace", obj.GetNamespace())
+
+	var existingStatus gatewayv1.RouteStatus
+	// Default to using spec.ParentRefs when building the parent statuses for a route.
+	// However, for delegatee (child) routes, the parentRefs field is optional and such routes
+	// may not specify it. In this case, we infer the parentRefs form the RouteReport
+	// corresponding to the delegatee (child) route as the route's report is associated to a parentRef.
+	var parentRefs []gatewayv1.ParentReference
+	switch route := obj.(type) {
+	case *gatewayv1.HTTPRoute:
+		existingStatus = route.Status.RouteStatus
+		parentRefs = append(parentRefs, route.Spec.ParentRefs...)
+	case *gwv1a2.TCPRoute:
+		existingStatus = route.Status.RouteStatus
+		parentRefs = append(parentRefs, route.Spec.ParentRefs...)
+	case *gwv1a2.TLSRoute:
+		existingStatus = route.Status.RouteStatus
+		parentRefs = append(parentRefs, route.Spec.ParentRefs...)
+	case *gatewayv1.GRPCRoute:
+		existingStatus = route.Status.RouteStatus
+		parentRefs = append(parentRefs, route.Spec.ParentRefs...)
+	default:
+		logger.Errorf("unsupported route type for status reporting", "route_type", fmt.Sprintf("%T", obj))
+		return nil
+	}
+	if defaultParentRef {
+		parentRefs = ensureParentRefNamespaces(parentRefs, obj.GetNamespace())
+	}
+
+	newStatus := gatewayv1.RouteStatus{}
+	// Process the parent references to build the RouteParentStatus
+	for _, parentRef := range parentRefs {
+		parentStatusReport := routeReport.getParentRefOrNil(&parentRef)
+		if parentStatusReport == nil {
+			// report doesn't have an entry for this parentRef, meaning we didn't translate it
+			// probably because it's a parent that we don't control (e.g. Gateway from diff. controller)
+			continue
+		}
+		addMissingParentRefConditions(parentStatusReport)
+
+		// Get the status of the current parentRef conditions if they exist
+		var currentParentRefConditions []metav1.Condition
+		currentParentRefIdx := slices.IndexFunc(existingStatus.Parents, func(s gwv1.RouteParentStatus) bool {
+			return reflect.DeepEqual(s.ParentRef, parentRef)
+		})
+		if currentParentRefIdx != -1 {
+			currentParentRefConditions = existingStatus.Parents[currentParentRefIdx].Conditions
+		}
+
+		finalConditions := make([]metav1.Condition, 0, len(parentStatusReport.Conditions))
+		for _, pCondition := range parentStatusReport.Conditions {
+			pCondition.ObservedGeneration = routeReport.observedGeneration
+
+			// Copy old condition to preserve LastTransitionTime, if it exists
+			if cond := meta.FindStatusCondition(currentParentRefConditions, pCondition.Type); cond != nil {
+				finalConditions = append(finalConditions, *cond)
+			}
+			meta.SetStatusCondition(&finalConditions, pCondition)
+		}
+		// If there are conditions on the route that are not owned by our reporter, include
+		// them in the final list of conditions to preseve conditions we do not own
+		for _, condition := range currentParentRefConditions {
+			if meta.FindStatusCondition(finalConditions, condition.Type) == nil {
+				finalConditions = append(finalConditions, condition)
+			}
+		}
+
+		routeParentStatus := gwv1.RouteParentStatus{
+			ParentRef:      parentRef,
+			ControllerName: gwv1.GatewayController(controller),
+			Conditions:     finalConditions,
+		}
+		newStatus.Parents = append(newStatus.Parents, routeParentStatus)
+	}
+
+	// now we have a status object reflecting the state of translation according to our reportMap
+	// let's add status from other controllers on the current object status
+	var kgwStatus *gwv1.RouteStatus = &newStatus
+	for _, rps := range existingStatus.Parents {
+		if rps.ControllerName != gwv1.GatewayController(controller) {
+			kgwStatus.Parents = append(kgwStatus.Parents, rps)
+		}
+	}
+
+	// sort all parents for consistency with Equals and for Update
+	// match sorting semantics of istio/istio, see:
+	// https://github.com/istio/istio/blob/6dcaa0206bcaf20e3e3b4e45e9376f0f96365571/pilot/pkg/config/kube/gateway/conditions.go#L188-L193
+	slices.SortStableFunc(kgwStatus.Parents, func(a, b gwv1.RouteParentStatus) int {
+		return strings.Compare(ParentString(a.ParentRef), ParentString(b.ParentRef))
+	})
+	if newStatus.Parents == nil {
+		// Kubernetes will not let us send "nil", so we need an empty
+		newStatus.Parents = []gwv1.RouteParentStatus{}
+	}
+
+	return &newStatus
+}*/
 
 // Simplified HTTP route collection function
 func createRouteCollection[T controllers.Object, ST any](
@@ -397,7 +487,7 @@ func createRouteCollection[T controllers.Object, ST any](
 	inputs RouteContextInputs,
 	krtopts krt.OptionsBuilder,
 	collectionName string,
-	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq[AgwRoute]),
+	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq2[AgwRoute, *condition]),
 	buildStatus func(status gatewayv1.RouteStatus) ST,
 ) (
 	krt.StatusCollection[T, ST],
@@ -425,22 +515,29 @@ func createRouteCollection[T controllers.Object, ST any](
 	)
 }
 
-type conversionResult[O any] struct {
-	error  *ConfigError
-	routes []O
+// IsNil works around comparing generic types
+func IsNil[O comparable](o O) bool {
+	var t O
+	return o == t
 }
 
 // computeRoute holds the common route building logic shared amongst all types
 func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, translator func(
 	obj T,
-) iter.Seq[O],
+) iter.Seq2[O, *condition],
 ) ([]RouteParentReference, ConversionResult[O]) {
 	parentRefs := extractParentReferenceInfo(ctx, ctx.RouteParents, obj)
 
 	convertRules := func() ConversionResult[O] {
 		res := ConversionResult[O]{}
-		// TODO(jaellio): handle errors properly
-		for vs := range translator(obj) {
+		for vs, err := range translator(obj) {
+			if err != nil && IsNil(vs) {
+				res.Error = err
+				return ConversionResult[O]{Error: err}
+			}
+			if err != nil {
+				res.Error = err
+			}
 			res.Routes = append(res.Routes, vs)
 		}
 		return res
@@ -501,8 +598,6 @@ type RouteResult[I controllers.Object, IStatus any] struct {
 	RouteAttachments krt.Collection[RouteAttachment]
 	// Status stores the status reports for the incoming object
 	Status krt.StatusCollection[I, IStatus]
-	// Ancestors stores information about Gateway --> Backend references
-	Ancestors krt.Collection[AncestorBackend]
 }
 
 type RouteAttachment struct {

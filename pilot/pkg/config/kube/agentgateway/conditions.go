@@ -87,11 +87,6 @@ type ConfigError struct {
 	Message string
 }
 
-type WaypointError struct {
-	Reason  WaypointErrorReason
-	Message string
-}
-
 type condition struct {
 	// reason defines the reason to report on success. Ignored if error is set
 	reason string
@@ -182,7 +177,6 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	case k8s.HTTPProtocolType, k8s.HTTPSProtocolType:
 		// Only terminate allowed, so its always HTTP
 		supported = []k8s.RouteGroupKind{
-			// TODO(jaellio): Should the return type for toRouteKind be config or schema?
 			toRouteKind(gvk.HTTPRoute),
 			toRouteKind(gvk.GRPCRoute),
 		}

@@ -66,18 +66,5 @@ func InitGenerators(
 	generators["event"] = xds.NewStatusGen(s)
 	generators[v3.DebugType] = xds.NewDebugGen(s, systemNameSpace, internalDebugMux)
 
-	// Agentgateway generators
-	// TODO(jaellio): remove since we are initializing the collections
-	agwGen := s.Collections
-	generators["agentgateway/"+v3.AddressType] = agwGen[v3.AddressType]
-	generators[v3.AgwResourceType] = agwGen[v3.AgwResourceType]
-
 	s.Generators = generators
-}
-
-// When agentgateway is enabled, initialize the collections
-func InitCollections(s *xds.DiscoveryServer, reg ...xds.Registration) {
-	for _, r := range reg {
-		s.registrations = append(s.registrations, r(s.Collections))
-	}
 }

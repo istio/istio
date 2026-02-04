@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/agentgateway/agentgateway/go/api"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pkg/config"
@@ -208,18 +209,20 @@ func CreateAgwMirrorFilter(
 	filter *gatewayv1.HTTPRequestMirrorFilter,
 	ns string,
 	k config.GroupVersionKind,
-) *api.RequestMirrors_Mirror {
+) (*api.RequestMirrors_Mirror, *condition) {
 	if filter == nil {
-		return nil
+		return nil, nil
 	}
 	var weightOne int32 = 1
-	// TODO(jaellio): handle error
-	dst := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
+	dst, err := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
 		BackendRef: gatewayv1.BackendRef{
 			BackendObjectReference: filter.BackendRef,
 			Weight:                 &weightOne,
 		},
 	}, ns, k)
+	if err != nil {
+		return nil, err
+	}
 	var percent float64
 	if f := filter.Fraction; f != nil {
 		denominator := float64(100)
@@ -233,12 +236,12 @@ func CreateAgwMirrorFilter(
 		percent = 100
 	}
 	if percent == 0 {
-		return nil
+		return nil, nil
 	}
 	return &api.RequestMirrors_Mirror{
 		Percentage: percent,
 		Backend:    dst.GetBackend(),
-	}
+	}, nil
 }
 
 // CreateAgwExternalAuthFilter creates Agw filter from Gateway API ExternalAuth filter
@@ -247,17 +250,19 @@ func CreateAgwExternalAuthFilter(
 	filter *gatewayv1.HTTPExternalAuthFilter,
 	ns string,
 	k config.GroupVersionKind,
-) *api.TrafficPolicySpec {
+) (*api.TrafficPolicySpec, *condition) {
 	if filter == nil {
-		return nil
+		return nil, nil
 	}
-	// TODO(jaellio): handle error
-	dst := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
+	dst, err := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
 		BackendRef: gatewayv1.BackendRef{
 			BackendObjectReference: filter.BackendRef,
 			Weight:                 ptr.Of(int32(1)),
 		},
 	}, ns, k)
+	if err != nil {
+		return nil, err
+	}
 	pol := &api.TrafficPolicySpec_ExternalAuth{
 		Target: dst.GetBackend(),
 	}
@@ -319,11 +324,11 @@ func CreateAgwExternalAuthFilter(
 		Kind: &api.TrafficPolicySpec_ExtAuthz{
 			ExtAuthz: pol,
 		},
-	}
+	}, nil
 }
 
 // CreateAgwGRPCHeadersMatch creates an agw HeaderMatch from a GRPCRouteMatch.
-func CreateAgwGRPCHeadersMatch(match gatewayv1.GRPCRouteMatch) []*api.HeaderMatch {
+func CreateAgwGRPCHeadersMatch(match gatewayv1.GRPCRouteMatch) ([]*api.HeaderMatch, *condition) {
 	var res []*api.HeaderMatch
 	for _, header := range match.Headers {
 		tp := gatewayv1.GRPCHeaderMatchExact
@@ -343,14 +348,20 @@ func CreateAgwGRPCHeadersMatch(match gatewayv1.GRPCRouteMatch) []*api.HeaderMatc
 			})
 		default:
 			// Should never happen, unless a new field is added
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
+					Message: fmt.Sprintf("unknown type: %q is not supported HeaderMatch type", tp),
+				},
+			}
 		}
 	}
 
 	if len(res) == 0 {
-		return nil
+		return nil, nil
 	}
-	return res
+	return res, nil
 }
 
 func headerListToAgw(hl []gatewayv1.HTTPHeader) []*api.Header {
@@ -399,14 +410,14 @@ func CreateAgwRedirectFilter(filter *gatewayv1.HTTPRequestRedirectFilter) *api.R
 	return ff
 }
 
-// TODO(jaellio): Handle errors and setting conditions
 // BuildAgwGRPCTrafficPolicies constructs gRPC route filters for agent gateway based on the input filters and route context.
 func BuildAgwGRPCTrafficPolicies(
 	ctx RouteContext,
 	ns string,
 	inputFilters []gatewayv1.GRPCRouteFilter,
-) []*api.TrafficPolicySpec {
+) ([]*api.TrafficPolicySpec, *condition) {
 	var policies []*api.TrafficPolicySpec
+	var mirrorBackendErr *condition
 	// Collect multiples of same-type filters to merge
 	var mergedReqHdr *api.HeaderModifier
 	var mergedRespHdr *api.HeaderModifier
@@ -426,10 +437,20 @@ func BuildAgwGRPCTrafficPolicies(
 			}
 			mergedRespHdr = mergeHeaderModifiers(mergedRespHdr, h)
 		case gatewayv1.GRPCRouteFilterRequestMirror:
-			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.GRPCRoute)
-			mergedMirror = append(mergedMirror, h)
+			h, err := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.GRPCRoute)
+			if err != nil {
+				mirrorBackendErr = err
+			} else {
+				mergedMirror = append(mergedMirror, h)
+			}
 		default:
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
+					Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
+				},
+			}
 		}
 	}
 	if mergedReqHdr != nil {
@@ -441,7 +462,7 @@ func BuildAgwGRPCTrafficPolicies(
 	if mergedMirror != nil {
 		policies = append(policies, &api.TrafficPolicySpec{Kind: &api.TrafficPolicySpec_RequestMirror{RequestMirror: &api.RequestMirrors{Mirrors: mergedMirror}}})
 	}
-	return policies
+	return policies, mirrorBackendErr
 }
 
 // BuildAgwGRPCBackendPolicies constructs gRPC route filters for agent gateway based on the input filters and route context.
@@ -449,8 +470,9 @@ func BuildAgwGRPCBackendPolicies(
 	ctx RouteContext,
 	ns string,
 	inputFilters []gatewayv1.GRPCRouteFilter,
-) []*api.BackendPolicySpec {
+) ([]*api.BackendPolicySpec, *condition) {
 	var policies []*api.BackendPolicySpec
+	var mirrorBackendErr *condition
 	// Collect multiples of same-type filters to merge
 	var mergedReqHdr *api.HeaderModifier
 	var mergedRespHdr *api.HeaderModifier
@@ -470,10 +492,20 @@ func BuildAgwGRPCBackendPolicies(
 			}
 			mergedRespHdr = mergeHeaderModifiers(mergedRespHdr, h)
 		case gatewayv1.GRPCRouteFilterRequestMirror:
-			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.GRPCRoute)
-			mergedMirror = append(mergedMirror, h)
+			h, err := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.GRPCRoute)
+			if err != nil {
+				mirrorBackendErr = err
+			} else {
+				mergedMirror = append(mergedMirror, h)
+			}
 		default:
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
+					Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
+				},
+			}
 		}
 	}
 	// Append merged header modifiers at the end to avoid duplicates
@@ -486,31 +518,42 @@ func BuildAgwGRPCBackendPolicies(
 	if mergedMirror != nil {
 		policies = append(policies, &api.BackendPolicySpec{Kind: &api.BackendPolicySpec_RequestMirror{RequestMirror: &api.RequestMirrors{Mirrors: mergedMirror}}})
 	}
-	return policies
+	return policies, mirrorBackendErr
 }
 
-// TODO(jaellio): Handle errors and setting conditions
 func buildAgwGRPCDestination(
 	ctx RouteContext,
 	forwardTo []gatewayv1.GRPCBackendRef,
 	ns string,
-) []*api.RouteBackend {
+) ([]*api.RouteBackend, *condition, *condition) {
 	if forwardTo == nil {
-		return nil
+		return nil, nil, nil
 	}
 
+	var invalidBackendErr *condition
 	var res []*api.RouteBackend
 	for _, fwd := range forwardTo {
-		dst := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
+		dst, err := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
 			BackendRef: fwd.BackendRef,
 			Filters:    nil, // GRPC filters are handled separately
 		}, ns, gvk.GRPCRoute)
-		// TODO(jaellio): handle error building agw destination
+		if err != nil {
+			logger.Errorf("error building agent gateway destination", "error", err)
+			if isInvalidBackend(err) {
+				invalidBackendErr = err
+				// keep going, we will gracefully drop invalid backends
+			} else {
+				return nil, nil, err
+			}
+		}
 		if dst != nil {
-			policies := BuildAgwGRPCBackendPolicies(ctx, ns, fwd.Filters)
+			policies, err := BuildAgwGRPCBackendPolicies(ctx, ns, fwd.Filters)
+			if err != nil {
+				return nil, nil, err
+			}
 			dst.BackendPolicies = policies
 		}
 		res = append(res, dst)
 	}
-	return res
+	return res, invalidBackendErr, nil
 }

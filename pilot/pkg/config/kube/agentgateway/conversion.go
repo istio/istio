@@ -18,6 +18,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,7 +29,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"istio.io/api/annotation"
-	"istio.io/api/label"
+	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
@@ -175,7 +177,7 @@ func validateTLS(certInfo *TLSInfo) *ConfigError {
 		if !x509.NewCertPool().AppendCertsFromPEM(certInfo.Cert) {
 			return &ConfigError{
 				Reason:  InvalidTLS,
-				Message: fmt.Sprintf("invalid CA certificate reference, the bundle is malformed"),
+				Message: "invalid CA certificate reference, the bundle is malformed",
 			}
 		}
 	}
@@ -582,7 +584,7 @@ func resolveGatewayTLS(port gatewayv1.PortNumber, gw *gatewayv1.GatewayTLSConfig
 	return &f.Default
 }
 
-func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewaycommon.ClassInfo) ([]string, *ConfigError) {
+func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewaycommon.ClassInfo) ([]string, *condition) {
 	if gatewaycommon.IsManaged(&kgw.Spec) {
 		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], gatewaycommon.GetDefaultName(kgw.Name, &kgw.Spec, info.DisableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, kgw.Namespace, domainSuffix)}, nil
@@ -607,24 +609,208 @@ func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewayc
 	}
 	if len(skippedAddresses) > 0 {
 		// Give error but return services, this is a soft failure
-		return gatewayServices, &ConfigError{
-			Reason:  InvalidAddress,
-			Message: fmt.Sprintf("only Hostname is supported, ignoring %v", skippedAddresses),
+		return gatewayServices, &condition{
+			status: metav1.ConditionFalse,
+			error: &ConfigError{
+				Reason:  InvalidAddress,
+				Message: fmt.Sprintf("only Hostname is supported, ignoring %v", skippedAddresses),
+			},
 		}
 	}
 	if _, f := kgw.Annotations[annotation.NetworkingServiceType.Name]; f {
 		// Give error but return services, this is a soft failure
 		// Remove entirely in 1.20
-		return gatewayServices, &ConfigError{
-			Reason:  DeprecateFieldUsage,
-			Message: fmt.Sprintf("annotation %v is deprecated, use Spec.Infrastructure.Routeability", annotation.NetworkingServiceType.Name),
+		return gatewayServices, &condition{
+			status: metav1.ConditionFalse,
+			error: &ConfigError{
+				Reason:  DeprecateFieldUsage,
+				Message: fmt.Sprintf("annotation %v is deprecated, use Spec.Infrastructure.Routeability", annotation.NetworkingServiceType.Name),
+			},
 		}
 	}
 	return gatewayServices, nil
 }
 
+func reportGatewayStatus(
+	r *gatewaycommon.GatewayContext,
+	obj *k8s.Gateway,
+	gs *k8s.GatewayStatus,
+	classInfo gatewaycommon.ClassInfo,
+	gatewayServices []string,
+	servers []*istio.Server,
+	listenerSetCount int,
+	gatewayErr *ConfigError,
+) {
+	// TODO: we lose address if servers is empty due to an error
+	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
+
+	// Setup initial conditions to the success state. If we encounter errors, we will update this.
+	// We have two status
+	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
+	// be tied to listeners, so this is always accepted
+	// Programmed: is the data plane "ready" (note: eventually consistent)
+	gatewayConditions := map[string]*condition{
+		string(k8s.GatewayConditionAccepted): {
+			reason:  string(k8s.GatewayReasonAccepted),
+			message: "Resource accepted",
+		},
+		string(k8s.GatewayConditionProgrammed): {
+			reason:  string(k8s.GatewayReasonProgrammed),
+			message: "Resource programmed",
+		},
+	}
+	if gatewayErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
+	}
+
+	// Not defined in upstream API
+	const AttachedListenerSets = "AttachedListenerSets"
+	if obj.Spec.AllowedListeners != nil {
+		gatewayConditions[AttachedListenerSets] = &condition{
+			reason:  "ListenersAttached",
+			message: "At least one ListenerSet is attached",
+		}
+		if !features.EnableAlphaGatewayAPI {
+			gatewayConditions[AttachedListenerSets].error = &ConfigError{
+				Reason: "Unsupported",
+				Message: fmt.Sprintf("AllowedListeners is configured, but ListenerSets are not enabled (set %v=true)",
+					features.EnableAlphaGatewayAPIName),
+			}
+		} else if listenerSetCount == 0 {
+			gatewayConditions[AttachedListenerSets].error = &ConfigError{
+				Reason:  "NoListenersAttached",
+				Message: "AllowedListeners is configured, but no ListenerSets are attached",
+			}
+		}
+	}
+
+	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
+
+	addressesToReport := external
+	if len(addressesToReport) == 0 {
+		wantAddressType := classInfo.AddressType
+		if override, ok := obj.Annotations[addressTypeOverride]; ok {
+			wantAddressType = k8s.AddressType(override)
+		}
+		// There are no external addresses, so report the internal ones
+		// This can be IP, Hostname, or both (indicated by empty wantAddressType)
+		if wantAddressType != k8s.HostnameAddressType {
+			addressesToReport = internalIP
+		}
+		if wantAddressType != k8s.IPAddressType {
+			for _, hostport := range internal {
+				svchost, _, _ := net.SplitHostPort(hostport)
+				if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {
+					addressesToReport = append(addressesToReport, svchost)
+				}
+			}
+		}
+	}
+	// Do not report an address until we are ready. But once we are ready, never remove the address.
+	if len(addressesToReport) > 0 {
+		gs.Addresses = make([]k8s.GatewayStatusAddress, 0, len(addressesToReport))
+		for _, addr := range addressesToReport {
+			var addrType k8s.AddressType
+			if _, err := netip.ParseAddr(addr); err == nil {
+				addrType = k8s.IPAddressType
+			} else {
+				addrType = k8s.HostnameAddressType
+			}
+			gs.Addresses = append(gs.Addresses, k8s.GatewayStatusAddress{
+				Value: addr,
+				Type:  &addrType,
+			})
+		}
+	}
+	// Prune listeners that have been removed
+	haveListeners := getListenerNames(&obj.Spec)
+	listeners := make([]k8s.ListenerStatus, 0, len(gs.Listeners))
+	for _, l := range gs.Listeners {
+		if haveListeners.Contains(l.Name) {
+			haveListeners.Delete(l.Name)
+			listeners = append(listeners, l)
+		}
+	}
+	gs.Listeners = listeners
+	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
+}
+
+func setProgrammedCondition(gatewayConditions map[string]*condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
+	if len(internal) > 0 {
+		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].message = msg
+	}
+
+	if len(gatewayServices) == 0 {
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
+			Reason:  InvalidAddress,
+			Message: "Failed to assign to any requested addresses",
+		}
+	} else if len(warnings) > 0 {
+		var msg string
+		var reason string
+		if len(internal) != 0 {
+			msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
+				humanReadableJoin(internal), strings.Join(warnings, "; "))
+		} else {
+			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
+		}
+		if allUsable {
+			reason = string(k8s.GatewayReasonAddressNotAssigned)
+		} else {
+			reason = string(k8s.GatewayReasonAddressNotUsable)
+		}
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
+			// TODO: this only checks Service ready, we should also check Deployment ready?
+			Reason:  reason,
+			Message: msg,
+		}
+	}
+}
+
+func humanReadableJoin(ss []string) string {
+	switch len(ss) {
+	case 0:
+		return ""
+	case 1:
+		return ss[0]
+	case 2:
+		return ss[0] + " and " + ss[1]
+	default:
+		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
+	}
+}
+
+func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
+	res := sets.New[k8s.SectionName]()
+	for _, l := range spec.Listeners {
+		res.Insert(l.Name)
+	}
+	return res
+}
+
 func toRouteKind(g config.GroupVersionKind) gatewayv1.RouteGroupKind {
 	return gatewayv1.RouteGroupKind{Group: (*gatewayv1.Group)(&g.Group), Kind: gatewayv1.Kind(g.Kind)}
+}
+
+// createAgwExtensionRefFilter creates Agw filter from Gateway API ExtensionRef filter
+func createAgwExtensionRefFilter(
+	extensionRef *gatewayv1.LocalObjectReference,
+) *condition {
+	if extensionRef == nil {
+		return nil
+	}
+
+	// TODO: support other types of extension refs (TrafficPolicySpec, etc.) https://github.com/kgateway-dev/kgateway/issues/12037
+
+	// Unsupported ExtensionRef
+	return &condition{
+		status: metav1.ConditionFalse,
+		error: &ConfigError{
+			Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
+			Message: fmt.Sprintf("unsupported ExtensionRef: %s/%s", extensionRef.Group, extensionRef.Kind),
+		},
+	}
 }
 
 func routeGroupKindEqual(rgk1, rgk2 gatewayv1.RouteGroupKind) bool {
@@ -654,7 +840,6 @@ type RouteParentReference struct {
 	ParentGateway   types.NamespacedName
 }
 
-// TODO(Jaellio): borrowed from kgateway
 func RouteName[T ~string](kind string, namespace, name string, routeRule *T) *api.RouteName {
 	var ls *string
 	if routeRule != nil {
@@ -668,7 +853,6 @@ func RouteName[T ~string](kind string, namespace, name string, routeRule *T) *ap
 	}
 }
 
-// TODO(Jaellio): borrowed from kgateway in utils
 // InternalRouteRuleKey returns the name of the internal Route Rule corresponding to the
 // specified route. If ruleName is not specified, returns the internal name without the route rule.
 // Format: routeNs/routeName.ruleName
@@ -679,10 +863,20 @@ func InternalRouteRuleKey(routeNamespace, routeName, ruleName string) string {
 	return fmt.Sprintf("%s/%s.%s", routeNamespace, routeName, ruleName)
 }
 
+func isPolicyErrorCritical(filterError *condition) bool {
+	criticalReasons := []gatewayv1.RouteConditionReason{
+		"FilterNotSupported",
+		"FilterConfigInvalid",
+		// Add other critical filter error reasons as needed
+	}
+
+	return slices.Contains(criticalReasons, k8s.RouteConditionReason(filterError.reason))
+}
+
 // ConvertTCPRouteToAgw converts a TCPRouteRule to an agentgateway TCPRoute
 func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayalpha.TCPRouteRule,
 	obj *gatewayalpha.TCPRoute, pos int,
-) *api.TCPRoute {
+) (*api.TCPRoute, *condition) {
 	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
 		// unique for route rule
@@ -692,17 +886,20 @@ func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayalpha.TCPRouteRule,
 	}
 
 	// Build TCP destinations
-	// TODO(jaellio): handle errors
-	route := buildAgwTCPDestination(ctx, r.BackendRefs, obj.Namespace)
+	route, backendErr, err := buildAgwTCPDestination(ctx, r.BackendRefs, obj.Namespace)
+	if err != nil {
+		logger.Errorf("failed to translate tcp destination", "err", err)
+		return nil, err
+	}
 	res.Backends = route
 
-	return res
+	return res, backendErr
 }
 
 // ConvertGRPCRouteToAgw converts a GRPCRouteRule to an agentgateway HTTPRoute
 func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 	obj *gatewayv1.GRPCRoute, pos int,
-) *api.Route {
+) (*api.Route, *condition) {
 	routeRuleKey := strconv.Itoa(pos)
 	res := &api.Route{
 		// unique for route rule
@@ -713,8 +910,11 @@ func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 
 	// Convert GRPC matches to Agw format
 	for _, match := range r.Matches {
-		// TODO(jaellio): handle errors
-		headers := CreateAgwGRPCHeadersMatch(match)
+		headers, err := CreateAgwGRPCHeadersMatch(match)
+		if err != nil {
+			logger.Errorf("failed to translate grpc header match", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
+			return nil, err
+		}
 		// For GRPC, we don't have path match in the traditional sense, so we'll derive it from method
 		var path *api.PathMatch
 		if match.Method != nil {
@@ -745,21 +945,29 @@ func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 		}}
 	}
 
-	policies := BuildAgwGRPCTrafficPolicies(ctx, obj.Namespace, r.Filters)
+	policies, err := BuildAgwGRPCTrafficPolicies(ctx, obj.Namespace, r.Filters)
+	if err != nil {
+		logger.Errorf("failed to translate grpc filter", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
+		return nil, err
+	}
 	res.TrafficPolicies = policies
 
-	route := buildAgwGRPCDestination(ctx, r.BackendRefs, obj.Namespace)
+	route, backendErr, err := buildAgwGRPCDestination(ctx, r.BackendRefs, obj.Namespace)
+	if err != nil {
+		logger.Errorf("failed to translate grpc destination", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
+		return nil, err
+	}
 	res.Backends = route
 	res.Hostnames = slices.Map(obj.Spec.Hostnames, func(e gatewayv1.Hostname) string {
 		return string(e)
 	})
-	return res
+	return res, backendErr
 }
 
 // ConvertTLSRouteToAgw converts a TLSRouteRule to an agentgateway TCPRoute
 func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayalpha.TLSRouteRule,
 	obj *gatewayalpha.TLSRoute, pos int,
-) *api.TCPRoute {
+) (*api.TCPRoute, *condition) {
 	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
 		// unique for route rule
@@ -769,8 +977,11 @@ func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayalpha.TLSRouteRule,
 	}
 
 	// Build TLS destinations
-	// TODO(jaellio): handle errors
-	route := buildAgwTLSDestination(ctx, r.BackendRefs, obj.Namespace)
+	route, backendErr, err := buildAgwTLSDestination(ctx, r.BackendRefs, obj.Namespace)
+	if err != nil {
+		logger.Errorf("failed to translate tls destination", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
+		return nil, err
+	}
 	res.Backends = route
 
 	// TLS Routes have hostnames in the spec (unlike TCP Routes)
@@ -778,48 +989,67 @@ func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayalpha.TLSRouteRule,
 		return string(e)
 	})
 
-	return res
+	return res, backendErr
 }
 
 func buildAgwTCPDestination(
 	ctx RouteContext,
 	forwardTo []gatewayv1.BackendRef,
 	ns string,
-) []*api.RouteBackend {
+) ([]*api.RouteBackend, *condition, *condition) {
 	if forwardTo == nil {
-		return nil
+		return nil, nil, nil
 	}
 
+	var invalidBackendErr *condition
 	var res []*api.RouteBackend
 	for _, fwd := range forwardTo {
-		dst := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
+		dst, err := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
 			BackendRef: fwd,
 			Filters:    nil, // TCP Routes don't have per-backend filters?
 		}, ns, gvk.TCPRoute)
+		if err != nil {
+			logger.Errorf("error building agent gateway destination", "error", err)
+			if isInvalidBackend(err) {
+				invalidBackendErr = err
+				// keep going, we will gracefully drop invalid backends
+			} else {
+				return nil, nil, err
+			}
+		}
 		res = append(res, dst)
 	}
-	return res
+	return res, invalidBackendErr, nil
 }
 
-// TODO(jaellio): handle errors
+// first condition return value is for invalid backends, the second is for other errors
 func buildAgwTLSDestination(
 	ctx RouteContext,
 	forwardTo []gatewayv1.BackendRef,
 	ns string,
-) []*api.RouteBackend {
+) ([]*api.RouteBackend, *condition, *condition) {
 	if forwardTo == nil {
-		return nil
+		return nil, nil, nil
 	}
-
+	var invalidBackendErr *condition
 	var res []*api.RouteBackend
 	for _, fwd := range forwardTo {
-		dst := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
+		dst, err := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
 			BackendRef: fwd,
 			Filters:    nil, // TLS Routes don't have per-backend filters
 		}, ns, gvk.TLSRoute)
+		if err != nil {
+			logger.Errorf("error building agent gateway destination", "error", err)
+			if isInvalidBackend(err) {
+				invalidBackendErr = err
+				// keep going, we will gracefully drop invalid backends
+			} else {
+				return nil, nil, err
+			}
+		}
 		res = append(res, dst)
 	}
-	return res
+	return res, invalidBackendErr, nil
 }
 
 func buildAgwDestination(
@@ -827,12 +1057,18 @@ func buildAgwDestination(
 	to gatewayv1.HTTPBackendRef,
 	ns string,
 	k config.GroupVersionKind,
-) *api.RouteBackend {
+) (*api.RouteBackend, *condition) {
 	ref := normalizeReference(to.Group, to.Kind, gvk.Service)
 	// check if the reference is allowed
 	if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
 		if !ctx.Grants.BackendAllowed(ctx.Krt, k, ref, to.Name, *toNs, ns) {
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonRefNotPermitted),
+					Message: fmt.Sprintf("backendRef %v/%v not accessible to a %s in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, k.Kind, ns),
+				},
+			}
 		}
 	}
 
@@ -840,6 +1076,7 @@ func buildAgwDestination(
 	if to.Namespace != nil {
 		namespace = string(*to.Namespace)
 	}
+	var invalidBackendErr *condition
 	var hostname string
 	weight := int32(1) // default
 	if to.Weight != nil {
@@ -853,13 +1090,27 @@ func buildAgwDestination(
 	switch ref.Kind {
 	case gvk.InferencePool.Kind:
 		if strings.Contains(string(to.Name), ".") {
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
+					Message: "service name invalid; the name of the InferencePool must be used, not the hostname.",
+				},
+			}
 		}
 		hostname = GetInferenceServiceHostname(ctx, string(to.Name), namespace)
 		key := namespace + "/" + string(to.Name)
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.InferencePools, krt.FilterKey(key)))
 		logger.Debugf("found pull pool for service", "svc", svc, "key", key)
-		if svc != nil {
+		if svc == nil {
+			invalidBackendErr = &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonBackendNotFound),
+					Message: fmt.Sprintf("backendRef %s  not found", key),
+				},
+			}
+		} else {
 			rb.Backend = &api.BackendReference{
 				Kind: &api.BackendReference_Service_{
 					Service: &api.BackendReference_Service{
@@ -871,17 +1122,28 @@ func buildAgwDestination(
 				Port: uint32(svc.Spec.TargetPorts[0].Number), //nolint:gosec // G115: InferencePool TargetPort is int32 with validation 1-65535, always safe
 			}
 		}
-	// TODO(jaellio): Fix this backend kind check
 	case "Hostname":
 		// Hostname is an Istio-specific backend kind where the name is the literal hostname
 		// Used for referencing services by their full hostname (e.g., from ServiceEntry)
 		// The actual resolution to ServiceEntry happens via the BackendIndex alias mechanism
 		port = to.Port
 		if port == nil {
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
+					Message: "port is required in backendRef for Hostname kind",
+				},
+			}
 		}
 		if to.Namespace != nil {
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
+					Message: "namespace may not be set with Hostname type",
+				},
+			}
 		}
 		// Use the name directly as the hostname
 		hostname = string(to.Name)
@@ -899,19 +1161,37 @@ func buildAgwDestination(
 	case gvk.Service.Kind:
 		port = to.Port
 		if strings.Contains(string(to.Name), ".") {
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
+					Message: "service name invalid; the name of the Service must be used, not the hostname.",
+				},
+			}
 		}
 		hostname = GetServiceHostname(ctx, string(to.Name), namespace)
 		key := namespace + "/" + string(to.Name)
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
 		if svc == nil {
-			logger.Errorf("servive backend not found", "service", key)
+			invalidBackendErr = &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonBackendNotFound),
+					Message: fmt.Sprintf("backend(%s) not found", hostname),
+				},
+			}
 		}
 		// TODO: All kubernetes service types currently require a Port, so we do this for everything; consider making this per-type if we have future types
 		// that do not require port.
 		if port == nil {
 			// "Port is required when the referent is a Kubernetes Service."
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
+					Message: "port is required in backendRef",
+				},
+			}
 		}
 		rb.Backend = &api.BackendReference{
 			Kind: &api.BackendReference_Service_{
@@ -923,22 +1203,15 @@ func buildAgwDestination(
 			Port: uint32(*port), //nolint:gosec // G115: Gateway API PortNumber is int32 with validation 1-65535, always safe
 		}
 	default:
-		return nil
+		return nil, &condition{
+			status: metav1.ConditionFalse,
+			error: &ConfigError{
+				Reason:  ConfigErrorReason(gatewayv1.RouteReasonInvalidKind),
+				Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind)),
+			},
+		}
 	}
-	return rb
-}
-
-func humanReadableJoin(ss []string) string {
-	switch len(ss) {
-	case 0:
-		return ""
-	case 1:
-		return ss[0]
-	case 2:
-		return ss[0] + " and " + ss[1]
-	default:
-		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
-	}
+	return rb, invalidBackendErr
 }
 
 // reportUnsupportedListenerSet reports a status message for a ListenerSet that is not supported
@@ -1017,16 +1290,16 @@ func mergeHeaderModifiers(dst, src *api.HeaderModifier) *api.HeaderModifier {
 	return dst
 }
 
-// TODO(jaellio): handle errors and setting conditions
 // BuildAgwTrafficPolicyFilters builds a list of agentgateway TrafficPolicySpec from a list of k8s gateway api HTTPRoute filters
 func BuildAgwTrafficPolicyFilters(
 	ctx RouteContext,
 	ns string,
 	inputFilters []gatewayv1.HTTPRouteFilter,
-) []*api.TrafficPolicySpec {
+) ([]*api.TrafficPolicySpec, *condition) {
 	var policies []*api.TrafficPolicySpec
 	var hasTerminalFilter bool
-
+	var terminalFilterType string
+	var policyError *condition
 	// Collect multiples of same-type filters to merge
 	var mergedReqHdr *api.HeaderModifier
 	var mergedRespHdr *api.HeaderModifier
@@ -1047,6 +1320,13 @@ func BuildAgwTrafficPolicyFilters(
 			mergedRespHdr = mergeHeaderModifiers(mergedRespHdr, h)
 		case gatewayv1.HTTPRouteFilterRequestRedirect:
 			if hasTerminalFilter {
+				policyError = &condition{
+					status: metav1.ConditionFalse,
+					error: &ConfigError{
+						Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
+						Message: terminalFilterCombinationError(terminalFilterType, "RequestRedirect"),
+					},
+				}
 				continue
 			}
 			h := CreateAgwRedirectFilter(filter.RequestRedirect)
@@ -1055,10 +1335,13 @@ func BuildAgwTrafficPolicyFilters(
 			}
 			policies = append(policies, &api.TrafficPolicySpec{Kind: &api.TrafficPolicySpec_RequestRedirect{RequestRedirect: h}})
 			hasTerminalFilter = true
+			terminalFilterType = "RequestRedirect"
 		case gatewayv1.HTTPRouteFilterRequestMirror:
-			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.HTTPRoute)
-			if h == nil {
-				continue
+			h, err := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.HTTPRoute)
+			if err != nil {
+				if policyError == nil {
+					policyError = err
+				}
 			} else {
 				mergedMirror = append(mergedMirror, h)
 			}
@@ -1075,21 +1358,29 @@ func BuildAgwTrafficPolicyFilters(
 			}
 			policies = append(policies, h)
 		case gatewayv1.HTTPRouteFilterExternalAuth:
-			h := CreateAgwExternalAuthFilter(ctx, filter.ExternalAuth, ns, gvk.HTTPRoute)
-			if h == nil {
-				continue
+			h, err := CreateAgwExternalAuthFilter(ctx, filter.ExternalAuth, ns, gvk.HTTPRoute)
+			if err != nil {
+				if policyError == nil {
+					policyError = err
+				}
 			}
 			policies = append(policies, h)
 		case gatewayv1.HTTPRouteFilterExtensionRef:
-			/*err := createAgwExtensionRefFilter(filter.ExtensionRef)
+			err := createAgwExtensionRefFilter(filter.ExtensionRef)
 			if err != nil {
 				if policyError == nil {
 					policyError = err
 				}
 				continue
-			}*/
+			}
 		default:
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
+					Message: fmt.Sprintf("unsupported filter type: %v", filter.Type),
+				},
+			}
 		}
 	}
 	// Append merged header modifiers at the end to avoid duplicates
@@ -1102,18 +1393,19 @@ func BuildAgwTrafficPolicyFilters(
 	if mergedMirror != nil {
 		policies = append(policies, &api.TrafficPolicySpec{Kind: &api.TrafficPolicySpec_RequestMirror{RequestMirror: &api.RequestMirrors{Mirrors: mergedMirror}}})
 	}
-	return policies
+	return policies, policyError
 }
 
-// TODO(jaellio): handle errors and setting conditions
 // BuildAgwBackendPolicyFilters builds a list of agentgateway BackendPolicySpec from a list of k8s gateway api HTTPRoute filters
 func BuildAgwBackendPolicyFilters(
 	ctx RouteContext,
 	ns string,
 	inputFilters []gatewayv1.HTTPRouteFilter,
-) []*api.BackendPolicySpec {
+) ([]*api.BackendPolicySpec, *condition) {
 	var policies []*api.BackendPolicySpec
 	var hasTerminalFilter bool
+	var terminalFilterType string
+	var policyError *condition
 	// Collect multiples of same-type filters to merge
 	var mergedReqHdr *api.HeaderModifier
 	var mergedRespHdr *api.HeaderModifier
@@ -1134,6 +1426,13 @@ func BuildAgwBackendPolicyFilters(
 			mergedRespHdr = mergeHeaderModifiers(mergedRespHdr, h)
 		case gatewayv1.HTTPRouteFilterRequestRedirect:
 			if hasTerminalFilter {
+				policyError = &condition{
+					status: metav1.ConditionFalse,
+					error: &ConfigError{
+						Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
+						Message: terminalFilterCombinationError(terminalFilterType, "RequestRedirect"),
+					},
+				}
 				continue
 			}
 			h := CreateAgwRedirectFilter(filter.RequestRedirect)
@@ -1142,15 +1441,24 @@ func BuildAgwBackendPolicyFilters(
 			}
 			policies = append(policies, &api.BackendPolicySpec{Kind: &api.BackendPolicySpec_RequestRedirect{RequestRedirect: h}})
 			hasTerminalFilter = true
+			terminalFilterType = "RequestRedirect"
 		case gatewayv1.HTTPRouteFilterRequestMirror:
-			h := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.HTTPRoute)
-			if h == nil {
-				continue
+			h, err := CreateAgwMirrorFilter(ctx, filter.RequestMirror, ns, gvk.HTTPRoute)
+			if err != nil {
+				if policyError == nil {
+					policyError = err
+				}
 			} else {
 				mergedMirror = append(mergedMirror, h)
 			}
 		default:
-			return nil
+			return nil, &condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
+					Message: fmt.Sprintf("unsupported filter type: %v", filter.Type),
+				},
+			}
 		}
 	}
 	// Append merged header modifiers at the end to avoid duplicates
@@ -1163,29 +1471,46 @@ func BuildAgwBackendPolicyFilters(
 	if mergedMirror != nil {
 		policies = append(policies, &api.BackendPolicySpec{Kind: &api.BackendPolicySpec_RequestMirror{RequestMirror: &api.RequestMirrors{Mirrors: mergedMirror}}})
 	}
-	return policies
+	return policies, policyError
 }
 
-// TODO(jaellio): handle errors and setting conditions
+// terminalFilterCombinationError creates a standardized error message for when multiple terminal filters are used together
+func terminalFilterCombinationError(existingFilter, newFilter string) string {
+	return fmt.Sprintf("Cannot combine multiple terminal filters: %s and %s are mutually exclusive. Only one terminal filter is allowed per route rule.", existingFilter, newFilter)
+}
+
 func buildAgwHTTPDestination(
 	ctx RouteContext,
 	forwardTo []gatewayv1.HTTPBackendRef,
 	ns string,
-) []*api.RouteBackend {
+) ([]*api.RouteBackend, *condition, *condition) {
 	if forwardTo == nil {
-		return nil
+		return nil, nil, nil
 	}
 
+	var invalidBackendErr *condition
 	var res []*api.RouteBackend
 	for _, fwd := range forwardTo {
-		dst := buildAgwDestination(ctx, fwd, ns, gvk.HTTPRoute)
+		dst, err := buildAgwDestination(ctx, fwd, ns, gvk.HTTPRoute)
+		if err != nil {
+			logger.Errorf("erroring building agent gateway destination", "error", err)
+			if isInvalidBackend(err) {
+				invalidBackendErr = err
+				// keep going, we will gracefully drop invalid backends
+			} else {
+				return nil, nil, err
+			}
+		}
 		if dst != nil {
-			policies := BuildAgwBackendPolicyFilters(ctx, ns, fwd.Filters)
+			policies, err := BuildAgwBackendPolicyFilters(ctx, ns, fwd.Filters)
+			if err != nil {
+				return nil, nil, err
+			}
 			dst.BackendPolicies = policies
 		}
 		res = append(res, dst)
 	}
-	return res
+	return res, invalidBackendErr, nil
 }
 
 // TODO(jaellio): move to helper
@@ -1274,11 +1599,10 @@ func convertHostnames(hostnames []gatewayv1.Hostname) []string {
 	})
 }
 
-// TODO(jaellio): Handle errors and setting conditions
 // ConvertHTTPRouteToAgw converts a HTTPRouteRule to an agentgateway HTTPRoute
 func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 	obj *gatewayv1.HTTPRoute, pos int, matchPos int,
-) *api.Route {
+) (*api.Route, *condition) {
 	routeRuleKey := strconv.Itoa(pos) + "." + strconv.Itoa(matchPos)
 	res := &api.Route{
 		// unique for route rule
@@ -1289,30 +1613,58 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 	}
 
 	if err := processRouteMatches(&r, res); err != nil {
-		return nil
+		return nil, &condition{
+			status: metav1.ConditionFalse,
+			error: &ConfigError{
+				Reason:  "InvalidMatch",
+				Message: fmt.Sprintf("failed to process route matches: %v", err),
+			},
+		}
 	}
 
-	policies := BuildAgwTrafficPolicyFilters(ctx, obj.Namespace, r.Filters)
+	policies, policiesErr := BuildAgwTrafficPolicyFilters(ctx, obj.Namespace, r.Filters)
 	res.TrafficPolicies = policies
 
 	if err := ApplyTimeouts(&r, res); err != nil {
-		return nil
+		return nil, &condition{
+			status: metav1.ConditionFalse,
+			error: &ConfigError{
+				Reason:  "TranslationError",
+				Message: fmt.Sprintf("failed to apply builtin route timeout: %v", err),
+			},
+		}
 	}
 	if err := ApplyRetries(&r, res); err != nil {
-		return nil
+		return nil, &condition{
+			status: metav1.ConditionFalse,
+			error: &ConfigError{
+				Reason:  "TranslationError",
+				Message: fmt.Sprintf("failed to apply builtin route retries: %v", err),
+			},
+		}
 	}
 
-	// TODO(jaellio): support plugin passes (?)
-	/*if pluginErr := applyPluginPasses(ctx, &r, res); pluginErr != nil {
-		return nil, pluginErr
-	}*/
+	// TODO(jaellio): support pluginpasses
 
-	backends := buildAgwHTTPDestination(ctx, r.BackendRefs, obj.Namespace)
+	backends, backendErr, err := buildAgwHTTPDestination(ctx, r.BackendRefs, obj.Namespace)
+	if err != nil {
+		return nil, &condition{
+			status: metav1.ConditionFalse,
+			error: &ConfigError{
+				Reason:  "BackendError",
+				Message: fmt.Sprintf("failed to build backend destination: %v", err),
+			},
+		}
+	}
 	res.Backends = backends
 
 	res.Hostnames = convertHostnames(obj.Spec.Hostnames)
 
-	return res
+	if policiesErr != nil && !isPolicyErrorCritical(policiesErr) {
+		return nil, policiesErr
+	}
+
+	return res, backendErr
 }
 
 // Helper function to process route matches
@@ -1392,14 +1744,6 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (Ag
 		// Unset namespace means "same namespace"
 		Namespace: defaultString(p.Namespace, localNamespace),
 	}, nil
-}
-
-// waypointConfigured returns true if a waypoint is configured via expected label's key-value pair.
-func waypointConfigured(labels map[string]string) bool {
-	if val, ok := labels[label.IoIstioUseWaypoint.Name]; ok && len(val) > 0 && !strings.EqualFold(val, "none") {
-		return true
-	}
-	return false
 }
 
 // ReferenceAllowed validates if a route can reference a specified parent based on rules like section, port, and hostnames.
@@ -1537,9 +1881,9 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 			continue
 		}
 		pk := ParentReference{
-			AgwParentKey:   ir,
-			SectionName: ptr.OrEmpty(ref.SectionName),
-			Port:        ptr.OrEmpty(ref.Port),
+			AgwParentKey: ir,
+			SectionName:  ptr.OrEmpty(ref.SectionName),
+			Port:         ptr.OrEmpty(ref.Port),
 		}
 		gk := ir
 		currentParents := parents.fetch(ctx.Krt, gk)
@@ -1610,4 +1954,11 @@ func GetServiceHostname(ctx RouteContext, name, namespace string) string {
 // GetInferenceServiceHostname returns the fully qualified service hostname for InferencePools
 func GetInferenceServiceHostname(ctx RouteContext, name, namespace string) string {
 	return fmt.Sprintf("%s.%s.inference.%s", name, namespace, ctx.DomainSuffix)
+}
+
+// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L207-L212
+func isInvalidBackend(err *condition) bool {
+	return err.reason == ConfigErrorReason(gatewayv1.RouteReasonRefNotPermitted) ||
+		err.reason == ConfigErrorReason(gatewayv1.RouteReasonBackendNotFound) ||
+		err.reason == ConfigErrorReason(gatewayv1.RouteReasonInvalidKind)
 }

@@ -40,6 +40,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
@@ -115,6 +116,7 @@ type Server struct {
 	configController       model.ConfigStoreController
 	ConfigStores           []model.ConfigStoreController
 	serviceEntryController *serviceentry.Controller
+	agentgatewayController *agentgateway.Controller
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
@@ -332,8 +334,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
 
 	if features.EnableAgentgateway {
-		InitCollections(s.XDSServer)
+		// Must occur after initControllers as that builds the agentgateway controller
+		s.XDSServer.InitCollections(s.agentgatewayController.Registrations...)
 	}
+
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
 		return nil, err

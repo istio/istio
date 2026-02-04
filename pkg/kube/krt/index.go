@@ -282,6 +282,7 @@ func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]
 	}, runExistingState)
 }
 
+// TODO(jaellio): Confirm why we need an unnamed index
 // UnnamedIndex creates a simple index, keyed by key K, over a collection for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
 //
