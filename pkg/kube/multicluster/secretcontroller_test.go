@@ -677,8 +677,6 @@ func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
 
 	// Track clusters using atomic pointers to avoid data races
 	var oldCluster, newCluster atomic.Pointer[Cluster]
-	// Store prevCluster atomically since it gets set to nil after sync
-	var capturedPrevCluster atomic.Pointer[Cluster]
 
 	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
 		if cluster.ID == "c0" {
@@ -686,8 +684,6 @@ func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
 				oldCluster.Store(cluster)
 			} else {
 				newCluster.Store(cluster)
-				// Capture prevCluster before it can be set to nil
-				capturedPrevCluster.Store(cluster.prevCluster)
 			}
 		}
 		return testHandler{
@@ -723,10 +719,10 @@ func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
 	oldC := oldCluster.Load()
 	newC := newCluster.Load()
 
-	// Verify that new cluster had prevCluster set (captured before it was cleared)
-	assert.Equal(t, capturedPrevCluster.Load() == oldC, true)
+	// Verify old and new clusters are different instances
+	assert.Equal(t, oldC != newC, true)
 
-	// Wait for old cluster to be stopped (should happen after new cluster syncs)
+	// Wait for old cluster to be stopped (should happen after new cluster syncs via PendingClusterSwap.Complete())
 	retry.UntilOrFail(t, func() bool {
 		return oldC.Closed()
 	}, retry.Timeout(2*time.Second))

@@ -380,15 +380,11 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 		// Set the action before running so constructors can check it
 		remoteCluster.Action = action
 
-		// For updates, pass the previous cluster so it can be stopped after the new one syncs
-		if action == Update && prev != nil {
-			remoteCluster.prevCluster = prev
-		}
-
 		// We run cluster async so we do not block, as this requires actually connecting to the cluster and loading configuration.
-		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
+		// Swap stores the new cluster and returns a PendingClusterSwap that manages cleanup of the previous cluster.
+		swap := c.cs.Swap(secretKey, remoteCluster.ID, remoteCluster)
 		go func() {
-			remoteCluster.Run(c.meshWatcher, c.handlers, action)
+			remoteCluster.Run(c.meshWatcher, c.handlers, action, swap)
 		}()
 	}
 

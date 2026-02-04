@@ -47,10 +47,6 @@ type Cluster struct {
 
 	syncStatusCallback SyncStatusCallback
 
-	// prevCluster holds the previous cluster during an update operation.
-	// It will be stopped after the new cluster has synced.
-	prevCluster *Cluster
-
 	// Action indicates whether this is an Add or Update operation.
 	// This allows constructors to behave differently during updates (e.g., defer registration).
 	Action ACTION
@@ -94,8 +90,12 @@ func (a ACTION) String() string {
 
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
-// For update operations, if prevCluster is set, it will be stopped after the new cluster has synced.
-func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
+// The swap parameter manages the make-before-break lifecycle - its Complete() method is called via defer
+// to clean up the previous cluster after sync completes (success, failure, or timeout).
+func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION, swap *PendingClusterSwap) {
+	// Ensure previous cluster is cleaned up when this method exits (success, failure, or timeout)
+	defer swap.Complete()
+
 	c.Action = action
 	c.reportStatus(SyncStatusSyncing)
 	if features.RemoteClusterTimeout > 0 {
@@ -108,8 +108,6 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 				timeouts.With(clusterLabel.Value(string(c.ID))).Increment()
 				// Signal that sync is complete (timed out)
 				c.closeSyncedCh()
-				// If we have a previous cluster and we timed out, stop it now to avoid leaking resources
-				c.stopPreviousCluster()
 			}
 			c.initialSyncTimeout.Store(true)
 			c.reportStatus(SyncStatusTimeout)
@@ -141,8 +139,6 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 		log.Warnf("remote cluster %s failed to sync", c.ID)
 		// Signal that sync is complete (failed)
 		c.closeSyncedCh()
-		// Stop the previous cluster if we failed to sync
-		c.stopPreviousCluster()
 		return
 	}
 	for _, h := range syncers {
@@ -150,8 +146,6 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 			log.Warnf("remote cluster %s failed to sync handler", c.ID)
 			// Signal that sync is complete (failed)
 			c.closeSyncedCh()
-			// Stop the previous cluster if we failed to sync
-			c.stopPreviousCluster()
 			return
 		}
 	}
@@ -161,9 +155,6 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 
 	// Signal that sync is complete
 	c.closeSyncedCh()
-
-	// Now that the new cluster is synced, stop the previous cluster
-	c.stopPreviousCluster()
 }
 
 // closeSyncedCh closes the SyncedCh channel to signal sync completion.
@@ -176,17 +167,6 @@ func (c *Cluster) closeSyncedCh() {
 		default:
 			close(c.SyncedCh)
 		}
-	}
-}
-
-// stopPreviousCluster stops and cleans up the previous cluster if one exists.
-// This is called after the new cluster has synced (or failed/timed out).
-func (c *Cluster) stopPreviousCluster() {
-	if c.prevCluster != nil {
-		log.Infof("stopping previous cluster %s after new cluster synced", c.ID)
-		c.prevCluster.Stop()
-		c.prevCluster.Client.Shutdown()
-		c.prevCluster = nil
 	}
 }
 

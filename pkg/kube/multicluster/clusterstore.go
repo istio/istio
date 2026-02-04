@@ -30,6 +30,23 @@ type ClusterStore struct {
 	clusters       sets.String
 }
 
+// PendingClusterSwap manages the make-before-break swap of a cluster.
+// It holds reference to the old cluster and handles cleanup after sync.
+type PendingClusterSwap struct {
+	clusterID cluster.ID
+	prev      *Cluster
+}
+
+// Complete should be called after the new cluster has synced (or failed/timed out).
+// It stops and cleans up the previous cluster if one exists.
+func (p *PendingClusterSwap) Complete() {
+	if p.prev != nil {
+		log.Infof("stopping previous cluster %s after new cluster synced", p.clusterID)
+		p.prev.Stop()
+		p.prev.Client.Shutdown()
+	}
+}
+
 // newClustersStore initializes data struct to store clusters information
 func newClustersStore() *ClusterStore {
 	return &ClusterStore{
@@ -46,6 +63,25 @@ func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Clus
 	}
 	c.remoteClusters[secretKey][clusterID] = value
 	c.clusters.Insert(string(clusterID))
+}
+
+// Swap stores a new cluster and returns a PendingClusterSwap that manages
+// the lifecycle of both old and new clusters. Call Complete() on the returned swap
+// after the new cluster has synced.
+func (c *ClusterStore) Swap(secretKey string, clusterID cluster.ID, value *Cluster) *PendingClusterSwap {
+	c.Lock()
+	defer c.Unlock()
+	if _, ok := c.remoteClusters[secretKey]; !ok {
+		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
+	}
+	prev := c.remoteClusters[secretKey][clusterID]
+	c.remoteClusters[secretKey][clusterID] = value
+	c.clusters.Insert(string(clusterID))
+
+	return &PendingClusterSwap{
+		clusterID: clusterID,
+		prev:      prev,
+	}
 }
 
 func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
@@ -86,8 +122,6 @@ func (c *ClusterStore) GetByID(clusterID cluster.ID) *Cluster {
 }
 
 // All returns a snapshot of the current remote clusters.
-// The returned map is a copy, but the Cluster pointers are shared with the store.
-// Callers should only call thread-safe methods on the Cluster objects.
 func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
 	if c == nil {
 		return nil
@@ -97,8 +131,9 @@ func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
 	out := make(map[string]map[cluster.ID]*Cluster, len(c.remoteClusters))
 	for secret, clusters := range c.remoteClusters {
 		out[secret] = make(map[cluster.ID]*Cluster, len(clusters))
-		for cid, cluster := range clusters {
-			out[secret][cid] = cluster
+		for cid, c := range clusters {
+			outCluster := *c
+			out[secret][cid] = &outCluster
 		}
 	}
 	return out
