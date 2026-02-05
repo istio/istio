@@ -17,6 +17,7 @@ package util
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -83,4 +84,14 @@ func (c *CompiledInterfaceExclusionRules) MatchesNamespace(namespaceLabels map[s
 		}
 	}
 	return false
+}
+
+// ExcludedInterfacesChanged compares current vs desired excluded interfaces.
+// Returns true if they differ (order-independent comparison).
+// Treats nil and empty slices as equivalent.
+func ExcludedInterfacesChanged(current, desired []string) bool {
+	if len(current) == 0 && len(desired) == 0 {
+		return false
+	}
+	return !slices.EqualUnordered(current, desired)
 }

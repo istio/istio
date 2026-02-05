@@ -29,23 +29,24 @@ import (
 )
 
 type meshDataplane struct {
-	kubeClient         kubernetes.Interface
-	netServer          MeshDataplane
-	hostTrafficManager trafficmanager.TrafficRuleManager
-	hostAddrSet        set.AddressSetManager
+	kubeClient              kubernetes.Interface
+	netServer               MeshDataplane
+	hostTrafficManager      trafficmanager.TrafficRuleManager
+	hostAddrSet             set.AddressSetManager
+	interfaceExclusionRules *util.CompiledInterfaceExclusionRules
 }
 
 // ConstructInitialSnapshot is always called first, before Start.
 // It takes a "snapshot" of ambient pods that were already running when the server started,
 // and constructs various required "state" (adding the pods to the host-level node ipset,
 // building the state of the world snapshot send to connecting ztunnels)
-func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) error {
+func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod, namespaces map[string]*corev1.Namespace) error {
 	if err := s.syncHostAddrSets(existingAmbientPods); err != nil {
 		log.Errorf("failed to sync host addressSet: %v", err)
 		return err
 	}
 
-	return s.netServer.ConstructInitialSnapshot(existingAmbientPods)
+	return s.netServer.ConstructInitialSnapshot(existingAmbientPods, namespaces)
 }
 
 // ConstructInitialSnapshot should always be invoked before this function.
@@ -89,14 +90,14 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 // If the *last* step of sending the pod to ztunnel fails, then the pod will still be annotated
 // with a partially-captured status (indicating it has been mutated/redirected, and thus potentially
 // needs cleanup) and the error will be returned, indicating that the function call can be retried.
-func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
+func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string, ns *corev1.Namespace) error {
 	// Ordering is important in this func:
 	//
 	// - Inject rules and add to ztunnel FIRST
 	// - Annotate IF rule injection doesn't fail.
 	// - Add pod IP to ipset IF none of the above has failed, as a last step
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	if err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs); err != nil {
+	if err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs, ns); err != nil {
 		// iptables injection failed, this is not a "retryable partial add"
 		// this is a nonrecoverable/nonretryable error and we won't even bother to
 		// annotate the pod or retry the event.

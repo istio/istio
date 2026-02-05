@@ -30,7 +30,7 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 	return nil, errNotImplemented
 }
 
-func (*meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) error {
+func (*meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod, namespaces map[string]*corev1.Namespace) error {
 	return errNotImplemented
 }
 
@@ -39,7 +39,7 @@ func (*meshDataplane) Start(ctx context.Context) {
 	return
 }
 
-func (*meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
+func (*meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string, ns *corev1.Namespace) error {
 	return errNotImplemented
 }
 

@@ -24,15 +24,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/cni/pkg/trafficmanager"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/slices"
 )
 
 // Adapts CNI to ztunnel server. decoupled from k8s for easier integration testing.
 type NetServer struct {
-	ztunnelServer      ZtunnelServer
-	currentPodSnapshot *podNetnsCache
-	trafficManager     trafficmanager.TrafficRuleManager
-	podNs              PodNetnsFinder
+	ztunnelServer           ZtunnelServer
+	currentPodSnapshot      *podNetnsCache
+	trafficManager          trafficmanager.TrafficRuleManager
+	podNs                   PodNetnsFinder
+	interfaceExclusionRules *util.CompiledInterfaceExclusionRules
 	// allow overriding for tests
 	netnsRunner func(fdable NetnsFd, toRun func() error) error
 }
@@ -50,7 +52,7 @@ var _ MeshDataplane = &NetServer{}
 // - For each of these existing snapshotted pods, steps into their netNS, and reconciles their
 // existing iptables rules against the expected set of rules. This is used to handle reconciling
 // iptables rule drift/changes between versions.
-func (s *NetServer) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) error {
+func (s *NetServer) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod, namespaces map[string]*corev1.Namespace) error {
 	var consErr []error
 
 	podsByUID := slices.GroupUnique(existingAmbientPods, (*corev1.Pod).GetUID)
@@ -64,7 +66,12 @@ func (s *NetServer) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) 
 		for _, pod := range existingAmbientPods {
 			log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 			log.Debug("upgrading and reconciling inpod rules for already-running pod if necessary")
-			err := s.reconcileExistingPod(pod)
+			ns, ok := namespaces[pod.Namespace]
+			if !ok {
+				log.Errorf("unable to reconcile inpod rules for pod %s/%s with missing namespace", pod.Namespace, pod.Name)
+				continue
+			}
+			err := s.reconcileExistingPod(pod, ns)
 			if err != nil {
 				// for now, we will simply log an error, no need to append this error to the generic snapshot list
 				log.Errorf("failed to reconcile inpod rules for pod, try restarting the pod, or removing and re-adding it to the mesh: %v", err)
@@ -104,7 +111,7 @@ func (s *NetServer) Stop(_ bool) {
 // Importantly, some of the failures that can occur when calling this function are retryable, and some are not.
 // If this function returns a NonRetryableError, the function call should NOT be retried.
 // Any other error indicates the function call can be retried.
-func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
+func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string, ns *corev1.Namespace) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	log.Info("adding pod to the mesh")
 	// make sure the cache is aware of the pod, even if we don't have the netns yet.
@@ -116,7 +123,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 		return NewErrNonRetryableAdd(err)
 	}
 
-	podCfg := getPodLevelTrafficOverrides(pod)
+	podCfg := getPodTrafficOverrides(pod, ns, s.interfaceExclusionRules)
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
@@ -183,28 +190,29 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 	return nil
 }
 
-func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, trafficManager trafficmanager.TrafficRuleManager, podNs PodNetnsFinder) *NetServer {
+func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, trafficManager trafficmanager.TrafficRuleManager, podNs PodNetnsFinder, interfaceExclusionRules *util.CompiledInterfaceExclusionRules) *NetServer {
 	return &NetServer{
-		ztunnelServer:      ztunnelServer,
-		currentPodSnapshot: podNsMap,
-		podNs:              podNs,
-		trafficManager:     trafficManager,
-		netnsRunner:        NetnsDo,
+		ztunnelServer:           ztunnelServer,
+		currentPodSnapshot:      podNsMap,
+		podNs:                   podNs,
+		trafficManager:          trafficManager,
+		interfaceExclusionRules: interfaceExclusionRules,
+		netnsRunner:             NetnsDo,
 	}
 }
 
 // reconcileExistingPod is intended to run on node agent startup, for each pod that was already enrolled prior to startup.
 // Will reconcile any in-pod iptables rules the pod may already have against this node agent's expected/required in-pod iptables rules.
 //
-// This is used to handle upgrades and such. Note that this call should be idempotent for any pod already in the mesh,
-// but should never need to be invoked outside of node agent startup.
-func (s *NetServer) reconcileExistingPod(pod *corev1.Pod) error {
+// Note that this call should be idempotent for any pod already in the mesh.
+// This is used to handle upgrades and any logic that needs to trigger iptables reconciliation.
+func (s *NetServer) reconcileExistingPod(pod *corev1.Pod, ns *corev1.Namespace) error {
 	openNetns, err := s.getNetns(pod)
 	if err != nil {
 		return err
 	}
 
-	podCfg := getPodLevelTrafficOverrides(pod)
+	podCfg := getPodTrafficOverrides(pod, ns, s.interfaceExclusionRules)
 
 	if err := s.netnsRunner(openNetns, func() error {
 		return s.trafficManager.CreateInpodRules(log, podCfg)

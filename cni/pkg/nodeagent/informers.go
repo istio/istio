@@ -43,16 +43,17 @@ var (
 )
 
 type K8sHandlers interface {
-	GetPodIfAmbientEnabled(podName, podNamespace string) (*corev1.Pod, error)
-	GetActiveAmbientPodSnapshot() []*corev1.Pod
+	GetPodAndNamespaceIfAmbientEnabled(podName, podNamespace string) (*corev1.Pod, *corev1.Namespace, error)
+	GetActiveAmbientPodSnapshot() ([]*corev1.Pod, map[string]*corev1.Namespace)
 	Start()
 }
 
 type InformerHandlers struct {
-	ctx                context.Context
-	dataplane          MeshDataplane
-	systemNamespace    string
-	enablementSelector *util.CompiledEnablementSelectors
+	ctx                     context.Context
+	dataplane               MeshDataplane
+	systemNamespace         string
+	enablementSelector      *util.CompiledEnablementSelectors
+	interfaceExclusionRules *util.CompiledInterfaceExclusionRules
 
 	queue      controllers.Queue
 	pods       kclient.Client[*corev1.Pod]
@@ -61,8 +62,15 @@ type InformerHandlers struct {
 
 func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDataplane,
 	systemNamespace string, enablementSelector *util.CompiledEnablementSelectors,
+	interfaceExclusionRules *util.CompiledInterfaceExclusionRules,
 ) *InformerHandlers {
-	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, systemNamespace: systemNamespace, enablementSelector: enablementSelector}
+	s := &InformerHandlers{
+		ctx:                     ctx,
+		dataplane:               dataplane,
+		systemNamespace:         systemNamespace,
+		enablementSelector:      enablementSelector,
+		interfaceExclusionRules: interfaceExclusionRules,
+	}
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.reconcile),
 		// Effectively uncapped max attempts.
@@ -117,19 +125,19 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 // * An error if the pod cannot be found
 // * nil if the pod is found, but is not currently eligible for ambient enrollment
 // * the pod, if it is found and is currently eligible for ambient enrollment
-func (s *InformerHandlers) GetPodIfAmbientEnabled(podName, podNamespace string) (*corev1.Pod, error) {
+func (s *InformerHandlers) GetPodAndNamespaceIfAmbientEnabled(podName, podNamespace string) (*corev1.Pod, *corev1.Namespace, error) {
 	ns := s.namespaces.Get(podNamespace, "")
 	if ns == nil {
-		return nil, fmt.Errorf("failed to find namespace %v", ns)
+		return nil, nil, fmt.Errorf("failed to find namespace %v", ns)
 	}
 	pod := s.pods.Get(podName, podNamespace)
 	if pod == nil {
-		return nil, fmt.Errorf("failed to find pod %v", ns)
+		return nil, nil, fmt.Errorf("failed to find pod %v", ns)
 	}
 	if s.enablementSelector.Matches(pod.Labels, pod.Annotations, ns.Labels) {
-		return pod, nil
+		return pod, ns, nil
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (s *InformerHandlers) Start() {
@@ -147,8 +155,9 @@ func (s *InformerHandlers) Start() {
 // (as per control plane annotation)
 // Note that this is not the same thing as SHOULD be enabled or WILL be enabled.
 // This is only used for building the initial snapshot ATM.
-func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
+func (s *InformerHandlers) GetActiveAmbientPodSnapshot() ([]*corev1.Pod, map[string]*corev1.Namespace) {
 	var pods []*corev1.Pod
+	namespaces := make(map[string]*corev1.Namespace)
 	for _, pod := range s.pods.List(metav1.NamespaceAll, klabels.Everything()) {
 		ns := s.namespaces.Get(pod.Namespace, "")
 		if ns == nil {
@@ -161,9 +170,12 @@ func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
 			!kube.CheckPodTerminal(pod) &&
 			util.PodFullyEnrolled(pod) {
 			pods = append(pods, pod)
+			if ns != nil {
+				namespaces[pod.Namespace] = ns
+			}
 		}
 	}
-	return pods
+	return pods, namespaces
 }
 
 // EnqueueNamespace takes a Namespace and enqueues all Pod objects that make need an update
@@ -221,10 +233,28 @@ func (s *InformerHandlers) reconcileNamespace(input any) {
 		newNs := event.New.(*corev1.Namespace)
 		oldNs := event.Old.(*corev1.Namespace)
 
-		if s.enablementSelector.MatchesNamespace(oldNs.Labels) !=
-			s.enablementSelector.MatchesNamespace(newNs.Labels) {
+		// Check if enablement status changed
+		enablementChanged := s.enablementSelector.MatchesNamespace(oldNs.Labels) !=
+			s.enablementSelector.MatchesNamespace(newNs.Labels)
+
+		if enablementChanged {
 			log.Debugf("Namespace %s updated", newNs.Name)
 			s.enqueueNamespace(newNs)
+		} else {
+			// Check if interface exclusion rules changed. This is only used to log to the user
+			// the lack of reconciliation around dynamic interface exclusion changes.
+			exclusionChanged := false
+			if s.interfaceExclusionRules != nil {
+				oldInterfaces := s.interfaceExclusionRules.GetExcludedInterfaces(oldNs.Labels)
+				newInterfaces := s.interfaceExclusionRules.GetExcludedInterfaces(newNs.Labels)
+				exclusionChanged = util.ExcludedInterfacesChanged(oldInterfaces, newInterfaces)
+			}
+			namespaceEnabled := s.enablementSelector.MatchesNamespace(newNs.Labels)
+			if exclusionChanged && namespaceEnabled {
+				log.Warnf("A change in interface exclusion detected for ambient enabled namespace %s. "+
+					"Interface exclusion is only honored when a pod is first added to the mesh. "+
+					"Consider recreting pods in this namespace.", newNs.Name)
+			}
 		}
 	}
 }
@@ -333,7 +363,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		}
 
 		log.Debugf("pod is now enrolled, adding to mesh")
-		if err := s.dataplane.AddPodToMesh(s.ctx, currentPod, podIPs, ""); err != nil {
+		if err := s.dataplane.AddPodToMesh(s.ctx, currentPod, podIPs, "", ns); err != nil {
 			// If this is a serious error we likely cannot recover from
 			// (iptables apply failed, etc etc) do not bother to retry by returning an error to the informer,
 			// just log and return nothing.
