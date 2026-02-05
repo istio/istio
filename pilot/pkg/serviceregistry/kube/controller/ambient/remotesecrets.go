@@ -151,7 +151,7 @@ func (a *index) addRemoteConfig(name types.NamespacedName, data map[string][]byt
 	return errs.ErrorOrNil()
 }
 
-func (a *index) deleteSecret(secretKey string) {
+func (a *index) deleteRemoteConfig(secretKey string) {
 	for _, cluster := range a.cs.GetExistingClustersFor(secretKey) {
 		if cluster.ID == a.ClusterID {
 			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", a.ClusterID, secretKey)
@@ -182,7 +182,7 @@ func (a *index) processSecretEvent(key types.NamespacedName) error {
 		}
 	} else {
 		log.Debugf("secret %s does not exist in secret collection, deleting it", key)
-		a.deleteSecret(key.String())
+		a.deleteRemoteConfig(key.String())
 	}
 	remoteClusters.Record(float64(a.cs.Len()))
 	return nil
@@ -190,7 +190,7 @@ func (a *index) processSecretEvent(key types.NamespacedName) error {
 
 func (a *index) processKubeconfigEvent(key types.NamespacedName) error {
 	log.Infof("processing kubeconfig event for %s", key)
-	entry := a.kubeconfigs.GetKey(key.String())
+	entry := a.kubeconfigs.GetKey(key.Name)
 	if entry != nil {
 		log.Debugf("kubeconfig %s exists in collection, processing it", key)
 		data := map[string][]byte{entry.ClusterID: entry.Kubeconfig}
@@ -199,7 +199,7 @@ func (a *index) processKubeconfigEvent(key types.NamespacedName) error {
 		}
 	} else {
 		log.Debugf("kubeconfig %s does not exist in collection, deleting it", key)
-		a.deleteSecret(key.String())
+		a.deleteRemoteConfig(key.String())
 	}
 	remoteClusters.Record(float64(a.cs.Len()))
 	return nil
@@ -217,20 +217,19 @@ func (a *index) buildRemoteClustersCollection(
 	if features.MulticlusterKubeconfigPath != "" {
 		kubeconfigs, err := filesecrets.NewKubeconfigCollection(
 			features.MulticlusterKubeconfigPath,
-			options.SystemNamespace,
 			opts.WithName("RemoteKubeconfigs")...,
 		)
 		if err != nil {
 			log.Errorf("Failed to load remote kubeconfigs from %q: %v", features.MulticlusterKubeconfigPath, err)
-			kubeconfigs = krt.NewStaticCollection[filesecrets.KubeconfigEntry](nil, nil, opts.WithName("RemoteKubeconfigs")...)
+			kubeconfigs = krt.NewStaticCollection[filesecrets.KubeconfigFile](nil, nil, opts.WithName("RemoteKubeconfigs")...)
 		}
 		a.kubeconfigs = kubeconfigs
 
 		// N.B Informer collections don't call handler before marking synced, so
 		// RemoteClusters will be synced pretty immediately.
-		kubeconfigs.Register(func(o krt.Event[filesecrets.KubeconfigEntry]) {
+		kubeconfigs.Register(func(o krt.Event[filesecrets.KubeconfigFile]) {
 			item := o.Latest()
-			key := types.NamespacedName{Name: item.Name, Namespace: item.Namespace}
+			key := types.NamespacedName{Name: item.ClusterID, Namespace: ""}
 			err := a.processKubeconfigEvent(key)
 			if err != nil {
 				log.Errorf("error processing kubeconfig %s: %v", krt.GetKey(item), err)

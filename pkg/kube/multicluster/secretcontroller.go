@@ -113,7 +113,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	enableSourceStart := (features.LocalClusterSecretWatcher && features.ExternalIstiod) || features.MulticlusterKubeconfigPath != ""
 
 	if features.MulticlusterKubeconfigPath != "" {
-		source = newFileConfigSource(features.MulticlusterKubeconfigPath, namespace)
+		source = newFileConfigSource(features.MulticlusterKubeconfigPath)
 	} else {
 		informerClient := kubeclientset
 		// When these two are set to true, Istiod will be watching the namespace in which
@@ -287,7 +287,7 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 		}
 	} else {
 		log.Debugf("remote config %s does not exist in cache, deleting it", key)
-		c.deleteSecret(key.String())
+		c.deleteRemoteConfig(key.String())
 	}
 	remoteClusters.Record(float64(c.cs.Len()))
 
@@ -391,7 +391,7 @@ func (c *Controller) addRemoteConfig(name types.NamespacedName, cfg *remoteConfi
 	return errs.ErrorOrNil()
 }
 
-func (c *Controller) deleteSecret(secretKey string) {
+func (c *Controller) deleteRemoteConfig(secretKey string) {
 	for _, cluster := range c.cs.GetExistingClustersFor(secretKey) {
 		if cluster.ID == c.configClusterID {
 			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", c.configClusterID, secretKey)

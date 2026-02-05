@@ -132,7 +132,7 @@ type index struct {
 	cs                          *multicluster.ClusterStore
 	clientBuilder               multicluster.ClientBuilder
 	secrets                     krt.Collection[*corev1.Secret]
-	kubeconfigs                 krt.Collection[filesecrets.KubeconfigEntry]
+	kubeconfigs                 krt.Collection[filesecrets.KubeconfigFile]
 	remoteClusters              krt.Collection[*multicluster.Cluster]
 	meshConfig                  meshwatcher.WatcherCollection
 	remoteClientConfigOverrides []func(*rest.Config)

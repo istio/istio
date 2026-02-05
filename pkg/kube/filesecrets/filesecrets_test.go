@@ -87,26 +87,26 @@ func TestParseKubeconfig(t *testing.T) {
 	files, err := parseKubeconfig(data)
 	assert.NoError(t, err)
 	assert.Equal(t, len(files), 1)
-	assert.Equal(t, files[0].clusterID, "cluster-1")
-	assert.Equal(t, files[0].kubeconfig, data)
+	assert.Equal(t, files[0].ClusterID, "cluster-1")
+	assert.Equal(t, files[0].Kubeconfig, data)
 }
 
 func TestNewKubeconfigCollection(t *testing.T) {
 	stop := test.NewStop(t)
 	root := t.TempDir()
 
-	collection, err := NewKubeconfigCollection(root, "istio-system", krt.WithStop(stop))
+	collection, err := NewKubeconfigCollection(root, krt.WithStop(stop))
 	assert.NoError(t, err)
 	assert.Equal(t, collection.WaitUntilSynced(stop), true)
 	assert.Equal(t, collection.HasSynced(), true)
 
 	tracker := assert.NewTracker[string](t)
-	collection.Register(func(ev krt.Event[KubeconfigEntry]) {
+	collection.Register(func(ev krt.Event[KubeconfigFile]) {
 		tracker.Record(fmt.Sprintf("%s/%s", ev.Event.String(), ev.Latest().ResourceName()))
 	})
 
 	file.WriteOrFail(t, filepath.Join(root, "remote.yaml"), kubeconfigYAML("cluster-1"))
-	tracker.WaitOrdered("add/istio-system/cluster-1")
+	tracker.WaitOrdered("add/cluster-1")
 }
 
 func kubeconfigYAML(clusterID string) []byte {

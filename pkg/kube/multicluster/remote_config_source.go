@@ -77,19 +77,17 @@ func (s *secretConfigSource) Get(key types.NamespacedName) *remoteConfig {
 }
 
 type fileConfigSource struct {
-	root      string
-	namespace string
+	root string
 
 	mu         sync.RWMutex
-	collection krt.Collection[filesecrets.KubeconfigEntry]
+	collection krt.Collection[filesecrets.KubeconfigFile]
 	started    bool
 	pending    []func(types.NamespacedName, controllers.EventType)
 }
 
-func newFileConfigSource(root string, namespace string) *fileConfigSource {
+func newFileConfigSource(root string) *fileConfigSource {
 	return &fileConfigSource{
-		root:      root,
-		namespace: namespace,
+		root: root,
 	}
 }
 
@@ -104,12 +102,11 @@ func (f *fileConfigSource) Start(stop <-chan struct{}) {
 	opts := krt.NewOptionsBuilder(stop, "remote-kubeconfig-file", nil)
 	collection, err := filesecrets.NewKubeconfigCollection(
 		f.root,
-		f.namespace,
 		opts.WithName("RemoteKubeconfigs")...,
 	)
 	if err != nil {
 		log.Errorf("Failed to initialize file-based remote kubeconfigs from %q: %v", f.root, err)
-		collection = krt.NewStaticCollection[filesecrets.KubeconfigEntry](nil, nil, opts.WithName("RemoteKubeconfigs")...)
+		collection = krt.NewStaticCollection[filesecrets.KubeconfigFile](nil, nil, opts.WithName("RemoteKubeconfigs")...)
 	}
 	f.collection = collection
 	pending := f.pending
@@ -137,11 +134,8 @@ func (f *fileConfigSource) Get(key types.NamespacedName) *remoteConfig {
 	if collection == nil {
 		return nil
 	}
-	lookup := key.Name
-	if key.Namespace != "" {
-		lookup = key.Namespace + "/" + key.Name
-	}
-	entry := collection.GetKey(lookup)
+
+	entry := collection.GetKey(key.Name)
 	if entry == nil {
 		return nil
 	}
@@ -171,8 +165,8 @@ func (f *fileConfigSource) registerHandler(handler func(key types.NamespacedName
 		return
 	}
 
-	collection.Register(func(ev krt.Event[filesecrets.KubeconfigEntry]) {
+	collection.Register(func(ev krt.Event[filesecrets.KubeconfigFile]) {
 		item := ev.Latest()
-		handler(types.NamespacedName{Name: item.Name, Namespace: item.Namespace}, ev.Event)
+		handler(types.NamespacedName{Name: item.ClusterID, Namespace: ""}, ev.Event)
 	})
 }
