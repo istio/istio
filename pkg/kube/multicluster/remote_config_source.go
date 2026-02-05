@@ -16,6 +16,7 @@ package multicluster
 
 import (
 	"sync"
+	"sync/atomic"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -81,7 +82,7 @@ type fileConfigSource struct {
 
 	mu         sync.RWMutex
 	collection krt.Collection[filesecrets.KubeconfigFile]
-	started    bool
+	started    atomic.Bool
 	pending    []func(types.NamespacedName, controllers.EventType)
 }
 
@@ -93,11 +94,10 @@ func newFileConfigSource(root string) *fileConfigSource {
 
 func (f *fileConfigSource) Start(stop <-chan struct{}) {
 	f.mu.Lock()
-	if f.started {
+	if f.started.Load() {
 		f.mu.Unlock()
 		return
 	}
-	f.started = true
 
 	opts := krt.NewOptionsBuilder(stop, "remote-kubeconfig-file", nil)
 	collection, err := filesecrets.NewKubeconfigCollection(
@@ -116,6 +116,8 @@ func (f *fileConfigSource) Start(stop <-chan struct{}) {
 	for _, handler := range pending {
 		f.registerHandler(handler)
 	}
+
+	f.started.Store(true)
 }
 
 func (f *fileConfigSource) HasSynced() bool {
