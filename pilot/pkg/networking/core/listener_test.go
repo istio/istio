@@ -3403,3 +3403,84 @@ func TestBuildListenerTLSContext(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyDownstreamTLSDefaults(t *testing.T) {
+	tests := []struct {
+		name        string
+		tlsDefaults *meshconfig.MeshConfig_TLSConfig
+		expected    *tls.TlsParameters
+	}{
+		{
+			name:        "nil tlsDefaults",
+			tlsDefaults: nil,
+			expected:    nil,
+		},
+		{
+			name: "TLS_AUTO does not set min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLS_AUTO,
+			},
+			expected: nil,
+		},
+		{
+			name: "TLSV1_2 sets correct min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_2,
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+			},
+		},
+		{
+			name: "TLSV1_3 sets correct min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+			},
+		},
+		{
+			name: "EcdhCurves are applied",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				EcdhCurves: []string{"P-256", "P-384"},
+			},
+			expected: &tls.TlsParameters{
+				EcdhCurves: []string{"P-256", "P-384"},
+			},
+		},
+		{
+			name: "CipherSuites are applied",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				CipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"},
+			},
+			expected: &tls.TlsParameters{
+				CipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"},
+			},
+		},
+		{
+			name: "all settings combined",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+				EcdhCurves:         []string{"P-256"},
+				CipherSuites:       []string{"ECDHE-ECDSA-AES256-GCM-SHA384"},
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+				EcdhCurves:                []string{"P-256"},
+				CipherSuites:              []string{"ECDHE-ECDSA-AES256-GCM-SHA384"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &tls.CommonTlsContext{}
+			applyDownstreamTLSDefaults(tt.tlsDefaults, ctx)
+
+			if diff := cmp.Diff(tt.expected, ctx.TlsParams, protocmp.Transform()); diff != "" {
+				t.Errorf("TlsParams mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
