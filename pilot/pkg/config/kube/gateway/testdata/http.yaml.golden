@@ -160,6 +160,7 @@ spec:
       - POST
       allowOrigins:
       - exact: https://example.com
+      unmatchedPreflights: IGNORE
     name: default.http-route-cors.0
     route:
     - destination:
