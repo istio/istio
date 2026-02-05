@@ -34,7 +34,7 @@ import (
 func TestFileConfigSource(t *testing.T) {
 	stop := test.NewStop(t)
 	root := t.TempDir()
-	source := newFileConfigSource(root, "istio-system")
+	source := newFileConfigSource(root)
 
 	tracker := assert.NewTracker[string](t)
 	source.AddEventHandler(func(key types.NamespacedName, event controllers.EventType) {
@@ -49,7 +49,7 @@ func TestFileConfigSource(t *testing.T) {
 
 	kubeconfig := kubeconfigYAML("remote-1")
 	file.WriteOrFail(t, filepath.Join(root, "remote.yaml"), kubeconfig)
-	tracker.WaitOrdered("add/istio-system/remote-1")
+	tracker.WaitOrdered("add//remote-1")
 
 	got := source.Get(types.NamespacedName{Name: "remote-1", Namespace: "istio-system"})
 	if got == nil {
@@ -62,7 +62,7 @@ func TestFileConfigSource(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, "remote.yaml")); err != nil {
 		t.Fatalf("failed to remove kubeconfig file: %v", err)
 	}
-	tracker.WaitOrdered("delete/istio-system/remote-1")
+	tracker.WaitOrdered("delete//remote-1")
 }
 
 func kubeconfigYAML(clusterID string) []byte {

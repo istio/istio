@@ -24,24 +24,14 @@ import (
 	krtfiles "istio.io/istio/pkg/kube/krt/files"
 )
 
-type kubeconfigFile struct {
-	clusterID  string
-	kubeconfig []byte
-}
-
-// KubeconfigEntry represents a kubeconfig loaded from disk.
-type KubeconfigEntry struct {
-	Name       string
-	Namespace  string
+// KubeconfigFile represents a kubeconfig loaded from disk.
+type KubeconfigFile struct {
 	ClusterID  string
 	Kubeconfig []byte
 }
 
-func (k KubeconfigEntry) ResourceName() string {
-	if k.Namespace == "" {
-		return k.Name
-	}
-	return k.Namespace + "/" + k.Name
+func (k KubeconfigFile) ResourceName() string {
+	return k.ClusterID
 }
 
 // NewKubeconfigCollection builds a file-backed collection of kubeconfigs.
@@ -49,28 +39,25 @@ func (k KubeconfigEntry) ResourceName() string {
 // kubeconfig contents and used as the entry name.
 func NewKubeconfigCollection(
 	root string,
-	namespace string,
 	opts ...krt.CollectionOption,
-) (krt.Collection[KubeconfigEntry], error) {
+) (krt.Collection[KubeconfigFile], error) {
 	stop := krt.GetStop(opts...)
-	fw, err := krtfiles.NewFolderWatch[kubeconfigFile](root, parseKubeconfig, stop)
+	fw, err := krtfiles.NewFolderWatch[KubeconfigFile](root, parseKubeconfig, stop)
 	if err != nil {
 		return nil, err
 	}
 
-	collection := krtfiles.NewFileCollection[kubeconfigFile, KubeconfigEntry](fw, func(k kubeconfigFile) *KubeconfigEntry {
-		return &KubeconfigEntry{
-			Name:       k.clusterID,
-			Namespace:  namespace,
-			ClusterID:  k.clusterID,
-			Kubeconfig: k.kubeconfig,
+	collection := krtfiles.NewFileCollection[KubeconfigFile, KubeconfigFile](fw, func(k KubeconfigFile) *KubeconfigFile {
+		return &KubeconfigFile{
+			ClusterID:  k.ClusterID,
+			Kubeconfig: k.Kubeconfig,
 		}
 	}, opts...)
 
 	return collection, nil
 }
 
-func parseKubeconfig(data []byte) ([]kubeconfigFile, error) {
+func parseKubeconfig(data []byte) ([]KubeconfigFile, error) {
 	cfg, err := clientcmd.Load(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse kubeconfig: %v", err)
@@ -79,9 +66,9 @@ func parseKubeconfig(data []byte) ([]kubeconfigFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []kubeconfigFile{{
-		clusterID:  clusterID,
-		kubeconfig: data,
+	return []KubeconfigFile{{
+		ClusterID:  clusterID,
+		Kubeconfig: data,
 	}}, nil
 }
 
