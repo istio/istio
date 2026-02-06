@@ -56,6 +56,14 @@ func (c connectInstance) Start(onReady OnReadyFunc) error {
 		if cerr != nil {
 			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
+		minVersion, err := common.ParseTLSVersion(c.TLSMinVersion)
+		if err != nil {
+			return err
+		}
+		curvePreferences, err := common.ParseTLSCurves(c.TLSCurvePreferences)
+		if err != nil {
+			return err
+		}
 		// nolint: gosec // test only code, TLS version is configurable for testing
 		config := &tls.Config{
 			Certificates: []tls.Certificate{cert},
@@ -67,8 +75,8 @@ func (c connectInstance) Start(onReady OnReadyFunc) error {
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
-			MinVersion:       common.ParseTLSVersion(c.TLSMinVersion),
-			CurvePreferences: common.ParseTLSCurves(c.TLSCurvePreferences),
+			MinVersion:       minVersion,
+			CurvePreferences: curvePreferences,
 		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnAddressTLS(c.ListenerIP, c.Port.Port, config)

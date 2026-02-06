@@ -113,11 +113,19 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 			epLog.Errorf("could not load TLS keys: %s", errCreds)
 			return errCreds
 		}
+		minVersion, err := common.ParseTLSVersion(s.TLSMinVersion)
+		if err != nil {
+			return err
+		}
+		curvePreferences, err := common.ParseTLSCurves(s.TLSCurvePreferences)
+		if err != nil {
+			return err
+		}
 		// nolint: gosec // test only code, TLS version is configurable for testing
 		tlsConfig := &tls.Config{
 			Certificates:     []tls.Certificate{cert},
-			MinVersion:       common.ParseTLSVersion(s.TLSMinVersion),
-			CurvePreferences: common.ParseTLSCurves(s.TLSCurvePreferences),
+			MinVersion:       minVersion,
+			CurvePreferences: curvePreferences,
 		}
 		creds := credentials.NewTLS(tlsConfig)
 		opts = append(opts, grpc.Creds(creds))

@@ -99,6 +99,14 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		if s.DisableALPN {
 			nextProtos = nil
 		}
+		minVersion, err := common.ParseTLSVersion(s.TLSMinVersion)
+		if err != nil {
+			return err
+		}
+		curvePreferences, err := common.ParseTLSCurves(s.TLSCurvePreferences)
+		if err != nil {
+			return err
+		}
 		// nolint: gosec // test only code, TLS version is configurable for testing
 		config := &tls.Config{
 			Certificates: []tls.Certificate{cert},
@@ -110,8 +118,8 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
-			MinVersion:       common.ParseTLSVersion(s.TLSMinVersion),
-			CurvePreferences: common.ParseTLSCurves(s.TLSCurvePreferences),
+			MinVersion:       minVersion,
+			CurvePreferences: curvePreferences,
 		}
 		if s.Port.RequireClientCert {
 			config.ClientAuth = tls.RequireAndVerifyClientCert
