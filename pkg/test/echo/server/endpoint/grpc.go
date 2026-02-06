@@ -116,8 +116,8 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 		// nolint: gosec // test only code, TLS version is configurable for testing
 		tlsConfig := &tls.Config{
 			Certificates:     []tls.Certificate{cert},
-			MinVersion:       parseTLSVersion(s.TLSMinVersion),
-			CurvePreferences: parseTLSCurves(s.TLSCurvePreferences),
+			MinVersion:       common.ParseTLSVersion(s.TLSMinVersion),
+			CurvePreferences: common.ParseTLSCurves(s.TLSCurvePreferences),
 		}
 		creds := credentials.NewTLS(tlsConfig)
 		opts = append(opts, grpc.Creds(creds))

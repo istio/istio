@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"istio.io/istio/pkg/hbone"
+	"istio.io/istio/pkg/test/echo/common"
 )
 
 var _ Instance = &connectInstance{}
@@ -66,8 +67,8 @@ func (c connectInstance) Start(onReady OnReadyFunc) error {
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
-			MinVersion:       parseTLSVersion(c.TLSMinVersion),
-			CurvePreferences: parseTLSCurves(c.TLSCurvePreferences),
+			MinVersion:       common.ParseTLSVersion(c.TLSMinVersion),
+			CurvePreferences: common.ParseTLSCurves(c.TLSCurvePreferences),
 		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnAddressTLS(c.ListenerIP, c.Port.Port, config)

@@ -62,8 +62,8 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 		// nolint: gosec // test only code, TLS version is configurable for testing
 		config := &tls.Config{
 			Certificates:     []tls.Certificate{cert},
-			MinVersion:       parseTLSVersion(s.TLSMinVersion),
-			CurvePreferences: parseTLSCurves(s.TLSCurvePreferences),
+			MinVersion:       common.ParseTLSVersion(s.TLSMinVersion),
+			CurvePreferences: common.ParseTLSCurves(s.TLSCurvePreferences),
 		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)

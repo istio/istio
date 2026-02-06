@@ -15,6 +15,7 @@
 package common
 
 import (
+	"crypto/tls"
 	"flag"
 	"net/http"
 	"strings"
@@ -88,4 +89,43 @@ func MicrosToDuration(micros int64) time.Duration {
 // DurationToMicros converts the given duration to microseconds.
 func DurationToMicros(d time.Duration) int64 {
 	return int64(d / time.Microsecond)
+}
+
+// ParseTLSVersion parses a TLS version string and returns the corresponding tls constant.
+func ParseTLSVersion(version string) uint16 {
+	switch version {
+	case "1.0":
+		return tls.VersionTLS10
+	case "1.1":
+		return tls.VersionTLS11
+	case "1.2":
+		return tls.VersionTLS12
+	case "1.3":
+		return tls.VersionTLS13
+	default:
+		return tls.VersionTLS12
+	}
+}
+
+// ParseTLSCurves parses a list of curve names and returns the corresponding tls.CurveID values.
+func ParseTLSCurves(curves []string) []tls.CurveID {
+	if len(curves) == 0 {
+		return nil
+	}
+	var result []tls.CurveID
+	for _, curve := range curves {
+		switch curve {
+		case "P256", "P-256":
+			result = append(result, tls.CurveP256)
+		case "P384", "P-384":
+			result = append(result, tls.CurveP384)
+		case "P521", "P-521":
+			result = append(result, tls.CurveP521)
+		case "X25519":
+			result = append(result, tls.X25519)
+		case "X25519MLKEM768":
+			result = append(result, tls.X25519MLKEM768)
+		}
+	}
+	return result
 }

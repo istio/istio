@@ -110,8 +110,8 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
-			MinVersion:       parseTLSVersion(s.TLSMinVersion),
-			CurvePreferences: parseTLSCurves(s.TLSCurvePreferences),
+			MinVersion:       common.ParseTLSVersion(s.TLSMinVersion),
+			CurvePreferences: common.ParseTLSCurves(s.TLSCurvePreferences),
 		}
 		if s.Port.RequireClientCert {
 			config.ClientAuth = tls.RequireAndVerifyClientCert
