@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+// TestFileConfigSource verifies file-backed kubeconfig add/delete events and sync behavior.
 func TestFileConfigSource(t *testing.T) {
 	stop := test.NewStop(t)
 	root := t.TempDir()

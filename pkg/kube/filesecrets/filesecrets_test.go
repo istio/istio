@@ -83,12 +83,44 @@ func TestClusterIDFromKubeconfig(t *testing.T) {
 }
 
 func TestParseKubeconfig(t *testing.T) {
-	data := kubeconfigYAML("cluster-1")
-	files, err := parseKubeconfig(data)
-	assert.NoError(t, err)
-	assert.Equal(t, len(files), 1)
-	assert.Equal(t, files[0].ClusterID, "cluster-1")
-	assert.Equal(t, files[0].Kubeconfig, data)
+	cases := []struct {
+		name       string
+		data       []byte
+		wantErr    bool
+		wantLength int
+		wantID     string
+	}{
+		{
+			name:       "valid kubeconfig",
+			data:       kubeconfigYAML("cluster-1"),
+			wantLength: 1,
+			wantID:     "cluster-1",
+		},
+		{
+			name:    "malformed yaml",
+			data:    []byte("::not yaml::"),
+			wantErr: true,
+		},
+		{
+			name:    "missing cluster",
+			data:    []byte("apiVersion: v1\nkind: Config\n"),
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			files, err := parseKubeconfig(tc.data)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, len(files), tc.wantLength)
+			assert.Equal(t, files[0].ClusterID, tc.wantID)
+			assert.Equal(t, files[0].Kubeconfig, tc.data)
+		})
+	}
 }
 
 func TestNewKubeconfigCollection(t *testing.T) {
