@@ -284,7 +284,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&disableALPN, "disable-alpn", disableALPN, "disable ALPN negotiation")
 	rootCmd.PersistentFlags().StringVar(&tlsMinVersion, "tls-min-version", "", "Minimum TLS version. Valid values: 1.0, 1.1, 1.2, 1.3")
 	rootCmd.PersistentFlags().StringSliceVar(&tlsCurvePreferences, "tls-curve-preferences", nil,
-		"TLS curve preferences. Valid values: X25519, X25519MLKEM768, P256, P384, P521")
+		"TLS curve preferences. Valid values: X25519, X25519MLKEM768, P-256, P-384, P-521")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
