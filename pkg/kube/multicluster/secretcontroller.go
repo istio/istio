@@ -333,18 +333,19 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 }
 
 func (c *Controller) addRemoteConfig(name types.NamespacedName, cfg *remoteConfig) error {
-	secretKey := name.String()
+	// name can refer to a k8s Secret or a kubeconfig; data holds the corresponding bytes.
+	configKey := name.String()
 	// First delete clusters
-	existingClusters := c.cs.GetExistingClustersFor(secretKey)
+	existingClusters := c.cs.GetExistingClustersFor(configKey)
 	for _, existingCluster := range existingClusters {
 		if _, ok := cfg.Data[string(existingCluster.ID)]; !ok {
-			c.deleteCluster(secretKey, existingCluster)
+			c.deleteCluster(configKey, existingCluster)
 		}
 	}
 
 	var errs *multierror.Error
 	for clusterID, kubeConfig := range cfg.Data {
-		logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
+		logger := log.WithLabels("cluster", clusterID, "config", configKey)
 		if cluster.ID(clusterID) == c.configClusterID {
 			logger.Infof("ignoring cluster as it would overwrite the config cluster")
 			continue
@@ -352,7 +353,7 @@ func (c *Controller) addRemoteConfig(name types.NamespacedName, cfg *remoteConfi
 
 		action := Add
 		var prev *Cluster
-		if prev = c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
+		if prev = c.cs.Get(configKey, cluster.ID(clusterID)); prev != nil {
 			action = Update
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
@@ -381,7 +382,7 @@ func (c *Controller) addRemoteConfig(name types.NamespacedName, cfg *remoteConfi
 
 		// We run cluster async so we do not block, as this requires actually connecting to the cluster and loading configuration.
 		// Swap stores the new cluster and returns a PendingClusterSwap that manages cleanup of the previous cluster.
-		swap := c.cs.Swap(secretKey, remoteCluster.ID, remoteCluster)
+		swap := c.cs.Swap(configKey, remoteCluster.ID, remoteCluster)
 		go func() {
 			remoteCluster.Run(c.meshWatcher, c.handlers, action, swap)
 		}()
@@ -391,24 +392,24 @@ func (c *Controller) addRemoteConfig(name types.NamespacedName, cfg *remoteConfi
 	return errs.ErrorOrNil()
 }
 
-func (c *Controller) deleteRemoteConfig(secretKey string) {
-	for _, cluster := range c.cs.GetExistingClustersFor(secretKey) {
+func (c *Controller) deleteRemoteConfig(configKey string) {
+	for _, cluster := range c.cs.GetExistingClustersFor(configKey) {
 		if cluster.ID == c.configClusterID {
-			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", c.configClusterID, secretKey)
+			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", c.configClusterID, configKey)
 			continue
 		}
 
-		c.deleteCluster(secretKey, cluster)
+		c.deleteCluster(configKey, cluster)
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
-func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
-	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
+func (c *Controller) deleteCluster(configKey string, cluster *Cluster) {
+	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, configKey)
 	cluster.Stop()
 	c.handleDelete(cluster.ID)
-	c.cs.Delete(secretKey, cluster.ID)
+	c.cs.Delete(configKey, cluster.ID)
 	c.clearClusterSyncState(cluster.ID)
 	cluster.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 

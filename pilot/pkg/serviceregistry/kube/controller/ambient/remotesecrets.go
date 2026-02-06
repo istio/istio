@@ -72,7 +72,7 @@ func (a ACTION) String() string {
 	return "Unknown"
 }
 
-func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig []byte, clusterID string) (*multicluster.Cluster, error) {
+func (a *index) createRemoteCluster(configKey types.NamespacedName, kubeConfig []byte, clusterID string) (*multicluster.Cluster, error) {
 	client, err := a.clientBuilder(kubeConfig, cluster.ID(clusterID), a.remoteClientConfigOverrides...)
 	if err != nil {
 		return nil, err
@@ -80,33 +80,34 @@ func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig [
 	return multicluster.NewCluster(
 		cluster.ID(clusterID),
 		client,
-		&secretKey,
+		&configKey,
 		ptr.Of(sha256.Sum256(kubeConfig)),
 		nil,
 	), nil
 }
 
 func (a *index) addRemoteConfig(name types.NamespacedName, data map[string][]byte, debugger *krt.DebugHandler) error {
-	secretKey := name.String()
+	// name can refer to a k8s Secret or a kubeconfig; data holds the corresponding bytes.
+	configKey := name.String()
 	// First delete clusters
-	existingClusters := a.cs.GetExistingClustersFor(secretKey)
+	existingClusters := a.cs.GetExistingClustersFor(configKey)
 	for _, existingCluster := range existingClusters {
 		if _, ok := data[string(existingCluster.ID)]; !ok {
-			a.deleteCluster(secretKey, existingCluster)
+			a.deleteCluster(configKey, existingCluster)
 		}
 	}
 
 	var errs *multierror.Error
 	addedClusters := make([]*multicluster.Cluster, 0, len(data))
 	for clusterID, kubeConfig := range data {
-		logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
+		logger := log.WithLabels("cluster", clusterID, "secret", configKey)
 		if cluster.ID(clusterID) == a.ClusterID {
 			logger.Infof("ignoring cluster as it would overwrite the config cluster")
 			continue
 		}
 
 		action := Add
-		if prev := a.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
+		if prev := a.cs.Get(configKey, cluster.ID(clusterID)); prev != nil {
 			action = Update
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
@@ -116,7 +117,7 @@ func (a *index) addRemoteConfig(name types.NamespacedName, data map[string][]byt
 			}
 			// stop previous remote cluster
 			prev.Stop()
-			log.Debugf("Shutdown previous remote cluster %s for secret %s due to update", clusterID, secretKey)
+			log.Debugf("Shutdown previous remote cluster %s for secret %s due to update", clusterID, configKey)
 		} else if a.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.
 			logger.Warnf("cluster has already been registered")
@@ -134,7 +135,7 @@ func (a *index) addRemoteConfig(name types.NamespacedName, data map[string][]byt
 		// Store before we run so that a bad secret doesn't block adding the cluster to the store.
 		// This is necessary so that changes to the bad secret are processed as an update and the bad
 		// cluster is stopped and shutdown.
-		a.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
+		a.cs.Store(configKey, remoteCluster.ID, remoteCluster)
 		// Run returns after initializing the cluster's fields; it runs all of the expensive operations
 		// in a goroutine (including discovery filter sync), so we can safely call it synchronously here.
 		remoteCluster.Run(a.meshConfig, debugger)
@@ -151,24 +152,24 @@ func (a *index) addRemoteConfig(name types.NamespacedName, data map[string][]byt
 	return errs.ErrorOrNil()
 }
 
-func (a *index) deleteRemoteConfig(secretKey string) {
-	for _, cluster := range a.cs.GetExistingClustersFor(secretKey) {
+func (a *index) deleteRemoteConfig(configKey string) {
+	for _, cluster := range a.cs.GetExistingClustersFor(configKey) {
 		if cluster.ID == a.ClusterID {
-			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", a.ClusterID, secretKey)
+			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", a.ClusterID, configKey)
 			continue
 		}
 
-		a.deleteCluster(secretKey, cluster)
+		a.deleteCluster(configKey, cluster)
 	}
 
 	log.Infof("Number of remote clusters: %d", a.cs.Len())
 }
 
-func (a *index) deleteCluster(secretKey string, cluster *multicluster.Cluster) {
-	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
+func (a *index) deleteCluster(configKey string, cluster *multicluster.Cluster) {
+	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, configKey)
 	cluster.Stop()
 	// The delete event will be processed within the ClusterStore
-	a.cs.Delete(secretKey, cluster.ID)
+	a.cs.Delete(configKey, cluster.ID)
 	cluster.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 }
 
