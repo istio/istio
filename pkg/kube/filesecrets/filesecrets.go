@@ -76,24 +76,22 @@ func clusterIDFromKubeconfig(cfg *clientcmdapi.Config) (string, error) {
 	if cfg == nil {
 		return "", fmt.Errorf("kubeconfig is nil")
 	}
-	if cfg.CurrentContext != "" {
-		if ctx, ok := cfg.Contexts[cfg.CurrentContext]; ok && ctx != nil && ctx.Cluster != "" {
+
+	if ctx, ok := cfg.Contexts[cfg.CurrentContext]; ok && ctx != nil && ctx.Cluster != "" {
+		return ctx.Cluster, nil
+	}
+
+	for _, ctx := range cfg.Contexts {
+		if ctx != nil && ctx.Cluster != "" {
 			return ctx.Cluster, nil
 		}
 	}
-	if len(cfg.Contexts) == 1 {
-		for _, ctx := range cfg.Contexts {
-			if ctx != nil && ctx.Cluster != "" {
-				return ctx.Cluster, nil
-			}
+
+	for name := range cfg.Clusters {
+		if name != "" {
+			return name, nil
 		}
 	}
-	if len(cfg.Clusters) == 1 {
-		for name := range cfg.Clusters {
-			if name != "" {
-				return name, nil
-			}
-		}
-	}
+
 	return "", fmt.Errorf("unable to determine cluster ID from kubeconfig")
 }
