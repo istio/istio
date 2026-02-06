@@ -77,7 +77,7 @@ type TLS struct {
 	MinVersion string
 
 	// CurvePreferences specifies the TLS curve preferences.
-	// Valid values: "X25519", "X25519MLKEM768", "P256", "P384", "P521"
+	// Valid values: "P-256", "P-384", "P-521", "X25519", "X25519MLKEM768"
 	CurvePreferences []string
 }
 

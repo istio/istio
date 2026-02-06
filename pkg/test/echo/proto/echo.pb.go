@@ -281,7 +281,7 @@ type ForwardEchoRequest struct {
 	ProxyProtocolVersion ProxyProtoVersion `protobuf:"varint,25,opt,name=proxyProtocolVersion,proto3,enum=proto.ProxyProtoVersion" json:"proxyProtocolVersion,omitempty"`
 	// Minimum TLS version. Valid values: "1.0", "1.1", "1.2", "1.3"
 	TlsMinVersion string `protobuf:"bytes,28,opt,name=tls_min_version,json=tlsMinVersion,proto3" json:"tls_min_version,omitempty"`
-	// TLS curve preferences. Valid values: "X25519", "X25519MLKEM768", "P256", "P384", "P521"
+	// TLS curve preferences. Valid values: "P-256", "P-384", "P-521", "X25519", "X25519MLKEM768"
 	TlsCurvePreferences []string `protobuf:"bytes,29,rep,name=tls_curve_preferences,json=tlsCurvePreferences,proto3" json:"tls_curve_preferences,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache

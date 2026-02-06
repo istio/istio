@@ -108,4 +108,3 @@ func forceClose(conn net.Conn) error {
 	}
 	return nil
 }
-

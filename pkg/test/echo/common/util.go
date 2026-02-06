@@ -115,11 +115,11 @@ func ParseTLSCurves(curves []string) []tls.CurveID {
 	var result []tls.CurveID
 	for _, curve := range curves {
 		switch curve {
-		case "P256", "P-256":
+		case "P-256":
 			result = append(result, tls.CurveP256)
-		case "P384", "P-384":
+		case "P-384":
 			result = append(result, tls.CurveP384)
-		case "P521", "P-521":
+		case "P-521":
 			result = append(result, tls.CurveP521)
 		case "X25519":
 			result = append(result, tls.X25519)
