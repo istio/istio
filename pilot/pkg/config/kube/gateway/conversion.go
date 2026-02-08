@@ -1238,9 +1238,15 @@ func createCorsFilter(filter *k8s.HTTPCORSFilter) *istio.CorsPolicy {
 		// Code here is based on kgateway implementation
 		// Direct wildcard allows any origin
 		if rs == "*" {
+			// Use strict regex that only matches valid origin formats per RFC 6454
+			// Format: <scheme>://<host>(:<port>)?
+			// Allows: http://example.com, https://sub.example.com:8443, ws://localhost:3000
 			res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{
-					Regex: "^.*$",
+					// Match valid origin: scheme://host(:port)?
+					// - scheme: starts with letter, followed by alphanumeric, +, -, or .
+					// - host(:port): any characters except /, whitespace, ?, #
+					Regex: `^[a-zA-Z][a-zA-Z0-9+.-]*://[^/\s?#]+$`,
 				},
 			})
 			continue
