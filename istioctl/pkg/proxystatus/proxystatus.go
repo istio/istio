@@ -188,7 +188,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	statusCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	statusCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table",
-		"Output format: table or json")
+		"Output format: one of json|yaml|table")
 	statusCmd.PersistentFlags().IntVarP(&verbosity, "verbosity", "v", 0,
 		"Verbosity level for proxy status output. 0=default, 1=show all xDS types (max verbosity)")
 
