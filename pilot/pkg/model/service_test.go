@@ -1002,3 +1002,74 @@ func BenchmarkEndpointDeepCopy(b *testing.B) {
 		_ = ep.DeepCopy()
 	}
 }
+
+func TestGetTrafficDistribution(t *testing.T) {
+	preferClose := "PreferClose"
+
+	tests := []struct {
+		name          string
+		specValue     *string
+		svcAnnotation map[string]string
+		nsAnnotation  map[string]string
+		want          TrafficDistribution
+	}{
+		{
+			name:          "spec value takes precedence",
+			specValue:     &preferClose,
+			svcAnnotation: map[string]string{"networking.istio.io/traffic-distribution": "PreferSameNode"},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "Any"},
+			want:          TrafficDistributionPreferSameZone,
+		},
+		{
+			name:          "service annotation takes precedence over namespace",
+			specValue:     nil,
+			svcAnnotation: map[string]string{"networking.istio.io/traffic-distribution": "PreferSameNode"},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "PreferClose"},
+			want:          TrafficDistributionPreferSameNode,
+		},
+		{
+			name:          "namespace annotation used when service has none",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "PreferClose"},
+			want:          TrafficDistributionPreferSameZone,
+		},
+		{
+			name:          "namespace annotation with PreferSameNode",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "PreferSameNode"},
+			want:          TrafficDistributionPreferSameNode,
+		},
+		{
+			name:          "defaults to Any when nothing set",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  map[string]string{},
+			want:          TrafficDistributionAny,
+		},
+		{
+			name:          "defaults to Any when nil namespace annotations",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  nil,
+			want:          TrafficDistributionAny,
+		},
+		{
+			name:          "case insensitive namespace annotation",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "preferclose"},
+			want:          TrafficDistributionPreferSameZone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetTrafficDistribution(tt.specValue, tt.svcAnnotation, tt.nsAnnotation)
+			if got != tt.want {
+				t.Errorf("GetTrafficDistribution() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

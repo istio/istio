@@ -168,7 +168,7 @@ func TestServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(localSvc, domainSuffix, clusterID, domainSuffix)
+	service := ConvertService(localSvc, nil, domainSuffix, clusterID, domainSuffix)
 	if service == nil {
 		t.Fatal("could not convert service")
 	}
@@ -254,7 +254,7 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(localSvc, domainSuffix, clusterID, "")
+	service := ConvertService(localSvc, nil, domainSuffix, clusterID, "")
 	if service == nil {
 		t.Fatal("could not convert service")
 	}
@@ -309,7 +309,7 @@ func TestServiceConversionWithExportToAnnotation(t *testing.T) {
 	}
 	for _, test := range tests {
 		localSvc.Annotations[annotation.NetworkingExportTo.Name] = test.Annotation
-		service := ConvertService(localSvc, domainSuffix, clusterID, "")
+		service := ConvertService(localSvc, nil, domainSuffix, clusterID, "")
 		if service == nil {
 			t.Fatal("could not convert service")
 		}
@@ -342,7 +342,7 @@ func TestExternalServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(extSvc, domainSuffix, clusterID, "")
+	service := ConvertService(extSvc, nil, domainSuffix, clusterID, "")
 	if service == nil {
 		t.Fatal("could not convert external service")
 	}
@@ -392,7 +392,7 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	domainSuffix := "cluster.local"
 
-	service := ConvertService(extSvc, domainSuffix, clusterID, "")
+	service := ConvertService(extSvc, nil, domainSuffix, clusterID, "")
 	if service == nil {
 		t.Fatal("could not convert external service")
 	}
@@ -453,7 +453,7 @@ func TestLBServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(extSvc, domainSuffix, clusterID, "")
+	service := ConvertService(extSvc, nil, domainSuffix, clusterID, "")
 	if service == nil {
 		t.Fatal("could not convert external service")
 	}
@@ -499,7 +499,7 @@ func TestInternalTrafficPolicyServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(svc, domainSuffix, clusterID, "")
+	service := ConvertService(svc, nil, domainSuffix, clusterID, "")
 	if service == nil {
 		t.Fatal("could not convert service")
 	}

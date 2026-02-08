@@ -796,7 +796,8 @@ const (
 	TrafficDistributionPreferSameNode
 )
 
-func GetTrafficDistribution(specValue *string, annotations map[string]string) TrafficDistribution {
+func GetTrafficDistribution(specValue *string, svcAnnotations, nsAnnotations map[string]string) TrafficDistribution {
+	// 1. Check spec field first (highest priority)
 	if specValue != nil {
 		switch *specValue {
 		case corev1.ServiceTrafficDistributionPreferSameZone, corev1.ServiceTrafficDistributionPreferClose:
@@ -805,20 +806,40 @@ func GetTrafficDistribution(specValue *string, annotations map[string]string) Tr
 			return TrafficDistributionPreferSameNode
 		}
 	}
+
+	// 2. Check service annotation (second priority)
 	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
-	// This also has some custom types
-	trafficDistributionAnnotationValue := strings.ToLower(annotations[annotation.NetworkingTrafficDistribution.Name])
-	switch trafficDistributionAnnotationValue {
-	case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
-		return TrafficDistributionPreferSameZone
-	case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
-		return TrafficDistributionPreferSameNode
-	default:
-		if trafficDistributionAnnotationValue != "" {
-			log.Warnf("Unknown traffic distribution annotation, defaulting to any")
+	svcAnnoValue := strings.ToLower(svcAnnotations[annotation.NetworkingTrafficDistribution.Name])
+	if svcAnnoValue != "" {
+		switch svcAnnoValue {
+		case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
+			return TrafficDistributionPreferSameZone
+		case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
+			return TrafficDistributionPreferSameNode
+		default:
+			log.Warnf("Unknown traffic distribution annotation on service, defaulting to any")
+			return TrafficDistributionAny
 		}
-		return TrafficDistributionAny
 	}
+
+	// 3. Check namespace annotation (third priority)
+	if nsAnnotations != nil {
+		nsAnnoValue := strings.ToLower(nsAnnotations[annotation.NetworkingTrafficDistribution.Name])
+		if nsAnnoValue != "" {
+			switch nsAnnoValue {
+			case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
+				return TrafficDistributionPreferSameZone
+			case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
+				return TrafficDistributionPreferSameNode
+			default:
+				log.Warnf("Unknown traffic distribution annotation on namespace, defaulting to any")
+				return TrafficDistributionAny
+			}
+		}
+	}
+
+	// 4. Default to Any
+	return TrafficDistributionAny
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
