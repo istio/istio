@@ -19,8 +19,11 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -279,6 +282,7 @@ func TestMergeGateways(t *testing.T) {
 		},
 	}
 
+	test.SetForTest(t, &features.EnableStrictGatewayMerging, true)
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			instances := []gatewayWithInstances{}
@@ -309,6 +313,131 @@ func TestMergeGateways(t *testing.T) {
 			}
 			if mgw.VerifiedCertificateReferences.Len() != tt.verifiedCertNum {
 				t.Errorf("Incorrect number of verified certs. Expected: %v Got: %d", tt.verifiedCertNum, mgw.VerifiedCertificateReferences.Len())
+			}
+		})
+	}
+}
+
+// nolint lll
+func TestFilterMergedGatewayServers(t *testing.T) {
+	gwSimpleCred := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredSameNs := makeConfig("bar1", "ns", "bar1.istio.com", "name2", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredOtherNs := makeConfig("bar2", "other-ns", "bar2.istio.com", "name3", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternal := makeInternalConfig("foo2", "ns", "foo2.k8s.com", "name4", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternalSameNs := makeInternalConfig("bar3", "ns", "bar3.k8s.com", "name5", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternalOtherNs := makeInternalConfig("bar4", "other-ns", "bar4.k8s.com", "name6", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "sa")
+	gwSimpleCredInternalUnmanaged := makeInternalConfig("foo3", "ns", "foo3.k8s.com", "name7", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, "kubernetes-gateway://ns/foo", "")
+
+	proxyIdentity := makeProxy(func() *spiffe.Identity {
+		identity, _ := spiffe.ParseIdentity("spiffe://td/ns/ns/sa/sa")
+		return &identity
+	})
+
+	tests := []struct {
+		name               string
+		gwConfig           []config.Config
+		internalGateways   sets.Set[string]
+		mergedServersNum   int
+		serverNum          int
+		serversForRouteNum map[string]int
+		gatewaysNum        int
+	}{
+		{
+			"no-filtering-when-no-internal-gateways",
+			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredOtherNs},
+			sets.New[string](),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+		{
+			"filter-istio-gateways-not-in-gwapi-namespace",
+			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredInternalOtherNs},
+			sets.New[string]("other-ns/bar4"),
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+		},
+		{
+			"keep-all-when-gwapi-and-istio-same-namespace",
+			[]config.Config{gwSimpleCred, gwSimpleCredSameNs, gwSimpleCredInternal},
+			sets.New[string]("ns/foo2"),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+		{
+			"filter-with-different-order",
+			[]config.Config{gwSimpleCredInternalOtherNs, gwSimpleCred, gwSimpleCredSameNs},
+			sets.New[string]("other-ns/bar4"),
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+		},
+		{
+			"multiple-gwapi-namespaces",
+			[]config.Config{gwSimpleCred, gwSimpleCredInternal, gwSimpleCredInternalOtherNs},
+			sets.New[string]("ns/foo2", "other-ns/bar4"),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+		{
+			"only-gwapi-gateways",
+			[]config.Config{gwSimpleCredInternal, gwSimpleCredInternalSameNs, gwSimpleCredInternalOtherNs},
+			sets.New[string]("ns/foo2", "ns/bar3", "other-ns/bar4"),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+		{
+			"with-gwapi-gateways-unmanaged",
+			[]config.Config{gwSimpleCredInternalUnmanaged, gwSimpleCred, gwSimpleCredOtherNs},
+			sets.New[string]("ns/foo3", "ns/foo1", "other-ns/bar2"),
+			1,
+			3,
+			map[string]int{"http.7": 3},
+			3,
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			instances := []gatewayWithInstances{}
+			for _, c := range tt.gwConfig {
+				instances = append(instances, gatewayWithInstances{c, true, nil})
+			}
+			mgw := mergeGateways(instances, proxyIdentity, makePushContext())
+
+			// Apply filtering
+			filterMergedGatewayServers(mgw, tt.internalGateways)
+
+			if len(mgw.MergedServers) != tt.mergedServersNum {
+				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
+			}
+			if len(mgw.ServersByRouteName) != len(tt.serversForRouteNum) {
+				t.Errorf("Incorrect number of routes. Expected: %v Got: %d", len(tt.serversForRouteNum), len(mgw.ServersByRouteName))
+			}
+			for k, v := range mgw.ServersByRouteName {
+				if tt.serversForRouteNum[k] != len(v) {
+					t.Errorf("for route %v expected %v servers got %v", k, tt.serversForRouteNum[k], len(v))
+				}
+			}
+			ns := 0
+			for _, ms := range mgw.MergedServers {
+				ns += len(ms.Servers)
+			}
+			if ns != tt.serverNum {
+				t.Errorf("Incorrect number of total servers. Expected: %v Got: %d", tt.serverNum, ns)
+			}
+			if len(mgw.GatewayNameForServer) != tt.gatewaysNum {
+				t.Errorf("Incorrect number of gateways. Expected: %v Got: %d", tt.gatewaysNum, len(mgw.GatewayNameForServer))
 			}
 		})
 	}
@@ -461,6 +590,15 @@ func TestMergeGatewaysHttpsFirstBug(t *testing.T) {
 			t.Errorf("HTTPS route %s not found in ServersByRouteName", httpsRoute)
 		}
 	})
+}
+
+// nolint  unparam
+func makeInternalConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw, bind string,
+	mode networking.ServerTLSSettings_TLSmode, credName, sa string,
+) config.Config {
+	c := makeConfig(name, namespace, host, portName, portProtocol, portNumber, gw, bind, mode, credName, sa)
+	c.Meta.Annotations[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
+	return c
 }
 
 // sa controls which service account names are allowed to get secrets
