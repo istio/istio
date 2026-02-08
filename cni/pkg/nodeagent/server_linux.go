@@ -121,13 +121,14 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 	if err != nil {
 		return nil, err
 	}
-	netServer := newNetServer(ztunnelServer, podNsMap, podTrafficManager, podNetns)
+	netServer := newNetServer(ztunnelServer, podNsMap, podTrafficManager, podNetns, args.InterfaceExclusionRules)
 
 	return &meshDataplane{
 		kubeClient:         client.Kube(),
 		netServer:          netServer,
 		hostTrafficManager: hostTrafficManager,
 		hostAddrSet:        setManager,
+		interfaceExclusionRules: args.InterfaceExclusionRules,
 	}, nil
 }
 

@@ -74,7 +74,7 @@ func NewIptablesTrafficManager(cfg *TrafficRuleManagerConfig) (hostManager, podM
 }
 
 // CreateInpodRules creates iptables rules within a pod's network namespace
-func (m *IptablesTrafficManager) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
+func (m *IptablesTrafficManager) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodOverrides) error {
 	if m.podIptables == nil {
 		return fmt.Errorf("pod iptables configurator not available (this is likely a host-only traffic manager)")
 	}

@@ -163,7 +163,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 
 	// The CNI node plugin should have already checked the pod against the k8s API before forwarding us the event,
 	// but we have to invoke the K8S client anyway, so to be safe we check it again here to make sure we get the same result.
-	ambientPod, err := s.getPodWithRetry(log, addCmd.PodName, addCmd.PodNamespace)
+	ambientPod, ns, err := s.getPodWithRetry(log, addCmd.PodName, addCmd.PodNamespace)
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 	}
 	// Note that we use the IP info from the CNI plugin here - the Pod struct as reported by K8S doesn't have this info
 	// yet (because the K8S control plane doesn't), so it will be empty there.
-	err = s.dataplane.AddPodToMesh(ctx, ambientPod, podIps, addCmd.Netns)
+	err = s.dataplane.AddPodToMesh(ctx, ambientPod, podIps, addCmd.Netns, ns)
 	if err != nil {
 		return err
 	}
@@ -187,32 +187,33 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 	return nil
 }
 
-func (s *CniPluginServer) getPodWithRetry(log *istiolog.Scope, name, namespace string) (*corev1.Pod, error) {
+func (s *CniPluginServer) getPodWithRetry(log *istiolog.Scope, name, namespace string) (*corev1.Pod, *corev1.Namespace, error) {
 	log.Debugf("Checking if pod %s/%s is enabled for ambient", namespace, name)
 	const maxStaleRetries = 10
 	const msInterval = 10
 	retries := 0
 	var ambientPod *corev1.Pod
+	var ns *corev1.Namespace
 	var err error
 
 	// The plugin already consulted the k8s API - but on this end handler caches may be stale, so retry a few times if we get no pod.
 	// if err is returned, we couldn't find the pod
 	// if nil is returned, we found it but ambient is not enabled
-	for ambientPod, err = s.handlers.GetPodIfAmbientEnabled(name, namespace); (err != nil) && (retries < maxStaleRetries); retries++ {
+	for ambientPod, ns, err = s.handlers.GetPodAndNamespaceIfAmbientEnabled(name, namespace); (err != nil) && (retries < maxStaleRetries); retries++ {
 		log.Warnf("got an event for pod %s in namespace %s not found in current pod cache, retry %d of %d",
 			name, namespace, retries, maxStaleRetries)
 		if !sleep.UntilContext(s.ctx, time.Duration(msInterval)*time.Millisecond) {
-			return nil, fmt.Errorf("aborted")
+			return nil, nil, fmt.Errorf("aborted")
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pod %s/%s: %v", namespace, name, err)
+		return nil, nil, fmt.Errorf("failed to get pod %s/%s: %v", namespace, name, err)
 	}
 
 	// This shouldn't happen - the CNI plugin should only invoke us when a pod starts up that already meets
 	// ambient eligibility requirements.
 	if ambientPod == nil {
-		return nil, fmt.Errorf("pod %s/%s is unexpectedly not eligible for ambient enrollment", namespace, name)
+		return nil, nil, fmt.Errorf("pod %s/%s is unexpectedly not eligible for ambient enrollment", namespace, name)
 	}
-	return ambientPod, nil
+	return ambientPod, ns, nil
 }
