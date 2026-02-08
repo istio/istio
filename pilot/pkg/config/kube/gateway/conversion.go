@@ -455,7 +455,9 @@ func parentMeta(obj controllers.Object, sectionName *k8s.SectionName) map[string
 	}
 }
 
-// getURIRank ranks a URI match type. Exact > Prefix > Regex
+// getURIRank ranks a URI match type. Exact > Regex > Prefix
+// RegularExpression matches are more specific than PathPrefix matches and should
+// be evaluated first to ensure correct route matching when both could match the same path.
 func getURIRank(match *istio.HTTPMatchRequest) int {
 	if match.Uri == nil {
 		return -1
@@ -463,9 +465,9 @@ func getURIRank(match *istio.HTTPMatchRequest) int {
 	switch match.Uri.MatchType.(type) {
 	case *istio.StringMatch_Exact:
 		return 3
-	case *istio.StringMatch_Prefix:
-		return 2
 	case *istio.StringMatch_Regex:
+		return 2
+	case *istio.StringMatch_Prefix:
 		return 1
 	}
 	// should not happen
