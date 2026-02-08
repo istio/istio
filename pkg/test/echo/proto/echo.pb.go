@@ -279,8 +279,12 @@ type ForwardEchoRequest struct {
 	// be the same as the outer tunnel.
 	DoubleHbone          *HBONE            `protobuf:"bytes,27,opt,name=double_hbone,json=doubleHbone,proto3" json:"double_hbone,omitempty"`
 	ProxyProtocolVersion ProxyProtoVersion `protobuf:"varint,25,opt,name=proxyProtocolVersion,proto3,enum=proto.ProxyProtoVersion" json:"proxyProtocolVersion,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// Minimum TLS version. Valid values: "1.0", "1.1", "1.2", "1.3"
+	TlsMinVersion string `protobuf:"bytes,28,opt,name=tls_min_version,json=tlsMinVersion,proto3" json:"tls_min_version,omitempty"`
+	// TLS curve preferences. Valid values: "P-256", "P-384", "P-521", "X25519", "X25519MLKEM768"
+	TlsCurvePreferences []string `protobuf:"bytes,29,rep,name=tls_curve_preferences,json=tlsCurvePreferences,proto3" json:"tls_curve_preferences,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ForwardEchoRequest) Reset() {
@@ -502,6 +506,20 @@ func (x *ForwardEchoRequest) GetProxyProtocolVersion() ProxyProtoVersion {
 	return ProxyProtoVersion_NONE
 }
 
+func (x *ForwardEchoRequest) GetTlsMinVersion() string {
+	if x != nil {
+		return x.TlsMinVersion
+	}
+	return ""
+}
+
+func (x *ForwardEchoRequest) GetTlsCurvePreferences() []string {
+	if x != nil {
+		return x.TlsCurvePreferences
+	}
+	return nil
+}
+
 type HBONE struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Address string                 `protobuf:"bytes,9,opt,name=address,proto3" json:"address,omitempty"`
@@ -714,7 +732,7 @@ const file_test_echo_proto_echo_proto_rawDesc = "" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"0\n" +
 	"\x06Header\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\xc4\a\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xa0\b\n" +
 	"\x12ForwardEchoRequest\x12\x14\n" +
 	"\x05count\x18\x01 \x01(\x05R\x05count\x12\x10\n" +
 	"\x03qps\x18\x02 \x01(\x05R\x03qps\x12%\n" +
@@ -747,7 +765,9 @@ const file_test_echo_proto_echo_proto_rawDesc = "" +
 	"\x0fforce_ip_family\x18\x1a \x01(\tR\rforceIpFamily\x12\"\n" +
 	"\x05hbone\x18\x18 \x01(\v2\f.proto.HBONER\x05hbone\x12/\n" +
 	"\fdouble_hbone\x18\x1b \x01(\v2\f.proto.HBONER\vdoubleHbone\x12L\n" +
-	"\x14proxyProtocolVersion\x18\x19 \x01(\x0e2\x18.proto.ProxyProtoVersionR\x14proxyProtocolVersion\"\x8e\x02\n" +
+	"\x14proxyProtocolVersion\x18\x19 \x01(\x0e2\x18.proto.ProxyProtoVersionR\x14proxyProtocolVersion\x12&\n" +
+	"\x0ftls_min_version\x18\x1c \x01(\tR\rtlsMinVersion\x122\n" +
+	"\x15tls_curve_preferences\x18\x1d \x03(\tR\x13tlsCurvePreferences\"\x8e\x02\n" +
 	"\x05HBONE\x12\x18\n" +
 	"\aaddress\x18\t \x01(\tR\aaddress\x12'\n" +
 	"\aheaders\x18\x01 \x03(\v2\r.proto.HeaderR\aheaders\x12\x12\n" +
