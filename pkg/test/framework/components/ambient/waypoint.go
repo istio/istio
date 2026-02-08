@@ -254,6 +254,70 @@ func NewWaypointProxyOrFail(t framework.TestContext, ns namespace.Instance, name
 	return s
 }
 
+// NewWaypointProxyWithTrafficType creates a waypoint proxy with a specific traffic type.
+// trafficType should be one of: constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic
+func NewWaypointProxyWithTrafficType(ctx resource.Context, ns namespace.Instance, name string, trafficType string) (Waypoints, error) {
+	var servers Waypoints
+	if err := crd.DeployGatewayAPI(ctx); err != nil {
+		return nil, err
+	}
+
+	for _, cls := range ctx.AllClusters() {
+		ik, err := istioctl.New(ctx, istioctl.Config{
+			Cluster: cls,
+		})
+		if err != nil {
+			return nil, err
+		}
+		_, _, err = ik.Invoke([]string{
+			"waypoint",
+			"apply",
+			"--namespace",
+			ns.Name(),
+			"--name",
+			name,
+			"--for",
+			trafficType,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, cls := range ctx.AllClusters() {
+		server := &kubeComponent{
+			ns:          ns,
+			clusterName: cls.Name(),
+		}
+		server.id = ctx.TrackResource(server)
+		fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name))
+		pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
+		if err != nil {
+			return nil, err
+		}
+		pod := pods[0]
+		inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
+		if err != nil {
+			return nil, err
+		}
+		if err := inbound.Start(); err != nil {
+			return nil, err
+		}
+		outbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15001)
+		if err != nil {
+			return nil, err
+		}
+		if err := outbound.Start(); err != nil {
+			return nil, err
+		}
+		server.inbound = inbound
+		server.outbound = outbound
+		server.pod = pod
+		servers = append(servers, server)
+	}
+	return servers, nil
+}
+
 func SetWaypointForService(t framework.TestContext, ns namespace.Instance, service, waypoint string) {
 	if service == "" {
 		return
