@@ -118,9 +118,7 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 		c := mf.Component
 		ms := mf.Manifests
 		disabledComponents.Delete(c)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			// Wait for all of our dependencies to finish...
 			if s := dependencyWaitCh[c]; s != nil {
 				<-s
@@ -139,7 +137,7 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 			for _, ch := range componentDependencies[c] {
 				dependencyWaitCh[ch] <- struct{}{}
 			}
-		}()
+		})
 	}
 	// For any components we did not install, mark them as "done"
 	for c := range disabledComponents {
