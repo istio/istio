@@ -169,6 +169,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 			}
 		}
+		// Set auto_sni, auto_san_validation and allow_insecure_cluster_options for sidecar DFP clusters.
+		if c.isDFPCluster && opts.direction == model.TrafficDirectionOutbound {
+			setAutoSniAndAutoSanValidation(c, tls)
+		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext, err = constructUpstreamTLS(opts, tls, c, false)
 
@@ -283,13 +287,16 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
-	// For DFP clusters, we only set auto_san_validation if insecure_skip_verify is false.
-	if (setAutoSni && len(tls.SubjectAltNames) == 0 || mc.isDFPCluster) && !tls.GetInsecureSkipVerify().GetValue() {
+
+	// For DFP clusters, set auto_san_validation if insecureSkipVerify is false and tls.Mode is not ISTIO_MUTUAL.
+	// For non-DFP clusters, require auto_sni if insecureSkipVerfify is false and there are no explicit SANs
+	if (mc.isDFPCluster && tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL && !tls.GetInsecureSkipVerify().GetValue()) ||
+		(!mc.isDFPCluster && setAutoSni && len(tls.SubjectAltNames) == 0 && !tls.GetInsecureSkipVerify().GetValue()) {
 		setAutoSanValidation = true
 	}
 
-	// For DFP clusters, we need to allow_insecure_cluster_options if insecure_skip_verify is true.
-	if mc.isDFPCluster && tls.GetInsecureSkipVerify().GetValue() {
+	// For DFP clusters, we need to allow_insecure_cluster_options if insecure_skip_verify is true or if auto_sni or auto_san_validation is not set.
+	if mc.isDFPCluster && (tls.GetInsecureSkipVerify().GetValue() || !setAutoSni || !setAutoSanValidation) {
 		clusterType, ok := mc.cluster.ClusterDiscoveryType.(*cluster.Cluster_ClusterType)
 		if !ok {
 			log.Warnf("failed to set allow_insecure_cluster_options for DFP cluster %s: invalid cluster type", mc.cluster.Name)
@@ -318,9 +325,11 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
 		}
 		if setAutoSni {
+			log.Debugf("set auto_sni for DFP cluster %s", mc.cluster.Name)
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
 		}
 		if setAutoSanValidation {
+			log.Debugf("set auto_san_validation for DFP cluster %s", mc.cluster.Name)
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
 		}
 	}

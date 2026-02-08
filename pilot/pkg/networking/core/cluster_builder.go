@@ -350,7 +350,10 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 
 	if clusterMode == DefaultClusterMode {
 		opts.serviceAccounts = serviceAccounts
-		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+		// For DFP clusters, we use auto_sni instead of static SNI
+		if !mc.isDFPCluster {
+			opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+		}
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
@@ -388,6 +391,12 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 		mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
 	}
+
+	// DFP clusters don't support subsets - skip subset cluster creation
+	if service.Resolution == model.DynamicDNS {
+		return nil
+	}
+
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.GetSubsets() {
 		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, eb)

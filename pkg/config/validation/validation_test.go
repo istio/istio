@@ -4460,7 +4460,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
 			},
-			valid: false,
+			valid: true,
 		},
 	}
 

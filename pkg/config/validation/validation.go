@@ -3041,7 +3041,6 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					}
 				}
 			}
-		// Only supported by ztunnel and waypoints
 		case networking.ServiceEntry_DYNAMIC_DNS:
 			if len(serviceEntry.Hosts) == 0 {
 				errs = AppendValidation(errs, fmt.Errorf("at least one wildcard host must be provided for resolution type %s", serviceEntry.Resolution))
@@ -3065,8 +3064,9 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					errs = AppendValidation(errs, fmt.Errorf("only HTTP and TLS protocol is supported for resolution type %s", serviceEntry.Resolution))
 				}
 			}
-			if serviceEntry.Location != networking.ServiceEntry_MESH_EXTERNAL {
-				errs = AppendValidation(errs, fmt.Errorf("location must be MESH_EXTERNAL for resolution type %s", serviceEntry.Resolution))
+			// DYNAMIC_DNS supports both MESH_EXTERNAL and MESH_INTERNAL
+			if serviceEntry.Location != networking.ServiceEntry_MESH_EXTERNAL && serviceEntry.Location != networking.ServiceEntry_MESH_INTERNAL {
+				errs = AppendValidation(errs, fmt.Errorf("location must be MESH_EXTERNAL or MESH_INTERNAL for resolution type %s", serviceEntry.Resolution))
 			}
 		default:
 			errs = AppendValidation(errs, fmt.Errorf("unsupported resolution type %s",
