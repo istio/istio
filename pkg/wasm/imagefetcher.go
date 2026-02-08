@@ -23,7 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -62,6 +64,84 @@ type ImageFetcher struct {
 	fetchOpts []remote.Option
 }
 
+// ssrfProtectionTransport wraps http.RoundTripper to block SSRF via bearer realm
+type ssrfProtectionTransport struct {
+	inner http.RoundTripper
+}
+
+func (t *ssrfProtectionTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.inner.RoundTrip(req)
+	if err != nil || resp == nil {
+		return resp, err
+	}
+
+	// check 401 responses for malicious WWW-Authenticate realm
+	if resp.StatusCode == http.StatusUnauthorized {
+		if auth := resp.Header.Get("WWW-Authenticate"); auth != "" {
+			if err := validateBearerRealm(auth); err != nil {
+				resp.Body.Close()
+				return nil, fmt.Errorf("rejected unsafe bearer realm: %w", err)
+			}
+		}
+	}
+
+	return resp, nil
+}
+
+func validateBearerRealm(wwwAuth string) error {
+	// parse realm from WWW-Authenticate header
+	// format: Bearer realm="...",service="..."
+	if !strings.Contains(wwwAuth, "realm=") {
+		return nil
+	}
+
+	start := strings.Index(wwwAuth, "realm=\"")
+	if start == -1 {
+		return nil
+	}
+	start += 7 // skip 'realm="'
+
+	end := strings.Index(wwwAuth[start:], "\"")
+	if end == -1 {
+		return nil
+	}
+	realm := wwwAuth[start : start+end]
+
+	u, err := url.Parse(realm)
+	if err != nil {
+		return fmt.Errorf("invalid realm URL: %w", err)
+	}
+
+	// block non-http schemes (file://, gopher://, dict://, etc)
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("realm scheme %q not allowed", u.Scheme)
+	}
+
+	// block private IPs and cloud metadata
+	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("realm missing host")
+	}
+
+	// block cloud metadata endpoints
+	if host == "169.254.169.254" || host == "metadata.google.internal" {
+		return fmt.Errorf("realm targets cloud metadata service")
+	}
+
+	// block localhost/loopback
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return fmt.Errorf("realm targets localhost")
+	}
+
+	// block private IP ranges
+	ip := net.ParseIP(host)
+	if ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast()) {
+		return fmt.Errorf("realm targets private IP")
+	}
+
+	return nil
+}
+
 func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher {
 	fetchOpts := make([]remote.Option, 0, 2)
 	// TODO(mathetake): have "Anonymous" option?
@@ -73,6 +153,7 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(&wasmKeyChain{data: opt.PullSecret}))
 	}
 
+	var transport http.RoundTripper
 	if opt.Insecure {
 		t := remote.DefaultTransport.(*http.Transport).Clone()
 		// nolint: gosec
@@ -80,8 +161,13 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 		t.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: opt.Insecure,
 		}
-		fetchOpts = append(fetchOpts, remote.WithTransport(t))
+		transport = t
+	} else {
+		transport = remote.DefaultTransport
 	}
+
+	// wrap transport with SSRF protection for CVE-pending bearer realm vulnerability
+	fetchOpts = append(fetchOpts, remote.WithTransport(&ssrfProtectionTransport{inner: transport}))
 
 	return &ImageFetcher{
 		fetchOpts: append(fetchOpts, remote.WithContext(ctx)),
