@@ -101,11 +101,11 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		}
 		minVersion, err := common.ParseTLSVersion(s.TLSMinVersion)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse min TLS version: %s", err)
 		}
 		curvePreferences, err := common.ParseTLSCurves(s.TLSCurvePreferences)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse curve preferences: %s", err)
 		}
 		// nolint: gosec // test only code, TLS version is configurable for testing
 		config := &tls.Config{

@@ -58,11 +58,11 @@ func (c connectInstance) Start(onReady OnReadyFunc) error {
 		}
 		minVersion, minVerErr := common.ParseTLSVersion(c.TLSMinVersion)
 		if minVerErr != nil {
-			return minVerErr
+			return fmt.Errorf("failed to parse min TLS version: %s", minVerErr)
 		}
 		curvePreferences, curPrefErr := common.ParseTLSCurves(c.TLSCurvePreferences)
 		if curPrefErr != nil {
-			return curPrefErr
+			return fmt.Errorf("failed to parse curve preferences: %s", curPrefErr)
 		}
 		// nolint: gosec // test only code, TLS version is configurable for testing
 		config := &tls.Config{
