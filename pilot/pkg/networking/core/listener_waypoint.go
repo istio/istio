@@ -556,9 +556,6 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	tlsInspector := func() *listener.ListenerFilter {
 		tlsPorts := sets.New[int]()
 		nonTLSPorts := sets.New[int]()
-		// Track ports that use SNI DFP (wildcard + DynamicDNS) - these require TLS inspection
-		// to extract the SNI for DNS resolution
-		sniDFPPorts := sets.New[int]()
 		for _, s := range svcs {
 			for _, p := range s.Ports {
 				if p.Protocol.IsTLS() {
@@ -566,17 +563,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				} else {
 					nonTLSPorts.Insert(p.Port)
 				}
-				// SNI DFP requires TLS inspector to extract SNI from ClientHello
-				if s.Hostname.IsWildCarded() && s.Resolution == model.DynamicDNS {
-					sniDFPPorts.Insert(p.Port)
-				}
 			}
 		}
-		// Ports that need TLS inspection: TLS protocol ports OR SNI DFP ports
-		inspectorPorts := tlsPorts.Union(sniDFPPorts)
-		nonInspectorPorts := nonTLSPorts.DeleteAll(inspectorPorts.UnsortedList()...).UnsortedList()
-		// Add TLS inspector if there are any ports that need it
-		if len(inspectorPorts) > 0 {
+		nonInspectorPorts := nonTLSPorts.DeleteAll(tlsPorts.UnsortedList()...).UnsortedList()
+		if len(tlsPorts) > 0 {
 			if len(nonInspectorPorts) > 0 {
 				slices.Sort(nonInspectorPorts)
 				return &listener.ListenerFilter{
@@ -585,7 +575,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
 				}
 			}
-			// All ports need TLS inspection, no need to disable for any port
+			// all ports are TLS, add the inspector with no disabled ports
 			return xdsfilters.TLSInspector
 		}
 		return nil
