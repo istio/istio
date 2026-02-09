@@ -148,6 +148,12 @@ spec:
 {{- if $.TLSSettings.AcceptAnyALPN}}
           - --disable-alpn
 {{- end }}
+{{- if $.TLSSettings.MinVersion }}
+          - --tls-min-version={{ $.TLSSettings.MinVersion }}
+{{- end }}
+{{- if $.TLSSettings.CurvePreferences }}
+          - --tls-curve-preferences={{ $.TLSSettings.CurvePreferences | join "," }}
+{{- end }}
 {{- else }}
           - --crt=/cert.crt
           - --key=/cert.key
