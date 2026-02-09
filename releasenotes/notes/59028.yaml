@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59024
+releaseNotes:
+  - |
+    **Fixed** an issue where waypoints failed to dynamically resolve hostnames
+    for wildcard ServiceEntry with `resolution: DYNAMIC_DNS` because SNI way
+    not always being extracted from TLS connections.
