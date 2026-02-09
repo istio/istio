@@ -56,13 +56,13 @@ func (c connectInstance) Start(onReady OnReadyFunc) error {
 		if cerr != nil {
 			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
-		minVersion, err := common.ParseTLSVersion(c.TLSMinVersion)
-		if err != nil {
-			return err
+		minVersion, minVerErr := common.ParseTLSVersion(c.TLSMinVersion)
+		if minVerErr != nil {
+			return minVerErr
 		}
-		curvePreferences, err := common.ParseTLSCurves(c.TLSCurvePreferences)
-		if err != nil {
-			return err
+		curvePreferences, curPrefErr := common.ParseTLSCurves(c.TLSCurvePreferences)
+		if curPrefErr != nil {
+			return curPrefErr
 		}
 		// nolint: gosec // test only code, TLS version is configurable for testing
 		config := &tls.Config{

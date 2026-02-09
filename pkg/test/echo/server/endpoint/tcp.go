@@ -59,13 +59,13 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 		if cerr != nil {
 			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
-		minVersion, err := common.ParseTLSVersion(s.TLSMinVersion)
-		if err != nil {
-			return err
+		minVersion, minVerErr := common.ParseTLSVersion(s.TLSMinVersion)
+		if minVerErr != nil {
+			return minVerErr
 		}
-		curvePreferences, err := common.ParseTLSCurves(s.TLSCurvePreferences)
-		if err != nil {
-			return err
+		curvePreferences, curPrefErr := common.ParseTLSCurves(s.TLSCurvePreferences)
+		if curPrefErr != nil {
+			return curPrefErr
 		}
 		// nolint: gosec // test only code, TLS version is configurable for testing
 		config := &tls.Config{
