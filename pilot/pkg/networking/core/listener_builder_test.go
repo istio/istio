@@ -989,8 +989,6 @@ func TestAdditionalAddressesForIPv6(t *testing.T) {
 }
 
 func TestExtProcExistForInferencePoolEnabledGateway(t *testing.T) {
-	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
-
 	cg := NewConfigGenTest(t, TestOptions{
 		Services: testServices,
 	})

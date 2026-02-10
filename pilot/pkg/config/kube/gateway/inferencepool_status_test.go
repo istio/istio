@@ -30,7 +30,6 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
@@ -47,7 +46,6 @@ const (
 )
 
 func TestInferencePoolStatusReconciliation(t *testing.T) {
-	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
 	testCases := []struct {
 		name         string
 		givens       []runtime.Object           // Objects to create before the test

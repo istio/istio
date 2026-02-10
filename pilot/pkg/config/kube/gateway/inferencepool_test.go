@@ -24,15 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestReconcileInferencePool(t *testing.T) {
-	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
-
 	testCases := []struct {
 		name                string
 		inferencePool       *inferencev1.InferencePool
