@@ -205,7 +205,7 @@ var (
 	EnvoyStatusPortEnableProxyProtocol = env.Register("ENVOY_STATUS_PORT_ENABLE_PROXY_PROTOCOL", false,
 		"If enabled, Envoy will support requests with proxy protocol on its status port").Get()
 
-	EnableGatewayAPIInferenceExtension = env.Register("ENABLE_GATEWAY_API_INFERENCE_EXTENSION", false,
+	EnableGatewayAPIInferenceExtension = env.Register("ENABLE_GATEWAY_API_INFERENCE_EXTENSION", true,
 		"If true, support gateway inference extension routing apis").Get()
 
 	EnableWildcardHostServiceEntriesForTLS = env.Register("ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS", false,

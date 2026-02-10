@@ -72,12 +72,11 @@ For each InferencePool, Istio automatically creates an internal "shadow" Service
 
 1. Requests are routed to the selected pod:port combination
 
-## Enabling the Feature
+## Disable the Feature
 
-The Gateway API Inference Extension is disabled by default. To enable it:
+The Gateway API Inference Extension is enabled by default. To disable it:
 
-1. Ensure `PILOT_ENABLE_GATEWAY_API=true` (required)
-1. Set `ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true` on istiod
+1. Set `ENABLE_GATEWAY_API_INFERENCE_EXTENSION=false` on istiod
 
 Example:
 
@@ -88,8 +87,7 @@ spec:
   values:
     pilot:
       env:
-        PILOT_ENABLE_GATEWAY_API: "true"
-        ENABLE_GATEWAY_API_INFERENCE_EXTENSION: "true"
+        ENABLE_GATEWAY_API_INFERENCE_EXTENSION: "false"
 ```
 
 ## Running Tests

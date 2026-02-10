@@ -29,13 +29,6 @@ var i istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-values:
-  pilot:
-    env:
-      ENABLE_GATEWAY_API_INFERENCE_EXTENSION: "true"
-`
-		})).
+		Setup(istio.Setup(&i, nil)).
 		Run()
 }
