@@ -564,7 +564,7 @@ var optionalPolicyTags = []*tracing.CustomTag{
 // while CelState is stored under downstream_peer key for CEL expression compatibility.
 // All fields are extracted individually to support dynamic addition of new fields in WorkloadMetadataObject.
 func buildWaypointSourceTags() []*tracing.CustomTag {
-	buildDownstreamFilterStateTag := func(tagName, fieldName string) *tracing.CustomTag {
+	buildFilterStateTag := func(tagName, fieldName string) *tracing.CustomTag {
 		return &tracing.CustomTag{
 			Tag: tagName,
 			Type: &tracing.CustomTag_Value{
@@ -572,37 +572,19 @@ func buildWaypointSourceTags() []*tracing.CustomTag {
 			},
 		}
 	}
-	buildUpstreamFilterStateTag := func(tagName, fieldName string) *tracing.CustomTag {
-		return &tracing.CustomTag{
-			Tag: tagName,
-			Type: &tracing.CustomTag_Value{
-				Value: fmt.Sprintf("%%FILTER_STATE(upstream_peer_obj:FIELD:%s)%%", fieldName),
-			},
-		}
-	}
 
 	// Extract all available fields from WorkloadMetadataObject
 	// See: proxy/extensions/common/metadata_object.h for field definitions
 	return []*tracing.CustomTag{
-		buildUpstreamFilterStateTag("istio.destination_workload", "workload"),
-		buildUpstreamFilterStateTag("istio.destination_namespace", "namespace"),
-		buildUpstreamFilterStateTag("istio.destination_cluster_id", "cluster"),
-		buildUpstreamFilterStateTag("istio.destination_canonical_service", "service"),
-		buildUpstreamFilterStateTag("istio.destination_canonical_revision", "revision"),
-		buildUpstreamFilterStateTag("istio.destination_app", "app"),
-		buildUpstreamFilterStateTag("istio.destination_app_version", "version"),
-		buildUpstreamFilterStateTag("istio.destination_workload_type", "type"),
-		buildUpstreamFilterStateTag("istio.destination_instance_name", "name"),
-
-		buildDownstreamFilterStateTag("istio.source_workload", "workload"),
-		buildDownstreamFilterStateTag("istio.source_namespace", "namespace"),
-		buildDownstreamFilterStateTag("istio.source_cluster_id", "cluster"),
-		buildDownstreamFilterStateTag("istio.source_canonical_service", "service"),
-		buildDownstreamFilterStateTag("istio.source_canonical_revision", "revision"),
-		buildDownstreamFilterStateTag("istio.source_app", "app"),
-		buildDownstreamFilterStateTag("istio.source_app_version", "version"),
-		buildDownstreamFilterStateTag("istio.source_workload_type", "type"),
-		buildDownstreamFilterStateTag("istio.source_instance_name", "name"),
+		buildFilterStateTag("istio.source_workload", "workload"),
+		buildFilterStateTag("istio.source_namespace", "namespace"),
+		buildFilterStateTag("istio.source_cluster_id", "cluster"),
+		buildFilterStateTag("istio.source_canonical_service", "service"),
+		buildFilterStateTag("istio.source_canonical_revision", "revision"),
+		buildFilterStateTag("istio.source_app", "app"),
+		buildFilterStateTag("istio.source_app_version", "version"),
+		buildFilterStateTag("istio.source_workload_type", "type"),
+		buildFilterStateTag("istio.source_instance_name", "name"),
 	}
 }
 
