@@ -169,7 +169,7 @@ func (c CollectionGenerator) GenerateDeltas(
 	}
 	gw := types.NamespacedName{
 		Namespace: proxy.Metadata.Namespace,
-		Name: agwName,
+		Name:      agwName,
 	}
 
 	if req.IsRequest() {

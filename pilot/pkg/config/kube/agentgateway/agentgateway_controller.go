@@ -129,12 +129,12 @@ type OutputCollections struct {
 // Similar type to agwcollections in kgateway.
 type AgwInputs struct {
 	// Core k8s resources
-	Namespaces krt.Collection[*corev1.Namespace]
-	Nodes      krt.Collection[*corev1.Node]
-	Pods       krt.Collection[*corev1.Pod]
-	Services   krt.Collection[*corev1.Service]
-	Secrets    krt.Collection[*corev1.Secret]
-	ConfigMaps krt.Collection[*corev1.ConfigMap]
+	Namespaces     krt.Collection[*corev1.Namespace]
+	Nodes          krt.Collection[*corev1.Node]
+	Pods           krt.Collection[*corev1.Pod]
+	Services       krt.Collection[*corev1.Service]
+	Secrets        krt.Collection[*corev1.Secret]
+	ConfigMaps     krt.Collection[*corev1.ConfigMap]
 	EndpointSlices krt.Collection[*discovery.EndpointSlice]
 
 	// Gateway API resources
@@ -184,7 +184,7 @@ func NewAgwController(
 		c.tagWatcher.TriggerRecomputation()
 	})
 
-	// TODO(jaellio): pass in inputs. Allowing reinitialization is risky (but idempotent?)
+	// TODO(jaellio): pass in inputs. Allowing reinitialization is risky
 	c.initializeInputs(kc, opts)
 	c.buildResourceCollections(opts)
 
@@ -228,7 +228,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
 		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 		WorkloadEntries: buildClient[*networkingclient.WorkloadEntry](c, kc, gvr.WorkloadEntry, opts, "informer/WorkloadEntries"),
-		EndpointSlices : krt.NewFilteredInformer[*discovery.EndpointSlice](kc, kclient.Filter{
+		EndpointSlices: krt.NewFilteredInformer[*discovery.EndpointSlice](kc, kclient.Filter{
 			ObjectFilter: kc.ObjectFilter(),
 		}, opts.WithName("informer/EndpointSlices")...),
 	}
@@ -251,16 +251,17 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		inputs.InferencePools = buildClient[*inferencev1.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
 		// If disabled, still build a collection but make it always empty
+		logger.Warnf("GatewayAPI Inference Extension is disabled, not watching InferencePool resources")
 		inputs.InferencePools = krt.NewStaticCollection[*inferencev1.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...)
 	}
 	c.inputs = inputs
 }
 
 func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
-	_, gatewayClasses := gatewaycommon.GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+	gatewayClassStatus, gatewayClasses := gatewaycommon.GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
-	// TODO(jaellio): Consider simplifying listenerset collection
 	listenerSetStatus, listenerSets := ListenerSetCollection(
 		c.inputs.ListenerSets,
 		c.inputs.Gateways,
@@ -287,6 +288,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		c.inputs.ConfigMaps,
 		c.inputs.Secrets,
 		c.domainSuffix,
+		c.gatewayContext,
 		c.tagWatcher,
 		opts,
 	)
@@ -337,7 +339,6 @@ func (c *Controller) buildFinalGatewayStatus(
 		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus]) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
 			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
 			counts := map[string]int32{}
-			// TODO(jaellio): why only tcp routes?
 			for _, r := range tcpRoutes {
 				counts[r.ListenerName]++
 			}
@@ -526,7 +527,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	close(c.stop)
 }
 
-// TODO(jaellio): Verify sufficient
 func (c *Controller) HasSynced() bool {
 	if !(c.outputs.Addresses.HasSynced() &&
 		c.outputs.Resources.HasSynced()) {
@@ -559,7 +559,7 @@ func ToAgwResource(t any) *api.Resource {
 	case *api.Resource:
 		return tt
 	}
-	// TODO(jaellio): handle more gracefully (borrowed from kgateway gateway_collection.go)
+	// borrowed from kgateway gateway_collection.go
 	panic(fmt.Sprintf("unknown resource kind %T", t))
 }
 
@@ -570,7 +570,6 @@ func ToResourceForGateway(gw types.NamespacedName, resource any) AgwResource {
 	}
 }
 
-// TODO(jaellio): Verify implementation
 func (c *Controller) buildAgwResources(
 	gateways krt.Collection[*GatewayListener],
 	refGrants gatewaycommon.ReferenceGrants,
@@ -582,7 +581,7 @@ func (c *Controller) buildAgwResources(
 	// filter gateway collections to only include gateways which use a built-in gateway class
 	// (resources for additional gateway classes should be created by the downstream providing them)
 	filteredGateways := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gw *GatewayListener) **GatewayListener {
-		// TODO(jaellio): check if this is the correct filtering logic. Opposite of kgateway which uses additionalGatewayClasses
+		// Note: This filtering logic is opposite of kgateway which uses additionalGatewayClasses
 		if _, builtInClass := gatewaycommon.BuiltinClasses[gatewayv1.ObjectName(gw.Name)]; !builtInClass {
 			return nil
 		}

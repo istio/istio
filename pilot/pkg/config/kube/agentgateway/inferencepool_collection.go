@@ -123,6 +123,7 @@ func InferencePoolCollection(
 			return status, inferencePool
 		}, opts.WithName("InferenceExtension")...)
 }
+
 // routeReferencesInferencePool checks if an HTTPRoute references the given InferencePool
 func routeReferencesInferencePool(route *gatewayv1.HTTPRoute, pool *inferencev1.InferencePool) bool {
 	for _, rule := range route.Spec.Rules {
@@ -490,7 +491,6 @@ func calculateInferencePoolStatus(
 		Parents: finalParents,
 	}
 }
-
 
 func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo) *corev1.Service {
 	// Create multiple ports for the shadow service - one for each InferencePool targetPort.

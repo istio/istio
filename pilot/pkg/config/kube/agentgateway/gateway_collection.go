@@ -25,6 +25,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
+	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
@@ -94,7 +95,7 @@ type ListenerSet struct {
 	// +krtEqualsTodo include parent gateway identity in equality check
 	Parent types.NamespacedName `json:"parent"`
 	// +krtEqualsTodo ensure parent metadata differences trigger equality
-	ParentInfo    AgwParentInfo           `json:"parentInfo"`
+	ParentInfo    AgwParentInfo        `json:"parentInfo"`
 	TLSInfo       *TLSInfo             `json:"tlsInfo"`
 	GatewayParent types.NamespacedName `json:"gatewayParent"`
 	Valid         bool                 `json:"valid"`
@@ -174,7 +175,6 @@ func ListenerSetCollection(
 				return nil, nil
 			}
 
-			// TODO(jaellio): Add back once we've added listener errors for agentgateway
 			if !classInfo.SupportsListenerSet {
 				reportUnsupportedListenerSet(class.Name, status, obj)
 				return status, nil
@@ -247,7 +247,7 @@ func reportListenerSetStatus(
 	obj *gatewayx.XListenerSet,
 	gs *gatewayx.ListenerSetStatus,
 	gatewayServices []string,
-	gatewayErr *ConfigError,
+	cond *condition,
 ) {
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
@@ -264,47 +264,13 @@ func reportListenerSetStatus(
 			message: "Resource programmed",
 		},
 	}
-	if gatewayErr != nil {
-		gatewayErr.Message = "Parent not accepted: " + gatewayErr.Message
-		gatewayConditions[string(gatewayv1.GatewayConditionAccepted)].error = gatewayErr
+	if cond != nil && cond.error != nil {
+		cond.error.Message = "Parent not accepted: " + cond.error.Message
+		gatewayConditions[string(gatewayv1.GatewayConditionAccepted)].error = cond.error
 	}
 
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
-
-// TODO(jaellio): Consider adding back
-/*func setProgrammedCondition(gatewayConditions map[string]*condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
-	if len(internal) > 0 {
-		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
-		gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)].message = msg
-	}
-
-	if len(gatewayServices) == 0 {
-		gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)].error = &ConfigError{
-			Reason:  InvalidAddress,
-			Message: "Failed to assign to any requested addresses",
-		}
-	} else if len(warnings) > 0 {
-		var msg string
-		var reason string
-		if len(internal) != 0 {
-			msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
-				humanReadableJoin(internal), strings.Join(warnings, "; "))
-		} else {
-			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
-		}
-		if allUsable {
-			reason = string(gatewayv1.GatewayReasonAddressNotAssigned)
-		} else {
-			reason = string(gatewayv1.GatewayReasonAddressNotUsable)
-		}
-		gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)].error = &ConfigError{
-			// TODO: this only checks Service ready, we should also check Deployment ready?
-			Reason:  reason,
-			Message: msg,
-		}
-	}
-}*/
 
 func GatewayCollection(
 	gateways krt.Collection[*gatewayv1.Gateway],
@@ -315,6 +281,7 @@ func GatewayCollection(
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) (
@@ -325,27 +292,35 @@ func GatewayCollection(
 		return []types.NamespacedName{o.GatewayParent}
 	})
 	gwstatus, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gatewayv1.Gateway) (*gatewayv1.GatewayStatus, []*GatewayListener) {
+		// TODO(jaellio): Do we need to utilize gateway context here?
+		context := gatewayContext.Get(ctx).Load()
+		if context == nil {
+			return nil, nil
+		}
 		if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
 			return nil, nil
 		}
 		result := []*GatewayListener{}
 		kgw := obj.Spec
 		status := obj.Status.DeepCopy()
+
 		class := gatewaycommon.FetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
 		if class == nil {
 			return nil, nil
 		}
+
 		controllerName := class.Controller
 		classInfo, f := gatewaycommon.ClassInfos[controllerName]
 		if !f {
 			return nil, nil
 		}
 		if classInfo.DisableRouteGeneration {
-			// TODO(jaellio): status
+			// TODO(jaellio): Applicable for agent gateway?
 			// reportUnmanagedGatewayStatus(status, obj)
 			// We found it, but don't want to handle this class
 			return status, nil
 		}
+		servers := []*istio.Server{}
 
 		logger.Debugf("translating Gateway gw_name: %s, resource_version: %s", obj.GetName(), obj.GetResourceVersion())
 
@@ -353,36 +328,26 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			// TODO(jaellio): status
-			// reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err)
+			logger.Errorf("failed to translate gwv1", "name", obj.GetName(), "namespace", obj.GetNamespace(), "err", err.message)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error)
 			return status, nil
 		}
-
-		// TODO(jaellio): handled more simply in kgateway. Just check controller name stored in the gatewaycollection config
-		// See: https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#manual-deployment
-		// If we set and address of type hostname, then we have no idea what service accounts the gateway workloads will use.
-		// Thus, we don't enforce service account name restrictions (still look at namespaces though).
-		/*serviceAccountName := ""
-		if IsManaged(&obj.Spec) {
-			serviceAccountName = model.GetOrDefault(
-				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-				getDefaultName(obj.GetName(), &kgw, classInfo.DisableNameSuffix),
-			)
-		}*/
+		var gatewayErr *ConfigError
+		if err != nil {
+			gatewayErr = err.error
+		}
 
 		for i, l := range kgw.Listeners {
+			// Attached Routes count starts at 0 and gets updated later in the status syncer
+			// when the real count is available after route processing
 			hostnames, tlsInfo, updatedStatus, programmed := buildListener(ctx, secrets, configMaps, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
-			if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
-				// Waypoint and ambient e/w don't actually convert the routes to VirtualServices
-				// TODO: Maybe E/W gateway should for non 15008 ports for backwards compat?
-				continue
-			}
-
+			// Generate supported kinds for the listener
 			allowed, _ := generateSupportedKinds(l)
 
-			// TODO(jaellio): Set all listener conditions from status
+			// TODO(jaellio): Set all listener conditions from the actual status
+
 			// reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), err)
 			name := InternalGatewayName(obj.Namespace, obj.Name, string(l.Name))
 			pri := AgwParentInfo{
@@ -410,7 +375,6 @@ func GatewayCollection(
 				},
 				ParentInfo: pri,
 			}
-			// TODO(jaellio): Report condition
 			result = append(result, res)
 		}
 		listenersFromSets := krt.Fetch(ctx, listenerSets, krt.FilterIndex(listenerIndex, config.NamespacedName(obj)))
@@ -429,10 +393,10 @@ func GatewayCollection(
 			})
 		}
 
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), gatewayErr)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
-	// TODO(jaellio): status
 	return gwstatus, gw
 }
 
