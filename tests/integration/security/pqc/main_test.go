@@ -18,22 +18,29 @@ package pqc
 
 import (
 	"fmt"
-	"istio.io/api/annotation"
-	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/util/file"
+	"net/http"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
+	"istio.io/api/annotation"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/util/file"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 var (
@@ -41,7 +48,6 @@ var (
 	externalNs namespace.Instance
 	internalNs namespace.Instance
 	a          echo.Instance
-	client     echo.Instance
 	server     echo.Instance
 	configs    []echo.Config
 	apps       deployment.TwoNamespaceView
@@ -77,15 +83,13 @@ func TestMain(m *testing.M) {
 		Setup(func(ctx resource.Context) error {
 			for _, echoInstance := range apps.All.Instances() {
 				switch echoInstance.Config().Service {
-				case "client":
-					client = echoInstance
 				case "server":
 					server = echoInstance
 				case deployment.ASvc:
 					a = echoInstance
 				}
 			}
-			if client == nil || server == nil || a == nil {
+			if server == nil || a == nil {
 				return fmt.Errorf("failed to find all expected echo instances")
 			}
 			return nil
@@ -95,14 +99,6 @@ func TestMain(m *testing.M) {
 
 func setupAppsConfig(_ resource.Context, out *[]echo.Config) error {
 	*out = []echo.Config{
-		{
-			Service:   "client",
-			Namespace: externalNs,
-			Ports:     ports.All(),
-			Subsets: []echo.SubsetConfig{{
-				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
-			}},
-		},
 		{
 			Service:   "server",
 			Namespace: externalNs,
@@ -128,10 +124,111 @@ func setupAppsConfig(_ resource.Context, out *[]echo.Config) error {
 	return nil
 }
 
-func TestPQC(t *testing.T) {
+func TestIngress(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			t.Log("PQC test placeholder")
-			time.Sleep(1 * time.Minute)
+			peerAuthYaml := `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+spec:
+  mtls:
+    mode: STRICT`
+			t.ConfigIstio().YAML(i.Settings().SystemNamespace, peerAuthYaml).ApplyOrFail(t, apply.Wait)
+
+			gatewayTmpl := `
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: {{ .CredentialName }}
+spec:
+  selector:
+    istio: {{ .GatewayIstioLabel | default "ingressgateway" }}
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "{{ .CredentialName }}"
+    hosts:
+    - "{{ .Host }}"
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ .CredentialName }}
+spec:
+  hosts:
+  - "{{ .Host }}"
+  gateways:
+  - {{ .CredentialName }}
+  http:
+  - route:
+    - destination:
+        host: {{ .ServiceName }}
+        port:
+          number: 80
+`
+			credName := "ingress-pqc-credential"
+			host := "ingress-pqc.example.com"
+			ingressConfig := map[string]string{
+				"CredentialName": credName,
+				"Host":           host,
+				"ServiceName":    fmt.Sprintf("%s.%s.svc.cluster.local", a.Config().Service, internalNs.Name()),
+				"GatewayLabel":   i.Settings().IngressGatewayIstioLabel,
+			}
+			t.ConfigIstio().Eval(internalNs.Name(), ingressConfig, gatewayTmpl).ApplyOrFail(t, apply.Wait)
+			ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.TLS, ingressutil.IngressCredentialA, false)
+
+			ing := i.IngressFor(t.Clusters().Default())
+			if ing == nil {
+				t.Fatalf("failed to find ingress gateway %s", credName)
+			}
+
+			t.NewSubTest("request with TLS 1.3 and X25519MLKEM768 succeeds").Run(func(t framework.TestContext) {
+				ing.CallOrFail(t, echo.CallOptions{
+					HTTP: echo.HTTP{
+						Headers: headers.New().WithHost(host).Build(),
+					},
+					Port: echo.Port{
+						Protocol: protocol.HTTPS,
+					},
+					TLS: echo.TLS{
+						CaCert:           ingressutil.CaCertA,
+						MinVersion:       "1.3",
+						CurvePreferences: []string{"X25519MLKEM768"},
+					},
+					Check: check.Status(http.StatusOK),
+				})
+			})
+
+			t.NewSubTest("request with non-PQC curve is rejected").Run(func(t framework.TestContext) {
+				ing.CallOrFail(t, echo.CallOptions{
+					HTTP: echo.HTTP{
+						Headers: headers.New().WithHost(host).Build(),
+					},
+					Port: echo.Port{
+						Protocol: protocol.HTTPS,
+					},
+					TLS: echo.TLS{
+						CaCert:           ingressutil.CaCertA,
+						MinVersion:       "1.3",
+						CurvePreferences: []string{"P-256"},
+					},
+					Timeout: 1 * time.Second,
+					Check: func(result echo.CallResult, err error) error {
+						if err == nil {
+							t.Error("expected to get TLS handshake error but got none")
+						}
+						if !strings.Contains(err.Error(), "tls: handshake failure") {
+							t.Errorf("expected to get TLS handshake error but got: %s", err)
+						}
+						return nil
+					},
+				})
+			})
 		})
 }
