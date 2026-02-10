@@ -137,6 +137,13 @@ func TestRender(t *testing.T) {
 			chartName:   "gateway",
 			diffSelect:  "PodDisruptionBudget:*:istio-ingress",
 		},
+		{
+			desc:        "ztunnel-dns-config",
+			releaseName: "ztunnel",
+			namespace:   "istio-system",
+			chartName:   "ztunnel",
+			diffSelect:  "DaemonSet:*:ztunnel",
+		},
 	}
 
 	for _, tc := range cases {

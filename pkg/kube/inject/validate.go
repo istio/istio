@@ -19,8 +19,10 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -51,6 +53,10 @@ var (
 		annotation.IoIstioRerouteVirtualInterfaces.Name:           ValidateExcludeInterfaces,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
 		annotation.ProxyConfig.Name:                               validateProxyConfig,
+		annotation.SidecarProxyCPU.Name:                           validateResourceQuantity,
+		annotation.SidecarProxyMemory.Name:                        validateResourceQuantity,
+		annotation.SidecarProxyCPULimit.Name:                      validateResourceQuantity,
+		annotation.SidecarProxyMemoryLimit.Name:                   validateResourceQuantity,
 	}
 )
 
@@ -146,6 +152,17 @@ func validateUInt32(value string) error {
 // validateBool validates that the given annotation value is a boolean.
 func validateBool(value string) error {
 	_, err := strconv.ParseBool(value)
+	return err
+}
+
+// validateResourceQuantity validates Kubernetes resource quantity - rejects control chars, validates format
+func validateResourceQuantity(value string) error {
+	for _, r := range value {
+		if unicode.IsControl(r) {
+			return fmt.Errorf("value contains control characters")
+		}
+	}
+	_, err := resource.ParseQuantity(value)
 	return err
 }
 

@@ -66,8 +66,10 @@ const (
 	// EnvoyJwtFilterPayload is the struct field for the payload in dynamic metadata in Envoy JWT filter.
 	EnvoyJwtFilterPayload = "payload"
 
-	PeerMetadataTypeURL     = "type.googleapis.com/io.istio.http.peer_metadata.Config"
-	MetadataExchangeTypeURL = "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange"
+	PeerMetadataTypeURL              = "type.googleapis.com/io.istio.http.peer_metadata.Config"
+	MetadataExchangeTypeURL          = "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange"
+	HBONEListenerPeerMetadataTypeURL = "type.googleapis.com/envoy.extensions.network_filters.peer_metadata.Config"
+	HBONEClusterPeerMetadataTypeURL  = "type.googleapis.com/envoy.extensions.network_filters.peer_metadata.UpstreamConfig"
 	// OriginalDstFilterStateKey is a filter state key where we store the :authority. This has traditionally been an
 	// IP address, but it can also be a hostname if the incoming CONNECT tunnel was sent via double-HBONE.
 	// It will fail if the value is not a valid IP address.
@@ -215,35 +217,6 @@ var (
 					},
 				},
 			}),
-		},
-	}
-
-	WaypointDownstreamMetadataFilter = &hcm.HttpFilter{
-		Name: "waypoint_downstream_peer_metadata",
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
-				map[string]any{
-					"downstream_discovery": []any{
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-					"shared_with_upstream": true,
-				}),
-		},
-	}
-
-	WaypointUpstreamMetadataFilter = &hcm.HttpFilter{
-		Name: "waypoint_upstream_peer_metadata",
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
-				map[string]any{
-					"upstream_discovery": []any{
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-				}),
 		},
 	}
 
@@ -481,6 +454,20 @@ var (
 		}
 	}()
 
+	WaypointClusterBaggagePeerMetadata = &cluster.Filter{
+		Name:        "upstream_hbone_peer_metadata",
+		TypedConfig: protoconv.TypedStructWithFields(HBONEClusterPeerMetadataTypeURL, map[string]any{}),
+	}
+
+	WaypointListenerBaggagePeerMetadata = &listener.Filter{
+		Name: "upstream_hbone_peer_metadata",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(HBONEListenerPeerMetadataTypeURL, map[string]any{
+				"baggage_key": "io.istio.baggage",
+			}),
+		},
+	}
+
 	SidecarInboundMetadataFilter = func() *hcm.HttpFilter {
 		cfg := map[string]any{
 			"downstream_discovery": []any{
@@ -563,7 +550,93 @@ var (
 			},
 		}
 	}()
+
+	WaypointDownstreamMetadataFilter = &hcm.HttpFilter{
+		Name: "waypoint_downstream_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
+				map[string]any{
+					"downstream_discovery": []any{
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"shared_with_upstream": true,
+				}),
+		},
+	}
+
+	WaypointUpstreamMetadataFilter = &hcm.HttpFilter{
+		Name: "waypoint_upstream_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+				}),
+		},
+	}
+
+	WaypointDownstreamMetadataFilterForAmbientBaggage = &hcm.HttpFilter{
+		Name: "waypoint_downstream_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
+				map[string]any{
+					"downstream_discovery": []any{
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+						map[string]any{
+							"baggage": map[string]any{},
+						},
+					},
+					"downstream_propagation": []any{
+						map[string]any{
+							"baggage": map[string]any{},
+						},
+					},
+					"shared_with_upstream": true,
+				}),
+		},
+	}
+
+	WaypointUpstreamMetadataFilterForAmbientBaggage = &hcm.HttpFilter{
+		Name: "waypoint_upstream_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+						map[string]any{
+							"upstream_filter_state": map[string]any{
+								"peer_metadata_key": "upstream_peer",
+							},
+						},
+					},
+				}),
+		},
+	}
 )
+
+// GenerateWaypointDownstreamMetadataFilter returns the waypoint downstream peer metadata filter.
+func GenerateWaypointDownstreamMetadataFilter() *hcm.HttpFilter {
+	if features.EnableAmbientBaggage {
+		return WaypointDownstreamMetadataFilterForAmbientBaggage
+	}
+	return WaypointDownstreamMetadataFilter
+}
+
+func GenerateWaypointUpstreamMetadataFilter() *hcm.HttpFilter {
+	if features.EnableAmbientBaggage {
+		return WaypointUpstreamMetadataFilterForAmbientBaggage
+	}
+	return WaypointUpstreamMetadataFilter
+}
 
 func additionalLabels(cfg map[string]any) {
 	if additionalLabels := features.MetadataExchangeAdditionalLabels; len(additionalLabels) != 0 {

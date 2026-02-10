@@ -3497,7 +3497,33 @@ func TestDirect(t *testing.T) {
 }
 
 func TestServiceRestart(t *testing.T) {
-	const callInterval = 100 * time.Millisecond
+	// Keep the call interval small - it reduces test flakiness.
+	//
+	// echo app after it received SIGTERM will wait for 1 second before shutting down.
+	// If during this one second it gets a new request, it rests the timer and waits for another
+	// second and so on, until it gets forcefully terminated or until it gets no request during
+	// the 1 second wait time.
+	//
+	// We need to wait after receiving SIGTERM before terminating, because k8s may start pod
+	// shutdown sequence, before the pod was removed from the service endpoints list. That race
+	// condition creates a situation where request can be routed to a pod that is being shut down
+	// and does not accept new requests anymore.
+	//
+	// Normally for the destination service we have 2 deployments with 1 pod each, however during
+	// the restart of one of the deployments in this test we can temporary have 3 pods backing
+	// the service, assuming some level of uniformity each pod for each request is chosen with
+	// probability of 1/3 and not chosen with probability 2/3.
+	//
+	// That creates a small, but not insignificant chance that a pod will not get any requests
+	// after it had already received SIGTERM for 1 second just due to random chance and not
+	// because it was removed from the service endpoint list.
+	//
+	// When that happens the echo process in the pod will terminate prematurely resulting in test
+	// flakes.
+	//
+	// To reduce the possibility of such flakes we changed the call interval from 100ms to 40ms
+	// in the past, so please do not increase the call interval.
+	const callInterval = 40 * time.Millisecond
 	successThreshold := 1.0
 	if os.Getenv("KUBERNETES_CNI") == "calico" {
 		// See https://github.com/istio/istio/issues/52719. It seems Calico itself cannot achieve 100% uptime

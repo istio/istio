@@ -203,30 +203,6 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
-			base: "stats_compression_gzip",
-			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "gzip",
-			},
-		},
-		{
-			base: "stats_compression_brotli",
-			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "brotli",
-			},
-		},
-		{
-			base: "stats_compression_zstd",
-			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "zstd",
-			},
-		},
-		{
-			base: "stats_compression_unknown",
-			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "unknown",
-			},
-		},
-		{
 			base: "stats_flush_interval",
 			annotations: map[string]string{
 				"sidecar.istio.io/statsFlushInterval": "10s",
@@ -265,6 +241,9 @@ func TestGolden(t *testing.T) {
 			envVars: map[string]string{
 				GlobalDownstreamMaxConnections: "20000",
 			},
+		},
+		{
+			base: "stats_compression",
 		},
 	}
 

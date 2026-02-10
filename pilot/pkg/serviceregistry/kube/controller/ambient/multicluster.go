@@ -241,7 +241,7 @@ func (a *index) buildGlobalCollections(
 		a.statusQueue = statusQueue
 	}
 	// Now we get to collections where we can actually merge duplicate keys, so we can use nested collections
-	GlobalWorkloadServicesWithCluster := GlobalMergedWorkloadServicesCollection(
+	GlobalWorkloadServicesWithCluster := GlobalNestedWorkloadServicesCollection(
 		localCluster,
 		LocalWorkloadServices,
 		LocalWaypoints,

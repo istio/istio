@@ -111,6 +111,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/zstd/compressor/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/zstd/decompressor/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/config/validators/minimum_clusters/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/content_parsers/json/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/dynamic_modules/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/early_data/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/dependency/v3"

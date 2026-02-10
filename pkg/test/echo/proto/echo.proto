@@ -98,6 +98,12 @@ message ForwardEchoRequest {
   // If set, the proxy protocol will be used to send the request. This is automatically set for TCP and TLS protocols.
 
   ProxyProtoVersion proxyProtocolVersion = 25;
+
+  // Minimum TLS version. Valid values: "1.0", "1.1", "1.2", "1.3"
+  string tls_min_version = 28;
+
+  // TLS curve preferences. Valid values: "P-256", "P-384", "P-521", "X25519", "X25519MLKEM768"
+  repeated string tls_curve_preferences = 29;
 }
 
 message HBONE {

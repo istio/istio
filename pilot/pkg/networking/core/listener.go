@@ -41,6 +41,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authnutils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -210,7 +211,7 @@ func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ct
 		tlsParamsOrNew(ctx).CipherSuites = tlsDefaults.CipherSuites
 	}
 	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
-		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = authnutils.GetMinTLSVersion(tlsDefaults.MinProtocolVersion)
 	}
 }
 
@@ -1439,34 +1440,60 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			},
 		},
 	}
+	tunnel := &tcp.TcpProxy_TunnelingConfig{
+		Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+	}
+
+	headers := []*core.HeaderValueOption{{
+		AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+		Header: &core.HeaderValue{
+			Key:   downstreamOriginNetworkHeader,
+			Value: string(proxy.Metadata.Network),
+		},
+	}}
+
+	if features.EnableAmbientBaggage {
+		tunnel.PropagateResponseHeaders = true
+		headers = append(headers, &core.HeaderValueOption{
+			AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+			Header: &core.HeaderValue{
+				Key:   "baggage",
+				Value: "%FILTER_STATE(io.istio.baggage:PLAIN)%",
+			},
+		})
+	}
+	tunnel.HeadersToAdd = headers
+
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       DoubleHBONEInnerConnectOriginate,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
-		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
-		},
+		TunnelingConfig:  tunnel,
 	}
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+
+	sfs := &listener.Filter{
+		Name: "propagate_endpoint_metadata",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(setFilterState),
+		},
+	}
+	tcp := &listener.Filter{
+		Name: wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(tcpProxy),
+		},
+	}
+	filters := []*listener.Filter{sfs, tcp}
+	if features.EnableAmbientBaggage {
+		filters = []*listener.Filter{sfs, xdsfilters.WaypointListenerBaggagePeerMetadata, tcp}
+	}
 
 	l := &listener.Listener{
 		Name:              DoubleHBONEInnerConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{
-				{
-					Name: "propagate_endpoint_metadata",
-					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(setFilterState),
-					},
-				},
-				{
-					Name: wellknown.TCPProxy,
-					ConfigType: &listener.Filter_TypedConfig{
-						TypedConfig: protoconv.MessageToAny(tcpProxy),
-					},
-				},
-			},
+			Filters: filters,
 		}},
 	}
 	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)

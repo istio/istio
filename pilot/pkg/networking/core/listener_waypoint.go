@@ -71,7 +71,8 @@ const (
 	// We use this header to indicate to the next proxy (e.g., E/W gateway), that the request
 	// came from a waypoint and the next proxy then can infer that L7 policies have been
 	// applied already.
-	downstreamSourceHeader = "x-istio-source"
+	downstreamSourceHeader        = "x-istio-source"
+	downstreamOriginNetworkHeader = "x-forwarded-network"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -174,7 +175,7 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
 	}
 	filters = append(filters,
-		xdsfilters.WaypointDownstreamMetadataFilter,
+		xdsfilters.GenerateWaypointDownstreamMetadataFilter(),
 		xdsfilters.ConnectAuthorityFilter)
 
 	// This filter checks whether the request went through a waypoint already and thefore whether L7 policies have
@@ -687,6 +688,32 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 		})
 	}
 
+	var filters []*listener.Filter
+
+	if features.EnableAmbientBaggage && tunnel {
+		// Make headers from the response available in the filter state for
+		// consumption by WaypointListenerBaggagePeerMetadata (peer_metadata filter).
+		tcpProxy.TunnelingConfig.PropagateResponseHeaders = true
+		tcpProxy.TunnelingConfig.HeadersToAdd = []*core.HeaderValueOption{
+			{
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				Header: &core.HeaderValue{
+					Key:   "baggage",
+					Value: "%FILTER_STATE(io.istio.baggage:PLAIN)%",
+				},
+			},
+		}
+		filters = []*listener.Filter{xdsfilters.WaypointListenerBaggagePeerMetadata}
+	}
+
+	tcp := &listener.Filter{
+		Name: wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(tcpProxy),
+		},
+	}
+	filters = append(filters, tcp)
+
 	l := &listener.Listener{
 		Name:              clusterName,
 		UseOriginalDst:    wrappers.Bool(false),
@@ -695,12 +722,7 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 			xdsfilters.OriginalDestination,
 		},
 		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(tcpProxy),
-				},
-			}},
+			Filters: filters,
 		}},
 	}
 	accessLogBuilder.setListenerAccessLog(push, proxy, l, class)
@@ -735,7 +757,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
-	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
+	post = append(post, xdsfilters.GenerateWaypointUpstreamMetadataFilter())
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return pre, post
 }

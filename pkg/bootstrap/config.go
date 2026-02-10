@@ -77,12 +77,6 @@ const (
 	v2Suffix   = ",component,istio"
 )
 
-var envoyWellKnownCompressorLibrary = sets.String{
-	"gzip":   {},
-	"zstd":   {},
-	"brotli": {},
-}
-
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
@@ -313,12 +307,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		}
 	}
 
-	var compression string
-	if statsCompression, ok := meta.Annotations[annotation.SidecarStatsCompression.Name]; ok &&
-		envoyWellKnownCompressorLibrary.Contains(statsCompression) {
-		compression = statsCompression
-	}
-
 	options := []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -327,7 +315,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 		option.EnvoyHistogramBuckets(buckets),
-		option.EnvoyStatsCompression(compression),
 	}
 
 	statsFlushInterval := 5 * time.Second // Default value is 5s.
@@ -485,7 +472,7 @@ func serviceClusterOrDefault(name string, metadata *model.BootstrapNodeMetadata)
 	if name != "" && name != "istio-proxy" {
 		return name
 	}
-	if app, ok := metadata.Labels["app"]; ok {
+	if app, ok := labels.GetApp(metadata.Labels); ok {
 		return app + "." + metadata.Namespace
 	}
 	if metadata.WorkloadName != "" {
@@ -553,6 +540,13 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 			option.EnvoyMetricsServiceTCPKeepalive(config.EnvoyMetricsService.TcpKeepalive))
 	} else if config.EnvoyMetricsServiceAddress != "" { // nolint: staticcheck
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address))
+	}
+
+	// Configure stats compression or use default.
+	if config.StatsCompression != nil {
+		opts = append(opts, option.EnvoyMetricsStatsCompression(config.StatsCompression.GetValue()))
+	} else {
+		opts = append(opts, option.EnvoyMetricsStatsCompression(true))
 	}
 
 	// Add options for Envoy access log.

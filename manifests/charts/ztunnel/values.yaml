@@ -144,3 +144,11 @@ _internal_defaults_do_not_set:
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
+
+  # DNS policy for the ztunnel pod
+  # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+  dnsPolicy: ""
+
+  # DNS config for the ztunnel pod
+  # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+  dnsConfig: {}
