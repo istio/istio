@@ -564,27 +564,27 @@ var optionalPolicyTags = []*tracing.CustomTag{
 // while CelState is stored under downstream_peer key for CEL expression compatibility.
 // All fields are extracted individually to support dynamic addition of new fields in WorkloadMetadataObject.
 func buildWaypointSourceTags() []*tracing.CustomTag {
-	buildFilterStateTag := func(tagName, fieldName string) *tracing.CustomTag {
-		return &tracing.CustomTag{
-			Tag: tagName,
-			Type: &tracing.CustomTag_Value{
-				Value: fmt.Sprintf("%%FILTER_STATE(downstream_peer_obj:FIELD:%s)%%", fieldName),
-			},
-		}
-	}
+	// buildFilterStateTag := func(tagName, fieldName string) *tracing.CustomTag {
+	// 	return &tracing.CustomTag{
+	// 		Tag: tagName,
+	// 		Type: &tracing.CustomTag_Value{
+	// 			Value: fmt.Sprintf("%%FILTER_STATE(downstream_peer_obj:FIELD:%s)%%", fieldName),
+	// 		},
+	// 	}
+	// }
 
 	// Extract all available fields from WorkloadMetadataObject
 	// See: proxy/extensions/common/metadata_object.h for field definitions
 	return []*tracing.CustomTag{
-		buildFilterStateTag("istio.source_workload", "workload"),
-		buildFilterStateTag("istio.source_namespace", "namespace"),
-		buildFilterStateTag("istio.source_cluster_id", "cluster"),
-		buildFilterStateTag("istio.source_canonical_service", "service"),
-		buildFilterStateTag("istio.source_canonical_revision", "revision"),
-		buildFilterStateTag("istio.source_app", "app"),
-		buildFilterStateTag("istio.source_app_version", "version"),
-		buildFilterStateTag("istio.source_workload_type", "type"),
-		buildFilterStateTag("istio.source_instance_name", "name"),
+		// buildFilterStateTag("istio.source_workload", "workload"),
+		// buildFilterStateTag("istio.source_namespace", "namespace"),
+		// buildFilterStateTag("istio.source_cluster_id", "cluster"),
+		// buildFilterStateTag("istio.source_canonical_service", "service"),
+		// buildFilterStateTag("istio.source_canonical_revision", "revision"),
+		// buildFilterStateTag("istio.source_app", "app"),
+		// buildFilterStateTag("istio.source_app_version", "version"),
+		// buildFilterStateTag("istio.source_workload_type", "type"),
+		// buildFilterStateTag("istio.source_instance_name", "name"),
 	}
 }
 
