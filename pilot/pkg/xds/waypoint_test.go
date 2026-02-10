@@ -234,6 +234,41 @@ spec:
 	hasTLSInspector(443, true)
 }
 
+func TestWaypointTLSInspectorWithOnlyTLSPorts(t *testing.T) {
+	// Test that tls_inspector is added when only TLS ports exist.
+	// This reproduces a bug where tls_inspector was only added when there
+	// were non-TLS ports to exclude from inspection.
+
+	tlsServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: tls-only
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: ["secure.example.com"]
+  addresses: ["5.5.5.5"]
+  ports:
+  - number: 443
+    name: tls
+    protocol: TLS
+  resolution: STATIC`
+
+	d, proxy := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		tlsServiceEntry)
+
+	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	filters := xdstest.ExtractListenerFilters(l)
+
+	// tls_inspector must be present even with only TLS ports
+	tlsInspector := filters[wellknown.TLSInspector]
+	assert.Equal(t, tlsInspector != nil, true)
+}
+
 func TestWaypointEndpoints(t *testing.T) {
 	d, proxy := setupWaypointTest(t,
 		waypointGateway,
