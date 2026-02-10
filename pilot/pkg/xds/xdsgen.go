@@ -73,6 +73,7 @@ func ControlPlane(typ string) *core.ControlPlane {
 func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
 	// XdsDeltaResourceGenerator is the default generator for agentgateway connections
 	if con.proxy.Type == model.Agentgateway && features.EnableAgentgateway {
+		log.Debugf("finding collection generator for agentgateway connection %s with typeURL %s", con.proxy.ID, typeURL)
 		c, f := s.Collections[typeURL]
 		if f {
 			return c

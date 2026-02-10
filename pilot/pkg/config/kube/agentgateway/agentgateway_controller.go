@@ -433,7 +433,6 @@ func (c *Controller) buildXDSCollection(
 	}
 	c.Registrations = append(c.Registrations, xds.Collection[Address, *workloadapi.Address](xdsAddresses, opts))
 	c.Registrations = append(c.Registrations, xds.PerGatewayCollection[AgwResource, *api.Resource](agwResources, agwResourcesByGateway, opts))
-	logger.Debugf("jaellio - built XDS collection with %v resources", c.Registrations)
 }
 
 // buildClient is a small wrapper to build a krt collection based on a delayed informer.
