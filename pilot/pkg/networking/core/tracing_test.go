@@ -274,6 +274,22 @@ func TestConfigureTracing(t *testing.T) {
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
+		{
+			name:   "disable context propagation",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeZipkin(), 99.999, false, true, true, true),
+			opts:   fakeOptsOnlyZipkinTelemetryAPI(),
+			want: fakeTracingConfigWithNoContextPropagation(fakeZipkinProvider(clusterName, authority, DefaultZipkinEndpoint, true),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "context propagation enabled (default)",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeZipkin(), 99.999, false, true, true, false),
+			opts:   fakeOptsOnlyZipkinTelemetryAPI(),
+			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, DefaultZipkinEndpoint, true),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
 	}
 
 	for _, tc := range testcases {
@@ -1345,6 +1361,26 @@ func fakeTracingConfigForSkywalking(provider *tracingcfg.Tracing_Http, randomSam
 	cfg := fakeTracingConfig(provider, randomSampling, maxLen, tags)
 	cfg.SpawnUpstreamSpan = wrapperspb.Bool(true)
 	return cfg
+}
+
+func fakeTracingConfigWithNoContextPropagation(provider *tracingcfg.Tracing_Http, randomSampling float64, maxLen uint32, tags []*tracing.CustomTag) *hcm.HttpConnectionManager_Tracing {
+	cfg := fakeTracingConfig(provider, randomSampling, maxLen, tags)
+	cfg.NoContextPropagation = true
+	return cfg
+}
+
+func fakeTracingSpecWithContextPropagation(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
+	useRequestIDForTraceSampling bool,
+	enableIstioTags bool,
+	disableContextPropagation bool,
+) *model.TracingConfig {
+	spec := tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling, enableIstioTags)
+	spec.DisableContextPropagation = disableContextPropagation
+	t := &model.TracingConfig{
+		ClientSpec: spec,
+		ServerSpec: spec,
+	}
+	return t
 }
 
 var (

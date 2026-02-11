@@ -141,6 +141,10 @@ func configureTracingFromTelemetry(
 		h.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 	}
 
+	if spec.DisableContextPropagation {
+		h.Tracing.NoContextPropagation = true
+	}
+
 	reqIDExtension := &requestidextension.UUIDRequestIDExtensionContext{}
 	reqIDExtension.UseRequestIDForTraceSampling = spec.UseRequestIDForTraceSampling
 	return reqIDExtension
