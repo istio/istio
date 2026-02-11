@@ -147,7 +147,6 @@ spec:
   - cors-wildcard-origin.domain.example
   http:
   - corsPolicy:
-      allowCredentials: true
       allowHeaders:
       - Accept
       - Accept-Language
@@ -159,7 +158,7 @@ spec:
       - HEAD
       - POST
       allowOrigins:
-      - regex: ^.*$
+      - regex: ^[a-zA-Z][a-zA-Z0-9+.-]*://[^/\s?#]+$
       unmatchedPreflights: IGNORE
     name: default.http-route-cors-wildcard-1.0
     route:
