@@ -25,6 +25,7 @@ import (
 	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -51,6 +52,10 @@ const (
 	// WasmPluginResourceNamePrefix is the prefix of the resource name of WasmPlugin,
 	// preventing the name collision with other resources.
 	WasmPluginResourceNamePrefix = "extensions.istio.io/wasmplugin/"
+
+	// ExtensionFilterResourceNamePrefix is the prefix of the resource name of ExtensionFilter,
+	// preventing the name collision with other resources.
+	ExtensionFilterResourceNamePrefix = "extensions.istio.io/extensionfilter/"
 )
 
 // WasmPluginType defines the type of wasm plugin
@@ -98,6 +103,10 @@ type WasmPluginWrapper struct {
 	ResourceVersion string
 }
 
+func (p *WasmPluginWrapper) GetPriority() *wrapperspb.Int32Value {
+	return p.Priority
+}
+
 func (p *WasmPluginWrapper) MatchListener(matcher WorkloadPolicyMatcher, li WasmPluginListenerInfo) bool {
 	if matcher.ShouldAttachPolicy(gvk.WasmPlugin, p.NamespacedName(), p) {
 		return matchTrafficSelectors(p.Match, li)
@@ -134,48 +143,14 @@ func (p *WasmPluginWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
 }
 
 func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
-	cfg := &anypb.Any{}
-	plugin := p.WasmPlugin
-	if plugin.PluginConfig != nil && len(plugin.PluginConfig.Fields) > 0 {
-		cfgJSON, err := protomarshal.ToJSON(plugin.PluginConfig)
-		if err != nil {
-			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", p.Namespace, p.Name, err)
-			return nil
-		}
-		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
-			Value: cfgJSON,
-		})
-	}
-
-	u, err := url.Parse(plugin.Url)
-	if err != nil {
-		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", p.Namespace, p.Name, err)
-		return nil
-	}
-	// when no scheme is given, default to oci://
-	if u.Scheme == "" {
-		u.Scheme = ociScheme
-	}
-
-	datasource := buildDataSource(u, plugin)
-	resourceName := p.Namespace + "." + p.Name
-
-	wasmConfig := &wasmextensions.PluginConfig{
-		Name:          resourceName,
-		RootId:        plugin.PluginName,
-		Configuration: cfg,
-		Vm:            buildVMConfig(datasource, p.ResourceVersion, plugin),
-	}
-
-	switch plugin.FailStrategy {
-	case extensions.FailStrategy_FAIL_OPEN:
-		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
-	case extensions.FailStrategy_FAIL_CLOSE:
-		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
-	case extensions.FailStrategy_FAIL_RELOAD:
-		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_RELOAD
-	}
-	return wasmConfig
+	return buildWasmPluginConfigCommon(
+		p.Namespace, p.Name, p.ResourceVersion,
+		p.WasmPlugin.Url, p.WasmPlugin.Sha256,
+		p.WasmPlugin.PluginConfig, p.WasmPlugin.PluginName,
+		p.WasmPlugin.FailStrategy,
+		p.WasmPlugin.VmConfig, p.WasmPlugin.ImagePullSecret, p.WasmPlugin.ImagePullPolicy,
+		"wasmplugin",
+	)
 }
 
 type WasmPluginListenerInfo struct {
@@ -201,17 +176,28 @@ var anyListener = WasmPluginListenerInfo{
 	Class: istionetworking.ListenerClassUndefined,
 }
 
+// trafficSelector is an interface for matching traffic selectors.
+// Both WasmPlugin_TrafficSelector and TrafficSelector implement this.
+type trafficSelector interface {
+	GetMode() typeapi.WorkloadMode
+	GetPorts() []*typeapi.PortSelector
+}
+
 func matchTrafficSelectors(ts []*extensions.WasmPlugin_TrafficSelector, li WasmPluginListenerInfo) bool {
 	if (li.Class == istionetworking.ListenerClassUndefined && li.Port == 0) || len(ts) == 0 {
 		return true
 	}
 
 	for _, match := range ts {
-		if matchMode(match.Mode, li.Class) && matchPorts(match.Ports, li.Port) {
+		if matchTrafficSelectorCommon(match, li) {
 			return true
 		}
 	}
 	return false
+}
+
+func matchTrafficSelectorCommon(ts trafficSelector, li WasmPluginListenerInfo) bool {
+	return matchMode(ts.GetMode(), li.Class) && matchPorts(ts.GetPorts(), li.Port)
 }
 
 func matchMode(workloadMode typeapi.WorkloadMode, class istionetworking.ListenerClass) bool {
@@ -323,6 +309,261 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *core.AsyncD
 				Sha256: wasmPlugin.Sha256,
 			},
 		},
+	}
+}
+
+// buildWasmPluginConfigCommon builds a WASM plugin configuration from individual fields.
+// This is shared between WasmPlugin and ExtensionFilter to avoid duplication.
+func buildWasmPluginConfigCommon(
+	namespace, name, resourceVersion string,
+	wasmURL, sha256 string,
+	pluginConfig *structpb.Struct,
+	pluginName string,
+	failStrategy extensions.FailStrategy,
+	vmConfig *extensions.VmConfig,
+	imagePullSecret string,
+	imagePullPolicy extensions.PullPolicy,
+	resourceType string, // "wasmplugin" or "extensionfilter" for logging
+) *wasmextensions.PluginConfig {
+	cfg := &anypb.Any{}
+	if pluginConfig != nil && len(pluginConfig.Fields) > 0 {
+		cfgJSON, err := protomarshal.ToJSON(pluginConfig)
+		if err != nil {
+			log.Warnf("%s %v/%v discarded due to json marshaling error: %s", resourceType, namespace, name, err)
+			return nil
+		}
+		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
+			Value: cfgJSON,
+		})
+	}
+
+	u, err := url.Parse(wasmURL)
+	if err != nil {
+		log.Warnf("%s %v/%v discarded due to failure to parse URL: %s", resourceType, namespace, name, err)
+		return nil
+	}
+	// when no scheme is given, default to oci://
+	if u.Scheme == "" {
+		u.Scheme = ociScheme
+	}
+
+	datasource := buildDataSource(u, &extensions.WasmPlugin{
+		Url:    wasmURL,
+		Sha256: sha256,
+	})
+	resourceName := namespace + "." + name
+
+	wasmConfig := &wasmextensions.PluginConfig{
+		Name:          resourceName,
+		RootId:        pluginName,
+		Configuration: cfg,
+		Vm:            buildVMConfig(datasource, resourceVersion, &extensions.WasmPlugin{
+			VmConfig:        vmConfig,
+			ImagePullSecret: imagePullSecret,
+			ImagePullPolicy: imagePullPolicy,
+		}),
+	}
+
+	switch failStrategy {
+	case extensions.FailStrategy_FAIL_OPEN:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
+	case extensions.FailStrategy_FAIL_CLOSE:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
+	case extensions.FailStrategy_FAIL_RELOAD:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_RELOAD
+	}
+	return wasmConfig
+}
+
+// FilterType defines whether an ExtensionFilter is Lua or WASM based
+type FilterType int
+
+const (
+	FilterTypeWasm FilterType = iota
+	FilterTypeLua
+)
+
+// FilterChainType describes which Envoy filter chain type an extension applies to
+type FilterChainType int
+
+const (
+	FilterChainTypeAny FilterChainType = iota
+	FilterChainTypeHTTP
+	FilterChainTypeNetwork
+)
+
+// ToWasmPluginType converts FilterChainType to WasmPluginType for compatibility with existing code
+func (f FilterChainType) ToWasmPluginType() WasmPluginType {
+	switch f {
+	case FilterChainTypeHTTP:
+		return WasmPluginTypeHTTP
+	case FilterChainTypeNetwork:
+		return WasmPluginTypeNetwork
+	default:
+		return WasmPluginTypeAny
+	}
+}
+
+// FilterChainTypeFromWasmPluginType converts WasmPluginType to FilterChainType
+func FilterChainTypeFromWasmPluginType(w WasmPluginType) FilterChainType {
+	switch w {
+	case WasmPluginTypeHTTP:
+		return FilterChainTypeHTTP
+	case WasmPluginTypeNetwork:
+		return FilterChainTypeNetwork
+	default:
+		return FilterChainTypeAny
+	}
+}
+
+// ExtensionFilterWrapper is a wrapper for extensions.ExtensionFilter with additional runtime information
+type ExtensionFilterWrapper struct {
+	*extensions.ExtensionFilter
+
+	Name            string
+	Namespace       string
+	ResourceName    string
+	ResourceVersion string
+	FilterType      FilterType
+}
+
+func (e *ExtensionFilterWrapper) GetPriority() *wrapperspb.Int32Value {
+	return e.Priority
+}
+
+func (e *ExtensionFilterWrapper) MatchListener(matcher WorkloadPolicyMatcher, li WasmPluginListenerInfo) bool {
+	if matcher.ShouldAttachPolicy(gvk.ExtensionFilter, e.NamespacedName(), e) {
+		return matchExtensionFilterTrafficSelectors(e.Match, li)
+	}
+	return false
+}
+
+func (e *ExtensionFilterWrapper) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Name: e.Name, Namespace: e.Namespace}
+}
+
+func (e *ExtensionFilterWrapper) MatchType(chainType FilterChainType) bool {
+	if e.FilterType == FilterTypeLua {
+		// Lua only supports HTTP filters
+		return chainType == FilterChainTypeAny || chainType == FilterChainTypeHTTP
+	}
+	// For WASM, check the type field
+	wasmType := FilterChainTypeFromWasmPluginType(fromPluginType(e.Wasm.Type))
+	return chainType == FilterChainTypeAny || chainType == wasmType
+}
+
+func (e *ExtensionFilterWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
+	if e.FilterType != FilterTypeWasm || e.Wasm == nil {
+		return nil
+	}
+	if !(e.Wasm.Type == extensions.PluginType_HTTP || e.Wasm.Type == extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE) {
+		return nil
+	}
+	return &httpwasm.Wasm{
+		Config: e.buildWasmPluginConfig(),
+	}
+}
+
+func (e *ExtensionFilterWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
+	if e.FilterType != FilterTypeWasm || e.Wasm == nil {
+		return nil
+	}
+	if e.Wasm.Type != extensions.PluginType_NETWORK {
+		return nil
+	}
+	return &networkwasm.Wasm{
+		Config: e.buildWasmPluginConfig(),
+	}
+}
+
+func (e *ExtensionFilterWrapper) buildWasmPluginConfig() *wasmextensions.PluginConfig {
+	return buildWasmPluginConfigCommon(
+		e.Namespace, e.Name, e.ResourceVersion,
+		e.Wasm.Url, e.Wasm.Sha256,
+		e.Wasm.PluginConfig, e.Wasm.PluginName,
+		e.Wasm.FailStrategy,
+		e.Wasm.VmConfig, e.Wasm.ImagePullSecret, e.Wasm.ImagePullPolicy,
+		"extensionfilter",
+	)
+}
+
+func matchExtensionFilterTrafficSelectors(ts []*extensions.TrafficSelector, li WasmPluginListenerInfo) bool {
+	if (li.Class == istionetworking.ListenerClassUndefined && li.Port == 0) || len(ts) == 0 {
+		return true
+	}
+
+	for _, match := range ts {
+		if matchTrafficSelectorCommon(match, li) {
+			return true
+		}
+	}
+	return false
+}
+
+func convertToExtensionFilterWrapper(originConfig config.Config) *ExtensionFilterWrapper {
+	plugin := originConfig.DeepCopy()
+	var extFilter *extensions.ExtensionFilter
+	var ok bool
+	if extFilter, ok = plugin.Spec.(*extensions.ExtensionFilter); !ok {
+		return nil
+	}
+
+	// Determine filter type - must have exactly one of wasm or lua
+	var filterType FilterType
+	if extFilter.Wasm != nil && extFilter.Lua != nil {
+		log.Warnf("extensionfilter %v/%v discarded: both wasm and lua are set (must have exactly one)", plugin.Namespace, plugin.Name)
+		return nil
+	}
+
+	if extFilter.Wasm != nil {
+		filterType = FilterTypeWasm
+		// Validate WASM config
+		if extFilter.Wasm.Url == "" {
+			log.Warnf("extensionfilter %v/%v discarded: wasm.url is required", plugin.Namespace, plugin.Name)
+			return nil
+		}
+		u, err := url.Parse(extFilter.Wasm.Url)
+		if err != nil {
+			log.Warnf("extensionfilter %v/%v discarded due to failure to parse wasm URL: %s", plugin.Namespace, plugin.Name, err)
+			return nil
+		}
+		// when no scheme is given, default to oci://
+		if u.Scheme == "" {
+			u.Scheme = ociScheme
+		}
+		// Validate plugin config can be marshaled
+		if extFilter.Wasm.PluginConfig != nil && len(extFilter.Wasm.PluginConfig.Fields) > 0 {
+			_, err := protomarshal.ToJSON(extFilter.Wasm.PluginConfig)
+			if err != nil {
+				log.Warnf("extensionfilter %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
+				return nil
+			}
+		}
+		// Normalize the image pull secret to the full resource name
+		extFilter.Wasm.ImagePullSecret = toSecretResourceName(extFilter.Wasm.ImagePullSecret, plugin.Namespace)
+	} else if extFilter.Lua != nil {
+		filterType = FilterTypeLua
+		// Validate Lua config
+		if len(extFilter.Lua.InlineCode) == 0 {
+			log.Warnf("extensionfilter %v/%v discarded: lua.inlineCode cannot be empty", plugin.Namespace, plugin.Name)
+			return nil
+		}
+		if len(extFilter.Lua.InlineCode) > 65536 {
+			log.Warnf("extensionfilter %v/%v discarded: lua.inlineCode exceeds maximum size of 64KB", plugin.Namespace, plugin.Name)
+			return nil
+		}
+	} else {
+		log.Warnf("extensionfilter %v/%v discarded: neither wasm nor lua is set", plugin.Namespace, plugin.Name)
+		return nil
+	}
+
+	return &ExtensionFilterWrapper{
+		Name:            plugin.Name,
+		Namespace:       plugin.Namespace,
+		ResourceName:    ExtensionFilterResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
+		ExtensionFilter: extFilter,
+		ResourceVersion: plugin.ResourceVersion,
+		FilterType:      filterType,
 	}
 }
 

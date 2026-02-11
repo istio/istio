@@ -508,3 +508,13 @@ resources:
     protoPackage: "istio.io/api/extensions/v1alpha1"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
+
+  - kind: "ExtensionFilter"
+    plural: "extensionfilters"
+    group: "extensions.istio.io"
+    version: "v1alpha1"
+    proto: "istio.extensions.v1alpha1.ExtensionFilter"
+    protoPackage: "istio.io/api/extensions/v1alpha1"
+    validate: "ValidateExtensionFilter"
+    statusProto: "istio.meta.v1alpha1.IstioStatus"
+    statusProtoPackage: "istio.io/api/meta/v1alpha1"

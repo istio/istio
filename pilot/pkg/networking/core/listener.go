@@ -615,6 +615,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		Port:  le.servicePort.Port,
 		Class: istionetworking.ListenerClassSidecarOutbound,
 	}, model.WasmPluginTypeNetwork)
+	extensionFilters := builder.push.ExtensionFiltersByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+		Port:  le.servicePort.Port,
+		Class: istionetworking.ListenerClassSidecarOutbound,
+	}, model.FilterChainTypeNetwork)
 	for _, opt := range le.chains {
 		chain := &listener.FilterChain{
 			Metadata:        opt.metadata,
@@ -636,9 +640,13 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
 			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHN)
+			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.PluginPhase_AUTHN)
 			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
+			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.PluginPhase_AUTHZ)
 			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_STATS)
+			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.PluginPhase_STATS)
 			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
 			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)
 		}

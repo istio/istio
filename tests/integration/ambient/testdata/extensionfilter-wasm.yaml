@@ -1,0 +1,22 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: ExtensionFilter
+metadata:
+  name: {{ .ExtensionFilterName }}
+  {{- if .FilterVersion }}
+  annotations:
+    filterVersion: {{ .FilterVersion }}
+  {{- end }}
+spec:
+  phase: STATS
+  targetRef:
+    kind: {{ .TargetKind }}
+    group: {{ .TargetGroup }}
+    name: {{ .TargetName }}
+  wasm:
+    {{- if .TestWasmModuleURL }}
+    url: {{ .TestWasmModuleURL }}
+    {{- end }}
+    imagePullSecret: reg-cred
+    {{- if .ImagePullPolicy }}
+    imagePullPolicy: {{ .ImagePullPolicy }}
+    {{- end }}

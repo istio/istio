@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -239,6 +240,9 @@ type PushContext struct {
 
 	// wasm plugins for each namespace including global config namespace
 	wasmPluginsByNamespace map[string][]*WasmPluginWrapper
+
+	// extension filters for each namespace including global config namespace
+	extensionFiltersByNamespace map[string][]*ExtensionFilterWrapper
 
 	// AuthnPolicies contains Authn policies by namespace.
 	AuthnPolicies *AuthenticationPolicies `json:"-"`
@@ -1386,6 +1390,7 @@ func (ps *PushContext) createNewContext(env *Environment) {
 	ps.initTelemetry(env)
 	ps.initProxyConfigs(env)
 	ps.initWasmPlugins(env)
+	ps.initExtensionFilters(env)
 	ps.initEnvoyFilters(env, nil, nil)
 	ps.initGateways(env)
 	ps.initAmbient(env)
@@ -1401,7 +1406,7 @@ func (ps *PushContext) updateContext(
 ) {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+		wasmPluginsChanged, extensionFiltersChanged, proxyConfigsChanged bool
 
 	changedEnvoyFilters := sets.New[ConfigKey]()
 
@@ -1421,6 +1426,8 @@ func (ps *PushContext) updateContext(
 			sidecarsChanged = true
 		case kind.WasmPlugin:
 			wasmPluginsChanged = true
+		case kind.ExtensionFilter:
+			extensionFiltersChanged = true
 		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
 			changedEnvoyFilters.Insert(conf)
@@ -1497,6 +1504,12 @@ func (ps *PushContext) updateContext(
 		ps.initWasmPlugins(env)
 	} else {
 		ps.wasmPluginsByNamespace = oldPushContext.wasmPluginsByNamespace
+	}
+
+	if extensionFiltersChanged {
+		ps.initExtensionFilters(env)
+	} else {
+		ps.extensionFiltersByNamespace = oldPushContext.extensionFiltersByNamespace
 	}
 
 	if envoyFiltersChanged {
@@ -2156,6 +2169,18 @@ func (ps *PushContext) initWasmPlugins(env *Environment) {
 	}
 }
 
+func (ps *PushContext) initExtensionFilters(env *Environment) {
+	extensionfilters := env.List(gvk.ExtensionFilter, NamespaceAll)
+
+	sortConfigByCreationTime(extensionfilters)
+	ps.extensionFiltersByNamespace = map[string][]*ExtensionFilterWrapper{}
+	for _, filter := range extensionfilters {
+		if filterWrapper := convertToExtensionFilterWrapper(filter); filterWrapper != nil {
+			ps.extensionFiltersByNamespace[filter.Namespace] = append(ps.extensionFiltersByNamespace[filter.Namespace], filterWrapper)
+		}
+	}
+}
+
 // WasmPlugins return the WasmPluginWrappers of a proxy.
 // For most proxy types, we include only the root namespace and same-namespace objects.
 // However, waypoints allow cross-namespace access based on attached Service objects.
@@ -2218,23 +2243,97 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 		}
 	}
 
-	// sort slices by priority
-	for i, slice := range matchedPlugins {
+	sortByPriority(matchedPlugins)
+	return matchedPlugins
+}
+
+// prioritizable is an interface for objects that have a Priority field.
+type prioritizable interface {
+	GetPriority() *wrapperspb.Int32Value
+}
+
+// sortByPriority sorts a map of slices by priority (highest first).
+func sortByPriority[T prioritizable](items map[extensions.PluginPhase][]T) {
+	for phase, slice := range items {
 		sort.SliceStable(slice, func(i, j int) bool {
 			iPriority := int32(math.MinInt32)
-			if prio := slice[i].Priority; prio != nil {
+			if prio := slice[i].GetPriority(); prio != nil {
 				iPriority = prio.Value
 			}
 			jPriority := int32(math.MinInt32)
-			if prio := slice[j].Priority; prio != nil {
+			if prio := slice[j].GetPriority(); prio != nil {
 				jPriority = prio.Value
 			}
 			return iPriority > jPriority
 		})
-		matchedPlugins[i] = slice
+		items[phase] = slice
+	}
+}
+
+// ExtensionFilters return the ExtensionFilterWrappers of a proxy.
+// For most proxy types, we include only the root namespace and same-namespace objects.
+// However, waypoints allow cross-namespace access based on attached Service objects.
+// In this case, include all referenced services in the selection criteria
+func (ps *PushContext) ExtensionFilters(proxy *Proxy) map[extensions.PluginPhase][]*ExtensionFilterWrapper {
+	listenerInfo := WasmPluginListenerInfo{}
+	if proxy.IsWaypointProxy() {
+		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
+		for _, si := range servicesInfo {
+			s := si.Service
+			svc, exist := ps.ServiceIndex.HostnameAndNamespace[host.Name(s.Hostname)][s.Namespace]
+			if !exist {
+				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", s.Namespace, s.Hostname)
+				continue
+			}
+			listenerInfo = listenerInfo.WithService(svc)
+		}
+	}
+	return ps.ExtensionFiltersByListenerInfo(proxy, listenerInfo, FilterChainTypeAny)
+}
+
+func (ps *PushContext) ExtensionFiltersByName(proxy *Proxy, names []types.NamespacedName) []*ExtensionFilterWrapper {
+	res := make([]*ExtensionFilterWrapper, 0, len(names))
+	for _, n := range names {
+		if n.Namespace != proxy.ConfigNamespace && n.Namespace != ps.Mesh.RootNamespace {
+			log.Warnf("proxy requested invalid ExtensionFilter configuration: %v", n)
+			continue
+		}
+		for _, filter := range ps.extensionFiltersByNamespace[n.Namespace] {
+			if filter.Name == n.Name {
+				res = append(res, filter)
+				break
+			}
+		}
+	}
+	return res
+}
+
+// ExtensionFiltersByListenerInfo return the ExtensionFilterWrappers which are matched with TrafficSelector in the given proxy.
+func (ps *PushContext) ExtensionFiltersByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo,
+	chainType FilterChainType,
+) map[extensions.PluginPhase][]*ExtensionFilterWrapper {
+	if proxy == nil {
+		return nil
 	}
 
-	return matchedPlugins
+	matchedFilters := make(map[extensions.PluginPhase][]*ExtensionFilterWrapper)
+	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
+	for i := range info.Services {
+		lookupInNamespaces = append(lookupInNamespaces, info.Services[i].NamespacedName().Namespace)
+	}
+	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services).WithRootNamespace(ps.Mesh.GetRootNamespace())
+	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
+		if extensionFilters, ok := ps.extensionFiltersByNamespace[ns]; ok {
+			for _, filter := range extensionFilters {
+				if filter.MatchType(chainType) && filter.MatchListener(selectionOpts, info) {
+					matchedFilters[filter.Phase] = append(matchedFilters[filter.Phase], filter)
+				}
+			}
+		}
+	}
+
+	sortByPriority(matchedFilters)
+	return matchedFilters
 }
 
 // pre computes envoy filters per namespace

@@ -33,19 +33,20 @@ func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 ) []*core.TypedExtensionConfig {
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	extensions := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
-	wasmPlugins := push.WasmPluginsByName(proxy, parseExtensionName(extensionConfigNames))
+	wasmPlugins := push.WasmPluginsByName(proxy, parseExtensionName(extensionConfigNames, model.WasmPluginResourceNamePrefix))
 	extensions = append(extensions, extension.InsertedExtensionConfigurations(wasmPlugins, extensionConfigNames, pullSecrets)...)
+	extensionFilters := push.ExtensionFiltersByName(proxy, parseExtensionName(extensionConfigNames, model.ExtensionFilterResourceNamePrefix))
+	extensions = append(extensions, extension.InsertedExtensionFilterConfigurations(extensionFilters, extensionConfigNames, pullSecrets)...)
 	return extensions
 }
 
-func parseExtensionName(names []string) []types.NamespacedName {
+func parseExtensionName(names []string, prefix string) []types.NamespacedName {
 	res := make([]types.NamespacedName, 0, len(names))
 	for _, n := range names {
-		if !strings.HasPrefix(n, model.WasmPluginResourceNamePrefix) {
-			log.Debugf("ignoring unknown ECDS: %v", n)
+		if !strings.HasPrefix(n, prefix) {
 			continue
 		}
-		ns, name, ok := strings.Cut(n[len(model.WasmPluginResourceNamePrefix):], ".")
+		ns, name, ok := strings.Cut(n[len(prefix):], ".")
 		if !ok {
 			log.Debugf("ignoring unknown ECDS: %v", n)
 			continue

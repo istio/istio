@@ -1,0 +1,17 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: ExtensionFilter
+metadata:
+  name: {{ .ExtensionFilterName }}
+  {{- if .FilterVersion }}
+  annotations:
+    filterVersion: {{ .FilterVersion }}
+  {{- end }}
+spec:
+  phase: STATS
+  selector:
+    matchLabels:
+      app: {{ .TargetAppName }}
+  wasm:
+    {{- if .TestWasmModuleURL }}
+    url: {{ .TestWasmModuleURL }}
+    {{- end }}

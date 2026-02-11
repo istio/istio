@@ -1,0 +1,14 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: ExtensionFilter
+metadata:
+  name: {{ .ExtensionFilterName }}
+spec:
+  phase: AUTHN
+  selector:
+    matchLabels:
+      app: {{ .TargetAppName }}
+  lua:
+    inlineCode: |
+      function envoy_on_request(request_handle)
+        request_handle:headers():add("x-lua-injected", "true")
+      end

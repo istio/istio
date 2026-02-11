@@ -225,6 +225,21 @@ var (
 		ValidateProto: envoyfilter.ValidateEnvoyFilter,
 	}.MustBuild()
 
+	ExtensionFilter = resource.Builder{
+		Identifier: "ExtensionFilter",
+		Group:      "extensions.istio.io",
+		Kind:       "ExtensionFilter",
+		Plural:     "extensionfilters",
+		Version:    "v1alpha1",
+		Proto:      "istio.extensions.v1alpha1.ExtensionFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.ExtensionFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+		ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.ValidateExtensionFilter,
+	}.MustBuild()
+
 	GRPCRoute = resource.Builder{
 		Identifier: "GRPCRoute",
 		Group:      "gateway.networking.k8s.io",
@@ -860,6 +875,7 @@ var (
 		MustAdd(EndpointSlice).
 		MustAdd(Endpoints).
 		MustAdd(EnvoyFilter).
+		MustAdd(ExtensionFilter).
 		MustAdd(GRPCRoute).
 		MustAdd(Gateway).
 		MustAdd(GatewayClass).
@@ -943,6 +959,7 @@ var (
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
 		MustAdd(EnvoyFilter).
+		MustAdd(ExtensionFilter).
 		MustAdd(Gateway).
 		MustAdd(PeerAuthentication).
 		MustAdd(ProxyConfig).
@@ -962,6 +979,7 @@ var (
 			MustAdd(BackendTLSPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
+			MustAdd(ExtensionFilter).
 			MustAdd(GRPCRoute).
 			MustAdd(Gateway).
 			MustAdd(GatewayClass).
@@ -991,6 +1009,7 @@ var (
 				MustAdd(BackendTLSPolicy).
 				MustAdd(DestinationRule).
 				MustAdd(EnvoyFilter).
+				MustAdd(ExtensionFilter).
 				MustAdd(GRPCRoute).
 				MustAdd(Gateway).
 				MustAdd(GatewayClass).
