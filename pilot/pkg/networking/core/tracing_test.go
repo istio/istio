@@ -1363,7 +1363,9 @@ func fakeTracingConfigForSkywalking(provider *tracingcfg.Tracing_Http, randomSam
 	return cfg
 }
 
-func fakeTracingConfigWithNoContextPropagation(provider *tracingcfg.Tracing_Http, randomSampling float64, maxLen uint32, tags []*tracing.CustomTag) *hcm.HttpConnectionManager_Tracing {
+func fakeTracingConfigWithNoContextPropagation(provider *tracingcfg.Tracing_Http, randomSampling float64,
+	maxLen uint32, tags []*tracing.CustomTag,
+) *hcm.HttpConnectionManager_Tracing {
 	cfg := fakeTracingConfig(provider, randomSampling, maxLen, tags)
 	cfg.NoContextPropagation = true
 	return cfg
