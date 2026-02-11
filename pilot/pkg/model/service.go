@@ -139,7 +139,8 @@ func (s *Service) NamespacedName() types.NamespacedName {
 }
 
 func (s *Service) ResourceName() string {
-	// convertServices creates a service for each ServiceEntry address and hostname.
+	// address and hostname are included in the resource name as for each
+	// ServiceEntry address and hostname a new service is created
 	return s.Attributes.Namespace + "/" +
 		s.Attributes.K8sAttributes.ObjectName + "/" +
 		s.Hostname.String() + "/" +
