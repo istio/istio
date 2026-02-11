@@ -1,0 +1,20 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: ExtensionFilter
+metadata:
+  name: {{ .ExtensionFilterName }}-authz
+spec:
+  phase: AUTHZ
+  selector:
+    matchLabels:
+      app: {{ .TargetAppName }}
+  lua:
+    inlineCode: |
+      function envoy_on_request(request_handle)
+        -- Second phase: append to existing value
+        local existing = request_handle:headers():get("x-phase-order")
+        if existing then
+          request_handle:headers():replace("x-phase-order", existing .. "2")
+        else
+          request_handle:headers():add("x-phase-order", "2")
+        end
+      end

@@ -18,6 +18,7 @@ const (
 	EndpointSlice
 	Endpoints
 	EnvoyFilter
+	ExtensionFilter
 	GRPCRoute
 	Gateway
 	GatewayClass
@@ -89,6 +90,8 @@ func (k Kind) String() string {
 		return "Endpoints"
 	case EnvoyFilter:
 		return "EnvoyFilter"
+	case ExtensionFilter:
+		return "ExtensionFilter"
 	case GRPCRoute:
 		return "GRPCRoute"
 	case Gateway:
@@ -202,6 +205,8 @@ func FromString(s string) Kind {
 		return Endpoints
 	case "EnvoyFilter":
 		return EnvoyFilter
+	case "ExtensionFilter":
+		return ExtensionFilter
 	case "GRPCRoute":
 		return GRPCRoute
 	case "Gateway":

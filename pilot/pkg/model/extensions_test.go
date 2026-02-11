@@ -300,6 +300,254 @@ func TestFailurePolicy(t *testing.T) {
 	}
 }
 
+func TestConvertToExtensionFilterWrapper(t *testing.T) {
+	cases := []struct {
+		desc       string
+		config     config.Config
+		wantType   FilterType
+		wantNil    bool
+		wantErrLog string
+	}{
+		{
+			desc: "valid lua config",
+			config: config.Config{
+				Meta: config.Meta{
+					Name:            "test-lua",
+					Namespace:       "default",
+					ResourceVersion: "v1",
+				},
+				Spec: &extensions.ExtensionFilter{
+					Lua: &extensions.LuaConfig{
+						InlineCode: "function envoy_on_request(request_handle)\nend",
+					},
+				},
+			},
+			wantType: FilterTypeLua,
+			wantNil:  false,
+		},
+		{
+			desc: "valid wasm config",
+			config: config.Config{
+				Meta: config.Meta{
+					Name:            "test-wasm",
+					Namespace:       "default",
+					ResourceVersion: "v1",
+				},
+				Spec: &extensions.ExtensionFilter{
+					Wasm: &extensions.WasmConfig{
+						Url: "oci://example.com/wasm:latest",
+					},
+				},
+			},
+			wantType: FilterTypeWasm,
+			wantNil:  false,
+		},
+		{
+			desc: "both wasm and lua set",
+			config: config.Config{
+				Meta: config.Meta{
+					Name:      "test-both",
+					Namespace: "default",
+				},
+				Spec: &extensions.ExtensionFilter{
+					Wasm: &extensions.WasmConfig{
+						Url: "oci://example.com/wasm:latest",
+					},
+					Lua: &extensions.LuaConfig{
+						InlineCode: "function envoy_on_request(request_handle)\nend",
+					},
+				},
+			},
+			wantNil:    true,
+			wantErrLog: "both wasm and lua are set",
+		},
+		{
+			desc: "neither wasm nor lua set",
+			config: config.Config{
+				Meta: config.Meta{
+					Name:      "test-neither",
+					Namespace: "default",
+				},
+				Spec: &extensions.ExtensionFilter{},
+			},
+			wantNil:    true,
+			wantErrLog: "neither wasm nor lua is set",
+		},
+		{
+			desc: "lua code empty",
+			config: config.Config{
+				Meta: config.Meta{
+					Name:      "test-empty-lua",
+					Namespace: "default",
+				},
+				Spec: &extensions.ExtensionFilter{
+					Lua: &extensions.LuaConfig{
+						InlineCode: "",
+					},
+				},
+			},
+			wantNil:    true,
+			wantErrLog: "inlineCode cannot be empty",
+		},
+		{
+			desc: "lua code too large",
+			config: config.Config{
+				Meta: config.Meta{
+					Name:      "test-large-lua",
+					Namespace: "default",
+				},
+				Spec: &extensions.ExtensionFilter{
+					Lua: &extensions.LuaConfig{
+						InlineCode: string(make([]byte, 65537)),
+					},
+				},
+			},
+			wantNil:    true,
+			wantErrLog: "exceeds maximum size",
+		},
+		{
+			desc: "wasm url empty",
+			config: config.Config{
+				Meta: config.Meta{
+					Name:      "test-empty-url",
+					Namespace: "default",
+				},
+				Spec: &extensions.ExtensionFilter{
+					Wasm: &extensions.WasmConfig{
+						Url: "",
+					},
+				},
+			},
+			wantNil:    true,
+			wantErrLog: "wasm.url is required",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			got := convertToExtensionFilterWrapper(tc.config)
+			if tc.wantNil {
+				if got != nil {
+					t.Errorf("expected nil, got %+v", got)
+				}
+			} else {
+				if got == nil {
+					t.Fatalf("expected non-nil wrapper")
+				}
+				if got.FilterType != tc.wantType {
+					t.Errorf("got FilterType %v, want %v", got.FilterType, tc.wantType)
+				}
+				if got.Name != tc.config.Name {
+					t.Errorf("got Name %v, want %v", got.Name, tc.config.Name)
+				}
+				if got.Namespace != tc.config.Namespace {
+					t.Errorf("got Namespace %v, want %v", got.Namespace, tc.config.Namespace)
+				}
+				expectedResourceName := ExtensionFilterResourceNamePrefix + tc.config.Namespace + "." + tc.config.Name
+				if got.ResourceName != expectedResourceName {
+					t.Errorf("got ResourceName %v, want %v", got.ResourceName, expectedResourceName)
+				}
+			}
+		})
+	}
+}
+
+func TestExtensionFilterWrapper_MatchType(t *testing.T) {
+	cases := []struct {
+		desc      string
+		wrapper   *ExtensionFilterWrapper
+		chainType FilterChainType
+		want      bool
+	}{
+		{
+			desc: "lua matches HTTP",
+			wrapper: &ExtensionFilterWrapper{
+				FilterType: FilterTypeLua,
+			},
+			chainType: FilterChainTypeHTTP,
+			want:      true,
+		},
+		{
+			desc: "lua matches Any",
+			wrapper: &ExtensionFilterWrapper{
+				FilterType: FilterTypeLua,
+			},
+			chainType: FilterChainTypeAny,
+			want:      true,
+		},
+		{
+			desc: "lua does not match Network",
+			wrapper: &ExtensionFilterWrapper{
+				FilterType: FilterTypeLua,
+			},
+			chainType: FilterChainTypeNetwork,
+			want:      false,
+		},
+		{
+			desc: "wasm HTTP matches HTTP",
+			wrapper: &ExtensionFilterWrapper{
+				FilterType: FilterTypeWasm,
+				ExtensionFilter: &extensions.ExtensionFilter{
+					Wasm: &extensions.WasmConfig{
+						Type: extensions.PluginType_HTTP,
+					},
+				},
+			},
+			chainType: FilterChainTypeHTTP,
+			want:      true,
+		},
+		{
+			desc: "wasm Network matches Network",
+			wrapper: &ExtensionFilterWrapper{
+				FilterType: FilterTypeWasm,
+				ExtensionFilter: &extensions.ExtensionFilter{
+					Wasm: &extensions.WasmConfig{
+						Type: extensions.PluginType_NETWORK,
+					},
+				},
+			},
+			chainType: FilterChainTypeNetwork,
+			want:      true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			got := tc.wrapper.MatchType(tc.chainType)
+			if got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFilterChainTypeConversion(t *testing.T) {
+	cases := []struct {
+		filterChain FilterChainType
+		wasmPlugin  WasmPluginType
+	}{
+		{FilterChainTypeHTTP, WasmPluginTypeHTTP},
+		{FilterChainTypeNetwork, WasmPluginTypeNetwork},
+		{FilterChainTypeAny, WasmPluginTypeAny},
+	}
+
+	for _, tc := range cases {
+		t.Run("", func(t *testing.T) {
+			// Test FilterChainType -> WasmPluginType
+			got := tc.filterChain.ToWasmPluginType()
+			if got != tc.wasmPlugin {
+				t.Errorf("ToWasmPluginType: got %v, want %v", got, tc.wasmPlugin)
+			}
+
+			// Test WasmPluginType -> FilterChainType
+			gotChain := FilterChainTypeFromWasmPluginType(tc.wasmPlugin)
+			if gotChain != tc.filterChain {
+				t.Errorf("FilterChainTypeFromWasmPluginType: got %v, want %v", gotChain, tc.filterChain)
+			}
+		})
+	}
+}
+
 func TestMatchListener(t *testing.T) {
 	cases := []struct {
 		desc         string

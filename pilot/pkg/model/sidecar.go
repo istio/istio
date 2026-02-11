@@ -58,6 +58,7 @@ var (
 		kind.AuthorizationPolicy,
 		kind.RequestAuthentication,
 		kind.WasmPlugin,
+		kind.ExtensionFilter,
 		kind.Telemetry,
 	)
 )

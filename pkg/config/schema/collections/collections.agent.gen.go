@@ -58,6 +58,21 @@ var (
 		ValidateProto: validation.ValidateDestinationRule,
 	}.MustBuild()
 
+	ExtensionFilter = resource.Builder{
+		Identifier: "ExtensionFilter",
+		Group:      "extensions.istio.io",
+		Kind:       "ExtensionFilter",
+		Plural:     "extensionfilters",
+		Version:    "v1alpha1",
+		Proto:      "istio.extensions.v1alpha1.ExtensionFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.ExtensionFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+		ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: ValidateExtensionFilter,
+	}.MustBuild()
+
 	Gateway = resource.Builder{
 		Identifier: "Gateway",
 		Group:      "networking.istio.io",
@@ -290,6 +305,7 @@ var (
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
+		MustAdd(ExtensionFilter).
 		MustAdd(Gateway).
 		MustAdd(MeshConfig).
 		MustAdd(MeshNetworks).
@@ -313,6 +329,7 @@ var (
 	Pilot = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
+		MustAdd(ExtensionFilter).
 		MustAdd(Gateway).
 		MustAdd(PeerAuthentication).
 		MustAdd(ProxyConfig).
@@ -330,6 +347,7 @@ var (
 	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
 			MustAdd(DestinationRule).
+			MustAdd(ExtensionFilter).
 			MustAdd(Gateway).
 			MustAdd(PeerAuthentication).
 			MustAdd(ProxyConfig).
@@ -347,6 +365,7 @@ var (
 	pilotStableGatewayAPI = collection.NewSchemasBuilder().
 				MustAdd(AuthorizationPolicy).
 				MustAdd(DestinationRule).
+				MustAdd(ExtensionFilter).
 				MustAdd(Gateway).
 				MustAdd(PeerAuthentication).
 				MustAdd(ProxyConfig).

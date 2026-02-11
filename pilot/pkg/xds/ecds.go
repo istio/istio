@@ -42,12 +42,14 @@ func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
-	// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
+	// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, ExtensionFilter, or Secret.
 	for config := range req.ConfigsUpdated {
 		switch config.Kind {
 		case kind.EnvoyFilter:
 			return true
 		case kind.WasmPlugin:
+			return true
+		case kind.ExtensionFilter:
 			return true
 		case kind.Secret:
 			return true
@@ -58,7 +60,7 @@ func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 
 // onlyReferencedConfigsUpdated indicates whether the PushRequest
 // has ONLY referenced resource in ConfigUpdates. For example ONLY
-// secret is updated that may be referred by Wasm Plugin.
+// secret is updated that may be referred by Wasm Plugin or ExtensionFilter.
 func onlyReferencedConfigsUpdated(req *model.PushRequest) bool {
 	referencedConfigUpdated := false
 	for config := range req.ConfigsUpdated {
@@ -66,6 +68,8 @@ func onlyReferencedConfigsUpdated(req *model.PushRequest) bool {
 		case kind.EnvoyFilter:
 			return false
 		case kind.WasmPlugin:
+			return false
+		case kind.ExtensionFilter:
 			return false
 		case kind.Secret:
 			referencedConfigUpdated = true
@@ -159,7 +163,7 @@ func (e *EcdsGenerator) SetCredController(creds credscontroller.MulticlusterCont
 func referencedSecrets(proxy *model.Proxy, push *model.PushContext, watched sets.String) []SecretResource {
 	// The requirement for the Wasm pull secret:
 	// * Wasm pull secrets must be of type `kubernetes.io/dockerconfigjson`.
-	// * Secret are referenced by a WasmPlugin which applies to this proxy.
+	// * Secret are referenced by a WasmPlugin or ExtensionFilter which applies to this proxy.
 	// TODO: we get the WasmPlugins here to get the secrets reference in order to decide whether ECDS push is needed,
 	//       and we will get it again at extension config build. Avoid getting it twice if this becomes a problem.
 	wasmPlugins := push.WasmPlugins(proxy)
@@ -171,6 +175,17 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, watched sets
 			}
 		}
 	}
+
+	// Also check ExtensionFilters for referenced secrets
+	extensionFilters := push.ExtensionFilters(proxy)
+	for _, efs := range extensionFilters {
+		for _, ef := range efs {
+			if watched.Contains(ef.ResourceName) && ef.Wasm != nil && ef.Wasm.ImagePullSecret != "" {
+				referencedSecrets.Insert(ef.Wasm.ImagePullSecret)
+			}
+		}
+	}
+
 	var filtered []SecretResource
 	for rn := range referencedSecrets {
 		sr, err := parseSecretName(rn, proxy.Metadata.ClusterID)

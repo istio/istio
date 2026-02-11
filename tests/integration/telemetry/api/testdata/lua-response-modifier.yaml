@@ -1,0 +1,14 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: ExtensionFilter
+metadata:
+  name: {{ .ExtensionFilterName }}
+spec:
+  phase: STATS
+  selector:
+    matchLabels:
+      app: {{ .TargetAppName }}
+  lua:
+    inlineCode: |
+      function envoy_on_response(response_handle)
+        response_handle:headers():add("x-lua-response", "modified")
+      end

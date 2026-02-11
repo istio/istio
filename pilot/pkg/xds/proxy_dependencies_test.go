@@ -186,7 +186,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 
 	sidecarNamespaceScopeTypes := []kind.Kind{
-		kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication, kind.WasmPlugin,
+		kind.EnvoyFilter, kind.AuthorizationPolicy, kind.RequestAuthentication, kind.WasmPlugin, kind.ExtensionFilter,
 	}
 	for _, k := range sidecarNamespaceScopeTypes {
 		cases = append(cases,

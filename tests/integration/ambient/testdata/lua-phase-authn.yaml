@@ -1,0 +1,16 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: ExtensionFilter
+metadata:
+  name: {{ .ExtensionFilterName }}-authn
+spec:
+  phase: AUTHN
+  targetRef:
+    kind: {{ .TargetKind }}
+    group: {{ .TargetGroup }}
+    name: {{ .TargetName }}
+  lua:
+    inlineCode: |
+      function envoy_on_request(request_handle)
+        -- First phase: set initial value
+        request_handle:headers():add("x-phase-order", "1")
+      end

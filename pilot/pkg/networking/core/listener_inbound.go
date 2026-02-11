@@ -865,6 +865,10 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
 	}, model.WasmPluginTypeNetwork)
+	extensionFilters := lb.push.ExtensionFiltersByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		Port:  httpOpts.port,
+		Class: httpOpts.class,
+	}, model.FilterChainTypeNetwork)
 
 	var filters []*listener.Filter
 	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
@@ -874,11 +878,15 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 
 	// Authn
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHN)
 
 	// Authz. Since this is HTTP, we only add WASM network filters -- not TCP RBAC, stats, etc.
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHZ)
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_STATS)
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
