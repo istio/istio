@@ -566,13 +566,17 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 		nonInspectorPorts := nonTLSPorts.DeleteAll(tlsPorts.UnsortedList()...).UnsortedList()
-		if len(nonInspectorPorts) > 0 {
-			slices.Sort(nonInspectorPorts)
-			return &listener.ListenerFilter{
-				Name:           wellknown.TLSInspector,
-				ConfigType:     xdsfilters.TLSInspector.ConfigType,
-				FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
+		if len(tlsPorts) > 0 {
+			if len(nonInspectorPorts) > 0 {
+				slices.Sort(nonInspectorPorts)
+				return &listener.ListenerFilter{
+					Name:           wellknown.TLSInspector,
+					ConfigType:     xdsfilters.TLSInspector.ConfigType,
+					FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
+				}
 			}
+			// all ports are TLS, add the inspector with no disabled ports
+			return xdsfilters.TLSInspector
 		}
 		return nil
 	}()
