@@ -235,6 +235,9 @@ var (
 	LocalClusterSecretWatcher = env.Register("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 
+	MulticlusterKubeconfigPath = env.Register("PILOT_MULTICLUSTER_KUBECONFIG_PATH", "",
+		"If set, istiod reads remote cluster kubeconfigs from this local directory instead.").Get()
+
 	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
 		"If set, limit Kubernetes watches to a single namespace. "+
 			"Warning: only a single namespace can be set.").Get()
