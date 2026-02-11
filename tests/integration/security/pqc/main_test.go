@@ -53,20 +53,18 @@ var (
 	apps       deployment.TwoNamespaceView
 )
 
-const controlPlaneValues = `
-values:
-  pilot:
-    env:
-      COMPLIANCE_POLICY: "pqc"
-`
-
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = controlPlaneValues
+			cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      COMPLIANCE_POLICY: "pqc"
+`
 		}, nil)).
 		SetupParallel(
 			namespace.Setup(&internalNs, namespace.Config{Prefix: "internal", Inject: true}),
@@ -93,6 +91,17 @@ func TestMain(m *testing.M) {
 				return fmt.Errorf("failed to find all expected echo instances")
 			}
 			return nil
+		}).
+		Setup(func(ctx resource.Context) error {
+			peerAuthYaml := `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+spec:
+  mtls:
+    mode: STRICT`
+			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, peerAuthYaml).Apply(apply.Wait)
 		}).
 		Run()
 }
@@ -127,16 +136,6 @@ func setupAppsConfig(_ resource.Context, out *[]echo.Config) error {
 func TestIngress(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			peerAuthYaml := `
-apiVersion: security.istio.io/v1
-kind: PeerAuthentication
-metadata:
-  name: default
-spec:
-  mtls:
-    mode: STRICT`
-			t.ConfigIstio().YAML(i.Settings().SystemNamespace, peerAuthYaml).ApplyOrFail(t, apply.Wait)
-
 			gatewayTmpl := `
 apiVersion: networking.istio.io/v1
 kind: Gateway
@@ -219,16 +218,145 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check: func(result echo.CallResult, err error) error {
-						if err == nil {
-							t.Error("expected to get TLS handshake error but got none")
-						}
-						if !strings.Contains(err.Error(), "tls: handshake failure") {
-							t.Errorf("expected to get TLS handshake error but got: %s", err)
-						}
-						return nil
-					},
+					Check:   checkTLSHandshakeFailure(t),
 				})
 			})
 		})
+}
+
+func TestEgress(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			egressTmpl := `
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: mesh-to-egress-gateway
+spec:
+  hosts:
+  - {{ .ServerHost }}
+  gateways:
+  - mesh
+  http:
+  - match:
+    - port: 80
+    route:
+    - destination:
+        host: {{ .EgressService | default "istio-egressgateway" }}.{{ .EgressNamespace | default "istio-system" }}.svc.cluster.local
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: originate-mtls-to-egress-gateway
+spec:
+  host: {{ .EgressService | default "istio-egressgateway "}}.{{ .EgressNamespace | default "istio-system" }}.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: ISTIO_MUTUAL
+        sni: {{ .ServerHost }}
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: egress-gateway
+spec:
+  selector:
+    istio: {{ .EgressLabel | default "egressgateway" }}
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - {{ .ServerHost }}
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: egress-gateway-to-server
+spec:
+  hosts:
+  - {{ .ServerHost }}
+  gateways:
+  - egress-pqc-gateway
+  tcp:
+  - match:
+    - port: 443
+    route:
+    - destination:
+        host: {{ .ServerHost }}
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: originate-tls-to-server
+spec:
+  host: {{ .ServerHost }}
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 443
+      tls:
+        mode: SIMPLE
+        sni: server.default.svc
+`
+
+			t.NewSubTest("TLS connection with wrong curve preference should fail").Run(func(t framework.TestContext) {
+				a.CallOrFail(t, echo.CallOptions{
+					To: server,
+					Port: echo.Port{
+						Protocol: protocol.HTTPS,
+					},
+					TLS: echo.TLS{
+						CaCert:           file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+						MinVersion:       "1.3",
+						CurvePreferences: []string{"P-256"},
+					},
+					Timeout: 1 * time.Second,
+					Check:   checkTLSHandshakeFailure(t),
+				})
+			})
+
+			t.NewSubTest("TLS connection originated by the egress gateway should succeed").Run(func(t framework.TestContext) {
+				egressConfig := map[string]string{
+					"EgressLabel":     i.Settings().EgressGatewayIstioLabel,
+					"EgressService":   i.Settings().EgressGatewayServiceName,
+					"EgressNamespace": i.Settings().EgressGatewayServiceNamespace,
+					"ServerHost":      server.Config().ClusterLocalFQDN(),
+				}
+				t.ConfigIstio().Eval(internalNs.Name(), egressConfig, egressTmpl).ApplyOrFail(t, apply.Wait)
+
+				a.CallOrFail(t, echo.CallOptions{
+					To: server,
+					Port: echo.Port{
+						Protocol: protocol.HTTP,
+					},
+					HTTP: echo.HTTP{
+						Headers: headers.New().WithHost(server.Config().ClusterLocalFQDN()).Build(),
+					},
+					Check: check.OK(),
+				})
+			})
+		})
+}
+
+func checkTLSHandshakeFailure(t framework.TestContext) func(echo.CallResult, error) error {
+	return func(_ echo.CallResult, err error) error {
+		if err == nil {
+			t.Error("expected to get TLS handshake error but got none")
+		}
+		if !strings.Contains(err.Error(), "tls: handshake failure") {
+			t.Errorf("expected to get TLS handshake error but got: %s", err)
+		}
+		return nil
+	}
 }
