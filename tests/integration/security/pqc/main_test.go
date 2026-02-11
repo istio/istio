@@ -58,13 +58,11 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 values:
   pilot:
     env:
-      COMPLIANCE_POLICY: "pqc"
-`
+      COMPLIANCE_POLICY: "pqc"`
 		}, nil)).
 		SetupParallel(
 			namespace.Setup(&internalNs, namespace.Config{Prefix: "internal", Inject: true}),
