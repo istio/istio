@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	xdsfake "istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -375,4 +376,51 @@ func TestDebugProxyNamespaceRestriction(t *testing.T) {
 				"namespace=%s accessing proxyID=%s", tt.callerNS, tt.proxyID)
 		})
 	}
+}
+
+// TestStatusGenRequiresAuth verifies that StatusGen (XDS debug/syncz and config_dump)
+// requires authentication. This prevents unauthenticated access on plaintext port 15010.
+func TestStatusGenRequiresAuth(t *testing.T) {
+	t.Run("auth enabled - unauthenticated rejected", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableDebugEndpointAuth, true)
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+		gen := xds.NewStatusGen(s.Discovery)
+		proxy := &model.Proxy{
+			ID:               "test.default",
+			VerifiedIdentity: nil, // no auth - simulates plaintext connection
+		}
+		_, _, err := gen.Generate(proxy, &model.WatchedResource{TypeUrl: xds.TypeDebugSyncronization}, nil)
+		if err == nil {
+			t.Fatal("expected error for unauthenticated request")
+		}
+		assert.Equal(t, "rpc error: code = Unauthenticated desc = authentication required", err.Error())
+	})
+
+	t.Run("auth enabled - authenticated allowed", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableDebugEndpointAuth, true)
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+		gen := xds.NewStatusGen(s.Discovery)
+		proxy := &model.Proxy{
+			ID:               "test.istio-system",
+			VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		}
+		_, _, err := gen.Generate(proxy, &model.WatchedResource{TypeUrl: xds.TypeDebugSyncronization}, nil)
+		if err != nil {
+			t.Fatalf("expected no error for authenticated request, got %v", err)
+		}
+	})
+
+	t.Run("auth disabled - unauthenticated allowed", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableDebugEndpointAuth, false)
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+		gen := xds.NewStatusGen(s.Discovery)
+		proxy := &model.Proxy{
+			ID:               "test.default",
+			VerifiedIdentity: nil, // no auth
+		}
+		_, _, err := gen.Generate(proxy, &model.WatchedResource{TypeUrl: xds.TypeDebugSyncronization}, nil)
+		if err != nil {
+			t.Fatalf("expected no error when auth disabled, got %v", err)
+		}
+	})
 }
