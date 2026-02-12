@@ -275,19 +275,27 @@ func TestConfigureTracing(t *testing.T) {
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
-			name:   "disable context propagation",
-			inSpec: fakeTracingSpecWithContextPropagation(fakeZipkin(), 99.999, false, true, true, true),
-			opts:   fakeOptsOnlyZipkinTelemetryAPI(),
-			want: fakeTracingConfigWithNoContextPropagation(fakeZipkinProvider(clusterName, authority, DefaultZipkinEndpoint, true),
-				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			name:   "disable context propagation (1.30+ proxy)",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeOpenTelemetryGrpc(), 99.999, false, true, true, true),
+			opts:   fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(1, 30),
+			want: fakeTracingConfigWithNoContextPropagation(fakeOpenTelemetryGrpcProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "disable context propagation (old proxy, version gated)",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeOpenTelemetryGrpc(), 99.999, false, true, true, true),
+			opts:   fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(1, 29),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
 			name:   "context propagation enabled (default)",
-			inSpec: fakeTracingSpecWithContextPropagation(fakeZipkin(), 99.999, false, true, true, false),
-			opts:   fakeOptsOnlyZipkinTelemetryAPI(),
-			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, DefaultZipkinEndpoint, true),
-				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			inSpec: fakeTracingSpecWithContextPropagation(fakeOpenTelemetryGrpc(), 99.999, false, true, true, false),
+			opts:   fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(1, 30),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 	}
@@ -747,6 +755,10 @@ func fakeOptsNoTelemetryAPIWithNilCustomTag() gatewayListenerOpts {
 }
 
 func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
+	return fakeOptsOnlyZipkinTelemetryAPIWithVersion(1, 28)
+}
+
+func fakeOptsOnlyZipkinTelemetryAPIWithVersion(major, minor int) gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -768,7 +780,7 @@ func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+		IstioVersion: &model.IstioVersion{Major: major, Minor: minor, Patch: 0},
 	}
 
 	return opts
@@ -1103,6 +1115,34 @@ func fakeOpenTelemetryResourceDetectors() *meshconfig.MeshConfig_ExtensionProvid
 	}
 
 	return ep
+}
+
+func fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(major, minor int) gatewayListenerOpts {
+	var opts gatewayListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "opentelemetry",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+						Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+							Service:      "otel-collector",
+							Port:         4317,
+							MaxTagLength: 256,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: major, Minor: minor, Patch: 0},
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+	}
+
+	return opts
 }
 
 func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {

@@ -142,7 +142,12 @@ func configureTracingFromTelemetry(
 	}
 
 	if spec.DisableContextPropagation {
-		h.Tracing.NoContextPropagation = true
+		if proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 30}) {
+			h.Tracing.NoContextPropagation = true
+		} else {
+			log.Debugf("Proxy %s (version %v) does not support NoContextPropagation: requires Istio 1.30+",
+				proxy.ID, proxy.IstioVersion)
+		}
 	}
 
 	reqIDExtension := &requestidextension.UUIDRequestIDExtensionContext{}
