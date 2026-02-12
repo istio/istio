@@ -283,6 +283,37 @@ func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID provider.ID
 	log.Infof("%s registry for the cluster %s has been deleted.", providerID, clusterID)
 }
 
+// UpdateRegistry atomically replaces an existing registry with a new one.
+// This is used during credential rotation to avoid service disruption.
+// The new registry is started, then atomically swapped with the old one.
+func (c *Controller) UpdateRegistry(newRegistry serviceregistry.Instance, stop <-chan struct{}) {
+	if stop == nil {
+		log.Warnf("nil stop channel passed to UpdateRegistry for registry %s/%s", newRegistry.Provider(), newRegistry.Cluster())
+	}
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
+
+	clusterID := newRegistry.Cluster()
+	providerID := newRegistry.Provider()
+
+	// Find and replace the old registry
+	index, ok := c.getRegistryIndex(clusterID, providerID)
+	if ok {
+		// Replace in place - this is atomic
+		c.registries[index] = &registryEntry{Instance: newRegistry, stop: stop}
+		log.Infof("%s registry for cluster %s has been replaced.", providerID, clusterID)
+	} else {
+		// No existing registry, just add
+		c.addRegistry(newRegistry, stop)
+		log.Infof("%s registry for cluster %s has been added (no previous registry).", providerID, clusterID)
+	}
+
+	// Start the new registry if we're already running
+	if c.running {
+		go newRegistry.Run(stop)
+	}
+}
+
 // GetRegistries returns a copy of all registries
 func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	c.storeLock.RLock()
