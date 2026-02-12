@@ -747,6 +747,7 @@ func TestConvertResources(t *testing.T) {
 				"default/^valid-invalid-parent-ref-",
 			),
 		},
+		{name: "redirect-only"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)

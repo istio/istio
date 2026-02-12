@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(go test:*)",
+      "Bash(REFRESH_GOLDEN=true go test -v -run \"TestConvertResources/redirect-only\" ./pilot/pkg/config/kube/gateway/...)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
