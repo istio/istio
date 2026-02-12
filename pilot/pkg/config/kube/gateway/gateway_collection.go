@@ -145,15 +145,18 @@ func ListenerSetCollection(
 				return status, nil
 			}
 
+			listenerPorts := make(map[gatewayx.SectionName]gatewayv1.PortNumber, len(ls.Listeners))
+
 			servers := []*istio.Server{}
 			for i, l := range ls.Listeners {
 				port, portErr := detectListenerPortNumber(l)
 				l.Port = port
+				listenerPorts[l.Name] = port
 				standardListener := convertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
 				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
 					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
-				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
+				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(listenerPorts))
 
 				servers = append(servers, server)
 				if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
@@ -374,7 +377,10 @@ func FinalGatewayStatusCollection(
 			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
 			counts := map[string]int32{}
 			for _, r := range tcpRoutes {
-				counts[r.ListenerName]++
+				// Only count attachments for Gateway, not XListenerSet
+				if r.ParentKind == gvk.KubernetesGateway {
+					counts[r.ListenerName]++
+				}
 			}
 			status := i.Status.DeepCopy()
 			for i, s := range status.Listeners {
@@ -386,6 +392,38 @@ func FinalGatewayStatusCollection(
 				Status: *status,
 			}
 		}, opts.WithName("GatewayFinalStatus")...)
+}
+
+// FinalListenerSetStatusCollection finalizes a ListenerSet status. There is a circular logic between ListenerSet and Routes to determine
+// the attachedRoute count, so we first build a partial ListenerSet status, then once routes are computed we finalize it with
+// the attachedRoute count.
+func FinalListenerSetStatusCollection(
+	listenerSetStatuses krt.StatusCollection[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus],
+	routeAttachments krt.Collection[RouteAttachment],
+	routeAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment],
+	opts krt.OptionsBuilder,
+) krt.StatusCollection[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus] {
+	return krt.NewCollection(
+		listenerSetStatuses,
+		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus]) *krt.ObjectWithStatus[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus] {
+			routes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
+			counts := map[string]int32{}
+			for _, r := range routes {
+				// Only count attachments for XListenerSet, not Gateway
+				if r.ParentKind == gvk.XListenerSet {
+					counts[r.ListenerName]++
+				}
+			}
+			status := i.Status.DeepCopy()
+			for i, s := range status.Listeners {
+				s.AttachedRoutes = counts[string(s.Name)]
+				status.Listeners[i] = s
+			}
+			return &krt.ObjectWithStatus[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus]{
+				Obj:    i.Obj,
+				Status: *status,
+			}
+		}, opts.WithName("ListenerSetFinalStatus")...)
 }
 
 // RouteParents holds information about things routes can reference as parents.
@@ -440,15 +478,20 @@ func detectListenerPortNumber(l gatewayx.ListenerEntry) (gatewayx.PortNumber, er
 	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
 }
 
-func convertStandardStatusToListenerSetStatus(l gatewayx.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
+func convertStandardStatusToListenerSetStatus(ports map[gatewayx.SectionName]gatewayv1.PortNumber) func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
 	return func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
-		return gatewayx.ListenerEntryStatus{
+		status := gatewayx.ListenerEntryStatus{
 			Name:           e.Name,
-			Port:           l.Port,
 			SupportedKinds: e.SupportedKinds,
 			AttachedRoutes: e.AttachedRoutes,
 			Conditions:     e.Conditions,
 		}
+
+		if port, ok := ports[e.Name]; ok {
+			status.Port = port
+		}
+
+		return status
 	}
 }
 

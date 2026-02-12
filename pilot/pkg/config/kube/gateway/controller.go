@@ -241,6 +241,8 @@ func NewController(
 	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
+	// ListenerSetStatus is not fully complete until its join with route attachments to report attachedRoutes.
+	// Do not register yet.
 	ListenerSetStatus, ListenerSets := ListenerSetCollection(
 		inputs.ListenerSets,
 		inputs.Gateways,
@@ -254,7 +256,6 @@ func NewController(
 		c.tagWatcher,
 		opts,
 	)
-	status.RegisterStatus(c.status, ListenerSetStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
@@ -368,6 +369,9 @@ func NewController(
 
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
 	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+
+	ListenerSetFinalStatus := FinalListenerSetStatusCollection(ListenerSetStatus, RouteAttachments, RouteAttachmentsIndex, opts)
+	status.RegisterStatus(c.status, ListenerSetFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
 		tcpRoutes.VirtualServices,

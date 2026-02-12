@@ -742,17 +742,19 @@ type RouteResult[I controllers.Object, IStatus any] struct {
 
 type RouteAttachment struct {
 	From TypedResource
-	// To is assumed to be a Gateway
-	To           types.NamespacedName
+	// To is the parent (Gateway or XListenerSet) the route attached to.
+	To         types.NamespacedName
+	ParentKind config.GroupVersionKind
+	// ListenerName is the section name on the parent that accepted the route.
 	ListenerName string
 }
 
 func (r RouteAttachment) ResourceName() string {
-	return r.From.Kind.String() + "/" + r.From.Name.String() + "/" + r.To.String() + "/" + r.ListenerName
+	return r.From.Kind.String() + "/" + r.From.Name.String() + "/" + r.ParentKind.String() + "/" + r.To.String() + "/" + r.ListenerName
 }
 
 func (r RouteAttachment) Equals(other RouteAttachment) bool {
-	return r.From == other.From && r.To == other.To && r.ListenerName == other.ListenerName
+	return r.From == other.From && r.To == other.To && r.ParentKind == other.ParentKind && r.ListenerName == other.ListenerName
 }
 
 // gatewayRouteAttachmentCountCollection holds the generic logic to determine the parents a route is attached to, used for
@@ -772,7 +774,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
 		return slices.MapFilter(filteredReferences(parentRefs), func(e routeParentReference) *RouteAttachment {
-			if e.ParentKey.Kind != gvk.KubernetesGateway {
+			if e.ParentKey.Kind != gvk.KubernetesGateway && e.ParentKey.Kind != gvk.XListenerSet {
 				return nil
 			}
 			return &RouteAttachment{
@@ -781,6 +783,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 					Name:      e.ParentKey.Name,
 					Namespace: e.ParentKey.Namespace,
 				},
+				ParentKind:   e.ParentKey.Kind,
 				ListenerName: string(e.ParentSection),
 			}
 		})
