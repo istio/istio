@@ -96,7 +96,6 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION, swap
 	// Ensure previous cluster is cleaned up when this method exits (success, failure, or timeout)
 	defer swap.Complete()
 
-	c.Action = action
 	c.reportStatus(SyncStatusSyncing)
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
