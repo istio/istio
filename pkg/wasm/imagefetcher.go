@@ -117,26 +117,28 @@ func validateBearerRealm(wwwAuth string) error {
 		return fmt.Errorf("realm scheme %q not allowed", u.Scheme)
 	}
 
-	// block private IPs and cloud metadata
 	host := u.Hostname()
 	if host == "" {
 		return fmt.Errorf("realm missing host")
 	}
 
-	// block cloud metadata endpoints
-	if host == "169.254.169.254" || host == "metadata.google.internal" {
+	// block known cloud metadata DNS names
+	if host == "metadata.google.internal" {
 		return fmt.Errorf("realm targets cloud metadata service")
 	}
 
-	// block localhost/loopback
-	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+	// block localhost DNS name (ParseIP returns nil for hostnames)
+	if host == "localhost" {
 		return fmt.Errorf("realm targets localhost")
 	}
 
-	// block private IP ranges
+	// block private, loopback, and link-local IP ranges
+	// covers 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 (private)
+	// covers 127.0.0.0/8, ::1 (loopback)
+	// covers 169.254.0.0/16, fe80::/10 (link-local, includes cloud metadata 169.254.169.254)
 	ip := net.ParseIP(host)
 	if ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast()) {
-		return fmt.Errorf("realm targets private IP")
+		return fmt.Errorf("realm targets private/loopback/link-local IP")
 	}
 
 	return nil
