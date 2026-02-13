@@ -528,6 +528,26 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bookinfo-secret",
+				Namespace: "bookinfo",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "another-secret",
+				Namespace: "bookinfo",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "malformed",
 				Namespace: "istio-system",
 			},
@@ -748,6 +768,7 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "redirect-only"},
+		{name: "reference-grant-multiple-to"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
@@ -1532,6 +1553,32 @@ spec:
 				{"kubernetes-gateway://default/public", "istio-system", false},
 				{"kubernetes-gateway://default/public", "default", true},
 				{"kubernetes-gateway://default/private", "default", false},
+			},
+		},
+		{
+			name: "multiple To with names (OR semantics)",
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+ name: k8s-gateway-secret-grant
+ namespace: default
+spec:
+ from:
+ - group: gateway.networking.k8s.io
+   kind: Gateway
+   namespace: bookinfo-ingress
+ to:
+ - group: ""
+   kind: Secret
+   name: bookinfo-secret
+ - group: ""
+   kind: Secret
+   name: another-secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/bookinfo-secret", "bookinfo-ingress", true},
+				{"kubernetes-gateway://default/another-secret", "bookinfo-ingress", true},
+				{"kubernetes-gateway://default/other-secret", "bookinfo-ingress", false},
 			},
 		},
 	}
