@@ -405,7 +405,9 @@ func FinalListenerSetStatusCollection(
 ) krt.StatusCollection[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus] {
 	return krt.NewCollection(
 		listenerSetStatuses,
-		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus]) *krt.ObjectWithStatus[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus] {
+		func(
+			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus],
+		) *krt.ObjectWithStatus[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus] {
 			routes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
 			counts := map[string]int32{}
 			for _, r := range routes {
@@ -478,7 +480,9 @@ func detectListenerPortNumber(l gatewayx.ListenerEntry) (gatewayx.PortNumber, er
 	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
 }
 
-func convertStandardStatusToListenerSetStatus(ports map[gatewayx.SectionName]gatewayv1.PortNumber) func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
+func convertStandardStatusToListenerSetStatus(
+	ports map[gatewayx.SectionName]gatewayv1.PortNumber,
+) func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
 	return func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
 		status := gatewayx.ListenerEntryStatus{
 			Name:           e.Name,
