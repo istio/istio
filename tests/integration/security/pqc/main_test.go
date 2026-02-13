@@ -307,6 +307,22 @@ spec:
         mode: SIMPLE
         sni: server.default.svc
 `
+			t.NewSubTest("TLS connection with PQC-compliant settings should succeed").Run(func(t framework.TestContext) {
+				a.CallOrFail(t, echo.CallOptions{
+					To: server,
+					Port: echo.Port{
+						Protocol: protocol.HTTPS,
+					},
+					TLS: echo.TLS{
+						ServerName:       "server.default.svc",
+						CaCert:           file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+						MinVersion:       "1.3",
+						CurvePreferences: []string{"X25519MLKEM768"},
+					},
+					Timeout: 1 * time.Second,
+					Check:   check.OK(),
+				})
+			})
 
 			t.NewSubTest("TLS connection with wrong curve preference should fail").Run(func(t framework.TestContext) {
 				a.CallOrFail(t, echo.CallOptions{
