@@ -216,6 +216,9 @@ func (this *LoadBalancing) EqualVT(that *LoadBalancing) bool {
 	if this.HealthPolicy != that.HealthPolicy {
 		return false
 	}
+	if this.ConnectStrategy != that.ConnectStrategy {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -871,6 +874,11 @@ func (m *LoadBalancing) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.ConnectStrategy != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.ConnectStrategy))
+		i--
+		dAtA[i] = 0x20
 	}
 	if m.HealthPolicy != 0 {
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.HealthPolicy))
@@ -1730,6 +1738,9 @@ func (m *LoadBalancing) SizeVT() (n int) {
 	}
 	if m.HealthPolicy != 0 {
 		n += 1 + protohelpers.SizeOfVarint(uint64(m.HealthPolicy))
+	}
+	if m.ConnectStrategy != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.ConnectStrategy))
 	}
 	n += len(m.unknownFields)
 	return n

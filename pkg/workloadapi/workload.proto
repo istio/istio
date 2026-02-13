@@ -158,6 +158,15 @@ message LoadBalancing {
     ALLOW_ALL = 1;
   }
 
+  enum ConnectStrategy {
+    // Default behavior: connect to a single endpoint selected by load balancing.
+    DEFAULT = 0;
+    // Race upstream TCP connections to ALL DNS-resolved IPs in parallel.
+    // The first successful TCP handshake wins; others are cancelled.
+    // Only applicable to services with DNS-based endpoints (e.g., ServiceEntry with DYNAMIC_DNS resolution).
+    FIRST_HEALTHY_RACE = 1;
+  }
+
   // routing_preference defines what scopes we want to keep traffic within.
   // The `mode` determines how these routing preferences are handled
   repeated Scope routing_preference = 1;
@@ -165,6 +174,9 @@ message LoadBalancing {
   Mode mode = 2;
   // health_policy defines how we should filter endpoints
   HealthPolicy health_policy = 3;
+  // connect_strategy defines how upstream connections are established when a service
+  // has multiple resolved IP addresses (e.g., from DNS).
+  ConnectStrategy connect_strategy = 4;
 }
 
 // Workload represents a workload - an endpoint (or collection behind a hostname).
