@@ -289,7 +289,7 @@ func TestFailurePolicy(t *testing.T) {
 				t.Fatal("must not get nil")
 			}
 			filter := out.BuildHTTPWasmFilter()
-			if out == nil {
+			if filter == nil {
 				t.Fatal("filter can not be nil")
 			}
 
