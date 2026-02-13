@@ -37,13 +37,19 @@ type ComponentConstraint interface {
 
 // pendingSwap wraps a new component during an update operation.
 // It tracks both the old and new components, completing the swap only after the new one syncs.
+//
+// Thread safety: parent, clusterID, and new are immutable after construction.
+// mu protects old and hasOld which can be modified by HasSynced().
 type pendingSwap[T ComponentConstraint] struct {
-	mu        sync.Mutex
+	// mu protects old and hasOld fields only.
+	mu sync.Mutex
+	// Immutable after construction - no mutex needed.
 	parent    *Component[T]
 	clusterID k8scluster.ID
-	old       T
 	new       T
-	hasOld    bool
+	// Mutable fields protected by mu.
+	old    T
+	hasOld bool
 }
 
 func (p *pendingSwap[T]) Close() {
