@@ -38,6 +38,7 @@ type ComponentConstraint interface {
 // pendingSwap wraps a new component during an update operation.
 // It tracks both the old and new components, completing the swap only after the new one syncs.
 type pendingSwap[T ComponentConstraint] struct {
+	mu        sync.Mutex
 	parent    *Component[T]
 	clusterID k8scluster.ID
 	old       T
@@ -54,10 +55,12 @@ func (p *pendingSwap[T]) HasSynced() bool {
 		return false
 	}
 	// New component is synced, finalize the swap by closing the old one
+	p.mu.Lock()
 	if p.hasOld {
 		p.old.Close()
 		p.hasOld = false
 	}
+	p.mu.Unlock()
 	// Clear the pending swap from the parent's map since swap is complete
 	if p.parent != nil {
 		p.parent.mu.Lock()
@@ -70,6 +73,8 @@ func (p *pendingSwap[T]) HasSynced() bool {
 // active returns the active component. During an update, this returns the old component
 // until the new one has synced, ensuring seamless access without gaps.
 func (p *pendingSwap[T]) active() T {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if !p.new.HasSynced() && p.hasOld {
 		// New component hasn't synced yet, return old component for seamless access
 		return p.old
