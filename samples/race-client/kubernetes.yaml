@@ -1,0 +1,68 @@
+# Deployment for the race-client test program.
+# It periodically resolves TARGET_URL via DNS and races TCP connections
+# to all returned IPs in parallel, mimicking .NET SqlClient's
+# MultiSubnetFailover behavior.
+#
+# Pair this with a ServiceEntry (or Kubernetes Service) annotated with:
+#   ambient.istio.io/connect-strategy: "FIRST_HEALTHY_RACE"
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: my-headless-service
+  annotations:
+    ambient.istio.io/connect-strategy: FIRST_HEALTHY_RACE
+spec:
+  hosts:
+    - my-headless-service.default.svc.cluster.local
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+      targetPort: 8080
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: race-client
+  labels:
+    app: race-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: race-client
+  template:
+    metadata:
+      labels:
+        app: race-client
+    spec:
+      containers:
+        - name: race-client
+          # Build and push the image, then set this to your registry:
+          #   docker build -t localhost:5000/race-client:latest samples/race-client/
+          #   docker push localhost:5000/race-client:latest
+          image: race-client:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TARGET_URL
+              # The host:port to connect to. Should match the host + port of
+              # the ServiceEntry or Service you've configured.
+              value: "my-headless-service.default.svc.cluster.local:80"
+            - name: INTERVAL
+              # How often to attempt a connection race.
+              value: "300ms"
+            - name: TIMEOUT
+              # Total timeout for DNS resolution + connection racing.
+              value: "10s"
+            # Optionally send data after connecting:
+            # - name: SEND_DATA
+            #   value: "PING"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

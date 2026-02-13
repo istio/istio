@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx:alpine
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-headless-service
+spec:
+  clusterIP: None # This makes the service "headless"
+  selector:
+    app: my-app
+  ports:
+    - port: 80
+      targetPort: 8080
