@@ -141,6 +141,15 @@ func configureTracingFromTelemetry(
 		h.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 	}
 
+	if spec.DisableContextPropagation {
+		if proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 30}) {
+			h.Tracing.NoContextPropagation = true
+		} else {
+			log.Debugf("Proxy %s (version %v) does not support NoContextPropagation: requires Istio 1.30+",
+				proxy.ID, proxy.IstioVersion)
+		}
+	}
+
 	reqIDExtension := &requestidextension.UUIDRequestIDExtensionContext{}
 	reqIDExtension.UseRequestIDForTraceSampling = spec.UseRequestIDForTraceSampling
 	return reqIDExtension

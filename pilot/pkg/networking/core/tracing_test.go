@@ -274,6 +274,30 @@ func TestConfigureTracing(t *testing.T) {
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
+		{
+			name:   "disable context propagation (1.30+ proxy)",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeOpenTelemetryGrpc(), 99.999, false, true, true, true),
+			opts:   fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(1, 30),
+			want: fakeTracingConfigWithNoContextPropagation(fakeOpenTelemetryGrpcProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "disable context propagation (old proxy, version gated)",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeOpenTelemetryGrpc(), 99.999, false, true, true, true),
+			opts:   fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(1, 29),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "context propagation enabled (default)",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeOpenTelemetryGrpc(), 99.999, false, true, true, false),
+			opts:   fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(1, 30),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
 	}
 
 	for _, tc := range testcases {
@@ -731,6 +755,10 @@ func fakeOptsNoTelemetryAPIWithNilCustomTag() gatewayListenerOpts {
 }
 
 func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
+	return fakeOptsOnlyZipkinTelemetryAPIWithVersion(1, 28)
+}
+
+func fakeOptsOnlyZipkinTelemetryAPIWithVersion(major, minor int) gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -752,7 +780,7 @@ func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+		IstioVersion: &model.IstioVersion{Major: major, Minor: minor, Patch: 0},
 	}
 
 	return opts
@@ -1089,6 +1117,34 @@ func fakeOpenTelemetryResourceDetectors() *meshconfig.MeshConfig_ExtensionProvid
 	return ep
 }
 
+func fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(major, minor int) gatewayListenerOpts {
+	var opts gatewayListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "opentelemetry",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+						Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+							Service:      "otel-collector",
+							Port:         4317,
+							MaxTagLength: 256,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: major, Minor: minor, Patch: 0},
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+	}
+
+	return opts
+}
+
 func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
@@ -1345,6 +1401,28 @@ func fakeTracingConfigForSkywalking(provider *tracingcfg.Tracing_Http, randomSam
 	cfg := fakeTracingConfig(provider, randomSampling, maxLen, tags)
 	cfg.SpawnUpstreamSpan = wrapperspb.Bool(true)
 	return cfg
+}
+
+func fakeTracingConfigWithNoContextPropagation(provider *tracingcfg.Tracing_Http, randomSampling float64,
+	maxLen uint32, tags []*tracing.CustomTag,
+) *hcm.HttpConnectionManager_Tracing {
+	cfg := fakeTracingConfig(provider, randomSampling, maxLen, tags)
+	cfg.NoContextPropagation = true
+	return cfg
+}
+
+func fakeTracingSpecWithContextPropagation(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
+	useRequestIDForTraceSampling bool,
+	enableIstioTags bool,
+	disableContextPropagation bool,
+) *model.TracingConfig {
+	spec := tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling, enableIstioTags)
+	spec.DisableContextPropagation = disableContextPropagation
+	t := &model.TracingConfig{
+		ClientSpec: spec,
+		ServerSpec: spec,
+	}
+	return t
 }
 
 var (
