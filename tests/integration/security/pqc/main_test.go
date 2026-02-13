@@ -182,7 +182,7 @@ spec:
 
 			ing := i.IngressFor(t.Clusters().Default())
 			if ing == nil {
-				t.Fatalf("failed to find ingress gateway %s", credName)
+				t.Fatalf("failed to find ingress gateway for cluster %s", t.Clusters().Default().Name())
 			}
 
 			t.NewSubTest("request with TLS 1.3 and X25519MLKEM768 succeeds").Run(func(t framework.TestContext) {
