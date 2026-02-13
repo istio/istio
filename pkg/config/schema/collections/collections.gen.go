@@ -831,15 +831,15 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
-	XListenerSet = resource.Builder{
-		Identifier: "XListenerSet",
-		Group:      "gateway.networking.x-k8s.io",
-		Kind:       "XListenerSet",
-		Plural:     "xlistenersets",
-		Version:    "v1alpha1",
+	ListenerSet = resource.Builder{
+		Identifier: "ListenerSet",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "ListenerSet",
+		Plural:     "listenersets",
+		Version:    "v1",
 		Proto:      "ListenerSetSpec", StatusProto: "ListenerSetStatus",
-		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.ListenerSetSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.ListenerSetStatus{}).Elem(),
-		ProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.ListenerSetSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.ListenerSetStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -897,7 +897,7 @@ var (
 		MustAdd(WorkloadEntry).
 		MustAdd(WorkloadGroup).
 		MustAdd(XBackendTrafficPolicy).
-		MustAdd(XListenerSet).
+		MustAdd(ListenerSet).
 		Build()
 
 	// Kube contains only kubernetes collections.
@@ -935,7 +935,7 @@ var (
 		MustAdd(UDPRoute).
 		MustAdd(ValidatingWebhookConfiguration).
 		MustAdd(XBackendTrafficPolicy).
-		MustAdd(XListenerSet).
+		MustAdd(ListenerSet).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -982,7 +982,7 @@ var (
 			MustAdd(WorkloadEntry).
 			MustAdd(WorkloadGroup).
 			MustAdd(XBackendTrafficPolicy).
-			MustAdd(XListenerSet).
+			MustAdd(ListenerSet).
 			Build()
 
 	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.

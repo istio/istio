@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -96,8 +96,8 @@ type DeploymentController struct {
 	patcher             patcher
 	gateways            kclient.Client[*gateway.Gateway]
 	gatewayClasses      kclient.Client[*gateway.GatewayClass]
-	listenerSets        kclient.Informer[*gatewayx.XListenerSet]
-	listenerSetByParent kclient.Index[types.NamespacedName, *gatewayx.XListenerSet]
+	listenerSets        kclient.Informer[*gatewayv1.ListenerSet]
+	listenerSetByParent kclient.Index[types.NamespacedName, *gatewayv1.ListenerSet]
 
 	clients         map[schema.GroupVersionResource]getter
 	injectConfig    func() inject.WebhookConfig
@@ -284,11 +284,11 @@ func NewDeploymentController(
 		controllers.WithMaxAttempts(5))
 
 	if features.EnableAlphaGatewayAPI {
-		dc.listenerSets = kclient.NewDelayedInformer[*gatewayx.XListenerSet](client, gvr.XListenerSet, kubetypes.StandardInformer, filter)
-		dc.listenerSetByParent = kclient.CreateIndex(dc.listenerSets, "parent", func(o *gatewayx.XListenerSet) []types.NamespacedName {
+		dc.listenerSets = kclient.NewDelayedInformer[*gatewayv1.ListenerSet](client, gvr.ListenerSet, kubetypes.StandardInformer, filter)
+		dc.listenerSetByParent = kclient.CreateIndex(dc.listenerSets, "parent", func(o *gatewayv1.ListenerSet) []types.NamespacedName {
 			return []types.NamespacedName{extractListenerSetParent(o)}
 		})
-		dc.listenerSets.AddEventHandler(controllers.TypedObjectHandler(func(o *gatewayx.XListenerSet) {
+		dc.listenerSets.AddEventHandler(controllers.TypedObjectHandler(func(o *gatewayv1.ListenerSet) {
 			dc.queue.Add(extractListenerSetParent(o))
 		}))
 	}
@@ -402,9 +402,9 @@ func NewDeploymentController(
 	return dc
 }
 
-func extractListenerSetParent(o *gatewayx.XListenerSet) types.NamespacedName {
+func extractListenerSetParent(o *gatewayv1.ListenerSet) types.NamespacedName {
 	n := o.Spec.ParentRef.Name
-	ns := ptr.OrDefault(o.Spec.ParentRef.Namespace, gatewayx.Namespace(o.Namespace))
+	ns := ptr.OrDefault(o.Spec.ParentRef.Namespace, gatewayv1.Namespace(o.Namespace))
 	return types.NamespacedName{
 		Namespace: string(ns),
 		Name:      string(n),

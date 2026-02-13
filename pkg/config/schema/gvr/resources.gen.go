@@ -82,7 +82,7 @@ var (
 	WorkloadGroup_v1alpha3         = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "workloadgroups"}
 	WorkloadGroup_v1beta1          = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "workloadgroups"}
 	XBackendTrafficPolicy          = schema.GroupVersionResource{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Resource: "xbackendtrafficpolicies"}
-	XListenerSet                   = schema.GroupVersionResource{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Resource: "xlistenersets"}
+	ListenerSet                    = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "listenersets"}
 )
 
 func IsClusterScoped(g schema.GroupVersionResource) bool {
@@ -237,7 +237,7 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case XBackendTrafficPolicy:
 		return false
-	case XListenerSet:
+	case ListenerSet:
 		return false
 	}
 	// shouldn't happen

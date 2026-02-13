@@ -145,7 +145,7 @@ type Inputs struct {
 	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
 	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
 	TLSRoutes            krt.Collection[*gatewayalpha.TLSRoute]
-	ListenerSets         krt.Collection[*gatewayx.XListenerSet]
+	ListenerSets         krt.Collection[*gatewayv1.ListenerSet]
 	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
 	BackendTLSPolicies   krt.Collection[*gatewayv1.BackendTLSPolicy]
@@ -210,13 +210,13 @@ func NewController(
 		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
 		inputs.TLSRoutes = buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes")
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
-		inputs.ListenerSets = buildClient[*gatewayx.XListenerSet](c, kc, gvr.XListenerSet, opts, "informer/XListenerSet")
+		inputs.ListenerSets = buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSet")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
 		inputs.TLSRoutes = krt.NewStaticCollection[*gatewayalpha.TLSRoute](nil, nil, opts.WithName("disable/TLSRoutes")...)
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
-		inputs.ListenerSets = krt.NewStaticCollection[*gatewayx.XListenerSet](nil, nil, opts.WithName("disable/XListenerSet")...)
+		inputs.ListenerSets = krt.NewStaticCollection[*gatewayv1.ListenerSet](nil, nil, opts.WithName("disable/ListenerSet")...)
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {

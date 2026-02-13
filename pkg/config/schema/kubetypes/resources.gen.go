@@ -164,8 +164,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.WorkloadGroup, true
 	case *sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy:
 		return gvk.XBackendTrafficPolicy, true
-	case *sigsk8siogatewayapiapisxv1alpha1.XListenerSet:
-		return gvk.XListenerSet, true
+	case *sigsk8siogatewayapiapisv1.ListenerSet:
+		return gvk.ListenerSet, true
 	default:
 		return config.GroupVersionKind{}, false
 	}

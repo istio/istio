@@ -55,7 +55,7 @@ const (
 	WorkloadEntry
 	WorkloadGroup
 	XBackendTrafficPolicy
-	XListenerSet
+	ListenerSet
 )
 
 func (k Kind) String() string {
@@ -162,8 +162,8 @@ func (k Kind) String() string {
 		return "WorkloadGroup"
 	case XBackendTrafficPolicy:
 		return "XBackendTrafficPolicy"
-	case XListenerSet:
-		return "XListenerSet"
+	case ListenerSet:
+		return "ListenerSet"
 	default:
 		return "Unknown"
 	}
@@ -273,8 +273,8 @@ func FromString(s string) Kind {
 		return WorkloadGroup
 	case "XBackendTrafficPolicy":
 		return XBackendTrafficPolicy
-	case "XListenerSet":
-		return XListenerSet
+	case "ListenerSet":
+		return ListenerSet
 	default:
 		return Unknown
 	}
