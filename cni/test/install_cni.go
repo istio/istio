@@ -44,7 +44,7 @@ const (
 	cniConfSubDir    = "/testdata/pre/"
 	k8sSvcAcctSubDir = "/testdata/k8s_svcacct/"
 
-	defaultFileMode = 0o644
+	defaultFileMode = 0o600
 )
 
 func getEnv(key, fallback string) string {
@@ -125,7 +125,7 @@ func rmCNIConfig(cniConfigFilepath string, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
+	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0o600)); err != nil {
 		t.Fatal(err)
 	}
 }
