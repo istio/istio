@@ -27,6 +27,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -283,8 +284,8 @@ spec:
   hosts:
   - {{ .ServerHost }}
   gateways:
-  - egress-pqc-gateway
-  tcp:
+  - egress-gateway
+  http:
   - match:
     - port: 443
     route:
@@ -292,7 +293,13 @@ spec:
         host: {{ .ServerHost }}
         port:
           number: 443
+    headers:
+      request:
+        add:
+          handled-by-egress-gateway: "true"
 ---
+`
+			drTmpl := `
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
@@ -305,8 +312,10 @@ spec:
         number: 443
       tls:
         mode: SIMPLE
+        credentialName: {{ .CredentialName }}
         sni: server.default.svc
 `
+
 			t.NewSubTest("TLS connection with PQC-compliant settings should succeed").Run(func(t framework.TestContext) {
 				a.CallOrFail(t, echo.CallOptions{
 					To: server,
@@ -341,23 +350,34 @@ spec:
 			})
 
 			t.NewSubTest("TLS connection originated by the egress gateway should succeed").Run(func(t framework.TestContext) {
+				credName := "external-server-ca"
+				ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.TLS, ingressutil.IngressCredential{
+					CaCert: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				}, false)
+
 				egressConfig := map[string]string{
 					"EgressLabel":     i.Settings().EgressGatewayIstioLabel,
 					"EgressService":   i.Settings().EgressGatewayServiceName,
 					"EgressNamespace": i.Settings().EgressGatewayServiceNamespace,
 					"ServerHost":      server.Config().ClusterLocalFQDN(),
+					"CredentialName":  credName,
 				}
 				t.ConfigIstio().Eval(internalNs.Name(), egressConfig, egressTmpl).ApplyOrFail(t, apply.Wait)
+				t.ConfigIstio().Eval(i.Settings().SystemNamespace, egressConfig, drTmpl).ApplyOrFail(t, apply.Wait)
 
 				a.CallOrFail(t, echo.CallOptions{
 					To: server,
 					Port: echo.Port{
 						Protocol: protocol.HTTP,
 					},
-					HTTP: echo.HTTP{
-						Headers: headers.New().WithHost(server.Config().ClusterLocalFQDN()).Build(),
-					},
-					Check: check.OK(),
+					Check: check.And(
+						check.OK(),
+						check.Each(func(r echoClient.Response) error {
+							if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; !f {
+								return fmt.Errorf("expected request to be handled by egress gateway, response: %s", r)
+							}
+							return nil
+						})),
 				})
 			})
 		})
