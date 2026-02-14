@@ -1639,7 +1639,7 @@ func expectEvents(t testing.TB, ch *xdsfake.Updater, events ...Event) {
 
 func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
 	t.Helper()
-	svcs := convertServices(*cfg)
+	svcs := convertServices(*cfg, nil)
 	if len(svcs) != len(expected) {
 		t.Fatalf("got more services than expected: %v vs %v", len(svcs), len(expected))
 	}
@@ -1873,8 +1873,8 @@ func TestServicesDiff(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			as := convertServices(*tt.current)
-			bs := convertServices(*tt.new)
+			as := convertServices(*tt.current, nil)
+			bs := convertServices(*tt.new, nil)
 			added, deleted, updated, unchanged := servicesDiff(as, bs)
 			for i, item := range []struct {
 				hostnames []host.Name
