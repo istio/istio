@@ -658,7 +658,7 @@ func makeInstanceWithServiceAccount(cfg *config.Config, addresses []string, port
 func makeTarget(cfg *config.Config, address string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) model.ServiceTarget {
-	services := convertServices(*cfg)
+	services := convertServices(*cfg, nil)
 	svc := services[0] // default
 	for _, s := range services {
 		if string(s.Hostname) == address {
@@ -689,7 +689,7 @@ func makeTarget(cfg *config.Config, address string, port int,
 func makeInstance(cfg *config.Config, addresses []string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) *model.ServiceInstance {
-	services := convertServices(*cfg)
+	services := convertServices(*cfg, nil)
 	svc := services[0] // default
 	getSvc := false
 	for _, s := range services {
@@ -877,7 +877,7 @@ func testConvertServiceBody(t *testing.T) {
 	})
 
 	for _, tt := range serviceTests {
-		services := convertServices(*tt.externalSvc)
+		services := convertServices(*tt.externalSvc, nil)
 		if err := compare(t, services, tt.services); err != nil {
 			t.Errorf("testcase: %v\n%v ", tt.externalSvc.Name, err)
 		}
@@ -1064,7 +1064,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			services := convertServices(*tt.se)
+			services := convertServices(*tt.se, nil)
 			s := &Controller{meshWatcher: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())}
 			instances := s.convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{}, tt.clusterID)
 			sortServiceInstances(instances)
@@ -1420,4 +1420,82 @@ func jsonBytes(t testing.TB, v any) []byte {
 		t.Fatal(t)
 	}
 	return data
+}
+
+func TestConvertServicesNamespaceTrafficDistribution(t *testing.T) {
+	se := &config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.ServiceEntry,
+			Name:              "test-se",
+			Namespace:         "test-ns",
+			CreationTimestamp: GlobalTime,
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts:      []string{"test.example.com"},
+			Addresses:  []string{"1.2.3.4"},
+			Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+
+	seWithAnnotation := &config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.ServiceEntry,
+			Name:              "test-se",
+			Namespace:         "test-ns",
+			CreationTimestamp: GlobalTime,
+			Annotations: map[string]string{
+				"networking.istio.io/traffic-distribution": "PreferSameNode",
+			},
+		},
+		Spec: &networking.ServiceEntry{
+			Hosts:      []string{"test.example.com"},
+			Addresses:  []string{"1.2.3.4"},
+			Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	}
+
+	tests := []struct {
+		name           string
+		cfg            *config.Config
+		nsAnnotations  map[string]string
+		expectedDistro model.TrafficDistribution
+	}{
+		{
+			name:           "no annotations",
+			cfg:            se,
+			nsAnnotations:  nil,
+			expectedDistro: model.TrafficDistributionAny,
+		},
+		{
+			name: "namespace annotation inherited",
+			cfg:  se,
+			nsAnnotations: map[string]string{
+				"networking.istio.io/traffic-distribution": "PreferClose",
+			},
+			expectedDistro: model.TrafficDistributionPreferSameZone,
+		},
+		{
+			name: "serviceentry annotation overrides namespace",
+			cfg:  seWithAnnotation,
+			nsAnnotations: map[string]string{
+				"networking.istio.io/traffic-distribution": "PreferClose",
+			},
+			expectedDistro: model.TrafficDistributionPreferSameNode,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			services := convertServices(*tt.cfg, tt.nsAnnotations)
+			if len(services) != 1 {
+				t.Fatalf("expected 1 service, got %d", len(services))
+			}
+			if services[0].Attributes.TrafficDistribution != tt.expectedDistro {
+				t.Errorf("expected traffic distribution %v, got %v",
+					tt.expectedDistro, services[0].Attributes.TrafficDistribution)
+			}
+		})
+	}
 }
