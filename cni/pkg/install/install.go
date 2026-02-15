@@ -160,7 +160,7 @@ func (in *Installer) Cleanup() error {
 			if err != nil {
 				return fmt.Errorf("failed to marshal CNI config map in file %s: %w", in.cniConfigFilepath, err)
 			}
-			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0o600)); err != nil {
+			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(in.cfg.CNIConfMode)); err != nil {
 				return fmt.Errorf("failed to write updated CNI config to file %s: %w", in.cniConfigFilepath, err)
 			}
 		} else {

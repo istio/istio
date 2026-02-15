@@ -100,7 +100,7 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 		cniConfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.IstioOwnedCNIConfigFilename)
 	}
 
-	if err = file.AtomicWrite(cniConfigFilepath, pluginConfig, os.FileMode(0o600)); err != nil {
+	if err = file.AtomicWrite(cniConfigFilepath, pluginConfig, os.FileMode(cfg.CNIConfMode)); err != nil {
 		installLog.Errorf("Failed to write CNI config file %v: %v", cniConfigFilepath, err)
 		return cniConfigFilepath, err
 	}
