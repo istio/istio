@@ -33,6 +33,7 @@ import (
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	security_beta "istio.io/api/security/v1beta1"
@@ -3041,7 +3042,6 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					}
 				}
 			}
-		// Only supported by ztunnel and waypoints
 		case networking.ServiceEntry_DYNAMIC_DNS:
 			if len(serviceEntry.Hosts) == 0 {
 				errs = AppendValidation(errs, fmt.Errorf("at least one wildcard host must be provided for resolution type %s", serviceEntry.Resolution))
@@ -3065,8 +3065,12 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					errs = AppendValidation(errs, fmt.Errorf("only HTTP and TLS protocol is supported for resolution type %s", serviceEntry.Resolution))
 				}
 			}
-			if serviceEntry.Location != networking.ServiceEntry_MESH_EXTERNAL {
-				errs = AppendValidation(errs, fmt.Errorf("location must be MESH_EXTERNAL for resolution type %s", serviceEntry.Resolution))
+			// DYNAMIC_DNS supports MESH_EXTERNAL for both sidecar and waypoint mode; MESH_INTERNAL only when the ServiceEntry has no waypoint.
+			if serviceEntry.Location != networking.ServiceEntry_MESH_EXTERNAL && serviceEntry.Location != networking.ServiceEntry_MESH_INTERNAL {
+				errs = AppendValidation(errs, fmt.Errorf("location must be MESH_EXTERNAL or MESH_INTERNAL for resolution type %s", serviceEntry.Resolution))
+			}
+			if serviceEntry.Location == networking.ServiceEntry_MESH_INTERNAL && usesWaypoint(cfg) {
+				errs = AppendValidation(errs, fmt.Errorf("location MESH_INTERNAL with resolution type %s is not supported when using waypoints", serviceEntry.Resolution))
 			}
 		default:
 			errs = AppendValidation(errs, fmt.Errorf("unsupported resolution type %s",
@@ -3097,6 +3101,17 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 		errs = AppendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true, false))
 		return errs.Unwrap()
 	})
+
+// usesWaypoint returns true if the config has the use-waypoint label set to a waypoint (i.e. not "none").
+func usesWaypoint(cfg config.Config) bool {
+	if cfg.Labels == nil {
+		return false
+	}
+	if val, ok := cfg.Labels[label.IoIstioUseWaypoint.Name]; ok && val != "" && !strings.EqualFold(val, "none") {
+		return true
+	}
+	return false
+}
 
 // ValidatePortName validates a port name to DNS-1123
 func ValidatePortName(name string) error {
