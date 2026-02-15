@@ -181,6 +181,9 @@ func addFlags(c *cobra.Command) {
 			"If omitted, the default Go cipher suites will be used. \n"+
 			"Preferred values: "+strings.Join(secureTLSCipherNames(), ", ")+". \n"+
 			"Insecure values: "+strings.Join(insecureTLSCipherNames(), ", ")+".")
+	c.PersistentFlags().StringVar(&serverArgs.ServerOptions.TLSOptions.TLSMinVersion, "tls-min-version", bootstrap.TLSMinVersion1_2,
+		"Minimum TLS version for the istiod TLS server. "+
+			fmt.Sprintf("Only %s and %s are supported.", bootstrap.TLSMinVersion1_2, bootstrap.TLSMinVersion1_3))
 
 	c.PersistentFlags().Float32Var(&serverArgs.RegistryOptions.KubeOptions.KubernetesAPIQPS, "kubernetesApiQPS", 80.0,
 		"Maximum QPS when communicating with the kubernetes API")
