@@ -21,8 +21,10 @@ import (
 	"sync"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	networking "istio.io/api/networking/v1alpha3"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
@@ -39,6 +41,8 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
@@ -129,6 +133,9 @@ type Controller struct {
 
 	meshWatcher mesh.Watcher
 
+	// namespaces client for looking up namespace annotations (for traffic distribution inheritance)
+	namespaces kclient.Client[*v1.Namespace]
+
 	model.NoopAmbientIndexes
 	model.NetworkGatewaysHandler
 }
@@ -145,6 +152,45 @@ func WithNetworkIDCb(cb func(endpointIP string, labels labels.Instance) network.
 	return func(o *Controller) {
 		o.networkIDCallback = cb
 	}
+}
+
+// SetNamespaces sets the namespace client for traffic distribution inheritance.
+// This allows ServiceEntry to inherit namespace-level traffic-distribution annotations.
+func (s *Controller) SetNamespaces(namespaces kclient.Client[*v1.Namespace]) {
+	s.namespaces = namespaces
+	// Register handler for namespace annotation changes
+	namespaces.AddEventHandler(controllers.EventHandler[*v1.Namespace]{
+		UpdateFunc: func(old, cur *v1.Namespace) {
+			oldTrafficDist := old.Annotations[annotation.NetworkingTrafficDistribution.Name]
+			curTrafficDist := cur.Annotations[annotation.NetworkingTrafficDistribution.Name]
+			if oldTrafficDist != curTrafficDist {
+				s.reprocessServiceEntriesInNamespace(cur.Name)
+			}
+		},
+	})
+}
+
+// reprocessServiceEntriesInNamespace triggers reprocessing of all ServiceEntries in a namespace
+func (s *Controller) reprocessServiceEntriesInNamespace(namespace string) {
+	if s.store == nil {
+		return
+	}
+	cfgs := s.store.List(gvk.ServiceEntry, namespace)
+	for _, cfg := range cfgs {
+		s.serviceEntryHandler(cfg, cfg, model.EventUpdate)
+	}
+}
+
+// getNamespaceAnnotations returns the annotations for a namespace, or nil if not available
+func (s *Controller) getNamespaceAnnotations(namespace string) map[string]string {
+	if s.namespaces == nil {
+		return nil
+	}
+	ns := s.namespaces.Get(namespace, "")
+	if ns == nil {
+		return nil
+	}
+	return ns.Annotations
 }
 
 // NewController creates a new ServiceEntry discovery service.
@@ -381,7 +427,7 @@ func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
 func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
 	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
-	cs := convertServices(curr)
+	cs := convertServices(curr, s.getNamespaceAnnotations(curr.Namespace))
 	key := curr.NamespacedName()
 
 	s.mutex.Lock()
