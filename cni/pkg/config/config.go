@@ -104,6 +104,8 @@ type InstallConfig struct {
 	PluginLogLevel string
 	// The file mode to set when creating the kubeconfig file
 	KubeconfigMode int
+	// The file mode to set when creating the CNI config file
+	CNIConfMode int
 	// CA file for kubeconfig
 	KubeCAFile string
 	// Whether to use insecure TLS in the kubeconfig file
@@ -216,6 +218,7 @@ func (c InstallConfig) String() string {
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
+	b.WriteString("CNIConfMode: " + fmt.Sprintf("%#o", c.CNIConfMode) + "\n")
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
 

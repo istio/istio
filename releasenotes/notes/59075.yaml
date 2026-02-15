@@ -7,4 +7,16 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** CNI config file permissions to use 0600 instead of 0644 for CIS Kubernetes benchmark v1.12 compliance.
+    **Fixed** CNI config file permissions to default to 0600 instead of 0644 for CIS Kubernetes benchmark v1.12
+    compliance. The previous permissions can be restored by setting `--cni-conf-mode=0644` or the
+    `CNI_CONF_MODE` environment variable.
+
+upgradeNotes:
+  - title: CNI config file permissions changed to 0600
+    content: |
+      The default file permissions for CNI config files written by Istio have changed from 0644 to 0600.
+      This aligns with the CIS Kubernetes benchmark v1.12 requirement. Since the CNI config is only read
+      by the container runtime running as root, this should have no functional impact. If you have tooling
+      that needs to read CNI config files as a non-root user, you can restore the previous behavior by
+      setting `values.cni.cniConfMode=0644` or the `CNI_CONF_MODE=0644` environment variable on the
+      istio-cni-node DaemonSet.
