@@ -49,8 +49,18 @@ const (
 	PodDNSDisabled
 )
 
-// PodLevelOverrides holds runtime/dynamic pod-level config overrides
-// that may need to be taken into account when injecting pod rules
+type PodOverrides struct {
+	NamespaceLevelOverrides
+	PodLevelOverrides
+}
+
+type NamespaceLevelOverrides struct {
+	ExcludeInterfaces []string
+}
+
+// For inpod rules, any runtime/dynamic pod-level
+// config overrides that may need to be taken into account
+// when injecting pod rules
 type PodLevelOverrides struct {
 	VirtualInterfaces []string
 	IngressMode       bool
@@ -144,6 +154,9 @@ type InstallConfig struct {
 	// The labelSelector to enable ambient for specific pods or namespaces
 	AmbientEnablementSelector string
 
+	// Namespace-based interface exclusion rules for ambient mode
+	AmbientExcludeInterfaces string
+
 	// Whether ambient DNS capture is enabled
 	AmbientDNSCapture bool
 
@@ -234,6 +247,7 @@ func (c InstallConfig) String() string {
 
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
 	b.WriteString("AmbientEnablementSelector: " + c.AmbientEnablementSelector + "\n")
+	b.WriteString("AmbientExcludeInterfaces: " + c.AmbientExcludeInterfaces + "\n")
 	b.WriteString("AmbientDNSCapture: " + fmt.Sprint(c.AmbientDNSCapture) + "\n")
 	b.WriteString("AmbientIPv6: " + fmt.Sprint(c.AmbientIPv6) + "\n")
 	b.WriteString("AmbientDisableSafeUpgrade: " + fmt.Sprint(c.AmbientDisableSafeUpgrade) + "\n")

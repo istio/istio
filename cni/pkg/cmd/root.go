@@ -113,9 +113,22 @@ var rootCmd = &cobra.Command{
 				return fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 			}
 
+			// instantiate and validate the ambient interface exclusion rules
+			interfaceExclusionRules := []util.InterfaceExclusionRule{}
+			if cfg.InstallConfig.AmbientExcludeInterfaces != "" {
+				if err = yaml.Unmarshal([]byte(cfg.InstallConfig.AmbientExcludeInterfaces), &interfaceExclusionRules); err != nil {
+					return fmt.Errorf("failed to parse ambient interface exclusion rules: %v", err)
+				}
+			}
+			compiledExclusionRules, err := util.NewCompiledInterfaceExclusionRules(interfaceExclusionRules)
+			if err != nil {
+				return fmt.Errorf("failed to instantiate ambient interface exclusion rules: %v", err)
+			}
+
 			if cfg.InstallConfig.NativeNftables && cfg.InstallConfig.ForceIptablesBinary != "" {
 				log.Warn("NativeNftables is enabled along with ForceIptablesBinary. Using native nftables and ignoring iptables")
 			}
+
 
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
@@ -123,6 +136,7 @@ var rootCmd = &cobra.Command{
 					Revision:                   nodeagent.Revision,
 					ServerSocket:               cfg.InstallConfig.ZtunnelUDSAddress,
 					EnablementSelector:         compiledSelectors,
+					InterfaceExclusionRules:    compiledExclusionRules,
 					DNSCapture:                 cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
@@ -326,6 +340,7 @@ func constructConfig() (*config.Config, error) {
 
 		AmbientEnabled:                    viper.GetBool(constants.AmbientEnabled),
 		AmbientEnablementSelector:         viper.GetString(constants.AmbientEnablementSelector),
+		AmbientExcludeInterfaces:          viper.GetString(constants.AmbientExcludeInterfaces),
 		AmbientDNSCapture:                 viper.GetBool(constants.AmbientDNSCapture),
 		AmbientIPv6:                       viper.GetBool(constants.AmbientIPv6),
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),
