@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+issue:
+  - 59071
+
+releaseNotes:
+  - |
+    **Fixed** CNI config file permissions to use 0600 instead of 0644 for CIS Kubernetes benchmark v1.12 compliance.
