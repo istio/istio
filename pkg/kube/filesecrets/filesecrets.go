@@ -72,6 +72,10 @@ func parseKubeconfig(data []byte) ([]KubeconfigFile, error) {
 	}}, nil
 }
 
+// clusterIDFromKubeconfig selects a cluster ID in this order:
+// 1. The cluster referenced by the current context.
+// 2. The first context encountered during context map iteration.
+// 3. The first cluster name encountered during cluster map iteration.
 func clusterIDFromKubeconfig(cfg *clientcmdapi.Config) (string, error) {
 	if cfg == nil {
 		return "", fmt.Errorf("kubeconfig is nil")
