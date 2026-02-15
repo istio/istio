@@ -95,6 +95,15 @@ func TestProxyStatus(t *testing.T) {
 			args:          strings.Split("serviceaccount/sleep", " "),
 			wantException: true,
 		},
+		{ // case 8: unsupported output format value should fail
+			args:          strings.Split("-o invalid-format", " "),
+			wantException: true,
+		},
+		{ // case 9: JSON format outputs empty object when no proxies are present
+			args:           strings.Split("-o json", " "),
+			expectedOutput: "{}\n",
+			wantException:  false,
+		},
 	}
 	multixds.GetXdsResponse = func(_ *discovery.DiscoveryRequest, _ string, _ string, _ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
 	) (*discovery.DiscoveryResponse, error) {
