@@ -31,6 +31,7 @@ const (
 	IstioOwnedCNIConfigFilename       = "istio-owned-cni-config-filename"
 	LogLevel                          = "log-level"
 	KubeconfigMode                    = "kubeconfig-mode"
+	CNIConfMode                       = "cni-conf-mode"
 	KubeCAFile                        = "kube-ca-file"
 	SkipTLSVerify                     = "skip-tls-verify"
 	MonitoringPort                    = "monitoring-port"
@@ -69,6 +70,7 @@ const (
 // Internal constants
 const (
 	DefaultKubeconfigMode = 0o600
+	DefaultCNIConfMode    = 0o600
 	CNIAgentLogScope      = "cni-agent"
 	CNIPluginLogScope     = "cni-plugin"
 	CNIAddEventPath       = "/cmdadd"
