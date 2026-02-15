@@ -867,10 +867,10 @@ func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 				";ns;example;;cluster2b",
 			},
 		},
-			{
-				name:  "ingress_in_cluster1",
-				proxy: makeIngressGatewayProxy("network1", "cluster1"),
-				want: []xdstest.LocLbEpInfo{
+		{
+			name:  "ingress_in_cluster1",
+			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			want: []xdstest.LocLbEpInfo{
 				{
 					LbEps: []xdstest.LbEpInfo{
 						// Local endpoints
@@ -887,40 +887,20 @@ func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 					Weight: 36,
 				},
 			},
-				wantWorkloadMetadata: []string{
-					";ns;example;;cluster1a",
-					";ns;example;;cluster1a",
-					";ns;example;;cluster1b",
-					";;;;cluster2a",
-					";;;;cluster2b",
-					";;;;cluster2b",
-				},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1b",
+				";;;;cluster2a",
+				";;;;cluster2b",
+				";;;;cluster2b",
 			},
-			{
-				name:  "eastwest_in_cluster1a",
-				proxy: makeEastWestGatewayProxy("network1", "cluster1a"),
-				want: []xdstest.LocLbEpInfo{
-					{
-						LbEps: []xdstest.LbEpInfo{
-							// E/W gateway should keep endpoint selection local and not generate remote inner_connect_originate hops.
-							{Address: "10.0.0.1", Weight: 6},
-							{Address: "10.0.0.2", Weight: 6},
-							{Address: "10.0.0.3", Weight: 6},
-						},
-						Weight: 18,
-					},
-				},
-				wantWorkloadMetadata: []string{
-					";ns;example;;cluster1a",
-					";ns;example;;cluster1a",
-					";ns;example;;cluster1b",
-				},
-			},
-		}
-		// The tests below are calling the endpoints filter from each one of the
-		// networks and examines the returned filtered endpoints
-		runNetworkFilterTest(t, env, ambientNetworkFiltered, "")
+		},
 	}
+	// The tests below are calling the endpoints filter from each one of the
+	// networks and examines the returned filtered endpoints
+	runNetworkFilterTest(t, env, ambientNetworkFiltered, "")
+}
 
 type networkFilterCase struct {
 	name                 string
@@ -1058,16 +1038,6 @@ func makeIngressGatewayProxy(nw network.ID, c cluster.ID) *model.Proxy {
 	}
 	proxy.Labels[label.GatewayManaged.Name] = constants.ManagedGatewayControllerLabel
 	proxy.Type = model.Router
-	return proxy
-}
-
-func makeEastWestGatewayProxy(nw network.ID, c cluster.ID) *model.Proxy {
-	proxy := makeProxy(nw, c)
-	if proxy.Labels == nil {
-		proxy.Labels = make(map[string]string)
-	}
-	proxy.Labels[label.GatewayManaged.Name] = constants.ManagedGatewayEastWestControllerLabel
-	proxy.Type = model.Waypoint
 	return proxy
 }
 

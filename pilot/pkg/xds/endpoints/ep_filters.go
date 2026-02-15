@@ -117,11 +117,6 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// and whether we have an E/W gateway we can use. If neither is true, then just ignore the endpoint
 			// completely.
 			if !b.proxy.InNetwork(epNetwork) && features.EnableAmbientMultiNetwork {
-				// East-west gateways terminate the outer HBONE tunnel and only forward the inner tunnel.
-				// They do not generate double-HBONE origination resources, so keep endpoint selection local.
-				if isEastWestGateway(b.proxy) {
-					continue
-				}
 				if !features.EnableAmbientWaypointMultiNetwork && model.IsWaypointProxy(b.proxy) ||
 					!features.EnableAmbientIngressMultiNetwork && model.IsIngressGateway(b.proxy) {
 					continue

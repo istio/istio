@@ -629,7 +629,17 @@ func defaultTracingTags() []*tracing.CustomTag {
 func waypointTracingTags(extra ...*tracing.CustomTag) []*tracing.CustomTag {
 	tags := append([]*tracing.CustomTag{}, defaultTracingTags()...)
 	tags = append(tags,
-		// FIELD accessor tags for waypoint source tracking (uses downstream_peer_obj key)
+		// FIELD accessor tags for waypoint source tracking (uses {downstream,upstream}_peer_obj key)
+		&tracing.CustomTag{Tag: "istio.destination_app", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:app)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_app_version", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:version)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_canonical_revision", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:revision)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_canonical_service", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:service)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_cluster_id", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:cluster)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_instance_name", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:name)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_namespace", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:namespace)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_workload", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:workload)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_workload_type", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:type)%"}},
+
 		&tracing.CustomTag{Tag: "istio.source_app", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:app)%"}},
 		&tracing.CustomTag{Tag: "istio.source_app_version", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:version)%"}},
 		&tracing.CustomTag{Tag: "istio.source_canonical_revision", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:revision)%"}},
