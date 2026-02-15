@@ -1,0 +1,8 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
+# The gateway api profile makes pilot ignore any Istio resource and reconciles just GatewayAPI resources
+pilot:
+  env:
+    PILOT_IGNORE_RESOURCES: "*.istio.io"
