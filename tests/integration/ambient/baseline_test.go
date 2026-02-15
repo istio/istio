@@ -3749,7 +3749,8 @@ func restartZtunnel(t framework.TestContext, c cluster.Cluster) {
 				}
 			}
 		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
-	ds := c.Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
+	ztunnelNS := i.Settings().ZtunnelNamespace
+	ds := c.Kube().AppsV1().DaemonSets(ztunnelNS)
 	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
@@ -3767,7 +3768,7 @@ func restartZtunnel(t framework.TestContext, c cluster.Cluster) {
 	}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
 		t.Fatalf("failed to wait for ztunnel rollout status for: %v", err)
 	}
-	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], i.Settings().SystemNamespace, "app=ztunnel")); err != nil {
+	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], ztunnelNS, "app=ztunnel")); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -3885,8 +3886,8 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 					tc.Fatal("No captured client instance found for ZtunnelSecureMetrics test")
 				}
 
-				istioSystemNS := i.Settings().SystemNamespace
-				k8sPods := c.Kube().CoreV1().Pods(istioSystemNS)
+				ztunnelNS := i.Settings().ZtunnelNamespace
+				k8sPods := c.Kube().CoreV1().Pods(ztunnelNS)
 
 				// Get ztunnel pod info
 				ztunnelPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
@@ -3897,7 +3898,7 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 				ztunnelPodIP := ztunnelPod.Status.PodIP
 				ztunnelMetricsPort := 15020 // Default ztunnel metrics port
 				ztunnelServiceAccount := ztunnelPod.Spec.ServiceAccountName
-				trustDomain := util.GetTrustDomain(c, istioSystemNS)
+				trustDomain := util.GetTrustDomain(c, ztunnelNS)
 				// Extract ztunnel app labels for canonical service/revision
 				ztunnelAppLabel := ztunnelPod.Labels["app"]
 				ztunnelVersionLabel := ztunnelPod.Labels["app.kubernetes.io/version"]
@@ -3931,9 +3932,9 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 					Labels: map[string]string{
 						"reporter":                       "destination",
 						"connection_security_policy":     "mutual_tls",
-						"destination_workload_namespace": istioSystemNS,
+						"destination_workload_namespace": ztunnelNS,
 						"destination_workload":           "ztunnel",
-						"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, istioSystemNS, ztunnelServiceAccount),
+						"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, ztunnelNS, ztunnelServiceAccount),
 						"destination_canonical_service":  ztunnelAppLabel,
 						"destination_canonical_revision": ztunnelVersionLabel,
 						"source_workload_namespace":      sourceNamespace,

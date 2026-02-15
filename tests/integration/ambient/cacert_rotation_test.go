@@ -49,11 +49,12 @@ func TestIntermediateCertificateRefresh(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 			namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 			newX509 := getX509FromFile(t, "ca-cert-alt-2.pem")
+			ztunnelNS := istioCfg.ZtunnelNamespace
 
 			sa := apps.Captured[0].SpiffeIdentity()
 
 			// we do not know which ztunnel instance is located on the node as the workload, so we need to check all of them initially
-			ztunnelPods, err := kubetest.NewPodFetch(t.AllClusters()[0], istioCfg.SystemNamespace, "app=ztunnel")()
+			ztunnelPods, err := kubetest.NewPodFetch(t.AllClusters()[0], ztunnelNS, "app=ztunnel")()
 			assert.NoError(t, err)
 
 			originalWorkloadSecret, ztunnelPod, err := getWorkloadSecret(t, ztunnelPods, sa, istioCtl)
