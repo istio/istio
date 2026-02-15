@@ -237,7 +237,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Namespace:             apps.Namespace,
 			Ports:                 ports.All(),
 			ServiceAccount:        true,
-			WorkloadWaypointProxy: "waypoint",
+			WorkloadWaypointProxy: "waypoint-workload",
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
@@ -245,7 +245,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Labels: map[string]string{
 						"app":                         WorkloadAddressedWaypoint,
 						"version":                     "v1",
-						label.IoIstioUseWaypoint.Name: "waypoint",
+						label.IoIstioUseWaypoint.Name: "waypoint-workload",
 					},
 				},
 				{
@@ -254,7 +254,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Labels: map[string]string{
 						"app":                         WorkloadAddressedWaypoint,
 						"version":                     "v2",
-						label.IoIstioUseWaypoint.Name: "waypoint",
+						label.IoIstioUseWaypoint.Name: "waypoint-workload",
 					},
 				},
 			},
@@ -263,9 +263,9 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:              ServiceAddressedWaypoint,
 			Namespace:            apps.Namespace,
 			Ports:                ports.All(),
-			ServiceLabels:        map[string]string{label.IoIstioUseWaypoint.Name: "waypoint"},
+			ServiceLabels:        map[string]string{label.IoIstioUseWaypoint.Name: "waypoint-service"},
 			ServiceAccount:       true,
-			ServiceWaypointProxy: "waypoint",
+			ServiceWaypointProxy: "waypoint-service",
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
@@ -390,26 +390,28 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		apps.WaypointProxies = make(map[string]ambient.Waypoints)
 	}
 
-	for _, echo := range echos {
-		svcwp := echo.Config().ServiceWaypointProxy
-		wlwp := echo.Config().WorkloadWaypointProxy
-		if svcwp != "" {
-			if _, found := apps.WaypointProxies[svcwp]; !found {
-				apps.WaypointProxies[svcwp], err = ambient.NewWaypointProxy(t, apps.Namespace, svcwp)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if wlwp != "" {
-			if _, found := apps.WaypointProxies[wlwp]; !found {
-				apps.WaypointProxies[wlwp], err = ambient.NewWaypointProxy(t, apps.Namespace, wlwp)
-				if err != nil {
-					return err
-				}
-			}
-		}
+	// Create separate waypoint instances with specific traffic types.
+	// https://github.com/istio/istio/issues/55420
+	apps.WaypointProxies["waypoint-workload"], err = ambient.NewWaypointProxyWithTrafficType(
+		t,
+		apps.Namespace,
+		"waypoint-workload",
+		constants.WorkloadTraffic,
+	)
+	if err != nil {
+		return err
+	}
 
+	// Create service waypoint (--for service)
+	// This enables server-first protocols to work correctly with service-addressed traffic
+	apps.WaypointProxies["waypoint-service"], err = ambient.NewWaypointProxyWithTrafficType(
+		t,
+		apps.Namespace,
+		"waypoint-service",
+		constants.ServiceTraffic,
+	)
+	if err != nil {
+		return err
 	}
 
 	return nil
