@@ -154,7 +154,7 @@ func testJoinRegisterBatch(t *testing.T, eventsAfterCollection bool, options ...
 			mu.RLock()
 			defer mu.RUnlock()
 			return len(initialStateEvents)
-		}, 2, retry.Timeout(5*time.Millisecond))
+		}, 2, retry.Timeout(5*time.Millisecond), retry.Delay(time.Millisecond))
 		reg.UnregisterHandler()
 	})
 	t.Run("no initial state", func(t *testing.T) {
