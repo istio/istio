@@ -19,7 +19,11 @@ import (
 	"net/netip"
 	"strings"
 
+	"os"
+
 	cfg "istio.io/istio/tools/common/config"
+
+	"istio.io/istio/cni/pkg/constants"
 )
 
 // These constants are shared between iptables and nftables implementations
@@ -104,8 +108,8 @@ type InstallConfig struct {
 	PluginLogLevel string
 	// The file mode to set when creating the kubeconfig file
 	KubeconfigMode int
-	// The file mode to set when creating the CNI config file
-	CNIConfMode int
+	// Whether to enable group read/write on the CNI config file (0640 instead of 0600)
+	CNIConfChgrp bool
 	// CA file for kubeconfig
 	KubeCAFile string
 	// Whether to use insecure TLS in the kubeconfig file
@@ -168,6 +172,14 @@ type InstallConfig struct {
 	ForceIptablesBinary string
 }
 
+// CNIConfFileMode returns the file mode for the CNI config file based on the CNIConfChgrp setting.
+func (c InstallConfig) CNIConfFileMode() os.FileMode {
+	if c.CNIConfChgrp {
+		return os.FileMode(constants.CNIConfModeGroupRead)
+	}
+	return os.FileMode(constants.CNIConfModeDefault)
+}
+
 // RepairConfig struct defines the Istio CNI race repair configuration
 type RepairConfig struct {
 	// Whether to enable CNI race repair
@@ -218,7 +230,7 @@ func (c InstallConfig) String() string {
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
-	b.WriteString("CNIConfMode: " + fmt.Sprintf("%#o", c.CNIConfMode) + "\n")
+	b.WriteString("CNIConfChgrp: " + fmt.Sprint(c.CNIConfChgrp) + "\n")
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
 

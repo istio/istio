@@ -234,7 +234,7 @@ func init() {
 	registerStringParameter(constants.CNIAgentRunDir, "/var/run/istio-cni", "Location of the node agent writable path on the node (used for sockets, etc)")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
-	registerIntegerParameter(constants.CNIConfMode, constants.DefaultCNIConfMode, "File mode of the CNI config file")
+	registerBooleanParameter(constants.CNIConfChgrp, false, "Whether to enable group read on the CNI config file (0640 instead of default 0600)")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
@@ -309,7 +309,7 @@ func constructConfig() (*config.Config, error) {
 		// This masks the fact we are doing this weird log-over-UDS to users, and allows them to configure it the same way.
 		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
-		CNIConfMode:           viper.GetInt(constants.CNIConfMode),
+		CNIConfChgrp:          viper.GetBool(constants.CNIConfChgrp),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),
 		SkipTLSVerify:         viper.GetBool(constants.SkipTLSVerify),
 		K8sServiceProtocol:    os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
