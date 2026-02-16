@@ -269,7 +269,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	s.byFile[name] = newKeys
 
 	if parseErrs != nil {
-		return fmt.Errorf("errors parsing content %q: %v", name, parseErrs)
+		return fmt.Errorf("errors parsing content %q: %w", name, parseErrs)
 	}
 	return nil
 }
@@ -309,7 +309,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 			break
 		}
 		if err != nil {
-			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
+			e := fmt.Errorf("error reading documents in %s[%d]: %w", name, chunkCount, err)
 			scope.Warnf("%v - skipping", e)
 			scope.Debugf("Failed to parse yamlText chunk: %v", yamlText)
 			errs = multierror.Append(errs, e)
@@ -326,7 +326,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 			if errors.As(err, &uerr) {
 				scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
 			} else {
-				e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
+				e := fmt.Errorf("error processing %s[%d]: %w", name, chunkCount, err)
 				scope.Warnf("%v - skipping", e)
 				scope.Debugf("Failed to parse yaml chunk: %v", string(chunk))
 				errs = multierror.Append(errs, e)
@@ -355,7 +355,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	// Convert to JSON
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
-		return resources, fmt.Errorf("failed converting YAML to JSON: %v", err)
+		return resources, fmt.Errorf("failed converting YAML to JSON: %w", err)
 	}
 
 	// ignore null json
@@ -366,13 +366,13 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	// Peek at the beginning of the JSON to
 	groupVersionKind, err := kubeJson.DefaultMetaFactory.Interpret(jsonChunk)
 	if err != nil {
-		return resources, fmt.Errorf("failed interpreting jsonChunk: %v", err)
+		return resources, fmt.Errorf("failed interpreting jsonChunk: %w", err)
 	}
 
 	if groupVersionKind.Kind == "List" {
 		resourceChunks, err := extractResourceChunksFromListYamlChunk(yamlChunk)
 		if err != nil {
-			return resources, fmt.Errorf("failed extracting resource chunks from list yaml chunk: %v", err)
+			return resources, fmt.Errorf("failed extracting resource chunks from list yaml chunk: %w", err)
 		}
 		for _, resourceChunk := range resourceChunks {
 			lr, err := s.parseChunk(r, name, resourceChunk.lineNum+lineNum, resourceChunk.yamlChunk)
@@ -417,11 +417,11 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	deserializer := codecs.UniversalDeserializer()
 	obj, err := kube.IstioScheme.New(schema.GroupVersionKind().Kubernetes())
 	if err != nil {
-		return resources, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
+		return resources, fmt.Errorf("failed to initialize interface for built-in type: %w", err)
 	}
 	_, _, err = deserializer.Decode(jsonChunk, nil, obj)
 	if err != nil {
-		return resources, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
+		return resources, fmt.Errorf("failed parsing JSON for built-in type: %w", err)
 	}
 	objMeta, ok := obj.(metav1.Object)
 	if !ok {
@@ -479,7 +479,7 @@ func extractResourceChunksFromListYamlChunk(chunk []byte) ([]resourceYamlChunk, 
 	yamlChunkNode := yamlv3.Node{}
 	err := yamlv3.Unmarshal(chunk, &yamlChunkNode)
 	if err != nil {
-		return nil, fmt.Errorf("failed parsing yamlChunk: %v", err)
+		return nil, fmt.Errorf("failed parsing yamlChunk: %w", err)
 	}
 	if len(yamlChunkNode.Content) == 0 {
 		return nil, fmt.Errorf("failed parsing yamlChunk: no content")
@@ -501,7 +501,7 @@ func extractResourceChunksFromListYamlChunk(chunk []byte) ([]resourceYamlChunk, 
 		}
 		resourceChunk, err := yamlv3.Marshal(n)
 		if err != nil {
-			return nil, fmt.Errorf("failed marshaling yamlChunk: %v", err)
+			return nil, fmt.Errorf("failed marshaling yamlChunk: %w", err)
 		}
 		chunks = append(chunks, resourceYamlChunk{
 			lineNum:   n.Line,
