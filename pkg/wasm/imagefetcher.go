@@ -75,10 +75,11 @@ func (t *ssrfProtectionTransport) RoundTrip(req *http.Request) (*http.Response, 
 		return resp, err
 	}
 
-	// check 401 responses for malicious WWW-Authenticate realm
+	// check 401 responses for malicious WWW-Authenticate realm 
+	// check ALL headers as the server can return multiple, and library might use any
 	if resp.StatusCode == http.StatusUnauthorized {
-		if auth := resp.Header.Get("WWW-Authenticate"); auth != "" {
-			if err := validateBearerRealm(auth); err != nil {
+		for _, auth := range resp.Header.Values("WWW-Authenticate") {
+			if err := validateAllRealms(auth); err != nil {
 				resp.Body.Close()
 				return nil, fmt.Errorf("rejected unsafe bearer realm: %w", err)
 			}
@@ -88,25 +89,33 @@ func (t *ssrfProtectionTransport) RoundTrip(req *http.Request) (*http.Response, 
 	return resp, nil
 }
 
-func validateBearerRealm(wwwAuth string) error {
-	// parse realm from WWW-Authenticate header
-	// format: Bearer realm="...",service="..."
-	if !strings.Contains(wwwAuth, "realm=") {
-		return nil
-	}
+// validateAllRealms checks all realm parameters in a WWW-Authenticate header.
+// in case of multiple challenges - validate all of them.
+func validateAllRealms(wwwAuth string) error {
+	// find all realm="..." occurrences
+	remaining := wwwAuth
+	for {
+		idx := strings.Index(remaining, "realm=\"")
+		if idx == -1 {
+			break
+		}
+		remaining = remaining[idx+7:] // skip 'realm="'
 
-	start := strings.Index(wwwAuth, "realm=\"")
-	if start == -1 {
-		return nil
-	}
-	start += 7 // skip 'realm="'
+		end := strings.Index(remaining, "\"")
+		if end == -1 {
+			break
+		}
+		realm := remaining[:end]
+		remaining = remaining[end+1:]
 
-	end := strings.Index(wwwAuth[start:], "\"")
-	if end == -1 {
-		return nil
+		if err := validateRealmURL(realm); err != nil {
+			return err
+		}
 	}
-	realm := wwwAuth[start : start+end]
+	return nil
+}
 
+func validateRealmURL(realm string) error {
 	u, err := url.Parse(realm)
 	if err != nil {
 		return fmt.Errorf("invalid realm URL: %w", err)
