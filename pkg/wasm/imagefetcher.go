@@ -75,7 +75,7 @@ func (t *ssrfProtectionTransport) RoundTrip(req *http.Request) (*http.Response, 
 		return resp, err
 	}
 
-	// check 401 responses for malicious WWW-Authenticate realm 
+	// check 401 responses for malicious WWW-Authenticate realm
 	// check ALL headers as the server can return multiple, and library might use any
 	if resp.StatusCode == http.StatusUnauthorized {
 		for _, auth := range resp.Header.Values("WWW-Authenticate") {
