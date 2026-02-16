@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: []
+releaseNotes:
+  - |
+    **Added** `--tls-curves` flag to `pilot-discovery` to configure the ECDH curve preferences
+    for the istiod server and webhook.
