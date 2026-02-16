@@ -91,6 +91,19 @@ spec:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
+  - name: terminate-optional-mtls-frontendvalidation
+    hostname: "optional-mtls.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+      options:
+        gateway.istio.io/tls-terminate-mode: OPTIONAL_MUTUAL
   - name: terminate-istio-mtls
     hostname: "egress.example"
     port: 34000

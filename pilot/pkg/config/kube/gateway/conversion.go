@@ -2270,6 +2270,14 @@ func buildTLS(
 			}
 			out.Mode = istio.ServerTLSSettings_MUTUAL
 			out.CaCertCredentialName = cred.ResourceName
+			if tls.Options != nil {
+				switch tls.Options[gatewayTLSTerminateModeKey] {
+				case "MUTUAL":
+					out.Mode = istio.ServerTLSSettings_MUTUAL
+				case "OPTIONAL_MUTUAL":
+					out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+				}
+			}
 		}
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
