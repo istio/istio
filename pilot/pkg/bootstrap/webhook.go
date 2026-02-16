@@ -53,9 +53,10 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	}
 
 	tlsConfig := &tls.Config{
-		GetCertificate: s.getIstiodCertificate,
-		MinVersion:     tls.VersionTLS12,
-		CipherSuites:   args.ServerOptions.TLSOptions.CipherSuites,
+		GetCertificate:   s.getIstiodCertificate,
+		MinVersion:       tls.VersionTLS12,
+		CipherSuites:     args.ServerOptions.TLSOptions.CipherSuites,
+		CurvePreferences: args.ServerOptions.TLSOptions.CurvePreferences,
 	}
 	if args.ServerOptions.TLSOptions.MinVersion != 0 {
 		tlsConfig.MinVersion = args.ServerOptions.TLSOptions.MinVersion

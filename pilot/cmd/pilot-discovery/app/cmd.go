@@ -184,6 +184,10 @@ func addFlags(c *cobra.Command) {
 	c.PersistentFlags().StringVar(&serverArgs.ServerOptions.TLSOptions.TLSMinVersion, "tls-min-version", bootstrap.TLSMinVersion1_2,
 		"Minimum TLS version for the istiod TLS server. "+
 			fmt.Sprintf("Only %s and %s are supported.", bootstrap.TLSMinVersion1_2, bootstrap.TLSMinVersion1_3))
+	c.PersistentFlags().StringSliceVar(&serverArgs.ServerOptions.TLSOptions.TLSCurves, "tls-curves", nil,
+		"Comma-separated list of ECDH curves for istiod TLS server. "+
+			"If omitted, the default Go curves will be used. \n"+
+			"Supported values: "+strings.Join(bootstrap.TLSCurveNames(), ", ")+".")
 
 	c.PersistentFlags().Float32Var(&serverArgs.RegistryOptions.KubeOptions.KubernetesAPIQPS, "kubernetesApiQPS", 80.0,
 		"Maximum QPS when communicating with the kubernetes API")

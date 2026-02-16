@@ -760,6 +760,103 @@ func TestIstiodMinTLSVersion(t *testing.T) {
 	}
 }
 
+func TestIstiodCurvePreferences(t *testing.T) {
+	cases := []struct {
+		name                   string
+		serverCurvePreferences []tls.CurveID
+		clientCurvePreferences []tls.CurveID
+		expectSuccess          bool
+	}{
+		{
+			name:          "default curve preferences",
+			expectSuccess: true,
+		},
+		{
+			name:                   "client and istiod curve preferences match",
+			serverCurvePreferences: []tls.CurveID{tls.CurveP256, tls.CurveP384},
+			clientCurvePreferences: []tls.CurveID{tls.CurveP256, tls.CurveP384},
+			expectSuccess:          true,
+		},
+		{
+			name:                   "server restricted to P256, client supports P256",
+			serverCurvePreferences: []tls.CurveID{tls.CurveP256},
+			clientCurvePreferences: []tls.CurveID{tls.CurveP256, tls.CurveP384, tls.X25519},
+			expectSuccess:          true,
+		},
+		{
+			name:                   "server restricted to P384, client only supports P256",
+			serverCurvePreferences: []tls.CurveID{tls.CurveP384},
+			clientCurvePreferences: []tls.CurveID{tls.CurveP256},
+			expectSuccess:          false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configDir := t.TempDir()
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+				p.ServerOptions = DiscoveryServerOptions{
+					// Dynamically assign all ports.
+					HTTPAddr:       ":0",
+					MonitoringAddr: ":0",
+					GRPCAddr:       ":0",
+					HTTPSAddr:      ":0",
+					TLSOptions: TLSOptions{
+						CurvePreferences: c.serverCurvePreferences,
+					},
+				}
+				p.RegistryOptions = RegistryOptions{
+					KubeConfig: "config",
+					FileDir:    configDir,
+				}
+
+				// Include all of the default plugins
+				p.ShutdownDuration = 1 * time.Millisecond
+			})
+
+			g := NewWithT(t)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
+			g.Expect(err).To(Succeed())
+
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+			}()
+
+			httpsReadyClient := &http.Client{
+				Timeout: time.Second,
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+						CurvePreferences:   c.clientCurvePreferences,
+						MinVersion:         tls.VersionTLS12,
+						MaxVersion:         tls.VersionTLS12,
+					},
+				},
+			}
+
+			retry.UntilSuccessOrFail(t, func() error {
+				response, err := httpsReadyClient.Get("https://" + s.httpsAddr + "/ready")
+				if response != nil {
+					defer response.Body.Close()
+				}
+				if c.expectSuccess && err != nil {
+					return fmt.Errorf("expect success but got err %v", err)
+				}
+				if !c.expectSuccess && err == nil {
+					return fmt.Errorf("expect failure but succeeded")
+				}
+				return nil
+			})
+		})
+	}
+}
+
 func TestIstiodReadinessHandler(t *testing.T) {
 	configDir := t.TempDir()
 
