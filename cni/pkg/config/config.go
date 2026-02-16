@@ -17,13 +17,11 @@ package config
 import (
 	"fmt"
 	"net/netip"
+	"os"
 	"strings"
 
-	"os"
-
-	cfg "istio.io/istio/tools/common/config"
-
 	"istio.io/istio/cni/pkg/constants"
+	cfg "istio.io/istio/tools/common/config"
 )
 
 // These constants are shared between iptables and nftables implementations
@@ -108,7 +106,7 @@ type InstallConfig struct {
 	PluginLogLevel string
 	// The file mode to set when creating the kubeconfig file
 	KubeconfigMode int
-	// Whether to enable group read/write on the CNI config file (0640 instead of 0600)
+	// Whether to enable group read on the CNI config file (0640 instead of default 0600)
 	CNIConfChgrp bool
 	// CA file for kubeconfig
 	KubeCAFile string
