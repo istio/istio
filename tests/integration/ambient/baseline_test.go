@@ -208,6 +208,10 @@ func TestServices(t *testing.T) {
 			opt.Check = tcpValidator
 		}
 
+		if t.Settings().AmbientMultiNetwork && src.Config().HasSidecar() {
+			t.Skip("https://github.com/istio/istio/issues/57878")
+		}
+
 		if !dst.Config().HasServiceAddressedWaypointProxy() &&
 			!src.Config().HasServiceAddressedWaypointProxy() &&
 			(src.Config().Service != dst.Config().Service) &&
@@ -262,7 +266,13 @@ func TestServices(t *testing.T) {
 			return
 		}
 
-		// TODO test from all source workloads as well
+		if t.Settings().AmbientMultiNetwork && src.Config().IsAmbient() &&
+			dst.Config().IsAmbient() && !opt.Port.LocalhostIP {
+			opt.Check = check.And(opt.Check, check.ReachedTargetClusters(t))
+			opt.NewConnectionPerRequest = true
+			opt.Count = 20
+		}
+
 		src.CallOrFail(t, opt)
 	})
 }

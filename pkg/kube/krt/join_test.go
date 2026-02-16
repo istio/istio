@@ -17,6 +17,7 @@ package krt_test
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // NamedValue has the same resource name (from Named) but different values
@@ -90,6 +92,69 @@ func testJoinInner(t *testing.T, options ...krt.CollectionOption) {
 			{"c3", "a"},
 		}, sortf),
 	)
+}
+
+// TODO: this test fails with NewStatic[Named]; when the key chaneges we don't get a delete
+// event so our collection's processedState doesn't drop the old value!
+func testJoinRegisterBatch(t *testing.T, eventsAfterCollection bool, options ...krt.CollectionOption) {
+	options = append(options, krt.WithName("JoinTestInitialState"))
+	opts := testOptions(t).With(options...)
+
+	// Use NamedValue so the key (from Named) stays stable while Value changes.
+	// This avoids a StaticCollection bug where key changes aren't handled properly.
+	c1 := krt.NewStatic(&NamedValue{Named{"c1", "a"}, "v1"}, true, krt.WithName("c1"))
+	c2 := krt.NewStatic(&NamedValue{Named{"c2", "a"}, "v1"}, true, krt.WithName("c2"))
+
+	if !eventsAfterCollection {
+		// call Set before registering, otherwise Set will generate events and make
+		// and we won't catch bugs in initial state handling
+		c1.Set(&NamedValue{Named{"c1", "a"}, "v1"})
+		c2.Set(&NamedValue{Named{"c2", "a"}, "v2"})
+	}
+
+	j := krt.JoinCollection(
+		[]krt.Collection[NamedValue]{c1.AsCollection(), c2.AsCollection()},
+		opts...,
+	)
+
+	if eventsAfterCollection {
+		// call Set after registering, to ensure that we don't get duplicate events
+		// from Set being called AFTER the Join is set up
+		c1.Set(&NamedValue{Named{"c1", "a"}, "v1"})
+		c2.Set(&NamedValue{Named{"c2", "a"}, "v2"})
+	}
+
+	t.Run("initial state", func(t *testing.T) {
+		mu := sync.RWMutex{}
+		initialStateEvents := []krt.Event[NamedValue]{}
+		reg := j.RegisterBatch(func(events []krt.Event[NamedValue]) {
+			mu.Lock()
+			defer mu.Unlock()
+			initialStateEvents = append(initialStateEvents, events...)
+		}, true)
+
+		assert.EventuallyEqual(t, func() int {
+			mu.RLock()
+			defer mu.RUnlock()
+			return len(initialStateEvents)
+		}, 2, retry.Timeout(5*time.Millisecond), retry.Delay(time.Millisecond))
+		reg.UnregisterHandler()
+	})
+	t.Run("no initial state", func(t *testing.T) {
+		mu := sync.RWMutex{}
+		events := []krt.Event[NamedValue]{}
+		reg := j.RegisterBatch(func(evts []krt.Event[NamedValue]) {
+			mu.Lock()
+			defer mu.Unlock()
+			events = append(events, evts...)
+		}, false)
+		assert.Consistently(t, func() int {
+			mu.RLock()
+			defer mu.RUnlock()
+			return len(events)
+		}, 0)
+		reg.UnregisterHandler()
+	})
 }
 
 func TestCollectionJoin(t *testing.T) {
