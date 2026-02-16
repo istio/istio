@@ -1435,6 +1435,43 @@ func TestServiceServices(t *testing.T) {
 				Canonical: true,
 			},
 		},
+		{
+			name:   "first healthy race connect strategy",
+			inputs: []any{},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Annotations: map[string]string{
+						"ambient.istio.io/connect-strategy": "FIRST_HEALTHY_RACE",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				LoadBalancing: &workloadapi.LoadBalancing{
+					ConnectStrategy: workloadapi.LoadBalancing_FIRST_HEALTHY_RACE,
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

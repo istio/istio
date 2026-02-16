@@ -683,16 +683,6 @@ func constructService(
 		lb.HealthPolicy = workloadapi.LoadBalancing_ALLOW_ALL
 	}
 
-	// Check for connect strategy annotation.
-	if cs := getConnectStrategy(svc.Annotations); cs != workloadapi.LoadBalancing_DEFAULT {
-		if lb == nil {
-			lb = &workloadapi.LoadBalancing{}
-		} else {
-			lb = protomarshal.ShallowClone(lb)
-		}
-		lb.ConnectStrategy = cs
-	}
-
 	ipFamily := workloadapi.IPFamilies_AUTOMATIC
 	if len(svc.Spec.IPFamilies) == 2 {
 		ipFamily = workloadapi.IPFamilies_DUAL
@@ -723,7 +713,7 @@ func constructService(
 
 const ambientConnectStrategyAnnotation = "ambient.istio.io/connect-strategy"
 
-// getConnectStrategy reads the connect strategy from Service/ServiceEntry annotations.
+// getConnectStrategy reads the connect strategy from ServiceEntry annotations.
 func getConnectStrategy(annotations map[string]string) workloadapi.LoadBalancing_ConnectStrategy {
 	if v, ok := annotations[ambientConnectStrategyAnnotation]; ok {
 		if strings.EqualFold(v, "FIRST_HEALTHY_RACE") {
