@@ -630,7 +630,7 @@ func encode(user, pass string) string {
 	return base64.StdEncoding.EncodeToString([]byte(delimited))
 }
 
-func TestValidateBearerRealm(t *testing.T) {
+func TestValidateAllRealms(t *testing.T) {
 	tests := []struct {
 		name      string
 		wwwAuth   string
@@ -736,13 +736,31 @@ func TestValidateBearerRealm(t *testing.T) {
 			wwwAuth:   `Basic charset="UTF-8"`,
 			expectErr: false,
 		},
+		// multiple realms in one header - safe first, malicious second
+		{
+			name:      "multiple challenges safe then malicious",
+			wwwAuth:   `Bearer realm="https://safe.com/token", Basic realm="http://169.254.169.254/"`,
+			expectErr: true,
+		},
+		// multiple realms - malicious first
+		{
+			name:      "multiple challenges malicious first",
+			wwwAuth:   `Basic realm="http://localhost/", Bearer realm="https://safe.com/token"`,
+			expectErr: true,
+		},
+		// both realms safe
+		{
+			name:      "multiple challenges both safe",
+			wwwAuth:   `Bearer realm="https://auth.example.com/", Basic realm="https://other.example.com/"`,
+			expectErr: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateBearerRealm(tt.wwwAuth)
+			err := validateAllRealms(tt.wwwAuth)
 			if (err != nil) != tt.expectErr {
-				t.Errorf("validateBearerRealm() error = %v, expectErr %v", err, tt.expectErr)
+				t.Errorf("validateAllRealms() error = %v, expectErr %v", err, tt.expectErr)
 			}
 		})
 	}
