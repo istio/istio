@@ -179,7 +179,7 @@ func TestServices(t *testing.T) {
 			opt.Check = tcpValidator
 		}
 
-		if t.Settings().AmbientMultiNetwork && src.Config().HasSidecar() && !dst.Config().HasSidecar() {
+		if t.Settings().AmbientMultiNetwork && src.Config().HasSidecar() {
 			t.Skip("https://github.com/istio/istio/issues/57878")
 		}
 
@@ -240,8 +240,7 @@ func TestServices(t *testing.T) {
 		}
 
 		if t.Settings().AmbientMultiNetwork && src.Config().IsAmbient() &&
-			dst.Config().IsAmbient() && !opt.Port.LocalhostIP && !dst.Config().HasServiceAddressedWaypointProxy() {
-			// TODO (mitchconnors): Figure out why SA Waypoint destinations never go cross-cluster.
+			dst.Config().IsAmbient() && !opt.Port.LocalhostIP {
 			opt.Check = check.And(opt.Check, check.ReachedTargetClusters(t))
 			opt.NewConnectionPerRequest = true
 			opt.Count = 20
