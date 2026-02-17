@@ -97,6 +97,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			log.Errorf("In-cluster analysis has failed: %s", err)
 			return
 		}
+		logAnalysisMessages(res.Messages)
 		// reorganize messages to map
 		index := map[status.Resource]diag.Messages{}
 		for _, m := range res.Messages {
@@ -126,4 +127,20 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		log.Debugf("finished enqueueing all statuses")
 	}
 	db.Run(chKind, stop, 1*time.Second, features.AnalysisInterval, pushFn)
+}
+
+// logAnalysisMessages logs configuration analysis messages so that issues for
+// all resource types (DestinationRule, EnvoyFilter, etc.) are visible in
+// istiod logs, not only in the resource status field.
+func logAnalysisMessages(msgs diag.Messages) {
+	for _, m := range msgs {
+		switch m.Type.Level() {
+		case diag.Error:
+			log.Errorf("Configuration analysis: %s", m.String())
+		case diag.Warning:
+			log.Warnf("Configuration analysis: %s", m.String())
+		default:
+			log.Debugf("Configuration analysis: %s", m.String())
+		}
+	}
 }
