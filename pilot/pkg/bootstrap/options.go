@@ -198,13 +198,11 @@ func TLSCipherSuites(cipherNames []string) ([]uint16, error) {
 // TLSMinVersion returns the golang TLS version from the version string passed.
 func TLSMinVersion(version string) (uint16, error) {
 	switch version {
-	case "1.0", "1.1":
-		return tls.VersionTLS12, fmt.Errorf("tls version: %s is not supported. Only %s and %s are supported", version, TLSMinVersion1_2, TLSMinVersion1_3)
 	case TLSMinVersion1_2:
 		return tls.VersionTLS12, nil
 	case TLSMinVersion1_3:
 		return tls.VersionTLS13, nil
+	default:
+		return tls.VersionTLS12, fmt.Errorf("minimum TLS version: %s is not supported. Only %s and %s are supported", version, TLSMinVersion1_2, TLSMinVersion1_3)
 	}
-
-	return tls.VersionTLS12, fmt.Errorf("unknown TLS version: %s. Only %s and %s are supported", version, TLSMinVersion1_2, TLSMinVersion1_3)
 }
