@@ -21,56 +21,88 @@ import (
 
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/util/sets"
 )
 
-func TestLogAnalysisMessages(t *testing.T) {
+func TestLogNewAnalysisMessages(t *testing.T) {
 	origin := diag.MockResource("DestinationRule/default/test-dr")
 
-	tests := []struct {
-		name string
-		msgs diag.Messages
-	}{
-		{
-			name: "empty messages",
-			msgs: diag.Messages{},
-		},
-		{
-			name: "error level message",
-			msgs: diag.Messages{
-				diag.NewMessage(msg.SchemaValidationError, origin, "field is invalid"),
-			},
-		},
-		{
-			name: "warning level message",
-			msgs: diag.Messages{
-				diag.NewMessage(msg.NoMatchingWorkloadsFound, origin, "app=test"),
-			},
-		},
-		{
-			name: "info level message",
-			msgs: diag.Messages{
-				diag.NewMessage(msg.NamespaceNotInjected, origin, "default", "default"),
-			},
-		},
-		{
-			name: "mixed levels",
-			msgs: diag.Messages{
-				diag.NewMessage(msg.SchemaValidationError, origin, "field is invalid"),
-				diag.NewMessage(msg.NoMatchingWorkloadsFound, origin, "app=test"),
-				diag.NewMessage(msg.NamespaceNotInjected, origin, "default", "default"),
-			},
-		},
-	}
+	t.Run("empty messages", func(t *testing.T) {
+		result := logNewAnalysisMessages(diag.Messages{}, sets.New[string]())
+		if result.Len() != 0 {
+			t.Errorf("expected empty set, got %d entries", result.Len())
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// logAnalysisMessages should not panic for any input
-			logAnalysisMessages(tt.msgs)
-		})
-	}
-}
+	t.Run("nil messages", func(t *testing.T) {
+		result := logNewAnalysisMessages(nil, sets.New[string]())
+		if result.Len() != 0 {
+			t.Errorf("expected empty set, got %d entries", result.Len())
+		}
+	})
 
-func TestLogAnalysisMessagesNil(t *testing.T) {
-	// Passing nil should not panic
-	logAnalysisMessages(nil)
+	t.Run("nil previous set", func(t *testing.T) {
+		msgs := diag.Messages{
+			diag.NewMessage(msg.SchemaValidationError, origin, "field is invalid"),
+		}
+		result := logNewAnalysisMessages(msgs, nil)
+		if result.Len() != 1 {
+			t.Errorf("expected 1 entry, got %d", result.Len())
+		}
+	})
+
+	t.Run("new messages are logged and returned", func(t *testing.T) {
+		msgs := diag.Messages{
+			diag.NewMessage(msg.SchemaValidationError, origin, "field is invalid"),
+			diag.NewMessage(msg.NoMatchingWorkloadsFound, origin, "app=test"),
+		}
+		result := logNewAnalysisMessages(msgs, sets.New[string]())
+		if result.Len() != 2 {
+			t.Errorf("expected 2 entries, got %d", result.Len())
+		}
+		for _, m := range msgs {
+			if !result.Contains(m.String()) {
+				t.Errorf("expected set to contain %q", m.String())
+			}
+		}
+	})
+
+	t.Run("duplicate messages are not re-logged", func(t *testing.T) {
+		msgs := diag.Messages{
+			diag.NewMessage(msg.SchemaValidationError, origin, "field is invalid"),
+		}
+		// First cycle: message is new
+		first := logNewAnalysisMessages(msgs, sets.New[string]())
+		// Second cycle: same message should be deduplicated (no panic, returns same set)
+		second := logNewAnalysisMessages(msgs, first)
+		if second.Len() != 1 {
+			t.Errorf("expected 1 entry, got %d", second.Len())
+		}
+	})
+
+	t.Run("resolved messages are removed from set", func(t *testing.T) {
+		msgs := diag.Messages{
+			diag.NewMessage(msg.SchemaValidationError, origin, "field is invalid"),
+		}
+		first := logNewAnalysisMessages(msgs, sets.New[string]())
+		// Second cycle: issue resolved (empty messages)
+		second := logNewAnalysisMessages(diag.Messages{}, first)
+		if second.Len() != 0 {
+			t.Errorf("expected empty set after resolution, got %d", second.Len())
+		}
+	})
+
+	t.Run("mixed new and existing messages", func(t *testing.T) {
+		existingMsg := diag.NewMessage(msg.SchemaValidationError, origin, "field is invalid")
+		newMsg := diag.NewMessage(msg.NoMatchingWorkloadsFound, origin, "app=test")
+
+		previous := sets.New[string]()
+		previous.Insert(existingMsg.String())
+
+		msgs := diag.Messages{existingMsg, newMsg}
+		result := logNewAnalysisMessages(msgs, previous)
+		if result.Len() != 2 {
+			t.Errorf("expected 2 entries, got %d", result.Len())
+		}
+	})
 }
