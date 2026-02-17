@@ -17,7 +17,6 @@ package krt_test
 import (
 	"sync"
 	"testing"
-	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +32,6 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 // NamedValue has the same resource name (from Named) but different values
@@ -154,7 +152,7 @@ func testJoinRegisterBatch(t *testing.T, eventsAfterCollection bool, options ...
 			mu.RLock()
 			defer mu.RUnlock()
 			return len(initialStateEvents)
-		}, 2, retry.Timeout(5*time.Millisecond), retry.Delay(time.Millisecond))
+		}, 2)
 		reg.UnregisterHandler()
 	})
 	t.Run("no initial state", func(t *testing.T) {
