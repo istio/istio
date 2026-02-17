@@ -549,6 +549,21 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:         "proxy-resources-null.yaml",
+			want:       "proxy-resources-null.yaml.injected",
+			inFilePath: "proxy-resources-null.iop.yaml",
+		},
+		{
+			in:         "proxy-resources-null-no-init.yaml",
+			want:       "proxy-resources-null-no-init.yaml.injected",
+			inFilePath: "proxy-resources-null.iop.yaml",
+		},
+		{
+			in:         "proxy-resources-zero.yaml",
+			want:       "proxy-resources-zero.yaml.injected",
+			inFilePath: "proxy-resources-zero.iop.yaml",
+		},
+		{
 			in:         "sidecar-spire.yaml",
 			want:       "sidecar-spire.yaml.injected",
 			inFilePath: "spire-template.iop.yaml",

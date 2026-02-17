@@ -73,7 +73,7 @@ spec:
           protocol: TCP
         resources:
 {{- if .Values.resources }}
-{{ toYaml .Values.resources | trim | indent 10 }}
+{{ include "ztunnel.resources" .Values.resources | trim | indent 10 }}
 {{- end }}
 {{- with .Values.imagePullPolicy }}
         imagePullPolicy: {{ . }}

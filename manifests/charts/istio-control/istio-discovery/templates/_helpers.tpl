@@ -21,3 +21,28 @@
   .Values.telemetry.enabled .Values.telemetry.v2.enabled .Values.telemetry.v2.stackdriver.enabled
 }}
 {{- end }}
+
+{{/*
+Render resource requirements, omitting any nil values.
+*/}}
+{{- define "istiod.resources" -}}
+{{- range $key := list "limits" "requests" }}
+  {{- $resources := index $ $key }}
+  {{- if $resources }}
+    {{- $hasValues := false }}
+    {{- range $name, $value := $resources }}
+      {{- if $value }}
+        {{- $hasValues = true }}
+      {{- end }}
+    {{- end }}
+    {{- if $hasValues }}
+{{ $key }}:
+      {{- range $name, $value := $resources }}
+        {{- if $value }}
+  {{ $name }}: {{ $value }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end -}}
