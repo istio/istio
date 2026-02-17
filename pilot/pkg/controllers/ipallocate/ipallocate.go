@@ -260,10 +260,12 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 		patch, _, newlyAllocated, err := c.statusPatchForAddresses(resolveMe, true)
 		if err != nil {
 			errs = errors.Join(errs, err)
+			continue
 		}
 
 		if patch == nil {
 			errs = errors.Join(errs, fmt.Errorf("this should not occur but patch was empty on a forced reassignment"))
+			continue
 		}
 
 		_, err = c.serviceEntryWriter.PatchStatus(resolveMe.Name, resolveMe.Namespace, types.JSONPatchType, patch)
@@ -354,8 +356,9 @@ func keepHost(se *networkingv1.ServiceEntry, h string) bool {
 }
 
 // statusPatchForAddresses returns two patch variants (replace and add-status) along with
-// a list of any newly allocated addresses. The caller must free the newly allocated addresses
-// if neither patch succeeds, to avoid leaking IPs from the allocator.
+// a list of any newly allocated addresses. On error, any newly allocated addresses are freed
+// internally and all return values will be nil. The caller must still free the newly allocated
+// addresses if neither patch succeeds, to avoid leaking IPs from the allocator.
 func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, forcedReassign bool) ([]byte, []byte, []netip.Addr, error) {
 	if se == nil {
 		return nil, nil, nil, nil
@@ -445,7 +448,12 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		},
 	})
 
-	return replaceAddresses, addStatusAndAddresses, newlyAllocated, errors.Join(err, err2)
+	if errs := errors.Join(err, err2); errs != nil {
+		c.freeAddresses(newlyAllocated, config.NamespacedName(se))
+		return nil, nil, nil, errs
+	}
+
+	return replaceAddresses, addStatusAndAddresses, newlyAllocated, nil
 }
 
 func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1.ServiceEntry) {
