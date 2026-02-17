@@ -337,9 +337,45 @@ spec:
         - cors:
             allowCredentials: true
             allowOrigins:
-            # - '*' # This will be allowed in the future, probably https://github.com/kubernetes-sigs/gateway-api/issues/3648#issuecomment-2735208553
-            # - '*.com'
+              - 'https://*.xpto.com'
               - "https://example.com"
+            allowMethods:
+              - GET
+              - HEAD
+              - POST
+            allowHeaders:
+              - Accept
+              - Accept-Language
+              - Content-Language
+              - Content-Type
+              - Range
+            exposeHeaders:
+            - "x-header-3"
+            - "x-header-4"
+            maxAge: 50
+          type: CORS
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-route-cors-wildcard-1
+  namespace: default
+spec:
+  hostnames:
+  - "cors-wildcard-origin.domain.example"
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  rules:
+    - backendRefs:
+        - kind: Service
+          name: httpbin
+          port: 80
+      filters:
+        - cors:
+            allowCredentials: true
+            allowOrigins:
+            - '*'
             allowMethods:
               - GET
               - HEAD
