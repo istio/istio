@@ -37,7 +37,7 @@ import (
 // fileEventOpts uses a longer timeout than the default 1s for the event tracker,
 // since file watcher events pass through fsnotify debouncing (50ms) and multiple
 // levels of async krt event processing before reaching the handler.
-var fileEventOpts = []retry.Option{retry.Timeout(5 * time.Second), retry.BackoffDelay(time.Millisecond)}
+var fileEventOpts = []retry.Option{retry.Timeout(5 * time.Second), retry.BackoffDelay(50 * time.Millisecond)}
 
 func TestController(t *testing.T) {
 	stop := test.NewStop(t)
