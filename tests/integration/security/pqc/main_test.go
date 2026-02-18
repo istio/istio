@@ -217,7 +217,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   checkTLSHandshakeFailure(t),
+					Check:   checkTLSHandshakeFailure,
 				})
 			})
 		})
@@ -345,7 +345,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   checkTLSHandshakeFailure(t),
+					Check:   checkTLSHandshakeFailure,
 				})
 			})
 
@@ -383,14 +383,12 @@ spec:
 		})
 }
 
-func checkTLSHandshakeFailure(t framework.TestContext) func(echo.CallResult, error) error {
-	return func(_ echo.CallResult, err error) error {
-		if err == nil {
-			t.Error("expected to get TLS handshake error but got none")
-		}
-		if !strings.Contains(err.Error(), "tls: handshake failure") {
-			t.Errorf("expected to get TLS handshake error but got: %s", err)
-		}
-		return nil
+func checkTLSHandshakeFailure(_ echo.CallResult, err error) error {
+	if err == nil {
+		return fmt.Errorf("expected to get TLS handshake error but got none")
 	}
+	if !strings.Contains(err.Error(), "tls: handshake failure") {
+		return fmt.Errorf("expected to get TLS handshake error but got: %s", err)
+	}
+	return nil
 }
