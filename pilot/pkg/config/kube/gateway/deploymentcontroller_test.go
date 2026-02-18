@@ -146,6 +146,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		discoveryNamespaceFilter kubetypes.DynamicObjectFilter
 		ignore                   bool
 		copyLabelsAnnotations    *bool
+		enableQUICListeners      bool
 	}{
 		{
 			name: "simple",
@@ -255,6 +256,45 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 			objects:                  defaultObjects,
 			discoveryNamespaceFilter: discoveryNamespacesFilter,
+		},
+		{
+			name: "quic-disabled",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Listeners: []k8s.Listener{{
+						Name:     "https",
+						Port:     k8s.PortNumber(443),
+						Protocol: k8s.HTTPSProtocolType,
+					}},
+				},
+			},
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+		},
+		{
+			name: "quic-enabled",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Listeners: []k8s.Listener{{
+						Name:     "https",
+						Port:     k8s.PortNumber(443),
+						Protocol: k8s.HTTPSProtocolType,
+					}},
+				},
+			},
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+			enableQUICListeners:      true,
 		},
 		{
 			name: "waypoint",
@@ -660,6 +700,9 @@ metadata:
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.copyLabelsAnnotations != nil {
 				test.SetForTest(t, &features.EnableGatewayAPICopyLabelsAnnotations, *tt.copyLabelsAnnotations)
+			}
+			if tt.enableQUICListeners {
+				test.SetForTest(t, &features.EnableQUICListeners, tt.enableQUICListeners)
 			}
 			buf := &bytes.Buffer{}
 			client := kube.NewFakeClient(tt.objects...)
