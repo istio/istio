@@ -255,12 +255,6 @@ func TestServices(t *testing.T) {
 			opt.Check = check.Or(check.Error(), check.Status(503))
 		}
 
-		if dst.Config().HasServiceAddressedWaypointProxy() && opt.Port.ServerFirst {
-			// This is a testing gap, not a functional gap. Server first protocols only work for service-only waypoints.
-			// We use a single waypoint for service+workloads, though, which makes this not work
-			t.Skip("https://github.com/istio/istio/issues/55420")
-		}
-
 		if !src.Config().HasProxyCapabilities() && dst.Config().HasSidecar() && opt.Port.ServerFirst {
 			// This is expected to be broken (src clause is because mTLS makes it work)
 			return
@@ -399,8 +393,9 @@ func TestServerSideLB(t *testing.T) {
 
 func TestWaypointChanges(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		waypointName := "waypoint-service"
 		getGracePeriod := func(want int64) bool {
-			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"=waypoint")()
+			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"="+waypointName)()
 			assert.NoError(t, err)
 			for _, p := range pods {
 				grace := p.Spec.TerminationGracePeriodSeconds
@@ -669,8 +664,11 @@ func TestWaypointEnvoyFilter(t *testing.T) {
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
+			// Get the actual waypoint name for this destination
+			waypointName := dst.Config().ServiceWaypointProxy
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": "waypoint",
+				"Destination":  waypointName,
+				"WaypointName": waypointName,
 			}, `apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -678,7 +676,7 @@ metadata:
 spec:
   targetRefs:
   - kind: Gateway
-    name: waypoint
+    name: {{ .WaypointName }}
     group: gateway.networking.k8s.io
   configPatches:
   - applyTo: HTTP_FILTER
@@ -1466,7 +1464,7 @@ spec:
   targetRefs:
   - kind: Gateway
     group: gateway.networking.k8s.io
-    name: waypoint
+    name: {{ .WaypointName }}
 `+policySpec+`
 ---
 apiVersion: security.istio.io/v1
@@ -1487,7 +1485,7 @@ spec:
   targetRefs:
   - kind: Gateway
     group: gateway.networking.k8s.io
-    name: waypoint
+    name: {{ .WaypointName }}
 `+denySpec).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
@@ -3831,7 +3829,7 @@ spec:
       port: 80
 `).
 				ApplyOrFail(t)
-			SetWaypoint(t, Sidecar, "waypoint")
+			SetWaypoint(t, Sidecar, "waypoint-service")
 			for _, c := range t.Clusters() {
 				// TODO: Support sending to a different cluster
 				client := apps.Captured.ForCluster(c.Name())
@@ -3884,9 +3882,9 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/{{.}}/sa/waypoint"]`).
+        principals: ["cluster.local/ns/{{.}}/sa/waypoint-service"]`).
 				ApplyOrFail(t)
-			SetWaypoint(t, Sidecar, "waypoint")
+			SetWaypoint(t, Sidecar, "waypoint-service")
 			for _, c := range t.Clusters() {
 				// TODO: Support sending to a different cluster
 				client := apps.Captured.ForCluster(c.Name())
