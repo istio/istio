@@ -920,7 +920,7 @@ func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, hea
 func checkHealthOrFail(t test.Failer, store model.ConfigStoreController, proxy *model.Proxy, healthy bool) {
 	retry.UntilSuccessOrFail(t, func() error {
 		return checkEntryHealth(store, proxy, healthy)
-	})
+	}, retry.Timeout(5*time.Second))
 }
 
 func checkEntryDisconnected(store model.ConfigStoreController, we config.Config) error {
