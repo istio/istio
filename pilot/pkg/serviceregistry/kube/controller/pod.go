@@ -235,6 +235,20 @@ func getPortMap(pod *v1.Pod) map[string]uint32 {
 			}
 		}
 	}
+	// Also include ports from native sidecar init containers (restartPolicy=Always).
+	for _, c := range pod.Spec.InitContainers {
+		if c.RestartPolicy == nil || *c.RestartPolicy != v1.ContainerRestartPolicyAlways {
+			continue
+		}
+		for _, port := range c.Ports {
+			if port.Name == "" || port.Protocol != v1.ProtocolTCP {
+				continue
+			}
+			if _, f := pmap[port.Name]; !f {
+				pmap[port.Name] = uint32(port.ContainerPort)
+			}
+		}
+	}
 	return pmap
 }
 
