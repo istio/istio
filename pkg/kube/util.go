@@ -406,9 +406,21 @@ func StripPodUnusedFields(obj any) (any, error) {
 				})
 			}
 		}
+		// Preserve native sidecar init containers (restartPolicy=Always) that have ports,
+		// so that their ports can be discovered for inbound listener configuration.
+		initContainers := []corev1.Container{}
+		for _, c := range pod.Spec.InitContainers {
+			if c.RestartPolicy != nil && *c.RestartPolicy == corev1.ContainerRestartPolicyAlways && len(c.Ports) > 0 {
+				initContainers = append(initContainers, corev1.Container{
+					Ports:         c.Ports,
+					RestartPolicy: c.RestartPolicy,
+				})
+			}
+		}
 		oldSpec := pod.Spec
 		newSpec := corev1.PodSpec{
 			Containers:         containers,
+			InitContainers:     initContainers,
 			ServiceAccountName: oldSpec.ServiceAccountName,
 			NodeName:           oldSpec.NodeName,
 			HostNetwork:        oldSpec.HostNetwork,
