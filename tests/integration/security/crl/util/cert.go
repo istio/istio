@@ -395,10 +395,10 @@ func upsertSecret(
 
 func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *Bundle, instances ...echo.Instance) {
 	t.Helper()
-	starTime := time.Now()
+	startTime := time.Now()
 	t.Logf("waiting for CRL update in namespaces: %s", strings.Join(namespaces, ", "))
 	defer func() {
-		t.Logf("CRL wait executed in %v", time.Since(starTime))
+		t.Logf("CRL wait executed in %v", time.Since(startTime))
 	}()
 
 	// verify crl ConfigMaps are updated
