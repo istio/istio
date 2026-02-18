@@ -2813,16 +2813,16 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 			name:     "target ports changed",
 			prev:     &svc,
 			curr:     &updatedSvc,
-			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", ""),
-			currConv: kube.ConvertService(updatedSvc, constants.DefaultClusterLocalDomain, "", ""),
+			prevConv: kube.ConvertService(svc, nil, constants.DefaultClusterLocalDomain, "", ""),
+			currConv: kube.ConvertService(updatedSvc, nil, constants.DefaultClusterLocalDomain, "", ""),
 			expect:   true,
 		},
 		testcase{
 			name:     "target ports unchanged",
 			prev:     &svc,
 			curr:     &svc,
-			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", ""),
-			currConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", ""),
+			prevConv: kube.ConvertService(svc, nil, constants.DefaultClusterLocalDomain, "", ""),
+			currConv: kube.ConvertService(svc, nil, constants.DefaultClusterLocalDomain, "", ""),
 			expect:   false,
 		})
 
@@ -2831,5 +2831,50 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 		if actual != test.expect {
 			t.Fatalf("%s: expected %v, got %v", test.name, test.expect, actual)
 		}
+	}
+}
+
+func TestNamespaceTrafficDistributionInheritance(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	nsName := "test-ns"
+	// Create namespace without traffic-distribution annotation
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nsName,
+		},
+	}
+	clienttest.Wrap(t, controller.namespaces).CreateOrUpdate(ns)
+
+	// Create a service in this namespace
+	createServiceWait(controller, "test-svc", nsName, []string{"10.0.0.1"},
+		map[string]string{}, map[string]string{},
+		[]int32{8080}, map[string]string{"app": "test"}, t)
+
+	// Verify initial traffic distribution is Any
+	svc := controller.GetService(kube.ServiceHostname("test-svc", nsName, defaultFakeDomainSuffix))
+	if svc == nil {
+		t.Fatal("service not found")
+	}
+	if svc.Attributes.TrafficDistribution != model.TrafficDistributionAny {
+		t.Fatalf("expected TrafficDistributionAny, got %v", svc.Attributes.TrafficDistribution)
+	}
+
+	// Update namespace with traffic-distribution annotation
+	ns.Annotations = map[string]string{
+		annotation.NetworkingTrafficDistribution.Name: "PreferClose",
+	}
+	clienttest.Wrap(t, controller.namespaces).CreateOrUpdate(ns)
+
+	// Wait for service update event
+	fx.WaitOrFail(t, "service")
+
+	// Verify service now has PreferSameZone traffic distribution
+	svc = controller.GetService(kube.ServiceHostname("test-svc", nsName, defaultFakeDomainSuffix))
+	if svc == nil {
+		t.Fatal("service not found after namespace update")
+	}
+	if svc.Attributes.TrafficDistribution != model.TrafficDistributionPreferSameZone {
+		t.Fatalf("expected TrafficDistributionPreferSameZone, got %v", svc.Attributes.TrafficDistribution)
 	}
 }

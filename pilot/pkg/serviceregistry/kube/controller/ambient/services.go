@@ -279,7 +279,13 @@ func serviceServiceBuilder(
 		}
 		waypointStatus.Error = wperr
 
-		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
+		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
+		var nsAnnotations map[string]string
+		if ns != nil {
+			nsAnnotations = (*ns).Annotations
+		}
+
+		svc := constructService(ctx, s, waypoint, domainSuffix, nsAnnotations, networkGetter)
 
 		svcInfo := &model.ServiceInfo{
 			Service:       svc,
@@ -459,7 +465,14 @@ func (a Builder) serviceEntryServiceBuilder(
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, TypedServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
+
+		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
+		var nsAnnotations map[string]string
+		if ns != nil {
+			nsAnnotations = (*ns).Annotations
+		}
+
+		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, nsAnnotations, func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		})
 		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
@@ -473,6 +486,7 @@ func serviceEntriesInfo(
 	s *networkingclient.ServiceEntry,
 	w *Waypoint,
 	wperr *model.StatusMessage,
+	nsAnnotations map[string]string,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
@@ -500,8 +514,7 @@ func serviceEntriesInfo(
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
-	// Should we actually precomupute here, or should we deduplicate first?
-	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
+	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
@@ -517,6 +530,7 @@ func constructServiceEntries(
 	ctx krt.HandlerContext,
 	svc *networkingclient.ServiceEntry,
 	w *Waypoint,
+	nsAnnotations map[string]string,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
@@ -560,7 +574,7 @@ func constructServiceEntries(
 			HealthPolicy: workloadapi.LoadBalancing_ALLOW_ALL,
 		}
 	} else {
-		trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations)
+		trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations, nsAnnotations)
 		switch trafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
 			lb = preferSameZoneLoadBalancer
@@ -610,6 +624,7 @@ func constructService(
 	svc *v1.Service,
 	w *Waypoint,
 	domainSuffix string,
+	nsAnnotations map[string]string,
 	networkGetter func(krt.HandlerContext) network.ID,
 ) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
@@ -641,8 +656,8 @@ func constructService(
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
 	} else {
-		// Check traffic distribution.
-		trafficDistribution := model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
+		// Check traffic distribution with namespace inheritance
+		trafficDistribution := model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations, nsAnnotations)
 		switch trafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
 			lb = preferSameZoneLoadBalancer

@@ -44,7 +44,7 @@ func convertPort(port corev1.ServicePort) *model.Port {
 	}
 }
 
-func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.ID, trustDomain string) *model.Service {
+func ConvertService(svc corev1.Service, nsAnnotations map[string]string, domainSuffix string, clusterID cluster.ID, trustDomain string) *model.Service {
 	addrs := []string{constants.UnspecifiedIP}
 	resolution := model.ClientSideLB
 	externalName := ""
@@ -151,7 +151,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 
 	istioService.Attributes.Type = string(svc.Spec.Type)
 	istioService.Attributes.ExternalName = externalName
-	istioService.Attributes.TrafficDistribution = model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
+	istioService.Attributes.TrafficDistribution = model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations, nsAnnotations)
 	istioService.Attributes.NodeLocal = nodeLocal
 	istioService.Attributes.PublishNotReadyAddresses = svc.Spec.PublishNotReadyAddresses
 	if len(svc.Spec.ExternalIPs) > 0 {
