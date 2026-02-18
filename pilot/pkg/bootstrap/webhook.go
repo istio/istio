@@ -56,6 +56,9 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 		MinVersion:     tls.VersionTLS12,
 		CipherSuites:   args.ServerOptions.TLSOptions.CipherSuites,
 	}
+	if args.ServerOptions.TLSOptions.MinVersion != 0 {
+		tlsConfig.MinVersion = args.ServerOptions.TLSOptions.MinVersion
+	}
 	// Compliance for control plane validation and injection webhook server.
 	sec_model.EnforceGoCompliance(tlsConfig)
 

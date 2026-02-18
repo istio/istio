@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+issue:
+  - https://github.com/istio/istio/issues/58789
+  - 58789
+
+releaseNotes:
+- |
+  **Added** `--tls-min-version` flag to `pilot-discovery` to configure the minimum TLS version
+  for the istiod server and webhook. Supported values are `1.2` (default) and `1.3`.
