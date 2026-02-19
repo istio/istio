@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 59153
+releaseNotes:
+  - |
+    **Fixed** a nil pointer dereference that occurs during the upgrade process in multi-primary deployment.
