@@ -179,6 +179,11 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
 	}
 
+	// Set namespace client for traffic distribution inheritance (config cluster only)
+	if m.serviceEntryController != nil && configCluster {
+		m.serviceEntryController.SetNamespaces(kubeRegistry.namespaces)
+	}
+
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		if m.serviceEntryController != nil && configCluster {

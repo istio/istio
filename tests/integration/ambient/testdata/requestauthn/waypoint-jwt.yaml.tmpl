@@ -6,7 +6,7 @@ spec:
   targetRefs:
   - kind: Gateway
     group: gateway.networking.k8s.io
-    name: waypoint
+    name: {{ .To.Config.ServiceWaypointProxy }}
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
@@ -20,7 +20,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      gateway.networking.k8s.io/gateway-name: waypoint # This should be ignored because it's not a targetRef
+      gateway.networking.k8s.io/gateway-name: {{ .To.Config.ServiceWaypointProxy }} # This should be ignored because it's not a targetRef
   jwtRules:
   - issuer: "test-issuer-3@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
@@ -33,7 +33,7 @@ spec:
   targetRefs:
   - kind: Gateway
     group: gateway.networking.k8s.io
-    name: waypoint
+    name: {{ .To.Config.ServiceWaypointProxy }}
   rules:
   - from:
     - source:

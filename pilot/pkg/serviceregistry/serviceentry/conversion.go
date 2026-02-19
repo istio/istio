@@ -157,7 +157,8 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 }
 
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
-func convertServices(cfg config.Config) []*model.Service {
+// nsAnnotations are the namespace annotations for traffic distribution inheritance.
+func convertServices(cfg config.Config, nsAnnotations map[string]string) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	// ShouldV2AutoAllocateIP already checks that there are no addresses in the spec however this is critical enough to likely be worth checking
 	// explicitly as well in case the logic changes. We never want to overwrite addresses in the spec if there are any
@@ -183,7 +184,7 @@ func convertServices(cfg config.Config) []*model.Service {
 		resolution = model.DynamicDNS
 	}
 
-	trafficDistribution := model.GetTrafficDistribution(nil, cfg.Annotations)
+	trafficDistribution := model.GetTrafficDistribution(nil, cfg.Annotations, nsAnnotations)
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
 	var portOverrides map[uint32]uint32
@@ -367,7 +368,7 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 		return nil
 	}
 	if services == nil {
-		services = convertServices(cfg)
+		services = convertServices(cfg, s.getNamespaceAnnotations(cfg.Namespace))
 	}
 
 	endpointsNum := len(serviceEntry.Endpoints)

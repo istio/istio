@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 58805
+releaseNotes:
+- |
+  **Fixed** an issue where setting resource limits or requests to `null` would cause validation errors (`cpu request must be less than or equal to cpu limit of 0`). This affected proxy injection, gateway generation, and Helm chart deployments.

@@ -29,35 +29,35 @@ import (
 // ReferenceSet stores a variety of different types of resource, and allows looking them up as Gateway API references.
 // This is merely a convenience to avoid needing to lookup up a bunch of types all over the place.
 type ReferenceSet struct {
-	erasedCollections map[config.GroupVersionKind]func(name, namespace string) (any, bool)
+	erasedCollections map[config.GroupVersionKind]func(ctx krt.HandlerContext, name, namespace string) (any, bool)
 }
 
-func (s ReferenceSet) LocalPolicyTargetRef(ref gatewayv1.LocalPolicyTargetReference, localNamespace string) (any, error) {
-	return s.internal(string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
+func (s ReferenceSet) LocalPolicyTargetRef(ctx krt.HandlerContext, ref gatewayv1.LocalPolicyTargetReference, localNamespace string) (any, error) {
+	return s.internal(ctx, string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
 }
 
-func (s ReferenceSet) XLocalPolicyTargetRef(ref gatewayx.LocalPolicyTargetReference, localNamespace string) (any, error) {
-	return s.internal(string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
+func (s ReferenceSet) XLocalPolicyTargetRef(ctx krt.HandlerContext, ref gatewayx.LocalPolicyTargetReference, localNamespace string) (any, error) {
+	return s.internal(ctx, string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
 }
 
-func (s ReferenceSet) LocalPolicyRef(ref gatewayv1.LocalObjectReference, localNamespace string) (any, error) {
-	return s.internal(string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
+func (s ReferenceSet) LocalPolicyRef(ctx krt.HandlerContext, ref gatewayv1.LocalObjectReference, localNamespace string) (any, error) {
+	return s.internal(ctx, string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
 }
 
-func (s ReferenceSet) internal(name, group, kind, localNamespace string) (any, error) {
+func (s ReferenceSet) internal(ctx krt.HandlerContext, name, group, kind, localNamespace string) (any, error) {
 	t := normalizeReference(&group, &kind, config.GroupVersionKind{})
 	lookup, f := s.erasedCollections[t]
 	if !f {
 		return nil, fmt.Errorf("unsupported kind %v", kind)
 	}
-	if v, ok := lookup(name, localNamespace); ok {
+	if v, ok := lookup(ctx, name, localNamespace); ok {
 		return v, nil
 	}
 	return nil, fmt.Errorf("reference %v/%v (of kind %v) not found", localNamespace, name, kind)
 }
 
 func NewReferenceSet(opts ...func(r *ReferenceSet)) *ReferenceSet {
-	r := &ReferenceSet{erasedCollections: make(map[config.GroupVersionKind]func(name, namespace string) (any, bool))}
+	r := &ReferenceSet{erasedCollections: make(map[config.GroupVersionKind]func(ctx krt.HandlerContext, name, namespace string) (any, bool))}
 	for _, opt := range opts {
 		opt(r)
 	}
@@ -67,8 +67,8 @@ func NewReferenceSet(opts ...func(r *ReferenceSet)) *ReferenceSet {
 func AddReference[T runtime.Object](c krt.Collection[T]) func(r *ReferenceSet) {
 	return func(r *ReferenceSet) {
 		g := schematypes.MustGVKFromType[T]()
-		r.erasedCollections[g] = func(name, namespace string) (any, bool) {
-			o := c.GetKey(namespace + "/" + name)
+		r.erasedCollections[g] = func(ctx krt.HandlerContext, name, namespace string) (any, bool) {
+			o := krt.FetchOne(ctx, c, krt.FilterKey(namespace+"/"+name))
 			if o == nil {
 				return nil, false
 			}

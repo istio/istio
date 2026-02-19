@@ -97,6 +97,11 @@ type InjectionOptions struct {
 	InjectionDirectory string
 }
 
+const (
+	TLSMinVersion1_2 = "1.2"
+	TLSMinVersion1_3 = "1.3"
+)
+
 // TLSOptions is optional TLS parameters for Istiod server.
 type TLSOptions struct {
 	// CaCertFile and related are set using CLI flags.
@@ -105,6 +110,8 @@ type TLSOptions struct {
 	KeyFile         string
 	TLSCipherSuites []string
 	CipherSuites    []uint16 // This is the parsed cipher suites
+	TLSMinVersion   string   // Minimum TLS version for the server (e.g., "1.2", "1.3")
+	MinVersion      uint16   // This is the parsed minimum TLS version
 }
 
 var (
@@ -152,6 +159,11 @@ func (p *PilotArgs) Complete() error {
 		return err
 	}
 	p.ServerOptions.TLSOptions.CipherSuites = cipherSuites
+	minVersion, err := TLSMinVersion(p.ServerOptions.TLSOptions.TLSMinVersion)
+	if err != nil {
+		return err
+	}
+	p.ServerOptions.TLSOptions.MinVersion = minVersion
 	return nil
 }
 
@@ -181,4 +193,16 @@ func TLSCipherSuites(cipherNames []string) ([]uint16, error) {
 		ciphersIntSlice = append(ciphersIntSlice, intValue)
 	}
 	return ciphersIntSlice, nil
+}
+
+// TLSMinVersion returns the golang TLS version from the version string passed.
+func TLSMinVersion(version string) (uint16, error) {
+	switch version {
+	case TLSMinVersion1_2:
+		return tls.VersionTLS12, nil
+	case TLSMinVersion1_3:
+		return tls.VersionTLS13, nil
+	default:
+		return tls.VersionTLS12, fmt.Errorf("minimum TLS version: %s is not supported. Only %s and %s are supported", version, TLSMinVersion1_2, TLSMinVersion1_3)
+	}
 }
