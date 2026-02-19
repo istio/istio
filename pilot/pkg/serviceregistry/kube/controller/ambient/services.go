@@ -266,20 +266,19 @@ func serviceServiceBuilder(
 				TargetPortName: p.TargetPort.StrVal,
 			}
 		}
+		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
 		waypointStatus := model.WaypointBindingStatus{}
 		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		if waypoint != nil {
 			waypointStatus.ResourceName = waypoint.ResourceName()
-
-			// TODO: add this label to the istio api labels so we have constants to use
-			if val, ok := s.Labels["istio.io/ingress-use-waypoint"]; ok {
-				waypointStatus.IngressLabelPresent = true
-				waypointStatus.IngressUseWaypoint = strings.EqualFold(val, "true")
+			var nsLabels map[string]string
+			if ns != nil {
+				nsLabels = (*ns).Labels
 			}
+			waypointStatus.IngressLabelPresent, waypointStatus.IngressUseWaypoint = ingressUseWaypointFromLabels(s.Labels, nsLabels)
 		}
 		waypointStatus.Error = wperr
 
-		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
 		var nsAnnotations map[string]string
 		if ns != nil {
 			nsAnnotations = (*ns).Annotations
@@ -472,7 +471,7 @@ func (a Builder) serviceEntryServiceBuilder(
 			nsAnnotations = (*ns).Annotations
 		}
 
-		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, nsAnnotations, func(ctx krt.HandlerContext) network.ID {
+		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, ns, waypointError, nsAnnotations, func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		})
 		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
@@ -485,6 +484,7 @@ func serviceEntriesInfo(
 	ctx krt.HandlerContext,
 	s *networkingclient.ServiceEntry,
 	w *Waypoint,
+	ns **v1.Namespace,
 	wperr *model.StatusMessage,
 	nsAnnotations map[string]string,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
@@ -499,10 +499,11 @@ func serviceEntriesInfo(
 	waypoint := model.WaypointBindingStatus{}
 	if w != nil {
 		waypoint.ResourceName = w.ResourceName()
-		if val, ok := s.Labels["istio.io/ingress-use-waypoint"]; ok {
-			waypoint.IngressLabelPresent = true
-			waypoint.IngressUseWaypoint = strings.EqualFold(val, "true")
+		var nsLabels map[string]string
+		if ns != nil {
+			nsLabels = (*ns).Labels
 		}
+		waypoint.IngressLabelPresent, waypoint.IngressUseWaypoint = ingressUseWaypointFromLabels(s.Labels, nsLabels)
 	}
 	if wperr != nil {
 		waypoint.Error = wperr
@@ -766,4 +767,19 @@ func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
 		AsAddress:        se.AsAddress,
 		CreationTime:     se.CreationTime,
 	})
+}
+
+// TODO: replace with Istio API label.IoIstioIngressUseWaypoint.Name once bumped
+const IoIstioIngressUseWaypoint = "istio.io/ingress-use-waypoint"
+
+// ingressUseWaypointFromLabels returns whether the ingress-use-waypoint label is
+// present and whether its value is "true". It checks the service labels first,
+// then falls back to namespace labels.
+func ingressUseWaypointFromLabels(serviceLabels, namespaceLabels map[string]string) (labelPresent bool, useWaypoint bool) {
+	var val string
+	val, labelPresent = serviceLabels[IoIstioIngressUseWaypoint]
+	if !labelPresent && namespaceLabels != nil {
+		val, labelPresent = namespaceLabels[IoIstioIngressUseWaypoint]
+	}
+	return labelPresent, labelPresent && strings.EqualFold(val, "true")
 }
