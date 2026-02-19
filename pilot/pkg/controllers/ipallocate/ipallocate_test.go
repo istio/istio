@@ -493,8 +493,14 @@ func TestIPAllocate(t *testing.T) {
 }
 
 func TestIPAllocateWithEnvCIDR(t *testing.T) {
+	oldV4 := features.IPAutoallocateIPv4Prefix
+	oldV6 := features.IPAutoallocateIPv6Prefix
 	features.IPAutoallocateIPv4Prefix = TestNonDefaultIPV4PrefixCIDR
 	features.IPAutoallocateIPv6Prefix = TestNonDefaultIPV6PrefixCIDR
+	t.Cleanup(func() {
+		features.IPAutoallocateIPv4Prefix = oldV4
+		features.IPAutoallocateIPv6Prefix = oldV6
+	})
 
 	rig := setupIPAllocateTest(t, TestNonDefaultIPV4Prefix, TestNonDefaultIPV6Prefix)
 
