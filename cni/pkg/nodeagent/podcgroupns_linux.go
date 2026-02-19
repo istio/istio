@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path"
 	"regexp"
 	"strconv"
@@ -33,6 +34,24 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var havePidCheck = func() bool {
+	// check if we can open a pidfd for our own process, if we can't, then we are likly on an old linux with no pidfd/fdinfo.
+	// so do not check for other processes either, and we can skip that part of the code.
+	pid := os.Getpid()
+	pidfd, err := PidFdOpen(pid)
+	if err != nil {
+		log.Warnf("pidfd open failed for own pid %d: %v, pidfd validation will be disabled", pid, err)
+		return false
+	}
+	defer pidfd.Close()
+	pid, err = pidfd.Pid()
+	if err != nil {
+		log.Warnf("pidfd Pid() failed for own pid %d: %v, pidfd validation will be disabled", pid, err)
+		return false
+	}
+	return true
+}()
 
 func GetStat(fi fs.FileInfo) (*syscall.Stat_t, error) {
 	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
@@ -132,6 +151,21 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		return nil, nil
 	}
 
+	pid, err := strconv.Atoi(entry.Name())
+	if err != nil {
+		return nil, fmt.Errorf("error parsing pid: %v", err)
+	}
+
+	var pidfd Pidfd
+	if havePidCheck {
+		pidfd, err = PidFdOpen(pid)
+		if err != nil {
+			log.Debugf("pidfd open failed for pid %d: %v", pid, err)
+			return nil, err
+		}
+		defer pidfd.Close()
+	}
+
 	netnsName := path.Join(entry.Name(), "ns", "net")
 	fi, err := fs.Stat(proc, netnsName)
 	if err != nil {
@@ -196,6 +230,12 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		netns.Close()
 		return nil, err
 	}
+
+	if pidfd.IsValid() && !validateNoProcessRace(pid, pidfd) {
+		netns.Close()
+		return nil, fmt.Errorf("process with PID %d was replaced during processing", pid)
+	}
+
 	netnsObserved[entryNetnsStat.Ino] = struct{}{}
 	log.Debugf("found pod to netns: %s", uid)
 
@@ -206,6 +246,14 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		entryNetnsStat.Ino,
 		ownerProcStarttime,
 	}, nil
+}
+
+func validateNoProcessRace(pid int, pidfd Pidfd) bool {
+	pidFromFd, err := pidfd.Pid()
+	if err != nil {
+		return false
+	}
+	return pidFromFd == pid
 }
 
 func isProcess(entry fs.DirEntry) bool {
