@@ -64,7 +64,7 @@ func TestSidecarDynamicDNSClusters(t *testing.T) {
 			expectCluster:           true,
 			validateTLS:             true,
 			expectAutoSni:           true,
-			expectAutoSanValidation: false, // ISTIO_MUTUAL uses SPIFFE URIs, not DNS SANs
+			expectAutoSanValidation: true,
 			expectTransportTLS:      true,
 		},
 		{
@@ -112,7 +112,7 @@ func TestSidecarDynamicDNSClusters(t *testing.T) {
 			expectCluster:           true,
 			validateTLS:             true,
 			expectAutoSni:           true,
-			expectAutoSanValidation: false, // ISTIO_MUTUAL uses SPIFFE URIs, not DNS SANs
+			expectAutoSanValidation: true, // set unless ServiceEntry annotation networking.istio.io/disableAutoSanValidation disables it
 			expectTransportTLS:      true,
 		},
 		{
