@@ -51,6 +51,11 @@ func getKeyExtractor(o any) []string {
 	return []string{GetKey(o)}
 }
 
+func (f *filter) hasReverseIndexKey() bool {
+	_, _, _, _, b := f.reverseIndexKey()
+	return b
+}
+
 // reverseIndexKey
 func (f *filter) reverseIndexKey() ([]string, indexedDependencyType, objectKeyExtractor, collectionUID, bool) {
 	if f.keys.Len() > 0 {
