@@ -12,6 +12,7 @@ releaseNotes:
   **Fixed** XDS debug endpoints (syncz, config_dump) to require authentication.
   Previously accessible without authentication on plaintext XDS port 15010.
   Controlled by ENABLE_DEBUG_ENDPOINT_AUTH (same flag as HTTP debug endpoints).
+  Thanks to Oleh Konko (@1seal) for reporting this issue.
 
 upgradeNotes:
 - title: XDS debug endpoints now require authentication
