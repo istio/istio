@@ -94,9 +94,10 @@ type Controller struct {
 
 	ClientBuilder ClientBuilder
 
-	queue           controllers.Queue
-	secrets         kclient.Client[*corev1.Secret]
-	configOverrides []func(*rest.Config)
+	queue             controllers.Queue
+	source            remoteConfigSource
+	enableSourceStart bool
+	configOverrides   []func(*rest.Config)
 
 	cs *ClusterStore
 
@@ -108,46 +109,54 @@ type Controller struct {
 func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID,
 	meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config),
 ) *Controller {
-	informerClient := kubeclientset
+	var source remoteConfigSource
+	enableSourceStart := (features.LocalClusterSecretWatcher && features.ExternalIstiod) || features.MulticlusterKubeconfigPath != ""
 
-	// When these two are set to true, Istiod will be watching the namespace in which
-	// Istiod is running on the external cluster. Use the inCluster credentials to
-	// create a kubeclientset
-	if features.LocalClusterSecretWatcher && features.ExternalIstiod {
-		config, err := kube.InClusterConfig(configOverrides...)
-		if err != nil {
-			log.Errorf("Could not get istiod incluster configuration: %v", err)
-			return nil
-		}
-		log.Info("Successfully retrieved incluster config.")
+	if features.MulticlusterKubeconfigPath != "" {
+		source = newFileConfigSource(features.MulticlusterKubeconfigPath)
+	} else {
+		informerClient := kubeclientset
+		// When these two are set to true, Istiod will be watching the namespace in which
+		// Istiod is running on the external cluster. Use the inCluster credentials to
+		// create a kubeclientset
+		if features.LocalClusterSecretWatcher && features.ExternalIstiod {
+			config, err := kube.InClusterConfig(configOverrides...)
+			if err != nil {
+				log.Errorf("Could not get istiod incluster configuration: %v", err)
+				return nil
+			}
+			log.Info("Successfully retrieved incluster config.")
 
-		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), clusterID)
-		if err != nil {
-			log.Errorf("Could not create a client to access local cluster API server: %v", err)
-			return nil
+			localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), clusterID)
+			if err != nil {
+				log.Errorf("Could not create a client to access local cluster API server: %v", err)
+				return nil
+			}
+			log.Infof("Successfully created in cluster kubeclient at %s", localKubeClient.RESTConfig().Host)
+			informerClient = localKubeClient
 		}
-		log.Infof("Successfully created in cluster kubeclient at %s", localKubeClient.RESTConfig().Host)
-		informerClient = localKubeClient
+
+		secrets := kclient.NewFiltered[*corev1.Secret](informerClient, kclient.Filter{
+			Namespace:     namespace,
+			LabelSelector: MultiClusterSecretLabel + "=true",
+		})
+		source = newSecretConfigSource(secrets)
 	}
-
-	secrets := kclient.NewFiltered[*corev1.Secret](informerClient, kclient.Filter{
-		Namespace:     namespace,
-		LabelSelector: MultiClusterSecretLabel + "=true",
-	})
 
 	// init gauges
 	localClusters.Record(1.0)
 	remoteClusters.Record(0.0)
 
 	controller := &Controller{
-		ClientBuilder:   DefaultBuildClientsFromConfig,
-		namespace:       namespace,
-		configClusterID: clusterID,
-		configCluster:   &Cluster{Client: kubeclientset, ID: clusterID},
-		cs:              newClustersStore(),
-		secrets:         secrets,
-		configOverrides: configOverrides,
-		meshWatcher:     meshWatcher,
+		ClientBuilder:     DefaultBuildClientsFromConfig,
+		namespace:         namespace,
+		configClusterID:   clusterID,
+		configCluster:     &Cluster{Client: kubeclientset, ID: clusterID},
+		cs:                newClustersStore(),
+		source:            source,
+		enableSourceStart: enableSourceStart,
+		configOverrides:   configOverrides,
+		meshWatcher:       meshWatcher,
 	}
 
 	// Queue does NOT retry. The only error that can occur is if the kubeconfig is
@@ -158,19 +167,9 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	controller.queue = controllers.NewQueue("multicluster secret",
 		controllers.WithReconciler(controller.processItem))
 
-	secrets.AddEventHandler(controllers.EventHandler[*corev1.Secret]{
-		AddFunc: func(obj *corev1.Secret) {
-			secretEvents.With(eventLabel.Value("add")).Increment()
-			controller.queue.AddObject(obj)
-		},
-		UpdateFunc: func(oldObj, newObj *corev1.Secret) {
-			secretEvents.With(eventLabel.Value("update")).Increment()
-			controller.queue.AddObject(newObj)
-		},
-		DeleteFunc: func(obj *corev1.Secret) {
-			secretEvents.With(eventLabel.Value("delete")).Increment()
-			controller.queue.AddObject(obj)
-		},
+	source.AddEventHandler(func(key types.NamespacedName, event controllers.EventType) {
+		secretEvents.With(eventLabel.Value(event.String())).Increment()
+		controller.queue.Add(key)
 	})
 	return controller
 }
@@ -206,10 +205,10 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
 		// we need to start here when local cluster secret watcher enabled
-		if features.LocalClusterSecretWatcher && features.ExternalIstiod {
-			c.secrets.Start(stopCh)
+		if c.enableSourceStart {
+			c.source.Start(stopCh)
 		}
-		if !kube.WaitForCacheSync("multicluster remote secrets", stopCh, c.secrets.HasSynced) {
+		if !kube.WaitForCacheSync("multicluster remote secrets", stopCh, c.source.HasSynced) {
 			c.queue.ShutDownEarly()
 			return
 		}
@@ -279,16 +278,16 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) processItem(key types.NamespacedName) error {
-	log.Infof("processing secret event for secret %s", key)
-	scrt := c.secrets.Get(key.Name, key.Namespace)
-	if scrt != nil {
-		log.Debugf("secret %s exists in informer cache, processing it", key)
-		if err := c.addSecret(key, scrt); err != nil {
-			return fmt.Errorf("error adding secret %s: %v", key, err)
+	log.Infof("processing remote config event for %s", key)
+	cfg := c.source.Get(key)
+	if cfg != nil {
+		log.Debugf("remote config %s exists in cache, processing it", key)
+		if err := c.addRemoteConfig(key, cfg); err != nil {
+			return fmt.Errorf("error adding remote config %s: %v", key, err)
 		}
 	} else {
-		log.Debugf("secret %s does not exist in informer cache, deleting it", key)
-		c.deleteSecret(key.String())
+		log.Debugf("remote config %s does not exist in cache, deleting it", key)
+		c.deleteRemoteConfig(key.String())
 	}
 	remoteClusters.Record(float64(c.cs.Len()))
 
@@ -333,19 +332,20 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 	}, nil
 }
 
-func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) error {
-	secretKey := name.String()
+func (c *Controller) addRemoteConfig(name types.NamespacedName, cfg *remoteConfig) error {
+	// name can refer to a k8s Secret or a kubeconfig; data holds the corresponding bytes.
+	configKey := name.String()
 	// First delete clusters
-	existingClusters := c.cs.GetExistingClustersFor(secretKey)
+	existingClusters := c.cs.GetExistingClustersFor(configKey)
 	for _, existingCluster := range existingClusters {
-		if _, ok := s.Data[string(existingCluster.ID)]; !ok {
-			c.deleteCluster(secretKey, existingCluster)
+		if _, ok := cfg.Data[string(existingCluster.ID)]; !ok {
+			c.deleteCluster(configKey, existingCluster)
 		}
 	}
 
 	var errs *multierror.Error
-	for clusterID, kubeConfig := range s.Data {
-		logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
+	for clusterID, kubeConfig := range cfg.Data {
+		logger := log.WithLabels("cluster", clusterID, "config", configKey)
 		if cluster.ID(clusterID) == c.configClusterID {
 			logger.Infof("ignoring cluster as it would overwrite the config cluster")
 			continue
@@ -353,7 +353,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 
 		action := Add
 		var prev *Cluster
-		if prev = c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
+		if prev = c.cs.Get(configKey, cluster.ID(clusterID)); prev != nil {
 			action = Update
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
@@ -382,7 +382,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 
 		// We run cluster async so we do not block, as this requires actually connecting to the cluster and loading configuration.
 		// Swap stores the new cluster and returns a PendingClusterSwap that manages cleanup of the previous cluster.
-		swap := c.cs.Swap(secretKey, remoteCluster.ID, remoteCluster)
+		swap := c.cs.Swap(configKey, remoteCluster.ID, remoteCluster)
 		go func() {
 			remoteCluster.Run(c.meshWatcher, c.handlers, action, swap)
 		}()
@@ -392,24 +392,24 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 	return errs.ErrorOrNil()
 }
 
-func (c *Controller) deleteSecret(secretKey string) {
-	for _, cluster := range c.cs.GetExistingClustersFor(secretKey) {
+func (c *Controller) deleteRemoteConfig(configKey string) {
+	for _, cluster := range c.cs.GetExistingClustersFor(configKey) {
 		if cluster.ID == c.configClusterID {
-			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", c.configClusterID, secretKey)
+			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", c.configClusterID, configKey)
 			continue
 		}
 
-		c.deleteCluster(secretKey, cluster)
+		c.deleteCluster(configKey, cluster)
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
-func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
-	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
+func (c *Controller) deleteCluster(configKey string, cluster *Cluster) {
+	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, configKey)
 	cluster.Stop()
 	c.handleDelete(cluster.ID)
-	c.cs.Delete(secretKey, cluster.ID)
+	c.cs.Delete(configKey, cluster.ID)
 	c.clearClusterSyncState(cluster.ID)
 	cluster.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 
