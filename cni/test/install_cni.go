@@ -44,7 +44,7 @@ const (
 	cniConfSubDir    = "/testdata/pre/"
 	k8sSvcAcctSubDir = "/testdata/k8s_svcacct/"
 
-	defaultFileMode = 0o600
+	defaultFileMode = 0o644
 )
 
 func getEnv(key, fallback string) string {
@@ -105,6 +105,41 @@ func rmCNIConfig(cniConfigFilepath string, t *testing.T) {
 	}
 
 	// Find Istio CNI and remove from plugin list
+	plugins, err := util.GetPlugins(cniConfigMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, rawPlugin := range plugins {
+		plugin, err := util.GetPlugin(rawPlugin)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if plugin["type"] == "istio-cni" {
+			cniConfigMap["plugins"] = append(plugins[:i], plugins[i+1:]...)
+			break
+		}
+	}
+
+	cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// rmCNIConfigRestrictive is like rmCNIConfig but writes with restrictive 0600 permissions
+// to test the default CNI config file mode.
+func rmCNIConfigRestrictive(cniConfigFilepath string, t *testing.T) {
+	t.Helper()
+
+	cniConfigMap, err := util.ReadCNIConfigMap(cniConfigFilepath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	plugins, err := util.GetPlugins(cniConfigMap)
 	if err != nil {
 		t.Fatal(err)
@@ -271,7 +306,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			PluginLogLevel:        "debug",
 			ExcludeNamespaces:     "istio-system",
 			KubeconfigMode:        constants.DefaultKubeconfigMode,
-			CNIConfChgrp:          false,
+			CNIConfGroupRead:          false,
 			CNIConfName:           envPreconf,
 			K8sServiceAccountPath: tempK8sSvcAcctDir,
 		},

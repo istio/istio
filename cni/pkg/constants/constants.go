@@ -31,7 +31,7 @@ const (
 	IstioOwnedCNIConfigFilename       = "istio-owned-cni-config-filename"
 	LogLevel                          = "log-level"
 	KubeconfigMode                    = "kubeconfig-mode"
-	CNIConfChgrp                      = "cni-conf-chgrp"
+	CNIConfGroupRead                      = "cni-conf-group-read"
 	KubeCAFile                        = "kube-ca-file"
 	SkipTLSVerify                     = "skip-tls-verify"
 	MonitoringPort                    = "monitoring-port"
