@@ -107,7 +107,7 @@ type InstallConfig struct {
 	// The file mode to set when creating the kubeconfig file
 	KubeconfigMode int
 	// Whether to enable group read on the CNI config file (0640 instead of default 0600)
-	CNIConfChgrp bool
+	CNIConfGroupRead bool
 	// CA file for kubeconfig
 	KubeCAFile string
 	// Whether to use insecure TLS in the kubeconfig file
@@ -170,9 +170,9 @@ type InstallConfig struct {
 	ForceIptablesBinary string
 }
 
-// CNIConfFileMode returns the file mode for the CNI config file based on the CNIConfChgrp setting.
+// CNIConfFileMode returns the file mode for the CNI config file based on the CNIConfGroupRead setting.
 func (c InstallConfig) CNIConfFileMode() os.FileMode {
-	if c.CNIConfChgrp {
+	if c.CNIConfGroupRead {
 		return os.FileMode(constants.CNIConfModeGroupRead)
 	}
 	return os.FileMode(constants.CNIConfModeDefault)
@@ -228,7 +228,7 @@ func (c InstallConfig) String() string {
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
-	b.WriteString("CNIConfChgrp: " + fmt.Sprint(c.CNIConfChgrp) + "\n")
+	b.WriteString("CNIConfGroupRead: " + fmt.Sprint(c.CNIConfGroupRead) + "\n")
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
 
