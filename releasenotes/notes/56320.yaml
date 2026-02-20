@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 56320
+releaseNotes:
+  - |
+    **Added** `PILOT_GATEWAY_TRANSPORT_SOCKET_CONNECT_TIMEOUT` environment variable to configure the
+    transport socket connect timeout on gateway listeners. The default remains 15 seconds. Set to `0s`
+    to disable the timeout for workloads that require longer TLS handshake times.
