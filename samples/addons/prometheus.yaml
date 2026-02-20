@@ -12,8 +12,7 @@ metadata:
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
-  annotations:
-    {}
+  annotations: {}
 ---
 # Source: prometheus/templates/cm.yaml
 apiVersion: v1
@@ -476,8 +475,22 @@ spec:
         app.kubernetes.io/version: v3.9.1
         helm.sh/chart: prometheus-28.6.0
         app.kubernetes.io/part-of: prometheus
-        
+        # To scrape application metrics with Strict mTLS enabled, change this to "true"
+        # and uncomment the annotations below. This will inject a lightweight sidecar
+        # (pilot-agent only, no Envoy) to provision Istio certificates for Prometheus.
         sidecar.istio.io/inject: "false"
+      # Uncomment the following annotations to enable TLS scraping of application metrics.
+      # This runs pilot-agent without Envoy (DISABLE_ENVOY) to output SDS certificates
+      # to a shared volume, which Prometheus then uses for mTLS scraping.
+      # See https://istio.io/latest/docs/ops/integrations/prometheus/#tls-settings
+      # annotations:
+      #   traffic.sidecar.istio.io/includeInboundPorts: ""   # do not intercept any inbound ports
+      #   traffic.sidecar.istio.io/includeOutboundIPRanges: "" # do not intercept any outbound traffic
+      #   proxy.istio.io/config: |
+      #     proxyMetadata:
+      #       OUTPUT_CERTS: /etc/istio-output-certs
+      #       DISABLE_ENVOY: "true"
+      #   sidecar.istio.io/userVolumeMount: '[{"name": "istio-certs", "mountPath": "/etc/istio-output-certs"}]'
     spec:
       enableServiceLinks: true
       serviceAccountName: prometheus
@@ -548,6 +561,10 @@ spec:
             - name: storage-volume
               mountPath: /data
               subPath: ""
+            # Uncomment to mount Istio certificates for TLS scraping.
+            # - name: istio-certs
+            #   mountPath: /etc/prom-certs/
+            #   readOnly: true
       dnsPolicy: ClusterFirst
       terminationGracePeriodSeconds: 300
       volumes:
@@ -555,5 +572,9 @@ spec:
           configMap:
             name: prometheus
         - name: storage-volume
-          emptyDir:
-            {}
+          emptyDir: {}
+        # Uncomment to create the shared volume for Istio certificates.
+        # The sidecar will write certs here, and Prometheus will read them.
+        # - name: istio-certs
+        #   emptyDir:
+        #     medium: Memory
