@@ -4477,7 +4477,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "nil port in ports array",
 			in: &networking.ServiceEntry{
-				Hosts:    []string{"google.com"},
+				Hosts: []string{"google.com"},
 				Ports: []*networking.ServicePort{
 					nil,
 				},
