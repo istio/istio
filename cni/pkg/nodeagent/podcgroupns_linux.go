@@ -161,7 +161,8 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		pidfd, err = PidFdOpen(pid)
 		if err != nil {
 			log.Debugf("pidfd open failed for pid %d: %v", pid, err)
-			return nil, err
+			// this means process likely went away during processing, so skip it.
+			return nil, nil
 		}
 		defer pidfd.Close()
 	}
