@@ -754,6 +754,10 @@ type ServiceAttributes struct {
 
 	PassthroughTargetPorts map[uint32]uint32
 
+	// DisableAutoSanValidation is set for DYNAMIC_DNS ServiceEntries (sidecar only) to disable
+	// auto_san_validation on DFP clusters. Set via ServiceEntry annotation networking.istio.io/disableAutoSanValidation.
+	DisableAutoSanValidation bool
+
 	K8sAttributes
 }
 
@@ -912,7 +916,8 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 		}
 	}
 	return s.Name == other.Name && s.Namespace == other.Namespace &&
-		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes &&
+		s.DisableAutoSanValidation == other.DisableAutoSanValidation
 }
 
 // ServiceDiscovery enumerates Istio service instances.

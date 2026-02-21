@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 58244
+releaseNotes:
+  - |
+    **Added** DYNAMIC_DNS wildcard ServiceEntry support for sidecar proxies for both MESH_INTERNAL and MESH_EXTERNAL locations. 
+    Enables L7 HTTP routing (via Host header) and L4 TLS routing (via SNI) with observability for wildcard hosts (e.g., `*.example.com`)
+    in traditional sidecar mode.
+
