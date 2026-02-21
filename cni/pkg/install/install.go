@@ -288,7 +288,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 			}
 			if len(cfg.CNIConfName) == 0 {
 				// We found the primary CNI config file (or the highest priority config file).
-				// Set the filename to the CNIConfName if it isn't set
+				// SetCgroup the filename to the CNIConfName if it isn't set
 				cfg.CNIConfName = firstCNIConfigFilename
 			}
 			return fmt.Errorf("istio owned CNI config does not exist or is not the highest priority. Got %s instead", firstCNIConfigFilename)
