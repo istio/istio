@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59055
+releaseNotes:
+  - |
+    **Fixed** When AllowInsecureFallback is specified in the Gateway TLS configuration with client certificate validation, 
+    Istio now correctly maps it to OPTIONAL_MUTUAL TLS mode instead of the default MUTUAL mode. 
+    This allows connections to succeed even when client certificate validation fails, 
+    aligning with the Gateway API v1.4 specification.
