@@ -122,7 +122,7 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 func ListenerSetCollection(
 	listenerSets krt.Collection[*gatewayx.XListenerSet],
 	gateways krt.Collection[*gatewayv1.Gateway],
-	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
+	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
@@ -162,14 +162,14 @@ func ListenerSetCollection(
 				return nil, nil
 			}
 
-			class := gatewaycommon.FetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
+			class := FetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
 			if class == nil {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
 			}
 
 			controllerName := class.Controller
-			classInfo, f := gatewaycommon.ClassInfos[controllerName]
+			classInfo, f := gatewaycommon.AgentgatewayClassInfos[controllerName]
 			if !f {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
@@ -190,18 +190,21 @@ func ListenerSetCollection(
 			gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
 			if len(gatewayServices) == 0 && err != nil {
 				// Short circuit if it's a hard failure
-				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, err)
+				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
 				return status, nil
 			}
 
+			servers := []*istio.Server{}
 			for i, l := range ls.Listeners {
 				port, portErr := detectListenerPortNumber(l)
 				l.Port = port
 				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
-				hostnames, tlsInfo, updatedStatus, programmed := buildListener(ctx, secrets, configMaps, grants, namespaces,
+				server, tlsInfo, updatedStatus, programmed := buildListener(ctx, secrets, configMaps, grants, namespaces,
 					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
 				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
+
+				servers = append(servers, server)
 
 				if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
 					// Waypoint doesn't actually convert the routes to VirtualServices
@@ -214,7 +217,7 @@ func ListenerSetCollection(
 					ParentGateway:    config.NamespacedName(parentGwObj),
 					InternalName:     obj.Namespace + "/" + name,
 					AllowedKinds:     allowed,
-					Hostnames:        hostnames,
+					Hostnames:        server.Hosts,
 					OriginalHostname: string(ptr.OrEmpty(l.Hostname)),
 					SectionName:      l.Name,
 					Port:             l.Port,
@@ -233,22 +236,24 @@ func ListenerSetCollection(
 				result = append(result, res)
 			}
 
-			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, err)
+			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
 			return status, result
 		}, opts.WithName("ListenerSets")...)
 
 	return statusCol, gw
 }
 
-// TODO(jaeellio): Pass hostnames
 func reportListenerSetStatus(
 	r *gatewaycommon.GatewayContext,
 	parentGwObj *gatewayv1.Gateway,
 	obj *gatewayx.XListenerSet,
 	gs *gatewayx.ListenerSetStatus,
 	gatewayServices []string,
+	servers []*istio.Server,
 	cond *condition,
 ) {
+	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
+
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
 	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
@@ -269,13 +274,15 @@ func reportListenerSetStatus(
 		gatewayConditions[string(gatewayv1.GatewayConditionAccepted)].error = cond.error
 	}
 
+	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
+
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
 
 func GatewayCollection(
 	gateways krt.Collection[*gatewayv1.Gateway],
 	listenerSets krt.Collection[ListenerSet],
-	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
+	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
@@ -292,7 +299,6 @@ func GatewayCollection(
 		return []types.NamespacedName{o.GatewayParent}
 	})
 	gwstatus, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gatewayv1.Gateway) (*gatewayv1.GatewayStatus, []*GatewayListener) {
-		// TODO(jaellio): Do we need to utilize gateway context here?
 		context := gatewayContext.Get(ctx).Load()
 		if context == nil {
 			return nil, nil
@@ -304,13 +310,13 @@ func GatewayCollection(
 		kgw := obj.Spec
 		status := obj.Status.DeepCopy()
 
-		class := gatewaycommon.FetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
+		class := FetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
 		if class == nil {
 			return nil, nil
 		}
 
 		controllerName := class.Controller
-		classInfo, f := gatewaycommon.ClassInfos[controllerName]
+		classInfo, f := gatewaycommon.AgentgatewayClassInfos[controllerName]
 		if !f {
 			return nil, nil
 		}
@@ -340,22 +346,21 @@ func GatewayCollection(
 		for i, l := range kgw.Listeners {
 			// Attached Routes count starts at 0 and gets updated later in the status syncer
 			// when the real count is available after route processing
-			hostnames, tlsInfo, updatedStatus, programmed := buildListener(ctx, secrets, configMaps, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
+			server, tlsInfo, updatedStatus, programmed := buildListener(ctx, secrets, configMaps, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
+
+			servers = append(servers, server)
 
 			// Generate supported kinds for the listener
 			allowed, _ := generateSupportedKinds(l)
 
-			// TODO(jaellio): Set all listener conditions from the actual status
-
-			// reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), err)
 			name := InternalGatewayName(obj.Namespace, obj.Name, string(l.Name))
 			pri := AgwParentInfo{
 				ParentGateway:          config.NamespacedName(obj),
 				ParentGatewayClassName: string(obj.Spec.GatewayClassName),
 				InternalName:           InternalGatewayName(obj.Namespace, name, ""),
 				AllowedKinds:           allowed,
-				Hostnames:              hostnames,
+				Hostnames:              server.Hosts,
 				OriginalHostname:       string(ptr.OrEmpty(l.Hostname)),
 				SectionName:            l.Name,
 				Port:                   l.Port,
@@ -400,7 +405,6 @@ func GatewayCollection(
 	return gwstatus, gw
 }
 
-// TODO(jaellio): move to a utils
 // InternalGatewayName returns the name of the internal Gateway corresponding to the
 // specified gwv1-api gwv1 and listener. If the listener is not specified, returns internal name without listener.
 // Format: gwNs/gwName.listener
@@ -449,22 +453,6 @@ type RouteParents struct {
 }
 
 func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
-	// TODO(jaellio): do we need special handling for mesh parent? This seems to be istio specific
-	/*if pk == meshParentKey {
-		// Special case
-		return []*ParentInfo{
-			{
-				InternalName: "mesh",
-				// Mesh has no configurable AllowedKinds, so allow all supported
-				AllowedKinds: []gatewayv1.RouteGroupKind{
-					{Group: (*gatewayv1.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: gatewayv1.Kind(gvk.HTTPRoute.Kind)},
-					{Group: (*gatewayv1.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: gatewayv1.Kind(gvk.GRPCRoute.Kind)},
-					{Group: (*gatewayv1.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: gatewayv1.Kind(gvk.TCPRoute.Kind)},
-					{Group: (*gatewayv1.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: gatewayv1.Kind(gvk.TLSRoute.Kind)},
-				},
-			},
-		}
-	}*/
 	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw *GatewayListener) *AgwParentInfo {
 		return &gw.ParentInfo
 	})

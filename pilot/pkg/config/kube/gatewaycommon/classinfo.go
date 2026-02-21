@@ -52,8 +52,22 @@ type ClassInfo struct {
 // ClassInfos is the shared map of controller names to class info, initialized at startup.
 var ClassInfos = GetClassInfos()
 
+// AgentgatewayClassInfos is the shared map of controller names to class info for Agentgateway, initialized at startup.
+var AgentgatewayClassInfos = GetAgentgatewayClassInfos()
+
 // BuiltinClasses is the shared map of class names to controller names, initialized at startup.
 var BuiltinClasses = GetBuiltinClasses()
+
+// AgentgatewayBuiltinClasses is the shared map of controller names to class info for Agentgateway, initialized at startup.
+var AgentgatewayBuiltinClasses = GetAgentgatewayBuiltinClasses()
+
+// GetAgentgatewayBuiltinClasses returns the map of builtin Agentgateway-specific GatewayClass names to their controller names.
+func GetAgentgatewayBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
+	res := map[gateway.ObjectName]gateway.GatewayController{
+		constants.AgentgatewayClassName: constants.ManagedAgentgatewayController,
+	}
+	return res
+}
 
 // GetBuiltinClasses returns the map of builtin GatewayClass names to their controller names.
 func GetBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
@@ -63,10 +77,6 @@ func GetBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 
 	if features.MultiNetworkGatewayAPI {
 		res[constants.RemoteGatewayClassName] = constants.UnmanagedGatewayController
-	}
-
-	if features.EnableAgentgateway {
-		res[constants.AgentgatewayClassName] = constants.ManagedAgentgatewayController
 	}
 
 	if features.EnableAmbientWaypoints {
@@ -120,8 +130,13 @@ func GetClassInfos() map[gateway.GatewayController]ClassInfo {
 			ControllerLabel: constants.ManagedGatewayMeshControllerLabel,
 		}
 	}
-	if features.EnableAgentgateway {
-		m[constants.ManagedAgentgatewayController] = ClassInfo{
+	return m
+}
+
+// GetAgentgatewayClassInfos returns the map of controller names to their ClassInfo.
+func GetAgentgatewayClassInfos() map[gateway.GatewayController]ClassInfo {
+	m := map[gateway.GatewayController]ClassInfo{
+		constants.ManagedAgentgatewayController: ClassInfo{
 			Controller:          constants.ManagedAgentgatewayController,
 			Description:         "Istio with Agentgateway.",
 			Templates:           "agentgateway",
@@ -129,19 +144,7 @@ func GetClassInfos() map[gateway.GatewayController]ClassInfo {
 			AddressType:         gateway.HostnameAddressType,
 			ControllerLabel:     constants.ManagedGatewayControllerLabel,
 			SupportsListenerSet: true,
-		}
-	}
-
-	if features.EnableAmbientMultiNetwork {
-		m[constants.ManagedGatewayEastWestController] = ClassInfo{
-			Controller:         constants.ManagedGatewayEastWestController,
-			Description:        "The default GatewayClass for Istio East West Gateways",
-			Templates:          "waypoint",
-			DisableNameSuffix:  true,
-			DefaultServiceType: corev1.ServiceTypeLoadBalancer,
-			AddressType:        "",
-			ControllerLabel:    constants.ManagedGatewayEastWestControllerLabel,
-		}
+		},
 	}
 	return m
 }

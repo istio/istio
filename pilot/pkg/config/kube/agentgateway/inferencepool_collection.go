@@ -75,7 +75,7 @@ var supportedControllers = getSupportedControllers()
 
 func getSupportedControllers() sets.Set[gatewayv1.GatewayController] {
 	ret := sets.New[gatewayv1.GatewayController]()
-	for _, controller := range gatewaycommon.BuiltinClasses {
+	for _, controller := range gatewaycommon.AgentgatewayBuiltinClasses {
 		ret.Insert(controller)
 	}
 	return ret
@@ -437,7 +437,7 @@ func isOurManagedGateway(gateways krt.Collection[*gatewayv1.Gateway], namespace,
 	if gtw == nil {
 		return false
 	}
-	_, ok := gatewaycommon.BuiltinClasses[gtw.Spec.GatewayClassName]
+	_, ok := gatewaycommon.AgentgatewayBuiltinClasses[gtw.Spec.GatewayClassName]
 	return ok
 }
 

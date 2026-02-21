@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gatewaycommon
+package agentgateway
 
 import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/kube/krt"
 )
 
@@ -40,7 +41,7 @@ func GatewayClassesCollection(
 	krt.Collection[GatewayClass],
 ) {
 	return krt.NewStatusCollection(gatewayClasses, func(ctx krt.HandlerContext, obj *gatewayv1.GatewayClass) (*gatewayv1.GatewayClassStatus, *GatewayClass) {
-		_, known := ClassInfos[obj.Spec.ControllerName]
+		_, known := gatewaycommon.AgentgatewayClassInfos[obj.Spec.ControllerName]
 		if !known {
 			return nil, nil
 		}
@@ -57,7 +58,7 @@ func GatewayClassesCollection(
 func FetchClass(ctx krt.HandlerContext, gatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
 	class := krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gc)))
 	if class == nil {
-		if bc, f := BuiltinClasses[gc]; f {
+		if bc, f := gatewaycommon.AgentgatewayBuiltinClasses[gc]; f {
 			// We allow some classes to exist without being in the cluster
 			return &GatewayClass{
 				Name:       string(gc),

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gatewaycommon
+package agentgateway
 
 import (
 	"github.com/hashicorp/go-multierror"
@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -38,7 +39,7 @@ type ClassController struct {
 	queue          controllers.Queue
 	classes        kclient.Client[*k8sv1.GatewayClass]
 	builtinClasses map[k8sv1.ObjectName]k8sv1.GatewayController
-	classInfos     map[k8sv1.GatewayController]ClassInfo
+	classInfos     map[k8sv1.GatewayController]gatewaycommon.ClassInfo
 }
 
 // ClassControllerOptions configures the ClassController
@@ -48,17 +49,17 @@ type ClassControllerOptions struct {
 	BuiltinClasses map[k8sv1.ObjectName]k8sv1.GatewayController
 	// ClassInfos maps controller names to their class info
 	// If nil, uses the default ClassInfos
-	ClassInfos map[k8sv1.GatewayController]ClassInfo
+	ClassInfos map[k8sv1.GatewayController]gatewaycommon.ClassInfo
 }
 
-func NewClassController(kc kube.Client, opts ClassControllerOptions) *ClassController {
+func NewAgentgatewayClassController(kc kube.Client, opts ClassControllerOptions) *ClassController {
 	builtinClasses := opts.BuiltinClasses
 	if builtinClasses == nil {
-		builtinClasses = BuiltinClasses
+		builtinClasses = gatewaycommon.AgentgatewayBuiltinClasses
 	}
 	classInfos := opts.ClassInfos
 	if classInfos == nil {
-		classInfos = ClassInfos
+		classInfos = gatewaycommon.AgentgatewayClassInfos
 	}
 	gc := &ClassController{
 		builtinClasses: builtinClasses,
@@ -92,7 +93,7 @@ func (c *ClassController) Reconcile(types.NamespacedName) error {
 
 func (c *ClassController) reconcileClass(class k8sv1.ObjectName) error {
 	if c.classes.Get(string(class), "") != nil {
-		log.Debugf("GatewayClass/%v already exists, no action", class)
+		logger.Debugf("GatewayClass/%v already exists, no action", class)
 		return nil
 	}
 	controller := c.builtinClasses[class]
@@ -115,7 +116,7 @@ func (c *ClassController) reconcileClass(class k8sv1.ObjectName) error {
 		return err
 	} else if err != nil && kerrors.IsConflict(err) {
 		// This is not really an error, just a race condition
-		log.Infof("Attempted to create GatewayClass/%v, but it was already created", class)
+		logger.Infof("Attempted to create GatewayClass/%v, but it was already created", class)
 	}
 	if err != nil {
 		return err

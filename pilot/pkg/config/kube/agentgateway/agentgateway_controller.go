@@ -101,8 +101,7 @@ type Controller struct {
 
 	stop chan struct{}
 
-	// Handlers tracks all registered handlers, so that syncing can be detected
-	handlers []krt.HandlerRegistration
+	// TODO(jaellio): Verify we don't need handlers for syncing. In the gateway controller we register handlers for the outputs
 
 	outputs OutputCollections
 
@@ -245,7 +244,6 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		inputs.ListenerSets = krt.NewStaticCollection[*gatewayx.XListenerSet](nil, nil, opts.WithName("disable/XListenerSet")...)
 	}
 
-	// TODO(jeallio): This has to be enabled, so remove conditional check?
 	if features.EnableGatewayAPIInferenceExtension {
 		inputs.InferencePools = buildClient[*inferencev1.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
@@ -259,7 +257,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 // TODO(jaellio): Consider refactoring so actual collection creation happen in a common BaseGatewayController type so
 // collections are only built once across controller and agentgateway_controller
 func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
-	gatewayClassStatus, gatewayClasses := gatewaycommon.GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+	gatewayClassStatus, gatewayClasses := GatewayClassesCollection(c.inputs.GatewayClasses, opts)
 	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
@@ -511,6 +509,10 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 	return errUnsupportedOp
 }
 
+func (c *Controller) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
+	return nil
+}
+
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {
 	// We do not do event handler registration this way, and instead directly call the XDS Updated.
 }
@@ -519,7 +521,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if features.EnableGatewayAPIGatewayClassController {
 		go func() {
 			if c.waitForCRD(gvr.GatewayClass, stop) {
-				gcc := gatewaycommon.NewClassController(c.client, gatewaycommon.ClassControllerOptions{})
+				gcc := NewAgentgatewayClassController(c.client, ClassControllerOptions{})
 				c.client.RunAndWait(stop)
 				gcc.Run(stop)
 			}
@@ -589,11 +591,13 @@ func (c *Controller) buildAgwResources(
 	// (resources for additional gateway classes should be created by the downstream providing them)
 	filteredGateways := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gw *GatewayListener) **GatewayListener {
 		// Note: This filtering logic is opposite of kgateway which uses additionalGatewayClasses
-		if _, builtInClass := gatewaycommon.BuiltinClasses[gatewayv1.ObjectName(gw.Name)]; !builtInClass {
+		if _, builtInClass := gatewaycommon.AgentgatewayBuiltinClasses[gatewayv1.ObjectName(gw.ParentInfo.ParentGatewayClassName)]; !builtInClass {
 			return nil
 		}
 		return &gw
 	}, opts.WithName("FilteredGateways")...)
+
+	filteredGateways.List()
 
 	// Build ports and binds
 	ports := krt.UnnamedIndex(filteredGateways, func(l *GatewayListener) []string {

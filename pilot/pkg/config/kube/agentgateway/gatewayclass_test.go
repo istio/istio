@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gatewaycommon
+package agentgateway
 
 import (
 	"fmt"
@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
@@ -39,14 +40,14 @@ func TestClassController(t *testing.T) {
 	builtinClasses := map[gateway.ObjectName]gateway.GatewayController{
 		testClassName: gateway.GatewayController(testControllerName),
 	}
-	classInfos := map[gateway.GatewayController]ClassInfo{
+	classInfos := map[gateway.GatewayController]gatewaycommon.ClassInfo{
 		gateway.GatewayController(testControllerName): {
 			Controller:  testControllerName,
 			Description: "Test gateway class",
 		},
 	}
 
-	cc := NewClassController(client, ClassControllerOptions{
+	cc := NewAgentgatewayClassController(client, ClassControllerOptions{
 		BuiltinClasses: builtinClasses,
 		ClassInfos:     classInfos,
 	})

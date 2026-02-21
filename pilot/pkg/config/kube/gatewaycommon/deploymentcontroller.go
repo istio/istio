@@ -340,12 +340,21 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	} else {
 		if builtin, f := BuiltinClasses[gw.Spec.GatewayClassName]; f {
 			controller = builtin
+		} else if features.EnableAgentgateway {
+			if builtin, f := AgentgatewayBuiltinClasses[gw.Spec.GatewayClassName]; f {
+				controller = builtin
+			}
 		}
 	}
 	ci, f := ClassInfos[controller]
 	if !f {
-		log.Debugf("skipping unknown controller %q", controller)
-		return nil
+		if features.EnableAgentgateway {
+			ci, f = AgentgatewayClassInfos[controller]
+		}
+		if !f {
+			log.Debugf("skipping unknown controller %q", controller)
+			return nil
+		}
 	}
 	log.Infof("reconciling gateway with controller %s", ci.Controller)
 
