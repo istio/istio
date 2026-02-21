@@ -57,6 +57,10 @@ func TestWithProcFs(t *testing.T) {
 	}
 }
 
+func TestHavePidCheckShouldBeTrueOnLinux(t *testing.T) {
+	assert.Equal(t, havePidCheck, true)
+}
+
 func TestHostNetnsWithSameIno(t *testing.T) {
 	n, err := NewPodNetnsProcFinder(fakeFs(false))
 	assert.NoError(t, err)
