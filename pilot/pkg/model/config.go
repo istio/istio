@@ -42,6 +42,8 @@ type ConfigKey struct {
 	Kind      kind.Kind
 	Name      string
 	Namespace string
+	// TypeUrl only set for krt based xds
+	TypeUrl string
 }
 
 func (key ConfigKey) HashCode() ConfigHash {

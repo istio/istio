@@ -34,7 +34,7 @@ import (
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/config/kube/gateway"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubelib "istio.io/istio/pkg/kube"
 )
 
@@ -161,13 +161,13 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 func SelectorsForObject(object runtime.Object) (namespace string, selector labels.Selector, err error) {
 	switch t := object.(type) {
 	case *gatewayapi.Gateway:
-		if !gateway.IsManaged(&t.Spec) {
+		if !gatewaycommon.IsManaged(&t.Spec) {
 			return "", nil, fmt.Errorf("gateway is not a managed gateway")
 		}
 		namespace = t.Namespace
 		selector, err = labels.Parse(label.IoK8sNetworkingGatewayGatewayName.Name + "=" + t.Name)
 	case *gatewayapibeta.Gateway:
-		if !gateway.IsManaged(&t.Spec) {
+		if !gatewaycommon.IsManaged(&t.Spec) {
 			return "", nil, fmt.Errorf("gateway is not a managed gateway")
 		}
 		namespace = t.Namespace

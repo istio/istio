@@ -35,6 +35,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -614,8 +615,8 @@ func init() {
 	features.EnableAmbientMultiNetwork = true
 	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
-	classInfos = getClassInfos()
-	builtinClasses = getBuiltinClasses()
+	gatewaycommon.ClassInfos = gatewaycommon.GetClassInfos()
+	gatewaycommon.BuiltinClasses = gatewaycommon.GetBuiltinClasses()
 }
 
 type TestStatusQueue struct {

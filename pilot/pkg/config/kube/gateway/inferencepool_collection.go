@@ -28,6 +28,7 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
@@ -57,7 +58,7 @@ var supportedControllers = getSupportedControllers()
 
 func getSupportedControllers() sets.Set[gatewayv1.GatewayController] {
 	ret := sets.New[gatewayv1.GatewayController]()
-	for _, controller := range builtinClasses {
+	for _, controller := range gatewaycommon.BuiltinClasses {
 		ret.Insert(controller)
 	}
 	return ret
@@ -464,7 +465,7 @@ func isOurManagedGateway(gateways krt.Collection[*gatewayv1.Gateway], namespace,
 	if gtw == nil {
 		return false
 	}
-	_, ok := builtinClasses[gtw.Spec.GatewayClassName]
+	_, ok := gatewaycommon.BuiltinClasses[gtw.Spec.GatewayClassName]
 	return ok
 }
 
@@ -478,7 +479,6 @@ func filterUsedConditions(conditions []metav1.Condition, usedConditions ...infer
 	return result
 }
 
-// generateHash generates an 8-character SHA256 hash of the input string.
 func generateHash(input string, length int) string {
 	hashBytes := sha256.Sum256([]byte(input))
 	hashString := fmt.Sprintf("%x", hashBytes) // Convert to hexadecimal string

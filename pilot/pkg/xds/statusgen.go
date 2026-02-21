@@ -122,6 +122,13 @@ func isZtunnel(con *Connection) bool {
 		con.proxy.Type == model.Ztunnel
 }
 
+func isAgentgateway(con *Connection) bool {
+	return con != nil &&
+		con.proxy != nil &&
+		con.proxy.Metadata != nil &&
+		con.proxy.Type == model.Agentgateway
+}
+
 func (sg *StatusGen) debugSyncz() model.Resources {
 	res := model.Resources{}
 

@@ -34,6 +34,8 @@ github.com/Masterminds/sprig/v3 v3.3.0 h1:mQh0Yrg1XPo6vjYXgtf5OtijNAKJRNcTdOOGZe
 github.com/Masterminds/sprig/v3 v3.3.0/go.mod h1:Zy1iXRYNqNLUolqCpL4uhk6SHUMAOSCzdgBfDb35Lz0=
 github.com/VividCortex/ewma v1.2.0 h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1ow=
 github.com/VividCortex/ewma v1.2.0/go.mod h1:nz4BbCtbLyFDeC9SUHbtcT5644juEuWfUAUnGx7j5l4=
+github.com/agentgateway/agentgateway v0.11.2 h1:/M2AdF2dQJExRsM+11edKrOUCwYI4Bgqj/hWFFV8Cx4=
+github.com/agentgateway/agentgateway v0.11.2/go.mod h1:l9WCU03Z5t1wRihwCV0nEx4s2e2oyYgE1jlCj2J6dNY=
 github.com/alecholmes/xfccparser v0.4.0 h1:IFB4bP34oorjcV3n8utZtBhEwlAw9rZ43pb4LgT23Vo=
 github.com/alecholmes/xfccparser v0.4.0/go.mod h1:J9fzzUOtjw74IwNdGVbjnOVj1UDlwGQj1zZzgQRlRDY=
 github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=

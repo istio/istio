@@ -73,6 +73,9 @@ type DiscoveryServer struct {
 	// Normal istio clients use the default generator - will not be impacted by this.
 	Generators map[string]model.XdsResourceGenerator
 
+	// Collections holds the KRT based collections when agentgateway is enabled
+	Collections map[string]CollectionGenerator
+
 	// ProxyNeedsPush is a function that determines whether a push can be completely skipped. Individual generators
 	// may also choose to not send any updates.
 	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) (*model.PushRequest, bool)
@@ -135,10 +138,13 @@ type DiscoveryServer struct {
 	DiscoveryStartTime time.Time
 
 	krtDebugger *krt.DebugHandler
+
+	registrations []CollectionRegistration
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string, debugger *krt.DebugHandler) *DiscoveryServer {
+// Optionally provide registration functions to source data from KRT based collections when agentgateway is enabled
+func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string, debugger *krt.DebugHandler, reg ...Registration) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                 env,
 		Generators:          map[string]model.XdsResourceGenerator{},
@@ -169,6 +175,17 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 	out.initJwksResolver()
 
 	return out
+}
+
+func (s *DiscoveryServer) InitCollections(reg ...Registration) {
+	if s.Collections != nil {
+		log.Debug("skipping collection initialization since Collections is already set")
+		return
+	}
+	s.Collections = make(map[string]CollectionGenerator)
+	for _, r := range reg {
+		s.registrations = append(s.registrations, r(s.Collections, s.pushChannel))
+	}
 }
 
 // initJwkResolver initializes the JWT key resolver to be used.
@@ -208,7 +225,16 @@ func (s *DiscoveryServer) CachesSynced() {
 }
 
 func (s *DiscoveryServer) IsServerReady() bool {
-	return s.serverReady.Load()
+	cachesSynced := s.serverReady.Load()
+	// TODO(jaellio): is this the correct way to check collection readiness? Is this necessary
+	if features.EnableAgentgateway {
+		for _, r := range s.registrations {
+			if !r.HasSynced() {
+				return false
+			}
+		}
+	}
+	return cachesSynced
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {

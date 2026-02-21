@@ -40,6 +40,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/credentials"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
@@ -1658,13 +1659,6 @@ func filteredReferences(parents []routeParentReference) []routeParentReference {
 	return ret
 }
 
-func getDefaultName(name string, kgw *k8s.GatewaySpec, disableNameSuffix bool) string {
-	if disableNameSuffix {
-		return name
-	}
-	return fmt.Sprintf("%v-%v", name, kgw.GatewayClassName)
-}
-
 // Gateway currently requires a listener (https://github.com/kubernetes-sigs/gateway-api/pull/1596).
 // We don't *really* care about the listener, but it may make sense to add a warning if users do not
 // configure it in an expected way so that we have consistency and can make changes in the future as needed.
@@ -1702,10 +1696,10 @@ func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
 }
 
 func reportGatewayStatus(
-	r *GatewayContext,
+	r *gatewaycommon.GatewayContext,
 	obj *k8s.Gateway,
 	gs *k8s.GatewayStatus,
-	classInfo classInfo,
+	classInfo gatewaycommon.ClassInfo,
 	gatewayServices []string,
 	servers []*istio.Server,
 	listenerSetCount int,
@@ -1758,7 +1752,7 @@ func reportGatewayStatus(
 
 	addressesToReport := external
 	if len(addressesToReport) == 0 {
-		wantAddressType := classInfo.addressType
+		wantAddressType := classInfo.AddressType
 		if override, ok := obj.Annotations[addressTypeOverride]; ok {
 			wantAddressType = k8s.AddressType(override)
 		}
@@ -1806,7 +1800,7 @@ func reportGatewayStatus(
 }
 
 func reportListenerSetStatus(
-	r *GatewayContext,
+	r *gatewaycommon.GatewayContext,
 	parentGwObj *k8s.Gateway,
 	obj *gatewayx.XListenerSet,
 	gs *gatewayx.ListenerSetStatus,
@@ -1965,25 +1959,10 @@ func reportNotAllowedListenerSet(status *gatewayx.ListenerSetStatus, obj *gatewa
 //	which users can add to the Gateway.
 //
 // If manual deployments are disabled, IsManaged() always returns true.
-func IsManaged(gw *k8s.GatewaySpec) bool {
-	if !features.EnableGatewayAPIManualDeployment {
-		return true
-	}
-	if len(gw.Addresses) == 0 {
-		return true
-	}
-	if len(gw.Addresses) > 1 {
-		return false
-	}
-	if t := gw.Addresses[0].Type; t == nil || *t == k8s.IPAddressType {
-		return true
-	}
-	return false
-}
 
-func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info classInfo) ([]string, *ConfigError) {
-	if IsManaged(&kgw.Spec) {
-		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], getDefaultName(kgw.Name, &kgw.Spec, info.disableNameSuffix))
+func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewaycommon.ClassInfo) ([]string, *ConfigError) {
+	if gatewaycommon.IsManaged(&kgw.Spec) {
+		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], gatewaycommon.GetDefaultName(kgw.Name, &kgw.Spec, info.DisableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, kgw.Namespace, domainSuffix)}, nil
 	}
 	gatewayServices := []string{}
@@ -2026,7 +2005,7 @@ func buildListener(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	namespaces krt.Collection[*corev1.Namespace],
 	obj controllers.Object,
 	status []k8s.ListenerStatus,
@@ -2166,7 +2145,7 @@ func buildTLS(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	gatewayTLS *k8s.TLSConfig,
 	tls *k8s.ListenerTLSConfig,
 	gw controllers.Object,
@@ -2223,7 +2202,7 @@ func buildTLS(
 			credNs := ptr.OrDefault((*string)(certRef.Namespace), namespace)
 			sameNamespace := credNs == namespace
 			objectKind := schematypes.GvkFromObject(gw)
-			if !sameNamespace && !grants.SecretAllowed(ctx, objectKind, creds.ToResourceName(cred), namespace) {
+			if !sameNamespace && !SecretAllowed(grants, ctx, objectKind, creds.ToResourceName(cred), namespace) {
 				combinedErr = joinErrors(combinedErr, &ConfigError{
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
@@ -2236,6 +2215,7 @@ func buildTLS(
 			credNames[i] = cred
 			validCertCount++
 		}
+		// Istio supports having dual certificates in different formats
 		if validCertCount == 0 {
 			// If we have no valid certificates, return an error
 			return out, combinedErr
@@ -2259,7 +2239,7 @@ func buildTLS(
 			if err != nil {
 				return out, err
 			}
-			if cred.Namespace != namespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw), cred.ResourceName, namespace) {
+			if cred.Namespace != namespace && !SecretAllowed(grants, ctx, schematypes.GvkFromObject(gw), cred.ResourceName, namespace) {
 				return out, &ConfigError{
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
@@ -2479,45 +2459,6 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 	// Ensure stable order
 	sort.Strings(namespaces)
 	return namespaces
-}
-
-// namespaceAcceptedByAllowListeners determines a list of allowed namespaces for a given AllowedListener
-func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8s.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
-	lr := parent.Spec.AllowedListeners
-	// Default allows none
-	if lr == nil || lr.Namespaces == nil {
-		return false
-	}
-	n := *lr.Namespaces
-	if n.From != nil {
-		switch *n.From {
-		case k8s.NamespacesFromAll:
-			return true
-		case k8s.NamespacesFromSame:
-			return localNamespace == parent.Namespace
-		case k8s.NamespacesFromNone:
-			return false
-		case k8s.NamespacesFromSelector:
-			// Fallthrough
-		default:
-			// Unknown?
-			return false
-		}
-	}
-	if lr.Namespaces.Selector == nil {
-		// Should never happen, invalid config
-		return false
-	}
-	ls, err := metav1.LabelSelectorAsSelector(lr.Namespaces.Selector)
-	if err != nil {
-		return false
-	}
-	localNamespaceObject := lookupNamespace(localNamespace)
-	if localNamespaceObject == nil {
-		// Couldn't find the namespace
-		return false
-	}
-	return ls.Matches(toNamespaceSet(localNamespaceObject.Name, localNamespaceObject.Labels))
 }
 
 func humanReadableJoin(ss []string) string {
