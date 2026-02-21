@@ -348,7 +348,7 @@ spec:
   {{- range $key, $val := .Ports }}
   - name: {{ $val.Name | quote }}
     port: {{ $val.Port }}
-    protocol: TCP
+    protocol: {{ $val.Protocol }}
     appProtocol: {{ $val.AppProtocol }}
   {{- end }}
   selector:
@@ -407,4 +407,3 @@ spec:
   selector:
     matchLabels:
       gateway.networking.k8s.io/gateway-name: {{.Name|quote}}
-

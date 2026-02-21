@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58247
+releaseNotes:
+  - |
+    **Fixed** When PILOT_ENABLE_QUIC_LISTENERS is enabled, generated Gateway API
+    Services will listen on the corresponding UDP port for each HTTPS listener.
