@@ -2566,7 +2566,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				test.SetForTest(t, &features.EnableRedisFilter, true)
 			}
 
-			applyLoadBalancer(nil, c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
+			applyLoadBalancer(nil, c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{}, nil)
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
