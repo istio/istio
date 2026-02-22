@@ -220,11 +220,24 @@ func TestToSecretName(t *testing.T) {
 			wantResourceName:      "sec",
 			wantResourceNamespace: "nm",
 		},
+		{
+			name:                  "kubernetes://istio-system/sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "istio-system/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "istio-system",
+		},
 	}
 
 	for _, tt := range cases {
+		secretAllowed := func(resourceName string, namespace string) bool {
+			if resourceName == "kubernetes://istio-system/sec" && namespace == "nm" {
+				return true
+			}
+			return false
+		}
 		t.Run(tt.name, func(t *testing.T) {
-			got := toSecretResourceName(tt.name, tt.namespace)
+			got := toSecretResourceName(tt.name, tt.namespace, secretAllowed)
 			if got != tt.want {
 				t.Errorf("got secret name %q, want %q", got, tt.want)
 			}
@@ -237,6 +250,121 @@ func TestToSecretName(t *testing.T) {
 			}
 			if sr.Namespace != tt.wantResourceNamespace {
 				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
+			}
+		})
+	}
+}
+
+func TestToSecretNameWithReferenceGrant(t *testing.T) {
+	cases := []struct {
+		name                  string
+		pluginNamespace       string
+		secretNamespace       string
+		secretAllowed         ResourceReferenceAllowed
+		want                  string
+		wantResourceName      string
+		wantResourceNamespace string
+		desc                  string
+	}{
+		{
+			desc:            "ReferenceGrant allows WasmPlugin from default to access secret in istio-system",
+			name:            "kubernetes://istio-system/wasm-secret",
+			pluginNamespace: "default",
+			secretNamespace: "istio-system",
+			secretAllowed: func(resourceName string, namespace string) bool {
+				// Simulate ReferenceGrant: WasmPlugin from "default" can access secrets in "istio-system"
+				if namespace == "default" {
+					p, err := credentials.ParseResourceName(resourceName, "", "", "")
+					if err == nil && p.Namespace == "istio-system" {
+						return true
+					}
+				}
+				return false
+			},
+			want:                  credentials.KubernetesSecretTypeURI + "istio-system/wasm-secret",
+			wantResourceName:      "wasm-secret",
+			wantResourceNamespace: "istio-system",
+		},
+		{
+			desc:            "No ReferenceGrant - secret namespace rewritten to plugin namespace",
+			name:            "kubernetes://istio-system/wasm-secret",
+			pluginNamespace: "default",
+			secretNamespace: "istio-system",
+			secretAllowed: func(resourceName string, namespace string) bool {
+				// No ReferenceGrant - return false
+				return false
+			},
+			want:                  credentials.KubernetesSecretTypeURI + "default/wasm-secret",
+			wantResourceName:      "wasm-secret",
+			wantResourceNamespace: "default",
+		},
+		{
+			desc:            "ReferenceGrant allows WasmPlugin from production to access secret in istio-system",
+			name:            "kubernetes://istio-system/shared-secret",
+			pluginNamespace: "production",
+			secretNamespace: "istio-system",
+			secretAllowed: func(resourceName string, namespace string) bool {
+				// Simulate ReferenceGrant: WasmPlugin from "production" can access secrets in "istio-system"
+				if namespace == "production" {
+					p, err := credentials.ParseResourceName(resourceName, "", "", "")
+					if err == nil && p.Namespace == "istio-system" {
+						return true
+					}
+				}
+				return false
+			},
+			want:                  credentials.KubernetesSecretTypeURI + "istio-system/shared-secret",
+			wantResourceName:      "shared-secret",
+			wantResourceNamespace: "istio-system",
+		},
+		{
+			desc:            "ReferenceGrant does not allow WasmPlugin from different namespace",
+			name:            "kubernetes://istio-system/wasm-secret",
+			pluginNamespace: "default",
+			secretNamespace: "istio-system",
+			secretAllowed: func(resourceName string, namespace string) bool {
+				// ReferenceGrant only allows "production" namespace, not "default"
+				if namespace == "production" {
+					p, err := credentials.ParseResourceName(resourceName, "", "", "")
+					if err == nil && p.Namespace == "istio-system" {
+						return true
+					}
+				}
+				return false
+			},
+			want:                  credentials.KubernetesSecretTypeURI + "default/wasm-secret",
+			wantResourceName:      "wasm-secret",
+			wantResourceNamespace: "default",
+		},
+		{
+			desc:            "Same namespace - no ReferenceGrant needed",
+			name:            "kubernetes://default/local-secret",
+			pluginNamespace: "default",
+			secretNamespace: "default",
+			secretAllowed: func(resourceName string, namespace string) bool {
+				return false
+			},
+			want:                  credentials.KubernetesSecretTypeURI + "default/local-secret",
+			wantResourceName:      "local-secret",
+			wantResourceNamespace: "default",
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.desc, func(t *testing.T) {
+			got := toSecretResourceName(tt.name, tt.pluginNamespace, tt.secretAllowed)
+			if got != tt.want {
+				t.Errorf("got secret name %q, want %q", got, tt.want)
+			}
+			sr, err := credentials.ParseResourceName(got, tt.pluginNamespace, cluster.ID("cluster"), cluster.ID("cluster"))
+			if err != nil {
+				t.Error(err)
+			}
+			if sr.Name != tt.wantResourceName {
+				t.Errorf("parse secret name got %v want %v", sr.Name, tt.wantResourceName)
+			}
+			if sr.Namespace != tt.wantResourceNamespace {
+				t.Errorf("parse secret namespace got %v want %v", sr.Namespace, tt.wantResourceNamespace)
 			}
 		})
 	}
@@ -282,9 +410,12 @@ func TestFailurePolicy(t *testing.T) {
 			out: wasmextensions.FailurePolicy_FAIL_RELOAD,
 		},
 	}
+	secretAllowed := func(resourceName string, namespace string) bool {
+		return false
+	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			out := convertToWasmPluginWrapper(config.Config{Spec: tc.in})
+			out := convertToWasmPluginWrapper(config.Config{Spec: tc.in}, secretAllowed)
 			if out == nil {
 				t.Fatal("must not get nil")
 			}
