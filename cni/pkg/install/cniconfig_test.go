@@ -580,6 +580,15 @@ func TestCreateCNIConfigFile(t *testing.T) {
 				goldenFilepath := filepath.Join("testdata", c.goldenConfName)
 				goldenConfig := testutils.ReadFile(t, goldenFilepath)
 				testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
+
+				// Verify the CNI config file has restrictive permissions per CIS Kubernetes benchmark
+				info, err := os.Stat(resultFilepath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if info.Mode().Perm() != 0o600 {
+					t.Fatalf("expected CNI config file permissions 0600, got %o", info.Mode().Perm())
+				}
 			}
 		}
 		t.Run("network-config-file "+c.name, test(cfgFile))
