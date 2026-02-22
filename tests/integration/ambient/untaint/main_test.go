@@ -55,8 +55,6 @@ values:
     taint:
       enabled: true
       namespace: "%s"
-    env:
-      PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:

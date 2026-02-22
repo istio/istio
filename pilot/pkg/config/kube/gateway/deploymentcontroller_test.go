@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -281,6 +282,33 @@ func TestConfigureIstioGateway(t *testing.T) {
   network: network-2`,
 		},
 		{
+			name: "waypoint-resources-null",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.WaypointGatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "mesh",
+						Port:     k8s.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  waypoint:
+    resources:
+      limits:
+        cpu: null
+        memory: 500Mi
+      requests:
+        cpu: null
+        memory: 150Mi`,
+		},
+		{
 			name: "agentgateway",
 			gw: k8s.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
@@ -297,6 +325,55 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 			},
 			objects: defaultObjects,
+		},
+		{
+			name: "agentgateway-resources-null",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  proxy:
+    resources:
+      limits:
+        cpu: null
+        memory: 500Mi
+      requests:
+        cpu: null
+        memory: 150Mi`,
+		},
+		{
+			name: "kube-gateway-resources-null",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  proxy:
+    resources:
+      limits:
+        cpu: null
+        memory: 500Mi
+      requests:
+        cpu: null
+        memory: 150Mi`,
 		},
 		{
 			name: "waypoint-no-network-label",
@@ -1185,4 +1262,161 @@ func newTestEnv() *model.Environment {
 	env.Watcher = meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())
 
 	return env
+}
+
+func TestApplySafeguards(t *testing.T) {
+	// Create a minimal DeploymentController just to test the apply() method safeguards
+	// We mock out everything the apply() method needs beyond the safeguard checks
+	c := kube.NewFakeClient()
+	stop := test.NewStop(t)
+	c.RunAndWait(stop)
+	d := &DeploymentController{
+		clients:     map[schema.GroupVersionResource]getter{},
+		deployments: kclient.New[*appsv1.Deployment](c),
+		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+			return nil // mock patcher
+		},
+	}
+
+	tests := []struct {
+		name          string
+		yml           string
+		input         TemplateInput
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "valid deployment",
+			yml: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-gateway
+  namespace: default`,
+			input: TemplateInput{
+				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				DeploymentName: "test-gateway",
+				ServiceAccount: "test-gateway",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid service",
+			yml: `apiVersion: v1
+kind: Service
+metadata:
+  name: test-gateway
+  namespace: default`,
+			input: TemplateInput{
+				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				DeploymentName: "test-gateway",
+				ServiceAccount: "test-gateway",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid custom service account",
+			yml: `apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: custom-sa
+  namespace: default`,
+			input: TemplateInput{
+				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				DeploymentName: "test-gateway",
+				ServiceAccount: "custom-sa",
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid kind - pod not allowed",
+			yml: `apiVersion: v1
+kind: Pod
+metadata:
+  name: test-gateway
+  namespace: default`,
+			input: TemplateInput{
+				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				DeploymentName: "test-gateway",
+				ServiceAccount: "test-gateway",
+			},
+			expectError:   true,
+			errorContains: "unexpected object kind",
+		},
+		{
+			name: "invalid kind - configmap not allowed",
+			yml: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-gateway
+  namespace: default`,
+			input: TemplateInput{
+				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				DeploymentName: "test-gateway",
+				ServiceAccount: "test-gateway",
+			},
+			expectError:   true,
+			errorContains: "unexpected object kind",
+		},
+		{
+			name: "wrong namespace",
+			yml: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-gateway
+  namespace: wrong-namespace`,
+			input: TemplateInput{
+				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				DeploymentName: "test-gateway",
+				ServiceAccount: "test-gateway",
+			},
+			expectError:   true,
+			errorContains: "does not match gateway namespace",
+		},
+		{
+			name: "wrong name - doesn't match expected",
+			yml: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: malicious-deployment
+  namespace: default`,
+			input: TemplateInput{
+				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}},
+				DeploymentName: "test-gateway",
+				ServiceAccount: "test-gateway",
+			},
+			expectError:   true,
+			errorContains: "does not match expected pattern",
+		},
+		{
+			name: "valid with suffix matching gateway name prefix",
+			yml: `apiVersion: v1
+kind: Service
+metadata:
+  name: test-gateway-istio
+  namespace: default`,
+			input: TemplateInput{
+				Gateway:        &k8s.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "test-gateway", Namespace: "default"}},
+				DeploymentName: "test-gateway-istio",
+				ServiceAccount: "test-gateway-istio",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := d.apply("test-controller", tt.yml, tt.input)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got nil")
+				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("error %q does not contain %q", err.Error(), tt.errorContains)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
 }

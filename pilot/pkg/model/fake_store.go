@@ -20,88 +20,116 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/krt"
 )
 
+type syncer struct {
+	synced chan struct{}
+}
+
+func (c *syncer) WaitUntilSynced(stop <-chan struct{}) bool {
+	select {
+	case <-c.synced:
+		return true
+	case <-stop:
+		return false
+	}
+}
+
+func (c *syncer) HasSynced() bool {
+	select {
+	case <-c.synced:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *syncer) markSynced() {
+	close(c.synced)
+}
+
 type FakeStore struct {
-	store map[config.GroupVersionKind]map[string]map[string]config.Config
+	store    map[config.GroupVersionKind]kindStore
+	stop     chan struct{}
+	syncer   *syncer
+	handlers []krt.HandlerRegistration
+}
+
+type kindStore struct {
+	collection krt.StaticCollection[config.Config]
+	index      krt.Index[string, config.Config]
 }
 
 func NewFakeStore() *FakeStore {
-	f := FakeStore{
-		store: make(map[config.GroupVersionKind]map[string]map[string]config.Config),
+	stop := make(chan struct{})
+	f := &FakeStore{
+		store:  make(map[config.GroupVersionKind]kindStore),
+		stop:   stop,
+		syncer: &syncer{make(chan struct{})},
 	}
-	return &f
+
+	for _, s := range collections.Pilot.All() {
+		opts := krt.NewOptionsBuilder(f.stop, "fake-store", krt.GlobalDebugHandler)
+		collection := krt.NewStaticCollection[config.Config](f.syncer, nil, opts.WithName(s.Kind())...)
+		kindStore := kindStore{
+			collection: collection,
+			index:      krt.NewNamespaceIndex(collection),
+		}
+		f.store[s.GroupVersionKind()] = kindStore
+	}
+
+	return f
 }
 
-var _ ConfigStore = (*FakeStore)(nil)
+var _ ConfigStoreController = (*FakeStore)(nil)
 
 func (s *FakeStore) Schemas() collection.Schemas {
 	return collections.Pilot
 }
 
 func (s *FakeStore) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
-	nsConfigs := s.store[typ]
-	if nsConfigs == nil {
+	kindStore, ok := s.store[typ]
+	if !ok {
 		return nil
 	}
 
-	configs := nsConfigs[namespace]
-	if configs == nil {
-		return nil
+	key := name
+	if len(namespace) > 0 {
+		key = namespace + "/" + name
 	}
-
-	if config, f := configs[name]; f {
-		return &config
-	}
-
-	return nil
+	return kindStore.collection.GetKey(key)
 }
 
 func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) []config.Config {
-	nsConfigs := s.store[typ]
-	if nsConfigs == nil {
+	data, exists := s.store[typ]
+	if !exists {
 		return nil
 	}
-	var res []config.Config
+
 	if namespace == NamespaceAll {
-		for _, configs := range nsConfigs {
-			for _, cfg := range configs {
-				res = append(res, cfg)
-			}
-		}
-		return res
+		return data.collection.List()
 	}
 
-	return maps.Values(nsConfigs[namespace])
+	return data.index.Lookup(namespace)
 }
 
 func (s *FakeStore) Create(cfg config.Config) (revision string, err error) {
-	nsConfigs := s.store[cfg.GroupVersionKind]
-	if nsConfigs == nil {
-		nsConfigs = make(map[string]map[string]config.Config)
-		s.store[cfg.GroupVersionKind] = nsConfigs
+	kindStore, ok := s.store[cfg.GroupVersionKind]
+	if ok {
+		kindStore.collection.UpdateObject(cfg)
 	}
 
-	configs := nsConfigs[cfg.Namespace]
-	if configs == nil {
-		configs = make(map[string]config.Config)
-		nsConfigs[cfg.Namespace] = configs
-	}
-
-	configs[cfg.Name] = cfg
 	return "", nil
 }
 
 func (s *FakeStore) Update(cfg config.Config) (newRevision string, err error) {
-	nsConfigs := s.store[cfg.GroupVersionKind]
-	if nsConfigs != nil {
-		configs := nsConfigs[cfg.Namespace]
-		if configs != nil {
-			if _, f := configs[cfg.Name]; f {
-				configs[cfg.Name] = cfg
-				return "", nil
-			}
+	kindStore, ok := s.store[cfg.GroupVersionKind]
+	if ok {
+		if obj := kindStore.collection.GetKey(krt.GetKey(cfg)); obj != nil {
+			kindStore.collection.UpdateObject(cfg)
+			return "", nil
 		}
 	}
 
@@ -111,16 +139,69 @@ func (s *FakeStore) Update(cfg config.Config) (newRevision string, err error) {
 func (*FakeStore) UpdateStatus(config config.Config) (string, error) { return "", nil }
 
 func (s *FakeStore) Delete(typ config.GroupVersionKind, name, namespace string, rv *string) error {
-	nsConfigs := s.store[typ]
-	if nsConfigs == nil {
+	kindStore, ok := s.store[typ]
+	if !ok {
 		return nil
 	}
 
-	configs := nsConfigs[namespace]
-	if configs == nil {
-		return nil
+	key := name
+	if len(namespace) > 0 {
+		key = namespace + "/" + name
+	}
+	kindStore.collection.DeleteObject(key)
+	return nil
+}
+
+func (s *FakeStore) RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler) {
+	if kindStore, ok := s.store[kind]; ok {
+		s.handlers = append(
+			s.handlers,
+			kindStore.collection.RegisterBatch(func(evs []krt.Event[config.Config]) {
+				for _, event := range evs {
+					switch event.Event {
+					case controllers.EventAdd:
+						handler(config.Config{}, *event.New, EventAdd)
+					case controllers.EventUpdate:
+						handler(*event.Old, *event.New, EventUpdate)
+					case controllers.EventDelete:
+						handler(config.Config{}, *event.Old, EventDelete)
+					}
+				}
+			}, false),
+		)
+	}
+}
+
+func (s *FakeStore) Run(stop <-chan struct{}) {
+	s.syncer.markSynced()
+	<-stop
+	close(s.stop)
+}
+
+func (s *FakeStore) HasSynced() bool {
+	if !s.syncer.HasSynced() {
+		return false
 	}
 
-	delete(configs, name)
+	for _, kindStore := range s.store {
+		if !kindStore.collection.HasSynced() {
+			return false
+		}
+	}
+
+	for _, handler := range s.handlers {
+		if !handler.HasSynced() {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (s *FakeStore) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
+	if kindStore, ok := s.store[typ]; ok {
+		return kindStore.collection
+	}
+
 	return nil
 }

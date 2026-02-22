@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/framework"
@@ -216,7 +215,7 @@ func TestWasmPluginConfigurations(t *testing.T) {
 					desc:       "Configure WebAssembly filter for waypoint",
 					name:       "waypoint-wasm-test",
 					targetType: "gateway",
-					targetName: constants.DefaultNamespaceWaypoint,
+					targetName: GetTarget().Config().ServiceWaypointProxy,
 				},
 				{
 					desc:       "Configure WebAssembly filter for specific service",

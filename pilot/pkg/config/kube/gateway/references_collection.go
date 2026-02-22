@@ -120,7 +120,11 @@ type ReferenceGrant struct {
 }
 
 func (g ReferenceGrant) ResourceName() string {
-	return g.Source.String() + "/" + g.From.String() + "/" + g.To.String()
+	nameKey := "*"
+	if !g.AllowAll {
+		nameKey = g.AllowedName
+	}
+	return g.Source.String() + "/" + g.From.String() + "/" + g.To.String() + "/" + nameKey
 }
 
 func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, kind config.GroupVersionKind, resourceName string, namespace string) bool {

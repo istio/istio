@@ -110,7 +110,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 
 func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, *xdsfake.Updater) {
 	store := memory.Make(collections.Pilot)
-	configController := memory.NewSyncController(store)
+	configController := memory.NewController(store)
 
 	stop := test.NewStop(t)
 	go configController.Run(stop)
@@ -880,7 +880,24 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 	})
 
 	t.Run("cleanup", func(t *testing.T) {
-		deleteConfigs([]*config.Config{wle, selector, dnsSelector, dnsWle, wle3}, store, t)
+		deleteConfigs([]*config.Config{wle, wle3}, store, t)
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com"},
+		)
+		deleteConfigs([]*config.Config{selector}, store, t)
+		expectEvents(t, events,
+			Event{Type: "service", ID: "selector.com"},
+			Event{Type: "xds full", ID: "selector.com"},
+		)
+		deleteConfigs([]*config.Config{dnsWle}, store, t)
+		expectEvents(t, events,
+			Event{Type: "eds cache", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "xds full", ID: "dns.selector.com"})
+		deleteConfigs([]*config.Config{dnsSelector}, store, t)
+		expectEvents(t, events,
+			Event{Type: "service", ID: "dns.selector.com"},
+			Event{Type: "xds full", ID: "dns.selector.com"},
+		)
 		assertControllerEmpty(t, sd)
 	})
 }
@@ -1622,7 +1639,7 @@ func expectEvents(t testing.TB, ch *xdsfake.Updater, events ...Event) {
 
 func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
 	t.Helper()
-	svcs := convertServices(*cfg)
+	svcs := convertServices(*cfg, nil)
 	if len(svcs) != len(expected) {
 		t.Fatalf("got more services than expected: %v vs %v", len(svcs), len(expected))
 	}
@@ -1856,8 +1873,8 @@ func TestServicesDiff(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			as := convertServices(*tt.current)
-			bs := convertServices(*tt.new)
+			as := convertServices(*tt.current, nil)
+			bs := convertServices(*tt.new, nil)
 			added, deleted, updated, unchanged := servicesDiff(as, bs)
 			for i, item := range []struct {
 				hostnames []host.Name

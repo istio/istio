@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -1234,10 +1235,60 @@ func createCorsFilter(filter *k8s.HTTPCORSFilter) *istio.CorsPolicy {
 			continue // Not valid anyways, but double check
 		}
 
-		// TODO: support wildcards (https://github.com/kubernetes-sigs/gateway-api/issues/3648)
+		// Code here is based on kgateway implementation
+		// Direct wildcard allows any origin
+		if rs == "*" {
+			// Use strict regex that only matches valid origin formats per RFC 6454
+			// Format: <scheme>://<host>(:<port>)?
+			// Allows: http://example.com, https://sub.example.com:8443, ws://localhost:3000
+			res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
+				MatchType: &istio.StringMatch_Regex{
+					// Match valid origin: scheme://host(:port)?
+					// - scheme: starts with letter, followed by alphanumeric, +, -, or .
+					// - host(:port): any characters except /, whitespace, ?, #
+					Regex: `^[a-zA-Z][a-zA-Z0-9+.-]*://[^/\s?#]+$`,
+				},
+			})
+			continue
+		}
+
+		// No wildcard should use exact matcher
+		if !strings.Contains(rs, "*") {
+			res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
+				MatchType: &istio.StringMatch_Exact{Exact: rs},
+			})
+			continue
+		}
+
+		// Check if there is a single wildcard and it is at the end
+		// In this case, we can use prefix matching
+		if strings.Count(rs, "*") == 1 && strings.HasSuffix(rs, "*") {
+			// Extract the prefix before the wildcard
+			prefix := strings.TrimSuffix(rs, "*")
+			res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
+				MatchType: &istio.StringMatch_Prefix{Prefix: prefix},
+			})
+			continue
+		}
+
+		// For any other wildcard pattern, use regex matching
+
+		// First escape all special characters
+		regexPattern := regexp.QuoteMeta(rs)
+
+		// Then convert escaped wildcards to regex wildcard patterns
+		regexPattern = strings.ReplaceAll(regexPattern, "\\*", ".*")
+
+		// Test the regex pattern to make sure it is a valid RE2 pattern
+		if _, err := regexp.Compile(regexPattern); err != nil {
+			log.Errorf("failed to convert origin %s to regex pattern: %s", rs, err)
+			continue
+		}
+
 		res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
-			MatchType: &istio.StringMatch_Exact{Exact: string(r)},
+			MatchType: &istio.StringMatch_Regex{Regex: "^" + regexPattern + "$"},
 		})
+
 	}
 	if ptr.OrEmpty(filter.AllowCredentials) {
 		res.AllowCredentials = wrappers.Bool(true)
@@ -1254,6 +1305,7 @@ func createCorsFilter(filter *k8s.HTTPCORSFilter) *istio.CorsPolicy {
 	if filter.MaxAge > 0 {
 		res.MaxAge = durationpb.New(time.Duration(filter.MaxAge) * time.Second)
 	}
+	res.UnmatchedPreflights = istio.CorsPolicy_IGNORE
 
 	return res
 }

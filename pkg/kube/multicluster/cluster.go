@@ -46,6 +46,20 @@ type Cluster struct {
 	initialSyncTimeout *atomic.Bool
 
 	syncStatusCallback SyncStatusCallback
+
+	// Action indicates whether this is an Add or Update operation.
+	// This allows constructors to behave differently during updates (e.g., defer registration).
+	Action ACTION
+
+	// SyncedCh is closed when the cluster has synced (or timed out).
+	// This allows components to wait for sync before performing actions like registry swap.
+	SyncedCh chan struct{}
+
+	// prevComponent holds the previous component during an update operation.
+	// This is set temporarily in clusterUpdated to allow constructors to access the old component
+	// for seamless migration (comparing old vs new state).
+	// This is only set during component construction and cleared afterwards.
+	prevComponent ComponentConstraint
 }
 
 type SyncStatusCallback func(cluster.ID, string)
@@ -76,7 +90,12 @@ func (a ACTION) String() string {
 
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
-func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
+// The swap parameter manages the make-before-break lifecycle - its Complete() method is called via defer
+// to clean up the previous cluster after sync completes (success, failure, or timeout).
+func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION, swap *PendingClusterSwap) {
+	// Ensure previous cluster is cleaned up when this method exits (success, failure, or timeout)
+	defer swap.Complete()
+
 	c.reportStatus(SyncStatusSyncing)
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
@@ -86,6 +105,8 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 			if !c.initialSync.Load() {
 				log.Errorf("remote cluster %s failed to sync after %v", c.ID, features.RemoteClusterTimeout)
 				timeouts.With(clusterLabel.Value(string(c.ID))).Increment()
+				// Signal that sync is complete (timed out)
+				c.closeSyncedCh()
 			}
 			c.initialSyncTimeout.Store(true)
 			c.reportStatus(SyncStatusTimeout)
@@ -115,17 +136,37 @@ func (c *Cluster) Run(mesh mesh.Watcher, handlers []handler, action ACTION) {
 	}
 	if !c.Client.RunAndWait(c.stop) {
 		log.Warnf("remote cluster %s failed to sync", c.ID)
+		// Signal that sync is complete (failed)
+		c.closeSyncedCh()
 		return
 	}
 	for _, h := range syncers {
 		if !kube.WaitForCacheSync("cluster "+string(c.ID), c.stop, h.HasSynced) {
 			log.Warnf("remote cluster %s failed to sync handler", c.ID)
+			// Signal that sync is complete (failed)
+			c.closeSyncedCh()
 			return
 		}
 	}
 
 	c.initialSync.Store(true)
 	c.reportStatus(SyncStatusSynced)
+
+	// Signal that sync is complete
+	c.closeSyncedCh()
+}
+
+// closeSyncedCh closes the SyncedCh channel to signal sync completion.
+// Safe to call multiple times.
+func (c *Cluster) closeSyncedCh() {
+	if c.SyncedCh != nil {
+		select {
+		case <-c.SyncedCh:
+			// already closed
+		default:
+			close(c.SyncedCh)
+		}
+	}
 }
 
 // Stop closes the stop channel, if is safe to be called multi times.

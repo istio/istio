@@ -131,7 +131,7 @@ func DestinationRuleCollection(
 	c *Controller,
 	services krt.Collection[*v1.Service],
 	opts krt.OptionsBuilder,
-) krt.Collection[*config.Config] {
+) krt.Collection[config.Config] {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
@@ -150,7 +150,7 @@ func DestinationRuleCollection(
 	indexOpts := append(opts.WithName("BackendPolicyByTarget"), TypedNamespacedNamePerHostIndexCollectionFunc)
 	merged := krt.NewCollection(
 		byTargetAndHost.AsCollection(indexOpts...),
-		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamespacedNamePerHost, BackendPolicy]) **config.Config {
+		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamespacedNamePerHost, BackendPolicy]) *config.Config {
 			// Sort so we can pick the oldest, which will win.
 			// Not yet standardized but likely will be (https://github.com/kubernetes-sigs/gateway-api/issues/3516#issuecomment-2684039692)
 			pols := slices.SortFunc(i.Objects, func(a, b BackendPolicy) int {
@@ -237,7 +237,7 @@ func DestinationRuleCollection(
 					}
 				}
 			case kind.ServiceEntry:
-				serviceEntryObj, err := references.LocalPolicyTargetRef(gw.LocalPolicyTargetReference{
+				serviceEntryObj, err := references.LocalPolicyTargetRef(ctx, gw.LocalPolicyTargetReference{
 					Group: "networking.istio.io",
 					Kind:  "ServiceEntry",
 					Name:  gw.ObjectName(target.Name),
@@ -264,7 +264,7 @@ func DestinationRuleCollection(
 				spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 			}
 
-			cfg := &config.Config{
+			return &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
 					Name:             generateDRName(target, host),
@@ -275,7 +275,6 @@ func DestinationRuleCollection(
 				},
 				Spec: spec,
 			}
-			return &cfg
 		}, opts.WithName("BackendPolicyMerged")...)
 	return merged
 }
@@ -317,7 +316,7 @@ func BackendTLSPolicyCollection(
 			}
 			return nil
 		})
-		tls.CredentialName = getBackendTLSCredentialName(s.Validation, i.Namespace, conds, references)
+		tls.CredentialName = getBackendTLSCredentialName(ctx, s.Validation, i.Namespace, conds, references)
 
 		// In ancestor status, we need to report for Service (for mesh) and for each relevant Gateway.
 		// However, there is a max of 16 items we can report.
@@ -329,7 +328,7 @@ func BackendTLSPolicyCollection(
 		uniqueGateways := sets.New[types.NamespacedName]()
 		for idx, t := range i.Spec.TargetRefs {
 			conds = maps.Clone(conds)
-			refo, err := references.LocalPolicyTargetRef(t.LocalPolicyTargetReference, i.Namespace)
+			refo, err := references.LocalPolicyTargetRef(ctx, t.LocalPolicyTargetReference, i.Namespace)
 			var sectionName *string
 			if err == nil {
 				switch refType := refo.(type) {
@@ -433,6 +432,7 @@ func BackendTLSPolicyCollection(
 }
 
 func getBackendTLSCredentialName(
+	ctx krt.HandlerContext,
 	validation gw.BackendTLSPolicyValidation,
 	policyNamespace string,
 	conds map[string]*condition,
@@ -460,7 +460,7 @@ func getBackendTLSCredentialName(
 	if len(validation.CACertificateRefs) > 1 {
 		conds[string(gw.PolicyConditionAccepted)].message += "; warning: only the first caCertificateRefs will be used"
 	}
-	refo, err := references.LocalPolicyRef(ref, policyNamespace)
+	refo, err := references.LocalPolicyRef(ctx, ref, policyNamespace)
 	if err == nil {
 		switch to := refo.(type) {
 		case *v1.ConfigMap:
@@ -557,7 +557,7 @@ func BackendTrafficPolicyCollection(
 
 		for idx, t := range i.Spec.TargetRefs {
 			conds = maps.Clone(conds)
-			refo, err := references.XLocalPolicyTargetRef(t, i.Namespace)
+			refo, err := references.XLocalPolicyTargetRef(ctx, t, i.Namespace)
 			if err == nil {
 				switch refo.(type) {
 				case *v1.Service:

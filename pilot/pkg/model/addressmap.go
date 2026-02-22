@@ -15,9 +15,8 @@
 package model
 
 import (
-	"sync"
-
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -27,17 +26,12 @@ type AddressMap struct {
 	// Should only be used by tests and construction/initialization logic, where there is no concern
 	// for race conditions.
 	Addresses map[cluster.ID][]string
-
-	// NOTE: The copystructure library is not able to copy unexported fields, so the mutex will not be copied.
-	mutex sync.RWMutex
 }
 
 func (m *AddressMap) Len() int {
 	if m == nil {
 		return 0
 	}
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
 
 	return len(m.Addresses)
 }
@@ -46,8 +40,17 @@ func (m *AddressMap) DeepCopy() *AddressMap {
 	if m == nil {
 		return nil
 	}
+
+	var addresses map[cluster.ID][]string
+	if m.Addresses != nil {
+		addresses = make(map[cluster.ID][]string, len(m.Addresses))
+		for k, v := range m.Addresses {
+			addresses[k] = slices.Clone(v)
+		}
+	}
+
 	return &AddressMap{
-		Addresses: m.GetAddresses(),
+		Addresses: addresses,
 	}
 }
 
@@ -57,29 +60,7 @@ func (m *AddressMap) GetAddresses() map[cluster.ID][]string {
 		return nil
 	}
 
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	if m.Addresses == nil {
-		return nil
-	}
-
-	out := make(map[cluster.ID][]string)
-	for k, v := range m.Addresses {
-		out[k] = slices.Clone(v)
-	}
-	return out
-}
-
-// SetAddresses sets the addresses per cluster.
-func (m *AddressMap) SetAddresses(addrs map[cluster.ID][]string) {
-	if len(addrs) == 0 {
-		addrs = nil
-	}
-
-	m.mutex.Lock()
-	m.Addresses = addrs
-	m.mutex.Unlock()
+	return m.Addresses
 }
 
 func (m *AddressMap) GetAddressesFor(c cluster.ID) []string {
@@ -87,65 +68,72 @@ func (m *AddressMap) GetAddressesFor(c cluster.ID) []string {
 		return nil
 	}
 
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
 	if m.Addresses == nil {
 		return nil
 	}
 
-	// Copy the Addresses array.
-	return append([]string{}, m.Addresses[c]...)
+	return m.Addresses[c]
 }
 
-func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) *AddressMap {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
+// SetAddressesFor sets the addresses for a cluster,
+// users should ensure they have a shallow copy of the AddressMap before calling this method.
+func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) {
 	if len(addresses) == 0 {
 		// Setting an empty array for the cluster. Remove the entry for the cluster if it exists.
 		if m.Addresses != nil {
-			delete(m.Addresses, c)
-
 			// Delete the map if there's nothing left.
-			if len(m.Addresses) == 0 {
+			if len(m.Addresses) == 1 && m.Addresses[c] != nil {
 				m.Addresses = nil
+				return
 			}
+
+			// ensure we clone the internal map to avoid races with shallow copies
+			m.Addresses = maps.Clone(m.Addresses)
+			delete(m.Addresses, c)
 		}
-	} else {
-		// Create the map if it doesn't already exist.
-		if m.Addresses == nil {
-			m.Addresses = make(map[cluster.ID][]string)
-		}
-		m.Addresses[c] = addresses
+
+		return
 	}
-	return m
+
+	// Create the map if it doesn't already exist.
+	if m.Addresses == nil {
+		m.Addresses = map[cluster.ID][]string{
+			c: addresses,
+		}
+
+		return
+	}
+
+	// ensure we clone the internal map to avoid races with shallow copies
+	m.Addresses = maps.Clone(m.Addresses)
+	m.Addresses[c] = addresses
 }
 
-func (m *AddressMap) AddAddressesFor(c cluster.ID, addresses []string) *AddressMap {
+// AddAddressesFor adds addresses for a cluster,
+// users should ensure they have a shallow copy of the AddressMap before calling this method.
+func (m *AddressMap) AddAddressesFor(c cluster.ID, addresses []string) {
 	if len(addresses) == 0 {
-		return m
+		return
 	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	// Create the map if nil.
 	if m.Addresses == nil {
-		m.Addresses = make(map[cluster.ID][]string)
+		m.Addresses = map[cluster.ID][]string{
+			c: addresses,
+		}
+
+		return
 	}
 
-	m.Addresses[c] = append(m.Addresses[c], addresses...)
-	return m
+	// ensure we clone the internal map and slice to avoid races with shallow copies
+	m.Addresses = maps.Clone(m.Addresses)
+	m.Addresses[c] = append(slices.Clone(m.Addresses[c]), addresses...)
 }
 
 func (m *AddressMap) ForEach(fn func(c cluster.ID, addresses []string)) {
 	if m == nil {
 		return
 	}
-
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
 
 	if m.Addresses == nil {
 		return

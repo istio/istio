@@ -1696,9 +1696,9 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 	for i, s := range allServices {
 		if aliases, f := aliasesForService[s.Hostname]; f {
 			// This service has an alias; set it. We need to make a copy since the underlying Service is shared
-			s = s.DeepCopy()
-			s.Attributes.Aliases = aliases
-			allServices[i] = s
+			ss := s.ShallowCopy()
+			ss.Attributes.Aliases = aliases
+			allServices[i] = ss
 		}
 	}
 }

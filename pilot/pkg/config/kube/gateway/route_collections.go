@@ -185,7 +185,7 @@ func HTTPRouteCollection(
 					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
 				}
 
-				cfg := &config.Config{
+				cfg := config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
@@ -399,7 +399,7 @@ func GRPCRouteCollection(
 					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
 				}
 
-				cfg := &config.Config{
+				cfg := config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
@@ -453,7 +453,7 @@ func TCPRouteCollection(
 	}, opts.WithName("TCPAncestors")...)
 	status, virtualServices := krt.NewStatusManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (
 		*gatewayalpha.TCPRouteStatus,
-		[]*config.Config,
+		[]config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
@@ -470,7 +470,7 @@ func TCPRouteCollection(
 			})
 		status.Parents = parentStatus
 
-		vs := []*config.Config{}
+		vs := []config.Config{}
 		count := 0
 		for _, parent := range filteredReferences(parentRefs) {
 			routes := gwResult.routes
@@ -500,7 +500,7 @@ func TCPRouteCollection(
 				name := fmt.Sprintf("%s~tcp~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				// Create one VS per hostname with a single hostname.
 				// This ensures we can treat each hostname independently, as the spec requires
-				vs = append(vs, &config.Config{
+				vs = append(vs, config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
@@ -550,7 +550,7 @@ func TLSRouteCollection(
 	}, opts.WithName("TLSAncestors")...)
 	status, virtualServices := krt.NewStatusManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (
 		*gatewayalpha.TLSRouteStatus,
-		[]*config.Config,
+		[]config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
@@ -568,7 +568,7 @@ func TLSRouteCollection(
 		status.Parents = parentStatus
 
 		count := 0
-		vs := []*config.Config{}
+		vs := []config.Config{}
 		for _, parent := range filteredReferences(parentRefs) {
 			routes := gwResult.routes
 			vsHosts := hostnameToStringList(route.Hostnames)
@@ -599,7 +599,7 @@ func TLSRouteCollection(
 				}
 				// Create one VS per hostname with a single hostname.
 				// This ensures we can treat each hostname independently, as the spec requires
-				vs = append(vs, &config.Config{
+				vs = append(vs, config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
@@ -703,7 +703,7 @@ func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
 }
 
 type RouteWithKey struct {
-	*config.Config
+	config.Config
 	Key string
 }
 
@@ -712,7 +712,7 @@ func (r RouteWithKey) ResourceName() string {
 }
 
 func (r RouteWithKey) Equals(o RouteWithKey) bool {
-	return r.Config.Equals(o.Config)
+	return r.Config.Equals(&o.Config)
 }
 
 // buildMeshAndGatewayRoutes contains common logic to build a set of routes with mesh and/or gateway semantics
@@ -731,7 +731,7 @@ func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convert
 // RouteResult holds the result of a route collection
 type RouteResult[I controllers.Object, IStatus any] struct {
 	// VirtualServices are the primary output that configures the internal routing logic
-	VirtualServices krt.Collection[*config.Config]
+	VirtualServices krt.Collection[config.Config]
 	// RouteAttachments holds information about parent attachment to routes, used for computed the `attachedRoutes` count.
 	RouteAttachments krt.Collection[RouteAttachment]
 	// Status stores the status reports for the incoming object
@@ -789,11 +789,11 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 
 // mergeHTTPRoutes merges HTTProutes by key. Gateway API has semantics for the ordering of `match` rules, that merges across resource.
 // So we merge everything (by key) following that ordering logic, and sort into a linear list (how VirtualService semantics work).
-func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...krt.CollectionOption) krt.Collection[*config.Config] {
+func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...krt.CollectionOption) krt.Collection[config.Config] {
 	idx := krt.NewIndex(baseVirtualServices, "key", func(o RouteWithKey) []string {
 		return []string{o.Key}
 	}).AsCollection(opts...)
-	finalVirtualServices := krt.NewCollection(idx, func(ctx krt.HandlerContext, object krt.IndexObject[string, RouteWithKey]) **config.Config {
+	finalVirtualServices := krt.NewCollection(idx, func(ctx krt.HandlerContext, object krt.IndexObject[string, RouteWithKey]) *config.Config {
 		configs := object.Objects
 		if len(configs) == 1 {
 			base := configs[0].Config
@@ -802,12 +802,12 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 			// Otherwise, we end up with broken state, where two inputs map to the same output which is not allowed by krt.
 			// Because a lot of code assumes the object key is 'namespace/name', and the key always has slashes, we also translate the /
 			nm.Name = strings.ReplaceAll(object.Key, "/", "~")
-			return ptr.Of(&config.Config{
+			return &config.Config{
 				Meta:   nm,
 				Spec:   base.Spec,
 				Status: base.Status,
 				Extra:  base.Extra,
-			})
+			}
 		}
 		sortRoutesByCreationTime(configs)
 		base := configs[0].DeepCopy()
@@ -872,7 +872,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		}
 		sortHTTPRoutes(baseVS.Http)
 		base.Name = strings.ReplaceAll(object.Key, "/", "~")
-		return ptr.Of(&base)
+		return &base
 	}, opts...)
 	return finalVirtualServices
 }

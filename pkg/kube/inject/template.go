@@ -64,6 +64,7 @@ func createInjectionFuncmap() template.FuncMap {
 		"strdict":             strdict,
 		"toJsonMap":           toJSONMap,
 		"mergeMaps":           mergeMaps,
+		"omitNil":             omitNil,
 	}
 }
 
@@ -409,4 +410,59 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 		}
 	}
 	return res
+}
+
+// omitNil recursively removes nil values from maps and slices.
+func omitNil(v any) any {
+	res, _ := omitNilInternal(v)
+	return res
+}
+
+// Two passes: First pass checks if any nils are present.
+// Second pass performs the actual filtering.
+func omitNilInternal(v any) (any, bool) {
+	if v == nil {
+		return nil, true
+	}
+	switch v := v.(type) {
+	case map[string]any:
+		for _, val := range v {
+			if _, changed := omitNilInternal(val); changed {
+				// At least one change found. Perform a full filtering copy.
+				out := make(map[string]any, len(v))
+				for k2, v2 := range v {
+					if f := omitNil(v2); f != nil {
+						out[k2] = f
+					}
+				}
+				if len(out) == 0 {
+					return nil, true
+				}
+				return out, true
+			}
+		}
+		return v, false
+	case []any:
+		for i, val := range v {
+			if _, changed := omitNilInternal(val); changed {
+				// At least one change found. Perform a filtering copy.
+				out := make([]any, 0, len(v))
+				for j := 0; j < i; j++ {
+					out = append(out, v[j])
+				}
+				for j := i; j < len(v); j++ {
+					if f := omitNil(v[j]); f != nil {
+						out = append(out, f)
+					}
+				}
+				if len(out) == 0 {
+					return nil, true
+				}
+				return out, true
+			}
+		}
+		return v, false
+	default:
+		return v, false
+	}
 }

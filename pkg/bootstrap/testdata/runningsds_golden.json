@@ -396,11 +396,78 @@
                   },
                   "http_filters": [
                   {
+                    "name": "envoy.filters.http.compressor.brotli",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor",
+                      "compressor_library": {
+                        "name": "stats_brotli",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.compression.brotli.compressor.v3.Brotli"
+                        }
+                      },
+                      "response_direction_config": {
+                        "common_config": {
+                          "content_type": [
+                            "text/plain",
+                            "application/vnd.google.protobuf",
+                            "application/openmetrics-text",
+                            "application/openmetrics-protobuf"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "name": "envoy.filters.http.compressor.zstd",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor",
+                      "compressor_library": {
+                        "name": "stats_zstd",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.compression.zstd.compressor.v3.Zstd"
+                        }
+                      },
+                      "response_direction_config": {
+                        "common_config": {
+                          "content_type": [
+                            "text/plain",
+                            "application/vnd.google.protobuf",
+                            "application/openmetrics-text",
+                            "application/openmetrics-protobuf"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "name": "envoy.filters.http.compressor.gzip",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor",
+                      "compressor_library": {
+                        "name": "stats_gzip",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.compression.gzip.compressor.v3.Gzip"
+                        }
+                      },
+                      "response_direction_config": {
+                        "common_config": {
+                          "content_type": [
+                            "text/plain",
+                            "application/vnd.google.protobuf",
+                            "application/openmetrics-text",
+                            "application/openmetrics-protobuf"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
                     "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
-                  }]
+                  }
+                ]
                 }
               }
             ]

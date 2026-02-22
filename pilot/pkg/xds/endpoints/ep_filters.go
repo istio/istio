@@ -143,7 +143,13 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
 			// the endpoint is either on the local network or on a remote network that can be reached
 			// directly from the local network.
-			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
+			// However, when the proxy's network is not set (empty) but the endpoint has a specific
+			// network and gateways are configured for that network, we should route through
+			// the gateway rather than treating the endpoint as directly reachable. This handles
+			// the case where ISTIO_META_NETWORK is not configured on the sidecar but multi-network
+			// routing is still desired.
+			forceGateway := b.network == "" && epNetwork != "" && len(gateways) > 0
+			if !forceGateway && (b.proxy.InNetwork(epNetwork) || len(gateways) == 0) {
 				// The endpoint is directly reachable - just add it.
 				// If there is no gateway, the address must not be empty
 				if util.GetEndpointHost(lbEp) != "" {
@@ -157,7 +163,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
 			// TODO BTS may allow us to work around this
-			if isSidecarProxy(b.proxy) && !isMtlsEnabled(lbEp) {
+			if (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) && !isMtlsEnabled(lbEp) {
 				continue
 			}
 
@@ -190,7 +196,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// gateways differently as we use somewhat different protocols in those two distinct cases.
 			var gwEp *endpoint.LbEndpoint
 
-			if features.EnableAmbientMultiNetwork {
+			if features.EnableAmbientMultiNetwork && !isSidecarProxy(b.proxy) {
 				gwAddr := gw.Addr
 				gwPort := int(gw.HBONEPort)
 
@@ -287,7 +293,7 @@ func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []m
 	}
 
 	// If we operate in ambient multi-network mode skip gateways that don't have HBONE port
-	if features.EnableAmbientMultiNetwork && model.IsWaypointProxy(b.proxy) {
+	if features.EnableAmbientMultiNetwork && !isSidecarProxy(b.proxy) {
 		var ambientGws []model.NetworkGateway
 		for _, gw := range gws {
 			if gw.HBONEPort == 0 {
