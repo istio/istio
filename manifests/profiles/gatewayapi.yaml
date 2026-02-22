@@ -1,0 +1,22 @@
+# The Gateway API profile will install Istio supporting just Gateway API resources.
+# This profile forces pilot to ignore any istio.io resource and reconcile just Gateway API
+# resources. In case you want to add specific resources groups, you can add the following
+# to this profile:
+# spec:
+#   values:
+#     pilot:
+#        env:
+#         PILOT_INCLUDE_RESOURCES: "*.security.istio.io,wasmplugins.extensions.istio.io"
+# 
+# Multi-cluster environments may need: 
+#  PILOT_INCLUDE_RESOURCES: "virtualservices.networking.istio.io", "gateways.networking.istio.io"
+
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    profile: gatewayapi
+  components:
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
