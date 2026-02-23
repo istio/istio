@@ -142,6 +142,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 		UseOriginalDst:                       proto.BoolTrue,
 		FilterChains:                         filterChains,
 		TrafficDirection:                     core.TrafficDirection_OUTBOUND,
+		BypassOverloadManager:                features.BypassOverloadManagerForSidecarOutboundListeners,
 		MaxConnectionsToAcceptPerSocketEvent: maxConnectionsToAcceptPerSocketEvent(),
 	}
 	// add extra addresses for the listener
