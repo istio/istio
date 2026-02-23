@@ -306,7 +306,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			PluginLogLevel:        "debug",
 			ExcludeNamespaces:     "istio-system",
 			KubeconfigMode:        constants.DefaultKubeconfigMode,
-			CNIConfGroupRead:          false,
+			CNIConfGroupRead:      false,
 			CNIConfName:           envPreconf,
 			K8sServiceAccountPath: tempK8sSvcAcctDir,
 		},

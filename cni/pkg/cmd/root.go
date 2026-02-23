@@ -309,7 +309,7 @@ func constructConfig() (*config.Config, error) {
 		// This masks the fact we are doing this weird log-over-UDS to users, and allows them to configure it the same way.
 		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
-		CNIConfGroupRead:          viper.GetBool(constants.CNIConfGroupRead),
+		CNIConfGroupRead:      viper.GetBool(constants.CNIConfGroupRead),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),
 		SkipTLSVerify:         viper.GetBool(constants.SkipTLSVerify),
 		K8sServiceProtocol:    os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
