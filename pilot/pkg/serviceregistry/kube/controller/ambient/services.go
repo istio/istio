@@ -18,7 +18,7 @@ package ambient
 import (
 	"fmt"
 	"net/netip"
-	"strings"
+	"strconv"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -467,11 +467,13 @@ func (a Builder) serviceEntryServiceBuilder(
 
 		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
 		var nsAnnotations map[string]string
+		var nsLabels map[string]string
 		if ns != nil {
 			nsAnnotations = (*ns).Annotations
+			nsLabels = (*ns).Labels
 		}
 
-		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, ns, waypointError, nsAnnotations, func(ctx krt.HandlerContext) network.ID {
+		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, nsAnnotations, nsLabels, func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		})
 		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
@@ -484,9 +486,9 @@ func serviceEntriesInfo(
 	ctx krt.HandlerContext,
 	s *networkingclient.ServiceEntry,
 	w *Waypoint,
-	ns **v1.Namespace,
 	wperr *model.StatusMessage,
 	nsAnnotations map[string]string,
+	nsLabels map[string]string,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
@@ -499,10 +501,6 @@ func serviceEntriesInfo(
 	waypoint := model.WaypointBindingStatus{}
 	if w != nil {
 		waypoint.ResourceName = w.ResourceName()
-		var nsLabels map[string]string
-		if ns != nil {
-			nsLabels = (*ns).Labels
-		}
 		waypoint.IngressLabelPresent, waypoint.IngressUseWaypoint = ingressUseWaypointFromLabels(s.Labels, nsLabels)
 	}
 	if wperr != nil {
@@ -781,5 +779,12 @@ func ingressUseWaypointFromLabels(serviceLabels, namespaceLabels map[string]stri
 	if !labelPresent && namespaceLabels != nil {
 		val, labelPresent = namespaceLabels[IoIstioIngressUseWaypoint]
 	}
-	return labelPresent, labelPresent && strings.EqualFold(val, "true")
+	if !labelPresent {
+		return false, false
+	}
+	parsed, err := strconv.ParseBool(val)
+	if err != nil {
+		log.Warnf("invalid value for label %s: %s, defaulting to false", IoIstioIngressUseWaypoint, val)
+	}
+	return true, err == nil && parsed
 }
