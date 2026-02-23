@@ -42,11 +42,14 @@ type adapter struct {
 
 var _ mesh.Watcher = adapter{}
 
-// Mesh returns the current MeshConfig
+// Mesh returns the current MeshConfig, or nil if unavailable.
 func (a adapter) Mesh() *meshconfig.MeshConfig {
-	// Just get the value; we know there is always one set due to the way the collection is setup.
+	// The adapter could return nil when it cannot access meshConfig, e.g. due to missing RBAC configuration.
 	v := a.Singleton.Get()
-	return v.MeshConfig
+	if v != nil {
+		return v.MeshConfig
+	}
+	return nil
 }
 
 // AddMeshHandler registers a callback that will be called anytime the MeshConfig changes.
