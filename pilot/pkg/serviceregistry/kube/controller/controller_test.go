@@ -2621,6 +2621,7 @@ func TestStripNodeUnusedFields(t *testing.T) {
 }
 
 func TestStripPodUnusedFields(t *testing.T) {
+	nativeSidecarRestartPolicy := corev1.ContainerRestartPolicyAlways
 	inputPod := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -2646,6 +2647,27 @@ func TestStripPodUnusedFields(t *testing.T) {
 			InitContainers: []corev1.Container{
 				{
 					Name: "init-container",
+				},
+				{
+					Name:          "native-sidecar",
+					RestartPolicy: &nativeSidecarRestartPolicy,
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "grpc",
+							ContainerPort: 8080,
+							Protocol:      corev1.ProtocolTCP,
+						},
+					},
+				},
+				{
+					Name: "init-container-with-ports",
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "debug",
+							ContainerPort: 9090,
+							Protocol:      corev1.ProtocolTCP,
+						},
+					},
 				},
 			},
 			Containers: []corev1.Container{
@@ -2709,6 +2731,19 @@ func TestStripPodUnusedFields(t *testing.T) {
 					Ports: []corev1.ContainerPort{
 						{
 							Name: "http",
+						},
+					},
+				},
+			},
+			// Native sidecar init container with ports should be preserved.
+			InitContainers: []corev1.Container{
+				{
+					RestartPolicy: &nativeSidecarRestartPolicy,
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "grpc",
+							ContainerPort: 8080,
+							Protocol:      corev1.ProtocolTCP,
 						},
 					},
 				},
