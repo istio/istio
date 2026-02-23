@@ -130,41 +130,6 @@ func rmCNIConfig(cniConfigFilepath string, t *testing.T) {
 	}
 }
 
-// rmCNIConfigRestrictive is like rmCNIConfig but writes with restrictive 0600 permissions
-// to test the default CNI config file mode.
-func rmCNIConfigRestrictive(cniConfigFilepath string, t *testing.T) {
-	t.Helper()
-
-	cniConfigMap, err := util.ReadCNIConfigMap(cniConfigFilepath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plugins, err := util.GetPlugins(cniConfigMap)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, rawPlugin := range plugins {
-		plugin, err := util.GetPlugin(rawPlugin)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if plugin["type"] == "istio-cni" {
-			cniConfigMap["plugins"] = append(plugins[:i], plugins[i+1:]...)
-			break
-		}
-	}
-
-	cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0o600)); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // populateTempDirs populates temporary test directories with golden files and
 // other related configuration.
 func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, tempK8sSvcAcctDir string, t *testing.T) {
