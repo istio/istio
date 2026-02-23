@@ -17,8 +17,10 @@ package config
 import (
 	"fmt"
 	"net/netip"
+	"os"
 	"strings"
 
+	"istio.io/istio/cni/pkg/constants"
 	cfg "istio.io/istio/tools/common/config"
 )
 
@@ -104,6 +106,8 @@ type InstallConfig struct {
 	PluginLogLevel string
 	// The file mode to set when creating the kubeconfig file
 	KubeconfigMode int
+	// Whether to enable group read on the CNI config file (0640 instead of default 0600)
+	CNIConfGroupRead bool
 	// CA file for kubeconfig
 	KubeCAFile string
 	// Whether to use insecure TLS in the kubeconfig file
@@ -166,6 +170,14 @@ type InstallConfig struct {
 	ForceIptablesBinary string
 }
 
+// CNIConfFileMode returns the file mode for the CNI config file based on the CNIConfGroupRead setting.
+func (c InstallConfig) CNIConfFileMode() os.FileMode {
+	if c.CNIConfGroupRead {
+		return os.FileMode(constants.CNIConfModeGroupRead)
+	}
+	return os.FileMode(constants.CNIConfModeDefault)
+}
+
 // RepairConfig struct defines the Istio CNI race repair configuration
 type RepairConfig struct {
 	// Whether to enable CNI race repair
@@ -216,6 +228,7 @@ func (c InstallConfig) String() string {
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
+	b.WriteString("CNIConfGroupRead: " + fmt.Sprint(c.CNIConfGroupRead) + "\n")
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
 

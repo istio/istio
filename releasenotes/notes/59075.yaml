@@ -1,0 +1,23 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+issue:
+  - 59071
+
+releaseNotes:
+  - |
+    **Fixed** CNI config file permissions to default to 0600 instead of 0644 for CIS Kubernetes benchmark v1.12
+    compliance. Group read access can be enabled by
+    setting `values.cni.env.CNI_CONF_GROUP_READ=true` environment variable on the
+    istio-cni-node DaemonSet, which sets permissions to 0640.
+
+upgradeNotes:
+  - title: CNI config file permissions changed to 0600
+    content: |
+      The default file permissions for CNI config files written by Istio have changed from 0644 to 0600.
+      This aligns with the CIS Kubernetes benchmark v1.12 requirement. Since the CNI config is only read
+      by the container runtime running as root, this should have no functional impact. If you have tooling
+      that needs to read CNI config files as a non-root group member, you can set permissions to 0640 by
+      setting `values.cni.env.CNI_CONF_GROUP_READ=true` environment variable on the
+      istio-cni-node DaemonSet.
