@@ -101,6 +101,16 @@ var (
 	defaultGatewayTransportSocketConnectTimeout = 15 * time.Second
 )
 
+// gatewayTransportSocketConnectTimeout returns the configured transport socket connect timeout
+// for gateway listeners. Returns nil if the timeout is set to 0 (disabled).
+func gatewayTransportSocketConnectTimeout() *durationpb.Duration {
+	timeout := features.GatewayTransportSocketConnectTimeout
+	if timeout == 0 {
+		return nil
+	}
+	return durationpb.New(timeout)
+}
+
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	push *model.PushContext,
@@ -621,7 +631,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 			TransportSocket: buildDownstreamTLSTransportSocket(opt.tlsContext),
 			// Setting this timeout enables the proxy to enhance its resistance against memory exhaustion attacks,
 			// such as slow TLS Handshake attacks.
-			TransportSocketConnectTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout),
+			TransportSocketConnectTimeout: gatewayTransportSocketConnectTimeout(),
 		}
 		if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
@@ -1128,7 +1138,7 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 			TransportSocket:  transportSocket,
 			// Setting this timeout enables the proxy to enhance its resistance against memory exhaustion attacks,
 			// such as slow TLS Handshake attacks.
-			TransportSocketConnectTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout),
+			TransportSocketConnectTimeout: gatewayTransportSocketConnectTimeout(),
 		})
 	}
 

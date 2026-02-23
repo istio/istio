@@ -355,6 +355,16 @@ var (
 		}
 		return blockedCIDRs
 	}()
+
+	// GatewayTransportSocketConnectTimeout specifies the timeout for transport socket (e.g., TLS
+	// handshake) connections on gateway listeners. This protects against slow or incomplete TLS
+	// handshakes consuming resources. Set to 0s to disable the timeout entirely.
+	GatewayTransportSocketConnectTimeout = env.Register(
+		"PILOT_GATEWAY_TRANSPORT_SOCKET_CONNECT_TIMEOUT",
+		15*time.Second,
+		"The timeout for transport socket (e.g., TLS handshake) connections on gateway listeners. "+
+			"This helps protect against slow TLS handshake attacks. Set to 0s to disable.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

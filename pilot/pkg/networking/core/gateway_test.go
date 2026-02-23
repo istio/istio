@@ -4744,30 +4744,48 @@ func TestGatewayHCMInternalAddressConfig(t *testing.T) {
 }
 
 func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
-	cases := []struct {
-		name            string
-		expectedTimeout int64
-		configs         []config.Config
-	}{
-		{
-			name:            "should set timeout",
-			expectedTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds(),
-			configs: []config.Config{
+	gatewayConfig := config.Config{
+		Meta: config.Meta{Name: "http-server", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+		Spec: &networking.Gateway{
+			Servers: []*networking.Server{
 				{
-					Meta: config.Meta{Name: "http-server", Namespace: "testns", GroupVersionKind: gvk.Gateway},
-					Spec: &networking.Gateway{
-						Servers: []*networking.Server{
-							{
-								Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
-							},
-						},
-					},
+					Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
 				},
 			},
 		},
 	}
+	cases := []struct {
+		name            string
+		expectedTimeout int64
+		timeoutDisabled bool
+		configuredValue time.Duration
+		configs         []config.Config
+	}{
+		{
+			name:            "should set default timeout",
+			expectedTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds(),
+			configs:         []config.Config{gatewayConfig},
+		},
+		{
+			name:            "should set custom timeout",
+			expectedTimeout: 30,
+			configuredValue: 30 * time.Second,
+			configs:         []config.Config{gatewayConfig},
+		},
+		{
+			name:            "should disable timeout when set to 0",
+			timeoutDisabled: true,
+			configuredValue: 0,
+			configs:         []config.Config{gatewayConfig},
+		},
+	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.configuredValue > 0 {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, tt.configuredValue)
+			} else if tt.timeoutDisabled {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, time.Duration(0))
+			}
 			cg := NewConfigGenTest(t, TestOptions{
 				Configs:    tt.configs,
 				MeshConfig: mesh.DefaultMeshConfig(),
@@ -4789,8 +4807,13 @@ func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
 			lb := NewListenerBuilder(proxy, cg.PushContext())
 			builder := cg.ConfigGen.buildGatewayListeners(lb)
 			fc := builder.gatewayListeners[0].FilterChains[0]
-			if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
-				t.Errorf("expected transport socket connect timeout to be %v on gateway listern's filter chain %v, got %v",
+			if tt.timeoutDisabled {
+				if fc.TransportSocketConnectTimeout != nil {
+					t.Errorf("expected no transport socket connect timeout on gateway listener's filter chain %v, got %v",
+						fc.Name, fc.TransportSocketConnectTimeout)
+				}
+			} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+				t.Errorf("expected transport socket connect timeout to be %v on gateway listener's filter chain %v, got %v",
 					tt.expectedTimeout, fc.Name, fc.TransportSocketConnectTimeout)
 			}
 		})
