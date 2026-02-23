@@ -86,6 +86,9 @@ func (e WorkloadGenerator) GenerateDeltas(
 }
 
 func appendAddress(addr model.AddressInfo, requestedType string, aliases []string, have sets.Set[string], resources model.Resources) model.Resources {
+	if addr.Address == nil {
+		return resources
+	}
 	n := addr.ResourceName()
 	have.Insert(n)
 	switch requestedType {
