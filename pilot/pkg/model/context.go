@@ -72,11 +72,11 @@ type (
 )
 
 const (
-	SidecarProxy  = pm.SidecarProxy
-	Router        = pm.Router
-	Waypoint      = pm.Waypoint
-	Ztunnel       = pm.Ztunnel
-	Agentgateway  = pm.Agentgateway
+	SidecarProxy = pm.SidecarProxy
+	Router       = pm.Router
+	Waypoint     = pm.Waypoint
+	Ztunnel      = pm.Ztunnel
+	Agentgateway = pm.Agentgateway
 
 	IPv4 = pm.IPv4
 	IPv6 = pm.IPv6

@@ -21,13 +21,14 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var agentgatewayName = "gateway.networking.k8s.io/gateway-name"
@@ -87,7 +88,11 @@ func getKey[T any](t T) string {
 	return krt.GetKey(t)
 }
 
-func baseCollection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T], extract func(o T) types.NamespacedName, krtopts krt.OptionsBuilder) Registration {
+func baseCollection[T IntoProto[TT], TT proto.Message](
+	collection krt.Collection[T],
+	extract func(o T) types.NamespacedName,
+	krtopts krt.OptionsBuilder,
+) Registration {
 	return func(m map[string]CollectionGenerator, pushChannel chan *model.PushRequest) CollectionRegistration {
 		nc := krt.NewCollection(collection, func(ctx krt.HandlerContext, i T) *DiscoveryResource {
 			var forGateway *types.NamespacedName
@@ -142,11 +147,18 @@ func baseCollection[T IntoProto[TT], TT proto.Message](collection krt.Collection
 	}
 }
 
-func Collection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T], krtopts krt.OptionsBuilder) Registration {
+func Collection[T IntoProto[TT], TT proto.Message](
+	collection krt.Collection[T],
+	krtopts krt.OptionsBuilder,
+) Registration {
 	return baseCollection(collection, nil, krtopts)
 }
 
-func PerGatewayCollection[T IntoProto[TT], TT proto.Message](collection krt.Collection[T], extract func(o T) types.NamespacedName, krtopts krt.OptionsBuilder) Registration {
+func PerGatewayCollection[T IntoProto[TT], TT proto.Message](
+	collection krt.Collection[T],
+	extract func(o T) types.NamespacedName,
+	krtopts krt.OptionsBuilder,
+) Registration {
 	return baseCollection(collection, extract, krtopts)
 }
 
