@@ -2213,10 +2213,10 @@ func TestOtelConfigWithSemanticConventions(t *testing.T) {
 		Name: "opentelemetry",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
 			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
-				Service:                     "otel-collector",
-				Port:                        4317,
-				MaxTagLength:                256,
-				ServiceAttributeEnrichment:  meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
+				Service:                    "otel-collector",
+				Port:                       4317,
+				MaxTagLength:               256,
+				ServiceAttributeEnrichment: meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
 			},
 		},
 	}
@@ -2226,10 +2226,10 @@ func TestOtelConfigWithSemanticConventions(t *testing.T) {
 		Name: "opentelemetry",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
 			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
-				Service:                     "otel-collector",
-				Port:                        4317,
-				MaxTagLength:                256,
-				ServiceAttributeEnrichment:  meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
+				Service:                    "otel-collector",
+				Port:                       4317,
+				MaxTagLength:               256,
+				ServiceAttributeEnrichment: meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
 				ResourceDetectors: &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors{
 					Environment: &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors_EnvironmentResourceDetector{},
 				},
@@ -2289,7 +2289,7 @@ func TestOtelConfigWithSemanticConventions(t *testing.T) {
 		wantReqIDExtCtx *requestidextension.UUIDRequestIDExtensionContext
 	}{
 		{
-			name: "OTEL_SEMANTIC_CONVENTIONS uses workload name",
+			name:   "OTEL_SEMANTIC_CONVENTIONS uses workload name",
 			inSpec: fakeTracingSpec(otelSemConvProvider, 99.999, false, true, true),
 			push: &model.PushContext{
 				Mesh: &meshconfig.MeshConfig{
@@ -2311,7 +2311,7 @@ func TestOtelConfigWithSemanticConventions(t *testing.T) {
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
-			name: "OTEL_SEMANTIC_CONVENTIONS uses annotation over workload name",
+			name:   "OTEL_SEMANTIC_CONVENTIONS uses annotation over workload name",
 			inSpec: fakeTracingSpec(otelSemConvProvider, 99.999, false, true, true),
 			push: &model.PushContext{
 				Mesh: &meshconfig.MeshConfig{
@@ -2334,7 +2334,7 @@ func TestOtelConfigWithSemanticConventions(t *testing.T) {
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
-			name: "OTEL_SEMANTIC_CONVENTIONS does not duplicate env resource detector",
+			name:   "OTEL_SEMANTIC_CONVENTIONS does not duplicate env resource detector",
 			inSpec: fakeTracingSpec(otelSemConvWithDetectorsProvider, 99.999, false, true, true),
 			push: &model.PushContext{
 				Mesh: &meshconfig.MeshConfig{
@@ -2342,7 +2342,7 @@ func TestOtelConfigWithSemanticConventions(t *testing.T) {
 				},
 			},
 			proxy: &model.Proxy{
-				ID: "my-pod-abc123.default",
+				ID:           "my-pod-abc123.default",
 				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 				Metadata: &model.NodeMetadata{
 					WorkloadName: "my-deployment",
