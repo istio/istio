@@ -345,6 +345,15 @@ spec:
       value: "{{ $value }}"
     {{- end }}
     {{- end }}
+    {{- $otelResAttrs := otelResourceAttributes .MeshConfig .ObjectMeta.Annotations .ObjectMeta.Labels .DeploymentMeta.Namespace }}
+    {{- if $otelResAttrs }}
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.uid
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: "{{ $otelResAttrs }}"
+    {{- end }}
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
     - name: {{ $key }}
       value: "{{ $value }}"

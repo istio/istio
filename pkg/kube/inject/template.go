@@ -65,6 +65,7 @@ func createInjectionFuncmap() template.FuncMap {
 		"toJsonMap":           toJSONMap,
 		"mergeMaps":           mergeMaps,
 		"omitNil":             omitNil,
+		"otelResourceAttributes": otelResourceAttributes,
 	}
 }
 
@@ -410,6 +411,60 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 		}
 	}
 	return res
+}
+
+// otelResourceAttributes computes the OTEL_RESOURCE_ATTRIBUTES env var value
+// when any OpenTelemetry tracing provider has ServiceAttributeEnrichment set to
+// OTEL_SEMANTIC_CONVENTIONS. It follows the OTel K8s service attributes spec:
+// https://opentelemetry.io/docs/specs/semconv/non-normative/k8s-attributes/#service-attributes
+//
+// Returns an empty string if no provider has OTEL_SEMANTIC_CONVENTIONS enabled.
+// For service.instance.id, uses $(POD_UID) placeholder for Kubernetes env var
+// substitution when the annotation is not set.
+func otelResourceAttributes(mc *meshconfig.MeshConfig, annotations map[string]string, labels map[string]string, namespace string) string {
+	hasOtelSemConv := false
+	for _, ep := range mc.GetExtensionProviders() {
+		if otel := ep.GetOpentelemetry(); otel != nil {
+			if otel.GetServiceAttributeEnrichment() == meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS {
+				hasOtelSemConv = true
+				break
+			}
+		}
+	}
+	if !hasOtelSemConv {
+		return ""
+	}
+
+	var attrs []string
+
+	// service.namespace:
+	//   1. resource.opentelemetry.io/service.namespace annotation
+	//   2. Kubernetes namespace
+	if v, ok := annotations["resource.opentelemetry.io/service.namespace"]; ok && v != "" {
+		attrs = append(attrs, "service.namespace="+v)
+	} else if namespace != "" {
+		attrs = append(attrs, "service.namespace="+namespace)
+	}
+
+	// service.version:
+	//   1. resource.opentelemetry.io/service.version annotation
+	//   2. app.kubernetes.io/version label
+	if v, ok := annotations["resource.opentelemetry.io/service.version"]; ok && v != "" {
+		attrs = append(attrs, "service.version="+v)
+	} else if v, ok := labels["app.kubernetes.io/version"]; ok && v != "" {
+		attrs = append(attrs, "service.version="+v)
+	}
+
+	// service.instance.id:
+	//   1. resource.opentelemetry.io/service.instance.id annotation
+	//   2. Pod UID (via $(POD_UID) Kubernetes env var substitution)
+	if v, ok := annotations["resource.opentelemetry.io/service.instance.id"]; ok && v != "" {
+		attrs = append(attrs, "service.instance.id="+v)
+	} else {
+		attrs = append(attrs, "service.instance.id=$(POD_UID)")
+	}
+
+	return strings.Join(attrs, ",")
 }
 
 // omitNil recursively removes nil values from maps and slices.
