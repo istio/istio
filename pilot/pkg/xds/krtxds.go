@@ -126,6 +126,7 @@ func baseCollection[T IntoProto[TT], TT proto.Message](
 				un := make(sets.Set[model.ConfigKey], len(o))
 				for _, oo := range o {
 					last := oo.Latest()
+					// Using namespace to store the type URL, as that's what we filter on for updates
 					un.Insert(model.ConfigKey{
 						Name:      last.Name,
 						Namespace: t,
