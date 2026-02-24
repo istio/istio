@@ -57,6 +57,215 @@ func (a AncestorBackend) ResourceName() string {
 	return a.Source.String() + "/" + a.Gateway.String() + "/" + a.Backend.String()
 }
 
+// HostnameRouteBinding tracks which route types use which hostnames on a Gateway listener
+// This is used to enforce the Gateway API "Cross Serving" rule that prohibits
+// HTTPRoute and GRPCRoute from sharing the same hostname on the same listener.
+type HostnameRouteBinding struct {
+	Gateway   types.NamespacedName
+	Listener  string
+	Hostname  string
+	RouteType config.GroupVersionKind // HTTPRoute or GRPCRoute
+	RouteName types.NamespacedName
+}
+
+func (h HostnameRouteBinding) ResourceName() string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s",
+		h.Gateway.String(), h.Listener, h.Hostname, h.RouteType.Kind, h.RouteName.String())
+}
+
+func (h HostnameRouteBinding) Equals(other HostnameRouteBinding) bool {
+	return h.Gateway == other.Gateway &&
+		h.Listener == other.Listener &&
+		h.Hostname == other.Hostname &&
+		h.RouteType == other.RouteType &&
+		h.RouteName == other.RouteName
+}
+
+// buildHostnameBindingsCollection creates a collection that tracks hostname usage by route type
+// to enforce the Gateway API Cross Serving rule (HTTPRoute and GRPCRoute cannot share hostnames)
+func buildHostnameBindingsCollection(
+	httpRoutes krt.Collection[*gatewayv1.HTTPRoute],
+	grpcRoutes krt.Collection[*gatewayv1.GRPCRoute],
+	inputs RouteContextInputs,
+	opts krt.OptionsBuilder,
+) krt.Collection[HostnameRouteBinding] {
+	// Extract bindings from HTTPRoutes
+	httpBindings := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.HTTPRoute) []HostnameRouteBinding {
+		ctx := inputs.WithCtx(krtctx)
+		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
+		
+		var bindings []HostnameRouteBinding
+		for _, parent := range filteredReferences(parentRefs) {
+			if parent.ParentKey.Kind != gvk.KubernetesGateway {
+				continue
+			}
+			hostnames := hostnameToStringList(obj.Spec.Hostnames)
+			if len(hostnames) == 0 {
+				hostnames = []string{"*"}
+			}
+			for _, hostname := range hostnames {
+				bindings = append(bindings, HostnameRouteBinding{
+					Gateway: types.NamespacedName{
+						Namespace: parent.ParentKey.Namespace,
+						Name:      parent.ParentKey.Name,
+					},
+					Listener:  string(parent.ParentSection),
+					Hostname:  hostname,
+					RouteType: gvk.HTTPRoute,
+					RouteName: types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name},
+				})
+			}
+		}
+		return bindings
+	}, opts.WithName("HTTPRouteBindings")...)
+
+	// Extract bindings from GRPCRoutes
+	grpcBindings := krt.NewManyCollection(grpcRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) []HostnameRouteBinding {
+		ctx := inputs.WithCtx(krtctx)
+		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
+		
+		var bindings []HostnameRouteBinding
+		for _, parent := range filteredReferences(parentRefs) {
+			if parent.ParentKey.Kind != gvk.KubernetesGateway {
+				continue
+			}
+			hostnames := hostnameToStringList(obj.Spec.Hostnames)
+			if len(hostnames) == 0 {
+				hostnames = []string{"*"}
+			}
+			for _, hostname := range hostnames {
+				bindings = append(bindings, HostnameRouteBinding{
+					Gateway: types.NamespacedName{
+						Namespace: parent.ParentKey.Namespace,
+						Name:      parent.ParentKey.Name,
+					},
+					Listener:  string(parent.ParentSection),
+					Hostname:  hostname,
+					RouteType: gvk.GRPCRoute,
+					RouteName: types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name},
+				})
+			}
+		}
+		return bindings
+	}, opts.WithName("GRPCRouteBindings")...)
+
+	// Join both collections
+	return krt.JoinCollection([]krt.Collection[HostnameRouteBinding]{
+		httpBindings,
+		grpcBindings,
+	}, opts.WithName("HostnameBindings")...)
+}
+
+// checkHostnameConflict checks if a route conflicts with another route type on the same hostname
+// Returns nil if no conflict, or a ParentError if there is a conflict.
+// Uses "first attached wins" logic - if another route type is already attached to this
+// gateway+listener+hostname combination, the current route is rejected.
+func checkHostnameConflict(
+	ctx krt.HandlerContext,
+	bindings krt.Collection[HostnameRouteBinding],
+	gateway types.NamespacedName,
+	listener string,
+	hostname string,
+	routeType config.GroupVersionKind,
+	routeName types.NamespacedName,
+) *ParentError {
+	// Find all bindings for this gateway/listener/hostname with different route type
+	conflictingBindings := krt.Fetch(ctx, bindings, krt.FilterGeneric(func(a any) bool {
+		b, ok := a.(HostnameRouteBinding)
+		if !ok {
+			return false
+		}
+		return b.Gateway == gateway &&
+			b.Listener == listener &&
+			b.Hostname == hostname &&
+			b.RouteType != routeType && // Different route type
+			b.RouteName != routeName     // Not the same route
+	}))
+
+	if len(conflictingBindings) == 0 {
+		return nil
+	}
+
+	// If there's any conflicting binding, current route is rejected (first attached wins)
+	conflictingRoute := conflictingBindings[0]
+	return &ParentError{
+		Reason: ParentErrorHostnameConflict,
+		Message: fmt.Sprintf("Hostname %q conflicts with %s %s/%s (already attached). "+
+			"Gateway API spec requires hostname uniqueness between HTTPRoute and GRPCRoute.",
+			hostname,
+			conflictingRoute.RouteType.Kind,
+			conflictingRoute.RouteName.Namespace,
+			conflictingRoute.RouteName.Name,
+		),
+	}
+}
+
+// checkRouteHostnameConflicts checks all hostnames for a route against the bindings collection
+// and adds conflict errors to parent references that have conflicts
+func checkRouteHostnameConflicts[T controllers.Object](
+	ctx RouteContext,
+	obj T,
+	routeType config.GroupVersionKind,
+	hostnames []gatewayv1.Hostname,
+	parentRefs []routeParentReference,
+) []routeParentReference {
+	if ctx.HostnameBindings == nil {
+		return parentRefs
+	}
+
+	// Get metadata using controllers.Object interface methods
+	routeName := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+
+	// Convert hostnames to strings
+	hostnameStrs := hostnameToStringList(hostnames)
+	if len(hostnameStrs) == 0 {
+		hostnameStrs = []string{"*"}
+	}
+
+	// Check each parent reference
+	for i := range parentRefs {
+		parent := &parentRefs[i]
+		
+		// Only check Gateway parents (not mesh)
+		if parent.ParentKey.Kind != gvk.KubernetesGateway {
+			continue
+		}
+
+		// Skip if already denied
+		if parent.DeniedReason != nil {
+			continue
+		}
+
+		gateway := types.NamespacedName{
+			Namespace: parent.ParentKey.Namespace,
+			Name:      parent.ParentKey.Name,
+		}
+		listener := string(parent.ParentSection)
+
+		// Check each hostname for conflicts
+		for _, hostname := range hostnameStrs {
+			if conflictErr := checkHostnameConflict(
+				ctx.Krt,
+				ctx.HostnameBindings,
+				gateway,
+				listener,
+				hostname,
+				routeType,
+				routeName,
+			); conflictErr != nil {
+				// Set the denied reason - this will prevent VirtualService generation
+				parent.DeniedReason = conflictErr
+				break // One conflict is enough
+			}
+		}
+	}
+
+	return parentRefs
+}
+
 func HTTPRouteCollection(
 	httpRoutes krt.Collection[*gatewayv1.HTTPRoute],
 	inputs RouteContextInputs,
@@ -635,6 +844,24 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 ) ([]gatewayv1.RouteParentStatus, []routeParentReference, conversionResult[O], conversionResult[O]) {
 	parentRefs := extractParentReferenceInfo(ctx, ctx.RouteParents, obj)
 
+	// Check for hostname conflicts (Gateway API Cross-Serving rule)
+	// This must happen before route conversion to properly reject conflicting routes
+	var hostnames []gatewayv1.Hostname
+	var routeType config.GroupVersionKind
+	
+	switch v := any(obj).(type) {
+	case *gatewayv1.HTTPRoute:
+		hostnames = v.Spec.Hostnames
+		routeType = gvk.HTTPRoute
+	case *gatewayv1.GRPCRoute:
+		hostnames = v.Spec.Hostnames
+		routeType = gvk.GRPCRoute
+	}
+	
+	if routeType != (config.GroupVersionKind{}) {
+		parentRefs = checkRouteHostnameConflicts(ctx, obj, routeType, hostnames, parentRefs)
+	}
+
 	convertRules := func(mesh bool) conversionResult[O] {
 		res := conversionResult[O]{}
 		for vs, err := range translator(mesh, obj) {
@@ -685,14 +912,15 @@ func (r RouteContext) LookupHostname(hostname string, namespace string) *model.S
 }
 
 type RouteContextInputs struct {
-	Grants          ReferenceGrants
-	RouteParents    RouteParents
-	DomainSuffix    string
-	Services        krt.Collection[*corev1.Service]
-	Namespaces      krt.Collection[*corev1.Namespace]
-	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
-	InferencePools  krt.Collection[*inferencev1.InferencePool]
-	internalContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
+	Grants           ReferenceGrants
+	RouteParents     RouteParents
+	DomainSuffix     string
+	Services         krt.Collection[*corev1.Service]
+	Namespaces       krt.Collection[*corev1.Namespace]
+	ServiceEntries   krt.Collection[*networkingclient.ServiceEntry]
+	InferencePools   krt.Collection[*inferencev1.InferencePool]
+	HostnameBindings krt.Collection[HostnameRouteBinding]
+	internalContext  krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
 }
 
 func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {

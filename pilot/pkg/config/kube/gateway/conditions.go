@@ -87,6 +87,7 @@ func createRouteStatus(
 		rankParentNoErrors = iota
 		rankParentErrorNotAllowed
 		rankParentErrorNoHostname
+		rankParentErrorHostnameConflict
 		rankParentErrorParentRefConflict
 		rankParentErrorNotAccepted
 	)
@@ -100,6 +101,8 @@ func createRouteStatus(
 			return rankParentErrorNotAllowed
 		case ParentErrorNoHostname:
 			return rankParentErrorNoHostname
+		case ParentErrorHostnameConflict:
+			return rankParentErrorHostnameConflict
 		case ParentErrorParentRefConflict:
 			return rankParentErrorParentRefConflict
 		case ParentErrorNotAccepted:
@@ -230,6 +233,7 @@ const (
 	ParentErrorNotAllowed        = ParentErrorReason(k8s.RouteReasonNotAllowedByListeners)
 	ParentErrorNoHostname        = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
 	ParentErrorParentRefConflict = ParentErrorReason("ParentRefConflict")
+	ParentErrorHostnameConflict  = ParentErrorReason("HostnameConflict")
 	ParentNoError                = ParentErrorReason("")
 )
 

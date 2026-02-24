@@ -301,15 +301,34 @@ func NewController(
 
 	RouteParents := BuildRouteParents(Gateways)
 
+	// Build hostname bindings collection for Gateway API Cross-Serving enforcement
+	// This must be created before route collections to detect HTTPRoute/GRPCRoute hostname conflicts
+	hostnameBindings := buildHostnameBindingsCollection(
+		inputs.HTTPRoutes,
+		inputs.GRPCRoutes,
+		RouteContextInputs{
+			Grants:          ReferenceGrants,
+			RouteParents:    RouteParents,
+			DomainSuffix:    c.domainSuffix,
+			Services:        inputs.Services,
+			Namespaces:      inputs.Namespaces,
+			ServiceEntries:  inputs.ServiceEntries,
+			InferencePools:  inputs.InferencePools,
+			internalContext: c.gatewayContext,
+		},
+		opts,
+	)
+
 	routeInputs := RouteContextInputs{
-		Grants:          ReferenceGrants,
-		RouteParents:    RouteParents,
-		DomainSuffix:    c.domainSuffix,
-		Services:        inputs.Services,
-		Namespaces:      inputs.Namespaces,
-		ServiceEntries:  inputs.ServiceEntries,
-		InferencePools:  inputs.InferencePools,
-		internalContext: c.gatewayContext,
+		Grants:           ReferenceGrants,
+		RouteParents:     RouteParents,
+		DomainSuffix:     c.domainSuffix,
+		Services:         inputs.Services,
+		Namespaces:       inputs.Namespaces,
+		ServiceEntries:   inputs.ServiceEntries,
+		InferencePools:   inputs.InferencePools,
+		HostnameBindings: hostnameBindings,
+		internalContext:  c.gatewayContext,
 	}
 	tcpRoutes := TCPRouteCollection(
 		inputs.TCPRoutes,
