@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -43,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
@@ -147,7 +147,7 @@ func GlobalNestedWorkloadServicesCollection(
 	localCluster *multicluster.Cluster,
 	localServiceInfos krt.Collection[model.ServiceInfo],
 	localWaypoints krt.Collection[Waypoint],
-	clusters krt.Collection[*multicluster.Cluster],
+	ctrl *multicluster.Controller,
 	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
 	globalServices krt.Collection[krt.Collection[*v1.Service]],
 	servicesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Service]],
@@ -169,9 +169,9 @@ func GlobalNestedWorkloadServicesCollection(
 	checkServiceScope := features.EnableAmbientMultiNetwork
 
 	// This will contain the serviceinfos derived from ServiceEntries only
-	return nestedCollectionFromLocalAndRemote(
+	return multicluster.NestedCollectionFromLocalAndRemote(
+		ctrl,
 		LocalServiceInfosWithCluster,
-		clusters,
 		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]] {
 			opts := []krt.CollectionOption{
 				krt.WithDebugging(opts.Debugger()),

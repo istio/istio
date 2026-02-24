@@ -15,6 +15,8 @@
 package multicluster
 
 import (
+	"go.uber.org/atomic"
+
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 )
@@ -30,10 +32,13 @@ func (f *Fake) registerHandler(h handler) {
 func (f *Fake) Add(id cluster.ID, client kube.Client, stop chan struct{}) {
 	for _, handler := range f.handlers {
 		handler.clusterAdded(&Cluster{
-			ID:            id,
-			Client:        client,
-			kubeConfigSha: [32]byte{},
-			stop:          stop,
+			ID:                       id,
+			Client:                   client,
+			KubeConfigSha:            [32]byte{},
+			stop:                     stop,
+			initialSync:              atomic.NewBool(false),
+			initialSyncTimeout:       atomic.NewBool(false),
+			RemoteClusterCollections: atomic.NewPointer[RemoteClusterCollections](nil),
 		})
 	}
 }

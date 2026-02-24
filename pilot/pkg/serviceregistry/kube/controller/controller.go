@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -165,6 +164,10 @@ type Options struct {
 	StatusWritingEnabled *activenotifier.ActiveNotifier
 
 	KrtDebugger *krt.DebugHandler
+
+	// MultiClusterController is the unified multicluster controller providing both
+	// callback-based and KRT-based cluster lifecycle management.
+	MultiClusterController *multicluster.Controller
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -211,8 +214,8 @@ type Controller struct {
 	crdHandlers []func(name string)
 	handlers    model.ControllerHandlers
 
-	// This is only used for test
-	stop chan struct{}
+	stop   chan struct{}
+	mcStop chan struct{}
 
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
@@ -322,27 +325,20 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
 	if features.EnableAmbient && options.ConfigCluster {
+		c.mcStop = make(chan struct{})
 		c.ambientIndex = ambient.New(ambient.Options{
-			Client:          kubeClient,
-			SystemNamespace: options.SystemNamespace,
-			DomainSuffix:    options.DomainSuffix,
-			ClusterID:       options.ClusterID,
-			IsConfigCluster: options.ConfigCluster,
-			Revision:        options.Revision,
-			XDSUpdater:      options.XDSUpdater,
-			MeshConfig:      options.MeshWatcher,
-			StatusNotifier:  options.StatusWritingEnabled,
-			Debugger:        options.KrtDebugger,
+			SystemNamespace:        options.SystemNamespace,
+			DomainSuffix:           options.DomainSuffix,
+			ClusterID:              options.ClusterID,
+			Revision:               options.Revision,
+			XDSUpdater:             options.XDSUpdater,
+			MeshConfig:             options.MeshWatcher,
+			StatusNotifier:         options.StatusWritingEnabled,
+			Debugger:               options.KrtDebugger,
+			MultiClusterController: options.MultiClusterController,
 			Flags: ambient.FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-			},
-			ClientBuilder: multicluster.DefaultBuildClientsFromConfig,
-			RemoteClientConfigOverrides: []func(*rest.Config){
-				func(r *rest.Config) {
-					r.QPS = options.KubernetesAPIQPS
-					r.Burst = options.KubernetesAPIBurst
-				},
 			},
 		})
 	}
@@ -748,6 +744,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 func (c *Controller) Stop() {
 	if c.stop != nil {
 		close(c.stop)
+	}
+	if c.mcStop != nil {
+		close(c.mcStop)
 	}
 }
 

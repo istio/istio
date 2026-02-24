@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
 
@@ -39,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/activenotifier"
@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -2162,10 +2163,12 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 }
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
-	if options.Client == nil {
-		options.Client = kubeclient.NewFakeClient()
+	var cl kubeclient.Client
+	if options.MultiClusterController != nil {
+		cl = options.MultiClusterController.ConfigCluster().Client
+	} else {
+		cl = kubeclient.NewFakeClient()
 	}
-	cl := options.Client
 	for _, crd := range []schema.GroupVersionResource{
 		gvr.AuthorizationPolicy,
 		gvr.PeerAuthentication,
@@ -2200,12 +2203,23 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 		options.DomainSuffix = "company.com"
 	}
 
-	if options.ClientBuilder == nil && features.EnableAmbientMultiNetwork {
-		options.ClientBuilder = testingBuildClientsFromConfig(t)
+	if options.MultiClusterController == nil {
+		stop := test.NewStop(t)
+		mcOpts := multicluster.ControllerOptions{
+			Client:          cl,
+			ClusterID:       options.ClusterID,
+			SystemNamespace: options.SystemNamespace,
+			MeshConfig:      options.MeshConfig,
+			ClientBuilder:   testingBuildClientsFromConfig(t),
+			Debugger:        options.Debugger,
+			Stop:            stop,
+			Opts:            krt.NewOptionsBuilder(stop, "ambient", options.Debugger),
+		}
+		options.MultiClusterController = multicluster.NewController(mcOpts)
+		if err := options.MultiClusterController.Run(stop); err != nil {
+			t.Fatalf("failed to run multicluster controller: %v", err)
+		}
 	}
-
-	// The index is always for the config cluster
-	options.IsConfigCluster = true
 
 	idx := New(options)
 
@@ -2277,25 +2291,39 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	up.SplitEvents = true
 	cl := kubeclient.NewFakeClient()
 	t.Cleanup(cl.Shutdown)
-	var clientBuilder multicluster.ClientBuilder
-
 	debugger := krt.GlobalDebugHandler
-	o := Options{
-		Revision:        revision,
+	meshConfig := meshwatcher.NewTestWatcher(nil)
+
+	stop := test.NewStop(t)
+	mcOpts := multicluster.ControllerOptions{
 		Client:          cl,
-		SystemNamespace: systemNS,
-		DomainSuffix:    "company.com",
 		ClusterID:       clusterID,
-		XDSUpdater:      up,
-		StatusNotifier:  activenotifier.New(true),
+		SystemNamespace: systemNS,
+		MeshConfig:      meshConfig,
+		ClientBuilder:   testingBuildClientsFromConfig(t),
 		Debugger:        debugger,
-		Flags:           flags,
-		MeshConfig:      meshwatcher.NewTestWatcher(nil),
-		ClientBuilder:   clientBuilder,
+		Stop:            stop,
+		Opts:            krt.NewOptionsBuilder(stop, "ambient", debugger),
+	}
+
+	o := Options{
+		Revision:               revision,
+		SystemNamespace:        systemNS,
+		DomainSuffix:           "company.com",
+		ClusterID:              clusterID,
+		XDSUpdater:             up,
+		StatusNotifier:         activenotifier.New(true),
+		Debugger:               debugger,
+		Flags:                  flags,
+		MeshConfig:             meshConfig,
+		MultiClusterController: multicluster.NewController(mcOpts),
+	}
+
+	if err := o.MultiClusterController.Run(stop); err != nil {
+		t.Fatalf("failed to run multicluster controller: %v", err)
 	}
 
 	if features.EnableAmbientMultiNetwork {
-		o.ClientBuilder = testingBuildClientsFromConfig(t)
 		o.MeshConfig.Mesh().ServiceScopeConfigs = []*v1alpha1.MeshConfig_ServiceScopeConfigs{
 			{
 				ServicesSelector: &v1alpha1.LabelSelector{
@@ -2336,6 +2364,50 @@ func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 			t.Log(string(b))
 		}
 	})
+}
+
+const secretNamespace string = "istio-system"
+
+type clusterCredential struct {
+	clusterID  string
+	kubeconfig []byte
+}
+
+func makeSecret(ns string, secret string, clusterConfigs ...clusterCredential) *corev1.Secret {
+	s := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secret,
+			Namespace: ns,
+			Labels: map[string]string{
+				multicluster.MultiClusterSecretLabel: "true",
+			},
+		},
+		Data: map[string][]byte{},
+	}
+
+	for _, config := range clusterConfigs {
+		s.Data[config.clusterID] = config.kubeconfig
+	}
+	return s
+}
+
+var kubeconfig = 0
+
+func testingBuildClientsFromConfig(t test.Failer) func([]byte, cluster.ID, ...func(*rest.Config)) (kubeclient.Client, error) {
+	return func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kubeclient.Client, error) {
+		client := kubeclient.NewFakeClient()
+		for _, crd := range []schema.GroupVersionResource{
+			gvr.AuthorizationPolicy,
+			gvr.PeerAuthentication,
+			gvr.KubernetesGateway,
+			gvr.GatewayClass,
+			gvr.WorkloadEntry,
+			gvr.ServiceEntry,
+		} {
+			clienttest.MakeCRD(t, client, crd)
+		}
+		return client, nil
+	}
 }
 
 func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sv1.Gateway]) {

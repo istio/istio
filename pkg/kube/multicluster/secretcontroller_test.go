@@ -75,9 +75,14 @@ func TestKubeConfigOverride(t *testing.T) {
 	fakeRestConfig := &rest.Config{}
 	client := kube.NewFakeClient()
 	stopCh := test.NewStop(t)
-	c := NewController(client, secretNamespace, "", meshwatcher.NewTestWatcher(nil), func(cfg *rest.Config) {
-		cfg.QPS = expectedQPS
-		cfg.Burst = expectedBurst
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+		ConfigOverrides: []func(*rest.Config){func(cfg *rest.Config) {
+			cfg.QPS = expectedQPS
+			cfg.Burst = expectedBurst
+		}},
 	})
 	c.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		for _, override := range configOverrides {
@@ -120,7 +125,12 @@ func buildTestController(t *testing.T, synced bool) testController {
 		t:      t,
 	}
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
-	tc.controller = NewController(tc.client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	tc.controller = NewController(ControllerOptions{
+		Client:          tc.client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
 	tc.controller.ClientBuilder = TestingBuildClientsFromConfig
 	iter := uberatomic.NewInt32(0)
 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
@@ -270,7 +280,12 @@ func TestObjectFilter(t *testing.T) {
 	tc.client = kube.SetObjectFilter(tc.client, filter)
 
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
-	tc.controller = NewController(tc.client, secretNamespace, clusterID, mesh)
+	tc.controller = NewController(ControllerOptions{
+		Client:          tc.client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       clusterID,
+		MeshConfig:      mesh,
+	})
 	tc.controller.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return clientWithNamespace(), nil
 	}
@@ -511,7 +526,12 @@ func TestSecretController(t *testing.T) {
 
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
-	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
 	c.ClientBuilder = TestingBuildClientsFromConfig
 	client.RunAndWait(stopCh)
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
@@ -582,7 +602,12 @@ func TestClusterUpdateHotSwap(t *testing.T) {
 	client := kube.NewFakeClient()
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 
-	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
 	c.ClientBuilder = TestingBuildClientsFromConfig
 
 	// Track component lifecycle events
@@ -672,7 +697,12 @@ func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
 	client := kube.NewFakeClient()
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 
-	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
 	c.ClientBuilder = TestingBuildClientsFromConfig
 
 	// Track clusters using atomic pointers to avoid data races

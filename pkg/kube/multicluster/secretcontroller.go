@@ -29,10 +29,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/slices"
@@ -85,6 +86,19 @@ type handler interface {
 // ClientBuilder builds a new kube.Client from a kubeconfig. Mocked out for testing
 type ClientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error)
 
+// ControllerOptions holds the options for creating a new Controller.
+type ControllerOptions struct {
+	Client          kube.Client
+	ClusterID       cluster.ID
+	SystemNamespace string
+	MeshConfig      meshwatcher.WatcherCollection
+	ClientBuilder   ClientBuilder
+	ConfigOverrides []func(*rest.Config)
+	Debugger        *krt.DebugHandler
+	Stop            <-chan struct{}
+	Opts            krt.OptionsBuilder
+}
+
 // Controller is the controller implementation for Secret resources
 type Controller struct {
 	namespace            string
@@ -100,28 +114,30 @@ type Controller struct {
 
 	cs *ClusterStore
 
-	meshWatcher mesh.Watcher
+	meshWatcher meshwatcher.WatcherCollection
+	debugger    *krt.DebugHandler
+	stop        <-chan struct{}
 	handlers    []handler
+
+	clusters krt.Collection[*Cluster]
 }
 
 // NewController returns a new secret controller
-func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID,
-	meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config),
-) *Controller {
-	informerClient := kubeclientset
+func NewController(opts ControllerOptions) *Controller {
+	informerClient := opts.Client
 
 	// When these two are set to true, Istiod will be watching the namespace in which
 	// Istiod is running on the external cluster. Use the inCluster credentials to
 	// create a kubeclientset
 	if features.LocalClusterSecretWatcher && features.ExternalIstiod {
-		config, err := kube.InClusterConfig(configOverrides...)
+		cfg, err := kube.InClusterConfig(opts.ConfigOverrides...)
 		if err != nil {
 			log.Errorf("Could not get istiod incluster configuration: %v", err)
 			return nil
 		}
 		log.Info("Successfully retrieved incluster config.")
 
-		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), clusterID)
+		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(cfg), opts.ClusterID)
 		if err != nil {
 			log.Errorf("Could not create a client to access local cluster API server: %v", err)
 			return nil
@@ -131,7 +147,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	}
 
 	secrets := kclient.NewFiltered[*corev1.Secret](informerClient, kclient.Filter{
-		Namespace:     namespace,
+		Namespace:     opts.SystemNamespace,
 		LabelSelector: MultiClusterSecretLabel + "=true",
 	})
 
@@ -141,13 +157,26 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 
 	controller := &Controller{
 		ClientBuilder:   DefaultBuildClientsFromConfig,
-		namespace:       namespace,
-		configClusterID: clusterID,
-		configCluster:   &Cluster{Client: kubeclientset, ID: clusterID},
-		cs:              newClustersStore(),
+		namespace:       opts.SystemNamespace,
+		configClusterID: opts.ClusterID,
+		configCluster: &Cluster{
+			ID:                       opts.ClusterID,
+			Client:                   opts.Client,
+			stop:                     make(chan struct{}),
+			initialSync:              atomic.NewBool(false),
+			initialSyncTimeout:       atomic.NewBool(false),
+			RemoteClusterCollections: atomic.NewPointer[RemoteClusterCollections](nil),
+		},
+		cs:              NewClustersStore(),
 		secrets:         secrets,
-		configOverrides: configOverrides,
-		meshWatcher:     meshWatcher,
+		configOverrides: opts.ConfigOverrides,
+		meshWatcher:     opts.MeshConfig,
+		debugger:        opts.Debugger,
+		stop:            opts.Stop,
+	}
+
+	if opts.ClientBuilder != nil {
+		controller.ClientBuilder = opts.ClientBuilder
 	}
 
 	// Queue does NOT retry. The only error that can occur is if the kubeconfig is
@@ -172,7 +201,70 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 			controller.queue.AddObject(obj)
 		},
 	})
+
+	// Also build the KRT-based clusters collection
+	controller.buildClustersCollection(opts)
+
+	// Build config cluster collections so they are available before Run() is called.
+	// The client's ObjectFilter is already set by the caller (server.go / fake.go).
+	clusterOpts := krt.NewOptionsBuilder(opts.Stop, fmt.Sprintf("cluster[%s]", opts.ClusterID), opts.Debugger)
+	controller.configCluster.RemoteClusterCollections.Store(
+		buildClusterCollections(opts.Client, opts.ClusterID, clusterOpts),
+	)
+
 	return controller
+}
+
+func (c *Controller) buildClustersCollection(options ControllerOptions) {
+	optsBuilder := options.Opts
+	if optsBuilder.Stop() == nil {
+		optsBuilder = krt.NewOptionsBuilder(options.Stop, "multicluster", options.Debugger)
+	}
+
+	Secrets := krt.WrapClient(c.secrets, optsBuilder.WithName("RemoteSecrets")...)
+
+	// Wait for secrets to sync and mark the cluster store as ready.
+	// This is also done in Run() for the queue-based path, but this goroutine
+	// ensures MarkSynced happens even when Run() hasn't been called yet.
+	stopCh := options.Stop
+	if stopCh == nil {
+		stopCh = optsBuilder.Stop()
+	}
+	if stopCh != nil {
+		go func() {
+			if !Secrets.WaitUntilSynced(stopCh) {
+				log.Errorf("Timed out waiting for remote secrets to sync")
+			}
+			c.cs.MarkSynced()
+		}()
+	}
+
+	c.clusters = krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*Cluster {
+		c.cs.MarkDependant(ctx) // Subscribe to updates from the clusterStore
+		remoteClustersBySecretThenID := c.cs.AllReady()
+		var remoteClusters []*Cluster
+		for _, clusters := range remoteClustersBySecretThenID {
+			for _, cl := range clusters {
+				remoteClusters = append(remoteClusters, cl)
+			}
+		}
+		return remoteClusters
+	}, optsBuilder.WithName("RemoteClusters")...)
+}
+
+// Clusters returns the krt collection of remote Clusters.
+func (c *Controller) Clusters() krt.Collection[*Cluster] {
+	return c.clusters
+}
+
+// ConfigCluster returns the local/config cluster.
+func (c *Controller) ConfigCluster() *Cluster {
+	return c.configCluster
+}
+
+// ClusterStore returns the underlying ClusterStore.
+func (c *Controller) ClusterStore() *ClusterStore {
+	return c.cs
 }
 
 type ComponentBuilder interface {
@@ -214,6 +306,8 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 			return
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
+		// Mark the cluster store as synced so the KRT Clusters() collection can start providing results
+		c.cs.MarkSynced()
 		c.queue.Run(stopCh)
 		c.handleDelete(c.configClusterID)
 	}()
@@ -315,21 +409,22 @@ func DefaultBuildClientsFromConfig(kubeConfig []byte, clusterID cluster.ID, conf
 	return clients, nil
 }
 
-func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
+func (c *Controller) createRemoteCluster(secretKey types.NamespacedName, kubeConfig []byte, clusterID string) (*Cluster, error) {
 	clients, err := c.ClientBuilder(kubeConfig, cluster.ID(clusterID), c.configOverrides...)
 	if err != nil {
 		return nil, err
 	}
 	return &Cluster{
-		ID:     cluster.ID(clusterID),
-		Client: clients,
-		stop:   make(chan struct{}),
-		// for use inside the package, to close on cleanup
-		initialSync:        atomic.NewBool(false),
-		initialSyncTimeout: atomic.NewBool(false),
-		kubeConfigSha:      sha256.Sum256(kubeConfig),
-		syncStatusCallback: c.onClusterSyncStatusChange,
-		SyncedCh:           make(chan struct{}),
+		ID:                       cluster.ID(clusterID),
+		Client:                   clients,
+		SourceSecret:             secretKey,
+		stop:                     make(chan struct{}),
+		initialSync:              atomic.NewBool(false),
+		initialSyncTimeout:       atomic.NewBool(false),
+		KubeConfigSha:            sha256.Sum256(kubeConfig),
+		syncStatusCallback:       c.onClusterSyncStatusChange,
+		SyncedCh:                 make(chan struct{}),
+		RemoteClusterCollections: atomic.NewPointer[RemoteClusterCollections](nil),
 	}, nil
 }
 
@@ -357,7 +452,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			action = Update
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
-			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
+			if bytes.Equal(kubeConfigSha[:], prev.KubeConfigSha[:]) {
 				logger.Infof("skipping update (kubeconfig are identical)")
 				continue
 			}
@@ -370,7 +465,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 		}
 		logger.Infof("%s cluster", action)
 
-		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
+		remoteCluster, err := c.createRemoteCluster(name, kubeConfig, clusterID)
 		if err != nil {
 			logger.Errorf("%s cluster: create remote cluster failed: %v", action, err)
 			errs = multierror.Append(errs, err)
@@ -384,7 +479,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 		// Swap stores the new cluster and returns a PendingClusterSwap that manages cleanup of the previous cluster.
 		swap := c.cs.Swap(secretKey, remoteCluster.ID, remoteCluster)
 		go func() {
-			remoteCluster.Run(c.meshWatcher, c.handlers, action, swap)
+			remoteCluster.Run(c.meshWatcher, c.handlers, action, swap, c.debugger)
 		}()
 	}
 

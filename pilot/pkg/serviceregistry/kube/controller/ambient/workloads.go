@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -46,11 +45,10 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeutil "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	kubelabels "istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -141,7 +139,7 @@ func MergedGlobalWorkloadsCollection(
 	localCluster *multicluster.Cluster,
 	localWaypoints krt.Collection[Waypoint],
 	localNodeLocalities krt.Collection[Node],
-	clusters krt.Collection[*multicluster.Cluster],
+	ctrl *multicluster.Controller,
 	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	globalNodes krt.Collection[krt.Collection[krt.ObjectWithCluster[Node]]],
@@ -279,12 +277,8 @@ func MergedGlobalWorkloadsCollection(
 		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID),
 		opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...,
 	)
-	// This is the same algorithm as nestedCollectionFromLocalAndRemote, but generalized since WorkloadInfo has 5 potential
-	// sources instead of 1. We start off with this static collection with all of the local WorkloadInfos. Then, we create a
-	// remoteWorkloadinfos collection that has clusters as its primary input. Whenever the remote collection changes, we update
-	// the global collection.
-	GlobalWorkloadInfosWithCluster := krt.NewStaticCollection(
-		localCluster,
+	GlobalWorkloadInfosWithCluster := multicluster.NestedManyCollectionsFromLocalAndRemote(
+		ctrl,
 		[]krt.Collection[krt.ObjectWithCluster[model.WorkloadInfo]]{
 			LocalPodWorkloadsWithCluster,
 			LocalWorkloadEntryWorkloadsWithCluster,
@@ -292,45 +286,8 @@ func MergedGlobalWorkloadsCollection(
 			LocalEndpointSliceWorkloadsWithCluster,
 			LocalNetworkGatewayWorkloadsWithCluster,
 		},
-		opts.WithName("GlobalWorkloadsInfoWithCluster")...,
-	)
-
-	// Create caches for the per-cluster WorkloadInfo collections so that they aren't re-created every time the clusters collection changes
-	// We have multiple caches here because there are multiple sources that might create a WorkloadInfo (pods, workload entries, etc.)
-	podWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[krt.ObjectWithCluster[model.WorkloadInfo]]()
-	workloadEntryWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[krt.ObjectWithCluster[model.WorkloadInfo]]()
-	serviceEntryWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[krt.ObjectWithCluster[model.WorkloadInfo]]()
-	endpointSliceWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[krt.ObjectWithCluster[model.WorkloadInfo]]()
-	networkGatewayWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[krt.ObjectWithCluster[model.WorkloadInfo]]()
-
-	clusters.Register(func(e krt.Event[*multicluster.Cluster]) {
-		if e.Event != controllers.EventDelete {
-			// The krt transformation functions will take care of adds and updates...
-			return
-		}
-
-		old := ptr.Flatten(e.Old)
-		// Remove any existing collections in the caches for this cluster
-		if !podWorkloadInfosCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, podWorkloadInfosCache)
-		}
-		if !workloadEntryWorkloadInfosCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, workloadEntryWorkloadInfosCache)
-		}
-		if !serviceEntryWorkloadInfosCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, serviceEntryWorkloadInfosCache)
-		}
-		if !endpointSliceWorkloadInfosCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, endpointSliceWorkloadInfosCache)
-		}
-		if !networkGatewayWorkloadInfosCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, networkGatewayWorkloadInfosCache)
-		}
-	})
-	RemoteWorkloadInfosWithCluster := krt.NewManyCollection(
-		clusters,
 		func(ctx krt.HandlerContext, c *multicluster.Cluster) []krt.Collection[krt.ObjectWithCluster[model.WorkloadInfo]] {
-			opts := []krt.CollectionOption{
+			collOpts := []krt.CollectionOption{
 				krt.WithDebugging(opts.Debugger()),
 				krt.WithStop(c.GetStop()),
 			}
@@ -364,30 +321,8 @@ func MergedGlobalWorkloadsCollection(
 				return nil
 			}
 
-			existing := []krt.Collection[krt.ObjectWithCluster[model.WorkloadInfo]]{
-				podWorkloadInfosCache.Get(c.ID),
-				workloadEntryWorkloadInfosCache.Get(c.ID),
-				serviceEntryWorkloadInfosCache.Get(c.ID),
-				endpointSliceWorkloadInfosCache.Get(c.ID),
-				networkGatewayWorkloadInfosCache.Get(c.ID),
-			}
-
-			if slices.Contains(existing, nil) {
-				// At least one of these isn't initialized yet; remove everything for this cluster
-				podWorkloadInfosCache.Remove(c.ID)
-				workloadEntryWorkloadInfosCache.Remove(c.ID)
-				serviceEntryWorkloadInfosCache.Remove(c.ID)
-				endpointSliceWorkloadInfosCache.Remove(c.ID)
-				networkGatewayWorkloadInfosCache.Remove(c.ID)
-			} else {
-				// We have all of the collections in the cache
-				log.Info("Using cache for global workloads")
-				return existing
-			}
-
-			// Now we create everything anew
 			nodes := krt.MapCollection(clusteredNodes, unwrapObjectWithCluster, append(
-				opts,
+				collOpts,
 				krt.WithName(fmt.Sprintf("NodeLocality[%s]", c.ID)),
 			)...)
 
@@ -396,7 +331,7 @@ func MergedGlobalWorkloadsCollection(
 				globalWorkloadServicesWithCluster,
 				unwrapObjectWithCluster[model.ServiceInfo],
 				append(
-					opts,
+					collOpts,
 					krt.WithName(fmt.Sprintf("WorkloadServices[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
@@ -439,7 +374,7 @@ func MergedGlobalWorkloadsCollection(
 					flags,
 				),
 				append(
-					opts,
+					collOpts,
 					krt.WithName(fmt.Sprintf("PodWorkloads[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
@@ -450,7 +385,7 @@ func MergedGlobalWorkloadsCollection(
 				PodWorkloads,
 				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
 				append(
-					opts,
+					collOpts,
 					krt.WithName(fmt.Sprintf("PodWorkloadsWithCluster[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
@@ -486,7 +421,7 @@ func MergedGlobalWorkloadsCollection(
 					flags,
 				),
 				append(
-					opts,
+					collOpts,
 					krt.WithName(fmt.Sprintf("WorkloadEntryWorkloads[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
@@ -497,7 +432,7 @@ func MergedGlobalWorkloadsCollection(
 				WorkloadEntryWorkloads,
 				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
 				append(
-					opts,
+					collOpts,
 					krt.WithName(fmt.Sprintf("WorkloadEntryWorkloadsWithCluster[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
@@ -532,7 +467,7 @@ func MergedGlobalWorkloadsCollection(
 					flags,
 				),
 				append(
-					opts,
+					collOpts,
 					krt.WithName(fmt.Sprintf("ServiceEntryWorkloads[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
@@ -543,7 +478,7 @@ func MergedGlobalWorkloadsCollection(
 				ServiceEntryWorkloads,
 				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
 				append(
-					opts,
+					collOpts,
 					krt.WithName(fmt.Sprintf("ServiceEntryWorkloadsWithCluster[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
@@ -574,7 +509,7 @@ func MergedGlobalWorkloadsCollection(
 					},
 				),
 				append(
-					opts,
+					collOpts,
 					krt.WithName(fmt.Sprintf("EndpointSliceWorkloads[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
@@ -584,7 +519,7 @@ func MergedGlobalWorkloadsCollection(
 				EndpointSliceWorkloads,
 				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
 				append(
-					opts,
+					collOpts,
 					krt.WithName(fmt.Sprintf("EndpointSliceWorkloadsWithCluster[%s]", c.ID)),
 					krt.WithMetadata(krt.Metadata{
 						multicluster.ClusterKRTMetadataKey: c.ID,
@@ -592,45 +527,16 @@ func MergedGlobalWorkloadsCollection(
 				)...,
 			)
 
-			results := map[*collectionCacheByCluster[krt.ObjectWithCluster[model.WorkloadInfo]]]bool{
-				podWorkloadInfosCache:           podWorkloadInfosCache.Insert(PodWorkloadsWithCluster),
-				workloadEntryWorkloadInfosCache: workloadEntryWorkloadInfosCache.Insert(WorkloadEntryWorkloadsWithCluster),
-				serviceEntryWorkloadInfosCache:  serviceEntryWorkloadInfosCache.Insert(ServiceEntryWorkloadsWithCluster),
-				endpointSliceWorkloadInfosCache: endpointSliceWorkloadInfosCache.Insert(EndpointSliceWorkloadsWithCluster),
-			}
-
-			if slices.Contains(maps.Values(results), false) {
-				for cache, ok := range results {
-					if !ok {
-						log.Warnf("Failed to insert collection into cache %v for cluster %s", cache, c.ID)
-					}
-				}
-				return nil
-			}
-
-			cols := []krt.Collection[krt.ObjectWithCluster[model.WorkloadInfo]]{
+			return []krt.Collection[krt.ObjectWithCluster[model.WorkloadInfo]]{
 				PodWorkloadsWithCluster,
 				WorkloadEntryWorkloadsWithCluster,
 				ServiceEntryWorkloadsWithCluster,
 				EndpointSliceWorkloadsWithCluster,
 			}
-
-			return cols
 		},
-		opts.WithName("RemoteWorkloadInfosWithCluster")...,
+		"WorkloadsInfoWithCluster",
+		opts,
 	)
-
-	RemoteWorkloadInfosWithCluster.RegisterBatch(func(o []krt.Event[krt.Collection[krt.ObjectWithCluster[model.WorkloadInfo]]]) {
-		for _, e := range o {
-			l := e.Latest()
-			switch e.Event {
-			case controllers.EventAdd, controllers.EventUpdate:
-				GlobalWorkloadInfosWithCluster.UpdateObject(l)
-			case controllers.EventDelete:
-				GlobalWorkloadInfosWithCluster.DeleteObject(krt.GetKey(l))
-			}
-		}
-	}, true)
 	col := krt.NestedJoinWithMergeCollection(
 		GlobalWorkloadInfosWithCluster,
 		mergeWorkloadInfosWithCluster(localClusterID),

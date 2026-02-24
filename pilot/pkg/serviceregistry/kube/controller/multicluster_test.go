@@ -84,7 +84,13 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 }
 
 func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *multicluster.Controller {
-	sc := multicluster.NewController(client, ns, "cluster-1", meshwatcher.NewTestWatcher(nil))
+	sc := multicluster.NewController(multicluster.ControllerOptions{
+		Client:          client,
+		SystemNamespace: ns,
+		ClusterID:       "cluster-1",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+		Stop:            stop,
+	})
 	sc.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
