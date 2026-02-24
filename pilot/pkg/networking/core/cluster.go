@@ -717,7 +717,7 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 	case model.ClientSideLB:
 		return cluster.Cluster_EDS
 	case model.DNSLB:
-		if service.Attributes.K8sAttributes.DnsConnectStrategy == model.DnsConnectStrategyFirstHealthyRace {
+		if service.Attributes.K8sAttributes.DNSConnectStrategy == model.DNSConnectStrategyFirstHealthyRace {
 			return cluster.Cluster_LOGICAL_DNS
 		}
 		return cluster.Cluster_STRICT_DNS

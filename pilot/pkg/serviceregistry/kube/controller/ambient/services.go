@@ -584,7 +584,7 @@ func constructServiceEntries(
 	}
 
 	// Check for connect strategy annotation.
-	if cs := getDnsConnectStrategy(svc.Annotations); cs != workloadapi.LoadBalancing_DEFAULT {
+	if cs := getDNSConnectStrategy(svc.Annotations); cs != workloadapi.LoadBalancing_DEFAULT {
 		if lb == nil {
 			lb = &workloadapi.LoadBalancing{}
 		} else {
@@ -711,11 +711,11 @@ func constructService(
 	}
 }
 
-const ambientDnsConnectStrategyAnnotation = "ambient.istio.io/connect-strategy"
+const ambientDNSConnectStrategyAnnotation = "ambient.istio.io/connect-strategy"
 
-// getDnsConnectStrategy reads the connect strategy from ServiceEntry annotations.
-func getDnsConnectStrategy(annotations map[string]string) workloadapi.LoadBalancing_DnsConnectStrategy {
-	if v, ok := annotations[ambientDnsConnectStrategyAnnotation]; ok {
+// getDNSConnectStrategy reads the connect strategy from ServiceEntry annotations.
+func getDNSConnectStrategy(annotations map[string]string) workloadapi.LoadBalancing_DnsConnectStrategy {
+	if v, ok := annotations[ambientDNSConnectStrategyAnnotation]; ok {
 		if strings.EqualFold(v, "FIRST_HEALTHY_RACE") {
 			return workloadapi.LoadBalancing_FIRST_HEALTHY_RACE
 		}

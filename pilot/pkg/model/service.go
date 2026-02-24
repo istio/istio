@@ -781,10 +781,10 @@ type K8sAttributes struct {
 	// ObjectName is the object name of the underlying object. This may differ from the Service.Attributes.Name for legacy semantics.
 	ObjectName string
 
-	// DnsConnectStrategy specifies the connection strategy for the service.
-	// When set to DnsConnectStrategyFirstHealthyRace, waypoint proxies will set DnsLookupFamily=ALL
+	// DNSConnectStrategy specifies the connection strategy for the service.
+	// When set to DNSConnectStrategyFirstHealthyRace, waypoint proxies will set DnsLookupFamily=ALL
 	// to enable Envoy's happy eyeballs algorithm.
-	DnsConnectStrategy DnsConnectStrategy
+	DNSConnectStrategy DNSConnectStrategy
 
 	// spec.PublishNotReadyAddresses
 	PublishNotReadyAddresses bool
@@ -801,21 +801,21 @@ const (
 	TrafficDistributionPreferSameNode
 )
 
-type DnsConnectStrategy int
+type DNSConnectStrategy int
 
 const (
-	// DnsConnectStrategyDefault uses standard connection behavior.
-	DnsConnectStrategyDefault DnsConnectStrategy = iota
-	// DnsConnectStrategyFirstHealthyRace races connections to all resolved IPs and picks the first healthy one.
-	DnsConnectStrategyFirstHealthyRace
+	// DNSConnectStrategyDefault uses standard connection behavior.
+	DNSConnectStrategyDefault DNSConnectStrategy = iota
+	// DNSConnectStrategyFirstHealthyRace races connections to all resolved IPs and picks the first healthy one.
+	DNSConnectStrategyFirstHealthyRace
 )
 
-// GetDnsConnectStrategy reads the connect strategy from annotations.
-func GetDnsConnectStrategy(annotations map[string]string) DnsConnectStrategy {
+// GetDNSConnectStrategy reads the connect strategy from annotations.
+func GetDNSConnectStrategy(annotations map[string]string) DNSConnectStrategy {
 	if strings.EqualFold(annotations["ambient.istio.io/connect-strategy"], "FIRST_HEALTHY_RACE") {
-		return DnsConnectStrategyFirstHealthyRace
+		return DNSConnectStrategyFirstHealthyRace
 	}
-	return DnsConnectStrategyDefault
+	return DNSConnectStrategyDefault
 }
 
 func GetTrafficDistribution(specValue *string, svcAnnotations, nsAnnotations map[string]string) TrafficDistribution {
