@@ -550,6 +550,7 @@ spec:
     - name: {{ . }}
     {{- end }}
   {{- end }}
+  {{- if .Values.global.tolerations }}
   tolerations:
     {{- toYaml .Values.global.tolerations | nindent 4 }}
   {{- end }}
