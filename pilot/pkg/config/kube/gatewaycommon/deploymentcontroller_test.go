@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package gatewaycommon
 
 import (
 	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -69,6 +70,8 @@ import (
 var (
 	copyLabelsAnnotationsEnabled  = true
 	copyLabelsAnnotationsDisabled = false
+
+	timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 )
 
 func TestConfigureIstioGateway(t *testing.T) {
@@ -413,7 +416,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 						TLS: &k8s.ListenerTLSConfig{
 							Mode: ptr.Of(k8s.TLSModeTerminate),
 							Options: map[k8s.AnnotationKey]k8s.AnnotationValue{
-								gatewayTLSTerminateModeKey: "ISTIO_MUTUAL",
+								GatewayTLSTerminateModeKey: "ISTIO_MUTUAL",
 							},
 						},
 					}},
@@ -692,12 +695,13 @@ metadata:
 				assert.Equal(t, buf.String(), "")
 			} else {
 				resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
+				testdataDir := filepath.Join("testdata", "deployment")
 				if util.Refresh() {
-					if err := os.WriteFile(filepath.Join("testdata", "deployment", tt.name+".yaml"), resp, 0o644); err != nil {
+					if err := os.WriteFile(filepath.Join(testdataDir, tt.name+".yaml"), resp, 0o644); err != nil {
 						t.Fatal(err)
 					}
 				}
-				util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
+				util.CompareContent(t, resp, filepath.Join(testdataDir, tt.name+".yaml"))
 			}
 			// ensure we didn't mutate the object
 			if !tt.ignore {

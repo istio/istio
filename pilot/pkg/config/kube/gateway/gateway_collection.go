@@ -26,6 +26,7 @@ import (
 
 	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -76,11 +77,11 @@ func ListenerSetCollection(
 	gateways krt.Collection[*gatewayv1.Gateway],
 	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
-	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) (
@@ -102,7 +103,7 @@ func ListenerSetCollection(
 			status := obj.Status.DeepCopy()
 
 			p := ls.ParentRef
-			if normalizeReference(p.Group, p.Kind, gvk.KubernetesGateway) != gvk.KubernetesGateway {
+			if gatewaycommon.NormalizeReference(p.Group, p.Kind, gvk.KubernetesGateway) != gvk.KubernetesGateway {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
 			}
@@ -121,17 +122,17 @@ func ListenerSetCollection(
 			}
 
 			controllerName := class.Controller
-			classInfo, f := classInfos[controllerName]
+			classInfo, f := gatewaycommon.ClassInfos[controllerName]
 			if !f {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
 			}
-			if !classInfo.supportsListenerSet {
+			if !classInfo.SupportsListenerSet {
 				reportUnsupportedListenerSet(class.Name, status, obj)
 				return status, nil
 			}
 
-			if !namespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
+			if !gatewaycommon.NamespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
 				return ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(s)))
 			}) {
 				reportNotAllowedListenerSet(status, obj)
@@ -149,7 +150,7 @@ func ListenerSetCollection(
 			for i, l := range ls.Listeners {
 				port, portErr := detectListenerPortNumber(l)
 				l.Port = port
-				standardListener := convertListenerSetToListener(l)
+				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
 				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
 					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
@@ -166,7 +167,7 @@ func ListenerSetCollection(
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
 				serviceAccountName := model.GetOrDefault(
 					parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-					getDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.disableNameSuffix),
+					gatewaycommon.GetDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.DisableNameSuffix),
 				)
 				meta[constants.InternalServiceAccount] = serviceAccountName
 
@@ -223,11 +224,11 @@ func GatewayCollection(
 	listenerSets krt.Collection[ListenerSet],
 	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
-	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) (
@@ -254,11 +255,11 @@ func GatewayCollection(
 			return nil, nil
 		}
 		controllerName := class.Controller
-		classInfo, f := classInfos[controllerName]
+		classInfo, f := gatewaycommon.ClassInfos[controllerName]
 		if !f {
 			return nil, nil
 		}
-		if classInfo.disableRouteGeneration {
+		if classInfo.DisableRouteGeneration {
 			reportUnmanagedGatewayStatus(status, obj)
 			// We found it, but don't want to handle this class
 			return status, nil
@@ -277,10 +278,10 @@ func GatewayCollection(
 		// If we set and address of type hostname, then we have no idea what service accounts the gateway workloads will use.
 		// Thus, we don't enforce service account name restrictions (still look at namespaces though).
 		serviceAccountName := ""
-		if IsManaged(&obj.Spec) {
+		if gatewaycommon.IsManaged(&obj.Spec) {
 			serviceAccountName = model.GetOrDefault(
 				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-				getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix),
+				gatewaycommon.GetDefaultName(obj.GetName(), &kgw, classInfo.DisableNameSuffix),
 			)
 		}
 
@@ -459,9 +460,4 @@ func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) ga
 		AttachedRoutes: e.AttachedRoutes,
 		Conditions:     e.Conditions,
 	}
-}
-
-func convertListenerSetToListener(l gatewayx.ListenerEntry) gatewayv1.Listener {
-	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
-	return gatewayv1.Listener(l)
 }
