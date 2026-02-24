@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 57172
+releaseNotes:
+  - |
+    **Fixed** Gateway API hostname conflict detection between HTTPRoute and GRPCRoute. Routes of different types can no longer share the same hostname on the same Gateway listener, enforcing GEP-1016 "Cross Serving" rules. The first attached route wins, and conflicting routes are rejected with a clear error message.
