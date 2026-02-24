@@ -555,14 +555,14 @@ func (c *Controller) inRevision(obj any) bool {
 // ToAgwResource converts an internal representation to a resource for agentgateway
 func ToAgwResource(t any) *api.Resource {
 	switch tt := t.(type) {
-	case *api.Bind:
-		return &api.Resource{Kind: &api.Resource_Bind{Bind: tt}}
-	case *api.Listener:
-		return &api.Resource{Kind: &api.Resource_Listener{Listener: tt}}
-	case *api.Route:
-		return &api.Resource{Kind: &api.Resource_Route{Route: tt}}
-	case *api.TCPRoute:
-		return &api.Resource{Kind: &api.Resource_TcpRoute{TcpRoute: tt}}
+	case AgwBind:
+		return &api.Resource{Kind: &api.Resource_Bind{Bind: tt.Bind}}
+	case AgwListener:
+		return &api.Resource{Kind: &api.Resource_Listener{Listener: tt.Listener}}
+	case AgwRoute:
+		return &api.Resource{Kind: &api.Resource_Route{Route: tt.Route}}
+	case AgwTCPRoute:
+		return &api.Resource{Kind: &api.Resource_TcpRoute{TcpRoute: tt.TCPRoute}}
 	case *api.Policy:
 		return &api.Resource{Kind: &api.Resource_Policy{Policy: tt}}
 	case *api.Resource:
@@ -619,10 +619,12 @@ func (c *Controller) buildAgwResources(
 			}
 		}
 		return slices.Map(uniq.UnsortedList(), func(e types.NamespacedName) AgwResource {
-			bind := &api.Bind{
-				Key:      object.Key + "/" + e.String(),
-				Port:     uint32(port), //nolint:gosec // G115: port is always in valid port range
-				Protocol: protocol,
+			bind := AgwBind{
+				&api.Bind{
+					Key:      object.Key + "/" + e.String(),
+					Port:     uint32(port), //nolint:gosec // G115: port is always in valid port range
+					Protocol: protocol,
+				},
 			}
 			return ToResourceForGateway(e, bind)
 		})
@@ -685,7 +687,7 @@ func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource
 	return ptr.Of(ToResourceForGateway(types.NamespacedName{
 		Namespace: obj.ParentObject.Namespace,
 		Name:      obj.ParentObject.Name,
-	}, l))
+	}, AgwListener{Listener: l}))
 }
 
 // getProtocolAndTLSConfig extracts protocol and TLS configuration from a gateway

@@ -374,7 +374,7 @@ func GatewayCollection(
 				TLSInfo:       tlsInfo,
 				ParentGateway: config.NamespacedName(obj),
 				ParentObject: AgwParentKey{
-					Kind:      gvk.Gateway.Kubernetes(),
+					Kind:      gvk.KubernetesGateway.Kubernetes(),
 					Name:      obj.Name,
 					Namespace: obj.Namespace,
 				},
@@ -502,6 +502,32 @@ func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) ga
 		AttachedRoutes: e.AttachedRoutes,
 		Conditions:     e.Conditions,
 	}
+}
+
+// AgwBind is a wrapper type that contains the bind on the gateway, as well as the status for the bind.
+type AgwBind struct {
+	*api.Bind
+}
+
+func (g AgwBind) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwBind) Equals(other AgwBind) bool {
+	return protoconv.Equals(g, other)
+}
+
+// AgwListener is a wrapper type that contains the listener on the gateway, as well as the status for the listener.
+type AgwListener struct {
+	*api.Listener
+}
+
+func (g AgwListener) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwListener) Equals(other AgwListener) bool {
+	return protoconv.Equals(g, other)
 }
 
 // AgwRoute is a wrapper type that contains the route on the gateway, as well as the status for the route.
