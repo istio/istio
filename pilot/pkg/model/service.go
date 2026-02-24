@@ -781,10 +781,10 @@ type K8sAttributes struct {
 	// ObjectName is the object name of the underlying object. This may differ from the Service.Attributes.Name for legacy semantics.
 	ObjectName string
 
-	// ConnectStrategy specifies the connection strategy for the service.
-	// When set to ConnectStrategyFirstHealthyRace, waypoint proxies will set DnsLookupFamily=ALL
+	// DnsConnectStrategy specifies the connection strategy for the service.
+	// When set to DnsConnectStrategyFirstHealthyRace, waypoint proxies will set DnsLookupFamily=ALL
 	// to enable Envoy's happy eyeballs algorithm.
-	ConnectStrategy ConnectStrategy
+	DnsConnectStrategy DnsConnectStrategy
 
 	// spec.PublishNotReadyAddresses
 	PublishNotReadyAddresses bool
@@ -801,21 +801,21 @@ const (
 	TrafficDistributionPreferSameNode
 )
 
-type ConnectStrategy int
+type DnsConnectStrategy int
 
 const (
-	// ConnectStrategyDefault uses standard connection behavior.
-	ConnectStrategyDefault ConnectStrategy = iota
-	// ConnectStrategyFirstHealthyRace races connections to all resolved IPs and picks the first healthy one.
-	ConnectStrategyFirstHealthyRace
+	// DnsConnectStrategyDefault uses standard connection behavior.
+	DnsConnectStrategyDefault DnsConnectStrategy = iota
+	// DnsConnectStrategyFirstHealthyRace races connections to all resolved IPs and picks the first healthy one.
+	DnsConnectStrategyFirstHealthyRace
 )
 
-// GetConnectStrategy reads the connect strategy from annotations.
-func GetConnectStrategy(annotations map[string]string) ConnectStrategy {
+// GetDnsConnectStrategy reads the connect strategy from annotations.
+func GetDnsConnectStrategy(annotations map[string]string) DnsConnectStrategy {
 	if strings.EqualFold(annotations["ambient.istio.io/connect-strategy"], "FIRST_HEALTHY_RACE") {
-		return ConnectStrategyFirstHealthyRace
+		return DnsConnectStrategyFirstHealthyRace
 	}
-	return ConnectStrategyDefault
+	return DnsConnectStrategyDefault
 }
 
 func GetTrafficDistribution(specValue *string, svcAnnotations, nsAnnotations map[string]string) TrafficDistribution {

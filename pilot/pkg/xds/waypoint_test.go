@@ -591,9 +591,9 @@ spec:
 	g.Expect(po).To(BeNil())
 }
 
-func TestWaypointClusterConnectStrategyHappyEyeballs(t *testing.T) {
+func TestWaypointClusterDnsConnectStrategyHappyEyeballs(t *testing.T) {
 	g := NewWithT(t)
-	connectStrategyServiceEntry := `apiVersion: networking.istio.io/v1
+	DnsConnectStrategyServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: race-target
@@ -614,7 +614,7 @@ spec:
 		waypointGateway,
 		waypointSvc,
 		waypointInstance,
-		connectStrategyServiceEntry)
+		DnsConnectStrategyServiceEntry)
 
 	clusters := xdstest.ExtractClusters(d.Clusters(p))
 	c := clusters["inbound-vip|1433|tcp|sql.example.com"]

@@ -782,6 +782,10 @@ func TestServiceEntryServices(t *testing.T) {
 						},
 						Mode: workloadapi.LoadBalancing_FAILOVER,
 					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
 				},
 			},
 		},
@@ -816,7 +820,7 @@ func TestServiceEntryServices(t *testing.T) {
 						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
 					}},
 					LoadBalancing: &workloadapi.LoadBalancing{
-						ConnectStrategy: workloadapi.LoadBalancing_FIRST_HEALTHY_RACE,
+						DnsConnectStrategy: workloadapi.LoadBalancing_FIRST_HEALTHY_RACE,
 					},
 					Ports: []*workloadapi.Port{{
 						ServicePort: 80,
@@ -862,8 +866,8 @@ func TestServiceEntryServices(t *testing.T) {
 							workloadapi.LoadBalancing_REGION,
 							workloadapi.LoadBalancing_ZONE,
 						},
-						Mode:            workloadapi.LoadBalancing_FAILOVER,
-						ConnectStrategy: workloadapi.LoadBalancing_FIRST_HEALTHY_RACE,
+						Mode:               workloadapi.LoadBalancing_FAILOVER,
+						DnsConnectStrategy: workloadapi.LoadBalancing_FIRST_HEALTHY_RACE,
 					},
 					Ports: []*workloadapi.Port{{
 						ServicePort: 80,
@@ -1396,6 +1400,11 @@ func TestServiceServices(t *testing.T) {
 					},
 					Mode: workloadapi.LoadBalancing_FAILOVER,
 				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
 			},
 		},
 	}

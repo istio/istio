@@ -896,11 +896,11 @@ type LoadBalancing struct {
 	Mode LoadBalancing_Mode `protobuf:"varint,2,opt,name=mode,proto3,enum=istio.workload.LoadBalancing_Mode" json:"mode,omitempty"`
 	// health_policy defines how we should filter endpoints
 	HealthPolicy LoadBalancing_HealthPolicy `protobuf:"varint,3,opt,name=health_policy,json=healthPolicy,proto3,enum=istio.workload.LoadBalancing_HealthPolicy" json:"health_policy,omitempty"`
-	// connect_strategy defines how upstream connections are established when a service
+	// dns_connect_strategy defines how upstream connections are established when a service
 	// has multiple resolved IP addresses (e.g., from DNS).
-	ConnectStrategy LoadBalancing_DnsConnectStrategy `protobuf:"varint,4,opt,name=connect_strategy,json=connectStrategy,proto3,enum=istio.workload.LoadBalancing_DnsConnectStrategy" json:"connect_strategy,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	DnsConnectStrategy LoadBalancing_DnsConnectStrategy `protobuf:"varint,4,opt,name=dns_connect_strategy,json=dnsConnectStrategy,proto3,enum=istio.workload.LoadBalancing_DnsConnectStrategy" json:"dns_connect_strategy,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *LoadBalancing) Reset() {
@@ -954,9 +954,9 @@ func (x *LoadBalancing) GetHealthPolicy() LoadBalancing_HealthPolicy {
 	return LoadBalancing_ONLY_HEALTHY
 }
 
-func (x *LoadBalancing) GetConnectStrategy() LoadBalancing_DnsConnectStrategy {
+func (x *LoadBalancing) GetDnsConnectStrategy() LoadBalancing_DnsConnectStrategy {
 	if x != nil {
-		return x.ConnectStrategy
+		return x.DnsConnectStrategy
 	}
 	return LoadBalancing_DEFAULT
 }
@@ -1781,12 +1781,12 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"extensions\x18\n" +
 	" \x03(\v2\x19.istio.workload.ExtensionR\n" +
 	"extensions\x12\x1c\n" +
-	"\tcanonical\x18\v \x01(\bR\tcanonical\"\xe5\x04\n" +
+	"\tcanonical\x18\v \x01(\bR\tcanonical\"\xec\x04\n" +
 	"\rLoadBalancing\x12R\n" +
 	"\x12routing_preference\x18\x01 \x03(\x0e2#.istio.workload.LoadBalancing.ScopeR\x11routingPreference\x126\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\".istio.workload.LoadBalancing.ModeR\x04mode\x12O\n" +
-	"\rhealth_policy\x18\x03 \x01(\x0e2*.istio.workload.LoadBalancing.HealthPolicyR\fhealthPolicy\x12[\n" +
-	"\x10connect_strategy\x18\x04 \x01(\x0e20.istio.workload.LoadBalancing.DnsConnectStrategyR\x0fconnectStrategy\"e\n" +
+	"\rhealth_policy\x18\x03 \x01(\x0e2*.istio.workload.LoadBalancing.HealthPolicyR\fhealthPolicy\x12b\n" +
+	"\x14dns_connect_strategy\x18\x04 \x01(\x0e20.istio.workload.LoadBalancing.DnsConnectStrategyR\x12dnsConnectStrategy\"e\n" +
 	"\x05Scope\x12\x15\n" +
 	"\x11UNSPECIFIED_SCOPE\x10\x00\x12\n" +
 	"\n" +
@@ -1957,7 +1957,7 @@ var file_workloadapi_workload_proto_depIdxs = []int32{
 	6,  // 8: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
 	7,  // 9: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
 	8,  // 10: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
-	9,  // 11: istio.workload.LoadBalancing.connect_strategy:type_name -> istio.workload.LoadBalancing.DnsConnectStrategy
+	9,  // 11: istio.workload.LoadBalancing.dns_connect_strategy:type_name -> istio.workload.LoadBalancing.DnsConnectStrategy
 	5,  // 12: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
 	19, // 13: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
 	19, // 14: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress

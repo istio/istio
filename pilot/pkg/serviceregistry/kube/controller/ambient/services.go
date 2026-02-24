@@ -584,13 +584,13 @@ func constructServiceEntries(
 	}
 
 	// Check for connect strategy annotation.
-	if cs := getConnectStrategy(svc.Annotations); cs != workloadapi.LoadBalancing_DEFAULT {
+	if cs := getDnsConnectStrategy(svc.Annotations); cs != workloadapi.LoadBalancing_DEFAULT {
 		if lb == nil {
 			lb = &workloadapi.LoadBalancing{}
 		} else {
 			lb = protomarshal.ShallowClone(lb)
 		}
-		lb.ConnectStrategy = cs
+		lb.DnsConnectStrategy = cs
 	}
 
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
@@ -711,11 +711,11 @@ func constructService(
 	}
 }
 
-const ambientConnectStrategyAnnotation = "ambient.istio.io/connect-strategy"
+const ambientDnsConnectStrategyAnnotation = "ambient.istio.io/connect-strategy"
 
-// getConnectStrategy reads the connect strategy from ServiceEntry annotations.
-func getConnectStrategy(annotations map[string]string) workloadapi.LoadBalancing_DnsConnectStrategy {
-	if v, ok := annotations[ambientConnectStrategyAnnotation]; ok {
+// getDnsConnectStrategy reads the connect strategy from ServiceEntry annotations.
+func getDnsConnectStrategy(annotations map[string]string) workloadapi.LoadBalancing_DnsConnectStrategy {
+	if v, ok := annotations[ambientDnsConnectStrategyAnnotation]; ok {
 		if strings.EqualFold(v, "FIRST_HEALTHY_RACE") {
 			return workloadapi.LoadBalancing_FIRST_HEALTHY_RACE
 		}

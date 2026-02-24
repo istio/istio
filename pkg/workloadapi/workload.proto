@@ -174,9 +174,9 @@ message LoadBalancing {
   Mode mode = 2;
   // health_policy defines how we should filter endpoints
   HealthPolicy health_policy = 3;
-  // connect_strategy defines how upstream connections are established when a service
+  // dns_connect_strategy defines how upstream connections are established when a service
   // has multiple resolved IP addresses (e.g., from DNS).
-  DnsConnectStrategy connect_strategy = 4;
+  DnsConnectStrategy dns_connect_strategy = 4;
 }
 
 // Workload represents a workload - an endpoint (or collection behind a hostname).
