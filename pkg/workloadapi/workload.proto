@@ -158,7 +158,7 @@ message LoadBalancing {
     ALLOW_ALL = 1;
   }
 
-  enum ConnectStrategy {
+  enum DnsConnectStrategy {
     // Default behavior: connect to a single endpoint selected by load balancing.
     DEFAULT = 0;
     // Race upstream TCP connections to ALL DNS-resolved IPs in parallel.
@@ -176,7 +176,7 @@ message LoadBalancing {
   HealthPolicy health_policy = 3;
   // connect_strategy defines how upstream connections are established when a service
   // has multiple resolved IP addresses (e.g., from DNS).
-  ConnectStrategy connect_strategy = 4;
+  DnsConnectStrategy connect_strategy = 4;
 }
 
 // Workload represents a workload - an endpoint (or collection behind a hostname).

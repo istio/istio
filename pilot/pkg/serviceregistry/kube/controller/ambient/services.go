@@ -714,7 +714,7 @@ func constructService(
 const ambientConnectStrategyAnnotation = "ambient.istio.io/connect-strategy"
 
 // getConnectStrategy reads the connect strategy from ServiceEntry annotations.
-func getConnectStrategy(annotations map[string]string) workloadapi.LoadBalancing_ConnectStrategy {
+func getConnectStrategy(annotations map[string]string) workloadapi.LoadBalancing_DnsConnectStrategy {
 	if v, ok := annotations[ambientConnectStrategyAnnotation]; ok {
 		if strings.EqualFold(v, "FIRST_HEALTHY_RACE") {
 			return workloadapi.LoadBalancing_FIRST_HEALTHY_RACE

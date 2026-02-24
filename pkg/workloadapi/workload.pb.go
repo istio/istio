@@ -530,53 +530,53 @@ func (LoadBalancing_HealthPolicy) EnumDescriptor() ([]byte, []int) {
 	return file_workloadapi_workload_proto_rawDescGZIP(), []int{2, 2}
 }
 
-type LoadBalancing_ConnectStrategy int32
+type LoadBalancing_DnsConnectStrategy int32
 
 const (
 	// Default behavior: connect to a single endpoint selected by load balancing.
-	LoadBalancing_DEFAULT LoadBalancing_ConnectStrategy = 0
+	LoadBalancing_DEFAULT LoadBalancing_DnsConnectStrategy = 0
 	// Race upstream TCP connections to ALL DNS-resolved IPs in parallel.
 	// The first successful TCP handshake wins; others are cancelled.
 	// Only applicable to services with DNS-based endpoints (e.g., ServiceEntry with DYNAMIC_DNS resolution).
-	LoadBalancing_FIRST_HEALTHY_RACE LoadBalancing_ConnectStrategy = 1
+	LoadBalancing_FIRST_HEALTHY_RACE LoadBalancing_DnsConnectStrategy = 1
 )
 
-// Enum value maps for LoadBalancing_ConnectStrategy.
+// Enum value maps for LoadBalancing_DnsConnectStrategy.
 var (
-	LoadBalancing_ConnectStrategy_name = map[int32]string{
+	LoadBalancing_DnsConnectStrategy_name = map[int32]string{
 		0: "DEFAULT",
 		1: "FIRST_HEALTHY_RACE",
 	}
-	LoadBalancing_ConnectStrategy_value = map[string]int32{
+	LoadBalancing_DnsConnectStrategy_value = map[string]int32{
 		"DEFAULT":            0,
 		"FIRST_HEALTHY_RACE": 1,
 	}
 )
 
-func (x LoadBalancing_ConnectStrategy) Enum() *LoadBalancing_ConnectStrategy {
-	p := new(LoadBalancing_ConnectStrategy)
+func (x LoadBalancing_DnsConnectStrategy) Enum() *LoadBalancing_DnsConnectStrategy {
+	p := new(LoadBalancing_DnsConnectStrategy)
 	*p = x
 	return p
 }
 
-func (x LoadBalancing_ConnectStrategy) String() string {
+func (x LoadBalancing_DnsConnectStrategy) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (LoadBalancing_ConnectStrategy) Descriptor() protoreflect.EnumDescriptor {
+func (LoadBalancing_DnsConnectStrategy) Descriptor() protoreflect.EnumDescriptor {
 	return file_workloadapi_workload_proto_enumTypes[9].Descriptor()
 }
 
-func (LoadBalancing_ConnectStrategy) Type() protoreflect.EnumType {
+func (LoadBalancing_DnsConnectStrategy) Type() protoreflect.EnumType {
 	return &file_workloadapi_workload_proto_enumTypes[9]
 }
 
-func (x LoadBalancing_ConnectStrategy) Number() protoreflect.EnumNumber {
+func (x LoadBalancing_DnsConnectStrategy) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use LoadBalancing_ConnectStrategy.Descriptor instead.
-func (LoadBalancing_ConnectStrategy) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use LoadBalancing_DnsConnectStrategy.Descriptor instead.
+func (LoadBalancing_DnsConnectStrategy) EnumDescriptor() ([]byte, []int) {
 	return file_workloadapi_workload_proto_rawDescGZIP(), []int{2, 3}
 }
 
@@ -898,7 +898,7 @@ type LoadBalancing struct {
 	HealthPolicy LoadBalancing_HealthPolicy `protobuf:"varint,3,opt,name=health_policy,json=healthPolicy,proto3,enum=istio.workload.LoadBalancing_HealthPolicy" json:"health_policy,omitempty"`
 	// connect_strategy defines how upstream connections are established when a service
 	// has multiple resolved IP addresses (e.g., from DNS).
-	ConnectStrategy LoadBalancing_ConnectStrategy `protobuf:"varint,4,opt,name=connect_strategy,json=connectStrategy,proto3,enum=istio.workload.LoadBalancing_ConnectStrategy" json:"connect_strategy,omitempty"`
+	ConnectStrategy LoadBalancing_DnsConnectStrategy `protobuf:"varint,4,opt,name=connect_strategy,json=connectStrategy,proto3,enum=istio.workload.LoadBalancing_DnsConnectStrategy" json:"connect_strategy,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -954,7 +954,7 @@ func (x *LoadBalancing) GetHealthPolicy() LoadBalancing_HealthPolicy {
 	return LoadBalancing_ONLY_HEALTHY
 }
 
-func (x *LoadBalancing) GetConnectStrategy() LoadBalancing_ConnectStrategy {
+func (x *LoadBalancing) GetConnectStrategy() LoadBalancing_DnsConnectStrategy {
 	if x != nil {
 		return x.ConnectStrategy
 	}
@@ -1781,12 +1781,12 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"extensions\x18\n" +
 	" \x03(\v2\x19.istio.workload.ExtensionR\n" +
 	"extensions\x12\x1c\n" +
-	"\tcanonical\x18\v \x01(\bR\tcanonical\"\xdf\x04\n" +
+	"\tcanonical\x18\v \x01(\bR\tcanonical\"\xe5\x04\n" +
 	"\rLoadBalancing\x12R\n" +
 	"\x12routing_preference\x18\x01 \x03(\x0e2#.istio.workload.LoadBalancing.ScopeR\x11routingPreference\x126\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\".istio.workload.LoadBalancing.ModeR\x04mode\x12O\n" +
-	"\rhealth_policy\x18\x03 \x01(\x0e2*.istio.workload.LoadBalancing.HealthPolicyR\fhealthPolicy\x12X\n" +
-	"\x10connect_strategy\x18\x04 \x01(\x0e2-.istio.workload.LoadBalancing.ConnectStrategyR\x0fconnectStrategy\"e\n" +
+	"\rhealth_policy\x18\x03 \x01(\x0e2*.istio.workload.LoadBalancing.HealthPolicyR\fhealthPolicy\x12[\n" +
+	"\x10connect_strategy\x18\x04 \x01(\x0e20.istio.workload.LoadBalancing.DnsConnectStrategyR\x0fconnectStrategy\"e\n" +
 	"\x05Scope\x12\x15\n" +
 	"\x11UNSPECIFIED_SCOPE\x10\x00\x12\n" +
 	"\n" +
@@ -1804,8 +1804,8 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\vPASSTHROUGH\x10\x03\"/\n" +
 	"\fHealthPolicy\x12\x10\n" +
 	"\fONLY_HEALTHY\x10\x00\x12\r\n" +
-	"\tALLOW_ALL\x10\x01\"6\n" +
-	"\x0fConnectStrategy\x12\v\n" +
+	"\tALLOW_ALL\x10\x01\"9\n" +
+	"\x12DnsConnectStrategy\x12\v\n" +
 	"\aDEFAULT\x10\x00\x12\x16\n" +
 	"\x12FIRST_HEALTHY_RACE\x10\x01\"\x9f\n" +
 	"\n" +
@@ -1918,32 +1918,32 @@ func file_workloadapi_workload_proto_rawDescGZIP() []byte {
 var file_workloadapi_workload_proto_enumTypes = make([]protoimpl.EnumInfo, 11)
 var file_workloadapi_workload_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_workloadapi_workload_proto_goTypes = []any{
-	(IPFamilies)(0),                    // 0: istio.workload.IPFamilies
-	(NetworkMode)(0),                   // 1: istio.workload.NetworkMode
-	(WorkloadStatus)(0),                // 2: istio.workload.WorkloadStatus
-	(WorkloadType)(0),                  // 3: istio.workload.WorkloadType
-	(AppProtocol)(0),                   // 4: istio.workload.AppProtocol
-	(TunnelProtocol)(0),                // 5: istio.workload.TunnelProtocol
-	(LoadBalancing_Scope)(0),           // 6: istio.workload.LoadBalancing.Scope
-	(LoadBalancing_Mode)(0),            // 7: istio.workload.LoadBalancing.Mode
-	(LoadBalancing_HealthPolicy)(0),    // 8: istio.workload.LoadBalancing.HealthPolicy
-	(LoadBalancing_ConnectStrategy)(0), // 9: istio.workload.LoadBalancing.ConnectStrategy
-	(ApplicationTunnel_Protocol)(0),    // 10: istio.workload.ApplicationTunnel.Protocol
-	(*Address)(nil),                    // 11: istio.workload.Address
-	(*Service)(nil),                    // 12: istio.workload.Service
-	(*LoadBalancing)(nil),              // 13: istio.workload.LoadBalancing
-	(*Workload)(nil),                   // 14: istio.workload.Workload
-	(*Locality)(nil),                   // 15: istio.workload.Locality
-	(*PortList)(nil),                   // 16: istio.workload.PortList
-	(*Port)(nil),                       // 17: istio.workload.Port
-	(*ApplicationTunnel)(nil),          // 18: istio.workload.ApplicationTunnel
-	(*GatewayAddress)(nil),             // 19: istio.workload.GatewayAddress
-	(*NetworkAddress)(nil),             // 20: istio.workload.NetworkAddress
-	(*NamespacedHostname)(nil),         // 21: istio.workload.NamespacedHostname
-	(*Extension)(nil),                  // 22: istio.workload.Extension
-	nil,                                // 23: istio.workload.Workload.ServicesEntry
-	(*wrapperspb.UInt32Value)(nil),     // 24: google.protobuf.UInt32Value
-	(*anypb.Any)(nil),                  // 25: google.protobuf.Any
+	(IPFamilies)(0),                       // 0: istio.workload.IPFamilies
+	(NetworkMode)(0),                      // 1: istio.workload.NetworkMode
+	(WorkloadStatus)(0),                   // 2: istio.workload.WorkloadStatus
+	(WorkloadType)(0),                     // 3: istio.workload.WorkloadType
+	(AppProtocol)(0),                      // 4: istio.workload.AppProtocol
+	(TunnelProtocol)(0),                   // 5: istio.workload.TunnelProtocol
+	(LoadBalancing_Scope)(0),              // 6: istio.workload.LoadBalancing.Scope
+	(LoadBalancing_Mode)(0),               // 7: istio.workload.LoadBalancing.Mode
+	(LoadBalancing_HealthPolicy)(0),       // 8: istio.workload.LoadBalancing.HealthPolicy
+	(LoadBalancing_DnsConnectStrategy)(0), // 9: istio.workload.LoadBalancing.DnsConnectStrategy
+	(ApplicationTunnel_Protocol)(0),       // 10: istio.workload.ApplicationTunnel.Protocol
+	(*Address)(nil),                       // 11: istio.workload.Address
+	(*Service)(nil),                       // 12: istio.workload.Service
+	(*LoadBalancing)(nil),                 // 13: istio.workload.LoadBalancing
+	(*Workload)(nil),                      // 14: istio.workload.Workload
+	(*Locality)(nil),                      // 15: istio.workload.Locality
+	(*PortList)(nil),                      // 16: istio.workload.PortList
+	(*Port)(nil),                          // 17: istio.workload.Port
+	(*ApplicationTunnel)(nil),             // 18: istio.workload.ApplicationTunnel
+	(*GatewayAddress)(nil),                // 19: istio.workload.GatewayAddress
+	(*NetworkAddress)(nil),                // 20: istio.workload.NetworkAddress
+	(*NamespacedHostname)(nil),            // 21: istio.workload.NamespacedHostname
+	(*Extension)(nil),                     // 22: istio.workload.Extension
+	nil,                                   // 23: istio.workload.Workload.ServicesEntry
+	(*wrapperspb.UInt32Value)(nil),        // 24: google.protobuf.UInt32Value
+	(*anypb.Any)(nil),                     // 25: google.protobuf.Any
 }
 var file_workloadapi_workload_proto_depIdxs = []int32{
 	14, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
@@ -1957,7 +1957,7 @@ var file_workloadapi_workload_proto_depIdxs = []int32{
 	6,  // 8: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
 	7,  // 9: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
 	8,  // 10: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
-	9,  // 11: istio.workload.LoadBalancing.connect_strategy:type_name -> istio.workload.LoadBalancing.ConnectStrategy
+	9,  // 11: istio.workload.LoadBalancing.connect_strategy:type_name -> istio.workload.LoadBalancing.DnsConnectStrategy
 	5,  // 12: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
 	19, // 13: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
 	19, // 14: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
