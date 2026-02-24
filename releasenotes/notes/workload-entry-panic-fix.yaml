@@ -7,4 +7,4 @@ area: traffic-management
 releaseNotes:
 - |
   **Fixed** istiod crashing when `PILOT_ENABLE_AMBIENT=true` is set and a WorkloadEntry 
-  resource exists without corresponding AddressInfo.
+  resource exists with a different network than the cluster.
