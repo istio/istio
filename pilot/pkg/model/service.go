@@ -781,6 +781,11 @@ type K8sAttributes struct {
 	// ObjectName is the object name of the underlying object. This may differ from the Service.Attributes.Name for legacy semantics.
 	ObjectName string
 
+	// ConnectStrategy specifies the connection strategy for the service.
+	// When set to ConnectStrategyFirstHealthyRace, waypoint proxies will set DnsLookupFamily=ALL
+	// to enable Envoy's happy eyeballs algorithm.
+	ConnectStrategy ConnectStrategy
+
 	// spec.PublishNotReadyAddresses
 	PublishNotReadyAddresses bool
 }
@@ -795,6 +800,23 @@ const (
 	// TrafficDistributionPreferNode prefers traffic in same node, failing over to same subzone, then zone, region, and network.
 	TrafficDistributionPreferSameNode
 )
+
+type ConnectStrategy int
+
+const (
+	// ConnectStrategyDefault uses standard connection behavior.
+	ConnectStrategyDefault ConnectStrategy = iota
+	// ConnectStrategyFirstHealthyRace races connections to all resolved IPs and picks the first healthy one.
+	ConnectStrategyFirstHealthyRace
+)
+
+// GetConnectStrategy reads the connect strategy from annotations.
+func GetConnectStrategy(annotations map[string]string) ConnectStrategy {
+	if strings.EqualFold(annotations["ambient.istio.io/connect-strategy"], "FIRST_HEALTHY_RACE") {
+		return ConnectStrategyFirstHealthyRace
+	}
+	return ConnectStrategyDefault
+}
 
 func GetTrafficDistribution(specValue *string, svcAnnotations, nsAnnotations map[string]string) TrafficDistribution {
 	// 1. Check spec field first (highest priority)

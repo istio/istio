@@ -185,6 +185,7 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string) []*mode
 	}
 
 	trafficDistribution := model.GetTrafficDistribution(nil, cfg.Annotations, nsAnnotations)
+	connectStrategy := model.GetConnectStrategy(cfg.Annotations)
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
 	var portOverrides map[uint32]uint32
@@ -263,7 +264,7 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string) []*mode
 				Labels:                 lbls,
 				ExportTo:               exportTo,
 				LabelSelectors:         labelSelectors,
-				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution},
+				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution, ConnectStrategy: connectStrategy},
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}
