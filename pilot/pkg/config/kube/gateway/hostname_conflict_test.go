@@ -139,7 +139,7 @@ func TestCheckHostnameConflict(t *testing.T) {
 			// Note: This is a simplified test that checks the "first attached wins" logic
 			// In real implementation, we'd need to set up krt collections
 			// For now, we're just documenting the expected behavior
-			
+
 			// Simulate "first attached wins" conflict detection logic
 			hasConflict := false
 			for _, binding := range tt.existingBindings {
@@ -171,7 +171,7 @@ func TestHostnameRouteBinding(t *testing.T) {
 	}
 
 	binding2 := binding1
-	
+
 	if !binding1.Equals(binding2) {
 		t.Error("Expected equal bindings to be equal")
 	}

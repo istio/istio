@@ -93,7 +93,7 @@ func buildHostnameBindingsCollection(
 	httpBindings := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.HTTPRoute) []HostnameRouteBinding {
 		ctx := inputs.WithCtx(krtctx)
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
-		
+
 		var bindings []HostnameRouteBinding
 		for _, parent := range filteredReferences(parentRefs) {
 			if parent.ParentKey.Kind != gvk.KubernetesGateway {
@@ -123,7 +123,7 @@ func buildHostnameBindingsCollection(
 	grpcBindings := krt.NewManyCollection(grpcRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) []HostnameRouteBinding {
 		ctx := inputs.WithCtx(krtctx)
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
-		
+
 		var bindings []HostnameRouteBinding
 		for _, parent := range filteredReferences(parentRefs) {
 			if parent.ParentKey.Kind != gvk.KubernetesGateway {
@@ -179,7 +179,7 @@ func checkHostnameConflict(
 			b.Listener == listener &&
 			b.Hostname == hostname &&
 			b.RouteType != routeType && // Different route type
-			b.RouteName != routeName     // Not the same route
+			b.RouteName != routeName // Not the same route
 	}))
 
 	if len(conflictingBindings) == 0 {
@@ -228,7 +228,7 @@ func checkRouteHostnameConflicts[T controllers.Object](
 	// Check each parent reference
 	for i := range parentRefs {
 		parent := &parentRefs[i]
-		
+
 		// Only check Gateway parents (not mesh)
 		if parent.ParentKey.Kind != gvk.KubernetesGateway {
 			continue
@@ -848,7 +848,7 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 	// This must happen before route conversion to properly reject conflicting routes
 	var hostnames []gatewayv1.Hostname
 	var routeType config.GroupVersionKind
-	
+
 	switch v := any(obj).(type) {
 	case *gatewayv1.HTTPRoute:
 		hostnames = v.Spec.Hostnames
@@ -857,7 +857,7 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 		hostnames = v.Spec.Hostnames
 		routeType = gvk.GRPCRoute
 	}
-	
+
 	if routeType != (config.GroupVersionKind{}) {
 		parentRefs = checkRouteHostnameConflicts(ctx, obj, routeType, hostnames, parentRefs)
 	}
