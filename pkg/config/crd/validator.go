@@ -224,6 +224,12 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 				Kind:    "ValidatingAdmissionPolicyBinding",
 			}:
 				continue
+			case schema.GroupVersionKind{
+				Group:   "admissionregistration.k8s.io",
+				Version: "v1",
+				Kind:    "ValidatingAdmissionPolicy",
+			}:
+				continue
 			case schema.GroupVersionKind{}:
 				// Not a CRD, skip. Sometimes people put empty objects in YAML files.
 				continue
