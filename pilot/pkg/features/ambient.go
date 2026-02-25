@@ -63,10 +63,6 @@ var (
 	EnableAmbientMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK", false, false,
 		"If true, the multi-network functionality will be enabled.")
 
-	AllowEastWestTLSPassthrough = registerAmbient("ALLOW_EASTWEST_TLS_PASSTHROUGH", false, false,
-		"If true, east-west gateways can expose non-HBONE ports as TLS passthrough listeners via the Gateway API "+
-			"(e.g., to route traffic to the Kubernetes API server). Requires AMBIENT_ENABLE_MULTI_NETWORK.")
-
 	EnableAmbientBaggage = registerAmbient("AMBIENT_ENABLE_BAGGAGE", false, false,
 		"If true, enables waypoints to use baggage header to discover and propagate peer metadata for metrics.")
 

@@ -252,7 +252,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
 		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
 		// to the Kubernetes API server), include services referenced by those gateway servers.
-		if features.AllowEastWestTLSPassthrough && isEastWestGateway(proxy) && proxy.MergedGateway != nil {
+		if isEastWestGateway(proxy) && proxy.MergedGateway != nil {
 			outboundServices = appendGatewayReferencedServices(req.Push, proxy, outboundServices, services)
 		}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, outboundServices)

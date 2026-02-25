@@ -175,9 +175,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
 		listeners = append(listeners, buildWaypointForwardInnerConnectListener(lb.push, lb.node))
-		if features.AllowEastWestTLSPassthrough {
-			listeners = append(listeners, lb.buildEastWestTLSPassthroughListeners()...)
-		}
+		listeners = append(listeners, lb.buildEastWestTLSPassthroughListeners()...)
 	} else {
 		listeners = append(listeners, buildWaypointConnectOriginateListener(lb.push, lb.node))
 	}
