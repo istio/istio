@@ -65,6 +65,11 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			ctx.Settings().Ambient = true
 			ctx.Settings().SkipVMs()
+			if ctx.Settings().AmbientMultiNetwork {
+				cfg.DeployEastWestGW = true
+			} else {
+				cfg.DeployEastWestGW = false
+			}
 			cfg.EnableCNI = true
 			cfg.DeployGatewayAPI = true
 			cfg.ControlPlaneValues = `
