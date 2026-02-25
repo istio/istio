@@ -1,5 +1,5 @@
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: invalid-class
   namespace: istio-system
@@ -17,8 +17,8 @@ status:
     status: "False"
     type: Programmed
 ---
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: not-accepted-parent
   namespace: istio-system
@@ -36,8 +36,8 @@ status:
     status: "False"
     type: Programmed
 ---
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: not-allowed
   namespace: istio-system
@@ -55,8 +55,8 @@ status:
     status: "False"
     type: Programmed
 ---
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: port-not-in-service
   namespace: istio-system
