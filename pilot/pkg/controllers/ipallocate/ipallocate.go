@@ -177,11 +177,13 @@ func (c *IPAllocator) reconcileServiceEntry(se types.NamespacedName) error {
 		return nil
 	}
 
-	// TODO: also what do we do if we already allocated IPs in a previous reconcile but are not longer meant to
-	// or IP would not be usabled due to an update? write a condition "IP unsabled due to wildcard host or something similar"
 	if !autoallocate.ShouldV2AutoAllocateIP(serviceentry) {
 		// we may have an address in our range so we should check and record it
 		c.checkInSpecAddresses(serviceentry)
+		if len(serviceentry.Status.Addresses) > 0 {
+			log.Debugf("allocation no longer required for %v, clearing stale addresses", config.NamespacedName(serviceentry))
+			return c.clearStaleAddresses(serviceentry)
+		}
 		log.Debugf("allocation not required")
 		return nil
 	}
@@ -454,6 +456,38 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	}
 
 	return replaceAddresses, addStatusAndAddresses, newlyAllocated, nil
+}
+
+// clearStaleAddresses removes auto-allocated addresses from status when the
+// ServiceEntry no longer qualifies for auto-allocation (e.g. resolution
+// changed to NONE, user opted out, or user supplied their own addresses).
+func (c *IPAllocator) clearStaleAddresses(se *networkingv1.ServiceEntry) error {
+	// Same TOCTOU guard as statusPatchForAddresses: test that addresses
+	// have not changed since we read them before replacing with empty.
+	replaceAddresses, err := json.Marshal([]jsonPatch{
+		{
+			Operation: "test",
+			Path:      "/status/addresses",
+			Value:     se.Status.Addresses,
+		},
+		{
+			Operation: "replace",
+			Path:      "/status/addresses",
+			Value:     []apiv1alpha3.ServiceEntryAddress{},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	nn := config.NamespacedName(se)
+	_, err = c.serviceEntryWriter.PatchStatus(nn.Name, nn.Namespace, types.JSONPatchType, replaceAddresses)
+	if err != nil {
+		log.Errorf("failed to clear stale addresses for %v: %v", nn, err)
+		return err
+	}
+	c.freeAddresses(autoallocate.GetAddressesFromServiceEntry(se), nn)
+	return nil
 }
 
 func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1.ServiceEntry) {

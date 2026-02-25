@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** stale `status.addresses` not being cleared when a ServiceEntry is updated
+    such that it no longer qualifies for IP auto-allocation.
