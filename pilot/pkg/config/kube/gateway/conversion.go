@@ -1733,7 +1733,7 @@ func reportGatewayStatus(
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
 	}
 
-	*gs.AttachedListenerSets = int32(listenerSetCount)
+	gs.AttachedListenerSets = ptr.Of(int32(listenerSetCount))
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
