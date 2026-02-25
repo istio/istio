@@ -394,6 +394,21 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
+	ListenerSet = resource.Builder{
+		Identifier: "ListenerSet",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "ListenerSet",
+		Plural:     "listenersets",
+		Version:    "v1",
+		Proto:      "ListenerSetSpec", StatusProto: "ListenerSetStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.ListenerSetSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.ListenerSetStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	MeshConfig = resource.Builder{
 		Identifier:    "MeshConfig",
 		Group:         "",
@@ -831,21 +846,6 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
-	ListenerSet = resource.Builder{
-		Identifier: "ListenerSet",
-		Group:      "gateway.networking.k8s.io",
-		Kind:       "ListenerSet",
-		Plural:     "listenersets",
-		Version:    "v1",
-		Proto:      "ListenerSetSpec", StatusProto: "ListenerSetStatus",
-		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.ListenerSetSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.ListenerSetStatus{}).Elem(),
-		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1",
-		ClusterScoped: false,
-		Synthetic:     false,
-		Builtin:       false,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
@@ -870,6 +870,7 @@ var (
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
 		MustAdd(Lease).
+		MustAdd(ListenerSet).
 		MustAdd(MeshConfig).
 		MustAdd(MeshNetworks).
 		MustAdd(MutatingWebhookConfiguration).
@@ -897,7 +898,6 @@ var (
 		MustAdd(WorkloadEntry).
 		MustAdd(WorkloadGroup).
 		MustAdd(XBackendTrafficPolicy).
-		MustAdd(ListenerSet).
 		Build()
 
 	// Kube contains only kubernetes collections.
@@ -920,6 +920,7 @@ var (
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
 		MustAdd(Lease).
+		MustAdd(ListenerSet).
 		MustAdd(MutatingWebhookConfiguration).
 		MustAdd(Namespace).
 		MustAdd(Node).
@@ -935,7 +936,6 @@ var (
 		MustAdd(UDPRoute).
 		MustAdd(ValidatingWebhookConfiguration).
 		MustAdd(XBackendTrafficPolicy).
-		MustAdd(ListenerSet).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -967,6 +967,7 @@ var (
 			MustAdd(GatewayClass).
 			MustAdd(HTTPRoute).
 			MustAdd(KubernetesGateway).
+			MustAdd(ListenerSet).
 			MustAdd(PeerAuthentication).
 			MustAdd(ProxyConfig).
 			MustAdd(ReferenceGrant).
@@ -982,7 +983,6 @@ var (
 			MustAdd(WorkloadEntry).
 			MustAdd(WorkloadGroup).
 			MustAdd(XBackendTrafficPolicy).
-			MustAdd(ListenerSet).
 			Build()
 
 	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.
@@ -996,6 +996,7 @@ var (
 				MustAdd(GatewayClass).
 				MustAdd(HTTPRoute).
 				MustAdd(KubernetesGateway).
+				MustAdd(ListenerSet).
 				MustAdd(PeerAuthentication).
 				MustAdd(ProxyConfig).
 				MustAdd(ReferenceGrant).
