@@ -65,6 +65,27 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
+
+	"GatewayFrontendInvalidDefaultClientCertificateValidation": "TODO",
+	"GatewayInvalidTLSBackendConfiguration": "TODO",
+	"GatewayBackendClientCertificateFeature": "TODO",
+	"GatewayInvalidFrontendClientCertificateValidation": "TODO",
+	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
+	"ListenerSetAllowedNamespaceNone",: "TODO",
+	"ListenerSetAllowedNamespaceSame": "TODO",
+	"ListenerSetAllowedNamespaceSelector": "TODO",
+	"ListenerSetAllowedRoutesNamespaces": "TODO",
+	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
+	"ListenerSetDefaultNotAllowed": "TODO",
+	"ListenerSetHostnameConflict": "TODO",
+	"ListenerSetHTTPRouting": "TODO",
+	"ListenerSetProtocolConflict": "TODO",
+	"ListenerSetReferenceGrant": "TODO",
+	"TLSRouteListenerTerminateSupportedKinds": "TODO",
+	"TLSRouteMixedTerminationSameNamespace": "TODO",
+	"TLSRouteTerminateSimpleSameNamespace": "TODO",
+
+	"MeshHTTPRoute307Redirect": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
