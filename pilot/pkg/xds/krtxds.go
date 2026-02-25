@@ -25,14 +25,19 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
-var agentgatewayName = "gateway.networking.k8s.io/gateway-name"
+const gatewayNameLabel = "gateway.networking.k8s.io/gateway-name"
 
+// DiscoveryResource is the type for collections that will result in xDS config generation
+// If ForGateway is nil, the resource is global and should be included in all gateways.
+// If ForGateway is set to an empty NamespacedName, the collection is scoped but not this resource.
+// If ForGateway is set to a specific NamespacedName, the resource is only relevant for that gateway.
 type DiscoveryResource struct {
 	*discovery.Resource
 	ForGateway *types.NamespacedName
@@ -54,20 +59,25 @@ func (d DiscoveryResource) ResourceName() string {
 	return d.Name
 }
 
+// CollectionGenerator generates discovery resources for a collection. It supports both per-gateway
+// and global collections, and is designed to be efficient for delta updates.
 type CollectionGenerator struct {
 	PerGateway bool
 	Col        krt.Collection[DiscoveryResource]
 }
 
+// CollectionRegistration defines the start and synced functions for a CollectionGenerator,
+// which are used to manage the lifecycle of the collection in the context of xDS generation.
 type CollectionRegistration struct {
 	Start     func(stop <-chan struct{})
 	HasSynced func() bool
 }
 
-// Registration defines the function to configure and synchronize krt collections per gateway for agentgateway
+// Registration defines the function to configure and synchronize krt collections per gateway or for all
+// agentgateways. The function takes a map of collection generators indexed by typeUrl and a push channel,
+// and returns a CollectionRegistration.
 type Registration func(map[string]CollectionGenerator, chan *model.PushRequest) CollectionRegistration
 
-// TODO(jaellio): Verify type name construction
 func TypeName[T proto.Message]() string {
 	ft := new(T)
 	return "type.googleapis.com/" + string((*ft).ProtoReflect().Descriptor().FullName())
@@ -88,6 +98,10 @@ func getKey[T any](t T) string {
 	return krt.GetKey(t)
 }
 
+// baseCollection is the underlying implementation for both Collection and PerGatewayCollection, which handles
+// the common logic of creating a krt.Collection and registering it with the appropriate handlers. The extract
+// function is used to determine if the collection is per-gateway and to extract the gateway information from
+// the object if needed.
 func baseCollection[T IntoProto[TT], TT proto.Message](
 	collection krt.Collection[T],
 	extract func(o T) types.NamespacedName,
@@ -128,6 +142,7 @@ func baseCollection[T IntoProto[TT], TT proto.Message](
 					last := oo.Latest()
 					// Using namespace to store the type URL, as that's what we filter on for updates
 					un.Insert(model.ConfigKey{
+						Kind:      kind.Address,
 						Name:      last.Name,
 						Namespace: t,
 					})
@@ -148,6 +163,8 @@ func baseCollection[T IntoProto[TT], TT proto.Message](
 	}
 }
 
+// Collection creates a collection registration for a global collection, where all resources are
+// relevant to all gateways.
 func Collection[T IntoProto[TT], TT proto.Message](
 	collection krt.Collection[T],
 	krtopts krt.OptionsBuilder,
@@ -155,6 +172,8 @@ func Collection[T IntoProto[TT], TT proto.Message](
 	return baseCollection(collection, nil, krtopts)
 }
 
+// PerGatewayCollection creates a collection registration for a per-gateway collection, where resources
+// can be scoped to a specific gateway. The extract function is used to determine the gateway for each resource.
 func PerGatewayCollection[T IntoProto[TT], TT proto.Message](
 	collection krt.Collection[T],
 	extract func(o T) types.NamespacedName,
@@ -176,9 +195,9 @@ func (c CollectionGenerator) GenerateDeltas(
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	// Get gw NamespacedName from proxy
-	agwName, ok := proxy.Labels[agentgatewayName]
+	agwName, ok := proxy.Labels[gatewayNameLabel]
 	if !ok {
-		return nil, nil, model.XdsLogDetails{}, false, fmt.Errorf("proxy missing %s label", agentgatewayName)
+		return nil, nil, model.XdsLogDetails{}, false, fmt.Errorf("proxy missing %s label", gatewayNameLabel)
 	}
 	gw := types.NamespacedName{
 		Namespace: proxy.Metadata.Namespace,
@@ -205,7 +224,8 @@ func (c CollectionGenerator) GenerateDeltas(
 	var deletes []string
 
 	for k := range req.ConfigsUpdated {
-		if k.Namespace != w.TypeUrl {
+		// When configKey kind is Address or AgwResource, the namespace is the type URL.
+		if k.Kind != kind.Address && k.Kind != kind.AgwResource && k.Namespace != w.TypeUrl {
 			log.Debugf("Skipped config update for type %s. Watched type is %s", k.Namespace, w.TypeUrl)
 			continue
 		}

@@ -71,13 +71,13 @@ func ControlPlane(typ string) *core.ControlPlane {
 }
 
 func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
-	if con.proxy.Type == model.SidecarProxy && features.EnableAgentgateway {
+	if con.proxy.Type == model.Agentgateway && features.EnableAgentgateway {
 		log.Debugf("finding collection generator for agentgateway connection %s with typeURL %s", con.proxy.ID, typeURL)
 		c, f := s.Collections[typeURL]
 		if f {
 			return c
 		}
-		// doesn't match any collection. For now, we may just want to avoid breaking existing
+		// Doesn't match any collection. For now, we may just want to avoid breaking existing
 		// functionality with a default XdsResourceGenerator.
 		return CollectionGenerator{}
 	}

@@ -5,6 +5,7 @@ package kind
 const (
 	Unknown Kind = iota
 	Address
+	AgwResource
 	AuthorizationPolicy
 	BackendTLSPolicy
 	CertificateSigningRequest
@@ -62,6 +63,8 @@ func (k Kind) String() string {
 	switch k {
 	case Address:
 		return "Address"
+	case AgwResource:
+		return "AgwResource"
 	case AuthorizationPolicy:
 		return "AuthorizationPolicy"
 	case BackendTLSPolicy:
@@ -173,6 +176,8 @@ func FromString(s string) Kind {
 	switch s {
 	case "Address":
 		return Address
+	case "AgwResource":
+		return AgwResource
 	case "AuthorizationPolicy":
 		return AuthorizationPolicy
 	case "BackendTLSPolicy":
