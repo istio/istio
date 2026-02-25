@@ -67,8 +67,8 @@ spec:
   parentRefs:
   - name: same-name-http
     namespace: ns1
-    kind: XListenerSet
-    group: gateway.networking.x-k8s.io
+    kind: ListenerSet
+    group: gateway.networking.k8s.io
   rules:
   - matches:
     - path:
@@ -86,8 +86,8 @@ spec:
   parentRefs:
   - name: same-name-http
     namespace: ns2
-    kind: XListenerSet
-    group: gateway.networking.x-k8s.io
+    kind: ListenerSet
+    group: gateway.networking.k8s.io
   rules:
   - matches:
     - path:

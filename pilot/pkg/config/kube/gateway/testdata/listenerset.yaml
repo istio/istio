@@ -97,8 +97,8 @@ spec:
   parentRefs:
     - name: single-entry-http
       namespace: istio-system
-      kind: XListenerSet
-      group: gateway.networking.x-k8s.io
+      kind: ListenerSet
+      group: gateway.networking.k8s.io
   rules:
     - matches:
         - path:
@@ -117,8 +117,8 @@ spec:
     - name: parent-gateway
     - name: single-entry-http
       namespace: istio-system
-      kind: XListenerSet
-      group: gateway.networking.x-k8s.io
+      kind: ListenerSet
+      group: gateway.networking.k8s.io
   rules:
     - matches:
         - path:

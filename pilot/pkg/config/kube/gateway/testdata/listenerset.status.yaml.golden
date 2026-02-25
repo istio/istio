@@ -266,8 +266,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XListenerSet
+      group: gateway.networking.k8s.io
+      kind: ListenerSet
       name: single-entry-http
       namespace: istio-system
   - conditions:
@@ -329,8 +329,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XListenerSet
+      group: gateway.networking.k8s.io
+      kind: ListenerSet
       name: single-entry-http
       namespace: istio-system
 ---

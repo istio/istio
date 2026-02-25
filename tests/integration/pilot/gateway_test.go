@@ -432,8 +432,8 @@ metadata:
 spec:
   parentRefs:
   - name: listenerset
-    kind: XListenerSet
-    group: gateway.networking.x-k8s.io
+    kind: ListenerSet
+    group: gateway.networking.k8s.io
   hostnames: ["listenerset.example.com"]
   rules:
   - backendRefs:

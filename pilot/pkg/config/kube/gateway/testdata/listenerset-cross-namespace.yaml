@@ -120,8 +120,8 @@ metadata:
   namespace: ns3
 spec:
   from:
-    - group: gateway.networking.x-k8s.io
-      kind: XListenerSet
+    - group: gateway.networking.k8s.io
+      kind: ListenerSet
       namespace: ns2
   to:
     - group: ""
