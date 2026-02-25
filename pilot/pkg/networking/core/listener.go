@@ -110,7 +110,6 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(builder)
 	case model.Waypoint:
-		log.Infof("grnmeira: BuildListeners(node=%v)", node.ID)
 		builder = configgen.buildWaypointListeners(builder)
 	case model.Router:
 		builder = configgen.buildGatewayListeners(builder)

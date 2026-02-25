@@ -343,15 +343,6 @@ func appendGatewayReferencedServices(push *model.PushContext, proxy *model.Proxy
 					}
 				}
 			}
-			// TODO(grnmeira): We're not working with TCPRoutes, we should
-			// avoid it for secruity reasons.
-			for _, tcp := range rule.Tcp {
-				for _, route := range tcp.Route {
-					if route.Destination != nil {
-						gwHosts.Insert(route.Destination.Host)
-					}
-				}
-			}
 		}
 	}
 
