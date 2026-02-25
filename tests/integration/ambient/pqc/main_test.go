@@ -78,9 +78,7 @@ values:
       COMPLIANCE_POLICY: "pqc"
 `
 		}, nil)).
-		Setup(func(ctx resource.Context) error {
-			return crd.DeployGatewayAPI(ctx)
-		}).
+		Setup(crd.DeployGatewayAPI).
 		SetupParallel(
 			namespace.Setup(&internalNs, namespace.Config{
 				Prefix: "internal",
@@ -443,5 +441,4 @@ spec:
 				})
 			})
 		})
-
 }
