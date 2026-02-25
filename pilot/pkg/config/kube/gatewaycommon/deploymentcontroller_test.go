@@ -658,6 +658,51 @@ metadata:
 			objects:               defaultObjects,
 			copyLabelsAnnotations: &copyLabelsAnnotationsEnabled,
 		},
+		{
+			name: "kube-gateway-tolerations",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  tolerations:
+  - key: "example-key"
+    operator: "Exists"
+    effect: "NoSchedule"`,
+		},
+		{
+			name: "agentgateway-tolerations",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  tolerations:
+  - key: "example-key"
+    operator: "Exists"
+    effect: "NoSchedule"`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
