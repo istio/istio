@@ -369,11 +369,18 @@ func NewController(
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
 	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
+	// Merge HTTP and gRPC base VirtualServices together so routes on the same
+	// gateway+hostname are combined into a single VirtualService, allowing
+	// HTTPRoute and GRPCRoute to coexist on the same hostname.
+	httpAndGrpcVS := mergeHTTPRoutes(krt.JoinCollection([]krt.Collection[RouteWithKey]{
+		httpRoutes.BaseVirtualServices,
+		grpcRoutes.BaseVirtualServices,
+	}, opts.WithName("HTTPAndGRPCBaseVS")...), opts.WithName("HTTPAndGRPCMerged")...)
+
 	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
 		tcpRoutes.VirtualServices,
 		tlsRoutes.VirtualServices,
-		httpRoutes.VirtualServices,
-		grpcRoutes.VirtualServices,
+		httpAndGrpcVS,
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	InferencePoolsByGateway := krt.NewIndex(InferencePools, "byGateway", func(i InferencePool) []types.NamespacedName {
