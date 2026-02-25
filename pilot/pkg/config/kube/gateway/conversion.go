@@ -33,7 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
@@ -1734,26 +1733,7 @@ func reportGatewayStatus(
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
 	}
 
-	// Not defined in upstream API
-	const AttachedListenerSets = "AttachedListenerSets"
-	if obj.Spec.AllowedListeners != nil {
-		gatewayConditions[AttachedListenerSets] = &condition{
-			reason:  "ListenersAttached",
-			message: "At least one ListenerSet is attached",
-		}
-		if !features.EnableAlphaGatewayAPI {
-			gatewayConditions[AttachedListenerSets].error = &ConfigError{
-				Reason: "Unsupported",
-				Message: fmt.Sprintf("AllowedListeners is configured, but ListenerSets are not enabled (set %v=true)",
-					features.EnableAlphaGatewayAPIName),
-			}
-		} else if listenerSetCount == 0 {
-			gatewayConditions[AttachedListenerSets].error = &ConfigError{
-				Reason:  "NoListenersAttached",
-				Message: "AllowedListeners is configured, but no ListenerSets are attached",
-			}
-		}
-	}
+	*gs.AttachedListenerSets = int32(listenerSetCount)
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
@@ -1809,8 +1789,8 @@ func reportGatewayStatus(
 func reportListenerSetStatus(
 	r *GatewayContext,
 	parentGwObj *k8s.Gateway,
-	obj *gatewayv1.ListenerSet,
-	gs *gatewayv1.ListenerSetStatus,
+	obj *k8s.ListenerSet,
+	gs *k8s.ListenerSetStatus,
 	gatewayServices []string,
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
@@ -1902,19 +1882,19 @@ func reportUnmanagedGatewayStatus(
 }
 
 // reportUnsupportedListenerSet reports a status message for a ListenerSet that is not supported
-func reportUnsupportedListenerSet(class string, status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet) {
+func reportUnsupportedListenerSet(class string, status *k8s.ListenerSetStatus, obj *k8s.ListenerSet) {
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
 			reason: string(k8s.GatewayReasonAccepted),
 			error: &ConfigError{
-				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
+				Reason:  string(k8s.ListenerSetReasonNotAllowed),
 				Message: fmt.Sprintf("The %q GatewayClass does not support ListenerSet", class),
 			},
 		},
 		string(k8s.GatewayConditionProgrammed): {
 			reason: string(k8s.GatewayReasonProgrammed),
 			error: &ConfigError{
-				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
+				Reason:  string(k8s.ListenerSetReasonNotAllowed),
 				Message: fmt.Sprintf("The %q GatewayClass does not support ListenerSet", class),
 			},
 		},
@@ -1924,19 +1904,19 @@ func reportUnsupportedListenerSet(class string, status *gatewayv1.ListenerSetSta
 }
 
 // reportNotAllowedListenerSet reports a status message for a ListenerSet that is not allowed to be selected
-func reportNotAllowedListenerSet(status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet) {
+func reportNotAllowedListenerSet(status *k8s.ListenerSetStatus, obj *k8s.ListenerSet) {
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
 			reason: string(k8s.GatewayReasonAccepted),
 			error: &ConfigError{
-				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
+				Reason:  string(k8s.ListenerSetReasonNotAllowed),
 				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
 			},
 		},
 		string(k8s.GatewayConditionProgrammed): {
 			reason: string(k8s.GatewayReasonProgrammed),
 			error: &ConfigError{
-				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
+				Reason:  string(k8s.ListenerSetReasonNotAllowed),
 				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
 			},
 		},
@@ -2652,7 +2632,7 @@ func GetStatus[I, IS any](spec I) IS {
 		return any(t.Status).(IS)
 	case *k8s.BackendTLSPolicy:
 		return any(t.Status).(IS)
-	case *gatewayv1.ListenerSet:
+	case *k8s.ListenerSet:
 		return any(t.Status).(IS)
 	case *inferencev1.InferencePool:
 		return any(t.Status).(IS)

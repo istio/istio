@@ -20,7 +20,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/annotation"
@@ -220,7 +219,7 @@ func hasListenerMode(l v1.Listener, mode string) bool {
 	return l.TLS != nil && l.TLS.Options != nil && string(l.TLS.Options[constants.ListenerModeOption]) == mode
 }
 
-func IsAutoPassthroughSet(gwLabels map[string]string, l gatewayv1.ListenerEntry) bool {
+func IsAutoPassthroughSet(gwLabels map[string]string, l v1.ListenerEntry) bool {
 	if l.TLS == nil {
 		return false
 	}
@@ -238,7 +237,7 @@ func IsAutoPassthroughSet(gwLabels map[string]string, l gatewayv1.ListenerEntry)
 	return fmt.Sprint(l.Port) == expectedPort
 }
 
-func hasListenerModeSet(l gatewayv1.ListenerEntry, mode string) bool {
+func hasListenerModeSet(l v1.ListenerEntry, mode string) bool {
 	// TODO if we add a hybrid mode for detecting HBONE/passthrough, also check that here
 	return l.TLS != nil && l.TLS.Options != nil && string(l.TLS.Options[constants.ListenerModeOption]) == mode
 }

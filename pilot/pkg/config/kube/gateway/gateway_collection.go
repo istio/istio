@@ -441,22 +441,12 @@ func detectListenerPortNumber(l gatewayv1.ListenerEntry) (gatewayv1.PortNumber, 
 
 func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
 	return func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
-		return gatewayv1.ListenerEntryStatus{
-			Name:           e.Name,
-			SupportedKinds: e.SupportedKinds,
-			AttachedRoutes: e.AttachedRoutes,
-			Conditions:     e.Conditions,
-		}
+		return gatewayv1.ListenerEntryStatus(e)
 	}
 }
 
 func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
-	return gatewayv1.ListenerStatus{
-		Name:           e.Name,
-		SupportedKinds: e.SupportedKinds,
-		AttachedRoutes: e.AttachedRoutes,
-		Conditions:     e.Conditions,
-	}
+	return gatewayv1.ListenerStatus(e)
 }
 
 func convertListenerSetToListener(l gatewayv1.ListenerEntry) gatewayv1.Listener {
