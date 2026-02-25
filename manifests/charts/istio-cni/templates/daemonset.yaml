@@ -34,6 +34,9 @@ spec:
   selector:
     matchLabels:
       k8s-app: {{ template "name" . }}-node
+  {{- if .Values.minReadySeconds }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
+  {{- end }}
   {{- with .Values.updateStrategy }}
   updateStrategy:
     {{- toYaml . | nindent 4 }}
