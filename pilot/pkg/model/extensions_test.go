@@ -25,25 +25,22 @@ import (
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestBuildDataSource(t *testing.T) {
 	cases := []struct {
-		url        string
-		wasmPlugin *extensions.WasmPlugin
-
-		expected *core.AsyncDataSource
+		url       string
+		urlString string
+		sha256    string
+		expected  *core.AsyncDataSource
 	}{
 		{
-			url: "file://fake.wasm",
-			wasmPlugin: &extensions.WasmPlugin{
-				Url: "file://fake.wasm",
-			},
+			url:       "file://fake.wasm",
+			urlString: "file://fake.wasm",
+			sha256:    "",
 			expected: &core.AsyncDataSource{
 				Specifier: &core.AsyncDataSource_Local{
 					Local: &core.DataSource{
@@ -55,10 +52,9 @@ func TestBuildDataSource(t *testing.T) {
 			},
 		},
 		{
-			url: "oci://ghcr.io/istio/fake-wasm:latest",
-			wasmPlugin: &extensions.WasmPlugin{
-				Sha256: "fake-sha256",
-			},
+			url:       "oci://ghcr.io/istio/fake-wasm:latest",
+			urlString: "oci://ghcr.io/istio/fake-wasm:latest",
+			sha256:    "fake-sha256",
 			expected: &core.AsyncDataSource{
 				Specifier: &core.AsyncDataSource_Remote{
 					Remote: &core.RemoteDataSource{
@@ -80,7 +76,7 @@ func TestBuildDataSource(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			u, err := url.Parse(tc.url)
 			assert.NoError(t, err)
-			got := buildDataSource(u, tc.wasmPlugin)
+			got := buildDataSource(u, tc.urlString, tc.sha256)
 			assert.Equal(t, tc.expected, got)
 		})
 	}
@@ -159,85 +155,9 @@ func TestBuildVMConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			got := buildVMConfig(nil, "dummy-resource-version", &extensions.WasmPlugin{
-				VmConfig:        tc.vm,
-				ImagePullSecret: "secret-name",
-				ImagePullPolicy: tc.policy,
-			})
+			got := buildVMConfig(nil, "dummy-resource-version",
+				"secret-name", tc.policy, tc.vm)
 			assert.Equal(t, tc.expected, got)
-		})
-	}
-}
-
-func TestToSecretName(t *testing.T) {
-	cases := []struct {
-		name                  string
-		namespace             string
-		want                  string
-		wantResourceName      string
-		wantResourceNamespace string
-	}{
-		{
-			name:                  "sec",
-			namespace:             "nm",
-			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
-			wantResourceName:      "sec",
-			wantResourceNamespace: "nm",
-		},
-		{
-			name:                  "nm/sec",
-			namespace:             "nm",
-			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
-			wantResourceName:      "sec",
-			wantResourceNamespace: "nm",
-		},
-		{
-			name:      "nm2/sec",
-			namespace: "nm",
-			// Makes sure we won't search namespace outside of nm (which is the WasmPlugin namespace).
-			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
-			wantResourceName:      "sec",
-			wantResourceNamespace: "nm",
-		},
-		{
-			name:                  credentials.KubernetesSecretTypeURI + "nm/sec",
-			namespace:             "nm",
-			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
-			wantResourceName:      "sec",
-			wantResourceNamespace: "nm",
-		},
-		{
-			name:                  "kubernetes://nm2/sec",
-			namespace:             "nm",
-			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
-			wantResourceName:      "sec",
-			wantResourceNamespace: "nm",
-		},
-		{
-			name:                  "kubernetes://sec",
-			namespace:             "nm",
-			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
-			wantResourceName:      "sec",
-			wantResourceNamespace: "nm",
-		},
-	}
-
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			got := toSecretResourceName(tt.name, tt.namespace)
-			if got != tt.want {
-				t.Errorf("got secret name %q, want %q", got, tt.want)
-			}
-			sr, err := credentials.ParseResourceName(got, tt.namespace, cluster.ID("cluster"), cluster.ID("cluster"))
-			if err != nil {
-				t.Error(err)
-			}
-			if sr.Name != tt.wantResourceName {
-				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
-			}
-			if sr.Namespace != tt.wantResourceNamespace {
-				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
-			}
 		})
 	}
 }
@@ -246,50 +166,58 @@ func TestFailurePolicy(t *testing.T) {
 	cases := []struct {
 		desc  string
 		proxy *Proxy
-		in    *extensions.WasmPlugin
+		in    *extensions.ExtensionFilter
 		out   wasmextensions.FailurePolicy
 	}{
 		{
 			desc: "UNSPECIFIED",
-			in: &extensions.WasmPlugin{
-				Url: "file://fake.wasm",
-				// FailStrategy not set (zero value) defaults to FAIL_CLOSE, which maps to FAIL_CLOSED
+			in: &extensions.ExtensionFilter{
+				Wasm: &extensions.WasmConfig{
+					Url: "file://fake.wasm",
+					// FailStrategy not set (zero value) defaults to FAIL_CLOSE, which maps to FAIL_CLOSED
+				},
 			},
 			out: wasmextensions.FailurePolicy_FAIL_CLOSED,
 		},
 		{
 			desc: "CLOSED",
-			in: &extensions.WasmPlugin{
-				Url:          "file://fake.wasm",
-				FailStrategy: extensions.FailStrategy_FAIL_CLOSE,
+			in: &extensions.ExtensionFilter{
+				Wasm: &extensions.WasmConfig{
+					Url:          "file://fake.wasm",
+					FailStrategy: extensions.FailStrategy_FAIL_CLOSE,
+				},
 			},
 			out: wasmextensions.FailurePolicy_FAIL_CLOSED,
 		},
 		{
 			desc: "OPEN",
-			in: &extensions.WasmPlugin{
-				Url:          "file://fake.wasm",
-				FailStrategy: extensions.FailStrategy_FAIL_OPEN,
+			in: &extensions.ExtensionFilter{
+				Wasm: &extensions.WasmConfig{
+					Url:          "file://fake.wasm",
+					FailStrategy: extensions.FailStrategy_FAIL_OPEN,
+				},
 			},
 			out: wasmextensions.FailurePolicy_FAIL_OPEN,
 		},
 		{
 			desc: "RELOAD",
-			in: &extensions.WasmPlugin{
-				Url:          "file://fake.wasm",
-				FailStrategy: extensions.FailStrategy_FAIL_RELOAD,
+			in: &extensions.ExtensionFilter{
+				Wasm: &extensions.WasmConfig{
+					Url:          "file://fake.wasm",
+					FailStrategy: extensions.FailStrategy_FAIL_RELOAD,
+				},
 			},
 			out: wasmextensions.FailurePolicy_FAIL_RELOAD,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			out := convertToWasmPluginWrapper(config.Config{Spec: tc.in})
+			out := convertToExtensionFilterWrapper(config.Config{Spec: tc.in})
 			if out == nil {
 				t.Fatal("must not get nil")
 			}
 			filter := out.BuildHTTPWasmFilter()
-			if out == nil {
+			if filter == nil {
 				t.Fatal("filter can not be nil")
 			}
 
@@ -521,46 +449,19 @@ func TestExtensionFilterWrapper_MatchType(t *testing.T) {
 	}
 }
 
-func TestFilterChainTypeConversion(t *testing.T) {
-	cases := []struct {
-		filterChain FilterChainType
-		wasmPlugin  WasmPluginType
-	}{
-		{FilterChainTypeHTTP, WasmPluginTypeHTTP},
-		{FilterChainTypeNetwork, WasmPluginTypeNetwork},
-		{FilterChainTypeAny, WasmPluginTypeAny},
-	}
-
-	for _, tc := range cases {
-		t.Run("", func(t *testing.T) {
-			// Test FilterChainType -> WasmPluginType
-			got := tc.filterChain.ToWasmPluginType()
-			if got != tc.wasmPlugin {
-				t.Errorf("ToWasmPluginType: got %v, want %v", got, tc.wasmPlugin)
-			}
-
-			// Test WasmPluginType -> FilterChainType
-			gotChain := FilterChainTypeFromWasmPluginType(tc.wasmPlugin)
-			if gotChain != tc.filterChain {
-				t.Errorf("FilterChainTypeFromWasmPluginType: got %v, want %v", gotChain, tc.filterChain)
-			}
-		})
-	}
-}
-
 func TestMatchListener(t *testing.T) {
 	cases := []struct {
 		desc         string
-		wasmPlugin   *WasmPluginWrapper
+		extensionFilter   *ExtensionFilterWrapper
 		proxyLabels  map[string]string
-		listenerInfo WasmPluginListenerInfo
+		listenerInfo ListenerInfo
 		want         bool
 	}{
 		{
 			desc:        "match and selector are nil",
-			wasmPlugin:  &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{Selector: nil, Match: nil}},
+			extensionFilter:  &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{Selector: nil, Match: nil}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -568,14 +469,14 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "only the workload selector is given",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: &v1beta1.WorkloadSelector{
 					MatchLabels: map[string]string{"a": "b"},
 				},
 				Match: nil,
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -583,14 +484,14 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "mismatched selector",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: &v1beta1.WorkloadSelector{
 					MatchLabels: map[string]string{"e": "f"},
 				},
 				Match: nil,
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -598,14 +499,14 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "default traffic selector value is matched with all the traffics",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: nil,
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{},
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -613,9 +514,9 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "only workloadMode of the traffic selector is given",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: nil,
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
 						Ports: nil,
@@ -623,7 +524,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -631,9 +532,9 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "workloadMode of the traffic selector and empty list of ports are given",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: nil,
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
 						Ports: []*v1beta1.PortSelector{},
@@ -641,7 +542,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -649,9 +550,9 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "workloadMode of the traffic selector and numbered port are given",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: nil,
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
 						Ports: []*v1beta1.PortSelector{{Number: 1234}},
@@ -659,7 +560,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -667,9 +568,9 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "workloadMode of the traffic selector and mismatched ports are given",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: nil,
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
 						Ports: []*v1beta1.PortSelector{{Number: 1235}},
@@ -677,7 +578,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -685,11 +586,11 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "traffic selector is matched, but workload selector is not matched",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: &v1beta1.WorkloadSelector{
 					MatchLabels: map[string]string{"e": "f"},
 				},
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
 						Ports: []*v1beta1.PortSelector{{Number: 1234}},
@@ -697,7 +598,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
 			},
@@ -705,9 +606,9 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "outbound traffic is matched with workloadMode CLIENT",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: nil,
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_CLIENT,
 						Ports: []*v1beta1.PortSelector{{Number: 1234}},
@@ -715,7 +616,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarOutbound,
 			},
@@ -723,9 +624,9 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "any traffic is matched with workloadMode CLIENT_AND_SERVER",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: nil,
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_CLIENT_AND_SERVER,
 						Ports: []*v1beta1.PortSelector{{Number: 1234}},
@@ -733,7 +634,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassUndefined,
 			},
@@ -741,9 +642,9 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "gateway is matched with workloadMode CLIENT",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: nil,
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_CLIENT,
 						Ports: []*v1beta1.PortSelector{{Number: 1234}},
@@ -751,7 +652,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassGateway,
 			},
@@ -759,9 +660,9 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "gateway is not matched with workloadMode SERVER",
-			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
+			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
 				Selector: nil,
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
 						Ports: []*v1beta1.PortSelector{{Number: 1234}},
@@ -769,7 +670,7 @@ func TestMatchListener(t *testing.T) {
 				},
 			}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassGateway,
 			},
@@ -785,7 +686,7 @@ func TestMatchListener(t *testing.T) {
 				IsWaypoint:        false,
 				RootNamespace:     "istio-system",
 			}
-			got := tc.wasmPlugin.MatchListener(opts, tc.listenerInfo)
+			got := tc.extensionFilter.MatchListener(opts, tc.listenerInfo)
 			if tc.want != got {
 				t.Errorf("MatchListener got %v want %v", got, tc.want)
 			}

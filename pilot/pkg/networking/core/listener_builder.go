@@ -394,11 +394,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	filters := []*hcm.HttpFilter{}
 	if !httpOpts.isWaypoint {
-		wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
-			Port:  httpOpts.port,
-			Class: httpOpts.class,
-		}, model.WasmPluginTypeHTTP)
-		extensionFilters := lb.push.ExtensionFiltersByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		extensionFilters := lb.push.ExtensionFiltersByListenerInfo(lb.node, model.ListenerInfo{
 			Port:  httpOpts.port,
 			Class: httpOpts.class,
 		}, model.FilterChainTypeHTTP)
@@ -408,16 +404,12 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = appendMxFilter(httpOpts, filters)
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHN)
 		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHZ)
 		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHZ)
 		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_STATS)
 		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.PluginPhase_STATS)
-		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
 		// Add ExtProc per listener only if the Gateway has any inferencePool attached to it
 		if kubeGwName, ok := lb.node.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]; ok {

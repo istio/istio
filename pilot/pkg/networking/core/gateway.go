@@ -249,12 +249,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	mergedGateway *model.MergedGateway,
 	tlsHostsByPort map[uint32]map[string]string,
 ) {
-	// Add network level WASM filters if any configured.
-	wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
-		Port:  opts.port,
-		Class: istionetworking.ListenerClassGateway,
-	}, model.WasmPluginTypeNetwork)
-	extensionFilters := builder.push.ExtensionFiltersByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+	// Add network level extension filters if any configured.
+	extensionFilters := builder.push.ExtensionFiltersByListenerInfo(builder.node, model.ListenerInfo{
 		Port:  opts.port,
 		Class: istionetworking.ListenerClassGateway,
 	}, model.FilterChainTypeNetwork)
@@ -264,13 +260,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 		httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
 			proxyConfig, istionetworking.ListenerProtocolTCP, builder.push)
 		// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(httpFilterChainOpts.networkFilters, extensionFilters, extensions.PluginPhase_AUTHN)
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(httpFilterChainOpts.networkFilters, extensionFilters, extensions.PluginPhase_AUTHZ)
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(httpFilterChainOpts.networkFilters, extensionFilters, extensions.PluginPhase_STATS)
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(httpFilterChainOpts.networkFilters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
 		opts.filterChainOpts = []*filterChainOpts{httpFilterChainOpts}
 	} else {
@@ -286,13 +278,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP, builder.push)
 				// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(httpFilterChainOpts.networkFilters, extensionFilters, extensions.PluginPhase_AUTHN)
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(httpFilterChainOpts.networkFilters, extensionFilters, extensions.PluginPhase_AUTHZ)
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(httpFilterChainOpts.networkFilters, extensionFilters, extensions.PluginPhase_STATS)
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(httpFilterChainOpts.networkFilters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
 				opts.filterChainOpts = append(opts.filterChainOpts, httpFilterChainOpts)
 			} else {
