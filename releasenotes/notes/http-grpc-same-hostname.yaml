@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: traffic-management
+
+issue:
+  - 59222
+
+releaseNotes:
+  - |
+    **Fixed** HTTPRoute and GRPCRoute can now coexist on the same gateway hostname without conflicts.
