@@ -98,7 +98,6 @@ status:
       status: "True"
       type: ResolvedRefs
     name: first
-    port: 12345
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
@@ -125,17 +124,13 @@ metadata:
   namespace: istio-system
 spec: null
 status:
+  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: only Hostname is supported, ignoring [0.0.0.0]
     reason: UnsupportedAddress
     status: "False"
     type: Accepted
-  - lastTransitionTime: fake
-    message: AllowedListeners is configured, but no ListenerSets are attached
-    reason: NoListenersAttached
-    status: "False"
-    type: AttachedListenerSets
   - lastTransitionTime: fake
     message: Failed to assign to any requested addresses
     reason: UnsupportedAddress
@@ -152,17 +147,13 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
+  attachedListenerSets: 1
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
-  - lastTransitionTime: fake
-    message: At least one ListenerSet is attached
-    reason: ListenersAttached
-    status: "True"
-    type: AttachedListenerSets
   - lastTransitionTime: fake
     message: 'Assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80,
       but failed to assign to all requested addresses: port 12345 not found for hostname
@@ -210,6 +201,7 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
+  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -261,17 +253,13 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
+  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
-  - lastTransitionTime: fake
-    message: AllowedListeners is configured, but no ListenerSets are attached
-    reason: NoListenersAttached
-    status: "False"
-    type: AttachedListenerSets
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
@@ -314,6 +302,7 @@ metadata:
   namespace: istio-system
 spec: null
 status:
+  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
