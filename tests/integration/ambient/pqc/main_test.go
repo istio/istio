@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"path"
-	"strings"
 	"testing"
 	"time"
 
@@ -247,7 +246,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 5 * time.Second,
-					Check:   checkTLSHandshakeFailure,
+					Check:   check.TLSHandshakeFailure(),
 				})
 			})
 		})
@@ -307,7 +306,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   checkTLSHandshakeFailure,
+					Check:   check.TLSHandshakeFailure(),
 				})
 			})
 
@@ -444,14 +443,5 @@ spec:
 				})
 			})
 		})
-}
 
-func checkTLSHandshakeFailure(_ echo.CallResult, err error) error {
-	if err == nil {
-		return fmt.Errorf("expected to get TLS handshake error but got none")
-	}
-	if !strings.Contains(err.Error(), "tls: handshake failure") {
-		return fmt.Errorf("expected to get TLS handshake error but got: %s", err)
-	}
-	return nil
 }
