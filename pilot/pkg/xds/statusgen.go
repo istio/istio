@@ -21,8 +21,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -76,7 +79,12 @@ func (sg *StatusGen) GenerateDeltas(
 	return res, nil, detail, true, err
 }
 
-func (sg *StatusGen) handleInternalRequest(_ *model.Proxy, w *model.WatchedResource, _ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (sg *StatusGen) handleInternalRequest(proxy *model.Proxy, w *model.WatchedResource, _ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	if features.EnableDebugEndpointAuth && proxy.VerifiedIdentity == nil {
+		log.Warnf("proxy %s is not authorized to receive debug info. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		return nil, model.DefaultXdsLogDetails, grpcstatus.Error(codes.Unauthenticated, "authentication required")
+	}
+
 	res := model.Resources{}
 
 	switch w.TypeUrl {
