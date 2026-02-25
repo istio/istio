@@ -322,7 +322,7 @@ func NewErroringFakeClient(objects ...runtime.Object) CLIClient {
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
-	c.gatewayapi = setupFakeClient(gatewayapifake.NewClientset(), "gateway", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects) // nolint: gosec
 	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
 	c.extSet = extfake.NewClientset()
 
@@ -391,7 +391,8 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
-	c.gatewayapi = setupFakeClient(gatewayapifake.NewClientset(), "gateway", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects) // nolint: gosec
+
 	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
 	c.extSet = extfake.NewClientset()
 
