@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package gatewaycommon
 
 import (
 	"bytes"
@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"regexp"
 	"testing"
 	"time"
 
@@ -69,6 +70,7 @@ import (
 var (
 	copyLabelsAnnotationsEnabled  = true
 	copyLabelsAnnotationsDisabled = false
+	timestampRegex                = regexp.MustCompile(`lastTransitionTime:.*`)
 )
 
 func TestConfigureIstioGateway(t *testing.T) {
@@ -413,7 +415,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 						TLS: &k8s.ListenerTLSConfig{
 							Mode: ptr.Of(k8s.TLSModeTerminate),
 							Options: map[k8s.AnnotationKey]k8s.AnnotationValue{
-								gatewayTLSTerminateModeKey: "ISTIO_MUTUAL",
+								k8s.AnnotationKey(GatewayTLSTerminateModeKey): "ISTIO_MUTUAL",
 							},
 						},
 					}},

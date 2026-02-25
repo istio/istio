@@ -65,5 +65,6 @@ func InitGenerators(
 
 	generators["event"] = xds.NewStatusGen(s)
 	generators[v3.DebugType] = xds.NewDebugGen(s, systemNameSpace, internalDebugMux)
+
 	s.Generators = generators
 }

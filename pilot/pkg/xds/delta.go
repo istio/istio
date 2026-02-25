@@ -471,7 +471,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		return nil
 	}
 	t0 := time.Now()
-
+	// TODO(jaellio): get AgentgatewayID?
 	originalW := w
 	// If delta is set, client is requesting new resources or removing old ones. We should just generate the
 	// new resources it needs, rather than the entire set of known resources.

@@ -17,9 +17,11 @@ package gateway
 import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/kube/krt"
 )
 
+// GatewayClass represents a processed GatewayClass resource
 type GatewayClass struct {
 	Name       string
 	Controller gatewayv1.GatewayController
@@ -29,6 +31,8 @@ func (g GatewayClass) ResourceName() string {
 	return g.Name
 }
 
+// GatewayClassesCollection creates a collection of GatewayClass objects from the raw K8s GatewayClasses.
+// It filters to only known Istio controller classes and manages status updates.
 func GatewayClassesCollection(
 	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	opts krt.OptionsBuilder,
@@ -37,7 +41,7 @@ func GatewayClassesCollection(
 	krt.Collection[GatewayClass],
 ) {
 	return krt.NewStatusCollection(gatewayClasses, func(ctx krt.HandlerContext, obj *gatewayv1.GatewayClass) (*gatewayv1.GatewayClassStatus, *GatewayClass) {
-		_, known := classInfos[obj.Spec.ControllerName]
+		_, known := gatewaycommon.ClassInfos[obj.Spec.ControllerName]
 		if !known {
 			return nil, nil
 		}
@@ -50,10 +54,11 @@ func GatewayClassesCollection(
 	}, opts.WithName("GatewayClasses")...)
 }
 
-func fetchClass(ctx krt.HandlerContext, gatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
+// FetchClass fetches a GatewayClass object from a Gateway name, returning nil if not found
+func FetchClass(ctx krt.HandlerContext, gatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
 	class := krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gc)))
 	if class == nil {
-		if bc, f := builtinClasses[gc]; f {
+		if bc, f := gatewaycommon.BuiltinClasses[gc]; f {
 			// We allow some classes to exist without being in the cluster
 			return &GatewayClass{
 				Name:       string(gc),
