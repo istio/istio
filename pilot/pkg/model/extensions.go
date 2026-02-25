@@ -25,7 +25,6 @@ import (
 	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -49,35 +48,10 @@ const (
 	WasmPolicyEnv          = pm.WasmPolicyEnv
 	WasmResourceVersionEnv = pm.WasmResourceVersionEnv
 
-	// WasmPluginResourceNamePrefix is the prefix of the resource name of WasmPlugin,
-	// preventing the name collision with other resources.
-	WasmPluginResourceNamePrefix = "extensions.istio.io/wasmplugin/"
-
 	// ExtensionFilterResourceNamePrefix is the prefix of the resource name of ExtensionFilter,
 	// preventing the name collision with other resources.
 	ExtensionFilterResourceNamePrefix = "extensions.istio.io/extensionfilter/"
 )
-
-// WasmPluginType defines the type of wasm plugin
-type WasmPluginType int
-
-const (
-	WasmPluginTypeHTTP WasmPluginType = iota
-	WasmPluginTypeNetwork
-	WasmPluginTypeAny
-)
-
-func fromPluginType(pluginType extensions.PluginType) WasmPluginType {
-	switch pluginType {
-	case extensions.PluginType_HTTP:
-		return WasmPluginTypeHTTP
-	case extensions.PluginType_NETWORK:
-		return WasmPluginTypeNetwork
-	case extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE:
-		return WasmPluginTypeHTTP // Return HTTP as default for backward compatibility.
-	}
-	return WasmPluginTypeHTTP
-}
 
 func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
 	switch class {
@@ -94,74 +68,15 @@ func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.W
 	return typeapi.WorkloadMode_CLIENT
 }
 
-type WasmPluginWrapper struct {
-	*extensions.WasmPlugin
-
-	Name            string
-	Namespace       string
-	ResourceName    string
-	ResourceVersion string
-}
-
-func (p *WasmPluginWrapper) GetPriority() *wrapperspb.Int32Value {
-	return p.Priority
-}
-
-func (p *WasmPluginWrapper) MatchListener(matcher WorkloadPolicyMatcher, li WasmPluginListenerInfo) bool {
-	if matcher.ShouldAttachPolicy(gvk.WasmPlugin, p.NamespacedName(), p) {
-		return matchTrafficSelectors(p.Match, li)
-	}
-
-	// If it doesn't match one of the above cases, the plugin is not bound to this workload
-	return false
-}
-
-func (p *WasmPluginWrapper) NamespacedName() types.NamespacedName {
-	return types.NamespacedName{Name: p.Name, Namespace: p.Namespace}
-}
-
-func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
-	return pluginType == WasmPluginTypeAny || pluginType == fromPluginType(p.WasmPlugin.Type)
-}
-
-func (p *WasmPluginWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
-	if !(p.Type == extensions.PluginType_HTTP || p.Type == extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE) {
-		return nil
-	}
-	return &httpwasm.Wasm{
-		Config: p.buildPluginConfig(),
-	}
-}
-
-func (p *WasmPluginWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
-	if p.Type != extensions.PluginType_NETWORK {
-		return nil
-	}
-	return &networkwasm.Wasm{
-		Config: p.buildPluginConfig(),
-	}
-}
-
-func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
-	return buildWasmPluginConfigCommon(
-		p.Namespace, p.Name, p.ResourceVersion,
-		p.WasmPlugin.Url, p.WasmPlugin.Sha256,
-		p.WasmPlugin.PluginConfig, p.WasmPlugin.PluginName,
-		p.WasmPlugin.FailStrategy,
-		p.WasmPlugin.VmConfig, p.WasmPlugin.ImagePullSecret, p.WasmPlugin.ImagePullPolicy,
-		"wasmplugin",
-	)
-}
-
-type WasmPluginListenerInfo struct {
+type ListenerInfo struct {
 	Port  int
 	Class istionetworking.ListenerClass
 
-	// Service that WasmPlugins can attach to via targetRefs (optional)
+	// Service that ExtensionFilters can attach to via targetRefs (optional)
 	Services []*Service
 }
 
-func (listenerInfo WasmPluginListenerInfo) WithService(service *Service) WasmPluginListenerInfo {
+func (listenerInfo ListenerInfo) WithService(service *Service) ListenerInfo {
 	if service == nil {
 		return listenerInfo
 	}
@@ -169,34 +84,14 @@ func (listenerInfo WasmPluginListenerInfo) WithService(service *Service) WasmPlu
 	return listenerInfo
 }
 
-// If anyListener is used as a listener info,
-// the listener is matched with any TrafficSelector.
-var anyListener = WasmPluginListenerInfo{
-	Port:  0,
-	Class: istionetworking.ListenerClassUndefined,
-}
-
 // trafficSelector is an interface for matching traffic selectors.
-// Both WasmPlugin_TrafficSelector and TrafficSelector implement this.
+// TrafficSelector in ExtensionFilter implements this.
 type trafficSelector interface {
 	GetMode() typeapi.WorkloadMode
 	GetPorts() []*typeapi.PortSelector
 }
 
-func matchTrafficSelectors(ts []*extensions.WasmPlugin_TrafficSelector, li WasmPluginListenerInfo) bool {
-	if (li.Class == istionetworking.ListenerClassUndefined && li.Port == 0) || len(ts) == 0 {
-		return true
-	}
-
-	for _, match := range ts {
-		if matchTrafficSelectorCommon(match, li) {
-			return true
-		}
-	}
-	return false
-}
-
-func matchTrafficSelectorCommon(ts trafficSelector, li WasmPluginListenerInfo) bool {
+func matchTrafficSelectorCommon(ts trafficSelector, li ListenerInfo) bool {
 	return matchMode(ts.GetMode(), li.Class) && matchPorts(ts.GetPorts(), li.Port)
 }
 
@@ -222,73 +117,13 @@ func matchPorts(portSelectors []*typeapi.PortSelector, port int) bool {
 	return false
 }
 
-func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
-	var ok bool
-	// Make a deep copy since we are going to mutate the resource later for secret env variable.
-	// We do not want to mutate the underlying resource at informer cache.
-	plugin := originPlugin.DeepCopy()
-	var wasmPlugin *extensions.WasmPlugin
-	if wasmPlugin, ok = plugin.Spec.(*extensions.WasmPlugin); !ok {
-		return nil
-	}
-
-	if wasmPlugin.PluginConfig != nil && len(wasmPlugin.PluginConfig.Fields) > 0 {
-		_, err := protomarshal.ToJSON(wasmPlugin.PluginConfig)
-		if err != nil {
-			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
-			return nil
-		}
-	}
-
-	u, err := url.Parse(wasmPlugin.Url)
-	if err != nil {
-		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", plugin.Namespace, plugin.Name, err)
-		return nil
-	}
-	// when no scheme is given, default to oci://
-	if u.Scheme == "" {
-		u.Scheme = ociScheme
-	}
-	// Normalize the image pull secret to the full resource name.
-	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
-	return &WasmPluginWrapper{
-		Name:            plugin.Name,
-		Namespace:       plugin.Namespace,
-		ResourceName:    WasmPluginResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
-		WasmPlugin:      wasmPlugin,
-		ResourceVersion: plugin.ResourceVersion,
-	}
-}
-
-// toSecretResourceName converts a imagePullSecret to a resource name referenced at Wasm SDS.
-// NOTE: the secret referenced by WasmPlugin has to be in the same namespace as the WasmPlugin,
-// so this function makes sure that the secret resource name, which will be used to retrieve secret at
-// xds generation time, has the same namespace as the WasmPlugin.
-func toSecretResourceName(name, pluginNamespace string) string {
-	if name == "" {
-		return ""
-	}
-	// Convert user provided secret name to secret resource name.
-	rn := credentials.ToResourceName(name)
-	// Parse the secret resource name.
-	sr, err := credentials.ParseResourceName(rn, pluginNamespace, "", "")
-	if err != nil {
-		log.Debugf("Failed to parse wasm secret resource name %v", err)
-		return ""
-	}
-	// Forcely rewrite secret namespace to plugin namespace, since we require secret resource
-	// referenced by WasmPlugin co-located with WasmPlugin in the same namespace.
-	sr.Namespace = pluginNamespace
-	return sr.KubernetesResourceName()
-}
-
-func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *core.AsyncDataSource {
+func buildDataSource(u *url.URL, urlString string, sha256 string) *core.AsyncDataSource {
 	if u.Scheme == fileScheme {
 		return &core.AsyncDataSource{
 			Specifier: &core.AsyncDataSource_Local{
 				Local: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
-						Filename: strings.TrimPrefix(wasmPlugin.Url, "file://"),
+						Filename: strings.TrimPrefix(urlString, "file://"),
 					},
 				},
 			},
@@ -306,73 +141,10 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *core.AsyncD
 						Cluster: "_",
 					},
 				},
-				Sha256: wasmPlugin.Sha256,
+				Sha256: sha256,
 			},
 		},
 	}
-}
-
-// buildWasmPluginConfigCommon builds a WASM plugin configuration from individual fields.
-// This is shared between WasmPlugin and ExtensionFilter to avoid duplication.
-func buildWasmPluginConfigCommon(
-	namespace, name, resourceVersion string,
-	wasmURL, sha256 string,
-	pluginConfig *structpb.Struct,
-	pluginName string,
-	failStrategy extensions.FailStrategy,
-	vmConfig *extensions.VmConfig,
-	imagePullSecret string,
-	imagePullPolicy extensions.PullPolicy,
-	resourceType string, // "wasmplugin" or "extensionfilter" for logging
-) *wasmextensions.PluginConfig {
-	cfg := &anypb.Any{}
-	if pluginConfig != nil && len(pluginConfig.Fields) > 0 {
-		cfgJSON, err := protomarshal.ToJSON(pluginConfig)
-		if err != nil {
-			log.Warnf("%s %v/%v discarded due to json marshaling error: %s", resourceType, namespace, name, err)
-			return nil
-		}
-		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
-			Value: cfgJSON,
-		})
-	}
-
-	u, err := url.Parse(wasmURL)
-	if err != nil {
-		log.Warnf("%s %v/%v discarded due to failure to parse URL: %s", resourceType, namespace, name, err)
-		return nil
-	}
-	// when no scheme is given, default to oci://
-	if u.Scheme == "" {
-		u.Scheme = ociScheme
-	}
-
-	datasource := buildDataSource(u, &extensions.WasmPlugin{
-		Url:    wasmURL,
-		Sha256: sha256,
-	})
-	resourceName := namespace + "." + name
-
-	wasmConfig := &wasmextensions.PluginConfig{
-		Name:          resourceName,
-		RootId:        pluginName,
-		Configuration: cfg,
-		Vm:            buildVMConfig(datasource, resourceVersion, &extensions.WasmPlugin{
-			VmConfig:        vmConfig,
-			ImagePullSecret: imagePullSecret,
-			ImagePullPolicy: imagePullPolicy,
-		}),
-	}
-
-	switch failStrategy {
-	case extensions.FailStrategy_FAIL_OPEN:
-		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
-	case extensions.FailStrategy_FAIL_CLOSE:
-		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
-	case extensions.FailStrategy_FAIL_RELOAD:
-		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_RELOAD
-	}
-	return wasmConfig
 }
 
 // FilterType defines whether an ExtensionFilter is Lua or WASM based
@@ -392,28 +164,17 @@ const (
 	FilterChainTypeNetwork
 )
 
-// ToWasmPluginType converts FilterChainType to WasmPluginType for compatibility with existing code
-func (f FilterChainType) ToWasmPluginType() WasmPluginType {
-	switch f {
-	case FilterChainTypeHTTP:
-		return WasmPluginTypeHTTP
-	case FilterChainTypeNetwork:
-		return WasmPluginTypeNetwork
-	default:
-		return WasmPluginTypeAny
-	}
-}
-
-// FilterChainTypeFromWasmPluginType converts WasmPluginType to FilterChainType
-func FilterChainTypeFromWasmPluginType(w WasmPluginType) FilterChainType {
-	switch w {
-	case WasmPluginTypeHTTP:
+// filterChainTypeFromPluginType converts extensions.PluginType to FilterChainType
+func filterChainTypeFromPluginType(pluginType extensions.PluginType) FilterChainType {
+	switch pluginType {
+	case extensions.PluginType_HTTP:
 		return FilterChainTypeHTTP
-	case WasmPluginTypeNetwork:
+	case extensions.PluginType_NETWORK:
 		return FilterChainTypeNetwork
-	default:
-		return FilterChainTypeAny
+	case extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE:
+		return FilterChainTypeHTTP // Return HTTP as default for backward compatibility.
 	}
+	return FilterChainTypeHTTP
 }
 
 // ExtensionFilterWrapper is a wrapper for extensions.ExtensionFilter with additional runtime information
@@ -431,7 +192,7 @@ func (e *ExtensionFilterWrapper) GetPriority() *wrapperspb.Int32Value {
 	return e.Priority
 }
 
-func (e *ExtensionFilterWrapper) MatchListener(matcher WorkloadPolicyMatcher, li WasmPluginListenerInfo) bool {
+func (e *ExtensionFilterWrapper) MatchListener(matcher WorkloadPolicyMatcher, li ListenerInfo) bool {
 	if matcher.ShouldAttachPolicy(gvk.ExtensionFilter, e.NamespacedName(), e) {
 		return matchExtensionFilterTrafficSelectors(e.Match, li)
 	}
@@ -448,7 +209,7 @@ func (e *ExtensionFilterWrapper) MatchType(chainType FilterChainType) bool {
 		return chainType == FilterChainTypeAny || chainType == FilterChainTypeHTTP
 	}
 	// For WASM, check the type field
-	wasmType := FilterChainTypeFromWasmPluginType(fromPluginType(e.Wasm.Type))
+	wasmType := filterChainTypeFromPluginType(e.Wasm.Type)
 	return chainType == FilterChainTypeAny || chainType == wasmType
 }
 
@@ -460,7 +221,7 @@ func (e *ExtensionFilterWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
 		return nil
 	}
 	return &httpwasm.Wasm{
-		Config: e.buildWasmPluginConfig(),
+		Config: e.buildWasmConfig(),
 	}
 }
 
@@ -472,22 +233,56 @@ func (e *ExtensionFilterWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
 		return nil
 	}
 	return &networkwasm.Wasm{
-		Config: e.buildWasmPluginConfig(),
+		Config: e.buildWasmConfig(),
 	}
 }
 
-func (e *ExtensionFilterWrapper) buildWasmPluginConfig() *wasmextensions.PluginConfig {
-	return buildWasmPluginConfigCommon(
-		e.Namespace, e.Name, e.ResourceVersion,
-		e.Wasm.Url, e.Wasm.Sha256,
-		e.Wasm.PluginConfig, e.Wasm.PluginName,
-		e.Wasm.FailStrategy,
-		e.Wasm.VmConfig, e.Wasm.ImagePullSecret, e.Wasm.ImagePullPolicy,
-		"extensionfilter",
-	)
+func (e *ExtensionFilterWrapper) buildWasmConfig() *wasmextensions.PluginConfig {
+	cfg := &anypb.Any{}
+	if e.Wasm.PluginConfig != nil && len(e.Wasm.PluginConfig.Fields) > 0 {
+		cfgJSON, err := protomarshal.ToJSON(e.Wasm.PluginConfig)
+		if err != nil {
+			log.Warnf("extensionfilter %v/%v discarded due to json marshaling error: %s", e.Namespace, e.Name, err)
+			return nil
+		}
+		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
+			Value: cfgJSON,
+		})
+	}
+
+	u, err := url.Parse(e.Wasm.Url)
+	if err != nil {
+		log.Warnf("extensionfilter %v/%v discarded due to failure to parse URL: %s", e.Namespace, e.Name, err)
+		return nil
+	}
+	// when no scheme is given, default to oci://
+	if u.Scheme == "" {
+		u.Scheme = ociScheme
+	}
+
+	datasource := buildDataSource(u, e.Wasm.Url, e.Wasm.Sha256)
+	resourceName := e.Namespace + "." + e.Name
+
+	wasmConfig := &wasmextensions.PluginConfig{
+		Name:          resourceName,
+		RootId:        e.Wasm.PluginName,
+		Configuration: cfg,
+		Vm: buildVMConfig(datasource, e.ResourceVersion,
+			e.Wasm.ImagePullSecret, e.Wasm.ImagePullPolicy, e.Wasm.VmConfig),
+	}
+
+	switch e.Wasm.FailStrategy {
+	case extensions.FailStrategy_FAIL_OPEN:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
+	case extensions.FailStrategy_FAIL_CLOSE:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
+	case extensions.FailStrategy_FAIL_RELOAD:
+		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_RELOAD
+	}
+	return wasmConfig
 }
 
-func matchExtensionFilterTrafficSelectors(ts []*extensions.TrafficSelector, li WasmPluginListenerInfo) bool {
+func matchExtensionFilterTrafficSelectors(ts []*extensions.TrafficSelector, li ListenerInfo) bool {
 	if (li.Class == istionetworking.ListenerClassUndefined && li.Port == 0) || len(ts) == 0 {
 		return true
 	}
@@ -540,7 +335,21 @@ func convertToExtensionFilterWrapper(originConfig config.Config) *ExtensionFilte
 			}
 		}
 		// Normalize the image pull secret to the full resource name
-		extFilter.Wasm.ImagePullSecret = toSecretResourceName(extFilter.Wasm.ImagePullSecret, plugin.Namespace)
+		if extFilter.Wasm.ImagePullSecret != "" {
+			// Convert user provided secret name to secret resource name.
+			rn := credentials.ToResourceName(extFilter.Wasm.ImagePullSecret)
+			// Parse the secret resource name.
+			sr, err := credentials.ParseResourceName(rn, plugin.Namespace, "", "")
+			if err != nil {
+				log.Debugf("Failed to parse wasm secret resource name %v", err)
+				extFilter.Wasm.ImagePullSecret = ""
+			} else {
+				// Forcely rewrite secret namespace to plugin namespace, since we require secret resource
+				// referenced by ExtensionFilter co-located with ExtensionFilter in the same namespace.
+				sr.Namespace = plugin.Namespace
+				extFilter.Wasm.ImagePullSecret = sr.KubernetesResourceName()
+			}
+		}
 	} else if extFilter.Lua != nil {
 		filterType = FilterTypeLua
 		// Validate Lua config
@@ -570,7 +379,9 @@ func convertToExtensionFilterWrapper(originConfig config.Config) *ExtensionFilte
 func buildVMConfig(
 	datasource *core.AsyncDataSource,
 	resourceVersion string,
-	wasmPlugin *extensions.WasmPlugin,
+	imagePullSecret string,
+	imagePullPolicy extensions.PullPolicy,
+	vmConfig *extensions.VmConfig,
 ) *wasmextensions.PluginConfig_VmConfig {
 	cfg := &wasmextensions.PluginConfig_VmConfig{
 		VmConfig: &wasmextensions.VmConfig{
@@ -582,20 +393,19 @@ func buildVMConfig(
 		},
 	}
 
-	if wasmPlugin.ImagePullSecret != "" {
-		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmSecretEnv] = wasmPlugin.ImagePullSecret
+	if imagePullSecret != "" {
+		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmSecretEnv] = imagePullSecret
 	}
 
-	if wasmPlugin.ImagePullPolicy != extensions.PullPolicy_UNSPECIFIED_POLICY {
-		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmPolicyEnv] = wasmPlugin.ImagePullPolicy.String()
+	if imagePullPolicy != extensions.PullPolicy_UNSPECIFIED_POLICY {
+		cfg.VmConfig.EnvironmentVariables.KeyValues[WasmPolicyEnv] = imagePullPolicy.String()
 	}
 
 	cfg.VmConfig.EnvironmentVariables.KeyValues[WasmResourceVersionEnv] = resourceVersion
 
-	vm := wasmPlugin.VmConfig
-	if vm != nil && len(vm.Env) != 0 {
-		hostEnvKeys := make([]string, 0, len(vm.Env))
-		for _, e := range vm.Env {
+	if vmConfig != nil && len(vmConfig.Env) != 0 {
+		hostEnvKeys := make([]string, 0, len(vmConfig.Env))
+		for _, e := range vmConfig.Env {
 			switch e.ValueFrom {
 			case extensions.EnvValueSource_INLINE:
 				cfg.VmConfig.EnvironmentVariables.KeyValues[e.Name] = e.Value

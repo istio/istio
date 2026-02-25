@@ -859,13 +859,9 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 // buildInboundNetworkFiltersForHTTP builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
-	// Add network level WASM filters if any configured.
+	// Add network level extension filters if any configured.
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
-		Port:  httpOpts.port,
-		Class: httpOpts.class,
-	}, model.WasmPluginTypeNetwork)
-	extensionFilters := lb.push.ExtensionFiltersByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+	extensionFilters := lb.push.ExtensionFiltersByListenerInfo(lb.node, model.ListenerInfo{
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
 	}, model.FilterChainTypeNetwork)
@@ -877,15 +873,11 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	}
 
 	// Authn
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
 	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHN)
 
-	// Authz. Since this is HTTP, we only add WASM network filters -- not TCP RBAC, stats, etc.
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
+	// Authz. Since this is HTTP, we only add network filters -- not TCP RBAC, stats, etc.
 	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHZ)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
 	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_STATS)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
 
 	h := lb.buildHTTPConnectionManager(httpOpts)

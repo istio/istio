@@ -4303,27 +4303,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHZ,
-						Type:  extensions.PluginType_NETWORK,
-					},
-				},
-				{
-					Meta: config.Meta{Name: "wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHN,
-						Type:  extensions.PluginType_NETWORK,
-					},
-				},
-				{
-					Meta: config.Meta{Name: "wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_STATS,
-						Type:  extensions.PluginType_NETWORK,
-					},
-				},
-				{
 					Meta: config.Meta{Name: "extension-wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.ExtensionFilter},
 					Spec: &extensions.ExtensionFilter{
 						Phase: extensions.PluginPhase_AUTHZ,
@@ -4391,12 +4370,9 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							// Ext auth makes 2 filters
 							wellknown.RoleBasedAccessControl,
 							wellknown.ExternalAuthorization,
-							"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authn",
-							"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authz",
 							wellknown.RoleBasedAccessControl,
-							"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-stats",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-unspecified",
 							xds.StatsFilterName,
@@ -4418,45 +4394,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 								Hosts: []string{"www.example.com"},
 							},
 						},
-					},
-				},
-				{
-					Meta: config.Meta{Name: "wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHZ,
-						Type:  extensions.PluginType_NETWORK,
-					},
-				},
-				{
-					Meta: config.Meta{Name: "wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHN,
-						Type:  extensions.PluginType_NETWORK,
-					},
-				},
-				{
-					Meta: config.Meta{Name: "wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_STATS,
-						Type:  extensions.PluginType_NETWORK,
-					},
-				},
-				{
-					Meta: config.Meta{Name: "wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHZ,
-					},
-				},
-				{
-					Meta: config.Meta{Name: "wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHN,
-					},
-				},
-				{
-					Meta: config.Meta{Name: "wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_STATS,
 					},
 				},
 				{
@@ -4589,11 +4526,8 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true,
 						NetworkFilters: []string{
-							"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authn",
-							"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authz",
-							"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-stats",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-unspecified",
 							wellknown.HTTPConnectionManager,
@@ -4603,14 +4537,11 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							// Ext auth makes 2 filters
 							wellknown.HTTPRoleBasedAccessControl,
 							wellknown.HTTPExternalAuthorization,
-							"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-authn",
 							"extensions.istio.io/extensionfilter/istio-system.extension-lua-authn",
-							"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-authz",
 							"extensions.istio.io/extensionfilter/istio-system.extension-lua-authz",
 							wellknown.HTTPRoleBasedAccessControl,
-							"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
 							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-stats",
 							wellknown.HTTPGRPCStats,
 							xdsfilters.Alpn.Name,

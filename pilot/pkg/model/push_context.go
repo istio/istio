@@ -238,9 +238,6 @@ type PushContext struct {
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 
-	// wasm plugins for each namespace including global config namespace
-	wasmPluginsByNamespace map[string][]*WasmPluginWrapper
-
 	// extension filters for each namespace including global config namespace
 	extensionFiltersByNamespace map[string][]*ExtensionFilterWrapper
 
@@ -1389,7 +1386,6 @@ func (ps *PushContext) createNewContext(env *Environment) {
 	ps.initAuthorizationPolicies(env)
 	ps.initTelemetry(env)
 	ps.initProxyConfigs(env)
-	ps.initWasmPlugins(env)
 	ps.initExtensionFilters(env)
 	ps.initEnvoyFilters(env, nil, nil)
 	ps.initGateways(env)
@@ -1406,7 +1402,7 @@ func (ps *PushContext) updateContext(
 ) {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged,
-		wasmPluginsChanged, extensionFiltersChanged, proxyConfigsChanged bool
+		extensionFiltersChanged, proxyConfigsChanged bool
 
 	changedEnvoyFilters := sets.New[ConfigKey]()
 
@@ -1424,8 +1420,6 @@ func (ps *PushContext) updateContext(
 			gatewayChanged = true
 		case kind.Sidecar:
 			sidecarsChanged = true
-		case kind.WasmPlugin:
-			wasmPluginsChanged = true
 		case kind.ExtensionFilter:
 			extensionFiltersChanged = true
 		case kind.EnvoyFilter:
@@ -1498,12 +1492,6 @@ func (ps *PushContext) updateContext(
 		ps.initProxyConfigs(env)
 	} else {
 		ps.ProxyConfigs = oldPushContext.ProxyConfigs
-	}
-
-	if wasmPluginsChanged {
-		ps.initWasmPlugins(env)
-	} else {
-		ps.wasmPluginsByNamespace = oldPushContext.wasmPluginsByNamespace
 	}
 
 	if extensionFiltersChanged {
@@ -2156,19 +2144,6 @@ func (ps *PushContext) initProxyConfigs(env *Environment) {
 	ps.ProxyConfigs = GetProxyConfigs(env.ConfigStore, env.Mesh())
 }
 
-// pre computes WasmPlugins per namespace
-func (ps *PushContext) initWasmPlugins(env *Environment) {
-	wasmplugins := env.List(gvk.WasmPlugin, NamespaceAll)
-
-	sortConfigByCreationTime(wasmplugins)
-	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
-	for _, plugin := range wasmplugins {
-		if pluginWrapper := convertToWasmPluginWrapper(plugin); pluginWrapper != nil {
-			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
-		}
-	}
-}
-
 func (ps *PushContext) initExtensionFilters(env *Environment) {
 	extensionfilters := env.List(gvk.ExtensionFilter, NamespaceAll)
 
@@ -2179,72 +2154,6 @@ func (ps *PushContext) initExtensionFilters(env *Environment) {
 			ps.extensionFiltersByNamespace[filter.Namespace] = append(ps.extensionFiltersByNamespace[filter.Namespace], filterWrapper)
 		}
 	}
-}
-
-// WasmPlugins return the WasmPluginWrappers of a proxy.
-// For most proxy types, we include only the root namespace and same-namespace objects.
-// However, waypoints allow cross-namespace access based on attached Service objects.
-// In this case, include all referenced services in the selection criteria
-func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
-	listenerInfo := WasmPluginListenerInfo{}
-	if proxy.IsWaypointProxy() {
-		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
-		for _, si := range servicesInfo {
-			s := si.Service
-			svc, exist := ps.ServiceIndex.HostnameAndNamespace[host.Name(s.Hostname)][s.Namespace]
-			if !exist {
-				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", s.Namespace, s.Hostname)
-				continue
-			}
-			listenerInfo = listenerInfo.WithService(svc)
-		}
-	}
-	return ps.WasmPluginsByListenerInfo(proxy, listenerInfo, WasmPluginTypeAny)
-}
-
-func (ps *PushContext) WasmPluginsByName(proxy *Proxy, names []types.NamespacedName) []*WasmPluginWrapper {
-	res := make([]*WasmPluginWrapper, 0, len(names))
-	for _, n := range names {
-		if n.Namespace != proxy.ConfigNamespace && n.Namespace != ps.Mesh.RootNamespace {
-			log.Warnf("proxy requested invalid WASM configuration: %v", n)
-			continue
-		}
-		for _, wsm := range ps.wasmPluginsByNamespace[n.Namespace] {
-			if wsm.Name == n.Name {
-				res = append(res, wsm)
-				break
-			}
-		}
-	}
-	return res
-}
-
-// WasmPluginsByListenerInfo return the WasmPluginWrappers which are matched with TrafficSelector in the given proxy.
-func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo,
-	pluginType WasmPluginType,
-) map[extensions.PluginPhase][]*WasmPluginWrapper {
-	if proxy == nil {
-		return nil
-	}
-
-	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
-	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
-	for i := range info.Services {
-		lookupInNamespaces = append(lookupInNamespaces, info.Services[i].NamespacedName().Namespace)
-	}
-	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services).WithRootNamespace(ps.Mesh.GetRootNamespace())
-	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
-		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
-			for _, plugin := range wasmPlugins {
-				if plugin.MatchType(pluginType) && plugin.MatchListener(selectionOpts, info) {
-					matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
-				}
-			}
-		}
-	}
-
-	sortByPriority(matchedPlugins)
-	return matchedPlugins
 }
 
 // prioritizable is an interface for objects that have a Priority field.
@@ -2275,7 +2184,7 @@ func sortByPriority[T prioritizable](items map[extensions.PluginPhase][]T) {
 // However, waypoints allow cross-namespace access based on attached Service objects.
 // In this case, include all referenced services in the selection criteria
 func (ps *PushContext) ExtensionFilters(proxy *Proxy) map[extensions.PluginPhase][]*ExtensionFilterWrapper {
-	listenerInfo := WasmPluginListenerInfo{}
+	listenerInfo := ListenerInfo{}
 	if proxy.IsWaypointProxy() {
 		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
 		for _, si := range servicesInfo {
@@ -2309,7 +2218,7 @@ func (ps *PushContext) ExtensionFiltersByName(proxy *Proxy, names []types.Namesp
 }
 
 // ExtensionFiltersByListenerInfo return the ExtensionFilterWrappers which are matched with TrafficSelector in the given proxy.
-func (ps *PushContext) ExtensionFiltersByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo,
+func (ps *PushContext) ExtensionFiltersByListenerInfo(proxy *Proxy, info ListenerInfo,
 	chainType FilterChainType,
 ) map[extensions.PluginPhase][]*ExtensionFilterWrapper {
 	if proxy == nil {

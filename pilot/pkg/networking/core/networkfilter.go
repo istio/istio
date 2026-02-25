@@ -136,12 +136,8 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	}
 
 	var filters []*listener.Filter
-	wasm := lb.push.WasmPluginsByListenerInfo(
-		lb.node, model.WasmPluginListenerInfo{Port: port, Class: class}.WithService(policySvc),
-		model.WasmPluginTypeNetwork,
-	)
 	extensionFilters := lb.push.ExtensionFiltersByListenerInfo(
-		lb.node, model.WasmPluginListenerInfo{Port: port, Class: class}.WithService(policySvc),
+		lb.node, model.ListenerInfo{Port: port, Class: class}.WithService(policySvc),
 		model.FilterChainTypeNetwork,
 	)
 
@@ -153,18 +149,14 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	filters = append(filters, authzCustomBuilder.BuildTCP()...)
 
 	// Authn
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
 	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHN)
 
 	// Authz
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
 	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHZ)
 	filters = append(filters, authzBuilder.BuildTCP()...)
 
 	// Stats
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
 	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_STATS)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, class, policySvc)...)
 

@@ -611,11 +611,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		// Otherwise, do not have a timeout at all
 		l.ListenerFiltersTimeout = durationpb.New(0)
 	}
-	wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
-		Port:  le.servicePort.Port,
-		Class: istionetworking.ListenerClassSidecarOutbound,
-	}, model.WasmPluginTypeNetwork)
-	extensionFilters := builder.push.ExtensionFiltersByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+	extensionFilters := builder.push.ExtensionFiltersByListenerInfo(builder.node, model.ListenerInfo{
 		Port:  le.servicePort.Port,
 		Class: istionetworking.ListenerClassSidecarOutbound,
 	}, model.FilterChainTypeNetwork)
@@ -639,13 +635,9 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHN)
 			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.PluginPhase_AUTHN)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
 			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.PluginPhase_AUTHZ)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_STATS)
 			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.PluginPhase_STATS)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
 			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)

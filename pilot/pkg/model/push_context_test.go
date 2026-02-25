@@ -1118,316 +1118,6 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 	}
 }
 
-func TestWasmPlugins(t *testing.T) {
-	env := &Environment{}
-	store := NewFakeStore()
-
-	wasmPlugins := map[string]config.Config{
-		"invalid-type": {
-			Meta: config.Meta{Name: "invalid-type", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
-			Spec: &networking.DestinationRule{},
-		},
-		"invalid-url": {
-			Meta: config.Meta{Name: "invalid-url", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrapperspb.Int32Value{Value: 5},
-				Url:      "notavalid%%Url;",
-			},
-		},
-		"authn-low-prio-all": {
-			Meta: config.Meta{Name: "authn-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrapperspb.Int32Value{Value: 10},
-				Url:      "file:///etc/istio/filters/authn.wasm",
-				PluginConfig: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"test": {
-							Kind: &structpb.Value_StringValue{StringValue: "test"},
-						},
-					},
-				},
-				Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
-			},
-		},
-		"authn-low-prio-all-network": {
-			Meta: config.Meta{Name: "authn-low-prio-all-network", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Type:     extensions.PluginType_NETWORK,
-				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrapperspb.Int32Value{Value: 10},
-				Url:      "file:///etc/istio/filters/authn.wasm",
-				PluginConfig: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"test": {
-							Kind: &structpb.Value_StringValue{StringValue: "test"},
-						},
-					},
-				},
-				Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
-			},
-		},
-		"global-authn-low-prio-ingress": {
-			Meta: config.Meta{Name: "global-authn-low-prio-ingress", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrapperspb.Int32Value{Value: 5},
-				Selector: &selectorpb.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"istio": "ingressgateway",
-					},
-				},
-			},
-		},
-		"authn-med-prio-all": {
-			Meta: config.Meta{Name: "authn-med-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrapperspb.Int32Value{Value: 50},
-			},
-		},
-		"global-authn-high-prio-app": {
-			Meta: config.Meta{Name: "global-authn-high-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &wrapperspb.Int32Value{Value: 1000},
-				Selector: &selectorpb.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "productpage",
-					},
-				},
-				Match: []*extensions.WasmPlugin_TrafficSelector{
-					{
-						Mode:  selectorpb.WorkloadMode_SERVER,
-						Ports: []*selectorpb.PortSelector{{Number: 1234}},
-					},
-				},
-			},
-		},
-		"global-authz-med-prio-app": {
-			Meta: config.Meta{Name: "global-authz-med-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHZ,
-				Priority: &wrapperspb.Int32Value{Value: 50},
-				Selector: &selectorpb.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "productpage",
-					},
-				},
-				Match: []*extensions.WasmPlugin_TrafficSelector{
-					{
-						Mode:  selectorpb.WorkloadMode_SERVER,
-						Ports: []*selectorpb.PortSelector{{Number: 1235}},
-					},
-				},
-			},
-		},
-		"authz-high-prio-ingress": {
-			Meta: config.Meta{Name: "authz-high-prio-ingress", Namespace: "testns-2", GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHZ,
-				Priority: &wrapperspb.Int32Value{Value: 1000},
-			},
-		},
-	}
-
-	testCases := []struct {
-		name               string
-		node               *Proxy
-		listenerInfo       WasmPluginListenerInfo
-		pluginType         WasmPluginType
-		expectedExtensions map[extensions.PluginPhase][]*WasmPluginWrapper
-	}{
-		{
-			name:               "nil proxy",
-			node:               nil,
-			listenerInfo:       anyListener,
-			pluginType:         WasmPluginTypeHTTP,
-			expectedExtensions: nil,
-		},
-		{
-			name: "nomatch",
-			node: &Proxy{
-				ConfigNamespace: "other",
-				Metadata:        &NodeMetadata{},
-			},
-			listenerInfo:       anyListener,
-			pluginType:         WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
-		},
-		{
-			name: "ingress",
-			node: &Proxy{
-				ConfigNamespace: "other",
-				Labels: map[string]string{
-					"istio": "ingressgateway",
-				},
-				Metadata: &NodeMetadata{
-					Labels: map[string]string{
-						"istio": "ingressgateway",
-					},
-				},
-			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
-				},
-			},
-		},
-		{
-			name: "ingress-testns-1",
-			node: &Proxy{
-				ConfigNamespace: "testns-1",
-				Labels: map[string]string{
-					"istio": "ingressgateway",
-				},
-				Metadata: &NodeMetadata{
-					Labels: map[string]string{
-						"istio": "ingressgateway",
-					},
-				},
-			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
-				},
-			},
-		},
-		{
-			name: "ingress-testns-1-network",
-			node: &Proxy{
-				ConfigNamespace: "testns-1",
-				Labels: map[string]string{
-					"istio": "ingressgateway",
-				},
-				Metadata: &NodeMetadata{
-					Labels: map[string]string{
-						"istio": "ingressgateway",
-					},
-				},
-			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeNetwork,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
-				},
-			},
-		},
-		{
-			name: "ingress-testns-1-any",
-			node: &Proxy{
-				ConfigNamespace: "testns-1",
-				Labels: map[string]string{
-					"istio": "ingressgateway",
-				},
-				Metadata: &NodeMetadata{
-					Labels: map[string]string{
-						"istio": "ingressgateway",
-					},
-				},
-			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeAny,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
-				},
-			},
-		},
-		{
-			name: "testns-2",
-			node: &Proxy{
-				ConfigNamespace: "testns-2",
-				Labels: map[string]string{
-					"app": "productpage",
-				},
-				Metadata: &NodeMetadata{
-					Labels: map[string]string{
-						"app": "productpage",
-					},
-				},
-			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
-				},
-				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"]),
-				},
-			},
-		},
-		{
-			// Detailed tests regarding TrafficSelector are in extension_test.go
-			// Just test the integrity here.
-			// This testcase is identical with "testns-2", but `listenerInfo`` is specified.
-			// 1. `global-authn-high-prio-app` matched, because it has a port matching clause with "1234"
-			// 2. `authz-high-prio-ingress` matched, because it does not have any `match` clause
-			// 3. `global-authz-med-prio-app` not matched, because it has a port matching clause with "1235"
-			name: "testns-2-with-port-match",
-			node: &Proxy{
-				ConfigNamespace: "testns-2",
-				Labels: map[string]string{
-					"app": "productpage",
-				},
-				Metadata: &NodeMetadata{
-					Labels: map[string]string{
-						"app": "productpage",
-					},
-				},
-			},
-			listenerInfo: WasmPluginListenerInfo{
-				Port:  1234,
-				Class: istionetworking.ListenerClassSidecarInbound,
-			},
-			pluginType: WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
-				},
-				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
-				},
-			},
-		},
-	}
-
-	for _, config := range wasmPlugins {
-		store.Create(config)
-	}
-	env.ConfigStore = store
-	m := mesh.DefaultMeshConfig()
-	env.Watcher = meshwatcher.NewTestWatcher(m)
-	env.Init()
-
-	// Init a new push context
-	pc := NewPushContext()
-	pc.Mesh = m
-	pc.initWasmPlugins(env)
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo, tc.pluginType)
-			if !reflect.DeepEqual(tc.expectedExtensions, result) {
-				t.Errorf("WasmPlugins did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
-			}
-		})
-	}
-}
-
 func TestExtensionFilters(t *testing.T) {
 	env := &Environment{}
 	store := NewFakeStore()
@@ -1572,14 +1262,14 @@ func TestExtensionFilters(t *testing.T) {
 	testCases := []struct {
 		name               string
 		node               *Proxy
-		listenerInfo       WasmPluginListenerInfo
+		listenerInfo       ListenerInfo
 		chainType          FilterChainType
 		expectedExtensions map[extensions.PluginPhase][]*ExtensionFilterWrapper
 	}{
 		{
 			name:               "nil proxy",
 			node:               nil,
-			listenerInfo:       anyListener,
+			listenerInfo:       ListenerInfo{},
 			chainType:          FilterChainTypeHTTP,
 			expectedExtensions: nil,
 		},
@@ -1589,7 +1279,7 @@ func TestExtensionFilters(t *testing.T) {
 				ConfigNamespace: "other",
 				Metadata:        &NodeMetadata{},
 			},
-			listenerInfo:       anyListener,
+			listenerInfo:       ListenerInfo{},
 			chainType:          FilterChainTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*ExtensionFilterWrapper{},
 		},
@@ -1606,7 +1296,7 @@ func TestExtensionFilters(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
+			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*ExtensionFilterWrapper{
 				extensions.PluginPhase_AUTHN: {
@@ -1627,7 +1317,7 @@ func TestExtensionFilters(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
+			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*ExtensionFilterWrapper{
 				extensions.PluginPhase_AUTHN: {
@@ -1651,7 +1341,7 @@ func TestExtensionFilters(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
+			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeNetwork,
 			expectedExtensions: map[extensions.PluginPhase][]*ExtensionFilterWrapper{
 				extensions.PluginPhase_AUTHN: {
@@ -1672,7 +1362,7 @@ func TestExtensionFilters(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
+			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeAny,
 			expectedExtensions: map[extensions.PluginPhase][]*ExtensionFilterWrapper{
 				extensions.PluginPhase_AUTHN: {
@@ -1697,7 +1387,7 @@ func TestExtensionFilters(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
+			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*ExtensionFilterWrapper{
 				extensions.PluginPhase_AUTHN: {
@@ -1728,7 +1418,7 @@ func TestExtensionFilters(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: istionetworking.ListenerClassSidecarInbound,
 			},

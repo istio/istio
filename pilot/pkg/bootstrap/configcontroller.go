@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pilot/pkg/config/kube/extensions"
 	"istio.io/istio/pilot/pkg/config/kube/file"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
@@ -151,6 +152,13 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
+
+	// Register the WasmPlugin → ExtensionFilter translation controller.
+	// This converts WasmPlugin resources into synthetic ExtensionFilter configs so
+	// the rest of Pilot only ever needs to handle ExtensionFilter.
+	extensionController := extensions.NewController(configController, s.XDSServer, args.KrtDebugger)
+	s.ConfigStores = append(s.ConfigStores, extensionController)
+
 	tw := revisions.NewTagWatcher(s.kubeClient, args.Revision, args.Namespace)
 	s.addStartFunc("tag-watcher", func(stop <-chan struct{}) error {
 		go tw.Run(stop)
