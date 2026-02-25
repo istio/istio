@@ -66,7 +66,6 @@ func TestMain(m *testing.M) {
 			ctx.Settings().Ambient = true
 			ctx.Settings().SkipVMs()
 			cfg.EnableCNI = true
-			cfg.DeployEastWestGW = false
 			cfg.DeployGatewayAPI = true
 			cfg.ControlPlaneValues = `
 values:
