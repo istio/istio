@@ -1680,17 +1680,16 @@ func unexpectedWaypointListener(l k8s.Listener) bool {
 }
 
 func unexpectedEastWestWaypointListener(l k8s.Listener) bool {
-	if l.Port != 15008 {
-		return true
+	// Port 15008 must be the HBONE/Terminate listener.
+	if l.Port == 15008 {
+		return l.Protocol != k8s.ProtocolType(protocol.HBONE) ||
+			l.TLS == nil || *l.TLS.Mode != k8s.TLSModeTerminate
 	}
-	if l.Protocol != k8s.ProtocolType(protocol.HBONE) {
-		return true
+	// All other ports must be TLS passthrough.
+	if l.Protocol == k8s.TLSProtocolType && l.TLS != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
+		return false
 	}
-	if l.TLS == nil || *l.TLS.Mode != k8s.TLSModeTerminate {
-		return true
-	}
-	// TODO: Should we check that there aren't more things set
-	return false
+	return true
 }
 
 func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
@@ -2095,7 +2094,7 @@ func buildListener(
 		if unexpectedEastWestWaypointListener(l) {
 			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
 				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
-				Message: `Expected a single listener on port 15008 with protocol "HBONE" and TLS.Mode == Terminate`,
+				Message: `East-west gateway listeners must be either port 15008 with protocol "HBONE" and TLS.Mode == Terminate, or TLS with TLS.Mode == Passthrough`,
 			}
 		}
 	}

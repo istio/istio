@@ -79,6 +79,75 @@ func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 	return lb.push.ServiceForHostname(lb.node, name)
 }
 
+func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Listener {
+	if !isEastWestGateway(lb.node) || lb.node.MergedGateway == nil {
+		return nil
+	}
+	mergedGateway := lb.node.MergedGateway
+	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
+	tlsHostsByPort := map[uint32]map[string]string{}
+	mutableopts := make(map[string]mutableListenerOpts)
+
+	for _, port := range mergedGateway.ServerPorts {
+		if port.Number == 15008 {
+			continue // HBONE handled by buildWaypointInboundConnectTerminate
+		}
+		serversForPort := mergedGateway.MergedServers[port]
+		if serversForPort == nil {
+			continue
+		}
+		bind := actualWildcards[0]
+		// Does it make sense to have IPv6 here?
+		var extraBind []string
+		if features.EnableDualStack && len(actualWildcards) > 1 {
+			extraBind = actualWildcards[1:]
+		}
+		if len(port.Bind) > 0 {
+			bind = port.Bind
+			extraBind = nil
+		}
+		opts := &gatewayListenerOpts{
+			push:       lb.push,
+			proxy:      lb.node,
+			bind:       bind,
+			extraBind:  extraBind,
+			port:       int(port.Number),
+			bindToPort: true,
+		}
+		for _, server := range serversForPort.Servers {
+			chainOpts := lb.createGatewayTCPFilterChainOpts(
+				server, port.Number, mergedGateway.GatewayNameForServer[server], tlsHostsByPort)
+			opts.filterChainOpts = append(opts.filterChainOpts, chainOpts...)
+		}
+		if len(opts.filterChainOpts) == 0 {
+			continue
+		}
+		lname := getListenerName(bind, int(port.Number), istionetworking.TransportProtocolTCP)
+		if mopts, exists := mutableopts[lname]; !exists {
+			mutableopts[lname] = mutableListenerOpts{
+				mutable:   &MutableGatewayListener{},
+				opts:      opts,
+				transport: istionetworking.TransportProtocolTCP,
+			}
+		} else {
+			mopts.opts.filterChainOpts = append(mopts.opts.filterChainOpts, opts.filterChainOpts...)
+		}
+	}
+
+	listeners := make([]*listener.Listener, 0, len(mutableopts))
+	for _, ml := range mutableopts {
+		ml.mutable.Listener = buildGatewayListener(*ml.opts, ml.transport)
+		if err := ml.mutable.build(lb, *ml.opts); err != nil {
+			log.Warnf("east-west gateway: omitting TLS passthrough listener %q: %v", ml.mutable.Listener.Name, err)
+			continue
+		}
+		l := ml.mutable.Listener
+		l.TrafficDirection = core.TrafficDirection_INBOUND
+		listeners = append(listeners, l)
+	}
+	return listeners
+}
+
 func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// For the common single-network case We create 3 listeners:
 	// 1. Decapsulation CONNECT listener.
@@ -90,6 +159,9 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// In case where we need to support multiple networks, we need to support double-HBONE
 	// and for that we need two additional listeners to encapsulate the traffic into HBONE
 	// twice - we only need that in waypoints, so we skip generating those in E/W gateway.
+	//
+	// For E/W gateways, we also might need TLS passthrough, so that internal services (eg.
+	// the Kubernetes API Server) can be exposed through the E/W gateways.
 	var orderedWPS []*model.Service
 	wls, wps := findWaypointResources(lb.node, lb.push)
 	if wps != nil {
@@ -103,6 +175,9 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
 		listeners = append(listeners, buildWaypointForwardInnerConnectListener(lb.push, lb.node))
+		if features.AllowEastWestTLSPassthrough {
+			listeners = append(listeners, lb.buildEastWestTLSPassthroughListeners()...)
+		}
 	} else {
 		listeners = append(listeners, buildWaypointConnectOriginateListener(lb.push, lb.node))
 	}

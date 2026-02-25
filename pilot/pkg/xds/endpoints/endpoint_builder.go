@@ -938,12 +938,7 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 
 // Duplicated from networking/core/waypoint to avoid circular dependency
 func isEastWestGateway(node *model.Proxy) bool {
-	if node == nil || node.Type != model.Waypoint {
-		return false
-	}
-	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
-
-	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
+	return node.IsEastWestGateway()
 }
 
 func isSidecarProxy(node *model.Proxy) bool {

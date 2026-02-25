@@ -156,8 +156,13 @@ func ListenerSetCollection(
 				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
 
 				servers = append(servers, server)
-				if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
-					// Waypoint doesn't actually convert the routes to VirtualServices
+				if controllerName == constants.ManagedGatewayMeshController {
+					// Waypoint doesn't convert routes to VirtualServices.
+					continue
+				}
+				if controllerName == constants.ManagedGatewayEastWestController && port == 15008 {
+					// The HBONE listener on port 15008 does not use route-based VirtualService conversion.
+					// Non-15008 listeners (e.g. TLS passthrough) are handled like regular gateway listeners below.
 					continue
 				}
 				meta := parentMeta(obj, &l.Name)
@@ -289,9 +294,13 @@ func GatewayCollection(
 			status.Listeners = updatedStatus
 
 			servers = append(servers, server)
-			if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
-				// Waypoint and ambient e/w don't actually convert the routes to VirtualServices
-				// TODO: Maybe E/W gateway should for non 15008 ports for backwards compat?
+			if controllerName == constants.ManagedGatewayMeshController {
+				// Waypoint doesn't convert routes to VirtualServices.
+				continue
+			}
+			if controllerName == constants.ManagedGatewayEastWestController && l.Port == 15008 {
+				// The HBONE listener on port 15008 does not use route-based VirtualService conversion.
+				// Non-15008 listeners (e.g. TLS passthrough) are handled like regular gateway listeners below.
 				continue
 			}
 			meta := parentMeta(obj, &l.Name)
