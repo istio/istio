@@ -38,7 +38,6 @@ import (
 	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
-	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -66,6 +65,7 @@ func buildInternalUpstreamCluster(name string, internalListener string, h2 bool)
 		c.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		}
+		applyBaggageMetadataDiscovery(c)
 	}
 
 	c.AltStatName = util.DelimitedStatsPrefix(name)
@@ -232,7 +232,6 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
 	maybeApplyEdsConfig(localCluster.cluster)
-	cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
 
 	// TLS and PROXY are more involved, since these impact the transport socket which is customized for HBONE.
 	opts := &buildClusterOpts{
@@ -245,11 +244,13 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		direction:      model.TrafficDirectionInboundVIP,
 	}
 	transportSocket := util.RawBufferTransport()
+	disableBaggageDiscovery := false
 	if tlsContext := buildWaypointTLSContext(opts, tls); tlsContext != nil {
 		transportSocket = &core.TransportSocket{
 			Name:       wellknown.TransportSocketTLS,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
+		disableBaggageDiscovery = true
 	}
 	if proxyProtocol != nil {
 		// Wrap the existing transport socket. Note this could be RawBuffer or TLS, depending on other config
@@ -263,12 +264,18 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 				),
 			},
 		}
+		disableBaggageDiscovery = true
 	}
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
 
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
+
+	cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
+	if disableBaggageDiscovery {
+		cb.maybeDisableBaggageDiscovery(localCluster.cluster)
+	}
 
 	return localCluster.build()
 }
@@ -577,14 +584,5 @@ func (cb *ClusterBuilder) h2connectUpgradeWithNoPooling() map[string]*anypb.Any 
 				},
 			}},
 		}),
-	}
-}
-
-func (cb *ClusterBuilder) maybeApplyBaggageMetadataDiscovery(c *cluster.Cluster) {
-	if features.EnableAmbientBaggage {
-		if c.GetType() != cluster.Cluster_EDS {
-			return
-		}
-		c.Filters = append(c.Filters, xdsfilters.WaypointClusterBaggagePeerMetadata)
 	}
 }

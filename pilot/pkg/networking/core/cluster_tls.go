@@ -376,6 +376,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 							TransportSocket: ts,
 						},
 					}
+					cb.maybeDisableBaggageDiscovery(c)
 				}
 			}
 		}

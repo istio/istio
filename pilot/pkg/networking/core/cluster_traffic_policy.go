@@ -565,6 +565,8 @@ func (cb *ClusterBuilder) applyUpstreamProxyProtocol(
 	}
 	c := opts.mutable
 
+	cb.maybeDisableBaggageDiscovery(c.cluster)
+
 	// No existing transport; wrap RawBuffer.
 	if c.cluster.TransportSocket == nil && len(c.cluster.TransportSocketMatches) == 0 {
 		c.cluster.TransportSocket = &core.TransportSocket{
