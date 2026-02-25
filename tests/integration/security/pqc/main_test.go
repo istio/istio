@@ -68,9 +68,7 @@ values:
 			namespace.Setup(&internalNs, namespace.Config{Prefix: "internal", Inject: true}),
 			namespace.Setup(&externalNs, namespace.Config{Prefix: "external", Inject: false}),
 		).
-		Setup(func(ctx resource.Context) error {
-			return setupAppsConfig(ctx, &configs)
-		}).
+		Setup(setupAppsConfig).
 		Setup(deployment.SetupTwoNamespaces(&apps, deployment.Config{
 			Configs:             echo.ConfigFuture(&configs),
 			Namespaces:          []namespace.Getter{namespace.Future(&internalNs), namespace.Future(&externalNs)},
@@ -104,8 +102,8 @@ spec:
 		Run()
 }
 
-func setupAppsConfig(_ resource.Context, out *[]echo.Config) error {
-	*out = []echo.Config{
+func setupAppsConfig(_ resource.Context) error {
+	configs = []echo.Config{
 		{
 			Service:   "server",
 			Namespace: externalNs,

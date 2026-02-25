@@ -93,9 +93,7 @@ values:
 				},
 			}),
 		).
-		Setup(func(ctx resource.Context) error {
-			return setupAppsConfig(ctx, &configs)
-		}).
+		Setup(setupAppsConfig).
 		Setup(deployment.SetupTwoNamespaces(&apps, deployment.Config{
 			Namespaces: []namespace.Getter{
 				namespace.Future(&internalNs),
@@ -135,8 +133,8 @@ spec:
 		Run()
 }
 
-func setupAppsConfig(_ resource.Context, out *[]echo.Config) error {
-	*out = []echo.Config{
+func setupAppsConfig(_ resource.Context) error {
+	configs = []echo.Config{
 		{
 			Service:   deployment.ASvc,
 			Namespace: internalNs,
