@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -35,7 +34,7 @@ const (
 )
 
 // GetDefaultName returns the default name for a gateway resource.
-func GetDefaultName(name string, kgw *k8s.GatewaySpec, disableNameSuffix bool) string {
+func GetDefaultName(name string, kgw *gatewayv1.GatewaySpec, disableNameSuffix bool) string {
 	if disableNameSuffix {
 		return name
 	}
@@ -63,7 +62,7 @@ func GetDefaultName(name string, kgw *k8s.GatewaySpec, disableNameSuffix bool) s
 //	which users can add to the Gateway.
 //
 // If manual deployments are disabled, IsManaged() always returns true.
-func IsManaged(gw *k8s.GatewaySpec) bool {
+func IsManaged(gw *gatewayv1.GatewaySpec) bool {
 	if !features.EnableGatewayAPIManualDeployment {
 		return true
 	}
@@ -73,7 +72,7 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 	if len(gw.Addresses) > 1 {
 		return false
 	}
-	if t := gw.Addresses[0].Type; t == nil || *t == k8s.IPAddressType {
+	if t := gw.Addresses[0].Type; t == nil || *t == gatewayv1.IPAddressType {
 		return true
 	}
 	return false
@@ -83,7 +82,7 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 const NamespaceNameLabel = "kubernetes.io/metadata.name"
 
 // NamespaceAcceptedByAllowListeners determines whether a namespace is accepted by a Gateway's AllowedListeners.
-func NamespaceAcceptedByAllowListeners(localNamespace string, parent *k8s.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
+func NamespaceAcceptedByAllowListeners(localNamespace string, parent *gatewayv1.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
 	lr := parent.Spec.AllowedListeners
 	// Default allows none
 	if lr == nil || lr.Namespaces == nil {
@@ -92,13 +91,13 @@ func NamespaceAcceptedByAllowListeners(localNamespace string, parent *k8s.Gatewa
 	n := *lr.Namespaces
 	if n.From != nil {
 		switch *n.From {
-		case k8s.NamespacesFromAll:
+		case gatewayv1.NamespacesFromAll:
 			return true
-		case k8s.NamespacesFromSame:
+		case gatewayv1.NamespacesFromSame:
 			return localNamespace == parent.Namespace
-		case k8s.NamespacesFromNone:
+		case gatewayv1.NamespacesFromNone:
 			return false
-		case k8s.NamespacesFromSelector:
+		case gatewayv1.NamespacesFromSelector:
 			// Fallthrough
 		default:
 			// Unknown?
