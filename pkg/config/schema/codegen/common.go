@@ -46,11 +46,7 @@ func Run() error {
 			Resource: &ast.Resource{Identifier: "DNSName", Kind: "DNSName", Version: "internal", Group: "internal"},
 		},
 		{
-			// AgwResource is a synthetic resource used to represent the aggregate of all resources relevant to a given gateway,
-			// for the purpose of triggering pushes when any of those resources change. It is not a real Kubernetes resource and
-			// does not have a corresponding CRD, but it allows us to treat changes to any relevant resource as a change to the
-			// gateway itself in the context of xDS generation.
-			Resource: &ast.Resource{Identifier: "AgwResource", Kind: "AgwResource", Version: "internal", Group: "internal"},
+			Resource: &ast.Resource{Identifier: "TypeUrl", Kind: "TypeUrl", Version: "internal", Group: "internal"},
 		},
 	}, inp.Entries...)
 

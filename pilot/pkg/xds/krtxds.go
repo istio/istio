@@ -142,7 +142,7 @@ func baseCollection[T IntoProto[TT], TT proto.Message](
 					last := oo.Latest()
 					// Using namespace to store the type URL, as that's what we filter on for updates
 					un.Insert(model.ConfigKey{
-						Kind:      kind.Address,
+						Kind:      kind.TypeUrl,
 						Name:      last.Name,
 						Namespace: t,
 					})
@@ -224,8 +224,8 @@ func (c CollectionGenerator) GenerateDeltas(
 	var deletes []string
 
 	for k := range req.ConfigsUpdated {
-		// When configKey kind is Address or AgwResource, the namespace is the type URL.
-		if k.Kind != kind.Address && k.Kind != kind.AgwResource && k.Namespace != w.TypeUrl {
+		// When configKey kind is TypeUrl, the namespace is the type URL.
+		if k.Kind != kind.TypeUrl || k.Namespace != w.TypeUrl {
 			log.Debugf("Skipped config update for type %s. Watched type is %s", k.Namespace, w.TypeUrl)
 			continue
 		}
