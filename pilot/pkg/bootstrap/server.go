@@ -1214,9 +1214,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 				r.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
 			},
 		},
-		Debugger: s.krtDebugger,
-		Stop:     s.internalStop,
-		Opts:     krt.NewOptionsBuilder(s.internalStop, "multicluster", s.krtDebugger),
+		Debugger: args.KrtDebugger,
 	})
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
 	s.addStartFunc("multicluster controller", func(stop <-chan struct{}) error {

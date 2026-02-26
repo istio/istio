@@ -163,19 +163,10 @@ func New(options Options) Index {
 		revision:        options.Revision,
 		stop:            make(chan struct{}),
 		mcController:    options.MultiClusterController,
+		meshConfig:      options.MeshConfig,
 	}
 
 	LocalCluster := a.mcController.ConfigCluster()
-	client := LocalCluster.Client
-	filter := kclient.Filter{
-		ObjectFilter: client.ObjectFilter(),
-	}
-	configFilter := kclient.Filter{
-		ObjectFilter: kubetypes.ComposeFilters(client.ObjectFilter(), a.inRevision),
-	}
-	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
-
-	a.meshConfig = options.MeshConfig
 
 	// Get shared collections from the multicluster controller's config cluster.
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
@@ -185,6 +176,15 @@ func New(options Options) Index {
 	EndpointSlices := LocalCluster.EndpointSlices()
 	Nodes := LocalCluster.Nodes()
 	Gateways := LocalCluster.Gateways()
+
+	client := LocalCluster.Client
+	filter := kclient.Filter{
+		ObjectFilter: client.ObjectFilter(),
+	}
+	configFilter := kclient.Filter{
+		ObjectFilter: kubetypes.ComposeFilters(client.ObjectFilter(), a.inRevision),
+	}
+	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
 
 	// Config-only collections: these are only needed on the config cluster
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](client,

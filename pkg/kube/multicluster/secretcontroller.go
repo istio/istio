@@ -95,8 +95,6 @@ type ControllerOptions struct {
 	ClientBuilder   ClientBuilder
 	ConfigOverrides []func(*rest.Config)
 	Debugger        *krt.DebugHandler
-	Stop            <-chan struct{}
-	Opts            krt.OptionsBuilder
 }
 
 // Controller is the controller implementation for Secret resources
@@ -116,7 +114,7 @@ type Controller struct {
 
 	meshWatcher meshwatcher.WatcherCollection
 	debugger    *krt.DebugHandler
-	stop        <-chan struct{}
+	stop        chan struct{}
 	handlers    []handler
 
 	clusters krt.Collection[*Cluster]
@@ -172,7 +170,7 @@ func NewController(opts ControllerOptions) *Controller {
 		configOverrides: opts.ConfigOverrides,
 		meshWatcher:     opts.MeshConfig,
 		debugger:        opts.Debugger,
-		stop:            opts.Stop,
+		stop:            make(chan struct{}),
 	}
 
 	if opts.ClientBuilder != nil {
@@ -203,11 +201,12 @@ func NewController(opts ControllerOptions) *Controller {
 	})
 
 	// Also build the KRT-based clusters collection
-	controller.buildClustersCollection(opts)
+	kopts := krt.NewOptionsBuilder(controller.stop, "multicluster", opts.Debugger)
+	controller.buildClustersCollection(kopts)
 
 	// Build config cluster collections so they are available before Run() is called.
 	// The client's ObjectFilter is already set by the caller (server.go / fake.go).
-	clusterOpts := krt.NewOptionsBuilder(opts.Stop, fmt.Sprintf("cluster[%s]", opts.ClusterID), opts.Debugger)
+	clusterOpts := krt.NewOptionsBuilder(controller.stop, fmt.Sprintf("cluster[%s]", opts.ClusterID), opts.Debugger)
 	controller.configCluster.RemoteClusterCollections.Store(
 		buildClusterCollections(opts.Client, opts.ClusterID, clusterOpts),
 	)
@@ -215,29 +214,18 @@ func NewController(opts ControllerOptions) *Controller {
 	return controller
 }
 
-func (c *Controller) buildClustersCollection(options ControllerOptions) {
-	optsBuilder := options.Opts
-	if optsBuilder.Stop() == nil {
-		optsBuilder = krt.NewOptionsBuilder(options.Stop, "multicluster", options.Debugger)
-	}
-
+func (c *Controller) buildClustersCollection(optsBuilder krt.OptionsBuilder) {
 	Secrets := krt.WrapClient(c.secrets, optsBuilder.WithName("RemoteSecrets")...)
 
 	// Wait for secrets to sync and mark the cluster store as ready.
 	// This is also done in Run() for the queue-based path, but this goroutine
 	// ensures MarkSynced happens even when Run() hasn't been called yet.
-	stopCh := options.Stop
-	if stopCh == nil {
-		stopCh = optsBuilder.Stop()
-	}
-	if stopCh != nil {
-		go func() {
-			if !Secrets.WaitUntilSynced(stopCh) {
-				log.Errorf("Timed out waiting for remote secrets to sync")
-			}
-			c.cs.MarkSynced()
-		}()
-	}
+	go func() {
+		if !Secrets.WaitUntilSynced(c.stop) {
+			log.Errorf("Timed out waiting for remote secrets to sync")
+		}
+		c.cs.MarkSynced()
+	}()
 
 	c.clusters = krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*Cluster {
 		c.cs.MarkDependant(ctx) // Subscribe to updates from the clusterStore
@@ -295,6 +283,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
 	c.configClusterSyncers = c.handleAdd(c.configCluster)
 	go func() {
+		defer close(c.stop)
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
 		// we need to start here when local cluster secret watcher enabled
@@ -311,6 +300,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		c.queue.Run(stopCh)
 		c.handleDelete(c.configClusterID)
 	}()
+
 	return nil
 }
 

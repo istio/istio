@@ -2163,12 +2163,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 }
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
-	var cl kubeclient.Client
-	if options.MultiClusterController != nil {
-		cl = options.MultiClusterController.ConfigCluster().Client
-	} else {
-		cl = kubeclient.NewFakeClient()
-	}
+	cl := options.MultiClusterController.ConfigCluster().Client
 	for _, crd := range []schema.GroupVersionResource{
 		gvr.AuthorizationPolicy,
 		gvr.PeerAuthentication,
@@ -2201,24 +2196,6 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	}
 	if options.DomainSuffix == "" {
 		options.DomainSuffix = "company.com"
-	}
-
-	if options.MultiClusterController == nil {
-		stop := test.NewStop(t)
-		mcOpts := multicluster.ControllerOptions{
-			Client:          cl,
-			ClusterID:       options.ClusterID,
-			SystemNamespace: options.SystemNamespace,
-			MeshConfig:      options.MeshConfig,
-			ClientBuilder:   testingBuildClientsFromConfig(t),
-			Debugger:        options.Debugger,
-			Stop:            stop,
-			Opts:            krt.NewOptionsBuilder(stop, "ambient", options.Debugger),
-		}
-		options.MultiClusterController = multicluster.NewController(mcOpts)
-		if err := options.MultiClusterController.Run(stop); err != nil {
-			t.Fatalf("failed to run multicluster controller: %v", err)
-		}
 	}
 
 	idx := New(options)
@@ -2302,8 +2279,6 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		MeshConfig:      meshConfig,
 		ClientBuilder:   testingBuildClientsFromConfig(t),
 		Debugger:        debugger,
-		Stop:            stop,
-		Opts:            krt.NewOptionsBuilder(stop, "ambient", debugger),
 	}
 
 	o := Options{

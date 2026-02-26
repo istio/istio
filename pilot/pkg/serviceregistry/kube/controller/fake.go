@@ -133,7 +133,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 			ClusterID:       opts.ClusterID,
 			SystemNamespace: opts.SystemNamespace,
 			MeshConfig:      opts.MeshWatcher,
-			Stop:            stop,
+			Debugger:        options.KrtDebugger,
 		})
 		options.MultiClusterController = mcCtrl
 	}
