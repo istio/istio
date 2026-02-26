@@ -631,8 +631,8 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1 h1:Cf+ed5N8038zb
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
 sigs.k8s.io/controller-runtime v0.23.1 h1:TjJSM80Nf43Mg21+RCy3J70aj/W6KyvDtOlpKf+PupE=
 sigs.k8s.io/controller-runtime v0.23.1/go.mod h1:B6COOxKptp+YaUT5q4l6LqUJTRpizbgf9KSRNdQGns0=
-sigs.k8s.io/gateway-api v1.5.0-rc.2 h1:Xtm0C5Bvo2nqEVJ0MxhAF2JY1B5ueyVHTvvRfS9zW3k=
-sigs.k8s.io/gateway-api v1.5.0-rc.2/go.mod h1:GvCETiaMAlLym5CovLxGjS0NysqFk3+Yuq3/rh6QL2o=
+sigs.k8s.io/gateway-api v1.5.0-rc.3 h1:zLH7n2ZjTcTgM0QnE9IwdetfXgkN4nCkOulG4OIP0zg=
+sigs.k8s.io/gateway-api v1.5.0-rc.3/go.mod h1:GvCETiaMAlLym5CovLxGjS0NysqFk3+Yuq3/rh6QL2o=
 sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751 h1:02xtteK+vH0484psoJ8QuncdEF8e4ElliMBUuKoWWZY=
 sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751/go.mod h1:x4ydLmxI0lGo0g7DY3qkIImagLGq5JuPHaDu3NLDj8k=
 sigs.k8s.io/gateway-api/conformance v0.0.0-20260213173202-265da48be464 h1:iBn2pW14vXzRCe0A0EkBtgwnnPqdg2PBPE5RaRayFfc=

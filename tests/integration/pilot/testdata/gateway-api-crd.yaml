@@ -1,10 +1,10 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.5.0-rc.2"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.5.0-rc.3"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   labels:
     gateway.networking.k8s.io/policy: Direct
@@ -1423,7 +1423,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: gatewayclasses.gateway.networking.k8s.io
 spec:
@@ -1939,7 +1939,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: gateways.gateway.networking.k8s.io
 spec:
@@ -5269,7 +5269,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: grpcroutes.gateway.networking.k8s.io
 spec:
@@ -7549,7 +7549,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: httproutes.gateway.networking.k8s.io
 spec:
@@ -16097,7 +16097,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: listenersets.gateway.networking.k8s.io
 spec:
@@ -16878,7 +16878,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: referencegrants.gateway.networking.k8s.io
 spec:
@@ -17232,7 +17232,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: tcproutes.gateway.networking.k8s.io
 spec:
@@ -17989,7 +17989,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: tlsroutes.gateway.networking.k8s.io
 spec:
@@ -20360,7 +20360,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: udproutes.gateway.networking.k8s.io
 spec:
@@ -21117,7 +21117,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   labels:
     gateway.networking.k8s.io/policy: Direct
@@ -21726,7 +21726,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/3328
-    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    gateway.networking.k8s.io/bundle-version: v1.5.0-rc.3
     gateway.networking.k8s.io/channel: experimental
   name: xmeshes.gateway.networking.x-k8s.io
 spec:
@@ -21969,3 +21969,68 @@ status:
     plural: ""
   conditions: null
   storedVersions: null
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  annotations:
+    gateway.networking.k8s.io/bundle-version: v1.5.0-dev
+    gateway.networking.k8s.io/channel: standard
+  name: safe-upgrades.gateway.networking.k8s.io
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - apiextensions.k8s.io
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - '*'
+  validations:
+  - expression: object.spec.group != 'gateway.networking.k8s.io' || oldObject == null
+      || ( has(object.metadata.annotations) && object.metadata.annotations.exists(k,
+      k == 'gateway.networking.k8s.io/channel') && object.metadata.annotations['gateway.networking.k8s.io/channel']
+      == 'standard' ) || ( oldObject != null && has(oldObject.metadata.annotations)
+      && oldObject.metadata.annotations.exists(k, k == 'gateway.networking.k8s.io/channel')
+      && oldObject.metadata.annotations['gateway.networking.k8s.io/channel'] == 'experimental'
+      )
+    message: Installing experimental CRDs on top of standard channel CRDs is prohibited
+      by default. Uninstall ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io
+      to install experimental CRDs on top of standard channel CRDs.
+    reason: Invalid
+  - expression: object.spec.group != 'gateway.networking.k8s.io' || (has(object.metadata.annotations)
+      && object.metadata.annotations.exists(k, k == 'gateway.networking.k8s.io/bundle-version')
+      && !matches(object.metadata.annotations['gateway.networking.k8s.io/bundle-version'],
+      'v1.[0-4].\\d+') && !matches(object.metadata.annotations['gateway.networking.k8s.io/bundle-version'],
+      'v0'))
+    message: Installing CRDs with version before v1.5.0 is prohibited by default.
+      Uninstall ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io
+      to install older versions.
+    reason: Invalid
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  annotations:
+    gateway.networking.k8s.io/bundle-version: v1.5.0-dev
+    gateway.networking.k8s.io/channel: standard
+  name: safe-upgrades.gateway.networking.k8s.io
+spec:
+  matchResources:
+    resourceRules:
+    - apiGroups:
+      - apiextensions.k8s.io
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - customresourcedefinitions
+  policyName: safe-upgrades.gateway.networking.k8s.io
+  validationActions:
+  - Deny

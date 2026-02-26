@@ -107,7 +107,7 @@ require (
 	k8s.io/kubectl v0.35.0
 	k8s.io/utils v0.0.0-20260108192941-914a6e750570
 	sigs.k8s.io/controller-runtime v0.23.1
-	sigs.k8s.io/gateway-api v1.5.0-rc.2
+	sigs.k8s.io/gateway-api v1.5.0-rc.3
 	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751
 	sigs.k8s.io/gateway-api/conformance v0.0.0-20260213173202-265da48be464
 	sigs.k8s.io/knftables v0.0.19-0.20250623122614-e4307300abb5
