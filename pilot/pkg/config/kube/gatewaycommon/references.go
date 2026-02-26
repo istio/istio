@@ -12,32 +12,109 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package gatewaycommon
 
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	gateway "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/krt"
 )
+
+// ReferenceSet stores a variety of different types of resource, and allows looking them up as Gateway API references.
+// This is merely a convenience to avoid needing to lookup up a bunch of types all over the place.
+type ReferenceSet struct {
+	ErasedCollections map[config.GroupVersionKind]func(ctx krt.HandlerContext, name, namespace string) (any, bool)
+}
+
+func (s ReferenceSet) LocalPolicyTargetRef(ctx krt.HandlerContext, ref gatewayv1.LocalPolicyTargetReference, localNamespace string) (any, error) {
+	return s.internal(ctx, string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
+}
+
+func (s ReferenceSet) XLocalPolicyTargetRef(ctx krt.HandlerContext, ref gatewayx.LocalPolicyTargetReference, localNamespace string) (any, error) {
+	return s.internal(ctx, string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
+}
+
+func (s ReferenceSet) LocalPolicyRef(ctx krt.HandlerContext, ref gatewayv1.LocalObjectReference, localNamespace string) (any, error) {
+	return s.internal(ctx, string(ref.Name), string(ref.Group), string(ref.Kind), localNamespace)
+}
+
+func (s ReferenceSet) internal(ctx krt.HandlerContext, name, group, kind, localNamespace string) (any, error) {
+	t := NormalizeReference(&group, &kind, config.GroupVersionKind{})
+	lookup, f := s.ErasedCollections[t]
+	if !f {
+		return nil, fmt.Errorf("unsupported kind %v", kind)
+	}
+	if v, ok := lookup(ctx, name, localNamespace); ok {
+		return v, nil
+	}
+	return nil, fmt.Errorf("reference %v/%v (of kind %v) not found", localNamespace, name, kind)
+}
+
+func NewReferenceSet(opts ...func(r *ReferenceSet)) *ReferenceSet {
+	r := &ReferenceSet{ErasedCollections: make(map[config.GroupVersionKind]func(ctx krt.HandlerContext, name, namespace string) (any, bool))}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
+}
+
+func AddReference[T runtime.Object](c krt.Collection[T]) func(r *ReferenceSet) {
+	return func(r *ReferenceSet) {
+		g := schematypes.MustGVKFromType[T]()
+		r.ErasedCollections[g] = func(ctx krt.HandlerContext, name, namespace string) (any, bool) {
+			o := krt.FetchOne(ctx, c, krt.FilterKey(namespace+"/"+name))
+			if o == nil {
+				return nil, false
+			}
+			return *o, true
+		}
+	}
+}
+
+// NormalizeReference takes a generic Group/Kind (the API uses a few variations) and converts to a known GroupVersionKind.
+// Defaults for the group/kind are also passed.
+func NormalizeReference[G ~string, K ~string](group *G, kind *K, def config.GroupVersionKind) config.GroupVersionKind {
+	k := def.Kind
+	if kind != nil {
+		k = string(*kind)
+	}
+	g := def.Group
+	if group != nil {
+		g = string(*group)
+	}
+	gk := config.GroupVersionKind{
+		Group: g,
+		Kind:  k,
+	}
+	s, f := collections.All.FindByGroupKind(gk)
+	if f {
+		return s.GroupVersionKind()
+	}
+	return gk
+}
 
 // Reference stores a reference to a namespaced GVK, as used by ReferenceGrant
 type Reference struct {
 	Kind      config.GroupVersionKind
-	Namespace gateway.Namespace
+	Namespace gatewayv1.Namespace
 }
 
 func (refs Reference) String() string {
 	return refs.Kind.String() + "/" + string(refs.Namespace)
 }
 
+// ReferencePair holds a from-to pair of references.
 type ReferencePair struct {
 	To, From Reference
 }
@@ -46,11 +123,13 @@ func (r ReferencePair) String() string {
 	return fmt.Sprintf("%s->%s", r.From, r.To)
 }
 
+// ReferenceGrants holds a collection and index for ReferenceGrant objects.
 type ReferenceGrants struct {
-	collection krt.Collection[ReferenceGrant]
-	index      krt.Index[ReferencePair, ReferenceGrant]
+	Collection krt.Collection[ReferenceGrant]
+	Index      krt.Index[ReferencePair, ReferenceGrant]
 }
 
+// ReferenceGrantsCollection builds a krt collection from ReferenceGrant resources.
 func ReferenceGrantsCollection(referenceGrants krt.Collection[*gatewayv1beta1.ReferenceGrant], opts krt.OptionsBuilder) krt.Collection[ReferenceGrant] {
 	return krt.NewManyCollection(referenceGrants, func(ctx krt.HandlerContext, obj *gatewayv1beta1.ReferenceGrant) []ReferenceGrant {
 		rp := obj.Spec
@@ -59,7 +138,7 @@ func ReferenceGrantsCollection(referenceGrants krt.Collection[*gatewayv1beta1.Re
 			fromKey := Reference{
 				Namespace: from.Namespace,
 			}
-			ref := normalizeReference(&from.Group, &from.Kind, config.GroupVersionKind{})
+			ref := NormalizeReference(&from.Group, &from.Kind, config.GroupVersionKind{})
 			switch ref {
 			case gvk.KubernetesGateway, gvk.HTTPRoute, gvk.GRPCRoute, gvk.TLSRoute, gvk.TCPRoute, gvk.ListenerSet:
 				fromKey.Kind = ref
@@ -69,10 +148,10 @@ func ReferenceGrantsCollection(referenceGrants krt.Collection[*gatewayv1beta1.Re
 			}
 			for _, to := range rp.To {
 				toKey := Reference{
-					Namespace: gateway.Namespace(obj.Namespace),
+					Namespace: gatewayv1.Namespace(obj.Namespace),
 				}
 
-				ref := normalizeReference(&to.Group, &to.Kind, config.GroupVersionKind{})
+				ref := NormalizeReference(&to.Group, &to.Kind, config.GroupVersionKind{})
 				switch ref {
 				case gvk.ConfigMap, gvk.Secret, gvk.Service, gvk.InferencePool:
 					toKey.Kind = ref
@@ -98,6 +177,7 @@ func ReferenceGrantsCollection(referenceGrants krt.Collection[*gatewayv1beta1.Re
 	}, opts.WithName("ReferenceGrants")...)
 }
 
+// BuildReferenceGrants builds a ReferenceGrants with an index from a collection.
 func BuildReferenceGrants(collection krt.Collection[ReferenceGrant]) ReferenceGrants {
 	idx := krt.NewIndex(collection, "toFrom", func(o ReferenceGrant) []ReferencePair {
 		return []ReferencePair{{
@@ -106,11 +186,12 @@ func BuildReferenceGrants(collection krt.Collection[ReferenceGrant]) ReferenceGr
 		}}
 	})
 	return ReferenceGrants{
-		collection: collection,
-		index:      idx,
+		Collection: collection,
+		Index:      idx,
 	}
 }
 
+// ReferenceGrant represents a parsed ReferenceGrant resource.
 type ReferenceGrant struct {
 	Source      types.NamespacedName
 	From        Reference
@@ -127,6 +208,7 @@ func (g ReferenceGrant) ResourceName() string {
 	return g.Source.String() + "/" + g.From.String() + "/" + g.To.String() + "/" + nameKey
 }
 
+// SecretAllowed checks if a secret reference is allowed.
 func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, kind config.GroupVersionKind, resourceName string, namespace string) bool {
 	p, err := creds.ParseResourceName(resourceName, "", "", "")
 	if err != nil {
@@ -138,10 +220,10 @@ func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, kind config.Gr
 	if resourceSchemaFound {
 		resourceKind = resourceSchema.GroupVersionKind()
 	}
-	from := Reference{Kind: kind, Namespace: gateway.Namespace(namespace)}
-	to := Reference{Kind: resourceKind, Namespace: gateway.Namespace(p.Namespace)}
+	from := Reference{Kind: kind, Namespace: gatewayv1.Namespace(namespace)}
+	to := Reference{Kind: resourceKind, Namespace: gatewayv1.Namespace(p.Namespace)}
 	pair := ReferencePair{From: from, To: to}
-	grants := krt.FetchOrList(ctx, refs.collection, krt.FilterIndex(refs.index, pair))
+	grants := krt.FetchOrList(ctx, refs.Collection, krt.FilterIndex(refs.Index, pair))
 	for _, g := range grants {
 		if g.AllowAll || g.AllowedName == p.Name {
 			return true
@@ -150,17 +232,18 @@ func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, kind config.Gr
 	return false
 }
 
+// BackendAllowed checks if a backend reference is allowed.
 func (refs ReferenceGrants) BackendAllowed(ctx krt.HandlerContext,
 	k config.GroupVersionKind,
 	toGVK config.GroupVersionKind,
-	backendName gateway.ObjectName,
-	backendNamespace gateway.Namespace,
+	backendName gatewayv1.ObjectName,
+	backendNamespace gatewayv1.Namespace,
 	routeNamespace string,
 ) bool {
-	from := Reference{Kind: k, Namespace: gateway.Namespace(routeNamespace)}
+	from := Reference{Kind: k, Namespace: gatewayv1.Namespace(routeNamespace)}
 	to := Reference{Kind: toGVK, Namespace: backendNamespace}
 	pair := ReferencePair{From: from, To: to}
-	grants := krt.Fetch(ctx, refs.collection, krt.FilterIndex(refs.index, pair))
+	grants := krt.Fetch(ctx, refs.Collection, krt.FilterIndex(refs.Index, pair))
 	for _, g := range grants {
 		if g.AllowAll || g.AllowedName == string(backendName) {
 			return true

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package gatewaycommon
 
 import (
 	"context"
@@ -115,126 +115,6 @@ type DeploymentController struct {
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
 type patcher func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error
 
-// classInfo holds information about a gateway class
-type classInfo struct {
-	// controller name for this class
-	controller string
-	// controller label for this class
-	controllerLabel string
-	// description for this class
-	description string
-	// The key in the templates to use for this class
-	templates string
-
-	// defaultServiceType sets the default service type if one is not explicit set
-	defaultServiceType corev1.ServiceType
-
-	// disableRouteGeneration, if set, will make it so the controller ignores this class.
-	disableRouteGeneration bool
-
-	// supportsListenerSet declares whether a given class supports ListenerSet
-	supportsListenerSet bool
-
-	// disableNameSuffix, if set, will avoid appending -<class> to names
-	disableNameSuffix bool
-
-	// addressType is the default address type to report
-	addressType gateway.AddressType
-}
-
-var classInfos = getClassInfos()
-
-var builtinClasses = getBuiltinClasses()
-
-func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
-	res := map[gateway.ObjectName]gateway.GatewayController{
-		gateway.ObjectName(features.GatewayAPIDefaultGatewayClass): gateway.GatewayController(features.ManagedGatewayController),
-	}
-
-	if features.MultiNetworkGatewayAPI {
-		res[constants.RemoteGatewayClassName] = constants.UnmanagedGatewayController
-	}
-
-	if features.EnableAgentgateway {
-		res[constants.AgentgatewayClassName] = constants.ManagedAgentgatewayController
-	}
-
-	if features.EnableAmbientWaypoints {
-		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
-	}
-
-	// N.B Ambient e/w gateways are just fancy waypoints, but we want a different
-	// GatewayClass for better UX
-	if features.EnableAmbientMultiNetwork {
-		res[constants.EastWestGatewayClassName] = constants.ManagedGatewayEastWestController
-	}
-	return res
-}
-
-func getClassInfos() map[gateway.GatewayController]classInfo {
-	m := map[gateway.GatewayController]classInfo{
-		gateway.GatewayController(features.ManagedGatewayController): {
-			controller:          features.ManagedGatewayController,
-			description:         "The default Istio GatewayClass",
-			templates:           "kube-gateway",
-			defaultServiceType:  corev1.ServiceTypeLoadBalancer,
-			addressType:         gateway.HostnameAddressType,
-			controllerLabel:     constants.ManagedGatewayControllerLabel,
-			supportsListenerSet: true,
-		},
-	}
-
-	if features.MultiNetworkGatewayAPI {
-		m[constants.UnmanagedGatewayController] = classInfo{
-			// This represents a gateway that our control plane cannot discover directly via the API server.
-			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
-			controller:             constants.UnmanagedGatewayController,
-			description:            "Remote to this cluster. Does not deploy or affect configuration.",
-			disableRouteGeneration: true,
-			addressType:            gateway.HostnameAddressType,
-			supportsListenerSet:    false,
-		}
-	}
-	if features.EnableAmbientWaypoints {
-		m[constants.ManagedGatewayMeshController] = classInfo{
-			controller:          constants.ManagedGatewayMeshController,
-			description:         "The default Istio waypoint GatewayClass",
-			templates:           "waypoint",
-			disableNameSuffix:   true,
-			defaultServiceType:  corev1.ServiceTypeClusterIP,
-			supportsListenerSet: false,
-			// Report both. Consumers of the gateways can choose which they want.
-			// In particular, Istio across different versions consumes different address types, so this retains compat
-			addressType:     "",
-			controllerLabel: constants.ManagedGatewayMeshControllerLabel,
-		}
-	}
-	if features.EnableAgentgateway {
-		m[constants.ManagedAgentgatewayController] = classInfo{
-			controller:          constants.ManagedAgentgatewayController,
-			description:         "Istio with Agentgateway.",
-			templates:           "agentgateway",
-			defaultServiceType:  corev1.ServiceTypeLoadBalancer,
-			addressType:         gateway.HostnameAddressType,
-			controllerLabel:     constants.ManagedGatewayControllerLabel,
-			supportsListenerSet: true,
-		}
-	}
-
-	if features.EnableAmbientMultiNetwork {
-		m[constants.ManagedGatewayEastWestController] = classInfo{
-			controller:         constants.ManagedGatewayEastWestController,
-			description:        "The default GatewayClass for Istio East West Gateways",
-			templates:          "waypoint",
-			disableNameSuffix:  true,
-			defaultServiceType: corev1.ServiceTypeLoadBalancer,
-			addressType:        "",
-			controllerLabel:    constants.ManagedGatewayEastWestControllerLabel,
-		}
-	}
-	return m
-}
-
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
 func NewDeploymentController(
@@ -307,7 +187,7 @@ func NewDeploymentController(
 			dc.queue.AddObject(gw)
 		}
 		// Or it could also be a global GatewayClass config
-		classDefaults, classDefaultsF := o.GetLabels()[gatewayClassDefaults]
+		classDefaults, classDefaultsF := o.GetLabels()[GatewayClassDefaults]
 		if classDefaultsF && o.GetNamespace() == dc.systemNamespace {
 			for _, gw := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 				if string(gw.Spec.GatewayClassName) == classDefaults {
@@ -455,16 +335,16 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	if gc := d.gatewayClasses.Get(string(gw.Spec.GatewayClassName), ""); gc != nil {
 		controller = gc.Spec.ControllerName
 	} else {
-		if builtin, f := builtinClasses[gw.Spec.GatewayClassName]; f {
+		if builtin, f := BuiltinClasses[gw.Spec.GatewayClassName]; f {
 			controller = builtin
 		}
 	}
-	ci, f := classInfos[controller]
+	ci, f := ClassInfos[controller]
 	if !f {
 		log.Debugf("skipping unknown controller %q", controller)
 		return nil
 	}
-	log.Infof("reconciling gateway with controller %s", ci.controller)
+	log.Infof("reconciling gateway with controller %s", ci.Controller)
 
 	// find the tag or revision indicated by the object
 	if !d.tagWatcher.IsMine(gw.ObjectMeta) {
@@ -477,10 +357,10 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	return d.configureIstioGateway(log, *gw, ci)
 }
 
-func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway, gi classInfo) error {
+func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway, gi ClassInfo) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
-	if gi.templates == "" {
+	if gi.Templates == "" {
 		log.Debug("skip gateway class without template")
 		return nil
 	}
@@ -501,9 +381,9 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	proxyUID, proxyGID := inject.GetProxyIDs(ns)
 
-	defaultName := getDefaultName(gw.Name, &gw.Spec, gi.disableNameSuffix)
+	defaultName := GetDefaultName(gw.Name, &gw.Spec, gi.DisableNameSuffix)
 
-	serviceType := gi.defaultServiceType
+	serviceType := gi.DefaultServiceType
 	if o, f := gw.Annotations[annotation.NetworkingServiceType.Name]; f {
 		serviceType = corev1.ServiceType(o)
 	}
@@ -511,13 +391,13 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	if d.listenerSets != nil {
 		sets := d.listenerSetByParent.Lookup(config.NamespacedName(&gw))
 		for _, set := range sets {
-			if !namespaceAcceptedByAllowListeners(set.Namespace, &gw, func(s string) *corev1.Namespace {
+			if !NamespaceAcceptedByAllowListeners(set.Namespace, &gw, func(s string) *corev1.Namespace {
 				return d.namespaces.Get(s, "")
 			}) {
 				continue
 			}
 			for _, listener := range set.Spec.Listeners {
-				s := convertListenerSetToListener(listener)
+				s := ConvertListenerSetToListener(listener)
 				listenersFromListenerSets = append(listenersFromListenerSets, s)
 			}
 		}
@@ -548,8 +428,8 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		InfrastructureLabels:      gw.GetLabels(),
 		InfrastructureAnnotations: gw.GetAnnotations(),
 		GatewayNameLabel:          label.IoK8sNetworkingGatewayGatewayName.Name,
-		IsEastWestGateway:         features.EnableAmbientMultiNetwork && gi.controller == constants.ManagedGatewayEastWestController,
-		ControllerLabel:           gi.controllerLabel,
+		IsEastWestGateway:         features.EnableAmbientMultiNetwork && gi.Controller == constants.ManagedGatewayEastWestController,
+		ControllerLabel:           gi.ControllerLabel,
 	}
 
 	// Default to the gateway labels/annotations and overwrite if infrastructure labels/annotations are set
@@ -566,14 +446,14 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
 	}
 
-	rendered, err := d.render(gi.templates, input)
+	rendered, err := d.render(gi.Templates, input)
 	if err != nil {
 		// Just log error, we do not need to retry since rendering errors are not ephemeral errors
 		log.Errorf("error rendering templates: %v", err)
 		return nil
 	}
 	for _, t := range rendered {
-		if err := d.apply(gi.controller, t, input); err != nil {
+		if err := d.apply(gi.Controller, t, input); err != nil {
 			return fmt.Errorf("apply failed: %v", err)
 		}
 	}
@@ -717,7 +597,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 	var templateOverlays []map[string]string
 
 	classConfigs := d.configMaps.List(d.systemNamespace, klabels.SelectorFromValidatedSet(map[string]string{
-		gatewayClassDefaults: string(mi.Spec.GatewayClassName),
+		GatewayClassDefaults: string(mi.Spec.GatewayClassName),
 	}))
 	if len(classConfigs) > 0 {
 		classConfig := controllers.OldestObject(classConfigs)
