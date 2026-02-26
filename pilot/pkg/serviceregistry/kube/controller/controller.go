@@ -214,8 +214,7 @@ type Controller struct {
 	crdHandlers []func(name string)
 	handlers    model.ControllerHandlers
 
-	stop   chan struct{}
-	mcStop chan struct{}
+	stop chan struct{}
 
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
@@ -325,7 +324,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
 	if features.EnableAmbient && options.ConfigCluster {
-		c.mcStop = make(chan struct{})
 		c.ambientIndex = ambient.New(ambient.Options{
 			SystemNamespace:        options.SystemNamespace,
 			DomainSuffix:           options.DomainSuffix,
@@ -744,9 +742,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 func (c *Controller) Stop() {
 	if c.stop != nil {
 		close(c.stop)
-	}
-	if c.mcStop != nil {
-		close(c.mcStop)
 	}
 }
 

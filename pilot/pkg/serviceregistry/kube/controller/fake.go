@@ -126,16 +126,14 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 
 	// Create a multicluster controller when ambient is enabled.
 	// This matches the production path where the mc controller is always created in server.go.
-	var mcCtrl *multicluster.Controller
 	if features.EnableAmbient && opts.ConfigCluster {
-		mcCtrl = multicluster.NewController(multicluster.ControllerOptions{
+		options.MultiClusterController = multicluster.NewController(multicluster.ControllerOptions{
 			Client:          opts.Client,
 			ClusterID:       opts.ClusterID,
 			SystemNamespace: opts.SystemNamespace,
 			MeshConfig:      opts.MeshWatcher,
 			Debugger:        options.KrtDebugger,
 		})
-		options.MultiClusterController = mcCtrl
 	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)
@@ -147,11 +145,6 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 	t.Cleanup(func() {
 		c.client.Shutdown()
 	})
-	if c.mcStop != nil {
-		t.Cleanup(func() {
-			close(c.mcStop)
-		})
-	}
 	if !opts.SkipRun {
 		t.Cleanup(func() {
 			assert.NoError(t, queue.WaitForClose(c.queue, time.Second*5))
@@ -170,8 +163,8 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 	// Run the multicluster controller after informers are started and ambient handlers
 	// are registered (via NewController above). This starts the queue so it can be
 	// properly shut down when stop is closed, preventing goroutine leaks.
-	if mcCtrl != nil {
-		assert.NoError(t, mcCtrl.Run(stop))
+	if options.MultiClusterController != nil {
+		assert.NoError(t, options.MultiClusterController.Run(stop))
 	}
 	var fx *xdsfake.Updater
 	if x, ok := xdsUpdater.(*xdsfake.Updater); ok {
