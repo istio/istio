@@ -103,6 +103,15 @@ var (
 	EnableDebugEndpointAuth = env.Register("ENABLE_DEBUG_ENDPOINT_AUTH", true,
 		"Enforce namespace-based authorization on debug endpoints. Non-system namespaces restricted to config_dump/ndsz/edsz for same-namespace proxies only.").Get()
 
+	DebugEndpointAuthAllowedNamespaces = func() sets.String {
+		v := env.Register(
+			"DEBUG_ENDPOINT_AUTH_ALLOWED_NAMESPACES",
+			"",
+			"Comma separated list of namespaces to allow access to debug endpoints. Only used if ENABLE_DEBUG_ENDPOINT_AUTH is enabled. The system namespace"+
+				"is always authorized.").Get()
+		return sets.New(strings.Split(v, ",")...)
+	}()
+
 	EnableServiceEntrySelectPods = env.Register("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
