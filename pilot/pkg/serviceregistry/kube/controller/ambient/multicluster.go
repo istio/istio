@@ -260,7 +260,7 @@ func (a *index) buildGlobalCollections(
 		opts.WithName("GlobalMergedServiceInfos")...,
 	)
 
-	GobalWorkloadServicesWithClusterByCluster := multicluster.NestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
+	GlobalWorkloadServicesWithClusterByCluster := multicluster.NestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
 
 	LocalNamespacesInfo := krt.NewCollection(LocalNamespaces, func(ctx krt.HandlerContext, ns *v1.Namespace) *model.NamespaceInfo {
 		return &model.NamespaceInfo{
@@ -292,7 +292,7 @@ func (a *index) buildGlobalCollections(
 		WaypointsByCluster,
 		LocalWorkloadServices,
 		GlobalWorkloadServicesWithCluster,
-		GobalWorkloadServicesWithClusterByCluster,
+		GlobalWorkloadServicesWithClusterByCluster,
 		GlobalNetworks,
 		options.ClusterID,
 		options.Flags,
