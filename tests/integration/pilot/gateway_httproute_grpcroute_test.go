@@ -86,7 +86,7 @@ spec:
 			// Test HTTP traffic
 			t.NewSubTest("http-traffic").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
-					return apps.A[0].Call(echo.CallOptions{
+					_, err := apps.A[0].Call(echo.CallOptions{
 						Port: echo.Port{
 							Protocol:    protocol.HTTP,
 							ServicePort: 80,
@@ -99,13 +99,14 @@ spec:
 						Address: gatewayAddr,
 						Check:   check.OK(),
 					})
+					return err
 				})
 			})
 
 			// Test gRPC traffic
 			t.NewSubTest("grpc-traffic").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
-					return apps.A[0].Call(echo.CallOptions{
+					_, err := apps.A[0].Call(echo.CallOptions{
 						Port: echo.Port{
 							Protocol:    protocol.GRPC,
 							ServicePort: 80,
@@ -117,6 +118,7 @@ spec:
 						Address: gatewayAddr,
 						Check:   check.OK(),
 					})
+					return err
 				})
 			})
 		})
