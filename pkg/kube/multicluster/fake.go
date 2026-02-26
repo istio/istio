@@ -34,7 +34,7 @@ func (f *Fake) Add(id cluster.ID, client kube.Client, stop chan struct{}) {
 		handler.clusterAdded(&Cluster{
 			ID:                       id,
 			Client:                   client,
-			KubeConfigSha:            [32]byte{},
+			kubeConfigSha:            [32]byte{},
 			stop:                     stop,
 			initialSync:              atomic.NewBool(false),
 			initialSyncTimeout:       atomic.NewBool(false),

@@ -407,11 +407,11 @@ func (c *Controller) createRemoteCluster(secretKey types.NamespacedName, kubeCon
 	return &Cluster{
 		ID:                       cluster.ID(clusterID),
 		Client:                   clients,
-		SourceSecret:             secretKey,
+		sourceSecret:             secretKey,
 		stop:                     make(chan struct{}),
 		initialSync:              atomic.NewBool(false),
 		initialSyncTimeout:       atomic.NewBool(false),
-		KubeConfigSha:            sha256.Sum256(kubeConfig),
+		kubeConfigSha:            sha256.Sum256(kubeConfig),
 		syncStatusCallback:       c.onClusterSyncStatusChange,
 		SyncedCh:                 make(chan struct{}),
 		remoteClusterCollections: atomic.NewPointer[remoteClusterCollections](nil),
@@ -442,7 +442,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			action = Update
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
-			if bytes.Equal(kubeConfigSha[:], prev.KubeConfigSha[:]) {
+			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
 				logger.Infof("skipping update (kubeconfig are identical)")
 				continue
 			}

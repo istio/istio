@@ -48,10 +48,9 @@ type Cluster struct {
 	// Client for accessing the cluster.
 	Client kube.Client
 
-	// SourceSecret identifies the secret that produced this cluster (for remote clusters).
-	SourceSecret types.NamespacedName
-
-	KubeConfigSha [sha256.Size]byte
+	kubeConfigSha [sha256.Size]byte
+	// sourceSecret identifies the secret that produced this cluster (for remote clusters).
+	sourceSecret types.NamespacedName
 
 	stop chan struct{}
 	// initialSync is marked when RunAndWait completes
@@ -161,7 +160,7 @@ func (a ACTION) String() string {
 // For remote clusters, it builds new collections, invokes handler callbacks, and manages the make-before-break
 // lifecycle via the swap parameter.
 // This should be run in a goroutine.
-func (c *Cluster) Run(meshConfig meshwatcher.WatcherCollection, handlers []handler, action ACTION, swap *PendingClusterSwap, debugger *krt.DebugHandler) {
+func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, handlers []handler, action ACTION, swap *PendingClusterSwap, debugger *krt.DebugHandler) {
 	// Check and see if this is a local cluster with pre-existing collections
 	if c.remoteClusterCollections.Load() != nil {
 		log.Infof("Configuring cluster %s with existing informers", c.ID)
@@ -216,9 +215,8 @@ func (c *Cluster) Run(meshConfig meshwatcher.WatcherCollection, handlers []handl
 		namespaces.ShutdownHandlers()
 	}()
 	// This will start a namespace informer and wait for it to be ready.
-	// Run() is always called from a goroutine, so blocking is OK here.
-	nsFilter := filter.NewDiscoveryNamespacesFilter(namespaces, meshConfig, c.stop)
-	kube.SetObjectFilter(c.Client, nsFilter)
+	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, c.stop)
+	kube.SetObjectFilter(c.Client, filter)
 
 	c.remoteClusterCollections.Store(buildClusterCollections(c.Client, c.ID, opts))
 
@@ -235,12 +233,14 @@ func (c *Cluster) Run(meshConfig meshwatcher.WatcherCollection, handlers []handl
 
 	if !c.Client.RunAndWait(c.stop) {
 		log.Warnf("remote cluster %s failed to sync", c.ID)
+		// Signal that sync is complete (failed)
 		c.closeSyncedCh()
 		return
 	}
 	for _, h := range syncers {
 		if !kube.WaitForCacheSync("cluster "+string(c.ID), c.stop, h.HasSynced) {
 			log.Warnf("remote cluster %s failed to sync handler", c.ID)
+			// Signal that sync is complete (failed)
 			c.closeSyncedCh()
 			return
 		}
@@ -258,6 +258,7 @@ func (c *Cluster) Run(meshConfig meshwatcher.WatcherCollection, handlers []handl
 	for _, syncer := range krtSyncers {
 		if !syncer.WaitUntilSynced(c.stop) {
 			log.Warnf("remote cluster %s failed to sync KRT collection %v", c.ID, syncer)
+			// Signal that sync is complete (failed)
 			c.closeSyncedCh()
 			return
 		}
