@@ -214,6 +214,7 @@ type Controller struct {
 	crdHandlers []func(name string)
 	handlers    model.ControllerHandlers
 
+	// This is only used for test
 	stop chan struct{}
 
 	sync.RWMutex
