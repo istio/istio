@@ -18,7 +18,6 @@ metadata:
   namespace: bookinfo-ingress
 spec: null
 status:
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted

@@ -21,7 +21,6 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -295,7 +294,6 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted

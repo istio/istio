@@ -18,7 +18,6 @@ metadata:
   namespace: invalid-gateway-address
 spec: null
 status:
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: only Hostname is supported, ignoring [1.2.3.4]
@@ -41,7 +40,6 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -93,7 +91,6 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -143,7 +140,6 @@ metadata:
   namespace: istio-system
 spec: null
 status:
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -197,7 +193,6 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -250,7 +245,6 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -302,7 +296,6 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -355,7 +348,6 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -408,7 +400,6 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -458,7 +449,6 @@ metadata:
   namespace: istio-system
 spec: null
 status:
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -508,7 +498,6 @@ metadata:
   namespace: istio-system
 spec: null
 status:
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -554,7 +543,6 @@ metadata:
   namespace: istio-system
 spec: null
 status:
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -606,7 +594,6 @@ metadata:
   namespace: istio-system
 spec: null
 status:
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -652,7 +639,6 @@ metadata:
   namespace: istio-system
 spec: null
 status:
-  attachedListenerSets: 0
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
