@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package gatewaycommon
 
 import (
 	"fmt"
@@ -27,8 +27,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var log = istiolog.RegisterScope("gatewaycommon", "gatewaycommon controller")
 
 // GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers
 type GatewayContext struct {
@@ -38,6 +41,16 @@ type GatewayContext struct {
 
 func NewGatewayContext(ps *model.PushContext, cluster cluster.ID) GatewayContext {
 	return GatewayContext{ps, cluster}
+}
+
+// PushContext returns the underlying PushContext.
+func (gc GatewayContext) PushContext() *model.PushContext {
+	return gc.ps
+}
+
+// Cluster returns the cluster ID.
+func (gc GatewayContext) Cluster() cluster.ID {
+	return gc.cluster
 }
 
 // ResolveGatewayInstances attempts to resolve all instances that a gateway will be exposed on.
@@ -104,7 +117,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 				}
 			} else {
 				instancesByPort := gc.ps.ServiceEndpoints(svcKey)
-				if instancesEmpty(instancesByPort) {
+				if InstancesEmpty(instancesByPort) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {
 					hintPort := sets.New[string]()
@@ -150,7 +163,8 @@ func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {
 	return gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)][namespace]
 }
 
-func instancesEmpty(m map[int][]*model.IstioEndpoint) bool {
+// InstancesEmpty returns true if there are no instances in any port.
+func InstancesEmpty(m map[int][]*model.IstioEndpoint) bool {
 	for _, instances := range m {
 		if len(instances) > 0 {
 			return false

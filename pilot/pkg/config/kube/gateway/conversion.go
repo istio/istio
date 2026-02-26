@@ -40,6 +40,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/credentials"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
@@ -51,7 +52,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
@@ -64,10 +64,8 @@ import (
 )
 
 const (
-	gatewayTLSTerminateModeKey = "gateway.istio.io/tls-terminate-mode"
-	addressTypeOverride        = "networking.istio.io/address-type"
-	gatewayClassDefaults       = "gateway.istio.io/defaults-for-class"
-	gatewayTLSCipherSuites     = "gateway.istio.io/tls-cipher-suites"
+	addressTypeOverride    = "networking.istio.io/address-type"
+	gatewayTLSCipherSuites = "gateway.istio.io/tls-cipher-suites"
 )
 
 func sortConfigByCreationTime(configs []config.Config) {
@@ -506,7 +504,7 @@ var allowedParentReferences = sets.New(
 )
 
 func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
-	ref := normalizeReference(p.Group, p.Kind, gvk.KubernetesGateway)
+	ref := gatewaycommon.NormalizeReference(p.Group, p.Kind, gvk.KubernetesGateway)
 	if !allowedParentReferences.Contains(ref) {
 		return parentKey{}, fmt.Errorf("unsupported parent: %v/%v", p.Group, p.Kind)
 	}
@@ -1023,7 +1021,7 @@ type inferencePoolConfig struct {
 func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 	enforceRefGrant bool, k config.GroupVersionKind,
 ) (*istio.Destination, *inferencePoolConfig, *ConfigError) {
-	ref := normalizeReference(to.Group, to.Kind, gvk.Service)
+	ref := gatewaycommon.NormalizeReference(to.Group, to.Kind, gvk.Service)
 	// check if the reference is allowed
 	if enforceRefGrant {
 		if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
@@ -1658,13 +1656,6 @@ func filteredReferences(parents []routeParentReference) []routeParentReference {
 	return ret
 }
 
-func getDefaultName(name string, kgw *k8s.GatewaySpec, disableNameSuffix bool) string {
-	if disableNameSuffix {
-		return name
-	}
-	return fmt.Sprintf("%v-%v", name, kgw.GatewayClassName)
-}
-
 // Gateway currently requires a listener (https://github.com/kubernetes-sigs/gateway-api/pull/1596).
 // We don't *really* care about the listener, but it may make sense to add a warning if users do not
 // configure it in an expected way so that we have consistency and can make changes in the future as needed.
@@ -1702,10 +1693,10 @@ func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
 }
 
 func reportGatewayStatus(
-	r *GatewayContext,
+	r *gatewaycommon.GatewayContext,
 	obj *k8s.Gateway,
 	gs *k8s.GatewayStatus,
-	classInfo classInfo,
+	classInfo gatewaycommon.ClassInfo,
 	gatewayServices []string,
 	servers []*istio.Server,
 	listenerSetCount int,
@@ -1758,7 +1749,7 @@ func reportGatewayStatus(
 
 	addressesToReport := external
 	if len(addressesToReport) == 0 {
-		wantAddressType := classInfo.addressType
+		wantAddressType := classInfo.AddressType
 		if override, ok := obj.Annotations[addressTypeOverride]; ok {
 			wantAddressType = k8s.AddressType(override)
 		}
@@ -1806,7 +1797,7 @@ func reportGatewayStatus(
 }
 
 func reportListenerSetStatus(
-	r *GatewayContext,
+	r *gatewaycommon.GatewayContext,
 	parentGwObj *k8s.Gateway,
 	obj *gatewayx.XListenerSet,
 	gs *gatewayx.ListenerSetStatus,
@@ -1944,46 +1935,9 @@ func reportNotAllowedListenerSet(status *gatewayx.ListenerSetStatus, obj *gatewa
 	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
 }
 
-// IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
-// This is based on the address field of the spec. If address is set with a Hostname type, it should point to an existing
-// Service that handles the gateway traffic. If it is not set, or refers to only a single IP, we will consider it managed and provision the Service.
-// If there is an IP, we will set the `loadBalancerIP` type.
-// While there is no defined standard for this in the API yet, it is tracked in https://github.com/kubernetes-sigs/gateway-api/issues/892.
-// So far, this mirrors how out of clusters work (address set means to use existing IP, unset means to provision one),
-// and there has been growing consensus on this model for in cluster deployments.
-//
-// Currently, the supported options are:
-// * 1 Hostname value. This can be short Service name ingress, or FQDN ingress.ns.svc.cluster.local, example.com. If its a non-k8s FQDN it is a ServiceEntry.
-// * 1 IP address. This is managed, with IP explicit
-// * Nothing. This is managed, with IP auto assigned
-//
-// Not supported:
-// Multiple hostname/IP - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
-// Mixed hostname and IP - doesn't make sense; user should define the IP in service
-// NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
-//
-//	which users can add to the Gateway.
-//
-// If manual deployments are disabled, IsManaged() always returns true.
-func IsManaged(gw *k8s.GatewaySpec) bool {
-	if !features.EnableGatewayAPIManualDeployment {
-		return true
-	}
-	if len(gw.Addresses) == 0 {
-		return true
-	}
-	if len(gw.Addresses) > 1 {
-		return false
-	}
-	if t := gw.Addresses[0].Type; t == nil || *t == k8s.IPAddressType {
-		return true
-	}
-	return false
-}
-
-func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info classInfo) ([]string, *ConfigError) {
-	if IsManaged(&kgw.Spec) {
-		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], getDefaultName(kgw.Name, &kgw.Spec, info.disableNameSuffix))
+func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewaycommon.ClassInfo) ([]string, *ConfigError) {
+	if gatewaycommon.IsManaged(&kgw.Spec) {
+		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], gatewaycommon.GetDefaultName(kgw.Name, &kgw.Spec, info.DisableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, kgw.Namespace, domainSuffix)}, nil
 	}
 	gatewayServices := []string{}
@@ -2026,7 +1980,7 @@ func buildListener(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	namespaces krt.Collection[*corev1.Namespace],
 	obj controllers.Object,
 	status []k8s.ListenerStatus,
@@ -2166,7 +2120,7 @@ func buildTLS(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	gatewayTLS *k8s.TLSConfig,
 	tls *k8s.ListenerTLSConfig,
 	gw controllers.Object,
@@ -2189,7 +2143,7 @@ func buildTLS(
 	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
 		if tls.Options != nil {
-			switch tls.Options[gatewayTLSTerminateModeKey] {
+			switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
 			case "MUTUAL":
 				out.Mode = istio.ServerTLSSettings_MUTUAL
 			case "OPTIONAL_MUTUAL":
@@ -2271,7 +2225,7 @@ func buildTLS(
 			out.Mode = istio.ServerTLSSettings_MUTUAL
 			out.CaCertCredentialName = cred.ResourceName
 			if tls.Options != nil {
-				switch tls.Options[gatewayTLSTerminateModeKey] {
+				switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
 				case "MUTUAL":
 					out.Mode = istio.ServerTLSSettings_MUTUAL
 				case "OPTIONAL_MUTUAL":
@@ -2300,7 +2254,7 @@ func buildSecretReference(
 	gw controllers.Object,
 	secrets krt.Collection[*corev1.Secret],
 ) (string, *ConfigError) {
-	if normalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
+	if gatewaycommon.NormalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
 		return "", &ConfigError{
 			Reason:  InvalidTLS,
 			Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", secretObjectReferenceString(ref)),
@@ -2352,7 +2306,7 @@ func buildCaCertificateReference(
 	namespace := ptr.OrDefault((*string)(ref.Namespace), gw.GetNamespace())
 	name := string(ref.Name)
 
-	switch normalizeReference(&ref.Group, &ref.Kind, config.GroupVersionKind{}) {
+	switch gatewaycommon.NormalizeReference(&ref.Group, &ref.Kind, config.GroupVersionKind{}) {
 	case gvk.ConfigMap:
 		resourceType = creds.KubernetesConfigMapType
 		resourceKind = kind.ConfigMap
@@ -2489,45 +2443,6 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 	return namespaces
 }
 
-// namespaceAcceptedByAllowListeners determines a list of allowed namespaces for a given AllowedListener
-func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8s.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
-	lr := parent.Spec.AllowedListeners
-	// Default allows none
-	if lr == nil || lr.Namespaces == nil {
-		return false
-	}
-	n := *lr.Namespaces
-	if n.From != nil {
-		switch *n.From {
-		case k8s.NamespacesFromAll:
-			return true
-		case k8s.NamespacesFromSame:
-			return localNamespace == parent.Namespace
-		case k8s.NamespacesFromNone:
-			return false
-		case k8s.NamespacesFromSelector:
-			// Fallthrough
-		default:
-			// Unknown?
-			return false
-		}
-	}
-	if lr.Namespaces.Selector == nil {
-		// Should never happen, invalid config
-		return false
-	}
-	ls, err := metav1.LabelSelectorAsSelector(lr.Namespaces.Selector)
-	if err != nil {
-		return false
-	}
-	localNamespaceObject := lookupNamespace(localNamespace)
-	if localNamespaceObject == nil {
-		// Couldn't find the namespace
-		return false
-	}
-	return ls.Matches(toNamespaceSet(localNamespaceObject.Name, localNamespaceObject.Labels))
-}
-
 func humanReadableJoin(ss []string) string {
 	switch len(ss) {
 	case 0:
@@ -2592,28 +2507,6 @@ func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	}
 }
 
-// normalizeReference takes a generic Group/Kind (the API uses a few variations) and converts to a known GroupVersionKind.
-// Defaults for the group/kind are also passed.
-func normalizeReference[G ~string, K ~string](group *G, kind *K, def config.GroupVersionKind) config.GroupVersionKind {
-	k := def.Kind
-	if kind != nil {
-		k = string(*kind)
-	}
-	g := def.Group
-	if group != nil {
-		g = string(*group)
-	}
-	gk := config.GroupVersionKind{
-		Group: g,
-		Kind:  k,
-	}
-	s, f := collections.All.FindByGroupKind(gk)
-	if f {
-		return s.GroupVersionKind()
-	}
-	return gk
-}
-
 func defaultString[T ~string](s *T, def string) string {
 	if s == nil {
 		return def
@@ -2664,11 +2557,11 @@ func GetStatus[I, IS any](spec I) IS {
 func GetBackendRef[I any](spec I) (config.GroupVersionKind, *k8s.Namespace, k8s.ObjectName) {
 	switch t := any(spec).(type) {
 	case k8s.HTTPBackendRef:
-		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+		return gatewaycommon.NormalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
 	case k8s.GRPCBackendRef:
-		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+		return gatewaycommon.NormalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
 	case k8s.BackendRef:
-		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+		return gatewaycommon.NormalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
 	default:
 		log.Fatalf("unknown GetBackendRef type %T", t)
 		return config.GroupVersionKind{}, nil, ""

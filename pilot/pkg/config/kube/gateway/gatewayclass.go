@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -47,7 +48,7 @@ func NewClassController(kc kube.Client) *ClassController {
 
 	gc.classes = kclient.New[*k8sv1.GatewayClass](kc)
 	gc.classes.AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
-		_, f := builtinClasses[k8sv1.ObjectName(o.GetName())]
+		_, f := gatewaycommon.BuiltinClasses[k8sv1.ObjectName(o.GetName())]
 		return f
 	}))
 	return gc
@@ -61,7 +62,7 @@ func (c *ClassController) Run(stop <-chan struct{}) {
 
 func (c *ClassController) Reconcile(types.NamespacedName) error {
 	err := istiomultierror.New()
-	for class := range builtinClasses {
+	for class := range gatewaycommon.BuiltinClasses {
 		err = multierror.Append(err, c.reconcileClass(class))
 	}
 	return err.ErrorOrNil()
@@ -72,10 +73,10 @@ func (c *ClassController) reconcileClass(class k8sv1.ObjectName) error {
 		log.Debugf("GatewayClass/%v already exists, no action", class)
 		return nil
 	}
-	controller := builtinClasses[class]
-	classInfo, f := classInfos[controller]
+	controller := gatewaycommon.BuiltinClasses[class]
+	classInfo, f := gatewaycommon.ClassInfos[controller]
 	if !f {
-		// Should only happen when ambient is disabled; otherwise builtinClasses and classInfos should be consistent
+		// Should only happen when ambient is disabled; otherwise BuiltinClasses and ClassInfos should be consistent
 		return nil
 	}
 	gc := &k8sv1.GatewayClass{
@@ -83,8 +84,8 @@ func (c *ClassController) reconcileClass(class k8sv1.ObjectName) error {
 			Name: string(class),
 		},
 		Spec: k8sv1.GatewayClassSpec{
-			ControllerName: k8sv1.GatewayController(classInfo.controller),
-			Description:    &classInfo.description,
+			ControllerName: k8sv1.GatewayController(classInfo.Controller),
+			Description:    &classInfo.Description,
 		},
 	}
 	_, err := c.classes.Create(gc)

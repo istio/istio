@@ -35,6 +35,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -58,6 +59,8 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 
 var ports = []*model.Port{
 	{
@@ -614,8 +617,8 @@ func init() {
 	features.EnableAmbientMultiNetwork = true
 	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
-	classInfos = getClassInfos()
-	builtinClasses = getBuiltinClasses()
+	gatewaycommon.ClassInfos = gatewaycommon.GetClassInfos()
+	gatewaycommon.BuiltinClasses = gatewaycommon.GetBuiltinClasses()
 }
 
 type TestStatusQueue struct {
@@ -1597,8 +1600,6 @@ spec:
 		})
 	}
 }
-
-var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 
 func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer) []runtime.Object {
 	t.Helper()
