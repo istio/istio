@@ -295,8 +295,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 			return
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
-		// Mark the cluster store as synced so the KRT Clusters() collection can start providing results
-		c.cs.MarkSynced()
 		c.queue.Run(stopCh)
 		c.handleDelete(c.configClusterID)
 	}()
