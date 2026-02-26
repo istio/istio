@@ -38,7 +38,7 @@ func (f *Fake) Add(id cluster.ID, client kube.Client, stop chan struct{}) {
 			stop:                     stop,
 			initialSync:              atomic.NewBool(false),
 			initialSyncTimeout:       atomic.NewBool(false),
-			RemoteClusterCollections: atomic.NewPointer[RemoteClusterCollections](nil),
+			remoteClusterCollections: atomic.NewPointer[remoteClusterCollections](nil),
 		})
 	}
 }

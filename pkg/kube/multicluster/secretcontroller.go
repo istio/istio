@@ -163,7 +163,7 @@ func NewController(opts ControllerOptions) *Controller {
 			stop:                     make(chan struct{}),
 			initialSync:              atomic.NewBool(false),
 			initialSyncTimeout:       atomic.NewBool(false),
-			RemoteClusterCollections: atomic.NewPointer[RemoteClusterCollections](nil),
+			remoteClusterCollections: atomic.NewPointer[remoteClusterCollections](nil),
 		},
 		cs:              NewClustersStore(),
 		secrets:         secrets,
@@ -207,7 +207,7 @@ func NewController(opts ControllerOptions) *Controller {
 	// Build config cluster collections so they are available before Run() is called.
 	// The client's ObjectFilter is already set by the caller (server.go / fake.go).
 	clusterOpts := krt.NewOptionsBuilder(controller.stop, fmt.Sprintf("cluster[%s]", opts.ClusterID), opts.Debugger)
-	controller.configCluster.RemoteClusterCollections.Store(
+	controller.configCluster.remoteClusterCollections.Store(
 		buildClusterCollections(opts.Client, opts.ClusterID, clusterOpts),
 	)
 
@@ -414,7 +414,7 @@ func (c *Controller) createRemoteCluster(secretKey types.NamespacedName, kubeCon
 		KubeConfigSha:            sha256.Sum256(kubeConfig),
 		syncStatusCallback:       c.onClusterSyncStatusChange,
 		SyncedCh:                 make(chan struct{}),
-		RemoteClusterCollections: atomic.NewPointer[RemoteClusterCollections](nil),
+		remoteClusterCollections: atomic.NewPointer[remoteClusterCollections](nil),
 	}, nil
 }
 

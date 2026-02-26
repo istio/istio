@@ -75,12 +75,12 @@ type Cluster struct {
 	// This is only set during component construction and cleared afterwards.
 	prevComponent ComponentConstraint
 
-	// RemoteClusterCollections holds the KRT collections for remote cluster informers.
-	RemoteClusterCollections *atomic.Pointer[RemoteClusterCollections]
+	// remoteClusterCollections holds the KRT collections for remote cluster informers.
+	remoteClusterCollections *atomic.Pointer[remoteClusterCollections]
 }
 
-// RemoteClusterCollections holds per-cluster KRT collections.
-type RemoteClusterCollections struct {
+// remoteClusterCollections holds per-cluster KRT collections.
+type remoteClusterCollections struct {
 	namespaces     krt.Collection[*corev1.Namespace]
 	pods           krt.Collection[*corev1.Pod]
 	services       krt.Collection[*corev1.Service]
@@ -91,32 +91,32 @@ type RemoteClusterCollections struct {
 
 // Namespaces returns the namespaces collection.
 func (c *Cluster) Namespaces() krt.Collection[*corev1.Namespace] {
-	return c.RemoteClusterCollections.Load().namespaces
+	return c.remoteClusterCollections.Load().namespaces
 }
 
 // Pods returns the pods collection.
 func (c *Cluster) Pods() krt.Collection[*corev1.Pod] {
-	return c.RemoteClusterCollections.Load().pods
+	return c.remoteClusterCollections.Load().pods
 }
 
 // Services returns the services collection.
 func (c *Cluster) Services() krt.Collection[*corev1.Service] {
-	return c.RemoteClusterCollections.Load().services
+	return c.remoteClusterCollections.Load().services
 }
 
 // EndpointSlices returns the endpointSlices collection.
 func (c *Cluster) EndpointSlices() krt.Collection[*discovery.EndpointSlice] {
-	return c.RemoteClusterCollections.Load().endpointSlices
+	return c.remoteClusterCollections.Load().endpointSlices
 }
 
 // Nodes returns the nodes collection.
 func (c *Cluster) Nodes() krt.Collection[*corev1.Node] {
-	return c.RemoteClusterCollections.Load().nodes
+	return c.remoteClusterCollections.Load().nodes
 }
 
 // Gateways returns the gateways collection.
 func (c *Cluster) Gateways() krt.Collection[*gatewayv1.Gateway] {
-	return c.RemoteClusterCollections.Load().gateways
+	return c.remoteClusterCollections.Load().gateways
 }
 
 // ResourceName implements krt.ResourceNamer.
@@ -155,74 +155,6 @@ func (a ACTION) String() string {
 	return "Unknown"
 }
 
-// buildClusterCollections creates the standard KRT collections for a cluster.
-// This is used for both config and remote clusters to ensure identical collection setup.
-func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.OptionsBuilder) *RemoteClusterCollections {
-	defaultFilter := kclient.Filter{
-		ObjectFilter: client.ObjectFilter(),
-	}
-
-	Namespaces := krt.NewInformer[*corev1.Namespace](client, opts.With(
-		krt.WithName("informer/Namespaces"),
-		krt.WithMetadata(krt.Metadata{
-			ClusterKRTMetadataKey: clusterID,
-		}),
-	)...)
-	Pods := krt.NewFilteredInformer[*corev1.Pod](client, kclient.Filter{
-		ObjectFilter:    client.ObjectFilter(),
-		ObjectTransform: kube.StripPodUnusedFields,
-		FieldSelector:   "status.phase!=Failed",
-	}, opts.With(
-		krt.WithName("informer/Pods"),
-		krt.WithMetadata(krt.Metadata{
-			ClusterKRTMetadataKey: clusterID,
-		}),
-	)...)
-
-	gatewayClient := kclient.NewDelayedInformer[*gatewayv1.Gateway](client, gvr.KubernetesGateway, kubetypes.StandardInformer, defaultFilter)
-	Gateways := krt.WrapClient(gatewayClient, opts.With(
-		krt.WithName("informer/Gateways"),
-		krt.WithMetadata(krt.Metadata{
-			ClusterKRTMetadataKey: clusterID,
-		}),
-	)...)
-	servicesClient := kclient.NewFiltered[*corev1.Service](client, defaultFilter)
-	Services := krt.WrapClient(servicesClient, opts.With(
-		krt.WithName("informer/Services"),
-		krt.WithMetadata(krt.Metadata{
-			ClusterKRTMetadataKey: clusterID,
-		}),
-	)...)
-
-	Nodes := krt.NewFilteredInformer[*corev1.Node](client, kclient.Filter{
-		ObjectFilter:    client.ObjectFilter(),
-		ObjectTransform: kube.StripNodeUnusedFields,
-	}, opts.With(
-		krt.WithName("informer/Nodes"),
-		krt.WithMetadata(krt.Metadata{
-			ClusterKRTMetadataKey: clusterID,
-		}),
-	)...)
-
-	EndpointSlices := krt.NewFilteredInformer[*discovery.EndpointSlice](client, kclient.Filter{
-		ObjectFilter: client.ObjectFilter(),
-	}, opts.With(
-		krt.WithName("informer/EndpointSlices"),
-		krt.WithMetadata(krt.Metadata{
-			ClusterKRTMetadataKey: clusterID,
-		}),
-	)...)
-
-	return &RemoteClusterCollections{
-		namespaces:     Namespaces,
-		pods:           Pods,
-		services:       Services,
-		endpointSlices: EndpointSlices,
-		nodes:          Nodes,
-		gateways:       Gateways,
-	}
-}
-
 // Run starts the cluster's informers, builds KRT collections, invokes handler callbacks, and waits for caches to sync.
 // Once caches are synced, we mark the cluster synced.
 // For local/config clusters with pre-existing collections, it simply waits for those collections to sync.
@@ -231,7 +163,7 @@ func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.
 // This should be run in a goroutine.
 func (c *Cluster) Run(meshConfig meshwatcher.WatcherCollection, handlers []handler, action ACTION, swap *PendingClusterSwap, debugger *krt.DebugHandler) {
 	// Check and see if this is a local cluster with pre-existing collections
-	if c.RemoteClusterCollections.Load() != nil {
+	if c.remoteClusterCollections.Load() != nil {
 		log.Infof("Configuring cluster %s with existing informers", c.ID)
 		syncers := []krt.Syncer{
 			c.Namespaces(),
@@ -288,7 +220,7 @@ func (c *Cluster) Run(meshConfig meshwatcher.WatcherCollection, handlers []handl
 	nsFilter := filter.NewDiscoveryNamespacesFilter(namespaces, meshConfig, c.stop)
 	kube.SetObjectFilter(c.Client, nsFilter)
 
-	c.RemoteClusterCollections.Store(buildClusterCollections(c.Client, c.ID, opts))
+	c.remoteClusterCollections.Store(buildClusterCollections(c.Client, c.ID, opts))
 
 	// Invoke handler callbacks (clusterAdded/clusterUpdated)
 	syncers := make([]ComponentConstraint, 0, len(handlers))
@@ -336,6 +268,74 @@ func (c *Cluster) Run(meshConfig meshwatcher.WatcherCollection, handlers []handl
 
 	// Signal that sync is complete
 	c.closeSyncedCh()
+}
+
+// buildClusterCollections creates the standard KRT collections for a cluster.
+// This is used for both config and remote clusters to ensure identical collection setup.
+func buildClusterCollections(client kube.Client, clusterID cluster.ID, opts krt.OptionsBuilder) *remoteClusterCollections {
+	defaultFilter := kclient.Filter{
+		ObjectFilter: client.ObjectFilter(),
+	}
+
+	Namespaces := krt.NewInformer[*corev1.Namespace](client, opts.With(
+		krt.WithName("informer/Namespaces"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: clusterID,
+		}),
+	)...)
+	Pods := krt.NewFilteredInformer[*corev1.Pod](client, kclient.Filter{
+		ObjectFilter:    client.ObjectFilter(),
+		ObjectTransform: kube.StripPodUnusedFields,
+		FieldSelector:   "status.phase!=Failed",
+	}, opts.With(
+		krt.WithName("informer/Pods"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: clusterID,
+		}),
+	)...)
+
+	gatewayClient := kclient.NewDelayedInformer[*gatewayv1.Gateway](client, gvr.KubernetesGateway, kubetypes.StandardInformer, defaultFilter)
+	Gateways := krt.WrapClient(gatewayClient, opts.With(
+		krt.WithName("informer/Gateways"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: clusterID,
+		}),
+	)...)
+	servicesClient := kclient.NewFiltered[*corev1.Service](client, defaultFilter)
+	Services := krt.WrapClient(servicesClient, opts.With(
+		krt.WithName("informer/Services"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: clusterID,
+		}),
+	)...)
+
+	Nodes := krt.NewFilteredInformer[*corev1.Node](client, kclient.Filter{
+		ObjectFilter:    client.ObjectFilter(),
+		ObjectTransform: kube.StripNodeUnusedFields,
+	}, opts.With(
+		krt.WithName("informer/Nodes"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: clusterID,
+		}),
+	)...)
+
+	EndpointSlices := krt.NewFilteredInformer[*discovery.EndpointSlice](client, kclient.Filter{
+		ObjectFilter: client.ObjectFilter(),
+	}, opts.With(
+		krt.WithName("informer/EndpointSlices"),
+		krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: clusterID,
+		}),
+	)...)
+
+	return &remoteClusterCollections{
+		namespaces:     Namespaces,
+		pods:           Pods,
+		services:       Services,
+		endpointSlices: EndpointSlices,
+		nodes:          Nodes,
+		gateways:       Gateways,
+	}
 }
 
 // closeSyncedCh closes the SyncedCh channel to signal sync completion.
@@ -405,7 +405,7 @@ func (c *Cluster) reportStatus(status string) {
 }
 
 func (c *Cluster) hasInitialCollections() bool {
-	return c.RemoteClusterCollections.Load() != nil &&
+	return c.remoteClusterCollections.Load() != nil &&
 		c.Namespaces() != nil &&
 		c.Gateways() != nil &&
 		c.Services() != nil &&
