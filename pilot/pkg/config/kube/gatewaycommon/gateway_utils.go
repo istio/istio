@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/features"
 )
@@ -137,7 +136,7 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 }
 
 // ConvertListenerSetToListener converts a ListenerEntry to a standard Listener.
-func ConvertListenerSetToListener(l gatewayx.ListenerEntry) gatewayv1.Listener {
+func ConvertListenerSetToListener(l gatewayv1.ListenerEntry) gatewayv1.Listener {
 	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
 	return gatewayv1.Listener(l)
 }

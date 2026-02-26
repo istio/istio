@@ -97,6 +97,11 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.GatewaySpec)),
 		}, metav1.CreateOptions{})
+	case gvk.ListenerSet:
+		return c.GatewayAPI().GatewayV1().ListenerSets(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.ListenerSet{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.ListenerSetSpec)),
+		}, metav1.CreateOptions{})
 	case gvk.PeerAuthentication:
 		return c.Istio().SecurityV1().PeerAuthentications(cfg.Namespace).Create(context.TODO(), &apiistioioapisecurityv1.PeerAuthentication{
 			ObjectMeta: objMeta,
@@ -172,11 +177,6 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisxv1alpha1.BackendTrafficPolicySpec)),
 		}, metav1.CreateOptions{})
-	case gvk.XListenerSet:
-		return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisxv1alpha1.XListenerSet{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisxv1alpha1.ListenerSetSpec)),
-		}, metav1.CreateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
 	}
@@ -233,6 +233,11 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 		return c.GatewayAPI().GatewayV1().Gateways(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.Gateway{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.GatewaySpec)),
+		}, metav1.UpdateOptions{})
+	case gvk.ListenerSet:
+		return c.GatewayAPI().GatewayV1().ListenerSets(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.ListenerSet{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.ListenerSetSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.PeerAuthentication:
 		return c.Istio().SecurityV1().PeerAuthentications(cfg.Namespace).Update(context.TODO(), &apiistioioapisecurityv1.PeerAuthentication{
@@ -309,11 +314,6 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisxv1alpha1.BackendTrafficPolicySpec)),
 		}, metav1.UpdateOptions{})
-	case gvk.XListenerSet:
-		return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisxv1alpha1.XListenerSet{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisxv1alpha1.ListenerSetSpec)),
-		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
 	}
@@ -375,6 +375,11 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 		return c.GatewayAPI().GatewayV1().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1.Gateway{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1.GatewayStatus)),
+		}, metav1.UpdateOptions{})
+	case gvk.ListenerSet:
+		return c.GatewayAPI().GatewayV1().ListenerSets(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1.ListenerSet{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1.ListenerSetStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.PeerAuthentication:
 		return c.Istio().SecurityV1().PeerAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapisecurityv1.PeerAuthentication{
@@ -445,11 +450,6 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 		return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisxv1alpha1.PolicyStatus)),
-		}, metav1.UpdateOptions{})
-	case gvk.XListenerSet:
-		return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisxv1alpha1.XListenerSet{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisxv1alpha1.ListenerSetStatus)),
 		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
@@ -610,6 +610,21 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 			return nil, err
 		}
 		return c.GatewayAPI().GatewayV1().Gateways(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.ListenerSet:
+		oldRes := &sigsk8siogatewayapiapisv1.ListenerSet{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1.ListenerSetSpec)),
+		}
+		modRes := &sigsk8siogatewayapiapisv1.ListenerSet{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1.ListenerSetSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return c.GatewayAPI().GatewayV1().ListenerSets(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.PeerAuthentication:
 		oldRes := &apiistioioapisecurityv1.PeerAuthentication{
@@ -836,21 +851,6 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		}
 		return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.XListenerSet:
-		oldRes := &sigsk8siogatewayapiapisxv1alpha1.XListenerSet{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisxv1alpha1.ListenerSetSpec)),
-		}
-		modRes := &sigsk8siogatewayapiapisxv1alpha1.XListenerSet{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisxv1alpha1.ListenerSetSpec)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", orig.GroupVersionKind)
 	}
@@ -882,6 +882,8 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 		return c.GatewayAPIInference().InferenceV1().InferencePools(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.KubernetesGateway:
 		return c.GatewayAPI().GatewayV1().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.ListenerSet:
+		return c.GatewayAPI().GatewayV1().ListenerSets(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.PeerAuthentication:
 		return c.Istio().SecurityV1().PeerAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.ProxyConfig:
@@ -912,8 +914,6 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 		return c.Istio().NetworkingV1().WorkloadGroups(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.XBackendTrafficPolicy:
 		return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.XListenerSet:
-		return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(namespace).Delete(context.TODO(), name, deleteOptions)
 	default:
 		return fmt.Errorf("unsupported type: %v", typ)
 	}
@@ -1327,6 +1327,25 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				Generation:        obj.Generation,
 			},
 			Spec: &obj.Spec,
+		}
+	},
+	gvk.ListenerSet: func(r runtime.Object) config.Config {
+		obj := r.(*sigsk8siogatewayapiapisv1.ListenerSet)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.ListenerSet,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
 		}
 	},
 	gvk.MutatingWebhookConfiguration: func(r runtime.Object) config.Config {
@@ -1781,25 +1800,6 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.XBackendTrafficPolicy,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.XListenerSet: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisxv1alpha1.XListenerSet)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.XListenerSet,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

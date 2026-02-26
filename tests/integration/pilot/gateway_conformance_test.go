@@ -65,6 +65,61 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
+
+	// The following tests were added in v1.5.0
+	"GatewayBackendClientCertificateFeature":                     "TODO",
+	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
+	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
+	"GatewayTLSBackendClientCertificate":                         "TODO",
+	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
+	"GatewayFrontendClientCertificateValidation":                 "TODO",
+	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
+
+	"HTTPRoute303Redirect":                            "TODO",
+	"HTTPRoute307Redirect":                            "TODO",
+	"HTTPRoute308Redirect":                            "TODO",
+	"HTTPRouteCORS":                                   "TODO",
+	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
+
+	"ListenerSetAllowedNamespaceNone":        "TODO",
+	"ListenerSetAllowedNamespaceSame":        "TODO",
+	"ListenerSetAllowedNamespaceSelector":    "TODO",
+	"ListenerSetAllowedRoutesNamespaces":     "TODO",
+	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
+	"ListenerSetDefaultNotAllowed":           "TODO",
+	"ListenerSetHostnameConflict":            "TODO",
+	"ListenerSetHTTPRouting":                 "TODO",
+	"ListenerSetProtocolConflict":            "TODO",
+	"ListenerSetReferenceGrant":              "TODO",
+
+	"MeshHTTPRoute303Redirect": "TODO",
+	"MeshHTTPRoute307Redirect": "TODO",
+	"MeshHTTPRoute308Redirect": "TODO",
+
+	"TLSRouteHostnameIntersection":                 "TODO",
+	"TLSRouteInvalidBackendRefNonexistent":         "TODO",
+	"TLSRouteInvalidBackendRefUnknownKind":         "TODO",
+	"TLSRouteInvalidNoMatchingListenerHostname":    "TODO",
+	"TLSRouteInvalidNoMatchingListener":            "TODO",
+	"TLSRouteListenerMixedTerminationNotSupported": "TODO",
+	"TLSRouteListenerPassthroughSupportedKinds":    "TODO",
+	"TLSRouteListenerTerminateNotSupported":        "TODO",
+	"TLSRouteListenerTerminateSupportedKinds":      "TODO",
+	"TLSRouteMixedTerminationSameNamespace":        "TODO",
+	"TLSRouteSimpleSameNamespace":                  "TODO",
+	"TLSRouteTerminateSimpleSameNamespace":         "TODO",
+
+	// The following tests were modified between v1.4.0 && v1.5.0
+	"BackendTLSPolicy": "TODO",
+
+	"GatewayClassObservedGenerationBump":    "TODO",
+	"GatewayWithAttachedRoutes":             "TODO",
+	"GatewayWithAttachedRoutesWithPort8080": "TODO",
+
+	"HTTPRouteHostnameIntersection": "TODO",
+
+	"MeshGRPCRouteWeight": "TODO",
+	"MeshHTTPRouteWeight": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
@@ -83,10 +138,8 @@ func TestGatewayConformance(t *testing.T) {
 				}
 			}
 
-			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
 			clientOptions := client.Options{
 				Scheme: kube.IstioScheme,
-				Mapper: mapper,
 			}
 			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), clientOptions)
 			if err != nil {

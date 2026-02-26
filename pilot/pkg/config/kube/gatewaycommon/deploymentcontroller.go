@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -96,8 +95,8 @@ type DeploymentController struct {
 	patcher             patcher
 	gateways            kclient.Client[*gateway.Gateway]
 	gatewayClasses      kclient.Client[*gateway.GatewayClass]
-	listenerSets        kclient.Informer[*gatewayx.XListenerSet]
-	listenerSetByParent kclient.Index[types.NamespacedName, *gatewayx.XListenerSet]
+	listenerSets        kclient.Informer[*gateway.ListenerSet]
+	listenerSetByParent kclient.Index[types.NamespacedName, *gateway.ListenerSet]
 
 	clients         map[schema.GroupVersionResource]getter
 	injectConfig    func() inject.WebhookConfig
@@ -163,15 +162,13 @@ func NewDeploymentController(
 		controllers.WithReconciler(dc.Reconcile),
 		controllers.WithMaxAttempts(5))
 
-	if features.EnableAlphaGatewayAPI {
-		dc.listenerSets = kclient.NewDelayedInformer[*gatewayx.XListenerSet](client, gvr.XListenerSet, kubetypes.StandardInformer, filter)
-		dc.listenerSetByParent = kclient.CreateIndex(dc.listenerSets, "parent", func(o *gatewayx.XListenerSet) []types.NamespacedName {
-			return []types.NamespacedName{extractListenerSetParent(o)}
-		})
-		dc.listenerSets.AddEventHandler(controllers.TypedObjectHandler(func(o *gatewayx.XListenerSet) {
-			dc.queue.Add(extractListenerSetParent(o))
-		}))
-	}
+	dc.listenerSets = kclient.NewDelayedInformer[*gateway.ListenerSet](client, gvr.ListenerSet, kubetypes.StandardInformer, filter)
+	dc.listenerSetByParent = kclient.CreateIndex(dc.listenerSets, "parent", func(o *gateway.ListenerSet) []types.NamespacedName {
+		return []types.NamespacedName{extractListenerSetParent(o)}
+	})
+	dc.listenerSets.AddEventHandler(controllers.TypedObjectHandler(func(o *gateway.ListenerSet) {
+		dc.queue.Add(extractListenerSetParent(o))
+	}))
 
 	// Set up a handler that will add the parent Gateway object onto the queue.
 	// The queue will only handle Gateway objects; if child resources (Service, etc) are updated we re-add
@@ -282,9 +279,9 @@ func NewDeploymentController(
 	return dc
 }
 
-func extractListenerSetParent(o *gatewayx.XListenerSet) types.NamespacedName {
+func extractListenerSetParent(o *gateway.ListenerSet) types.NamespacedName {
 	n := o.Spec.ParentRef.Name
-	ns := ptr.OrDefault(o.Spec.ParentRef.Namespace, gatewayx.Namespace(o.Namespace))
+	ns := ptr.OrDefault(o.Spec.ParentRef.Namespace, gateway.Namespace(o.Namespace))
 	return types.NamespacedName{
 		Namespace: string(ns),
 		Name:      string(n),

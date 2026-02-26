@@ -28,6 +28,7 @@ const (
 	IngressClass
 	KubernetesGateway
 	Lease
+	ListenerSet
 	MeshConfig
 	MeshNetworks
 	MutatingWebhookConfiguration
@@ -55,7 +56,6 @@ const (
 	WorkloadEntry
 	WorkloadGroup
 	XBackendTrafficPolicy
-	XListenerSet
 )
 
 func (k Kind) String() string {
@@ -108,6 +108,8 @@ func (k Kind) String() string {
 		return "KubernetesGateway"
 	case Lease:
 		return "Lease"
+	case ListenerSet:
+		return "ListenerSet"
 	case MeshConfig:
 		return "MeshConfig"
 	case MeshNetworks:
@@ -162,8 +164,6 @@ func (k Kind) String() string {
 		return "WorkloadGroup"
 	case XBackendTrafficPolicy:
 		return "XBackendTrafficPolicy"
-	case XListenerSet:
-		return "XListenerSet"
 	default:
 		return "Unknown"
 	}
@@ -219,6 +219,8 @@ func FromString(s string) Kind {
 		return KubernetesGateway
 	case "Lease":
 		return Lease
+	case "ListenerSet":
+		return ListenerSet
 	case "MeshConfig":
 		return MeshConfig
 	case "MeshNetworks":
@@ -273,8 +275,6 @@ func FromString(s string) Kind {
 		return WorkloadGroup
 	case "XBackendTrafficPolicy":
 		return XBackendTrafficPolicy
-	case "XListenerSet":
-		return XListenerSet
 	default:
 		return Unknown
 	}
