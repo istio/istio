@@ -123,6 +123,14 @@ func (c *Cluster) ResourceName() string {
 	return c.ID.String()
 }
 
+// Equals implements krt.Equaler for *Cluster.
+// Two clusters are considered equal if they have the same ID and kubeconfig SHA.
+// This avoids reflect.DeepEqual which always returns false for structs containing
+// non-nil function values (e.g., syncStatusCallback).
+func (c *Cluster) Equals(other *Cluster) bool {
+	return c.ID == other.ID && c.kubeConfigSha == other.kubeConfigSha
+}
+
 // GetStop returns the stop channel for the cluster.
 func (c *Cluster) GetStop() <-chan struct{} {
 	return c.stop
