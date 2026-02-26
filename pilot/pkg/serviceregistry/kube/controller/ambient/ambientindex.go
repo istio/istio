@@ -124,11 +124,11 @@ type index struct {
 	revision        string
 	Debugger        *krt.DebugHandler
 
-	stop chan struct{}
-
 	mcController *multicluster.Controller
 	meshConfig   meshwatcher.WatcherCollection
-	builder      Builder
+	stop         chan struct{}
+
+	builder Builder
 }
 
 type FeatureFlags struct {
@@ -161,9 +161,9 @@ func New(options Options) Index {
 		Debugger:        options.Debugger,
 		Flags:           options.Flags,
 		revision:        options.Revision,
-		stop:            make(chan struct{}),
 		mcController:    options.MultiClusterController,
 		meshConfig:      options.MeshConfig,
+		stop:            make(chan struct{}),
 	}
 
 	LocalCluster := a.mcController.ConfigCluster()

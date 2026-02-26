@@ -80,7 +80,7 @@ func (a *index) buildGlobalCollections(
 		"Services",
 		opts,
 	)
-	serviceInformersByCluster := multicluster.InformerIndexByCluster(GlobalServices)
+	serviceInformersByCluster := multicluster.NestedCollectionIndexByCluster(GlobalServices)
 
 	LocalGatewaysWithCluster := krt.MapCollection(LocalGateways, func(obj *gatewayv1.Gateway) krt.ObjectWithCluster[*gatewayv1.Gateway] {
 		return krt.ObjectWithCluster[*gatewayv1.Gateway]{
@@ -124,7 +124,7 @@ func (a *index) buildGlobalCollections(
 		"Namespaces",
 		opts,
 	)
-	namespaceInformersByCluster := multicluster.InformerIndexByCluster(GlobalNamespaces)
+	namespaceInformersByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNamespaces)
 
 	LocalNodesWithCluster := krt.MapCollection(LocalNodes, func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
 		return krt.ObjectWithCluster[*v1.Node]{

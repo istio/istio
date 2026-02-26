@@ -84,23 +84,6 @@ func NestedCollectionFromLocalAndRemote[T any](
 	return globalCollection
 }
 
-// InformerIndexByCluster creates an index by cluster ID for informer-based collections.
-func InformerIndexByCluster[T controllers.ComparableObject](
-	informerCollection krt.Collection[krt.Collection[T]],
-) krt.Index[cluster.ID, krt.Collection[T]] {
-	return krt.NewIndex[cluster.ID, krt.Collection[T]](informerCollection, "cluster", func(col krt.Collection[T]) []cluster.ID {
-		val, ok := col.Metadata()[ClusterKRTMetadataKey]
-		if !ok {
-			panic(fmt.Sprintf("Cluster metadata not set on informer %v", col))
-		}
-		id, ok := val.(cluster.ID)
-		if !ok {
-			panic(fmt.Sprintf("Invalid cluster metadata set on collection %v: %v", col, val))
-		}
-		return []cluster.ID{id}
-	})
-}
-
 // NestedCollectionIndexByCluster creates an index by cluster ID for nested collections.
 func NestedCollectionIndexByCluster[T any](
 	collection krt.Collection[krt.Collection[T]],
