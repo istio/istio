@@ -421,7 +421,9 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 // Returns an empty string if no provider has OTEL_SEMANTIC_CONVENTIONS enabled.
 // For service.instance.id, uses $(POD_NAME) placeholder for Kubernetes env var
 // substitution since the pod name is not known at injection time.
-func otelResourceAttributes(mc *meshconfig.MeshConfig, annotations map[string]string, labels map[string]string, namespace string, containers []corev1.Container) string {
+func otelResourceAttributes(mc *meshconfig.MeshConfig, annotations map[string]string,
+	labels map[string]string, namespace string, containers []corev1.Container,
+) string {
 	hasOtelSemConv := false
 	for _, ep := range mc.GetExtensionProviders() {
 		if otel := ep.GetOpentelemetry(); otel != nil {
