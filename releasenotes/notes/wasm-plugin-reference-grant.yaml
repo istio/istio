@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: extensibility
+releaseNotes:
+  - |
+    **Added** support for WasmPlugin to reference secrets from other namespaces using Kubernetes Gateway API `ReferenceGrant`.
+    WasmPlugins can now specify `imagePullSecret` that references secrets in different namespaces (e.g., `kubernetes://istio-system/wasm-secret`).
+    To enable cross-namespace secret access, create a `ReferenceGrant` in the secret's namespace allowing WasmPlugin from the plugin's namespace to access the secret.
+

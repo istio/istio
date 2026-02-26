@@ -38,6 +38,7 @@ import (
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
@@ -1232,6 +1233,10 @@ func TestWasmPlugins(t *testing.T) {
 		},
 	}
 
+	secretAllowed := func(resourceName string, namespace string) bool {
+		return false
+	}
+
 	testCases := []struct {
 		name               string
 		node               *Proxy
@@ -1273,7 +1278,7 @@ func TestWasmPlugins(t *testing.T) {
 			pluginType:   WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"], secretAllowed),
 				},
 			},
 		},
@@ -1294,9 +1299,9 @@ func TestWasmPlugins(t *testing.T) {
 			pluginType:   WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"], secretAllowed),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"], secretAllowed),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"], secretAllowed),
 				},
 			},
 		},
@@ -1317,7 +1322,7 @@ func TestWasmPlugins(t *testing.T) {
 			pluginType:   WasmPluginTypeNetwork,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"], secretAllowed),
 				},
 			},
 		},
@@ -1338,10 +1343,10 @@ func TestWasmPlugins(t *testing.T) {
 			pluginType:   WasmPluginTypeAny,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"], secretAllowed),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"], secretAllowed),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"], secretAllowed),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"], secretAllowed),
 				},
 			},
 		},
@@ -1362,11 +1367,11 @@ func TestWasmPlugins(t *testing.T) {
 			pluginType:   WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"], secretAllowed),
 				},
 				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"]),
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"], secretAllowed),
+					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"], secretAllowed),
 				},
 			},
 		},
@@ -1396,10 +1401,10 @@ func TestWasmPlugins(t *testing.T) {
 			pluginType: WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"], secretAllowed),
 				},
 				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"], secretAllowed),
 				},
 			},
 		},
@@ -1426,6 +1431,137 @@ func TestWasmPlugins(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWasmPluginReferenceGrant(t *testing.T) {
+	env := &Environment{}
+	store := NewFakeStore()
+
+	// Create a WasmPlugin in "default" namespace that references a secret in "istio-system"
+	wasmPlugin := config.Config{
+		Meta: config.Meta{
+			Name:             "test-wasm-plugin",
+			Namespace:        "default",
+			GroupVersionKind: gvk.WasmPlugin,
+		},
+		Spec: &extensions.WasmPlugin{
+			Url:             "oci://example.com/wasm:latest",
+			ImagePullSecret: "kubernetes://istio-system/wasm-secret",
+		},
+	}
+	store.Create(wasmPlugin)
+
+	// Create a ReferenceGrant in "istio-system" namespace allowing WasmPlugin from "default" to access secrets
+	// Note: This test will work once gvk.WasmPlugin is added to ReferenceGrantsCollection
+	referenceGrant := config.Config{
+		Meta: config.Meta{
+			Name:             "allow-wasm-secrets",
+			Namespace:        "istio-system",
+			GroupVersionKind: gvk.ReferenceGrant,
+		},
+		Spec: map[string]interface{}{
+			"from": []map[string]interface{}{
+				{
+					"group":     "extensions.istio.io",
+					"kind":      "WasmPlugin",
+					"namespace": "default",
+				},
+			},
+			"to": []map[string]interface{}{
+				{
+					"group": "",
+					"kind":  "Secret",
+				},
+			},
+		},
+	}
+	store.Create(referenceGrant)
+
+	env.ConfigStore = store
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = meshwatcher.NewTestWatcher(m)
+	env.Init()
+
+	// Create a custom GatewayController that simulates ReferenceGrant checking
+	// This simulates what happens when gvk.WasmPlugin is added to ReferenceGrantsCollection
+	testController := &testGatewayControllerWithWasmSupport{
+		FakeController: FakeController{
+			GatewaysWithInferencePools: sets.New[types.NamespacedName](),
+		},
+	}
+
+	// Init a new push context
+	pc := NewPushContext()
+	pc.Mesh = m
+	pc.GatewayAPIController = testController
+	pc.initWasmPlugins(env)
+
+	// Verify the WasmPlugin was processed and the secret namespace is preserved
+	plugins := pc.wasmPluginsByNamespace["default"]
+	if len(plugins) == 0 {
+		t.Fatal("Expected WasmPlugin to be processed, but found none")
+	}
+
+	plugin := plugins[0]
+	// The secret should be in istio-system namespace because ReferenceGrant allows it
+	expectedSecretName := "kubernetes://istio-system/wasm-secret"
+	if plugin.ImagePullSecret != expectedSecretName {
+		t.Errorf("Expected secret name %q, got %q. ReferenceGrant should allow cross-namespace access.",
+			expectedSecretName, plugin.ImagePullSecret)
+	}
+
+	// Test case 2: WasmPlugin without ReferenceGrant - secret namespace should be rewritten
+	wasmPluginNoGrant := config.Config{
+		Meta: config.Meta{
+			Name:             "test-wasm-plugin-no-grant",
+			Namespace:        "production",
+			GroupVersionKind: gvk.WasmPlugin,
+		},
+		Spec: &extensions.WasmPlugin{
+			Url:             "oci://example.com/wasm:latest",
+			ImagePullSecret: "kubernetes://istio-system/wasm-secret",
+		},
+	}
+	store.Create(wasmPluginNoGrant)
+
+	// Reset and reinitialize
+	pc2 := NewPushContext()
+	pc2.Mesh = m
+	pc2.GatewayAPIController = testController
+	pc2.initWasmPlugins(env)
+
+	// Verify the WasmPlugin was processed and the secret namespace is rewritten to plugin namespace
+	plugins2 := pc2.wasmPluginsByNamespace["production"]
+	if len(plugins2) == 0 {
+		t.Fatal("Expected WasmPlugin to be processed, but found none")
+	}
+
+	plugin2 := plugins2[0]
+	// The secret should be in production namespace because no ReferenceGrant allows cross-namespace access
+	expectedSecretName2 := "kubernetes://production/wasm-secret"
+	if plugin2.ImagePullSecret != expectedSecretName2 {
+		t.Errorf("Expected secret name %q, got %q. Without ReferenceGrant, secret namespace should be rewritten to plugin namespace.",
+			expectedSecretName2, plugin2.ImagePullSecret)
+	}
+}
+
+// testGatewayControllerWithWasmSupport is a test GatewayController that simulates
+// ReferenceGrant checking for WasmPlugin. This simulates what happens when
+// gvk.WasmPlugin is added to ReferenceGrantsCollection.
+type testGatewayControllerWithWasmSupport struct {
+	FakeController
+}
+
+func (t *testGatewayControllerWithWasmSupport) SecretAllowed(kind config.GroupVersionKind, resourceName string, namespace string) bool {
+	// If kind is WasmPlugin and namespace is "default", allow access to secrets in "istio-system"
+	if kind == gvk.WasmPlugin && namespace == "default" {
+		parse, err := credentials.ParseResourceName(resourceName, "", "", "")
+		if err == nil && parse.Namespace == "istio-system" {
+			return true
+		}
+	}
+	// Fall back to default behavior for other cases
+	return t.FakeController.SecretAllowed(kind, resourceName, namespace)
 }
 
 func TestServiceIndex(t *testing.T) {

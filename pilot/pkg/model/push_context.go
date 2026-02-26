@@ -2150,7 +2150,10 @@ func (ps *PushContext) initWasmPlugins(env *Environment) {
 	sortConfigByCreationTime(wasmplugins)
 	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
 	for _, plugin := range wasmplugins {
-		if pluginWrapper := convertToWasmPluginWrapper(plugin); pluginWrapper != nil {
+		secretAllowed := func(resourceName string, namespace string) bool {
+			return ps.SecretAllowed(gvk.WasmPlugin, resourceName, namespace)
+		}
+		if pluginWrapper := convertToWasmPluginWrapper(plugin, secretAllowed); pluginWrapper != nil {
 			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
 		}
 	}
