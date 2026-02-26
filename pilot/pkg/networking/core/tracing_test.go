@@ -2129,7 +2129,20 @@ func TestOtelServiceName(t *testing.T) {
 			expected: "annotated-svc",
 		},
 		{
-			name: "fallback 2: app.kubernetes.io/name label",
+			name: "fallback 2: app.kubernetes.io/instance label",
+			proxy: &model.Proxy{
+				Labels: map[string]string{
+					"app.kubernetes.io/instance": "instance-svc",
+					"app.kubernetes.io/name":     "should-not-use",
+				},
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+				},
+			},
+			expected: "instance-svc",
+		},
+		{
+			name: "fallback 3: app.kubernetes.io/name label",
 			proxy: &model.Proxy{
 				Labels: map[string]string{"app.kubernetes.io/name": "labeled-svc"},
 				Metadata: &model.NodeMetadata{
@@ -2139,7 +2152,7 @@ func TestOtelServiceName(t *testing.T) {
 			expected: "labeled-svc",
 		},
 		{
-			name: "fallback 3: workload name (owner resource)",
+			name: "fallback 4: workload name (owner resource)",
 			proxy: &model.Proxy{
 				ID: "my-pod-abc123.default",
 				Metadata: &model.NodeMetadata{
@@ -2149,7 +2162,7 @@ func TestOtelServiceName(t *testing.T) {
 			expected: "my-deployment",
 		},
 		{
-			name: "fallback 4: pod name from proxy ID",
+			name: "fallback 5: pod name from proxy ID",
 			proxy: &model.Proxy{
 				ID: "my-pod-abc123.default",
 				Metadata: &model.NodeMetadata{
@@ -2159,7 +2172,7 @@ func TestOtelServiceName(t *testing.T) {
 			expected: "my-pod-abc123",
 		},
 		{
-			name: "fallback 5: single container name",
+			name: "fallback 6: single container name",
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{
 					Raw: map[string]any{"APP_CONTAINERS": "my-container"},
@@ -2168,7 +2181,7 @@ func TestOtelServiceName(t *testing.T) {
 			expected: "my-container",
 		},
 		{
-			name: "fallback 5 skipped: multiple containers",
+			name: "fallback 6 skipped: multiple containers",
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{
 					Raw: map[string]any{"APP_CONTAINERS": "container1,container2"},
@@ -2177,7 +2190,7 @@ func TestOtelServiceName(t *testing.T) {
 			expected: "unknown_service",
 		},
 		{
-			name: "fallback 6: unknown_service",
+			name: "fallback 7: unknown_service",
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},

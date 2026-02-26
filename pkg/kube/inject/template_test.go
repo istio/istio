@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
@@ -119,6 +121,7 @@ func TestOtelResourceAttributes(t *testing.T) {
 		annotations map[string]string
 		labels      map[string]string
 		namespace   string
+		containers  []corev1.Container
 		want        string
 	}{
 		{
@@ -147,10 +150,19 @@ func TestOtelResourceAttributes(t *testing.T) {
 			want:      "",
 		},
 		{
-			name:      "defaults: namespace + Pod UID",
+			name:      "defaults: namespace only (no containers)",
 			mc:        otelSemConvMeshConfig(),
 			namespace: "my-namespace",
-			want:      "service.namespace=my-namespace,service.instance.id=$(POD_UID)",
+			want:      "service.namespace=my-namespace",
+		},
+		{
+			name:      "defaults: namespace + instance.id with container",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "my-namespace",
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
+			want: "service.namespace=my-namespace,service.instance.id=my-namespace.$(POD_NAME).myapp",
 		},
 		{
 			name:      "all annotations override defaults",
@@ -164,6 +176,9 @@ func TestOtelResourceAttributes(t *testing.T) {
 			labels: map[string]string{
 				"app.kubernetes.io/version": "should-not-use",
 			},
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
 			want: "service.namespace=custom-ns,service.version=v2.0,service.instance.id=custom-id",
 		},
 		{
@@ -173,7 +188,10 @@ func TestOtelResourceAttributes(t *testing.T) {
 			labels: map[string]string{
 				"app.kubernetes.io/version": "v1.2.3",
 			},
-			want: "service.namespace=default,service.version=v1.2.3,service.instance.id=$(POD_UID)",
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
+			want: "service.namespace=default,service.version=v1.2.3,service.instance.id=default.$(POD_NAME).myapp",
 		},
 		{
 			name:      "service.namespace annotation overrides k8s namespace",
@@ -182,7 +200,10 @@ func TestOtelResourceAttributes(t *testing.T) {
 			annotations: map[string]string{
 				"resource.opentelemetry.io/service.namespace": "annotated-ns",
 			},
-			want: "service.namespace=annotated-ns,service.instance.id=$(POD_UID)",
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
+			want: "service.namespace=annotated-ns,service.instance.id=actual-namespace.$(POD_NAME).myapp",
 		},
 		{
 			name:      "service.version annotation overrides label",
@@ -194,19 +215,89 @@ func TestOtelResourceAttributes(t *testing.T) {
 			labels: map[string]string{
 				"app.kubernetes.io/version": "label-v2",
 			},
-			want: "service.namespace=default,service.version=annotated-v1,service.instance.id=$(POD_UID)",
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
+			want: "service.namespace=default,service.version=annotated-v1,service.instance.id=default.$(POD_NAME).myapp",
 		},
 		{
-			name:      "empty namespace",
+			name:      "empty namespace no containers",
 			mc:        otelSemConvMeshConfig(),
 			namespace: "",
-			want:      "service.instance.id=$(POD_UID)",
+			want:      "",
+		},
+		{
+			name:      "service.version from single container image tag",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx:1.21"},
+			},
+			want: "service.namespace=default,service.version=1.21,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version from single container image digest",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx@sha256:abc123"},
+			},
+			want: "service.namespace=default,service.version=sha256:abc123,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version from single container image tag+digest",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx:1.21@sha256:abc123"},
+			},
+			want: "service.namespace=default,service.version=1.21@sha256:abc123,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version from image with registry port",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "registry:5000/nginx:1.21"},
+			},
+			want: "service.namespace=default,service.version=1.21,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version skipped for multiple containers",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx:1.21"},
+				{Name: "sidecar", Image: "sidecar:2.0"},
+			},
+			want: "service.namespace=default,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version skipped for image without tag or digest",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx"},
+			},
+			want: "service.namespace=default,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version label takes priority over image",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			labels: map[string]string{
+				"app.kubernetes.io/version": "v1.2.3",
+			},
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx:1.21"},
+			},
+			want: "service.namespace=default,service.version=v1.2.3,service.instance.id=default.$(POD_NAME).nginx",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := otelResourceAttributes(tt.mc, tt.annotations, tt.labels, tt.namespace)
+			got := otelResourceAttributes(tt.mc, tt.annotations, tt.labels, tt.namespace, tt.containers)
 			if got != tt.want {
 				t.Errorf("otelResourceAttributes() = %q, want %q", got, tt.want)
 			}

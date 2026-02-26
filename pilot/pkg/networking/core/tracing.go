@@ -903,11 +903,12 @@ func buildInitialMetadata(metadata []*meshconfig.MeshConfig_ExtensionProvider_Ht
 //
 // The fallback chain is:
 //  1. resource.opentelemetry.io/service.name annotation on the pod
-//  2. app.kubernetes.io/name label
-//  3. Name of the owning Kubernetes resource (Deployment, StatefulSet, etc.)
-//  4. Pod name
-//  5. Container name (if single container in the pod)
-//  6. unknown_service
+//  2. app.kubernetes.io/instance label
+//  3. app.kubernetes.io/name label
+//  4. Name of the owning Kubernetes resource (Deployment, StatefulSet, etc.)
+//  5. Pod name
+//  6. Container name (if single container in the pod)
+//  7. unknown_service
 func otelServiceName(proxy *model.Proxy) string {
 	if proxy == nil || proxy.Metadata == nil {
 		return "unknown_service"
@@ -919,24 +920,29 @@ func otelServiceName(proxy *model.Proxy) string {
 		return v
 	}
 
-	// 2. app.kubernetes.io/name label
+	// 2. app.kubernetes.io/instance label
+	if v, ok := proxy.Labels["app.kubernetes.io/instance"]; ok && v != "" {
+		return v
+	}
+
+	// 3. app.kubernetes.io/name label
 	if v, ok := proxy.Labels["app.kubernetes.io/name"]; ok && v != "" {
 		return v
 	}
 
-	// 3. Name of the owning Kubernetes resource (Deployment, StatefulSet, etc.)
+	// 4. Name of the owning Kubernetes resource (Deployment, StatefulSet, etc.)
 	if meta.WorkloadName != "" {
 		return meta.WorkloadName
 	}
 
-	// 4. Pod name (extracted from proxy ID which has format "podName.namespace")
+	// 5. Pod name (extracted from proxy ID which has format "podName.namespace")
 	if proxy.ID != "" {
 		if podName, _, ok := strings.Cut(proxy.ID, "."); ok && podName != "" {
 			return podName
 		}
 	}
 
-	// 5. Container name (if single container in the pod)
+	// 6. Container name (if single container in the pod)
 	// AppContainers is on BootstrapNodeMetadata; access via Raw metadata.
 	if raw := meta.Raw; raw != nil {
 		if containers, ok := raw["APP_CONTAINERS"].(string); ok && containers != "" {
@@ -947,7 +953,7 @@ func otelServiceName(proxy *model.Proxy) string {
 		}
 	}
 
-	// 6. unknown_service
+	// 7. unknown_service
 	return "unknown_service"
 }
 
