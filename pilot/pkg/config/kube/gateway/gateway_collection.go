@@ -449,8 +449,3 @@ func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e 
 func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
 	return gatewayv1.ListenerStatus(e)
 }
-
-func convertListenerSetToListener(l gatewayv1.ListenerEntry) gatewayv1.Listener {
-	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
-	return gatewayv1.Listener(l)
-}

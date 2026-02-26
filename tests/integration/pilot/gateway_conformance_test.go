@@ -138,10 +138,8 @@ func TestGatewayConformance(t *testing.T) {
 				}
 			}
 
-			// mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
 			clientOptions := client.Options{
 				Scheme: kube.IstioScheme,
-				// Mapper: mapper,
 			}
 			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), clientOptions)
 			if err != nil {
