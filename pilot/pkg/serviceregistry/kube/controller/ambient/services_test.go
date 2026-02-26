@@ -789,6 +789,93 @@ func TestServiceEntryServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "first healthy race connect strategy",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Annotations: map[string]string{
+						"ambient.istio.io/connect-strategy": "FIRST_HEALTHY_RACE",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "name",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						DnsConnectStrategy: workloadapi.LoadBalancing_FIRST_HEALTHY_RACE,
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+				},
+			},
+		},
+		{
+			name:   "first healthy race with traffic distribution",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Annotations: map[string]string{
+						"ambient.istio.io/connect-strategy":        "FIRST_HEALTHY_RACE",
+						"networking.istio.io/traffic-distribution": "PreferSameZone",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "name",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						RoutingPreference: []workloadapi.LoadBalancing_Scope{
+							workloadapi.LoadBalancing_NETWORK,
+							workloadapi.LoadBalancing_REGION,
+							workloadapi.LoadBalancing_ZONE,
+						},
+						Mode:               workloadapi.LoadBalancing_FAILOVER,
+						DnsConnectStrategy: workloadapi.LoadBalancing_FIRST_HEALTHY_RACE,
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

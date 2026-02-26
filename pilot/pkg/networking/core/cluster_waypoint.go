@@ -270,6 +270,11 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
 
+	// Enable happy eyeballs (DnsLookupFamily=ALL, LOGICAL_DNS) when connect strategy is FIRST_HEALTHY_RACE.
+	if svc.Attributes.K8sAttributes.DNSConnectStrategy == model.DNSConnectStrategyFirstHealthyRace {
+		localCluster.cluster.DnsLookupFamily = cluster.Cluster_ALL
+	}
+
 	return localCluster.build()
 }
 

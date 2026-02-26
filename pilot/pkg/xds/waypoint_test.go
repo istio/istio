@@ -591,6 +591,38 @@ spec:
 	g.Expect(po).To(BeNil())
 }
 
+func TestWaypointClusterDNSConnectStrategyHappyEyeballs(t *testing.T) {
+	g := NewWithT(t)
+	DNSConnectStrategyServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: race-target
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+  annotations:
+    ambient.istio.io/connect-strategy: FIRST_HEALTHY_RACE
+spec:
+  hosts: ["sql.example.com"]
+  ports:
+  - number: 1433
+    name: tcp-sql
+    protocol: TCP
+  resolution: DNS`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		DNSConnectStrategyServiceEntry)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	c := clusters["inbound-vip|1433|tcp|sql.example.com"]
+	g.Expect(c).NotTo(BeNil(), "expected inbound-vip cluster for sql.example.com")
+	g.Expect(c.DnsLookupFamily).To(Equal(clusterv3.Cluster_ALL),
+		"connect strategy FIRST_HEALTHY_RACE should set DnsLookupFamily=ALL for happy eyeballs")
+}
+
 func TestWaypointClusterWithDynamicDNSWithoutWaypoint(t *testing.T) {
 	g := NewWithT(t)
 	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1

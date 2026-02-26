@@ -514,6 +514,8 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 			}),
 		}},
 	}
+
+	// TODO(keithmattix): Use figure out how to do happy eyeballs with dfp clusters
 	c.AltStatName = util.DelimitedStatsPrefix(name)
 	ec := newDFPClusterWrapper(c)
 	cb.setUpstreamProtocol(ec, port)
