@@ -405,7 +405,7 @@ func (c *Controller) createRemoteCluster(secretKey types.NamespacedName, kubeCon
 	return &Cluster{
 		ID:                       cluster.ID(clusterID),
 		Client:                   clients,
-		sourceSecret:             secretKey,
+		SourceSecret:             secretKey,
 		stop:                     make(chan struct{}),
 		initialSync:              atomic.NewBool(false),
 		initialSyncTimeout:       atomic.NewBool(false),

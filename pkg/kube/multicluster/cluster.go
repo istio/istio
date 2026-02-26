@@ -49,8 +49,8 @@ type Cluster struct {
 	Client kube.Client
 
 	kubeConfigSha [sha256.Size]byte
-	// sourceSecret identifies the secret that produced this cluster (for remote clusters).
-	sourceSecret types.NamespacedName
+	// SourceSecret identifies the secret that produced this cluster (for remote clusters).
+	SourceSecret types.NamespacedName
 
 	stop chan struct{}
 	// initialSync is marked when RunAndWait completes

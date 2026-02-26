@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -203,11 +204,31 @@ func TestListRemoteClusters(t *testing.T) {
 		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: SyncStatusSynced},
 	})
 
+	// Verify SourceSecret is set correctly on remote clusters
+	type simpleCluster struct {
+		ID           cluster.ID
+		SourceSecret types.NamespacedName
+	}
+	getSimpleClusters := func() []simpleCluster {
+		clusters := c.controller.Clusters().List()
+		sorted := slices.SortBy(clusters, func(cl *Cluster) cluster.ID { return cl.ID })
+		return slices.Map(sorted, func(cl *Cluster) simpleCluster {
+			return simpleCluster{ID: cl.ID, SourceSecret: cl.SourceSecret}
+		})
+	}
+	assert.EventuallyEqual(t, getSimpleClusters, []simpleCluster{
+		{ID: "c0", SourceSecret: types.NamespacedName{Name: "s0", Namespace: secretNamespace}},
+		{ID: "c1", SourceSecret: types.NamespacedName{Name: "s1", Namespace: secretNamespace}},
+	})
+
 	// Remove one
 	c.DeleteSecret("s1")
 	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
 		{ID: "config", SyncStatus: SyncStatusSynced},
 		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: SyncStatusSynced},
+	})
+	assert.EventuallyEqual(t, getSimpleClusters, []simpleCluster{
+		{ID: "c0", SourceSecret: types.NamespacedName{Name: "s0", Namespace: secretNamespace}},
 	})
 }
 
@@ -813,16 +834,18 @@ func TestKRTClustersCollection(t *testing.T) {
 	}
 
 	steps := []struct {
-		name   string
-		add    *v1.Secret
-		update *v1.Secret
-		delete *v1.Secret
-		want   []result
+		name           string
+		add            *v1.Secret
+		update         *v1.Secret
+		delete         *v1.Secret
+		want           []result
+		afterTestDelay time.Duration // sleep after assertion to verify no panic/segfault
 	}{
 		{
-			name: "Create secret s0 with bad kubeconfig for cluster c0, client builder returns error so cluster is never stored",
-			add:  secret0Bad,
-			want: []result{{"config", 1}},
+			name:           "Create secret s0 with bad kubeconfig for cluster c0, client builder returns error so cluster is never stored",
+			add:            secret0Bad,
+			want:           []result{{"config", 1}},
+			afterTestDelay: features.RemoteClusterTimeout + 500*time.Millisecond,
 		},
 		{
 			name:   "Update secret s0 and add good kubeconfig for cluster c0, which will add remote cluster c0",
@@ -955,6 +978,61 @@ func TestKRTClustersCollection(t *testing.T) {
 					return result(e)
 				})
 			}, step.want)
+			if step.afterTestDelay > 0 {
+				// Wait past the timeout to confirm no segfaults or panics
+				time.Sleep(step.afterTestDelay)
+			}
 		})
 	}
+}
+
+// TestKRTClustersCollectionSyncTimeoutEviction validates that a cluster whose client
+// is constructed successfully but whose informers fail to sync is excluded from
+// the Clusters() collection after RemoteClusterTimeout fires, and that no panic
+// occurs after the timeout.
+func TestKRTClustersCollectionSyncTimeoutEviction(t *testing.T) {
+	test.SetForTest(t, &features.RemoteClusterTimeout, 500*time.Millisecond)
+
+	client := kube.NewFakeClient()
+	stopCh := test.NewStop(t)
+
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
+	// Return an erroring client: it constructs successfully but informers never sync.
+	c.ClientBuilder = func(kubeConfig []byte, clusterID cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		return kube.NewErroringFakeClient(), nil
+	}
+
+	secrets := clienttest.NewWriter[*v1.Secret](t, client)
+	client.RunAndWait(stopCh)
+	assert.NoError(t, c.Run(stopCh))
+	retry.UntilOrFail(t, c.Clusters().HasSynced, retry.Timeout(2*time.Second))
+
+	// Add a secret — the cluster will be stored but never sync
+	secrets.Create(makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0")}))
+
+	// The cluster should be stored in the ClusterStore
+	assert.EventuallyEqual(t, func() bool {
+		return c.cs.GetByID("c0") != nil
+	}, true)
+
+	// But the KRT Clusters() collection should NOT include it (it's not synced yet and AllReady filters it out)
+	assert.EventuallyEqual(t, func() int {
+		return len(c.Clusters().List())
+	}, 0)
+
+	// Wait for RemoteClusterTimeout to fire, then wait a bit more to confirm no panic/segfault
+	time.Sleep(features.RemoteClusterTimeout + 500*time.Millisecond)
+
+	// The cluster should still not be in the Clusters() collection after timeout
+	assert.Equal(t, len(c.Clusters().List()), 0)
+
+	// Verify the cluster timed out via the ClusterStore
+	cl := c.cs.GetByID("c0")
+	assert.Equal(t, cl != nil, true)
+	assert.Equal(t, cl.SyncDidTimeout(), true)
 }
