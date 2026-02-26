@@ -158,7 +158,6 @@ func MergedGlobalWorkloadsCollection(
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.WorkloadInfo] {
-	// More setup to do here so we can't use nestedCollectionFromLocalAndRemote
 	LocalWorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(localWorkloadServices)
 	LocalEndpointSlicesByIPIndex := endpointSliceAddressIndex(localCluster.EndpointSlices())
 	localClusterGetter := func(_ krt.HandlerContext) cluster.ID {
