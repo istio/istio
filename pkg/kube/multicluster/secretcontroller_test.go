@@ -791,8 +791,8 @@ func TestKRTClustersCollection(t *testing.T) {
 			clusterCredential{"c0", []byte("kubeconfig0-1")})
 		secret0AddCluster = makeSecret(secretNamespace, "s0",
 			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
-		secret0DeleteCluster   = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
-		secret0ReAddCluster    = makeSecret(secretNamespace, "s0",
+		secret0DeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
+		secret0ReAddCluster  = makeSecret(secretNamespace, "s0",
 			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
 		secret0ReDeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
 		secret1                = makeSecret(secretNamespace, "s1",
@@ -952,7 +952,7 @@ func TestKRTClustersCollection(t *testing.T) {
 			}
 			assert.EventuallyEqual(t, func() []result {
 				return slices.Map(allResults.List(), func(e krtTestResult) result {
-					return result{e.ID, e.Iter}
+					return result(e)
 				})
 			}, step.want)
 		})
