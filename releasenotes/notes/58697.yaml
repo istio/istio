@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 5869
+releaseNotes:
+  - |
+    **Added** HTTP compression capability (gzip, zstd) to HTTP server of pilot-agent.
