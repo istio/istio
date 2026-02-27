@@ -347,13 +347,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
-			var wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
+			var dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
 			if clusterKey.endpointBuilder != nil {
 				// This is set only for DNS clusters.
 				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
 				if len(lbEndpoints) > 0 {
 					istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
-					wrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
+					dnsWrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
 						IstioEndpoints: istioEndpoints,
 						// For DNS clusters, we only have one locality lb endpoint
 						// with multiple LbEndpoints.
@@ -368,7 +368,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			if defaultCluster == nil {
 				continue
 			}
-			defaultCluster.wrappedLocalityLbEndpoints = wrappedLocalityLbEndpoints
+			defaultCluster.dnsWrappedLocalityLbEndpoints = dnsWrappedLocalityLbEndpoints
 
 			// if the service uses persistent sessions, override status allows
 			// DRAINING endpoints to be kept as 'UNHEALTHY' coarse status in envoy.

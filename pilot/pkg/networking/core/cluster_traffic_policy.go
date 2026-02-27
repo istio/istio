@@ -53,7 +53,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
 	if opts.direction != model.TrafficDirectionInbound {
 		applyOutlierDetection(service, opts.mutable.cluster, outlierDetection)
-		applyLoadBalancer(service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh, opts.mutable.wrappedLocalityLbEndpoints)
+		applyLoadBalancer(service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh, opts.mutable.dnsWrappedLocalityLbEndpoints)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
@@ -327,8 +327,12 @@ func applyLocalityLoadBalancer(
 	}
 
 	if c.LoadAssignment != nil {
+		var wrapped []*loadbalancer.WrappedLocalityLbEndpoints
+		if wrappedLocalityLbEndpoints != nil {
+			wrapped = []*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}
+		}
 		loadbalancer.ApplyLocalityLoadBalancer(c.LoadAssignment,
-			[]*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}, locality, proxyLabels, localityLB, enableFailover)
+			wrapped, locality, proxyLabels, localityLB, enableFailover)
 	}
 }
 

@@ -107,10 +107,10 @@ type clusterWrapper struct {
 	// isDFPCluster indicates whether the cluster is a dynamic forward proxy cluster
 	isDFPCluster bool
 
-	// wrappedLocalityLbEndpoints are the locality lb endpoints wrapped with IstioEndpoints.
+	// dnsWrappedLocalityLbEndpoints are the locality lb endpoints wrapped with IstioEndpoints.
 	// It is used to do failover priority label match with proxy labels.
 	// Only used for DNS type of clusters.
-	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
+	dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
 }
 
 // metadataCerts hosts client certificate related metadata specified in proxy metadata.
