@@ -670,10 +670,12 @@ func TestJwtPubKeyRefreshedWhenErrorsGettingOtherURLs(t *testing.T) {
 		}
 	}()
 
-	// Ensure that the good URL is still refreshed, and updated to JwtPubKey2
-	time.Sleep(2 * refreshInterval)
-
-	pk, err = r.GetPublicKey("", mockCertURL, testRequestTimeout)
+	// Ensure that the good URL is still refreshed, and updated to JwtPubKey2.
+	// Poll instead of sleeping to avoid a fixed, arbitrary delay.
+	retry.UntilOrFail(t, func() bool {
+		pk, err = r.GetPublicKey("", mockCertURL, testRequestTimeout)
+		return err == nil && test.JwtPubKey2 == pk
+	}, retry.Delay(time.Millisecond*5), retry.Timeout(time.Second*5))
 	if err != nil {
 		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
 	}
@@ -734,17 +736,24 @@ func verifyKeyLastRefreshedTime(t *testing.T, r *JwksResolver, ms *test.MockOpen
 	}
 	oldRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
 
-	time.Sleep(200 * time.Millisecond)
-
-	e, found = r.keyEntries.Load(key)
-	if !found {
-		t.Fatalf("No cached public key for %+v", key)
-	}
-	newRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
-
-	if actualChanged := oldRefreshedTime != newRefreshedTime; actualChanged != wantChanged {
-		t.Errorf("Want changed: %t but got %t", wantChanged, actualChanged)
-	}
+	// Poll until the refresh timestamp changes (or doesn't) instead of sleeping an arbitrary duration.
+	// Use a short poll interval to minimise test time while still being robust.
+	retry.UntilSuccessOrFail(t, func() error {
+		e, found = r.keyEntries.Load(key)
+		if !found {
+			return fmt.Errorf("no cached public key for %+v", key)
+		}
+		newRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
+		actualChanged := oldRefreshedTime != newRefreshedTime
+		if wantChanged && !actualChanged {
+			return fmt.Errorf("want lastRefreshedTime changed but it has not changed yet")
+		}
+		if !wantChanged && actualChanged {
+			// The timestamp changed when we did not expect it to; fail immediately.
+			t.Errorf("Want changed: %t but got %t", wantChanged, actualChanged)
+		}
+		return nil
+	}, retry.Delay(time.Millisecond*5), retry.Timeout(time.Second*5))
 }
 
 func TestCompareJWKSResponse(t *testing.T) {
