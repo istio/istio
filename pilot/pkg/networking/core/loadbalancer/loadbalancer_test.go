@@ -844,7 +844,12 @@ func TestApplyLocalitySetting(t *testing.T) {
 			SubZone: "subzone1",
 		}
 
-		// Build cluster with DNS endpoints (hostnames instead of IPs)
+		// Build cluster with DNS endpoints (hostnames instead of IPs).
+		// Both endpoints start in the same locality but have different "priority" labels.
+		// The applyFailoverPriorityPerLocality function will split them into separate
+		// LocalityLbEndpoints groups with different priorities based on label matching.
+		// This is expected behavior - failoverPriority allows endpoints within the same
+		// locality to be assigned different priorities for traffic preference.
 		cluster := buildDNSClusterWithFailoverPriority()
 		wrappedEndpoints := buildWrappedLocalityLbEndpointsForDNS()
 
