@@ -401,6 +401,34 @@ func TestGenerateSDS(t *testing.T) {
 			},
 			objects: []runtime.Object{bookinfoCert},
 		},
+		{
+			// Same-namespace gateway secret should be allowed without VerifiedCertificateReferences
+			name: "gateway secret same namespace",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+			},
+			resources: []string{"kubernetes-gateway://istio-system/generic"},
+			request:   &model.PushRequest{Full: true, Forced: true},
+			expect: map[string]Expected{
+				"kubernetes-gateway://istio-system/generic": {
+					Key:  string(genericCert.Data[credentials.GenericScrtKey]),
+					Cert: string(genericCert.Data[credentials.GenericScrtCert]),
+				},
+			},
+		},
+		{
+			// Cross-namespace gateway secret should be denied without VerifiedCertificateReferences
+			name: "gateway secret cross namespace denied",
+			proxy: &model.Proxy{
+				VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+				Type:             model.Router,
+			},
+			resources: []string{"kubernetes-gateway://bookinfo/bookinfo-certs"},
+			request:   &model.PushRequest{Full: true, Forced: true},
+			expect:    map[string]Expected{},
+			objects:   []runtime.Object{bookinfoCert},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

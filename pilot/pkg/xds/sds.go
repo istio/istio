@@ -270,12 +270,12 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 	deniedResources := make([]string, 0)
 	for _, r := range resources {
 		sameNamespace := r.Namespace == proxy.VerifiedIdentity.Namespace
-		verified := proxy.MergedGateway != nil && proxy.MergedGateway.VerifiedCertificateReferences.Contains(r.ResourceName)
 		switch r.ResourceType {
 		case credentials.KubernetesGatewaySecretType:
 			// For KubernetesGateway, we only allow VerifiedCertificateReferences.
 			// This means a Secret in the same namespace as the Gateway (which also must be in the same namespace
 			// as the proxy), or a ReferencePolicy allowing the reference.
+			verified := (proxy.MergedGateway != nil && proxy.MergedGateway.VerifiedCertificateReferences.Contains(r.ResourceName)) || sameNamespace
 			if verified {
 				allowedResources = append(allowedResources, r)
 			} else {
