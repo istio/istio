@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -98,6 +99,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
 )
 
@@ -300,6 +302,76 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 	return fc
 }
 
+// NewErroringFakeClient creates a new fake client that always returns errors
+// on lists and watches to simulate errors from the API server.
+func NewErroringFakeClient(objects ...runtime.Object) CLIClient {
+	c := &client{
+		informerWatchesPending: atomic.NewInt32(0),
+		clusterID:              "fake",
+	}
+
+	c.kube = setupFakeClient(fake.NewClientset(), "kube", objects)
+
+	c.config = &rest.Config{
+		Host: "server",
+	}
+
+	c.informerFactory = informerfactory.NewSharedInformerFactory()
+	s := FakeIstioScheme
+
+	c.metadata = metadatafake.NewSimpleMetadataClient(s)
+	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects) //nolint:staticcheck // SA1019: as NewSimpleClientset breaks
+	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
+	c.extSet = extfake.NewClientset()
+
+	listReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, errors.New("fake client list error")
+	}
+	watchReactor := func(tracker clienttesting.ObjectTracker) func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
+		return func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
+			return true, nil, errors.New("fake client watch error")
+		}
+	}
+	// https://github.com/kubernetes/client-go/issues/439
+	createReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		ret = action.(clienttesting.CreateAction).GetObject()
+		meta, ok := ret.(metav1.Object)
+		if !ok {
+			return handled, ret, err
+		}
+
+		if meta.GetName() == "" && meta.GetGenerateName() != "" {
+			meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
+		}
+
+		return handled, ret, err
+	}
+	for _, fc := range []fakeClient{
+		c.kube.(*fake.Clientset),
+		c.istio.(*istiofake.Clientset),
+		c.gatewayapi.(*gatewayapifake.Clientset),
+		c.gatewayapiinference.(*gatewayapiinferencefake.Clientset),
+		c.dynamic.(*dynamicfake.FakeDynamicClient),
+		c.metadata.(*metadatafake.FakeMetadataClient),
+	} {
+		fc.PrependReactor("list", "*", listReactor)
+		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
+		fc.PrependReactor("create", "*", createReactor)
+	}
+
+	c.fastSync = true
+
+	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
+
+	if NewCrdWatcher != nil {
+		c.crdWatcher = NewCrdWatcher(c)
+	}
+
+	return c
+}
+
 // NewFakeClient creates a new, fake, client
 func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
@@ -319,7 +391,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
-	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects) //nolint:staticcheck // SA1019: as NewSimpleClientset breaks
 	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
 	c.extSet = extfake.NewClientset()
 
@@ -389,6 +461,49 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
 	c.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
+	return c
+}
+
+// NewFakeClientWithNFailures creates a fake client that fails for get operations on the specified
+// resource kinds for the first failureCount attempts, then succeeds.
+// failingResources is a set of resource (e.g., "pods", "namespaces") that should fail.
+func NewFakeClientWithNFailures(failureCount int, failingResources sets.Set[schema.GroupVersionResource], objects ...runtime.Object) CLIClient {
+	c := NewFakeClient(objects...).(*client)
+
+	// Track retry attempts per resource
+	attempts := &sync.Map{}
+
+	// Create a reactor that fails initially then succeeds
+	retryReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		// Only handle Get actions for failingResources
+		if action.GetVerb() != "get" {
+			return false, nil, nil
+		}
+		resource := action.GetResource()
+		if !failingResources.Contains(resource) {
+			return false, nil, nil
+		}
+
+		getAction := action.(clienttesting.GetAction)
+		key := fmt.Sprintf("%s/%s/%s", resource, action.GetNamespace(), getAction.GetName())
+
+		val, _ := attempts.LoadOrStore(key, atomic.NewInt32(0))
+		attemptCounter := val.(*atomic.Int32)
+
+		currentAttempt := attemptCounter.Inc()
+
+		if int(currentAttempt) <= failureCount {
+			return true, nil, kerrors.NewServiceUnavailable(fmt.Sprintf("transient error: attempt %d/%d", currentAttempt, failureCount))
+		}
+
+		return false, nil, nil
+	}
+
+	// Prepend the reactor for each failing kind
+	for resource := range failingResources {
+		c.kube.(*fake.Clientset).PrependReactor("get", resource.Resource, retryReactor)
+	}
+
 	return c
 }
 

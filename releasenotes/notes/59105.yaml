@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - https://github.com/istio/istio/issues/59105
+releaseNotes:
+- |
+  **Added** logging of configuration analysis warnings and errors in istiod logs
+  for all Istio resource types (DestinationRule, EnvoyFilter, Sidecar, etc.),
+  so operators no longer need to inspect individual resource status fields to
+  discover misconfigurations.

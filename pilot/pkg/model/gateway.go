@@ -204,20 +204,30 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			identityVerified := proxy.VerifiedIdentity != nil &&
 				proxy.VerifiedIdentity.Namespace == expectedNS &&
 				(proxy.VerifiedIdentity.ServiceAccount == expectedSA || expectedSA == "")
-			cn := s.GetTls().GetCredentialName()
-			if cn != "" && identityVerified {
+
+			cns := s.GetTls().GetCredentialNames()
+			if len(cns) == 0 {
+				cns = append(cns, s.GetTls().GetCredentialName())
+			}
+
+			for _, cn := range cns {
+				if !(cn != "" && identityVerified) {
+					continue
+				}
+
 				gwKind := gvk.KubernetesGateway
 				lookupNamespace := proxy.VerifiedIdentity.Namespace
-				if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.XListenerSet.Kind+"/") {
-					gwKind = gvk.XListenerSet
+				if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.ListenerSet.Kind+"/") {
+					gwKind = gvk.ListenerSet
 					lookupNamespace = gatewayConfig.Namespace
 				}
+
 				// Ignore BuiltinGatewaySecretTypeURI, as it is not referencing a Secret at all
 				if !strings.HasPrefix(cn, credentials.BuiltinGatewaySecretTypeURI) {
 					rn := credentials.ToResourceName(cn)
 					parse, err := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
 					// For ListenerSet, we do not require the config to live in the same namespace. However, there is a trust handshake via AllowedListeners.
-					configAndProxyAllowed := gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace || gwKind == gvk.XListenerSet
+					configAndProxyAllowed := gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace || gwKind == gvk.ListenerSet
 					if err == nil && configAndProxyAllowed && parse.Namespace == lookupNamespace {
 						// Same namespace is always allowed
 						verifiedCertificateReferences.Insert(rn)
@@ -233,6 +243,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					}
 				}
 			}
+
 			for _, resolvedPort := range resolvePorts(s.Port.Number, gwAndInstance.instances, gwAndInstance.legacyGatewaySelector) {
 				routeName := gatewayRDSRouteName(s, resolvedPort, gatewayConfig)
 				if s.Tls != nil {

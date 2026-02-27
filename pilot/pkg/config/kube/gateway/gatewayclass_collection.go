@@ -17,6 +17,7 @@ package gateway
 import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/kube/krt"
 )
 
@@ -37,7 +38,7 @@ func GatewayClassesCollection(
 	krt.Collection[GatewayClass],
 ) {
 	return krt.NewStatusCollection(gatewayClasses, func(ctx krt.HandlerContext, obj *gatewayv1.GatewayClass) (*gatewayv1.GatewayClassStatus, *GatewayClass) {
-		_, known := classInfos[obj.Spec.ControllerName]
+		_, known := gatewaycommon.ClassInfos[obj.Spec.ControllerName]
 		if !known {
 			return nil, nil
 		}
@@ -53,7 +54,7 @@ func GatewayClassesCollection(
 func fetchClass(ctx krt.HandlerContext, gatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
 	class := krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gc)))
 	if class == nil {
-		if bc, f := builtinClasses[gc]; f {
+		if bc, f := gatewaycommon.BuiltinClasses[gc]; f {
 			// We allow some classes to exist without being in the cluster
 			return &GatewayClass{
 				Name:       string(gc),

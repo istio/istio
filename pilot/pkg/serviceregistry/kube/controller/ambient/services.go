@@ -39,13 +39,16 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -74,55 +77,73 @@ func (a Builder) ServicesCollection(
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...)
-	serviceEntryByHostname := krt.NewIndex(ServiceEntriesInfo, "serviceEntryByHostname", func(se ServiceEntryInfo) []string {
-		return []string{fmt.Sprintf("%s/%s", se.Service.Namespace, se.Service.Hostname)}
+
+	allTypedServiceInfos := krt.JoinCollection([]krt.Collection[TypedServiceInfo]{ServicesInfo, ServiceEntriesInfo},
+		append(opts.WithName("AllTypedServiceInfo"), krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: clusterID,
+		}))...)
+
+	allTypedServiceInfosByHostname := krt.NewIndex(allTypedServiceInfos, "TypedServiceInfosByHostname", func(ts TypedServiceInfo) []string {
+		return []string{ts.Service.Hostname}
 	})
 
-	serviceByHostname := krt.NewIndex(ServicesInfo, "serviceByHostname", func(s model.ServiceInfo) []string {
-		return []string{s.Service.Hostname}
-	})
-
-	DedupedServiceEntriesInfo := krt.NewCollection(
-		serviceEntryByHostname.AsCollection(),
-		func(ctx krt.HandlerContext, se krt.IndexObject[string, ServiceEntryInfo]) *model.ServiceInfo {
-			if len(se.Objects) == 0 {
+	WorkloadServices := krt.NewManyCollection(
+		allTypedServiceInfosByHostname.AsCollection(),
+		func(ctx krt.HandlerContext, ios krt.IndexObject[string, TypedServiceInfo]) []model.ServiceInfo {
+			if len(ios.Objects) == 0 {
 				return nil
 			}
 
-			s := krt.FetchOne(ctx, ServicesInfo, krt.FilterIndex(serviceByHostname, se.Objects[0].Service.Hostname))
-			if s != nil {
-				// if we have a hostname conflict with a kubernetes service, we should eliminate all the ServiceEntry ServiceInfos for this hostname
-				return nil
-			}
+			typedServiceInfos := ios.Objects
 
-			var oldest *model.ServiceInfo
-			for _, o := range se.Objects {
-				if oldest == nil || o.CreationTime.Before(oldest.CreationTime) {
-					oldest = &o.ServiceInfo
+			bestByNamespace := make(map[string]model.ServiceInfo)
+
+			// check if a is a better ServiceInfo than b
+			// better meaning both:
+			//     a is older than b
+			//     b is not a Kubernetes Service
+			isBetter := func(a, b model.ServiceInfo) bool {
+				return a.CreationTime.Before(b.CreationTime) && b.Source.Kind != kind.Service
+			}
+			var canonical *model.ServiceInfo
+			for _, tsi := range typedServiceInfos {
+				tsiNamespace := tsi.GetNamespace()
+				if tsi.Source.Kind == kind.Service {
+					// A Kubernetes Service is always used, and canonical
+					bestByNamespace[tsiNamespace] = tsi.ServiceInfo
+					canonical = &tsi.ServiceInfo
+					continue
+				}
+				currentBest, found := bestByNamespace[tsiNamespace]
+				if !found || isBetter(tsi.ServiceInfo, currentBest) {
+					bestByNamespace[tsiNamespace] = tsi.ServiceInfo
+				} else {
+					// if we are not the best for our namespace, then we don't need to worry about being canonical
+					continue
+				}
+				if canonical == nil || isBetter(tsi.ServiceInfo, *canonical) {
+					canonical = &tsi.ServiceInfo
 				}
 			}
-			return oldest
+
+			// make a copy and then set canonical
+			if canonical != nil {
+				bestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
+			}
+
+			// convert map into slice and return
+			return maps.Values(bestByNamespace)
 		}, append(
-			opts.WithName("DedupedServiceEntriesInfo"),
+			opts.WithName("WorkloadServices"),
 			krt.WithMetadata(krt.Metadata{
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}),
 		)...,
 	)
-	WorkloadServices := krt.JoinCollection(
-		[]krt.Collection[model.ServiceInfo]{
-			ServicesInfo,
-			DedupedServiceEntriesInfo,
-		},
-		append(opts.WithName("WorkloadServices"), krt.WithMetadata(
-			krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: clusterID,
-			},
-		))...)
 	return WorkloadServices
 }
 
-func GlobalMergedWorkloadServicesCollection(
+func GlobalNestedWorkloadServicesCollection(
 	localCluster *multicluster.Cluster,
 	localServiceInfos krt.Collection[model.ServiceInfo],
 	localWaypoints krt.Collection[Waypoint],
@@ -258,7 +279,13 @@ func serviceServiceBuilder(
 		}
 		waypointStatus.Error = wperr
 
-		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
+		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
+		var nsAnnotations map[string]string
+		if ns != nil {
+			nsAnnotations = (*ns).Annotations
+		}
+
+		svc := constructService(ctx, s, waypoint, domainSuffix, nsAnnotations, networkGetter)
 
 		svcInfo := &model.ServiceInfo{
 			Service:       svc,
@@ -274,6 +301,32 @@ func serviceServiceBuilder(
 		}
 
 		return svcInfo
+	}
+}
+
+func typedServiceServiceBuilder(
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
+	domainSuffix string,
+	localCluster bool,
+	checkServiceScope bool,
+	networkGetter func(ctx krt.HandlerContext) network.ID,
+	precompute bool,
+) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
+	return func(ctx krt.HandlerContext, s *v1.Service) *TypedServiceInfo {
+		svcInfo := serviceServiceBuilder(waypoints,
+			namespaces,
+			meshConfig,
+			domainSuffix,
+			localCluster,
+			checkServiceScope,
+			networkGetter,
+			precompute)(ctx, s)
+		if svcInfo == nil {
+			return nil
+		}
+		return &TypedServiceInfo{ServiceInfo: *svcInfo}
 	}
 }
 
@@ -370,8 +423,8 @@ func (a Builder) serviceServiceBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
 	precompute bool,
-) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
-	return serviceServiceBuilder(
+) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
+	return typedServiceServiceBuilder(
 		waypoints,
 		namespaces,
 		meshConfig,
@@ -393,31 +446,37 @@ func MakeSource(o controllers.Object) model.TypedObject {
 	}
 }
 
-// ServiceEntryInfo is a wrapper around ServiceInfo that handles key conflicts
-// on hostname.
-type ServiceEntryInfo struct {
+// TypedServiceInfo is a wrapper around ServiceInfo to avoid key conflicts during processing
+type TypedServiceInfo struct {
 	model.ServiceInfo
 }
 
-func (s ServiceEntryInfo) ResourceName() string {
-	return s.GetNamespace() + "/" + s.GetName() + "/" + s.Service.GetHostname()
+func (t TypedServiceInfo) ResourceName() string {
+	return t.Source.Kind.String() + "/" + t.GetNamespace() + "/" + t.GetName() + "/" + t.Service.GetHostname()
 }
 
-func (s ServiceEntryInfo) Equals(other ServiceEntryInfo) bool {
-	return s.ServiceInfo.Equals(other.ServiceInfo)
+func (t TypedServiceInfo) Equals(other TypedServiceInfo) bool {
+	return t.ServiceInfo.Equals(other.ServiceInfo)
 }
 
 func (a Builder) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
-) krt.TransformationMulti[*networkingclient.ServiceEntry, ServiceEntryInfo] {
-	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []ServiceEntryInfo {
+) krt.TransformationMulti[*networkingclient.ServiceEntry, TypedServiceInfo] {
+	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
+
+		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
+		var nsAnnotations map[string]string
+		if ns != nil {
+			nsAnnotations = (*ns).Annotations
+		}
+
+		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, nsAnnotations, func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		})
-		return slices.Map(serviceInfos, func(si model.ServiceInfo) ServiceEntryInfo {
-			return ServiceEntryInfo{ServiceInfo: si}
+		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
+			return TypedServiceInfo{ServiceInfo: si}
 		})
 	}
 }
@@ -427,6 +486,7 @@ func serviceEntriesInfo(
 	s *networkingclient.ServiceEntry,
 	w *Waypoint,
 	wperr *model.StatusMessage,
+	nsAnnotations map[string]string,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
@@ -454,7 +514,7 @@ func serviceEntriesInfo(
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
-	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
+	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
@@ -470,6 +530,7 @@ func constructServiceEntries(
 	ctx krt.HandlerContext,
 	svc *networkingclient.ServiceEntry,
 	w *Waypoint,
+	nsAnnotations map[string]string,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
@@ -513,7 +574,7 @@ func constructServiceEntries(
 			HealthPolicy: workloadapi.LoadBalancing_ALLOW_ALL,
 		}
 	} else {
-		trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations)
+		trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations, nsAnnotations)
 		switch trafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
 			lb = preferSameZoneLoadBalancer
@@ -563,6 +624,7 @@ func constructService(
 	svc *v1.Service,
 	w *Waypoint,
 	domainSuffix string,
+	nsAnnotations map[string]string,
 	networkGetter func(krt.HandlerContext) network.ID,
 ) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
@@ -594,8 +656,8 @@ func constructService(
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
 	} else {
-		// Check traffic distribution.
-		trafficDistribution := model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
+		// Check traffic distribution with namespace inheritance
+		trafficDistribution := model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations, nsAnnotations)
 		switch trafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
 			lb = preferSameZoneLoadBalancer
@@ -633,6 +695,9 @@ func constructService(
 		Waypoint:      w.GetAddress(),
 		LoadBalancing: lb,
 		IpFamilies:    ipFamily,
+		// A kubernetes service is always considered to be canonical, overrides for this host must be namespace-local
+		// to the client workload
+		Canonical: true,
 	}
 }
 
@@ -684,4 +749,21 @@ func precomputeService(w model.ServiceInfo) model.ServiceInfo {
 		Marshaled: w.MarshaledAddress,
 	}
 	return w
+}
+
+// setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo
+func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
+	wdsSvc := protomarshal.ShallowClone(se.Service)
+	wdsSvc.Canonical = true
+	return precomputeService(model.ServiceInfo{
+		Service:          wdsSvc,
+		LabelSelector:    se.LabelSelector,
+		PortNames:        se.PortNames,
+		Source:           se.Source,
+		Scope:            se.Scope,
+		Waypoint:         se.Waypoint,
+		MarshaledAddress: se.MarshaledAddress,
+		AsAddress:        se.AsAddress,
+		CreationTime:     se.CreationTime,
+	})
 }

@@ -17,8 +17,10 @@ package config
 import (
 	"fmt"
 	"net/netip"
+	"os"
 	"strings"
 
+	"istio.io/istio/cni/pkg/constants"
 	cfg "istio.io/istio/tools/common/config"
 )
 
@@ -104,6 +106,8 @@ type InstallConfig struct {
 	PluginLogLevel string
 	// The file mode to set when creating the kubeconfig file
 	KubeconfigMode int
+	// Whether to enable group read on the CNI config file (0640 instead of default 0600)
+	CNIConfGroupRead bool
 	// CA file for kubeconfig
 	KubeCAFile string
 	// Whether to use insecure TLS in the kubeconfig file
@@ -156,11 +160,22 @@ type InstallConfig struct {
 	// Whether reconciliation of iptables at post startup is enabled for Ambient workloads
 	AmbientReconcilePodRulesOnStartup bool
 
+	// Whether to retry checking if a pod is ambient in the cni plugin when there are errors
+	EnableAmbientDetectionRetry bool
+
 	// Whether native nftables should be used instead of iptable rules for traffic redirection
 	NativeNftables bool
 
 	// Choose which iptables binary to use (legacy or nft)
 	ForceIptablesBinary string
+}
+
+// CNIConfFileMode returns the file mode for the CNI config file based on the CNIConfGroupRead setting.
+func (c InstallConfig) CNIConfFileMode() os.FileMode {
+	if c.CNIConfGroupRead {
+		return os.FileMode(constants.CNIConfModeGroupRead)
+	}
+	return os.FileMode(constants.CNIConfModeDefault)
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -213,6 +228,7 @@ func (c InstallConfig) String() string {
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
+	b.WriteString("CNIConfGroupRead: " + fmt.Sprint(c.CNIConfGroupRead) + "\n")
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
 
@@ -235,6 +251,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("AmbientIPv6: " + fmt.Sprint(c.AmbientIPv6) + "\n")
 	b.WriteString("AmbientDisableSafeUpgrade: " + fmt.Sprint(c.AmbientDisableSafeUpgrade) + "\n")
 	b.WriteString("AmbientReconcilePodRulesOnStartup: " + fmt.Sprint(c.AmbientReconcilePodRulesOnStartup) + "\n")
+	b.WriteString("EnableAmbientDetectionRetry: " + fmt.Sprint(c.EnableAmbientDetectionRetry) + "\n")
 
 	b.WriteString("NativeNftables: " + fmt.Sprint(c.NativeNftables) + "\n")
 	b.WriteString("ForceIptablesBinary: " + fmt.Sprint(c.ForceIptablesBinary) + "\n")

@@ -18,7 +18,10 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -31,80 +34,120 @@ func TestEnvoyArgs(t *testing.T) {
 	proxyConfig.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "my-cluster"}
 	proxyConfig.Concurrency = &wrapperspb.Int32Value{Value: 8}
 
-	cfg := ProxyConfig{
-		LogLevel:          "trace",
-		ComponentLogLevel: "misc:error",
-		NodeIPs:           []string{"10.75.2.9", "192.168.11.18"},
-		BinaryPath:        proxyConfig.BinaryPath,
-		ConfigPath:        proxyConfig.ConfigPath,
-		ConfigCleanup:     true,
-		AdminPort:         proxyConfig.ProxyAdminPort,
-		DrainDuration:     proxyConfig.DrainDuration,
-		Concurrency:       8,
+	cases := []struct {
+		name      string
+		cfg       ProxyConfig
+		extraArgs []string
+		want      []string
+	}{
+		{
+			name: "default",
+			cfg: ProxyConfig{
+				LogLevel:          "trace",
+				ComponentLogLevel: "misc:error",
+				NodeIPs:           []string{"10.75.2.9", "192.168.11.18"},
+				BinaryPath:        proxyConfig.BinaryPath,
+				ConfigPath:        proxyConfig.ConfigPath,
+				ConfigCleanup:     true,
+				AdminPort:         proxyConfig.ProxyAdminPort,
+				DrainDuration:     proxyConfig.DrainDuration,
+				Concurrency:       8,
+			},
+			extraArgs: []string{"-l", "trace", "--component-log-level", "misc:error"},
+			want: []string{
+				"-c", "test.json",
+				"--drain-time-s", "45",
+				"--drain-strategy", "immediate",
+				"--local-address-ip-version", "v4",
+				"--file-flush-interval-msec", "1000",
+				"--disable-hot-restart",
+				"--allow-unknown-static-fields",
+				"-l", "trace",
+				"--component-log-level", "misc:error",
+				"--config-yaml", `{"key":"value"}`,
+				"--concurrency", "8",
+			},
+		},
+		{
+			name: "deprecated-logs",
+			cfg: ProxyConfig{
+				LogLevel:           "trace",
+				ComponentLogLevel:  "misc:error",
+				NodeIPs:            []string{"10.75.2.9", "192.168.11.18"},
+				BinaryPath:         proxyConfig.BinaryPath,
+				ConfigPath:         proxyConfig.ConfigPath,
+				ConfigCleanup:      true,
+				AdminPort:          proxyConfig.ProxyAdminPort,
+				DrainDuration:      proxyConfig.DrainDuration,
+				Concurrency:        8,
+				SkipDeprecatedLogs: true,
+			},
+			extraArgs: []string{"-l", "trace", "--component-log-level", "misc:error", "--skip-deprecated-logs"},
+			want: []string{
+				"-c", "test.json",
+				"--drain-time-s", "45",
+				"--drain-strategy", "immediate",
+				"--local-address-ip-version", "v4",
+				"--file-flush-interval-msec", "1000",
+				"--disable-hot-restart",
+				"--allow-unknown-static-fields",
+				"-l", "trace",
+				"--component-log-level", "misc:error",
+				"--skip-deprecated-logs",
+				"--config-yaml", `{"key":"value"}`,
+				"--concurrency", "8",
+			},
+		},
+		{
+			name: "file-flush",
+			cfg: ProxyConfig{
+				LogLevel:           "trace",
+				ComponentLogLevel:  "misc:error",
+				NodeIPs:            []string{"10.75.2.9", "192.168.11.18"},
+				BinaryPath:         proxyConfig.BinaryPath,
+				ConfigPath:         proxyConfig.ConfigPath,
+				ConfigCleanup:      true,
+				AdminPort:          proxyConfig.ProxyAdminPort,
+				DrainDuration:      proxyConfig.DrainDuration,
+				Concurrency:        8,
+				FileFlushMinSizeKB: 128,
+				FileFlushInterval:  durationpb.New(time.Second * 10),
+			},
+			extraArgs: []string{"-l", "trace", "--component-log-level", "misc:error"},
+			want: []string{
+				"-c", "test.json",
+				"--drain-time-s", "45",
+				"--drain-strategy", "immediate",
+				"--local-address-ip-version", "v4",
+				"--file-flush-interval-msec", "10000",
+				"--disable-hot-restart",
+				"--allow-unknown-static-fields",
+				"--file-flush-min-size-kb", "128",
+				"-l", "trace",
+				"--component-log-level", "misc:error",
+				"--config-yaml", `{"key":"value"}`,
+				"--concurrency", "8",
+			},
+		},
 	}
 
-	expectedArgs := []string{"-l", "trace", "--component-log-level", "misc:error"}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			test := &envoy{
+				ProxyConfig: tc.cfg,
+				extraArgs:   tc.extraArgs,
+			}
 
-	test := &envoy{
-		ProxyConfig: cfg,
-		extraArgs:   expectedArgs,
-	}
+			testProxy := NewProxy(tc.cfg)
+			if !reflect.DeepEqual(testProxy, test) {
+				t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
+			}
 
-	testProxy := NewProxy(cfg)
-	if !reflect.DeepEqual(testProxy, test) {
-		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
-	}
-
-	got := test.args("test.json", "testdata/bootstrap.json")
-	want := []string{
-		"-c", "test.json",
-		"--drain-time-s", "45",
-		"--drain-strategy", "immediate",
-		"--local-address-ip-version", "v4",
-		"--file-flush-interval-msec", "1000",
-		"--disable-hot-restart",
-		"--allow-unknown-static-fields",
-		"-l", "trace",
-		"--component-log-level", "misc:error",
-		"--config-yaml", `{"key":"value"}`,
-		"--concurrency", "8",
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", got, want)
-	}
-
-	// Test with setting up SkipDeprecatedLogs.
-	cfg.SkipDeprecatedLogs = true
-
-	expectedArgsWithDeprecatedLogs := append(expectedArgs, "--skip-deprecated-logs")
-
-	testWithDeprecatedLogs := &envoy{
-		ProxyConfig: cfg,
-		extraArgs:   expectedArgsWithDeprecatedLogs,
-	}
-
-	testProxyWithDeprecatedLogs := NewProxy(cfg)
-	if !reflect.DeepEqual(testProxyWithDeprecatedLogs, testWithDeprecatedLogs) {
-		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxyWithDeprecatedLogs, testWithDeprecatedLogs)
-	}
-
-	gotWithDeprecatedLogs := testWithDeprecatedLogs.args("test.json", "testdata/bootstrap.json")
-	wantWithDeprecatedLogs := []string{
-		"-c", "test.json",
-		"--drain-time-s", "45",
-		"--drain-strategy", "immediate",
-		"--local-address-ip-version", "v4",
-		"--file-flush-interval-msec", "1000",
-		"--disable-hot-restart",
-		"--allow-unknown-static-fields",
-		"-l", "trace",
-		"--component-log-level", "misc:error",
-		"--skip-deprecated-logs",
-		"--config-yaml", `{"key":"value"}`,
-		"--concurrency", "8",
-	}
-	if !reflect.DeepEqual(gotWithDeprecatedLogs, wantWithDeprecatedLogs) {
-		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", gotWithDeprecatedLogs, wantWithDeprecatedLogs)
+			got := test.args("test.json", "testdata/bootstrap.json")
+			if d := cmp.Diff(got, tc.want); d != "" {
+				t.Errorf("envoyArgs() => (-want +got):\n%s", d)
+			}
+		})
 	}
 }
 

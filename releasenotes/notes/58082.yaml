@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 57933
+  - 55142
+  - 34041
+releaseNotes:
+  - |
+    **Added** support for multiple CUSTOM authorization providers per workload, enabling different authentication schemes (OAuth, LDAP, API keys) for different API paths.

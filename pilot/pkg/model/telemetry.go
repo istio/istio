@@ -203,6 +203,7 @@ type TracingSpec struct {
 	CustomTags                   map[string]*tpb.Tracing_CustomTag
 	UseRequestIDForTraceSampling bool
 	EnableIstioTags              bool
+	DisableContextPropagation    bool
 }
 
 type LoggingConfig struct {
@@ -361,6 +362,11 @@ func (t *Telemetries) Tracing(proxy *Proxy, svc *Service) *TracingConfig {
 		if m.EnableIstioTags != nil {
 			for _, spec := range specs {
 				spec.EnableIstioTags = m.EnableIstioTags.Value
+			}
+		}
+		if m.DisableContextPropagation != nil {
+			for _, spec := range specs {
+				spec.DisableContextPropagation = m.DisableContextPropagation.GetValue()
 			}
 		}
 	}

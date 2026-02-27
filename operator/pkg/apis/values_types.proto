@@ -647,7 +647,13 @@ message GlobalConfig {
   // Specifies resource scope for discovery selectors.
   // This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
   ResourceScope resourceScope = 76;
-  // The next available key is 77
+  // Specifies how proxies are configured within Istio.
+  Agentgateway agentgateway = 77;
+  // The next available key is 78
+}
+
+message Agentgateway {
+  string image = 1;
 }
 
 enum ResourceScope {

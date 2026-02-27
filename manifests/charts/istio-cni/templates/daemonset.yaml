@@ -216,9 +216,9 @@ spec:
             {{ end }}
           resources:
 {{- if .Values.resources }}
-{{ toYaml .Values.resources | trim | indent 12 }}
+{{ include "istio-cni.resources" .Values.resources | trim | indent 12 }}
 {{- else }}
-{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
+{{ include "istio-cni.resources" .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
       volumes:
         # Used to install CNI.

@@ -1,0 +1,171 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ztunnel
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: ztunnel
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "ztunnel"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: ztunnel-1.0.0
+    
+  annotations:
+    {}
+spec:
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: ztunnel
+  template:
+    metadata:
+      labels:
+        sidecar.istio.io/inject: "false"
+        istio.io/dataplane-mode: none
+        app: ztunnel
+        app.kubernetes.io/name: ztunnel
+        app.kubernetes.io/managed-by: "Helm"
+        app.kubernetes.io/instance: "ztunnel"
+        app.kubernetes.io/part-of: "istio"
+        app.kubernetes.io/version: "1.0.0"
+        helm.sh/chart: ztunnel-1.0.0
+
+      annotations:
+        sidecar.istio.io/inject: "false"
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      serviceAccountName: ztunnel
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      dnsPolicy: None
+      dnsConfig:
+        nameservers:
+        - 111.222.123.234
+        options:
+        - name: ndots
+          value: "2"
+        - name: timeout
+          value: "2"
+        - name: attempts
+          value: "5"
+        searches:
+        - istio-system.svc.cluster.local
+        - svc.cluster.local
+        - cluster.local
+      containers:
+      - name: istio-proxy
+        image: "gcr.io/istio-testing/ztunnel:latest"
+        ports:
+        - containerPort: 15020
+          name: ztunnel-stats
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+        securityContext:
+          # K8S docs are clear that CAP_SYS_ADMIN *or* privileged: true
+          # both force this to `true`: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+          # But there is a K8S validation bug that doesn't propery catch this: https://github.com/kubernetes/kubernetes/issues/119568
+          allowPrivilegeEscalation: true
+          privileged: false
+          capabilities:
+            drop:
+            - ALL
+            add: # See https://man7.org/linux/man-pages/man7/capabilities.7.html
+            - NET_ADMIN # Required for TPROXY and setsockopt
+            - SYS_ADMIN # Required for `setns` - doing things in other netns
+            - NET_RAW # Required for RAW/PACKET sockets, TPROXY
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: false
+          runAsUser: 0
+        readinessProbe:
+          httpGet:
+            port: 15021
+            path: /healthz/ready
+        args:
+        - proxy
+        - ztunnel
+        env:
+        - name: CA_ADDRESS
+          value: istiod.istio-system.svc:15012
+        - name: XDS_ADDRESS
+          value: istiod.istio-system.svc:15012
+        - name: RUST_LOG
+          value: "info"
+        - name: RUST_BACKTRACE
+          value: "1"
+        - name: ISTIO_META_CLUSTER_ID
+          value: Kubernetes
+        - name: INPOD_ENABLED
+          value: "true"
+        - name: TERMINATION_GRACE_PERIOD_SECONDS
+          value: "30"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: ZTUNNEL_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+              divisor: "1"
+        volumeMounts:
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        - mountPath: /var/run/ztunnel
+          name: cni-ztunnel-sock-dir
+        - mountPath: /tmp
+          name: tmp
+      priorityClassName: system-node-critical
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: istio-ca
+      - name: istiod-ca-cert
+        configMap:
+          name: istio-ca-root-cert
+      - name: cni-ztunnel-sock-dir
+        hostPath:
+          path: /var/run/ztunnel
+          type: DirectoryOrCreate # ideally this would be a socket, but istio-cni may not have started yet.
+      # pprof needs a writable /tmp, and we don't have that thanks to `readOnlyRootFilesystem: true`, so mount one
+      - name: tmp
+        emptyDir: {}

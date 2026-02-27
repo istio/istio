@@ -676,6 +676,119 @@ func TestServiceEntryServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "namespace annotation inheritance",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+						Annotations: map[string]string{
+							"networking.istio.io/traffic-distribution": "PreferClose",
+						},
+					},
+				},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "name",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						RoutingPreference: []workloadapi.LoadBalancing_Scope{
+							workloadapi.LoadBalancing_NETWORK,
+							workloadapi.LoadBalancing_REGION,
+							workloadapi.LoadBalancing_ZONE,
+						},
+						Mode: workloadapi.LoadBalancing_FAILOVER,
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+				},
+			},
+		},
+		{
+			name: "serviceentry annotation overrides namespace",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+						Annotations: map[string]string{
+							"networking.istio.io/traffic-distribution": "PreferClose",
+						},
+					},
+				},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Annotations: map[string]string{
+						"networking.istio.io/traffic-distribution": "PreferSameNode",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "name",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						RoutingPreference: []workloadapi.LoadBalancing_Scope{
+							workloadapi.LoadBalancing_NETWORK,
+							workloadapi.LoadBalancing_REGION,
+							workloadapi.LoadBalancing_ZONE,
+							workloadapi.LoadBalancing_SUBZONE,
+							workloadapi.LoadBalancing_NODE,
+						},
+						Mode: workloadapi.LoadBalancing_FAILOVER,
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+					}},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -686,7 +799,7 @@ func TestServiceEntryServices(t *testing.T) {
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
-			res := slices.Map(wrapper, func(e ServiceEntryInfo) *workloadapi.Service {
+			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {
 				return e.Service
 			})
 			assert.Equal(t, res, tt.result)
@@ -739,6 +852,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -797,6 +911,7 @@ func TestServiceServices(t *testing.T) {
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 					TargetPort:  0,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -822,6 +937,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -861,6 +977,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 
@@ -901,6 +1018,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 
@@ -943,6 +1061,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -977,6 +1096,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -1033,6 +1153,7 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
 			},
 		},
 		{
@@ -1089,6 +1210,114 @@ func TestServiceServices(t *testing.T) {
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,
 				}},
+				Canonical: true,
+			},
+		},
+		{
+			name: "namespace annotation inheritance",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+						Annotations: map[string]string{
+							"networking.istio.io/traffic-distribution": "PreferClose",
+						},
+					},
+				},
+			},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				LoadBalancing: &workloadapi.LoadBalancing{
+					RoutingPreference: []workloadapi.LoadBalancing_Scope{
+						workloadapi.LoadBalancing_NETWORK,
+						workloadapi.LoadBalancing_REGION,
+						workloadapi.LoadBalancing_ZONE,
+					},
+					Mode: workloadapi.LoadBalancing_FAILOVER,
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
+		{
+			name: "service annotation overrides namespace",
+			inputs: []any{
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+						Annotations: map[string]string{
+							"networking.istio.io/traffic-distribution": "PreferClose",
+						},
+					},
+				},
+			},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Annotations: map[string]string{
+						"networking.istio.io/traffic-distribution": "PreferSameNode",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				LoadBalancing: &workloadapi.LoadBalancing{
+					RoutingPreference: []workloadapi.LoadBalancing_Scope{
+						workloadapi.LoadBalancing_NETWORK,
+						workloadapi.LoadBalancing_REGION,
+						workloadapi.LoadBalancing_ZONE,
+						workloadapi.LoadBalancing_SUBZONE,
+						workloadapi.LoadBalancing_NODE,
+					},
+					Mode: workloadapi.LoadBalancing_FAILOVER,
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
 			},
 		},
 	}

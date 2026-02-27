@@ -1,0 +1,192 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    gateway.istio.io/controller-version: "5"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations: {}
+  labels:
+    gateway.istio.io/managed: istio.io-agentgateway-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
+    gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/dataplane-mode: none
+  name: namespace-istio-agentgateway
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    kind: Gateway
+    name: namespace
+    uid: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations: {}
+  labels:
+    gateway.istio.io/managed: istio.io-agentgateway-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
+    gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/dataplane-mode: none
+  name: namespace-istio-agentgateway
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    kind: Gateway
+    name: namespace
+    uid: ""
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: namespace
+  template:
+    metadata:
+      annotations:
+        istio.io/rev: default
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+      labels:
+        gateway.istio.io/managed: istio.io-agentgateway-controller
+        gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
+        gateway.networking.k8s.io/gateway-name: namespace
+        istio.io/dataplane-mode: none
+        service.istio.io/canonical-name: namespace-istio-agentgateway
+        service.istio.io/canonical-revision: latest
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - args:
+        - --config
+        - '{}'
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              divisor: "1"
+              resource: limits.cpu
+        - name: GATEWAY
+          value: namespace
+        - name: RUST_BACKTRACE
+          value: "1"
+        - name: CLUSTER_ID
+          value: Kubernetes
+        - name: TRUST_DOMAIN
+          value: cluster.local
+        - name: XDS_ADDRESS
+          value: istiod.istio-system.svc:15012
+        image: test/agentgateway:test
+        name: agentgateway
+        ports:
+        - containerPort: 15020
+          name: metrics
+          protocol: TCP
+        - containerPort: 15021
+          name: status-port
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 4
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        startupProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          initialDelaySeconds: 1
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 1
+        volumeMounts:
+        - mountPath: /var/run/secrets/xds
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/xds-tokens
+          name: istio-token
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      serviceAccountName: namespace-istio-agentgateway
+      volumes:
+      - emptyDir: {}
+        name: tmp
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: <no value>
+              expirationSeconds: 43200
+              path: xds-token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: {}
+  labels:
+    gateway.istio.io/managed: istio.io-agentgateway-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
+    gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/dataplane-mode: none
+  name: namespace-istio-agentgateway
+  namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    kind: Gateway
+    name: namespace
+    uid: null
+spec:
+  ipFamilyPolicy: PreferDualStack
+  ports:
+  - appProtocol: tcp
+    name: status-port
+    port: 15021
+    protocol: TCP
+  - appProtocol: http
+    name: http
+    port: 80
+    protocol: TCP
+  selector:
+    gateway.networking.k8s.io/gateway-name: namespace
+  type: LoadBalancer
+---

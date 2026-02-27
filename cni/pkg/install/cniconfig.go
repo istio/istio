@@ -38,13 +38,14 @@ func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string
 		return "", fmt.Errorf("failed to parse ambient enablement selector: %v", err)
 	}
 	pluginConfig := plugin.Config{
-		PluginLogLevel:      cfg.PluginLogLevel,
-		CNIAgentRunDir:      cfg.CNIAgentRunDir,
-		AmbientEnabled:      cfg.AmbientEnabled,
-		EnablementSelectors: selectors,
-		ExcludeNamespaces:   strings.Split(cfg.ExcludeNamespaces, ","),
-		PodNamespace:        cfg.PodNamespace,
-		NativeNftables:      cfg.NativeNftables,
+		PluginLogLevel:              cfg.PluginLogLevel,
+		CNIAgentRunDir:              cfg.CNIAgentRunDir,
+		AmbientEnabled:              cfg.AmbientEnabled,
+		EnablementSelectors:         selectors,
+		ExcludeNamespaces:           strings.Split(cfg.ExcludeNamespaces, ","),
+		PodNamespace:                cfg.PodNamespace,
+		NativeNftables:              cfg.NativeNftables,
+		EnableAmbientDetectionRetry: cfg.EnableAmbientDetectionRetry,
 	}
 
 	pluginConfig.Name = "istio-cni"
@@ -99,7 +100,16 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 		cniConfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.IstioOwnedCNIConfigFilename)
 	}
 
-	if err = file.AtomicWrite(cniConfigFilepath, pluginConfig, os.FileMode(0o644)); err != nil {
+	// Determine the file mode: when modifying the primary CNI config (chained, non-istio-owned),
+	// preserve the existing file's permissions. Otherwise, use the configured mode.
+	fileMode := cfg.CNIConfFileMode()
+	if cfg.ChainedCNIPlugin && !useIstioOwnedCNIConfig(cfg) {
+		if info, statErr := os.Stat(cniConfigFilepath); statErr == nil {
+			fileMode = info.Mode()
+		}
+	}
+
+	if err = file.AtomicWrite(cniConfigFilepath, pluginConfig, fileMode); err != nil {
 		installLog.Errorf("Failed to write CNI config file %v: %v", cniConfigFilepath, err)
 		return cniConfigFilepath, err
 	}

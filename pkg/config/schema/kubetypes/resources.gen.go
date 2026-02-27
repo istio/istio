@@ -90,6 +90,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.KubernetesGateway, true
 	case *k8sioapicoordinationv1.Lease:
 		return gvk.Lease, true
+	case *sigsk8siogatewayapiapisv1.ListenerSet:
+		return gvk.ListenerSet, true
 	case *istioioapimeshv1alpha1.MeshConfig:
 		return gvk.MeshConfig, true
 	case *istioioapimeshv1alpha1.MeshNetworks:
@@ -164,8 +166,6 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.WorkloadGroup, true
 	case *sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy:
 		return gvk.XBackendTrafficPolicy, true
-	case *sigsk8siogatewayapiapisxv1alpha1.XListenerSet:
-		return gvk.XListenerSet, true
 	default:
 		return config.GroupVersionKind{}, false
 	}

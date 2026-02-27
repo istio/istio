@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/file"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	istioCredentials "istio.io/istio/pilot/pkg/credentials"
@@ -215,7 +216,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 						// We can only run this if the Gateway CRD is created
 						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
 							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision, args.Namespace)
-							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
+							controller := gatewaycommon.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
 								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision, args.Namespace)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock

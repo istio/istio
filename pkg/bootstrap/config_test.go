@@ -200,3 +200,151 @@ func TestRequiredEnvoyStatsMatcherInclusionRegexes(t *testing.T) {
 		t.Fatal("requiredEnvoyStatsMatcherInclusionRegexes doesn't match the route's stat_prefix")
 	}
 }
+
+func TestServiceClusterOrDefault(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		metadata *model.BootstrapNodeMetadata
+		expected string
+	}{
+		{
+			name:  "non-empty name that is not istio-proxy",
+			input: "my-service",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: "default",
+					Labels:    map[string]string{"app": "test"},
+				},
+			},
+			expected: "my-service",
+		},
+		{
+			name:  "app label takes priority over workload name for backward compatibility",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace:    "default",
+					WorkloadName: "my-workload",
+					Labels: map[string]string{
+						"app.kubernetes.io/name": "k8s-app",
+						"app":                    "legacy-app",
+					},
+				},
+			},
+			expected: "legacy-app.default",
+		},
+		{
+			name:  "app label takes priority for backward compatibility",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/name": "k8s-app",
+						"app":                    "legacy-app",
+					},
+				},
+			},
+			expected: "legacy-app.default",
+		},
+		{
+			name:  "app.kubernetes.io/name used when app not present",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: "default",
+					Labels: map[string]string{
+						"app.kubernetes.io/name": "k8s-app",
+					},
+				},
+			},
+			expected: "k8s-app.default",
+		},
+		{
+			name:  "empty name with only app label",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: "default",
+					Labels:    map[string]string{"app": "legacy-app"},
+				},
+			},
+			expected: "legacy-app.default",
+		},
+		{
+			name:  "canonical service label used as last fallback when no app labels",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: "default",
+					Labels: map[string]string{
+						model.IstioCanonicalServiceLabelName: "canonical-name",
+					},
+				},
+			},
+			expected: "canonical-name.default",
+		},
+		{
+			name:  "istio-proxy name falls back to labels first then workload name",
+			input: "istio-proxy",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace:    "default",
+					WorkloadName: "my-workload",
+					Labels:       map[string]string{"app.kubernetes.io/name": "k8s-app"},
+				},
+			},
+			expected: "k8s-app.default",
+		},
+		{
+			name:  "workload name used when no labels present",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace:    "default",
+					WorkloadName: "my-workload",
+				},
+			},
+			expected: "my-workload.default",
+		},
+		{
+			name:  "istio-proxy name falls back to labels when no workload name",
+			input: "istio-proxy",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: "default",
+					Labels:    map[string]string{"app.kubernetes.io/name": "k8s-app"},
+				},
+			},
+			expected: "k8s-app.default",
+		},
+		{
+			name:  "no labels and no workload name falls back to istio-proxy",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: "default",
+				},
+			},
+			expected: "istio-proxy.default",
+		},
+		{
+			name:  "no namespace returns just istio-proxy",
+			input: "",
+			metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{},
+			},
+			expected: "istio-proxy",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := serviceClusterOrDefault(tt.input, tt.metadata)
+			if result != tt.expected {
+				t.Errorf("serviceClusterOrDefault() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}

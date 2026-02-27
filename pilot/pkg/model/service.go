@@ -146,12 +146,6 @@ func (s *Service) Key() string {
 	return s.Attributes.Namespace + "/" + string(s.Hostname)
 }
 
-var serviceCmpOpts = []cmp.Option{cmpopts.IgnoreFields(AddressMap{}, "mutex")}
-
-func (s *Service) CmpOpts() []cmp.Option {
-	return serviceCmpOpts
-}
-
 func (s *Service) SupportsDrainingEndpoints() bool {
 	return (features.PersistentSessionLabel != "" && s.Attributes.Labels[features.PersistentSessionLabel] != "") ||
 		(features.PersistentSessionHeaderLabel != "" && s.Attributes.Labels[features.PersistentSessionHeaderLabel] != "")
@@ -329,7 +323,6 @@ type ServiceInstance struct {
 func (instance *ServiceInstance) CmpOpts() []cmp.Option {
 	res := []cmp.Option{}
 	res = append(res, istioEndpointCmpOpts...)
-	res = append(res, serviceCmpOpts...)
 	return res
 }
 
@@ -360,6 +353,12 @@ func ServiceInstanceToTarget(e *ServiceInstance) ServiceTarget {
 			TargetPort:  e.Endpoint.EndpointPort,
 		},
 	}
+}
+
+// ShallowCopy creates a shallow copy of ServiceInstance.
+func (instance *ServiceInstance) ShallowCopy() *ServiceInstance {
+	cpy := *instance
+	return &cpy
 }
 
 // DeepCopy creates a copy of ServiceInstance.
@@ -744,7 +743,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses *AddressMap
+	ClusterExternalAddresses AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -797,7 +796,8 @@ const (
 	TrafficDistributionPreferSameNode
 )
 
-func GetTrafficDistribution(specValue *string, annotations map[string]string) TrafficDistribution {
+func GetTrafficDistribution(specValue *string, svcAnnotations, nsAnnotations map[string]string) TrafficDistribution {
+	// 1. Check spec field first (highest priority)
 	if specValue != nil {
 		switch *specValue {
 		case corev1.ServiceTrafficDistributionPreferSameZone, corev1.ServiceTrafficDistributionPreferClose:
@@ -806,26 +806,44 @@ func GetTrafficDistribution(specValue *string, annotations map[string]string) Tr
 			return TrafficDistributionPreferSameNode
 		}
 	}
+
+	// 2. Check service annotation (second priority)
 	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
-	// This also has some custom types
-	trafficDistributionAnnotationValue := strings.ToLower(annotations[annotation.NetworkingTrafficDistribution.Name])
-	switch trafficDistributionAnnotationValue {
-	case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
-		return TrafficDistributionPreferSameZone
-	case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
-		return TrafficDistributionPreferSameNode
-	default:
-		if trafficDistributionAnnotationValue != "" {
-			log.Warnf("Unknown traffic distribution annotation, defaulting to any")
+	svcAnnoValue := strings.ToLower(svcAnnotations[annotation.NetworkingTrafficDistribution.Name])
+	if svcAnnoValue != "" {
+		switch svcAnnoValue {
+		case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
+			return TrafficDistributionPreferSameZone
+		case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
+			return TrafficDistributionPreferSameNode
+		default:
+			log.Warnf("Unknown traffic distribution annotation on service, defaulting to any")
+			return TrafficDistributionAny
 		}
-		return TrafficDistributionAny
 	}
+
+	// 3. Check namespace annotation (third priority)
+	if nsAnnotations != nil {
+		nsAnnoValue := strings.ToLower(nsAnnotations[annotation.NetworkingTrafficDistribution.Name])
+		if nsAnnoValue != "" {
+			switch nsAnnoValue {
+			case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
+				return TrafficDistributionPreferSameZone
+			case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
+				return TrafficDistributionPreferSameNode
+			default:
+				log.Warnf("Unknown traffic distribution annotation on namespace, defaulting to any")
+				return TrafficDistributionAny
+			}
+		}
+	}
+
+	// 4. Default to Any
+	return TrafficDistributionAny
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
 func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
-	// AddressMap contains a mutex, which is safe to copy in this case.
-	// nolint: govet
 	out := *s
 
 	out.Labels = maps.Clone(s.Labels)
@@ -834,7 +852,7 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	}
 
 	out.LabelSelectors = maps.Clone(s.LabelSelectors)
-	out.ClusterExternalAddresses = s.ClusterExternalAddresses.DeepCopy()
+	out.ClusterExternalAddresses = *s.ClusterExternalAddresses.DeepCopy()
 
 	if s.ClusterExternalPorts != nil {
 		out.ClusterExternalPorts = make(map[cluster.ID]map[uint32]uint32, len(s.ClusterExternalPorts))
@@ -846,8 +864,6 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	out.Aliases = slices.Clone(s.Aliases)
 	out.PassthroughTargetPorts = maps.Clone(out.PassthroughTargetPorts)
 
-	// AddressMap contains a mutex, which is safe to return a copy in this case.
-	// nolint: govet
 	return out
 }
 
@@ -1866,9 +1882,14 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	return DisabledTLSModeLabel
 }
 
+// ShallowCopy creates a shallow clone of IstioEndpoint.
+func (s *Service) ShallowCopy() *Service {
+	cpy := *s
+	return &cpy
+}
+
 // DeepCopy creates a clone of Service.
 func (s *Service) DeepCopy() *Service {
-	// nolint: govet
 	out := *s
 	out.Attributes = s.Attributes.DeepCopy()
 	if s.Ports != nil {
@@ -1940,7 +1961,6 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 
 // ShallowCopy creates a shallow clone of IstioEndpoint.
 func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
-	// nolint: govet
 	cpy := *ep
 	return &cpy
 }

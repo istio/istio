@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: [58425]
+releaseNotes:
+  - |
+    **Added** support for filtering resources that Pilot will watch, based on the environment variable `PILOT_IGNORE_RESOURCES`.
+    This variable is a comma-separated list of resources and prefixes that should be ignored by Istio CRD Watcher.
+    In case there is a need to explicitly include a resource, even it being on the ignore list it can be done
+    using the variable `PILOT_INCLUDE_RESOURCES`.
+    This feature enables administrators that want to deploy Istio as a Gateway API only controller, ignoring mesh resources, 
+    or allowing the deployment of Istio with support only for Gateway API HTTPRoutes (eg.: GAMMA support).

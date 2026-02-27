@@ -44,18 +44,18 @@ func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
 }
 
 func buildMockController() *Controller {
-	discovery1 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV1.DeepCopy(),
-		mock.HelloService.DeepCopy(),
-		mock.ExtHTTPService.DeepCopy(),
+	discovery1 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV1.ShallowCopy(),
+		mock.HelloService.ShallowCopy(),
+		mock.ExtHTTPService.ShallowCopy(),
 	)
 	for _, port := range mock.HelloService.Ports {
 		discovery1.AddInstance(mock.MakeServiceInstance(mock.HelloService, port, 0, model.Locality{}))
 		discovery1.AddInstance(mock.MakeServiceInstance(mock.HelloService, port, 1, model.Locality{}))
 	}
 
-	discovery2 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV2.DeepCopy(),
-		mock.WorldService.DeepCopy(),
-		mock.ExtHTTPSService.DeepCopy(),
+	discovery2 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV2.ShallowCopy(),
+		mock.WorldService.ShallowCopy(),
+		mock.ExtHTTPSService.ShallowCopy(),
 	)
 	for _, port := range mock.WorldService.Ports {
 		discovery2.AddInstance(mock.MakeServiceInstance(mock.WorldService, port, 0, model.Locality{}))
@@ -110,7 +110,7 @@ func buildMockControllerForMultiCluster() (*Controller, *memory.ServiceDiscovery
 }
 
 func TestServicesForMultiCluster(t *testing.T) {
-	originalHelloService := mock.HelloService.DeepCopy()
+	originalHelloService := mock.HelloService.ShallowCopy()
 	aggregateCtl, _, registry2 := buildMockControllerForMultiCluster()
 	// List Services from aggregate controller
 	services := aggregateCtl.Services()
@@ -476,6 +476,88 @@ func TestDeferredRun(t *testing.T) {
 		ctrl.AddRegistryAndRun(runnableRegistry("late"), stop)
 		expectRunningOrFail(t, ctrl, true)
 	})
+}
+
+func TestReplaceRegistry(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+	ctrl := NewController(Options{})
+
+	// Add initial registry
+	oldRegistry := runnableRegistry("cluster1")
+	ctrl.AddRegistryAndRun(oldRegistry, stop)
+
+	// Start the controller
+	go ctrl.Run(stop)
+	expectRunningOrFail(t, ctrl, true)
+
+	// Verify initial state
+	registries := ctrl.GetRegistries()
+	if len(registries) != 1 {
+		t.Fatalf("Expected 1 registry, got %d", len(registries))
+	}
+	if registries[0].Cluster() != "cluster1" {
+		t.Fatalf("Expected cluster1, got %s", registries[0].Cluster())
+	}
+
+	// Replace with new registry
+	newRegistry := runnableRegistry("cluster1")
+	ctrl.UpdateRegistry(newRegistry, stop)
+
+	// Verify replacement - should still have 1 registry with same cluster ID
+	registries = ctrl.GetRegistries()
+	if len(registries) != 1 {
+		t.Fatalf("Expected 1 registry after replacement, got %d", len(registries))
+	}
+	if registries[0].Cluster() != "cluster1" {
+		t.Fatalf("Expected cluster1 after replacement, got %s", registries[0].Cluster())
+	}
+
+	// Verify the new registry is running
+	retry.UntilSuccessOrFail(t, func() error {
+		if !newRegistry.running.Load() {
+			return fmt.Errorf("new registry should be running")
+		}
+		return nil
+	}, retry.Timeout(50*time.Millisecond))
+
+	// Verify the old registry is NOT the one running anymore (new one replaced it)
+	// The old registry should not be running because ReplaceRegistry replaces in-place
+	// Note: oldRegistry.running is still true because it was started before replacement,
+	// but the controller now holds newRegistry, not oldRegistry
+	if !newRegistry.running.Load() {
+		t.Fatal("Expected the new registry to be running")
+	}
+}
+
+func TestReplaceRegistryAddsIfNotExists(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+	ctrl := NewController(Options{})
+
+	// Start the controller with no registries
+	go ctrl.Run(stop)
+
+	// ReplaceRegistry should add if no existing registry
+	newRegistry := runnableRegistry("newCluster")
+	ctrl.UpdateRegistry(newRegistry, stop)
+
+	// Verify it was added
+	registries := ctrl.GetRegistries()
+	if len(registries) != 1 {
+		t.Fatalf("Expected 1 registry, got %d", len(registries))
+	}
+	if registries[0].Cluster() != "newCluster" {
+		t.Fatalf("Expected newCluster, got %s", registries[0].Cluster())
+	}
+
+	// Verify the new registry is running
+	retry.UntilSuccessOrFail(t, func() error {
+		if !newRegistry.running.Load() {
+			return fmt.Errorf("new registry should be running")
+		}
+		return nil
+	}, retry.Timeout(50*time.Millisecond))
 }
 
 func TestMergeServiceWithSameTrustDomain(t *testing.T) {

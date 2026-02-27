@@ -1,5 +1,5 @@
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: invalid-class
   namespace: istio-system
@@ -17,8 +17,8 @@ status:
     status: "False"
     type: Programmed
 ---
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: not-accepted-parent
   namespace: istio-system
@@ -36,8 +36,8 @@ status:
     status: "False"
     type: Programmed
 ---
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: not-allowed
   namespace: istio-system
@@ -55,8 +55,8 @@ status:
     status: "False"
     type: Programmed
 ---
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: port-not-in-service
   namespace: istio-system
@@ -98,7 +98,6 @@ status:
       status: "True"
       type: ResolvedRefs
     name: first
-    port: 12345
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
@@ -132,11 +131,6 @@ status:
     status: "False"
     type: Accepted
   - lastTransitionTime: fake
-    message: AllowedListeners is configured, but no ListenerSets are attached
-    reason: NoListenersAttached
-    status: "False"
-    type: AttachedListenerSets
-  - lastTransitionTime: fake
     message: Failed to assign to any requested addresses
     reason: UnsupportedAddress
     status: "False"
@@ -152,17 +146,13 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
+  attachedListenerSets: 1
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
-  - lastTransitionTime: fake
-    message: At least one ListenerSet is attached
-    reason: ListenersAttached
-    status: "True"
-    type: AttachedListenerSets
   - lastTransitionTime: fake
     message: 'Assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80,
       but failed to assign to all requested addresses: port 12345 not found for hostname
@@ -267,11 +257,6 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
-  - lastTransitionTime: fake
-    message: AllowedListeners is configured, but no ListenerSets are attached
-    reason: NoListenersAttached
-    status: "False"
-    type: AttachedListenerSets
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed

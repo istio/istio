@@ -22,10 +22,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -72,23 +72,23 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 }
 
 func ListenerSetCollection(
-	listenerSets krt.Collection[*gatewayx.XListenerSet],
+	listenerSets krt.Collection[*gatewayv1.ListenerSet],
 	gateways krt.Collection[*gatewayv1.Gateway],
 	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
-	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) (
-	krt.StatusCollection[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus],
+	krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
 	krt.Collection[ListenerSet],
 ) {
 	statusCol, gw := krt.NewStatusManyCollection(listenerSets,
-		func(ctx krt.HandlerContext, obj *gatewayx.XListenerSet) (*gatewayx.ListenerSetStatus, []ListenerSet) {
+		func(ctx krt.HandlerContext, obj *gatewayv1.ListenerSet) (*gatewayv1.ListenerSetStatus, []ListenerSet) {
 			// We currently depend on service discovery information not know to krt; mark we depend on it.
 			context := gatewayContext.Get(ctx).Load()
 			if context == nil {
@@ -102,12 +102,12 @@ func ListenerSetCollection(
 			status := obj.Status.DeepCopy()
 
 			p := ls.ParentRef
-			if normalizeReference(p.Group, p.Kind, gvk.KubernetesGateway) != gvk.KubernetesGateway {
+			if gatewaycommon.NormalizeReference(p.Group, p.Kind, gvk.KubernetesGateway) != gvk.KubernetesGateway {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
 			}
 
-			pns := ptr.OrDefault(p.Namespace, gatewayx.Namespace(obj.Namespace))
+			pns := ptr.OrDefault(p.Namespace, gatewayv1.Namespace(obj.Namespace))
 			parentGwObj := ptr.Flatten(krt.FetchOne(ctx, gateways, krt.FilterKey(string(pns)+"/"+string(p.Name))))
 			if parentGwObj == nil {
 				// Cannot report status since we don't know if it is for us
@@ -121,17 +121,17 @@ func ListenerSetCollection(
 			}
 
 			controllerName := class.Controller
-			classInfo, f := classInfos[controllerName]
+			classInfo, f := gatewaycommon.ClassInfos[controllerName]
 			if !f {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
 			}
-			if !classInfo.supportsListenerSet {
+			if !classInfo.SupportsListenerSet {
 				reportUnsupportedListenerSet(class.Name, status, obj)
 				return status, nil
 			}
 
-			if !namespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
+			if !gatewaycommon.NamespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
 				return ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(s)))
 			}) {
 				reportNotAllowedListenerSet(status, obj)
@@ -149,7 +149,7 @@ func ListenerSetCollection(
 			for i, l := range ls.Listeners {
 				port, portErr := detectListenerPortNumber(l)
 				l.Port = port
-				standardListener := convertListenerSetToListener(l)
+				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
 				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
 					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
@@ -166,7 +166,7 @@ func ListenerSetCollection(
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
 				serviceAccountName := model.GetOrDefault(
 					parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-					getDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.disableNameSuffix),
+					gatewaycommon.GetDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.DisableNameSuffix),
 				)
 				meta[constants.InternalServiceAccount] = serviceAccountName
 
@@ -187,7 +187,7 @@ func ListenerSetCollection(
 
 				allowed, _ := generateSupportedKinds(standardListener)
 				ref := parentKey{
-					Kind:      gvk.XListenerSet,
+					Kind:      gvk.ListenerSet,
 					Name:      obj.Name,
 					Namespace: obj.Namespace,
 				}
@@ -223,11 +223,11 @@ func GatewayCollection(
 	listenerSets krt.Collection[ListenerSet],
 	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
-	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) (
@@ -254,11 +254,11 @@ func GatewayCollection(
 			return nil, nil
 		}
 		controllerName := class.Controller
-		classInfo, f := classInfos[controllerName]
+		classInfo, f := gatewaycommon.ClassInfos[controllerName]
 		if !f {
 			return nil, nil
 		}
-		if classInfo.disableRouteGeneration {
+		if classInfo.DisableRouteGeneration {
 			reportUnmanagedGatewayStatus(status, obj)
 			// We found it, but don't want to handle this class
 			return status, nil
@@ -277,10 +277,10 @@ func GatewayCollection(
 		// If we set and address of type hostname, then we have no idea what service accounts the gateway workloads will use.
 		// Thus, we don't enforce service account name restrictions (still look at namespaces though).
 		serviceAccountName := ""
-		if IsManaged(&obj.Spec) {
+		if gatewaycommon.IsManaged(&obj.Spec) {
 			serviceAccountName = model.GetOrDefault(
 				obj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-				getDefaultName(obj.GetName(), &kgw, classInfo.disableNameSuffix),
+				gatewaycommon.GetDefaultName(obj.GetName(), &kgw, classInfo.DisableNameSuffix),
 			)
 		}
 
@@ -427,7 +427,7 @@ func BuildRouteParents(
 	}
 }
 
-func detectListenerPortNumber(l gatewayx.ListenerEntry) (gatewayx.PortNumber, error) {
+func detectListenerPortNumber(l gatewayv1.ListenerEntry) (gatewayv1.PortNumber, error) {
 	if l.Port != 0 {
 		return l.Port, nil
 	}
@@ -440,28 +440,12 @@ func detectListenerPortNumber(l gatewayx.ListenerEntry) (gatewayx.PortNumber, er
 	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
 }
 
-func convertStandardStatusToListenerSetStatus(l gatewayx.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
-	return func(e gatewayv1.ListenerStatus) gatewayx.ListenerEntryStatus {
-		return gatewayx.ListenerEntryStatus{
-			Name:           e.Name,
-			Port:           l.Port,
-			SupportedKinds: e.SupportedKinds,
-			AttachedRoutes: e.AttachedRoutes,
-			Conditions:     e.Conditions,
-		}
+func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
+	return func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
+		return gatewayv1.ListenerEntryStatus(e)
 	}
 }
 
-func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) gatewayv1.ListenerStatus {
-	return gatewayv1.ListenerStatus{
-		Name:           e.Name,
-		SupportedKinds: e.SupportedKinds,
-		AttachedRoutes: e.AttachedRoutes,
-		Conditions:     e.Conditions,
-	}
-}
-
-func convertListenerSetToListener(l gatewayx.ListenerEntry) gatewayv1.Listener {
-	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
-	return gatewayv1.Listener(l)
+func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
+	return gatewayv1.ListenerStatus(e)
 }

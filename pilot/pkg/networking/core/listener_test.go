@@ -3107,11 +3107,29 @@ func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	cases := []struct {
 		name            string
 		expectedTimeout int64
+		timeoutDisabled bool
+		configuredValue time.Duration
 		services        []*model.Service
 	}{
 		{
-			name:            "should set timeout",
+			name:            "should set default timeout",
 			expectedTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds(),
+			services: []*model.Service{
+				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+			},
+		},
+		{
+			name:            "should set custom timeout",
+			expectedTimeout: 30,
+			configuredValue: 30 * time.Second,
+			services: []*model.Service{
+				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+			},
+		},
+		{
+			name:            "should disable timeout when set to 0",
+			timeoutDisabled: true,
+			configuredValue: 0,
 			services: []*model.Service{
 				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
 			},
@@ -3119,18 +3137,33 @@ func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.configuredValue > 0 {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, tt.configuredValue)
+			} else if tt.timeoutDisabled {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, time.Duration(0))
+			}
 			p := getProxy()
 			listeners := buildOutboundListeners(t, p, nil, nil, tt.services...)
 			for _, l := range listeners {
 				for _, fc := range l.FilterChains {
-					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+					if tt.timeoutDisabled {
+						if fc.TransportSocketConnectTimeout != nil {
+							t.Errorf("expected no transport socket connect timeout for listener %s filter chain %s, got %v",
+								l.Name, fc.Name, fc.TransportSocketConnectTimeout)
+						}
+					} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
 						t.Errorf("expected transport socket connect timeout to be %v for listener %s filter chain %s, got %v",
 							tt.expectedTimeout, l.Name, fc.Name, fc.TransportSocketConnectTimeout)
 					}
 				}
 				if l.DefaultFilterChain != nil {
 					fc := l.DefaultFilterChain
-					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+					if tt.timeoutDisabled {
+						if fc.TransportSocketConnectTimeout != nil {
+							t.Errorf("expected no transport socket connect timeout for listener %s default filter chain, got %v",
+								l.Name, fc.TransportSocketConnectTimeout)
+						}
+					} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
 						t.Errorf("expected transport socket connect timeout to be %v for listener %s default filter chain, got %v",
 							tt.expectedTimeout, l.Name, fc.TransportSocketConnectTimeout)
 					}
@@ -3399,6 +3432,87 @@ func TestBuildListenerTLSContext(t *testing.T) {
 				}
 			} else if ctx.CommonTlsContext.ValidationContextType != nil {
 				t.Error("unexpected validation context")
+			}
+		})
+	}
+}
+
+func TestApplyDownstreamTLSDefaults(t *testing.T) {
+	tests := []struct {
+		name        string
+		tlsDefaults *meshconfig.MeshConfig_TLSConfig
+		expected    *tls.TlsParameters
+	}{
+		{
+			name:        "nil tlsDefaults",
+			tlsDefaults: nil,
+			expected:    nil,
+		},
+		{
+			name: "TLS_AUTO does not set min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLS_AUTO,
+			},
+			expected: nil,
+		},
+		{
+			name: "TLSV1_2 sets correct min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_2,
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+			},
+		},
+		{
+			name: "TLSV1_3 sets correct min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+			},
+		},
+		{
+			name: "EcdhCurves are applied",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				EcdhCurves: []string{"P-256", "P-384"},
+			},
+			expected: &tls.TlsParameters{
+				EcdhCurves: []string{"P-256", "P-384"},
+			},
+		},
+		{
+			name: "CipherSuites are applied",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				CipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"},
+			},
+			expected: &tls.TlsParameters{
+				CipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"},
+			},
+		},
+		{
+			name: "all settings combined",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+				EcdhCurves:         []string{"P-256"},
+				CipherSuites:       []string{"ECDHE-ECDSA-AES256-GCM-SHA384"},
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+				EcdhCurves:                []string{"P-256"},
+				CipherSuites:              []string{"ECDHE-ECDSA-AES256-GCM-SHA384"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &tls.CommonTlsContext{}
+			applyDownstreamTLSDefaults(tt.tlsDefaults, ctx)
+
+			if diff := cmp.Diff(tt.expected, ctx.TlsParams, protocmp.Transform()); diff != "" {
+				t.Errorf("TlsParams mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

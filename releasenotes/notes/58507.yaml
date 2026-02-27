@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 58507
+releaseNotes:
+- |
+  **Fixed** an issue where `iptables` command was not waiting to acquire a lock on
+  `/run/xtables.lock`, causing some misleading errors in the logs.

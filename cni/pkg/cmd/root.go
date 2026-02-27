@@ -234,11 +234,13 @@ func init() {
 	registerStringParameter(constants.CNIAgentRunDir, "/var/run/istio-cni", "Location of the node agent writable path on the node (used for sockets, etc)")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
+	registerBooleanParameter(constants.CNIConfGroupRead, false, "Whether to enable group read on the CNI config file (0640 instead of default 0600)")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
+	registerBooleanParameter(constants.EnableAmbientDetectionRetry, false, "Whether or not is ambient check is retried on error in the cni plugin")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
@@ -307,6 +309,7 @@ func constructConfig() (*config.Config, error) {
 		// This masks the fact we are doing this weird log-over-UDS to users, and allows them to configure it the same way.
 		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
+		CNIConfGroupRead:      viper.GetBool(constants.CNIConfGroupRead),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),
 		SkipTLSVerify:         viper.GetBool(constants.SkipTLSVerify),
 		K8sServiceProtocol:    os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
@@ -329,6 +332,7 @@ func constructConfig() (*config.Config, error) {
 		AmbientIPv6:                       viper.GetBool(constants.AmbientIPv6),
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),
 		AmbientReconcilePodRulesOnStartup: viper.GetBool(constants.AmbientReconcilePodRulesOnStartup),
+		EnableAmbientDetectionRetry:       viper.GetBool(constants.EnableAmbientDetectionRetry),
 
 		NativeNftables:      viper.GetBool(constants.NativeNftables),
 		ForceIptablesBinary: os.Getenv("FORCE_IPTABLES_BINARY"),

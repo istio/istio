@@ -179,8 +179,9 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
 	}
 
-	if configCluster && m.serviceEntryController != nil {
-		kubeRegistry.AppendNamespaceDiscoveryHandlers(m.serviceEntryController.NamespaceDiscoveryHandler)
+	// Set namespace client for traffic distribution inheritance (config cluster only)
+	if m.serviceEntryController != nil && configCluster {
+		m.serviceEntryController.SetNamespaces(kubeRegistry.namespaces)
 	}
 
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
@@ -200,14 +201,25 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 			// ServiceEntry selects WorkloadEntry from remote cluster
 			kubeController.workloadEntryController.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
-			kubeRegistry.AppendNamespaceDiscoveryHandlers(kubeController.workloadEntryController.NamespaceDiscoveryHandler)
 			m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
 			go configStore.Run(clusterStopCh)
 		}
 	}
 
 	// run after WorkloadHandler is added
-	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
+	if cluster.Action == multicluster.Update {
+		// For updates, wait for sync then atomically replace the registry.
+		// This ensures zero service disruption during credential rotation.
+		go func() {
+			// Wait for the new cluster to sync
+			<-cluster.SyncedCh
+			log.Infof("cluster %s synced, replacing registry", cluster.ID)
+			m.opts.MeshServiceController.UpdateRegistry(kubeRegistry, clusterStopCh)
+		}()
+	} else {
+		// For adds, register immediately
+		m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
+	}
 
 	go func() {
 		var shouldLead bool

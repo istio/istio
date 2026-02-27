@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -207,9 +208,8 @@ type Controller struct {
 	imports serviceImportCache
 	pods    *PodCache
 
-	crdHandlers                []func(name string)
-	handlers                   model.ControllerHandlers
-	namespaceDiscoveryHandlers []func(ns string, event model.Event)
+	crdHandlers []func(name string)
+	handlers    model.ControllerHandlers
 
 	// This is only used for test
 	stop chan struct{}
@@ -279,6 +279,25 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			nil,
 		)
 	}
+
+	// Namespace annotation handler for traffic-distribution inheritance
+	// When namespace annotations change, reprocess all services in that namespace
+	registerHandlers[*v1.Namespace](
+		c,
+		c.namespaces,
+		"Namespaces-TrafficDistribution",
+		func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+			if event == model.EventUpdate && old != nil {
+				oldTrafficDist := old.Annotations[annotation.NetworkingTrafficDistribution.Name]
+				curTrafficDist := cur.Annotations[annotation.NetworkingTrafficDistribution.Name]
+				if oldTrafficDist != curTrafficDist {
+					c.reprocessServicesInNamespace(cur.Name)
+				}
+			}
+			return nil
+		},
+		nil,
+	)
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
@@ -419,8 +438,15 @@ func (c *Controller) Cleanup() error {
 func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) error {
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
+	// Get namespace annotations for traffic distribution inheritance
+	var nsAnnotations map[string]string
+	ns := c.namespaces.Get(curr.Namespace, "")
+	if ns != nil {
+		nsAnnotations = ns.Annotations
+	}
+
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.TrustDomain())
+	svcConv := kube.ConvertService(*curr, nsAnnotations, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.TrustDomain())
 
 	switch event {
 	case model.EventDelete:
@@ -430,6 +456,16 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	}
 
 	return nil
+}
+
+// reprocessServicesInNamespace triggers an update event for all services in a namespace.
+func (c *Controller) reprocessServicesInNamespace(namespace string) {
+	allServices := c.services.List(namespace, klabels.Everything())
+	for _, svc := range allServices {
+		if err := c.onServiceEvent(svc, svc, model.EventUpdate); err != nil {
+			log.Warnf("failed to reprocess service %s/%s: %v", namespace, svc.Name, err)
+		}
+	}
 }
 
 func (c *Controller) deleteService(svc *model.Service) {
@@ -1171,11 +1207,6 @@ func (c *Controller) AppendServiceHandler(f model.ServiceHandler) {
 // AppendWorkloadHandler implements a service catalog operation
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
 	c.handlers.AppendWorkloadHandler(f)
-}
-
-// AppendNamespaceDiscoveryHandlers register handlers on namespace selected/deselected by discovery selectors change.
-func (c *Controller) AppendNamespaceDiscoveryHandlers(f func(string, model.Event)) {
-	c.namespaceDiscoveryHandlers = append(c.namespaceDiscoveryHandlers, f)
 }
 
 // AppendCrdHandlers register handlers on crd event.

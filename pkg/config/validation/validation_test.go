@@ -4462,6 +4462,41 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "discovery type DYNAMIC_DNS, nil port",
+			in: &networking.ServiceEntry{
+				Hosts:    []string{"*.google.com"},
+				Location: networking.ServiceEntry_MESH_EXTERNAL,
+				Ports: []*networking.ServicePort{
+					nil,
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "nil port in ports array",
+			in: &networking.ServiceEntry{
+				Hosts: []string{"google.com"},
+				Ports: []*networking.ServicePort{
+					nil,
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DNS with addresses, nil port",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{"1.2.3.4"},
+				Ports: []*networking.ServicePort{
+					nil,
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {
