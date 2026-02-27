@@ -123,7 +123,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
 		// Wait for it to be ready
 		assert.EventuallyEqual(t, func() int {
-			return len(s.KubeRegistry.All())
+			return len(s.AmbientIndex.All())
 		}, 2)
 
 		// Reconnect
@@ -157,7 +157,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
 		// Wait for it to be ready
 		assert.EventuallyEqual(t, func() int {
-			return len(s.KubeRegistry.All())
+			return len(s.AmbientIndex.All())
 		}, 2)
 
 		// Reconnect

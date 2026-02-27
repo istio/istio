@@ -1034,7 +1034,7 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
-	addresses, _ := s.Env.ServiceDiscovery.AddressInformation(nil)
+	addresses, _ := s.Env.AmbientIndexes.AddressInformation(nil)
 	res := struct {
 		Workloads []jsonMarshalProto `json:"workloads"`
 		Services  []jsonMarshalProto `json:"services"`
@@ -1081,7 +1081,7 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 			res.Services = append(res.Services, jsonMarshalProto{s})
 		}
 	}
-	for _, policy := range s.Env.ServiceDiscovery.Policies(nil) {
+	for _, policy := range s.Env.AmbientIndexes.Policies(nil) {
 		res.Policies = append(res.Policies, jsonMarshalProto{policy.Authorization})
 	}
 	writeJSON(w, res, req)

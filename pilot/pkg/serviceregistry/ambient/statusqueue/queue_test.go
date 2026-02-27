@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient/statusqueue"
 	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
