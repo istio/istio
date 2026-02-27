@@ -1799,9 +1799,13 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 		return addresses
 	}
 
-	// fallback to the default address
+	// fallback to the default address, but still respect IP family filtering
 	if a := s.DefaultAddress; len(a) > 0 {
-		return []string{a}
+		if filtered := filterAddresses(
+			[]string{a}, node.SupportsIPv4(), node.SupportsIPv6(),
+		); len(filtered) > 0 {
+			return filtered
+		}
 	}
 	return nil
 }

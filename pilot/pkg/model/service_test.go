@@ -709,6 +709,77 @@ func TestGetAllAddresses(t *testing.T) {
 			expectedAddresses:      []string{"2001:2::f0f0:e351"},
 			expectedExtraAddresses: []string{},
 		},
+		{
+			name: "IPv4 mode, no ClusterVIPs for local cluster, IPv6 DefaultAddress, expected no addresses",
+			service: &Service{
+				DefaultAddress: "fdce:e254:471d::52c8",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"other-cluster": {"fdce:e254:471d::52c8"},
+					},
+				},
+			},
+			ipMode:                 IPv4,
+			expectedAddresses:      nil,
+			expectedExtraAddresses: nil,
+		},
+		{
+			name: "IPv6 mode, no ClusterVIPs for local cluster, IPv4 DefaultAddress, expected no addresses",
+			service: &Service{
+				DefaultAddress: "10.96.0.50",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"other-cluster": {"10.96.0.50"},
+					},
+				},
+			},
+			ipMode:                 IPv6,
+			expectedAddresses:      nil,
+			expectedExtraAddresses: nil,
+		},
+		{
+			name:             "dual mode, ISTIO_DUAL_STACK enabled, no ClusterVIPs for local cluster, IPv6 DefaultAddress, expected IPv6",
+			dualStackEnabled: true,
+			service: &Service{
+				DefaultAddress: "fdce:e254:471d::52c8",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"other-cluster": {"fdce:e254:471d::52c8"},
+					},
+				},
+			},
+			ipMode:                 Dual,
+			expectedAddresses:      []string{"fdce:e254:471d::52c8"},
+			expectedExtraAddresses: nil,
+		},
+		{
+			name: "IPv4 mode, no ClusterVIPs for local cluster, IPv4 DefaultAddress, expected IPv4",
+			service: &Service{
+				DefaultAddress: "10.96.0.50",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"other-cluster": {"10.96.0.50"},
+					},
+				},
+			},
+			ipMode:                 IPv4,
+			expectedAddresses:      []string{"10.96.0.50"},
+			expectedExtraAddresses: nil,
+		},
+		{
+			name: "IPv6 mode, no ClusterVIPs for local cluster, IPv6 DefaultAddress, expected IPv6",
+			service: &Service{
+				DefaultAddress: "fdce:e254:471d::52c8",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"other-cluster": {"fdce:e254:471d::52c8"},
+					},
+				},
+			},
+			ipMode:                 IPv6,
+			expectedAddresses:      []string{"fdce:e254:471d::52c8"},
+			expectedExtraAddresses: nil,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
