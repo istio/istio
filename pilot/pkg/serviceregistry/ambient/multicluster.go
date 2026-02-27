@@ -28,7 +28,7 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient/statusqueue"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"

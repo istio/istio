@@ -71,7 +71,6 @@ type Controller struct {
 	// Indicates whether this controller is for workload entries.
 	workloadEntryController bool
 
-	model.NoopAmbientIndexes
 	model.NetworkGatewaysHandler
 }
 

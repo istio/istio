@@ -2145,6 +2145,131 @@ func TestPolicyAfterPod(t *testing.T) {
 	}
 }
 
+func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
+	s := newAmbientTestServer(t, testC, "", "")
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+
+	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod2"))
+
+	s.addService(t, "svc1",
+		map[string]string{},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.svcXdsName("svc1"), s.podXdsName("pod1"), s.podXdsName("pod2"))
+
+	s.clearEvents()
+
+	expectNetwork := func(t *testing.T, network string) {
+		t.Helper()
+		retry.UntilSuccessOrFail(t, func() error {
+			t.Helper()
+			podNames := sets.New[string]("pod1", "pod2")
+			svcNames := sets.New[string]("svc1")
+			addresses := s.All()
+			for _, addr := range addresses {
+				wl := addr.GetWorkload()
+				if wl != nil {
+					if !podNames.Contains(wl.Name) {
+						continue
+					}
+					if wl.Network != network {
+						return fmt.Errorf("workload %s has network %q, expected %q", wl.Name, wl.Network, network)
+					}
+				}
+				svc := addr.GetService()
+				if svc != nil {
+					if !svcNames.Contains(svc.Name) {
+						continue
+					}
+					for _, saddr := range svc.GetAddresses() {
+						if saddr.GetNetwork() != network {
+							return fmt.Errorf("service %s has network %q, expected %q", svc.Name, saddr.GetNetwork(), network)
+						}
+					}
+				}
+			}
+			return nil
+		}, retry.Timeout(time.Second*5))
+	}
+
+	t.Run("change namespace network to nw1", func(t *testing.T) {
+		s.ns.CreateOrUpdate(&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   systemNS,
+				Labels: map[string]string{label.TopologyNetwork.Name: "nw1"},
+			},
+		})
+		expectNetwork(t, "nw1")
+	})
+
+	t.Run("change namespace network to nw2", func(t *testing.T) {
+		s.ns.CreateOrUpdate(&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   systemNS,
+				Labels: map[string]string{label.TopologyNetwork.Name: "nw2"},
+			},
+		})
+		expectNetwork(t, "nw2")
+	})
+}
+
+func TestAmbientSync(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW, "")
+
+	go s.Run(test.NewStop(t))
+	assert.EventuallyEqual(t, s.HasSynced, true)
+
+	gateway := &k8sv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "remote-beta",
+			Namespace: "default",
+			Annotations: map[string]string{
+				annotation.GatewayServiceAccount.Name: "eastwest-istio-eastwest",
+			},
+			Labels: map[string]string{
+				label.TopologyNetwork.Name: "beta",
+			},
+		},
+		Spec: k8sv1.GatewaySpec{
+			GatewayClassName: "istio-remote",
+			Addresses: []k8sv1.GatewaySpecAddress{
+				{
+					Type:  ptr.Of(k8sv1.IPAddressType),
+					Value: "172.18.1.45",
+				},
+			},
+			Listeners: []k8sv1.Listener{
+				{
+					Name:     "cross-network",
+					Port:     15008,
+					Protocol: k8sv1.ProtocolType("HBONE"),
+					TLS: &k8sv1.ListenerTLSConfig{
+						Mode: ptr.Of(k8sv1.TLSModeType("Passthrough")),
+						Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
+							"gateway.istio.io/listener-protocol": "auto-passthrough",
+						},
+					},
+				},
+			},
+		},
+		Status: k8sv1.GatewayStatus{
+			Addresses: []k8sv1.GatewayStatusAddress{
+				{
+					Type:  ptr.Of(k8sv1.IPAddressType),
+					Value: "172.18.1.45",
+				},
+			},
+		},
+	}
+	s.grc.Create(gateway)
+	assert.EventuallyEqual(t, func() int {
+		return len(s.All())
+	}, 1)
+}
+
 type ambientTestServer struct {
 	*index
 	*ambientclients
