@@ -95,16 +95,18 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 
 func (s *XdsStatusWriter) printMachineReadable(statuses map[string]*discovery.DiscoveryResponse) error {
 	for _, status := range statuses {
-		out, err := protomarshal.MarshalIndentWithGlobalTypesResolver(status, "    ")
+		out, err := protomarshal.ToJSONWithIndent(status, "    ")
 		if err != nil {
 			return err
 		}
 		if s.OutputFormat == "yaml" {
-			if out, err = yaml.JSONToYAML(out); err != nil {
+			outyaml, err := yaml.JSONToYAML([]byte(out))
+			if err != nil {
 				return err
 			}
+			out = string(outyaml)
 		}
-		_, _ = fmt.Fprintln(s.Writer, string(out))
+		_, _ = fmt.Fprintln(s.Writer, out)
 	}
 	return nil
 }

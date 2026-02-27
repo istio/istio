@@ -101,7 +101,7 @@ func TestProxyStatus(t *testing.T) {
 		},
 		{ // case 9: JSON format outputs empty object when no proxies are present
 			args:           strings.Split("-o json", " "),
-			expectedOutput: "{}\n",
+			expectedOutput: "{\n\n}\n",
 			wantException:  false,
 		},
 	}
