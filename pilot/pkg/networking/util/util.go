@@ -76,6 +76,10 @@ const (
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
 
+	// IstioPeerMetadataKey is the key under which metadata for controlling peer metadata
+	// discovery is added to clusters and endpoints
+	IstioPeerMetadataKey = "istio.peer_metadata"
+
 	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
 	// which determines the endpoint level transport socket configuration.
 	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
