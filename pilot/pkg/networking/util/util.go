@@ -76,7 +76,7 @@ const (
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
 
-	// IstioPeerMetadataKey is the key under wich metadata for controlling peer metadata
+	// IstioPeerMetadataKey is the key under which metadata for controlling peer metadata
 	// discovery is added to clusters and endpoints
 	IstioPeerMetadataKey = "istio.peer_metadata"
 
