@@ -24,16 +24,19 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -75,9 +78,14 @@ func TestKubeConfigOverride(t *testing.T) {
 	fakeRestConfig := &rest.Config{}
 	client := kube.NewFakeClient()
 	stopCh := test.NewStop(t)
-	c := NewController(client, secretNamespace, "", meshwatcher.NewTestWatcher(nil), func(cfg *rest.Config) {
-		cfg.QPS = expectedQPS
-		cfg.Burst = expectedBurst
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+		ConfigOverrides: []func(*rest.Config){func(cfg *rest.Config) {
+			cfg.QPS = expectedQPS
+			cfg.Burst = expectedBurst
+		}},
 	})
 	c.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		for _, override := range configOverrides {
@@ -120,7 +128,12 @@ func buildTestController(t *testing.T, synced bool) testController {
 		t:      t,
 	}
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
-	tc.controller = NewController(tc.client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	tc.controller = NewController(ControllerOptions{
+		Client:          tc.client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
 	tc.controller.ClientBuilder = TestingBuildClientsFromConfig
 	iter := uberatomic.NewInt32(0)
 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
@@ -191,11 +204,31 @@ func TestListRemoteClusters(t *testing.T) {
 		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: SyncStatusSynced},
 	})
 
+	// Verify SourceSecret is set correctly on remote clusters
+	type simpleCluster struct {
+		ID           cluster.ID
+		SourceSecret types.NamespacedName
+	}
+	getSimpleClusters := func() []simpleCluster {
+		clusters := c.controller.Clusters().List()
+		sorted := slices.SortBy(clusters, func(cl *Cluster) cluster.ID { return cl.ID })
+		return slices.Map(sorted, func(cl *Cluster) simpleCluster {
+			return simpleCluster{ID: cl.ID, SourceSecret: cl.SourceSecret}
+		})
+	}
+	assert.EventuallyEqual(t, getSimpleClusters, []simpleCluster{
+		{ID: "c0", SourceSecret: types.NamespacedName{Name: "s0", Namespace: secretNamespace}},
+		{ID: "c1", SourceSecret: types.NamespacedName{Name: "s1", Namespace: secretNamespace}},
+	})
+
 	// Remove one
 	c.DeleteSecret("s1")
 	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
 		{ID: "config", SyncStatus: SyncStatusSynced},
 		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: SyncStatusSynced},
+	})
+	assert.EventuallyEqual(t, getSimpleClusters, []simpleCluster{
+		{ID: "c0", SourceSecret: types.NamespacedName{Name: "s0", Namespace: secretNamespace}},
 	})
 }
 
@@ -270,7 +303,12 @@ func TestObjectFilter(t *testing.T) {
 	tc.client = kube.SetObjectFilter(tc.client, filter)
 
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
-	tc.controller = NewController(tc.client, secretNamespace, clusterID, mesh)
+	tc.controller = NewController(ControllerOptions{
+		Client:          tc.client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       clusterID,
+		MeshConfig:      mesh,
+	})
 	tc.controller.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return clientWithNamespace(), nil
 	}
@@ -511,7 +549,12 @@ func TestSecretController(t *testing.T) {
 
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
-	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
 	c.ClientBuilder = TestingBuildClientsFromConfig
 	client.RunAndWait(stopCh)
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
@@ -582,7 +625,12 @@ func TestClusterUpdateHotSwap(t *testing.T) {
 	client := kube.NewFakeClient()
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 
-	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
 	c.ClientBuilder = TestingBuildClientsFromConfig
 
 	// Track component lifecycle events
@@ -672,7 +720,12 @@ func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
 	client := kube.NewFakeClient()
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 
-	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
 	c.ClientBuilder = TestingBuildClientsFromConfig
 
 	// Track clusters using atomic pointers to avoid data races
@@ -729,4 +782,257 @@ func TestClusterUpdateOldClusterStopsAfterNewSyncs(t *testing.T) {
 
 	// Verify new cluster is NOT stopped
 	assert.Equal(t, newC.Closed(), false)
+}
+
+// krtTestResult is used in TestKRTClustersCollection to track cluster
+// additions via an iteration counter in a derived KRT collection.
+type krtTestResult struct {
+	ID   cluster.ID
+	Iter int32
+}
+
+func (r krtTestResult) ResourceName() string {
+	return string(r.ID)
+}
+
+// TestKRTClustersCollection validates that the Controller.Clusters() KRT collection
+// properly reflects cluster lifecycle changes driven by secret add/update/delete.
+// This is the KRT-based analog of TestSecretController, which tests the callback-based path.
+func TestKRTClustersCollection(t *testing.T) {
+	test.SetForTest(t, &features.RemoteClusterTimeout, 1*time.Second)
+	client := kube.NewFakeClient()
+
+	var (
+		secret0Bad = makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("bad-kubeconfig")})
+		secret0    = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-0")})
+		secret0UpdateKubeconfigChanged = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0UpdateKubeconfigSame = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0AddCluster = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0DeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
+		secret0ReAddCluster  = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0ReDeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
+		secret1                = makeSecret(secretNamespace, "s1",
+			clusterCredential{"c1", []byte("kubeconfig1-0")})
+		otherNSSecret = makeSecret("some-other-namespace", "s2",
+			clusterCredential{"c1", []byte("kubeconfig1-0")})
+		secret2Cluster0 = makeSecret(secretNamespace, "s2",
+			clusterCredential{"c0", []byte("kubeconfig1-1")})
+		configCluster = makeSecret(secretNamespace, "s3",
+			clusterCredential{"config", []byte("kubeconfig3-0")})
+	)
+
+	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
+
+	type result struct {
+		ID   cluster.ID
+		Iter int32
+	}
+
+	steps := []struct {
+		name           string
+		add            *v1.Secret
+		update         *v1.Secret
+		delete         *v1.Secret
+		want           []result
+		afterTestDelay time.Duration // sleep after assertion to verify no panic/segfault
+	}{
+		{
+			name:           "Create secret s0 with bad kubeconfig for cluster c0, client builder returns error so cluster is never stored",
+			add:            secret0Bad,
+			want:           []result{{"config", 1}},
+			afterTestDelay: features.RemoteClusterTimeout + 500*time.Millisecond,
+		},
+		{
+			name:   "Update secret s0 and add good kubeconfig for cluster c0, which will add remote cluster c0",
+			update: secret0,
+			want:   []result{{"config", 1}, {"c0", 2}},
+		},
+		{
+			name:   "Update secret s0 and update the kubeconfig of cluster c0, which will update remote cluster c0",
+			update: secret0UpdateKubeconfigChanged,
+			want:   []result{{"config", 1}, {"c0", 3}},
+		},
+		{
+			name:   "Update secret s0 but keep the kubeconfig of cluster c0 unchanged, which will not update remote cluster c0",
+			update: secret0UpdateKubeconfigSame,
+			want:   []result{{"config", 1}, {"c0", 3}},
+		},
+		{
+			name:   "Update secret s0 and add kubeconfig for cluster c0-1 but keep the kubeconfig of cluster c0 unchanged",
+			update: secret0AddCluster,
+			want:   []result{{"config", 1}, {"c0", 3}, {"c0-1", 4}},
+		},
+		{
+			name:   "Update secret s0 and delete cluster c0-1 but keep the kubeconfig of cluster c0 unchanged",
+			update: secret0DeleteCluster,
+			want:   []result{{"config", 1}, {"c0", 3}},
+		},
+		{
+			name:   "Update secret s0 and re-add kubeconfig for cluster c0-1",
+			update: secret0ReAddCluster,
+			want:   []result{{"config", 1}, {"c0", 3}, {"c0-1", 5}},
+		},
+		{
+			name:   "Update secret s0 and re-delete cluster c0-1",
+			update: secret0ReDeleteCluster,
+			want:   []result{{"config", 1}, {"c0", 3}},
+		},
+		{
+			name: "Create secret s1 and add kubeconfig for cluster c1, which will add remote cluster c1",
+			add:  secret1,
+			want: []result{{"config", 1}, {"c0", 3}, {"c1", 6}},
+		},
+		{
+			name: "Add secret s2, with already existing cluster",
+			add:  secret2Cluster0,
+			want: []result{{"config", 1}, {"c0", 3}, {"c1", 6}},
+		},
+		{
+			name:   "Delete secret s2, with already existing cluster",
+			delete: secret2Cluster0,
+			want:   []result{{"config", 1}, {"c0", 3}, {"c1", 6}},
+		},
+		{
+			name:   "Delete secret s0, which will delete remote cluster c0",
+			delete: secret0,
+			want:   []result{{"config", 1}, {"c1", 6}},
+		},
+		{
+			name:   "Delete secret s1, which will delete remote cluster c1",
+			delete: secret1,
+			want:   []result{{"config", 1}},
+		},
+		{
+			name: "Add secret from another namespace",
+			add:  otherNSSecret,
+			want: []result{{"config", 1}},
+		},
+		{
+			name: "Add secret referencing config cluster",
+			add:  configCluster,
+			want: []result{{"config", 1}},
+		},
+		{
+			name:   "Delete secret referencing config cluster",
+			delete: configCluster,
+			want:   []result{{"config", 1}},
+		},
+	}
+
+	stopCh := test.NewStop(t)
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
+	c.ClientBuilder = func(kubeConfig []byte, clusterID cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		if string(kubeConfig) == "bad-kubeconfig" {
+			return nil, fmt.Errorf("fake error for bad kubeconfig")
+		}
+		return kube.NewFakeClient(), nil
+	}
+
+	// Build derived KRT collections to track cluster lifecycle via iteration counter.
+	// Start at 1 so the first remote cluster gets iter=2, matching the config cluster's iter=1.
+	iter := uberatomic.NewInt32(1)
+	remoteResults := krt.NewCollection(c.Clusters(), func(_ krt.HandlerContext, cl *Cluster) *krtTestResult {
+		return &krtTestResult{
+			ID:   cl.ID,
+			Iter: iter.Inc(),
+		}
+	})
+	allResults := krt.JoinCollection([]krt.Collection[krtTestResult]{
+		krt.NewSingleton(func(_ krt.HandlerContext) *krtTestResult {
+			return &krtTestResult{ID: "config", Iter: 1}
+		}).AsCollection(),
+		remoteResults,
+	})
+
+	secrets := clienttest.NewWriter[*v1.Secret](t, client)
+	client.RunAndWait(stopCh)
+	assert.NoError(t, c.Run(stopCh))
+
+	t.Run("sync timeout", func(t *testing.T) {
+		retry.UntilOrFail(t, c.Clusters().HasSynced, retry.Timeout(2*time.Second))
+	})
+	kube.WaitForCacheSync("test", stopCh, c.Clusters().HasSynced, allResults.HasSynced)
+
+	for _, step := range steps {
+		t.Run(step.name, func(t *testing.T) {
+			switch {
+			case step.add != nil:
+				secrets.Create(step.add)
+			case step.update != nil:
+				secrets.Update(step.update)
+			case step.delete != nil:
+				secrets.Delete(step.delete.Name, step.delete.Namespace)
+			}
+			assert.EventuallyEqual(t, func() []result {
+				return slices.Map(allResults.List(), func(e krtTestResult) result {
+					return result(e)
+				})
+			}, step.want)
+			if step.afterTestDelay > 0 {
+				// Wait past the timeout to confirm no segfaults or panics
+				time.Sleep(step.afterTestDelay)
+			}
+		})
+	}
+}
+
+// TestKRTClustersCollectionSyncTimeoutEviction validates that a cluster whose client
+// is constructed successfully but whose informers fail to sync is excluded from
+// the Clusters() collection after RemoteClusterTimeout fires, and that no panic
+// occurs after the timeout.
+func TestKRTClustersCollectionSyncTimeoutEviction(t *testing.T) {
+	test.SetForTest(t, &features.RemoteClusterTimeout, 500*time.Millisecond)
+
+	client := kube.NewFakeClient()
+	stopCh := test.NewStop(t)
+
+	c := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
+	// Return an erroring client: it constructs successfully but informers never sync.
+	c.ClientBuilder = func(kubeConfig []byte, clusterID cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		return kube.NewErroringFakeClient(), nil
+	}
+
+	secrets := clienttest.NewWriter[*v1.Secret](t, client)
+	client.RunAndWait(stopCh)
+	assert.NoError(t, c.Run(stopCh))
+	retry.UntilOrFail(t, c.Clusters().HasSynced, retry.Timeout(2*time.Second))
+
+	// Add a secret — the cluster will be stored but never sync
+	secrets.Create(makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0")}))
+
+	// The cluster should be stored in the ClusterStore
+	assert.EventuallyEqual(t, func() bool {
+		return c.cs.GetByID("c0") != nil
+	}, true)
+
+	// But the KRT Clusters() collection should NOT include it (it's not synced yet and AllReady filters it out)
+	assert.EventuallyEqual(t, func() int {
+		return len(c.Clusters().List())
+	}, 0)
+
+	// Wait for RemoteClusterTimeout to fire, then wait a bit more to confirm no panic/segfault
+	time.Sleep(features.RemoteClusterTimeout + 500*time.Millisecond)
+
+	// The cluster should still not be in the Clusters() collection after timeout
+	assert.Equal(t, len(c.Clusters().List()), 0)
+
+	// Verify the cluster timed out via the ClusterStore
+	cl := c.cs.GetByID("c0")
+	assert.Equal(t, cl != nil, true)
+	assert.Equal(t, cl.SyncDidTimeout(), true)
 }

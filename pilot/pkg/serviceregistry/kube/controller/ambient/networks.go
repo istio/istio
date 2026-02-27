@@ -25,12 +25,12 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	kubectrl "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
@@ -70,7 +70,7 @@ func (c NetworkCollections) HasSynced() bool {
 }
 
 func buildGlobalNetworkCollections(
-	clusters krt.Collection[*multicluster.Cluster],
+	ctrl *multicluster.Controller,
 	localNamespaces krt.Collection[*v1.Namespace],
 	localGateways krt.Collection[*gatewayv1.Gateway],
 	gateways krt.Collection[krt.Collection[krt.ObjectWithCluster[*gatewayv1.Gateway]]],
@@ -92,7 +92,7 @@ func buildGlobalNetworkCollections(
 			Network:   network.ID(nw),
 		}
 	}, opts.WithName("LocalSystemNamespaceNetwork")...)
-	RemoteSystemNamespaceNetworks := krt.NewCollection(clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *ClusterNetwork {
+	RemoteSystemNamespaceNetworks := krt.NewCollection(ctrl.Clusters(), func(ctx krt.HandlerContext, c *multicluster.Cluster) *ClusterNetwork {
 		if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster[%s] namespaces", c.ID), opts.Stop(), c.HasSynced) {
 			log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
 			return nil
@@ -124,9 +124,9 @@ func buildGlobalNetworkCollections(
 		return k8sGatewayToNetworkGatewaysWithCluster(options.ClusterID, gw, options.ClusterID)
 	}, opts.WithName("LocalNetworkGateways")...)
 
-	GlobalNetworkGateways := nestedCollectionFromLocalAndRemote(
+	GlobalNetworkGateways := multicluster.NestedCollectionFromLocalAndRemote(
+		ctrl,
 		localNetworkGateways,
-		clusters,
 		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[NetworkGateway]] {
 			opts := []krt.CollectionOption{
 				krt.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID)),

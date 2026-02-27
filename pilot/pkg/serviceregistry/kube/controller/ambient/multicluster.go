@@ -21,7 +21,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
@@ -29,16 +28,15 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
@@ -62,16 +60,7 @@ func (a *index) buildGlobalCollections(
 	localAuthzInformers kclient.Informer[*securityclient.AuthorizationPolicy],
 	options Options,
 	opts krt.OptionsBuilder,
-	configOverrides ...func(*rest.Config),
 ) {
-	clusters := a.buildRemoteClustersCollection(
-		options,
-		opts,
-		configOverrides...,
-	)
-
-	a.remoteClusters = clusters
-
 	LocalPods := localCluster.Pods()
 	LocalServices := localCluster.Services()
 	LocalNamespaces := localCluster.Namespaces()
@@ -82,16 +71,16 @@ func (a *index) buildGlobalCollections(
 	LocalMeshConfig := options.MeshConfig
 	// These first collections can't be merged since the Kubernetes APIs don't have enough room
 	// for e.g. duplicate IPs, etc. So we keep around collections of collections and indexes per cluster.
-	GlobalServices := nestedCollectionFromLocalAndRemote(
+	GlobalServices := multicluster.NestedCollectionFromLocalAndRemote(
+		a.mcController,
 		LocalServices,
-		clusters,
 		func(_ krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[*v1.Service] {
 			return ptr.Of(c.Services())
 		},
 		"Services",
 		opts,
 	)
-	serviceInformersByCluster := informerIndexByCluster(GlobalServices)
+	serviceInformersByCluster := multicluster.NestedCollectionIndexByCluster(GlobalServices)
 
 	LocalGatewaysWithCluster := krt.MapCollection(LocalGateways, func(obj *gatewayv1.Gateway) krt.ObjectWithCluster[*gatewayv1.Gateway] {
 		return krt.ObjectWithCluster[*gatewayv1.Gateway]{
@@ -99,9 +88,9 @@ func (a *index) buildGlobalCollections(
 			Object:    &obj,
 		}
 	}, opts.WithName("LocalGatewaysWithCluster")...)
-	GlobalGatewaysWithCluster := nestedCollectionFromLocalAndRemote(
+	GlobalGatewaysWithCluster := multicluster.NestedCollectionFromLocalAndRemote(
+		a.mcController,
 		LocalGatewaysWithCluster,
-		clusters,
 		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[*gatewayv1.Gateway]] {
 			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/gateways[%s]", c.ID), a.stop, c.Gateways().HasSynced) {
 				log.Warnf("Failed to sync gateways informer for cluster %s", c.ID)
@@ -124,18 +113,18 @@ func (a *index) buildGlobalCollections(
 			}, opts...))
 		}, "GatewaysWithCluster", opts)
 
-	globalGatewaysByCluster := nestedCollectionIndexByCluster(GlobalGatewaysWithCluster)
+	globalGatewaysByCluster := multicluster.NestedCollectionIndexByCluster(GlobalGatewaysWithCluster)
 
-	GlobalNamespaces := nestedCollectionFromLocalAndRemote(
+	GlobalNamespaces := multicluster.NestedCollectionFromLocalAndRemote(
+		a.mcController,
 		LocalNamespaces,
-		clusters,
 		func(_ krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[*v1.Namespace] {
 			return ptr.Of(c.Namespaces())
 		},
 		"Namespaces",
 		opts,
 	)
-	namespaceInformersByCluster := informerIndexByCluster(GlobalNamespaces)
+	namespaceInformersByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNamespaces)
 
 	LocalNodesWithCluster := krt.MapCollection(LocalNodes, func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
 		return krt.ObjectWithCluster[*v1.Node]{
@@ -143,9 +132,9 @@ func (a *index) buildGlobalCollections(
 			Object:    &obj,
 		}
 	}, opts.WithName("LocalNodesWithCluster")...)
-	GlobalNodesWithCluster := nestedCollectionFromLocalAndRemote(
+	GlobalNodesWithCluster := multicluster.NestedCollectionFromLocalAndRemote(
+		a.mcController,
 		LocalNodesWithCluster,
-		clusters,
 		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[*v1.Node]] {
 			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID), a.stop, c.Nodes().HasSynced) {
 				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
@@ -165,7 +154,7 @@ func (a *index) buildGlobalCollections(
 		}, "NodesWithCluster", opts)
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(
-		clusters,
+		a.mcController,
 		LocalNamespaces,
 		LocalGateways,
 		GlobalGatewaysWithCluster,
@@ -180,13 +169,13 @@ func (a *index) buildGlobalCollections(
 	GlobalWaypoints := GlobalWaypointsCollection(
 		localCluster,
 		LocalWaypoints,
-		clusters,
+		a.mcController,
 		localGatewayClasses,
 		GlobalNetworks,
 		opts,
 	)
 
-	WaypointsByCluster := nestedCollectionIndexByCluster(GlobalWaypoints)
+	WaypointsByCluster := multicluster.NestedCollectionIndexByCluster(GlobalWaypoints)
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := a.buildAndRegisterPolicyCollections(
 		localAuthzPolicies,
@@ -207,9 +196,9 @@ func (a *index) buildGlobalCollections(
 	)
 	// All of this is local only, but we need to do it here so we don't have to rebuild collections in ambientindex
 	if features.EnableAmbientStatus {
-		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
-		servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
-		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
+		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](localCluster.Client)
+		servicesWriter := kclient.NewWriteClient[*v1.Service](localCluster.Client)
+		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](localCluster.Client)
 
 		WaypointPolicyStatus := WaypointPolicyStatusCollection(
 			localAuthzPolicies,
@@ -245,7 +234,7 @@ func (a *index) buildGlobalCollections(
 		localCluster,
 		LocalWorkloadServices,
 		LocalWaypoints,
-		clusters,
+		a.mcController,
 		localServiceEntries,
 		GlobalServices,
 		serviceInformersByCluster,
@@ -271,7 +260,7 @@ func (a *index) buildGlobalCollections(
 		opts.WithName("GlobalMergedServiceInfos")...,
 	)
 
-	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
+	GlobalWorkloadServicesWithClusterByCluster := multicluster.NestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
 
 	LocalNamespacesInfo := krt.NewCollection(LocalNamespaces, func(ctx krt.HandlerContext, ns *v1.Namespace) *model.NamespaceInfo {
 		return &model.NamespaceInfo{
@@ -285,13 +274,13 @@ func (a *index) buildGlobalCollections(
 		opts.WithName("LocalNodeLocality")...,
 	)
 	GlobalNodeLocality := GlobalNodesCollection(GlobalNodesWithCluster, opts.WithName("GlobalNodeLocalityWithCluster")...)
-	GlobalNodeLocalityByCluster := nestedCollectionIndexByCluster(GlobalNodeLocality)
+	GlobalNodeLocalityByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNodeLocality)
 
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
 		localCluster,
 		LocalWaypoints,
 		LocalNodeLocality,
-		clusters,
+		a.mcController,
 		localWorkloadEntries,
 		localServiceEntries,
 		GlobalNodeLocality,
@@ -303,7 +292,7 @@ func (a *index) buildGlobalCollections(
 		WaypointsByCluster,
 		LocalWorkloadServices,
 		GlobalWorkloadServicesWithCluster,
-		GobalWorkloadServicesWithClusterByCluster,
+		GlobalWorkloadServicesWithClusterByCluster,
 		GlobalNetworks,
 		options.ClusterID,
 		options.Flags,
@@ -579,93 +568,6 @@ func (a *index) buildGlobalCollections(
 	a.waypoints = waypointsCollection{
 		Collection: LocalWaypoints,
 	}
-}
-
-func nestedCollectionFromLocalAndRemote[T any](
-	localCollection krt.Collection[T],
-	clustersCollection krt.Collection[*multicluster.Cluster],
-	clusterToCollection krt.TransformationSingle[*multicluster.Cluster, krt.Collection[T]],
-	name string,
-	opts krt.OptionsBuilder,
-) krt.Collection[krt.Collection[T]] {
-	globalCollection := krt.NewStaticCollection(
-		localCollection,
-		[]krt.Collection[T]{localCollection},
-		opts.WithName("Global"+name)...,
-	)
-	cache := newCollectionCacheByClusterFromMetadata[T]()
-	clustersCollection.Register(func(e krt.Event[*multicluster.Cluster]) {
-		if e.Event != controllers.EventDelete {
-			// The krt transformation functions will take care of adds and updates...
-			return
-		}
-
-		// Remove any existing collections in the cache for this cluster
-		old := ptr.Flatten(e.Old)
-		if !cache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, cache)
-		}
-	})
-	remoteCollections := krt.NewCollection(clustersCollection, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[T] {
-		// Do this after the fetches just to ensure we stay subscribed
-		if existing := cache.Get(c.ID); existing != nil {
-			return ptr.Of(existing)
-		}
-		remoteCollection := clusterToCollection(ctx, c)
-		if remoteCollection == nil {
-			log.Warnf("no collection for %s returned for cluster %v", name, c.ID)
-		} else if !cache.Insert(*remoteCollection) {
-			log.Warnf("Failed to insert collection %v into cache for cluster %s due to existing collection", remoteCollection, c.ID)
-			return nil
-		}
-
-		return remoteCollection
-	}, opts.WithName("Remote"+name)...)
-
-	remoteCollections.RegisterBatch(func(o []krt.Event[krt.Collection[T]]) {
-		for _, e := range o {
-			l := e.Latest()
-			switch e.Event {
-			case controllers.EventAdd, controllers.EventUpdate:
-				globalCollection.UpdateObject(l)
-			case controllers.EventDelete:
-				globalCollection.DeleteObject(krt.GetKey(l))
-			}
-		}
-	}, true)
-	return globalCollection
-}
-
-func informerIndexByCluster[T controllers.ComparableObject](
-	informerCollection krt.Collection[krt.Collection[T]],
-) krt.Index[cluster.ID, krt.Collection[T]] {
-	return krt.NewIndex[cluster.ID, krt.Collection[T]](informerCollection, "cluster", func(col krt.Collection[T]) []cluster.ID {
-		val, ok := col.Metadata()[multicluster.ClusterKRTMetadataKey]
-		if !ok {
-			panic(fmt.Sprintf("Cluster metadata not set on informer %v", col))
-		}
-		id, ok := val.(cluster.ID)
-		if !ok {
-			panic(fmt.Sprintf("Invalid cluster metadata set on collection %v: %v", col, val))
-		}
-		return []cluster.ID{id}
-	})
-}
-
-func nestedCollectionIndexByCluster[T any](
-	collection krt.Collection[krt.Collection[T]],
-) krt.Index[cluster.ID, krt.Collection[T]] {
-	return krt.NewIndex[cluster.ID, krt.Collection[T]](collection, "cluster", func(col krt.Collection[T]) []cluster.ID {
-		val, ok := col.Metadata()[multicluster.ClusterKRTMetadataKey]
-		if !ok {
-			panic(fmt.Sprintf("Cluster metadata not set on collection %v", col))
-		}
-		id, ok := val.(cluster.ID)
-		if !ok {
-			panic(fmt.Sprintf("Invalid cluster metadata set on collection %v: %v", col, val))
-		}
-		return []cluster.ID{id}
-	})
 }
 
 type simplePort struct {

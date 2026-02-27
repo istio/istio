@@ -30,10 +30,10 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
@@ -259,12 +259,12 @@ func gatewayToWaypointTransform(
 func GlobalWaypointsCollection(
 	localCluster *multicluster.Cluster,
 	localWaypoints krt.Collection[Waypoint],
-	clusters krt.Collection[*multicluster.Cluster],
+	ctrl *multicluster.Controller,
 	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	globalNetworks NetworkCollections,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
-	return nestedCollectionFromLocalAndRemote(localWaypoints, clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
+	return multicluster.NestedCollectionFromLocalAndRemote(ctrl, localWaypoints, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
 		opts := []krt.CollectionOption{
 			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
 			krt.WithDebugging(opts.Debugger()),

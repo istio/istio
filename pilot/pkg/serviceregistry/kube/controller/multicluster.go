@@ -121,6 +121,7 @@ func NewMulticluster(
 
 		options := opts
 		options.ClusterID = cluster.ID
+		options.MultiClusterController = controller
 		if !configCluster {
 			options.SyncTimeout = features.RemoteClusterTimeout
 		}
