@@ -65,7 +65,6 @@ func buildInternalUpstreamCluster(name string, internalListener string, h2 bool)
 		c.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		}
-		applyBaggageMetadataDiscovery(c)
 	}
 
 	c.AltStatName = util.DelimitedStatsPrefix(name)
@@ -79,13 +78,15 @@ var (
 	}
 
 	GetEncapCluster = func(p *model.Proxy) *cluster.Cluster {
-		name := ConnectOriginate
-		h2 := true
-		if isAmbientEastWestGateway(p) {
-			name = ForwardInnerConnect
+		if isEastWestGateway(p) {
+			name := ForwardInnerConnect
 			h2 = false
+			return buildInternalUpstreamCluster(EncapClusterName, ForwardInnerConnect, false)
+		} else {
+			c := buildInternalUpstreamCluster(EncapClusterName, ConnectOriginate, true)
+			applyBaggageMetadataDiscovery(c)
+			return c
 		}
-		return buildInternalUpstreamCluster(EncapClusterName, name, h2)
 	}
 )
 
