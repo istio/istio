@@ -1801,6 +1801,21 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 
 	// fallback to the default address
 	if a := s.DefaultAddress; len(a) > 0 {
+		// If the service has ClusterVIPs (from a K8s service) but none for this proxy's cluster, the
+		// DefaultAddress is a remote cluster's ClusterIP. Filter it by IP family to avoid returning an
+		// unreachable address (e.g. IPv6 ClusterIP to an IPv4-only proxy).
+		//
+		// Conversely, ServiceEntries with explicit addresses have empty ClusterVIPs and rely on
+		// DefaultAddress for routing (Envoy matches on the VIP regardless of IP family), so leave them
+		// alone.
+		if s.ClusterVIPs.Len() > 0 {
+			if filtered := filterAddresses(
+				[]string{a}, node.SupportsIPv4(), node.SupportsIPv6(),
+			); len(filtered) > 0 {
+				return filtered
+			}
+			return nil
+		}
 		return []string{a}
 	}
 	return nil
