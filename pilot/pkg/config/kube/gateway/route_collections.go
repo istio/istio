@@ -214,10 +214,11 @@ func HTTPRouteCollection(
 
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("HTTPRouteMerged")...)
 	return RouteResult[*gatewayv1.HTTPRoute, gatewayv1.HTTPRouteStatus]{
-		VirtualServices:  finalVirtualServices,
-		RouteAttachments: routeCount,
-		Status:           status,
-		Ancestors:        ancestorBackends,
+		VirtualServices:     finalVirtualServices,
+		BaseVirtualServices: baseVirtualServices,
+		RouteAttachments:    routeCount,
+		Status:              status,
+		Ancestors:           ancestorBackends,
 	}
 }
 
@@ -428,10 +429,11 @@ func GRPCRouteCollection(
 
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("GRPCRouteMerged")...)
 	return RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus]{
-		VirtualServices:  finalVirtualServices,
-		RouteAttachments: routeCount,
-		Status:           status,
-		Ancestors:        ancestorBackends,
+		VirtualServices:     finalVirtualServices,
+		BaseVirtualServices: baseVirtualServices,
+		RouteAttachments:    routeCount,
+		Status:              status,
+		Ancestors:           ancestorBackends,
 	}
 }
 
@@ -733,6 +735,8 @@ func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convert
 type RouteResult[I controllers.Object, IStatus any] struct {
 	// VirtualServices are the primary output that configures the internal routing logic
 	VirtualServices krt.Collection[config.Config]
+	// BaseVirtualServices are the pre-merge VirtualServices, used for cross-route-type merging
+	BaseVirtualServices krt.Collection[RouteWithKey]
 	// RouteAttachments holds information about parent attachment to routes, used for computed the `attachedRoutes` count.
 	RouteAttachments krt.Collection[RouteAttachment]
 	// Status stores the status reports for the incoming object
