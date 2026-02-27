@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	grpcretry "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -227,6 +228,18 @@ func TestCitadelClientRotation(t *testing.T) {
 }
 
 func TestCitadelClient(t *testing.T) {
+	// Override the retry policy for this test to use zero backoff so that the
+	// "retry" sub-case does not wait the production ~1.5 s of exponential
+	// back-off (100 ms → 200 ms → 400 ms × up to 5 attempts). The test only
+	// needs to verify that *a* retry happens; it does not need production timing.
+	orig := security.CARetryOptions
+	security.CARetryOptions = []grpcretry.CallOption{
+		grpcretry.WithMax(1),
+		grpcretry.WithBackoff(func(_ context.Context, _ uint) time.Duration { return 0 }),
+		grpcretry.WithCodes(codes.Unavailable),
+	}
+	t.Cleanup(func() { security.CARetryOptions = orig })
+
 	testCases := map[string]struct {
 		server       mockCAServer
 		expectedCert []string
