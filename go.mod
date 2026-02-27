@@ -107,7 +107,7 @@ require (
 	k8s.io/kubectl v0.35.0
 	k8s.io/utils v0.0.0-20260108192941-914a6e750570
 	sigs.k8s.io/controller-runtime v0.23.1
-	sigs.k8s.io/gateway-api v1.5.0-rc.3
+	sigs.k8s.io/gateway-api v1.5.0
 	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751
 	sigs.k8s.io/gateway-api/conformance v0.0.0-20260213173202-265da48be464
 	sigs.k8s.io/knftables v0.0.19-0.20250623122614-e4307300abb5
@@ -123,6 +123,7 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
+	github.com/agentgateway/agentgateway v0.12.0
 	github.com/alecthomas/participle/v2 v2.1.4 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
