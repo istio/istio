@@ -15,9 +15,7 @@
 package core
 
 import (
-	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
@@ -58,7 +56,7 @@ type waypointServices struct {
 // findWaypointResources returns workloads and services associated with the waypoint proxy
 func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
 	var key model.WaypointKey
-	if isEastWestGateway(node) {
+	if isAmbientEastWestGateway(node) {
 		key = model.WaypointKeyForNetworkGatewayProxy(node)
 	} else {
 		key = model.WaypointKeyForProxy(node)
@@ -128,11 +126,6 @@ func filterWaypointOutboundServices(
 	return res
 }
 
-func isEastWestGateway(node *model.Proxy) bool {
-	if node == nil || node.Type != model.Waypoint {
-		return false
-	}
-	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
-
-	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
+func isAmbientEastWestGateway(node *model.Proxy) bool {
+	return node.IsAmbientEastWestGateway()
 }

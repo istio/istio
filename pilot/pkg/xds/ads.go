@@ -435,8 +435,8 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	if shouldResetSidecarScope {
 		proxy.SetSidecarScope(push)
 	}
-	// only compute gateways for "router" type proxy.
-	if shouldResetGateway && proxy.Type == model.Router {
+	// only compute gateways for "router" type proxy and E/W gateway waypoints.
+	if shouldResetGateway && (proxy.Type == model.Router || proxy.IsAmbientEastWestGateway()) {
 		proxy.SetGatewaysForProxy(push)
 	}
 	proxy.LastPushContext = push

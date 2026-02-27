@@ -538,13 +538,21 @@ func (node *Proxy) VersionGreaterOrEqual(inv *IstioVersion) bool {
 	return node.IstioVersion.Compare(inv) >= 0
 }
 
+func (node *Proxy) IsAmbientEastWestGateway() bool {
+	if node == nil || node.Type != Waypoint {
+		return false
+	}
+	controller, ok := node.Labels[label.GatewayManaged.Name]
+	return ok && controller == constants.ManagedGatewayEastWestControllerLabel
+}
+
 // SetGatewaysForProxy merges the Gateway objects associated with this
 // proxy and caches the merged object in the proxy Node. This is a convenience hack so that
 // callers can simply call push.MergedGateways(node) instead of having to
 // fetch all the gateways and invoke the merge call in multiple places (lds/rds).
 // Must be called after ServiceTargets are set
 func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
-	if node.Type != Router {
+	if node.Type != Router && !node.IsAmbientEastWestGateway() {
 		return
 	}
 	var prevMergedGateway MergedGateway
