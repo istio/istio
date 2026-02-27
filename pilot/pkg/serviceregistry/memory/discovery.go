@@ -16,7 +16,6 @@ package memory
 
 import (
 	"fmt"
-	"net/netip"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -26,10 +25,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/workloadapi"
 )
 
 // ServiceDiscovery is a mock discovery interface
@@ -56,9 +52,6 @@ type ServiceDiscovery struct {
 	// Used by GetProxyWorkloadLabels
 	ip2workloadLabels map[string]labels.Instance
 
-	addresses        map[string]model.AddressInfo
-	serviceInfoByKey map[string]*model.ServiceInfo
-
 	// XDSUpdater will push EDS changes to the ADS model.
 	XdsUpdater model.XDSUpdater
 
@@ -83,8 +76,6 @@ func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
 		ip2workloadLabels:   map[string]labels.Instance{},
-		addresses:           map[string]model.AddressInfo{},
-		serviceInfoByKey:    map[string]*model.ServiceInfo{},
 	}
 }
 
@@ -341,109 +332,6 @@ func (sd *ServiceDiscovery) AppendServiceHandler(f model.ServiceHandler) {
 func (sd *ServiceDiscovery) Run(<-chan struct{}) {}
 
 // HasSynced always returns true
-func (sd *ServiceDiscovery) HasSynced() bool { return true }
-
-func (sd *ServiceDiscovery) AddressInformation(requests sets.String) ([]model.AddressInfo, sets.String) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if len(requests) == 0 {
-		return maps.Values(sd.addresses), nil
-	}
-
-	var infos []model.AddressInfo
-	removed := sets.String{}
-	for req := range requests {
-		if _, found := sd.addresses[req]; !found {
-			removed.Insert(req)
-		} else {
-			infos = append(infos, sd.addresses[req])
-		}
-	}
-	return infos, removed
-}
-
-func (sd *ServiceDiscovery) AdditionalPodSubscriptions(
-	*model.Proxy,
-	sets.String,
-	sets.String,
-) sets.String {
-	return nil
-}
-
-func (sd *ServiceDiscovery) Policies(sets.Set[model.ConfigKey]) []model.WorkloadAuthorization {
-	return nil
-}
-
-func (sd *ServiceDiscovery) ServicesForWaypoint(model.WaypointKey) []model.ServiceInfo {
-	return nil
-}
-
-func (sd *ServiceDiscovery) ServicesWithWaypoint(string) []model.ServiceWaypointInfo {
-	return nil
-}
-
-func (sd *ServiceDiscovery) Waypoint(string, string) []netip.Addr {
-	return nil
-}
-
-func (sd *ServiceDiscovery) WorkloadsForWaypoint(model.WaypointKey) []model.WorkloadInfo {
-	return nil
-}
-
-func (sd *ServiceDiscovery) ServiceInfo(key string) *model.ServiceInfo {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	return sd.serviceInfoByKey[key]
-}
-
-func (sd *ServiceDiscovery) AddWorkloadInfo(infos ...*model.WorkloadInfo) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	for _, info := range infos {
-		sd.addresses[info.ResourceName()] = workloadToAddressInfo(info.Workload)
-	}
-}
-
-func (sd *ServiceDiscovery) RemoveWorkloadInfo(info *model.WorkloadInfo) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	delete(sd.addresses, info.ResourceName())
-}
-
-func (sd *ServiceDiscovery) AddServiceInfo(infos ...*model.ServiceInfo) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	for _, info := range infos {
-		sd.addresses[info.ResourceName()] = serviceToAddressInfo(info.Service)
-		key := fmt.Sprintf("%s/%s", info.Service.Namespace, info.Service.Hostname)
-		sd.serviceInfoByKey[key] = info
-	}
-}
-
-func (sd *ServiceDiscovery) RemoveServiceInfo(info *model.ServiceInfo) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	delete(sd.addresses, info.ResourceName())
-	key := fmt.Sprintf("%s/%s", info.Service.Namespace, info.Service.Hostname)
-	delete(sd.serviceInfoByKey, key)
-}
-
-func workloadToAddressInfo(w *workloadapi.Workload) model.AddressInfo {
-	return model.AddressInfo{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: w,
-			},
-		},
-	}
-}
-
-func serviceToAddressInfo(s *workloadapi.Service) model.AddressInfo {
-	return model.AddressInfo{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Service{
-				Service: s,
-			},
-		},
-	}
+func (sd *ServiceDiscovery) HasSynced() bool {
+	return true
 }

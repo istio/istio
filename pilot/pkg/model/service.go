@@ -959,7 +959,6 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
-	AmbientIndexes
 }
 
 type AmbientIndexes interface {

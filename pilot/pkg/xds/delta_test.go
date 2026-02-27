@@ -17,6 +17,7 @@ package xds_test
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -334,8 +336,82 @@ func init() {
 	features.EnableAmbient = true
 }
 
+// testAmbientStore is a simple in-memory AmbientIndexes for testing.
+type testAmbientStore struct {
+	model.NoopAmbientIndexes
+	mu        sync.Mutex
+	addresses map[string]model.AddressInfo
+}
+
+func newTestAmbientStore() *testAmbientStore {
+	return &testAmbientStore{
+		addresses: map[string]model.AddressInfo{},
+	}
+}
+
+func (s *testAmbientStore) AddressInformation(requests sets.String) ([]model.AddressInfo, sets.String) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(requests) == 0 {
+		return maps.Values(s.addresses), nil
+	}
+	var infos []model.AddressInfo
+	removed := sets.String{}
+	for req := range requests {
+		if _, found := s.addresses[req]; !found {
+			removed.Insert(req)
+		} else {
+			infos = append(infos, s.addresses[req])
+		}
+	}
+	return infos, removed
+}
+
+func (s *testAmbientStore) AddWorkloadInfo(infos ...*model.WorkloadInfo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, info := range infos {
+		s.addresses[info.ResourceName()] = model.AddressInfo{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Workload{
+					Workload: info.Workload,
+				},
+			},
+		}
+	}
+}
+
+func (s *testAmbientStore) RemoveWorkloadInfo(info *model.WorkloadInfo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.addresses, info.ResourceName())
+}
+
+func (s *testAmbientStore) AddServiceInfo(infos ...*model.ServiceInfo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, info := range infos {
+		s.addresses[info.ResourceName()] = model.AddressInfo{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Service{
+					Service: info.Service,
+				},
+			},
+		}
+	}
+}
+
+func (s *testAmbientStore) RemoveServiceInfo(info *model.ServiceInfo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.addresses, info.ResourceName())
+}
+
 func TestDeltaWDS(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	store := newTestAmbientStore()
+	s.Discovery.Env.AmbientIndexes = store
+
 	wlA := &model.WorkloadInfo{
 		Workload: &workloadapi.Workload{
 			Uid:       fmt.Sprintf("Kubernetes//Pod/%s/%s", "test", "a"),
@@ -378,8 +454,8 @@ func TestDeltaWDS(t *testing.T) {
 			Hostname:  "c.default.svc.cluster.local",
 		},
 	}
-	s.MemRegistry.AddWorkloadInfo(wlA, wlB, wlC)
-	s.MemRegistry.AddServiceInfo(svcA, svcB, svcC)
+	store.AddWorkloadInfo(wlA, wlB, wlC)
+	store.AddServiceInfo(svcA, svcB, svcC)
 
 	// Wait until the above debounce, to ensure we can precisely check XDS responses without spurious pushes
 	s.EnsureSynced(t)
@@ -410,7 +486,7 @@ func TestDeltaWDS(t *testing.T) {
 	}
 
 	// simulate a svc delete
-	s.MemRegistry.RemoveServiceInfo(svcA)
+	store.RemoveServiceInfo(svcA)
 	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
 		AddressesUpdated: sets.New(svcA.ResourceName()),
 	})
@@ -424,7 +500,7 @@ func TestDeltaWDS(t *testing.T) {
 	}
 
 	// delete workload
-	s.MemRegistry.RemoveWorkloadInfo(wlA)
+	store.RemoveWorkloadInfo(wlA)
 	// a pod delete event
 	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
 		AddressesUpdated: sets.New(wlA.ResourceName()),
