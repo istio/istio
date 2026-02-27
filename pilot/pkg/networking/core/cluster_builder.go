@@ -436,8 +436,7 @@ func addDisableBaggageDiscoveryMetadata(c *cluster.Cluster) {
 				Fields: map[string]*structpb.Value{},
 			}
 		}
-		m := c.Metadata.FilterMetadata[util.IstioPeerMetadataKey]
-		m.Fields["disable_baggage_discovery"] = &structpb.Value{
+		c.Metadata.FilterMetadata[util.IstioPeerMetadataKey].Fields["disable_baggage_discovery"] = &structpb.Value{
 			Kind: &structpb.Value_BoolValue{
 				BoolValue: true,
 			},
