@@ -538,7 +538,7 @@ func (node *Proxy) VersionGreaterOrEqual(inv *IstioVersion) bool {
 	return node.IstioVersion.Compare(inv) >= 0
 }
 
-func (node *Proxy) IsEastWestGateway() bool {
+func (node *Proxy) IsAmbientEastWestGateway() bool {
 	if node == nil || node.Type != Waypoint {
 		return false
 	}
@@ -552,7 +552,7 @@ func (node *Proxy) IsEastWestGateway() bool {
 // fetch all the gateways and invoke the merge call in multiple places (lds/rds).
 // Must be called after ServiceTargets are set
 func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
-	if node.Type != Router && !node.IsEastWestGateway() {
+	if node.Type != Router && !node.IsAmbientEastWestGateway() {
 		return
 	}
 	var prevMergedGateway MergedGateway

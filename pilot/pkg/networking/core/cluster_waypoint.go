@@ -81,7 +81,7 @@ var (
 	GetEncapCluster = func(p *model.Proxy) *cluster.Cluster {
 		name := ConnectOriginate
 		h2 := true
-		if isEastWestGateway(p) {
+		if isAmbientEastWestGateway(p) {
 			name = ForwardInnerConnect
 			h2 = false
 		}
@@ -107,7 +107,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
 
 	// Upstream of the "encap" listener.
-	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
+	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(proxy) {
 		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
 		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
 	} else {
@@ -148,7 +148,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	drConfig *config.Config,
 ) *cluster.Cluster {
 	// TODO: is this enough? Probably since we validate no extra listeners are present in the conversion layer
-	terminate := isEastWestGateway(proxy)
+	terminate := isAmbientEastWestGateway(proxy)
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	var localCluster *clusterWrapper
@@ -323,7 +323,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				log.Warnf("skipping waypoint VIP cluster for TLS protocol for service %s with DynamicDNS resolution since the feature is disabled", svc.Hostname)
 				continue
 			}
-			if isEastWestGateway(proxy) {
+			if isAmbientEastWestGateway(proxy) {
 				// East-west gateways don't respect DestinationRule, so don't read it here
 				// TODO: Confirm this decision
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
