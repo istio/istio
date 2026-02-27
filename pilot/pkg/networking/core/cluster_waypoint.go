@@ -78,9 +78,7 @@ var (
 	}
 
 	GetEncapCluster = func(p *model.Proxy) *cluster.Cluster {
-		if isEastWestGateway(p) {
-			name := ForwardInnerConnect
-			h2 = false
+		if isAmbientEastWestGateway(p) {
 			return buildInternalUpstreamCluster(EncapClusterName, ForwardInnerConnect, false)
 		} else {
 			c := buildInternalUpstreamCluster(EncapClusterName, ConnectOriginate, true)
