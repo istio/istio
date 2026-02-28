@@ -2205,6 +2205,9 @@ func buildTLS(
 				}
 			}
 			out.Mode = istio.ServerTLSSettings_MUTUAL
+			if gatewayTLS.Validation.Mode == k8s.AllowInsecureFallback {
+				out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+			}
 			out.CaCertCredentialName = cred.ResourceName
 			if tls.Options != nil {
 				switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
