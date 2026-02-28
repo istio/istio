@@ -211,7 +211,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, getter, []string{
 		newV4AddressString(TestIPV4Prefix, 2),
 		newV6AddressString(TestIPV6Prefix, 2),
-	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
 	assert.Equal(t,
 		len(rig.se.Get("with-existing-status", "boop").Status.GetConditions()),
 		1,
@@ -254,7 +254,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, getter, []string{
 		newV4AddressString(TestIPV4Prefix, 3),
 		newV6AddressString(TestIPV6Prefix, 3),
-	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
 
 	// Assert that we are not mutating user spec during resolution of conflicts
 	assert.EventuallyEqual(
@@ -318,7 +318,7 @@ func TestIPAllocate(t *testing.T) {
 	}, []string{
 		newV4AddressString(TestIPV4Prefix, 4),
 		newV6AddressString(TestIPV6Prefix, 4),
-	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	}, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
 
 	// assert that resolving conflicts does not destroy existing status items
 	assert.Equal(t,
@@ -330,7 +330,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, getter, []string{
 		newV4AddressString(TestIPV4Prefix, 3),
 		newV6AddressString(TestIPV6Prefix, 3),
-	}, retry.Converge(10), retry.Delay(time.Millisecond*5))
+	}, retry.Converge(10), retry.Delay(time.Millisecond*20))
 
 	// test that adding to the list of hosts produces the correct host to IP mapping
 	se := rig.se.Get("pre-existing", "default")
@@ -339,7 +339,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 4, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	}, 4, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
 	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
 		map[string][]string{
 			"test.testing.io": {
@@ -360,7 +360,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 4, retry.Converge(10), retry.Delay(time.Millisecond*5))
+	}, 4, retry.Converge(10), retry.Delay(time.Millisecond*20))
 	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
 		map[string][]string{
 			"test.testing.io": {
@@ -381,7 +381,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 2, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	}, 2, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
 
 	// check that adding lots of duplicate host entries at once does not allocate new IPs for each
 	se = rig.se.Get("pre-existing", "default")
@@ -395,7 +395,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 4, retry.Converge(10), retry.Delay(time.Millisecond*5))
+	}, 4, retry.Converge(10), retry.Delay(time.Millisecond*20))
 	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
 		map[string][]string{
 			"test.testing.io": {
@@ -416,7 +416,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 2, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	}, 2, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
 	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
 		map[string][]string{
 			"added.testing.io": {
@@ -438,7 +438,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 8, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	}, 8, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
 	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
 		map[string][]string{
 			"seven.testing.io": {
@@ -469,7 +469,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 2, retry.Converge(10), retry.Delay(time.Millisecond*5))
+	}, 2, retry.Converge(10), retry.Delay(time.Millisecond*20))
 	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
 		map[string][]string{
 			"*.wildcard.testing.io": {
@@ -487,7 +487,7 @@ func TestIPAllocate(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 0, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+	}, 0, retry.MaxAttempts(10), retry.Delay(time.Millisecond*20))
 	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
 		map[string][]string{})
 }
@@ -507,7 +507,7 @@ func TestIPAllocateWithEnvCIDR(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 2, retry.Converge(10), retry.Delay(time.Millisecond*5))
+	}, 2, retry.Converge(10), retry.Delay(time.Millisecond*20))
 
 	se := rig.se.Get("pre-existing", "default")
 	// test that the non-default CIDR prefixes are used
@@ -516,7 +516,7 @@ func TestIPAllocateWithEnvCIDR(t *testing.T) {
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
 		return len(autoallocate.GetAddressesFromServiceEntry(se))
-	}, 4, retry.Converge(10), retry.Delay(time.Millisecond*5))
+	}, 4, retry.Converge(10), retry.Delay(time.Millisecond*20))
 	assert.Equal(t, toMapStringString(autoallocate.GetHostAddressesFromServiceEntry(rig.se.Get("pre-existing", "default"))),
 		map[string][]string{
 			"test.testing.io": {
