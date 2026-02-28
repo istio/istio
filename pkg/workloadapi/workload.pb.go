@@ -250,6 +250,8 @@ const (
 	AppProtocol_HTTP11  AppProtocol = 1
 	AppProtocol_HTTP2   AppProtocol = 2
 	AppProtocol_GRPC    AppProtocol = 3
+	AppProtocol_TCP     AppProtocol = 4
+	AppProtocol_TLS     AppProtocol = 5
 )
 
 // Enum value maps for AppProtocol.
@@ -259,12 +261,16 @@ var (
 		1: "HTTP11",
 		2: "HTTP2",
 		3: "GRPC",
+		4: "TCP",
+		5: "TLS",
 	}
 	AppProtocol_value = map[string]int32{
 		"UNKNOWN": 0,
 		"HTTP11":  1,
 		"HTTP2":   2,
 		"GRPC":    3,
+		"TCP":     4,
+		"TLS":     5,
 	}
 )
 
@@ -1827,13 +1833,15 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"DEPLOYMENT\x10\x00\x12\v\n" +
 	"\aCRONJOB\x10\x01\x12\a\n" +
 	"\x03POD\x10\x02\x12\a\n" +
-	"\x03JOB\x10\x03*;\n" +
+	"\x03JOB\x10\x03*M\n" +
 	"\vAppProtocol\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\n" +
 	"\n" +
 	"\x06HTTP11\x10\x01\x12\t\n" +
 	"\x05HTTP2\x10\x02\x12\b\n" +
-	"\x04GRPC\x10\x03*<\n" +
+	"\x04GRPC\x10\x03\x12\a\n" +
+	"\x03TCP\x10\x04\x12\a\n" +
+	"\x03TLS\x10\x05*<\n" +
 	"\x0eTunnelProtocol\x12\b\n" +
 	"\x04NONE\x10\x00\x12\t\n" +
 	"\x05HBONE\x10\x01\x12\x15\n" +

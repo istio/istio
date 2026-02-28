@@ -323,6 +323,8 @@ enum AppProtocol {
   HTTP11 = 1;
   HTTP2 = 2;
   GRPC = 3;
+  TCP = 4;
+  TLS = 5;
 }
 
 // TunnelProtocol indicates the tunneling protocol for requests.
