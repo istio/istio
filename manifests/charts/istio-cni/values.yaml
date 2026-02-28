@@ -136,6 +136,10 @@ _internal_defaults_do_not_set:
     rollingUpdate:
       maxUnavailable: 1
 
+  # The minimum number of seconds for which a newly created DaemonSet pod should be ready without any of its container crashing, for it to be considered available.
+  # Defaults to 0 (pod will be considered available as soon as it is ready).
+  minReadySeconds: 0
+
   # Sets the per-pod terminationGracePeriodSeconds setting.
   # A higher value gives more time for CNI cleanup during rolling updates,
   # preventing "failed to find plugin istio-cni" errors.
