@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"path"
-	"strings"
 	"testing"
 	"time"
 
@@ -69,9 +68,7 @@ values:
 			namespace.Setup(&internalNs, namespace.Config{Prefix: "internal", Inject: true}),
 			namespace.Setup(&externalNs, namespace.Config{Prefix: "external", Inject: false}),
 		).
-		Setup(func(ctx resource.Context) error {
-			return setupAppsConfig(ctx, &configs)
-		}).
+		Setup(setupAppsConfig).
 		Setup(deployment.SetupTwoNamespaces(&apps, deployment.Config{
 			Configs:             echo.ConfigFuture(&configs),
 			Namespaces:          []namespace.Getter{namespace.Future(&internalNs), namespace.Future(&externalNs)},
@@ -105,8 +102,8 @@ spec:
 		Run()
 }
 
-func setupAppsConfig(_ resource.Context, out *[]echo.Config) error {
-	*out = []echo.Config{
+func setupAppsConfig(_ resource.Context) error {
+	configs = []echo.Config{
 		{
 			Service:   "server",
 			Namespace: externalNs,
@@ -217,7 +214,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   checkTLSHandshakeFailure,
+					Check:   check.TLSHandshakeFailure(),
 				})
 			})
 		})
@@ -345,7 +342,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   checkTLSHandshakeFailure,
+					Check:   check.TLSHandshakeFailure(),
 				})
 			})
 
@@ -381,14 +378,4 @@ spec:
 				})
 			})
 		})
-}
-
-func checkTLSHandshakeFailure(_ echo.CallResult, err error) error {
-	if err == nil {
-		return fmt.Errorf("expected to get TLS handshake error but got none")
-	}
-	if !strings.Contains(err.Error(), "tls: handshake failure") {
-		return fmt.Errorf("expected to get TLS handshake error but got: %s", err)
-	}
-	return nil
 }
