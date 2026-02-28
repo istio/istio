@@ -1908,3 +1908,70 @@ func TestMatchServiceScope(t *testing.T) {
 		})
 	}
 }
+
+func TestIngressUseWaypointFromLabels(t *testing.T) {
+	tests := []struct {
+		name            string
+		serviceLabels   map[string]string
+		namespaceLabels map[string]string
+		wantPresent     bool
+		wantUseWaypoint bool
+	}{
+		{
+			"no labels",
+			nil, nil,
+			false, false,
+		},
+		{
+			"service label true",
+			map[string]string{IoIstioIngressUseWaypoint: "true"},
+			nil,
+			true, true,
+		},
+		{
+			"service label empty",
+			map[string]string{IoIstioIngressUseWaypoint: ""},
+			nil,
+			true, false,
+		},
+		{
+			"service label True (case)",
+			map[string]string{IoIstioIngressUseWaypoint: "True"},
+			nil,
+			true, true,
+		},
+		{
+			"no service label, namespace label true",
+			map[string]string{},
+			map[string]string{IoIstioIngressUseWaypoint: "true"},
+			true, true,
+		},
+		{
+			"no service label, namespace label false",
+			map[string]string{},
+			map[string]string{IoIstioIngressUseWaypoint: "false"},
+			true, false,
+		},
+		{
+			"service overrides namespace",
+			map[string]string{IoIstioIngressUseWaypoint: "false"},
+			map[string]string{IoIstioIngressUseWaypoint: "true"},
+			true, false,
+		},
+		{
+			"namespace label empty",
+			map[string]string{},
+			map[string]string{IoIstioIngressUseWaypoint: ""},
+			true, false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPresent, gotUse := ingressUseWaypointFromLabels(tt.serviceLabels, tt.namespaceLabels)
+			if gotPresent != tt.wantPresent || gotUse != tt.wantUseWaypoint {
+				t.Errorf("ingressUseWaypointFromLabels() = (present=%v, use=%v), want (present=%v, use=%v)",
+					gotPresent, gotUse, tt.wantPresent, tt.wantUseWaypoint)
+			}
+		})
+	}
+}
