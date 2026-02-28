@@ -70,7 +70,8 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		IsSelfSigned: true,
 		IsClient:     false,
 		IsServer:     true,
-		RSAKeySize:   2048,
+		// Use 1024-bit keys in tests: we are testing cert structure, not key strength.
+		RSAKeySize: 1024,
 	}
 
 	rsaCaCertPem, rsaCaPrivPem, err := GenCertKeyFromOptions(rsaCaCertOptions)
@@ -154,7 +155,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				RSAKeySize:   2048,
+				RSAKeySize: 1024,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -177,7 +178,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   2048,
+				RSAKeySize: 1024,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -200,7 +201,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				RSAKeySize:   2048,
+				RSAKeySize: 1024,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -223,7 +224,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   2048,
+				RSAKeySize: 1024,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -246,7 +247,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				RSAKeySize:   2048,
+				RSAKeySize: 1024,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -283,7 +284,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   2048,
+				RSAKeySize: 1024,
 				IsDualUse:    true,
 			},
 			verifyFields: &VerifyFields{
@@ -308,7 +309,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   2048,
+				RSAKeySize: 1024,
 				IsDualUse:    true,
 			},
 			verifyFields: &VerifyFields{
@@ -333,7 +334,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   2048,
+				RSAKeySize: 1024,
 				PKCS8Key:     true,
 			},
 			verifyFields: &VerifyFields{
