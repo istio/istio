@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestSyncz(t *testing.T) {
@@ -295,6 +296,12 @@ func TestDebugAuthorization(t *testing.T) {
 			wantAllow:  true,
 		},
 		{
+			name:       "allowed namespace via DEBUG_ENDPOINT_AUTH_ALLOWED_NAMESPACES",
+			identities: []string{"spiffe://cluster.local/ns/non-system-ns/sa/some"},
+			path:       "/debug/configz",
+			wantAllow:  true,
+		},
+		{
 			name:       "invalid identity denied",
 			identities: []string{"not-a-spiffe-id"},
 			path:       "/debug/configz",
@@ -315,6 +322,8 @@ func TestDebugAuthorization(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			test.SetForTest(t, &features.DebugEndpointAuthAllowedNamespaces, sets.New("non-system-ns"))
 
 			got := s.Discovery.AuthorizeDebugRequest(tt.identities, req)
 			if got != tt.wantAllow {

@@ -323,8 +323,8 @@ func (s *DiscoveryServer) AuthorizeDebugRequest(identities []string, req *http.R
 		systemNamespace = s.Env.Mesh().GetRootNamespace()
 	}
 
-	// allow all if identity is from system namespace
-	if namespace == systemNamespace {
+	// allow all if identity is from system namespace or an allowed namespace
+	if namespace == systemNamespace || features.DebugEndpointAuthAllowedNamespaces.Contains(namespace) {
 		return true
 	}
 
