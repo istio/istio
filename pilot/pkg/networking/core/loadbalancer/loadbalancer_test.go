@@ -845,11 +845,6 @@ func TestApplyLocalitySetting(t *testing.T) {
 		}
 
 		// Build cluster with DNS endpoints (hostnames instead of IPs).
-		// Both endpoints start in the same locality but have different "priority" labels.
-		// The applyFailoverPriorityPerLocality function will split them into separate
-		// LocalityLbEndpoints groups with different priorities based on label matching.
-		// This is expected behavior - failoverPriority allows endpoints within the same
-		// locality to be assigned different priorities for traffic preference.
 		cluster := buildDNSClusterWithFailoverPriority()
 		wrappedEndpoints := buildWrappedLocalityLbEndpointsForDNS()
 
@@ -1935,6 +1930,18 @@ func buildDNSClusterWithFailoverPriority() *cluster.Cluster {
 								Value: 1,
 							},
 						},
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 2,
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region2",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
 						{
 							HostIdentifier: buildEndpointWithHostname("www.bar.com"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
@@ -1962,6 +1969,11 @@ func buildWrappedLocalityLbEndpointsForDNS() []*WrappedLocalityLbEndpoints {
 					},
 					Addresses: []string{"www.foo.com"},
 				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[0],
+		},
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
 				{
 					Labels: map[string]string{
 						"priority": "2",
@@ -1969,7 +1981,7 @@ func buildWrappedLocalityLbEndpointsForDNS() []*WrappedLocalityLbEndpoints {
 					Addresses: []string{"www.bar.com"},
 				},
 			},
-			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[0],
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[1],
 		},
 	}
 }
