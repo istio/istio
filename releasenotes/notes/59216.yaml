@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
 - |
-  **Added** `version` command for `istioctl ztunnel-config` to display the version informations.
+  **Added** `version` command for `istioctl ztunnel-config` to display the version information.
