@@ -39,6 +39,7 @@ const (
 	ZtunnelInboundPort          = 15008
 	ZtunnelOutboundPort         = 15001
 	ZtunnelInboundPlaintextPort = 15006
+	DSCPMagicMark               = 0x17 // FIXME: needs to be configurable
 	ProbeIPSet                  = "istio-inpod-probes"
 )
 

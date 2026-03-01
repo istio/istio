@@ -333,6 +333,13 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		)
 	}
 
+	iptablesBuilder.AppendRule(ChainInpodPrerouting, "nat",
+		"-p", "tcp",
+		"-m", "dscp", "--dscp", fmt.Sprintf("%#x", config.DSCPMagicMark),
+		"-j", "REDIRECT",
+		"--to-port", fmt.Sprint(config.ZtunnelInboundPort),
+	)
+
 	// CLI: -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
 	//
 	// DESC: Propagate/restore connmark (if we had one) for outbound
