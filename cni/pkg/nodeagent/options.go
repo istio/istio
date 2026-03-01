@@ -51,6 +51,7 @@ type AmbientArgs struct {
 	KubeConfig                 string
 	ServerSocket               string
 	EnablementSelector         *util.CompiledEnablementSelectors
+	InterfaceExclusionRules     *util.CompiledInterfaceExclusionRules
 	DNSCapture                 bool
 	EnableIPv6                 bool
 	ReconcilePodRulesOnStartup bool

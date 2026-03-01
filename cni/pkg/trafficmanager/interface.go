@@ -24,7 +24,7 @@ import (
 // in Ambient mode. This abstraction allows switching between iptables and nftables
 // implementations without changing the higher-level logic.
 type TrafficRuleManager interface {
-	CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error
+	CreateInpodRules(log *istiolog.Scope, podOverrides config.PodOverrides) error
 	DeleteInpodRules(log *istiolog.Scope) error
 	CreateHostRulesForHealthChecks() error
 	DeleteHostRules()
