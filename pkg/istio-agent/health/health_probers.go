@@ -292,6 +292,9 @@ var _ Prober = &AggregateProber{}
 
 func (a AggregateProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	for _, probe := range a.Probes {
+		if probe == nil {
+			return Unknown, fmt.Errorf("nil probe in AggregateProber")
+		}
 		res, err := probe.Probe(timeout)
 		if err != nil || !res.IsHealthy() {
 			return res, err
