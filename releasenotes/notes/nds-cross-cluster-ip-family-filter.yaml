@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** `GetAllAddressesForProxy` returning unreachable service addresses to proxies when the
+    `DefaultAddress` IP family does not match the proxy's supported IP family.
