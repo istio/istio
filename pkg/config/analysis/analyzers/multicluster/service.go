@@ -17,6 +17,7 @@ package multicluster
 import (
 	"reflect"
 	"sort"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -126,14 +127,14 @@ func findInconsistencies(services map[cluster.ID]*resource.Instance) (clusters [
 		inconsistentClusters.Insert(firstCluster.String())
 	}
 	slices.Sort(inconsistentReasons.UnsortedList())
-	errStr := ""
+	var errStr strings.Builder
 	for i, err := range inconsistentReasons.UnsortedList() {
-		errStr += err
+		errStr.WriteString(err)
 		if i < len(inconsistentReasons)-1 {
-			errStr += "; "
+			errStr.WriteString("; ")
 		}
 	}
-	return inconsistentClusters.UnsortedList(), errStr
+	return inconsistentClusters.UnsortedList(), errStr.String()
 }
 
 func compareServicePorts(a, b []corev1.ServicePort) bool {

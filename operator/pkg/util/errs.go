@@ -16,6 +16,7 @@ package util
 
 import (
 	"fmt"
+	"strings"
 )
 
 const (
@@ -115,17 +116,17 @@ func AppendErrs(errors []error, newErrs []error) Errors {
 // ToString returns a string representation of errors, with elements separated by separator string. Any nil errors in the
 // slice are skipped.
 func ToString(errors []error, separator string) string {
-	var out string
+	var out strings.Builder
 	for i, e := range errors {
 		if e == nil {
 			continue
 		}
 		if i != 0 {
-			out += separator
+			out.WriteString(separator)
 		}
-		out += e.Error()
+		out.WriteString(e.Error())
 	}
-	return out
+	return out.String()
 }
 
 // EqualErrors reports whether a and b are equal, regardless of ordering.

@@ -325,13 +325,14 @@ func (i *Instance) fixPath(path string) string {
 		input = strings.Replace(input, "]", "", 1)
 		input = strings.Replace(input, "'", "", 2)
 		parts := strings.Split(input, ".")
-		output := "."
+		var output strings.Builder
+		output.WriteString(".")
 		for i := 0; i < len(parts)-1; i++ {
-			output += parts[i]
-			output += "\\."
+			output.WriteString(parts[i])
+			output.WriteString("\\.")
 		}
-		output += parts[len(parts)-1]
-		return []byte(output)
+		output.WriteString(parts[len(parts)-1])
+		return []byte(output.String())
 	}))
 
 	return result

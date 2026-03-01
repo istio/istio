@@ -197,14 +197,14 @@ func isIncludeOrExcludeEntriesMatched(entries []string, term string) bool {
 }
 
 func entryPatternToRegexp(pattern string) string {
-	var reg string
+	var reg strings.Builder
 	for i, literal := range strings.Split(pattern, "*") {
 		if i > 0 {
-			reg += ".*"
+			reg.WriteString(".*")
 		}
-		reg += regexp.QuoteMeta(literal)
+		reg.WriteString(regexp.QuoteMeta(literal))
 	}
-	return reg
+	return reg.String()
 }
 
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.
@@ -358,17 +358,17 @@ func (r *Resources) String() string {
 }
 
 func resourcesStringImpl(node any, prefix string) string {
-	out := ""
+	var out strings.Builder
 	if node == nil {
 		return ""
 	}
 	nv := node.(map[string]any)
 	for k, n := range nv {
-		out += prefix + k + "\n"
-		out += resourcesStringImpl(n, prefix+"  ")
+		out.WriteString(prefix + k + "\n")
+		out.WriteString(resourcesStringImpl(n, prefix+"  "))
 	}
 
-	return out
+	return out.String()
 }
 
 // PodKey returns a unique key based on the namespace and pod name.

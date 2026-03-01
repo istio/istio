@@ -16,6 +16,7 @@ package echo
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Responses is an ordered list of parsed response objects.
@@ -51,9 +52,9 @@ func (r Responses) Match(f func(r Response) bool) Responses {
 }
 
 func (r Responses) String() string {
-	out := ""
+	var out strings.Builder
 	for i, resp := range r {
-		out += fmt.Sprintf("Response[%d]:\n%s", i, resp.String())
+		out.WriteString(fmt.Sprintf("Response[%d]:\n%s", i, resp.String()))
 	}
-	return out
+	return out.String()
 }
