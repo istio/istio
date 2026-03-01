@@ -74,7 +74,7 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 func ListenerSetCollection(
 	listenerSets krt.Collection[*gatewayv1.ListenerSet],
 	gateways krt.Collection[*gatewayv1.Gateway],
-	gatewayClasses krt.Collection[GatewayClass],
+	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
@@ -114,7 +114,7 @@ func ListenerSetCollection(
 				return nil, nil
 			}
 
-			class := fetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
+			class := gatewaycommon.FetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
 			if class == nil {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
@@ -226,7 +226,7 @@ func ListenerSetCollection(
 func GatewayCollection(
 	gateways krt.Collection[*gatewayv1.Gateway],
 	listenerSets krt.Collection[ListenerSet],
-	gatewayClasses krt.Collection[GatewayClass],
+	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
@@ -254,7 +254,7 @@ func GatewayCollection(
 		result := []Gateway{}
 		kgw := obj.Spec
 		status := obj.Status.DeepCopy()
-		class := fetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
+		class := gatewaycommon.FetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
 		if class == nil {
 			return nil, nil
 		}
