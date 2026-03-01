@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 56880
+releaseNotes:
+  - |
+    **Added** JSON and YAML output options to `istioctl proxy-status` subcommand.

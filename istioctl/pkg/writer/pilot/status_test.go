@@ -17,7 +17,6 @@ package pilot
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
 	istioversion "istio.io/istio/pkg/version"
@@ -37,13 +37,15 @@ import (
 func TestXdsStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
 		name      string
+		format    string
 		input     map[string]*discovery.DiscoveryResponse
 		wantFile  string
 		wantErr   bool
 		verbosity int
 	}{
 		{
-			name: "prints multiple istiod inputs to buffer in alphabetical order by pod name",
+			name:   "prints multiple istiod inputs to buffer in alphabetical order by pod name",
+			format: "table",
 			input: map[string]*discovery.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
@@ -98,7 +100,8 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			verbosity: 0,
 		},
 		{
-			name: "prints single istiod input to buffer in alphabetical order by pod name",
+			name:   "prints single istiod input to buffer in alphabetical order by pod name",
+			format: "table",
 			input: map[string]*discovery.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
@@ -127,7 +130,8 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			verbosity: 0,
 		},
 		{
-			name: "prints all known xds types at max verbosity",
+			name:   "prints all known xds types at max verbosity",
+			format: "table",
 			input: map[string]*discovery.DiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
@@ -145,11 +149,51 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			wantFile:  "testdata/multiXdsStatusMultiPilot_verbose.txt",
 			verbosity: 1,
 		},
+		{
+			name:   "prints output in JSON format",
+			format: "json",
+			input: map[string]*discovery.DiscoveryResponse{
+				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
+					{
+						proxyID:        "proxy1",
+						clusterID:      "cluster1",
+						version:        "1.20",
+						cdsSyncStatus:  status.ConfigStatus_STALE,
+						ldsSyncStatus:  status.ConfigStatus_SYNCED,
+						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
+						edsSyncStatus:  status.ConfigStatus_SYNCED,
+						ecdsSyncStatus: status.ConfigStatus_SYNCED,
+					},
+				}),
+			},
+			wantFile:  "testdata/multiXdsStatusSinglePilot.json",
+			verbosity: 0,
+		},
+		{
+			name:   "prints output in YAML format",
+			format: "yaml",
+			input: map[string]*discovery.DiscoveryResponse{
+				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
+					{
+						proxyID:        "proxy1",
+						clusterID:      "cluster1",
+						version:        "1.20",
+						cdsSyncStatus:  status.ConfigStatus_STALE,
+						ldsSyncStatus:  status.ConfigStatus_SYNCED,
+						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
+						edsSyncStatus:  status.ConfigStatus_SYNCED,
+						ecdsSyncStatus: status.ConfigStatus_SYNCED,
+					},
+				}),
+			},
+			wantFile:  "testdata/multiXdsStatusSinglePilot.yaml",
+			verbosity: 0,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
-			sw := XdsStatusWriter{Writer: got, Verbosity: tt.verbosity}
+			sw := XdsStatusWriter{Writer: got, Verbosity: tt.verbosity, OutputFormat: tt.format}
 			input := map[string]*discovery.DiscoveryResponse{}
 			for key, ss := range tt.input {
 				input[key] = ss
@@ -161,10 +205,8 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			want, _ := os.ReadFile(tt.wantFile)
-			if got.String() != string(want) {
-				t.Errorf("Unexpected output for '%s' (verbosity=%d)\n got: %q\nwant: %q", tt.name, tt.verbosity, got.String(), string(want))
-			}
+
+			util.CompareContent(t, got.Bytes(), tt.wantFile)
 		})
 	}
 }
