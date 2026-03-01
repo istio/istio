@@ -421,6 +421,45 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 	}
 }
 
+func TestManifestGenerateIstiodRemoteIPv6(t *testing.T) {
+	g := NewWithT(t)
+
+	const primarySVCName = "istiod"
+	objss := runManifestCommands(t, "istiod_remote_ipv6", "", liveCharts, nil)
+
+	for _, objs := range objss {
+		// check core CRDs exists
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("adapters.config.istio.io")).Should(BeNil())
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+
+		// Verify EndpointSlice is correctly generated (IPv6 address should not be skipped)
+		ep := mustGetEndpointSlice(g, objs, primarySVCName).Unstructured.Object
+		// Verify addressType is IPv6
+		g.Expect(ep).Should(HavePathValueEqual(PathValue{"addressType", "IPv6"}))
+		// Verify endpoints contain the correct IPv6 address
+		g.Expect(ep).Should(HavePathValueEqual(PathValue{"endpoints.[0].addresses.[0]", "2001:db8::1"}))
+		g.Expect(ep).Should(HavePathValueContain(PathValue{"ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+
+		// Verify Service exists and is not ExternalName type (IPv6 address should not be treated as a hostname)
+		svc := mustGetService(g, objs, primarySVCName).Unstructured.Object
+		svcSpec, ok := svc["spec"].(map[string]any)
+		g.Expect(ok).Should(BeTrue(), "Service should have a spec")
+		_, hasExternalName := svcSpec["externalName"]
+		g.Expect(hasExternalName).Should(BeFalse(), "IPv6 address should not result in ExternalName service")
+		_, hasType := svcSpec["type"]
+		g.Expect(hasType).Should(BeFalse(), "IPv6 address should not set service type to ExternalName")
+
+		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured.Object
+		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
+
+		checkClusterRoleBindingsReferenceRoles(g, objs)
+	}
+}
+
 func TestManifestGenerateIstiodRemoteConfigCluster(t *testing.T) {
 	g := NewWithT(t)
 

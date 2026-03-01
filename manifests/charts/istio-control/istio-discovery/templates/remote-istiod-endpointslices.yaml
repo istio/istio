@@ -1,7 +1,7 @@
 {{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- if and .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
-# if the remotePilotAddress is an IP addr
-{{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
+# if the remotePilotAddress is an IP addr (IPv4 or IPv6)
+{{- if or (regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress) (regexMatch "^([0-9a-fA-F]*:)+[0-9a-fA-F]*$" .Values.global.remotePilotAddress) }}
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
@@ -25,7 +25,7 @@ metadata:
     {{- end }}
     app.kubernetes.io/name: "istiod"
     {{- include "istio.labels" . | nindent 4 }}
-addressType: IPv4
+addressType: {{ if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}IPv4{{ else }}IPv6{{ end }}
 endpoints:
 - addresses:
   - {{ .Values.global.remotePilotAddress }}
