@@ -38,6 +38,7 @@ type rawDump struct {
 	Policies      json.RawMessage          `json:"policies"`
 	Certificates  json.RawMessage          `json:"certificates"`
 	WorkloadState map[string]WorkloadState `json:"workloadstate"`
+	Version       json.RawMessage          `json:"version"`
 }
 
 // Prime loads the config dump into the writer ready for printing
@@ -64,6 +65,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 		return err
 	}
 	zDump.WorkloadState = rawDump.WorkloadState
+	zDump.Version = rawDump.Version
 	c.ztunnelDump = zDump
 	return nil
 }
@@ -141,7 +143,41 @@ func (c *ConfigWriter) PrintFullDump(outputFormat string) error {
 
 // PrintVersionSummary prints version information for Istio and Ztunnel from the config dump
 func (c *ConfigWriter) PrintVersionSummary() error {
-	// TODO
+	if c.ztunnelDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	versionDump := c.ztunnelDump.Version
+
+	var versionMap map[string]string
+	if err := json.Unmarshal(versionDump, &versionMap); err != nil {
+		return fmt.Errorf("failed to unmarshal version dump: %v", err)
+	}
+	ztunnelVersion, ok := versionMap["version"]
+	if ok {
+		fmt.Fprintln(c.Stdout, "Ztunnel version: ", ztunnelVersion)
+	}
+	istioVersion, ok := versionMap["istioVersion"]
+	if ok {
+		fmt.Fprintln(c.Stdout, "Istio version: ", istioVersion)
+	}
+	return nil
+}
+
+func (c *ConfigWriter) PrintVersionDump(outputFormat string) error {
+	if c.ztunnelDump == nil {
+		return fmt.Errorf("config writer has not been primed")
+	}
+	versionDump := c.ztunnelDump.Version
+	out, err := json.MarshalIndent(versionDump, "", "    ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal version dump: %v", err)
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintln(c.Stdout, string(out))
 	return nil
 }
 
