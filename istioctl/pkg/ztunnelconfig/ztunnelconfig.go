@@ -712,5 +712,8 @@ func (c *commonFlags) validateArgs(cmd *cobra.Command, args []string) error {
 		cmd.Println(cmd.UsageString())
 		return fmt.Errorf("at most one of --file, --node, or pod name must be passed")
 	}
+	if err := util.ValidatePort(c.proxyAdminPort); err != nil {
+		return err
+	}
 	return nil
 }

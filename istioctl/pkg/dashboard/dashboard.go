@@ -227,6 +227,12 @@ func createDashCmd(ctx cli.Context, config CreateProxyDashCmdConfig) *cobra.Comm
 		Short:   config.CommandShort,
 		Long:    config.CommandLong,
 		Example: config.CommandExample,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := util.ValidatePort(proxyAdminPort); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClient()
 			if err != nil {

@@ -1358,6 +1358,9 @@ func ProxyConfig(ctx cli.Context) *cobra.Command {
 		Example: `  # Retrieve information about proxy configuration from an Envoy instance.
   istioctl proxy-config <clusters|listeners|routes|endpoints|ecds|bootstrap|log|secret> <pod-name[.namespace]>`,
 		Aliases: []string{"pc"},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return istioctlutil.ValidatePort(proxyAdminPort)
+		},
 	}
 
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
