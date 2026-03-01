@@ -85,7 +85,159 @@ iOmuuOfQWnMfcVk8I0YDL5+G9Pg=
 -----END PRIVATE KEY-----`
 )
 
-// TODO (myidpt): Test Istio CA can load plugin key/certs from secret.
+func TestCreatePluggedCertCAFromSecret(t *testing.T) {
+	// Helper to read test certificate files
+	readTestFile := func(path string) []byte {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("failed to read test data %s: %v", path, err)
+		}
+		return data
+	}
+
+	// 1. Load test certificate materials from files
+	rootCertPem := readTestFile("../testdata/multilevelpki/root-cert.pem")
+	certChainPem := readTestFile("../testdata/multilevelpki/int2-cert-chain.pem")
+	signingCertPem := readTestFile("../testdata/multilevelpki/int2-cert.pem")
+	signingKeyPem := readTestFile("../testdata/multilevelpki/int2-key.pem")
+
+	// 2. Create a Secret containing the plugged-in CA materials
+	namespace := "istio-system"
+	secretName := CACertsSecret
+	pluginSecret := BuildSecret(
+		secretName,
+		namespace,
+		certChainPem,
+		signingKeyPem,
+		rootCertPem,
+		signingCertPem,
+		nil,
+		istioCASecretType,
+	)
+
+	// 3. Simulate storing and retrieving the secret from Kubernetes
+	client := fake.NewClientset()
+	_, err := client.CoreV1().Secrets(namespace).Create(context.TODO(), pluginSecret, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed to create secret: %v", err)
+	}
+
+	loadedSecret, err := client.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("failed to get secret: %v", err)
+	}
+
+	// 4. Construct KeyCertBundle from the Secret data
+	// This simulates how Istiod loads the CA materials during initialization
+	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(
+		loadedSecret.Data[CACertFile],
+		loadedSecret.Data[PrivateKeyFile],
+		loadedSecret.Data[CertChainFile],
+		loadedSecret.Data[RootCertFile],
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("failed to create KeyCertBundle from secret: %v", err)
+	}
+
+	// 5. Initialize IstioCA with the loaded materials
+	// Set a very long default TTL to test the truncation logic
+	defaultWorkloadCertTTL := 99999 * time.Hour
+	maxWorkloadCertTTL := time.Hour
+	rsaKeySize := 2048
+
+	caopts := &IstioCAOptions{
+		CAType:         pluggedCertCA,
+		DefaultCertTTL: defaultWorkloadCertTTL,
+		MaxCertTTL:     maxWorkloadCertTTL,
+		KeyCertBundle:  keyCertBundle,
+		CARSAKeySize:   rsaKeySize,
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Fatalf("failed to create IstioCA: %v", err)
+	}
+
+	// 6. Verify that loaded data matches the source files
+	loadedSigningCert, loadedSigningKey, loadedCertChain, loadedRootCert := ca.GetCAKeyCertBundle().GetAllPem()
+	if !bytes.Equal(loadedSigningCert, signingCertPem) {
+		t.Error("loaded signing cert does not match source")
+	}
+	if !bytes.Equal(loadedSigningKey, signingKeyPem) {
+		t.Error("loaded signing key does not match source")
+	}
+	if !bytes.Equal(loadedCertChain, certChainPem) {
+		t.Error("loaded cert chain does not match source")
+	}
+	if !bytes.Equal(loadedRootCert, rootCertPem) {
+		t.Error("loaded root cert does not match source")
+	}
+
+	// 7. Functional test: Sign a workload certificate
+	csrPEM, keyPEM, err := util.GenCSR(util.CertOptions{
+		Host:       "test-workload.default.svc.cluster.local",
+		RSAKeySize: 2048,
+	})
+	if err != nil {
+		t.Fatalf("failed to generate CSR: %v", err)
+	}
+
+	subjectID := "spiffe://cluster.local/ns/default/sa/test"
+	certPEM, signErr := ca.Sign(csrPEM, CertOpts{
+		SubjectIDs: []string{subjectID},
+		TTL:        30 * time.Minute,
+		ForCA:      false,
+	})
+	if signErr != nil {
+		t.Fatalf("failed to sign CSR: %v", signErr)
+	}
+
+	// 8. Verify the signed certificate is valid
+	_, _, certChainBytesFromCA, rootCertBytesFromCA := ca.GetCAKeyCertBundle().GetAll()
+	verifyFields := util.VerifyFields{
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		IsCA:        false,
+		Host:        subjectID,
+	}
+
+	if err := util.VerifyCertificate(keyPEM, append(certPEM, certChainBytesFromCA...), rootCertBytesFromCA, &verifyFields); err != nil {
+		t.Fatalf("verify signed certificate failed: %v", err)
+	}
+
+	// Calculate the expected maximum TTL based on the current time
+	// Note: Use time.Now() here because that's what minTTL() uses internally
+	now := time.Now()
+	certChainRemainingLifetime, err := util.TimeBeforeCertExpires(certChainPem, now)
+	if err != nil {
+		t.Fatalf("failed to calculate cert chain remaining lifetime: %v", err)
+	}
+
+	// The CA's defaultCertTTL should be clamped to the cert chain's remaining lifetime
+	// Allow a tolerance of 2 seconds to account for:
+	// 1. Time elapsed between minTTL() execution and our verification
+	// 2. Potential clock skew in test environments
+	tolerance := 2 * time.Second
+	if ca.defaultCertTTL > certChainRemainingLifetime+tolerance {
+		t.Errorf("CA's defaultCertTTL (%v) significantly exceeds cert chain's remaining lifetime (%v)",
+			ca.defaultCertTTL, certChainRemainingLifetime)
+	}
+
+	// The clamped TTL should be reasonably close to the cert chain's remaining lifetime
+	// It should not be too much smaller (more than tolerance) than the expected value
+	if ca.defaultCertTTL < certChainRemainingLifetime-tolerance {
+		t.Errorf("CA's defaultCertTTL (%v) is unexpectedly less than cert chain's remaining lifetime (%v)",
+			ca.defaultCertTTL, certChainRemainingLifetime)
+	}
+
+	// Verify that truncation actually occurred (i.e., the requested TTL was too long)
+	if ca.defaultCertTTL >= defaultWorkloadCertTTL {
+		t.Errorf("CA's defaultCertTTL (%v) was not truncated from requested TTL (%v)",
+			ca.defaultCertTTL, defaultWorkloadCertTTL)
+	}
+}
 
 func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	caCertTTL := time.Hour
