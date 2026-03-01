@@ -331,6 +331,12 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
 
+	if features.EnableAgentgateway {
+		// Must occur after initControllers
+		// TODO(jaellio): pass registrations
+		s.XDSServer.InitCollections()
+	}
+
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
 		return nil, err

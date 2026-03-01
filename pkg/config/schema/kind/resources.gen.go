@@ -49,6 +49,7 @@ const (
 	TCPRoute
 	TLSRoute
 	Telemetry
+	TypeUrl
 	UDPRoute
 	ValidatingWebhookConfiguration
 	VirtualService
@@ -150,6 +151,8 @@ func (k Kind) String() string {
 		return "TLSRoute"
 	case Telemetry:
 		return "Telemetry"
+	case TypeUrl:
+		return "TypeUrl"
 	case UDPRoute:
 		return "UDPRoute"
 	case ValidatingWebhookConfiguration:
@@ -261,6 +264,8 @@ func FromString(s string) Kind {
 		return TLSRoute
 	case "Telemetry":
 		return Telemetry
+	case "TypeUrl":
+		return TypeUrl
 	case "UDPRoute":
 		return UDPRoute
 	case "ValidatingWebhookConfiguration":
