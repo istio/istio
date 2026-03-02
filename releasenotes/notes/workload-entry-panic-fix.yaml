@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** istiod crashing when `PILOT_ENABLE_AMBIENT=true` is set and a WorkloadEntry 
+  resource exists with a different network than the cluster.

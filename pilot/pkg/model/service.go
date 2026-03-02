@@ -1075,6 +1075,9 @@ func (i AddressInfo) Equals(other AddressInfo) bool {
 }
 
 func (i AddressInfo) Aliases() []string {
+	if i.Address == nil {
+		return nil
+	}
 	switch addr := i.Type.(type) {
 	case *workloadapi.Address_Workload:
 		aliases := make([]string, 0, len(addr.Workload.Addresses))
@@ -1096,6 +1099,9 @@ func (i AddressInfo) Aliases() []string {
 }
 
 func (i AddressInfo) ResourceName() string {
+	if i.Address == nil {
+		return ""
+	}
 	var name string
 	switch addr := i.Type.(type) {
 	case *workloadapi.Address_Workload:

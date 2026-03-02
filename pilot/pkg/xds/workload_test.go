@@ -29,11 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/annotation"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	metav1beta1 "istio.io/api/type/v1beta1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	xdsapi "istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
@@ -549,4 +551,114 @@ func TestPeerAuthenticationUpdate(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	ads.ExpectNoResponse()
+}
+
+// TestWorkloadEntryNilAddressInfo tests that WorkloadGenerator handles AddressInfo with nil Address gracefully.
+// This can happen when WorkloadEntries exist but don't have corresponding entries in the ambient index
+func TestWorkloadEntryNilAddressInfo(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+
+	weConfig := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadEntry,
+			Name:             "test",
+			Namespace:        "default",
+		},
+		Spec: &networking.WorkloadEntry{
+			Address:        "10.132.101.106",
+			Locality:       "region/zone",
+			Network:        "my-network",
+			ServiceAccount: "default",
+		},
+	}
+	_, err := s.Store().Create(weConfig)
+	assert.NoError(t, err)
+
+	proxy := &model.Proxy{
+		Type:            model.Ztunnel,
+		IPAddresses:     []string{"127.0.0.1"},
+		ID:              "test-ztunnel",
+		ConfigNamespace: "default",
+		Metadata:        &model.NodeMetadata{},
+	}
+
+	generator := xdsapi.WorkloadGenerator{Server: s.Discovery}
+
+	// Test 1: Direct test of ResourceName() with nil Address
+	t.Run("ResourceName with nil Address", func(t *testing.T) {
+		addrInfo := model.AddressInfo{Address: nil}
+		// Should not panic, should return empty string
+		name := addrInfo.ResourceName()
+		assert.Equal(t, "", name)
+	})
+
+	// Test 2: Direct test of Aliases() with nil Address
+	t.Run("Aliases with nil Address", func(t *testing.T) {
+		addrInfo := model.AddressInfo{Address: nil}
+		// Should not panic, should return nil
+		aliases := addrInfo.Aliases()
+		assert.Equal(t, []string(nil), aliases)
+	})
+
+	// Test 3: Test GenerateDeltas with AddressInfo containing nil Address
+	// We simulate this by using a service discovery that returns AddressInfo with nil Address
+	t.Run("GenerateDeltas with nil Address in filtered addresses", func(t *testing.T) {
+		// Create a watched resource for wildcard subscription
+		watched := &model.WatchedResource{
+			TypeUrl:       v3.WorkloadType,
+			Wildcard:      true,
+			ResourceNames: sets.New[string](),
+		}
+
+		// Create a push request that would trigger workload xDS generation
+		req := &model.PushRequest{
+			Full:             true,
+			Push:             s.PushContext(),
+			AddressesUpdated: sets.New[string](),
+			Reason:           model.NewReasonStats(model.ProxyRequest),
+			Delta: model.ResourceDelta{
+				Subscribed: sets.New[string](),
+			},
+		}
+
+		// This should not panic even if AddressInformation returns AddressInfo with nil Address
+		resources, removed, _, _, err := generator.GenerateDeltas(proxy, req, watched)
+		assert.NoError(t, err)
+		if resources == nil {
+			t.Error("resources should not be nil")
+		}
+		if removed == nil {
+			t.Error("removed should not be nil")
+		}
+	})
+
+	// Test 4: Test GenerateDeltas with on-demand subscription and nil Address
+	t.Run("GenerateDeltas on-demand with nil Address", func(t *testing.T) {
+		watched := &model.WatchedResource{
+			TypeUrl:       v3.WorkloadType,
+			Wildcard:      false,
+			ResourceNames: sets.New[string]("Kubernetes/networking.istio.io/WorkloadEntry/default/test"),
+		}
+
+		req := &model.PushRequest{
+			Full:             false,
+			Push:             s.PushContext(),
+			AddressesUpdated: sets.New[string]("Kubernetes/networking.istio.io/WorkloadEntry/default/test"),
+			Reason:           model.NewReasonStats(model.ProxyRequest),
+			Delta: model.ResourceDelta{
+				Subscribed: sets.New[string]("Kubernetes/networking.istio.io/WorkloadEntry/default/test"),
+			},
+		}
+
+		resources, removed, _, _, err := generator.GenerateDeltas(proxy, req, watched)
+		assert.NoError(t, err)
+		if resources == nil {
+			t.Error("resources should not be nil")
+		}
+		if removed == nil {
+			t.Error("removed should not be nil")
+		}
+	})
 }
