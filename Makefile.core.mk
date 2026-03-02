@@ -299,7 +299,7 @@ refresh-goldens:
 		./pkg/kube/inject/... \
 		./pilot/pkg/config/kube/gateway/... \
 		./pilot/pkg/security/authz/builder/... \
-		./pilot/pkg/serviceregistry/kube/controller/ambient/... \
+		./pilot/pkg/serviceregistry/ambient/... \
 		./cni/pkg/iptables/... \
 		./cni/pkg/plugin/... \
 		./istioctl/pkg/workload/... \
