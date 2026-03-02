@@ -16,7 +16,6 @@ package model
 
 import (
 	"encoding/json"
-	"sort"
 	"strings"
 	"sync"
 
@@ -389,7 +388,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 						continue
 					}
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					if ns := pickFirstVisibleNamespace(ps, byNamespace, configNamespace); ns != "" {
+					if ns := pickBestVisibleNamespace(ps, byNamespace, configNamespace); ns != "" {
 						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
 							sc.appendSidecarServices(servicesAdded, matchedSvc)
 						}
@@ -1005,19 +1004,29 @@ func canMergeServices(s1, s2 *Service) bool {
 	return true
 }
 
-// Pick the Service namespace visible to the configNamespace namespace.
-// If it does not exist, return an empty string,
-// If there are more than one, pick the first alphabetically.
-func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
-	nss := make([]string, 0, len(byNamespace))
-	for ns := range byNamespace {
-		if ps.IsServiceVisible(byNamespace[ns], configNamespace) {
-			nss = append(nss, ns)
+// Pick the best Service namespace visible to the configNamespace namespace.
+// If it does not exist, return an empty string.
+// Best is defined as:
+// 1. contains a Kubernetes service and is visible to configNamespace
+// 2. contains the oldest non-Kubernetes service which is visible to configNamespace
+// This does not consider whether a svc is in the configNamespace,
+// the calling logic has already attempted a direct lookup of byNamespace[configNamespace]
+func pickBestVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
+	var currentBestService *Service
+	for _, svc := range byNamespace {
+		if ps.IsServiceVisible(svc, configNamespace) {
+			// if we have a visible kube service, use it
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
+				return svc.NamespacedName().Namespace
+			}
+			// if this is the first visible service, or it's older than our current best, then it is the new best that we have seen
+			if currentBestService == nil || svc.CreationTime.Before(currentBestService.CreationTime) {
+				currentBestService = svc
+			}
 		}
 	}
-	if len(nss) > 0 {
-		sort.Strings(nss)
-		return nss[0]
+	if currentBestService != nil {
+		return currentBestService.NamespacedName().Namespace
 	}
 	return ""
 }
