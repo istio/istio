@@ -178,10 +178,11 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	log.Debugf("mergeGateways: merging %d gateways", len(gateways))
 	for _, gwAndInstance := range gateways {
 		gatewayConfig := gwAndInstance.gateway
-		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name // Format: %s/%s
+		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("mergeGateways: merging gateway %q :\n%v", gatewayName, gatewayCfg)
 		snames := sets.String{}
+
 		for _, s := range gatewayCfg.Servers {
 			if len(s.Name) > 0 {
 				if snames.InsertContains(s.Name) {
@@ -425,6 +426,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 		}
 	}
+
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
 		MergedQUICTransportServers:      mergedQUICServers,
@@ -674,4 +676,75 @@ func getTargetPortMap(serversByRouteName map[string][]*networking.Server) Gatewa
 		}
 	}
 	return pm
+}
+
+// filterMergedGatewayServers filters merged gateway servers based on strict gateway merging rules.
+// It keeps GatewayAPI servers and removes Istio Gateway servers that are not in GatewayAPI namespaces.
+// Gateways specified in gatewayNames are kept and other gateways in the same namespace are kept as well.
+func filterMergedGatewayServers(mgw *MergedGateway, gwAPIGatewayNames sets.Set[string]) {
+	gatewayNameForServer := mgw.GatewayNameForServer
+	tlsServerInfo := mgw.TLSServerInfo
+	serversByRouteName := mgw.ServersByRouteName
+	mergedServers := mgw.MergedServers
+	mergedQUICServers := mgw.MergedQUICTransportServers
+
+	filterMergedServers := func(mergedServerMap map[ServerPort]*MergedServers) {
+		// Filter servers: keep GatewayAPI servers and remove Istio Gateway servers not in GatewayAPI namespaces
+		for port, mergedServer := range mergedServerMap {
+			allowedNamespaces := sets.New[string]()
+			for _, s := range mergedServer.Servers {
+				gatewayName := gatewayNameForServer[s]
+				if exists := gwAPIGatewayNames.Contains(gatewayName); exists {
+					parts := strings.Split(gatewayName, "/")
+					gatewayNamespace := parts[0]
+					allowedNamespaces.Insert(gatewayNamespace)
+				}
+			}
+
+			// When there is a GatewayAPI server, we keep usual Istio gateway merging.
+			if allowedNamespaces.Len() > 0 {
+				filteredServers := []*networking.Server{}
+				for _, s := range mergedServer.Servers {
+					gatewayName := gatewayNameForServer[s]
+					parts := strings.Split(gatewayName, "/")
+					gatewayNamespace := parts[0]
+
+					// Check if this is a GatewayAPI gateway using the pre-built map
+					isGatewayAPI := gwAPIGatewayNames.Contains(gatewayName)
+
+					// Keep GatewayAPI servers or Istio Gateway servers in allowed namespaces for this port
+					if isGatewayAPI || allowedNamespaces.Contains(gatewayNamespace) {
+						filteredServers = append(filteredServers, s)
+					} else {
+						// Remove from related maps
+						delete(gatewayNameForServer, s)
+						delete(tlsServerInfo, s)
+						log.Infof("skipping server on gateway %s port %s.%d.%s: does not satisfy merging criteria",
+							gatewayName, s.Port.Name, port.Number, port.Protocol)
+						RecordRejectedConfig(gatewayName)
+					}
+				}
+
+				// Update the merged server with filtered servers
+				mergedServer.Servers = filteredServers
+			}
+		}
+	}
+
+	filterMergedServers(mergedServers)
+	filterMergedServers(mergedQUICServers)
+
+	for routeName, servers := range serversByRouteName {
+		filteredServers := []*networking.Server{}
+		for _, s := range servers {
+			if _, exists := gatewayNameForServer[s]; exists {
+				filteredServers = append(filteredServers, s)
+			}
+		}
+		if len(filteredServers) == 0 {
+			delete(serversByRouteName, routeName)
+		} else {
+			serversByRouteName[routeName] = filteredServers
+		}
+	}
 }
