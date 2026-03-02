@@ -836,6 +836,11 @@ func TestApplyLocalitySetting(t *testing.T) {
 		}
 	})
 
+	// NOTE: The test "FailoverPriority with DNS service instances" has been moved to
+	// loadbalancer_simulation_test.go as TestFailoverPriorityWithDNSServiceEntry.
+	// That test uses a real ServiceEntry converted through the full xDS pipeline
+	// rather than manually constructed cluster structures.
+
 	t.Run("FailoverPriority with Failover", func(t *testing.T) {
 		tests := []struct {
 			name             string

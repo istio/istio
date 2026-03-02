@@ -150,19 +150,21 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	var localCluster *clusterWrapper
+	var endpointBuilder *endpoints.EndpointBuilder
 	// All non custom DiscoveryTypes use the same cluster creation logic
 	// DynamicDNS uses a custom DiscoveryType
 	if svc.Resolution != model.DynamicDNS {
 		discoveryType := convertResolution(cb.proxyType, svc)
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
 		if discoveryType == cluster.Cluster_STRICT_DNS || discoveryType == cluster.Cluster_LOGICAL_DNS {
-			lbEndpoints = endpoints.NewCDSEndpointBuilder(
+			endpointBuilder = endpoints.NewCDSEndpointBuilder(
 				proxy,
 				cb.req.Push,
 				clusterName,
 				model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port,
 				svc, nil,
-			).FromServiceEndpoints()
+			)
+			lbEndpoints = endpointBuilder.FromServiceEndpoints()
 		}
 		localCluster = cb.buildCluster(clusterName, discoveryType, lbEndpoints,
 			model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
@@ -202,7 +204,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		connectionPool.Http = nil
 		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
-		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil)
 		// TODO: Decide if we want to support this
 		if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
 			log.Warnf("Passthrough on the east/west gateway isn't expected")
@@ -222,7 +224,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// Unless the svc resolution type is DynamicDNS, we apply the LB settings
 	if svc.Resolution != model.DynamicDNS {
-		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil)
 	}
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result

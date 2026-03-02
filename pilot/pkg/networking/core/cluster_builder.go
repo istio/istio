@@ -38,6 +38,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
@@ -105,6 +106,11 @@ type clusterWrapper struct {
 	httpProtocolOptions *http.HttpProtocolOptions
 	// isDFPCluster indicates whether the cluster is a dynamic forward proxy cluster
 	isDFPCluster bool
+
+	// dnsWrappedLocalityLbEndpoints are the locality lb endpoints wrapped with IstioEndpoints.
+	// It is used to do failover priority label match with proxy labels.
+	// Only used for DNS type of clusters.
+	dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
 }
 
 // metadataCerts hosts client certificate related metadata specified in proxy metadata.

@@ -349,6 +349,14 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
 }
 
+// IstioEndpoints returns IstioEndpoints from the PushContext's snapshotted ServiceIndex.
+func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
+	if b == nil {
+		return nil
+	}
+	return b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+}
+
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {

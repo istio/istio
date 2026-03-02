@@ -2484,6 +2484,8 @@ func TestApplyLoadBalancer(t *testing.T) {
 		discoveryType                      cluster.Cluster_DiscoveryType
 		port                               *model.Port
 		sendUnhealthyEndpoints             bool
+		proxyLabels                        map[string]string
+		outlierDetection                   bool
 		expectedLbPolicy                   cluster.Cluster_LbPolicy
 		expectedLocalityWeightedConfig     bool
 		expectClusterLoadAssignmenttoBeNil bool
@@ -2540,6 +2542,27 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy:               defaultLBAlgorithm(),
 			expectedLocalityWeightedConfig: false,
 		},
+		{
+			name: "Failover priority with nil wrapped endpoints should not panic",
+			lbSettings: &networking.LoadBalancerSettings{
+				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
+					Enabled: &wrappers.BoolValue{Value: true},
+					FailoverPriority: []string{
+						"topology.kubernetes.io/region",
+						"topology.kubernetes.io/zone",
+					},
+				},
+			},
+			discoveryType: cluster.Cluster_EDS,
+			port:          &model.Port{Protocol: protocol.HTTP},
+			proxyLabels: map[string]string{
+				"topology.kubernetes.io/region": "region1",
+				"topology.kubernetes.io/zone":   "zone1",
+			},
+			outlierDetection:               true,
+			expectedLbPolicy:               defaultLBAlgorithm(),
+			expectedLocalityWeightedConfig: true,
+		},
 		// TODO: add more to cover all cases
 	}
 
@@ -2558,6 +2581,10 @@ func TestApplyLoadBalancer(t *testing.T) {
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 			}
 
+			if tt.outlierDetection {
+				c.OutlierDetection = &cluster.OutlierDetection{}
+			}
+
 			if tt.discoveryType == cluster.Cluster_ORIGINAL_DST {
 				c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 			}
@@ -2566,7 +2593,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				test.SetForTest(t, &features.EnableRedisFilter, true)
 			}
 
-			applyLoadBalancer(nil, c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
+			applyLoadBalancer(nil, c, tt.lbSettings, tt.port, proxy.Locality, tt.proxyLabels, &meshconfig.MeshConfig{}, nil)
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
