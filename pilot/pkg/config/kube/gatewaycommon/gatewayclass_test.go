@@ -19,13 +19,14 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func TestClassController(t *testing.T) {
