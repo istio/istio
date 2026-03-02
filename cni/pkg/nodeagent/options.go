@@ -56,4 +56,5 @@ type AmbientArgs struct {
 	ReconcilePodRulesOnStartup bool
 	NativeNftables             bool
 	ForceIptablesBinary        string
+	KubeletCgroup              string
 }

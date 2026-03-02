@@ -634,30 +634,44 @@ func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder 
 	// we cannot make assumptions there.
 
 	// -A OUTPUT -m owner --socket-exists -p tcp -m set --match-set istio-inpod-probes dst,dst -j SNAT --to-source 169.254.7.127
-	iptablesBuilder.AppendRuleV4(
-		ChainHostPostrouting, "nat",
+	var kubeletCgroupArgs []string
+	if cfg.cfg.KubeletCgroup != "" {
+		kubeletCgroupArgs = []string{
+			"-m", "cgroup", "--path", cfg.cfg.KubeletCgroup,
+		}
+	}
+	args := append(append([]string{
 		"-m", "owner",
 		"--socket-exists",
 		"-p", "tcp",
 		"-m", "set",
 		"--match-set", fmt.Sprintf(ipset.V4Name, config.ProbeIPSet),
 		"dst",
+	},
+		kubeletCgroupArgs...),
 		"-j", "SNAT",
-		"--to-source", cfg.cfg.HostProbeSNATAddress.String(),
+		"--to-source", cfg.cfg.HostProbeSNATAddress.String())
+	iptablesBuilder.AppendRuleV4(
+		ChainHostPostrouting, "nat",
+		args...,
 	)
 
 	// For V6 we have to use a different set and a different SNAT IP
+	argsV6 := append(append([]string{
+		"-m", "owner",
+		"--socket-exists",
+		"-p", "tcp",
+		"-m", "set",
+		"--match-set", fmt.Sprintf(ipset.V6Name, config.ProbeIPSet),
+		"dst",
+	},
+		kubeletCgroupArgs...),
+		"-j", "SNAT",
+		"--to-source", cfg.cfg.HostProbeV6SNATAddress.String())
 	if cfg.cfg.EnableIPv6 {
 		iptablesBuilder.AppendRuleV6(
 			ChainHostPostrouting, "nat",
-			"-m", "owner",
-			"--socket-exists",
-			"-p", "tcp",
-			"-m", "set",
-			"--match-set", fmt.Sprintf(ipset.V6Name, config.ProbeIPSet),
-			"dst",
-			"-j", "SNAT",
-			"--to-source", cfg.cfg.HostProbeV6SNATAddress.String(),
+			argsV6...,
 		)
 	}
 

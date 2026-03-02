@@ -39,6 +39,7 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		EnableIPv6:             args.EnableIPv6,
 		HostProbeSNATAddress:   HostProbeSNATIP,
 		HostProbeV6SNATAddress: HostProbeSNATIPV6,
+		KubeletCgroup:          args.KubeletCgroup,
 	}
 
 	podCfg := &config.AmbientConfig{
