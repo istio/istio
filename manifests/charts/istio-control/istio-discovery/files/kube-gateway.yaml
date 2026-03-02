@@ -70,13 +70,16 @@ spec:
             "gateway.istio.io/managed" "istio.io-gateway-controller"
           ) | nindent 8 }}
     spec:
-      {{- if .Values.global.kube-gateway.affinity }}
+      {{- $kubeGateway := (index .Values.global "kube-gateway") }}
+      {{- if $kubeGateway }}
+      {{- if $kubeGateway.affinity }}
       affinity:
-        {{- toYaml .Values.global.kube-gateway.affinity | nindent 8 }}
+        {{- toYaml $kubeGateway.affinity | nindent 8 }}
       {{- end }}
-      {{- if .Values.global.kube-gateway.tolerations }}
+      {{- if $kubeGateway.tolerations }}
       tolerations:
-        {{- toYaml .Values.global.kube-gateway.tolerations | nindent 8 }}
+        {{- toYaml $kubeGateway.tolerations | nindent 8 }}
+      {{- end }}
       {{- end }}
       securityContext:
       {{- if .Values.gateways.securityContext }}

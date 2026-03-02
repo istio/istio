@@ -673,10 +673,11 @@ metadata:
 			values: `global:
   hub: test
   tag: test
-  tolerations:
-  - key: "example-key"
-    operator: "Exists"
-    effect: "NoSchedule"`,
+  kube-gateway:
+    tolerations:
+    - key: "example-key"
+      operator: "Exists"
+      effect: "NoSchedule"`,
 		},
 		{
 			name: "agentgateway-tolerations",
@@ -698,10 +699,182 @@ metadata:
 			values: `global:
   hub: test
   tag: test
-  tolerations:
-  - key: "example-key"
-    operator: "Exists"
-    effect: "NoSchedule"`,
+  agentgateway:
+    tolerations:
+    - key: "example-key"
+      operator: "Exists"
+      effect: "NoSchedule"`,
+		},
+		{
+			name: "gateway-tolerations",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  gateway:
+    tolerations:
+    - key: "example-key"
+      operator: "Exists"
+      effect: "NoSchedule"`,
+		},
+		{
+			name: "sidecar-tolerations",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  sidecar:
+    tolerations:
+    - key: "example-key"
+      operator: "Exists"
+      effect: "NoSchedule"`,
+		},
+		{
+			name: "kube-gateway-affinity",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  kube-gateway:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "example-key"
+              operator: "In"
+              values:
+              - "example-value"`,
+		},
+		{
+			name: "agentgateway-affinity",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  agentgateway:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "example-key"
+              operator: "In"
+              values:
+              - "example-value"`,
+		},
+		{
+			name: "gateway-affinity",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  gateway:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "example-key"
+              operator: "In"
+              values:
+              - "example-value"`,
+		},
+		{
+			name: "sidecar-affinity",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  sidecar:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: "example-key"
+              operator: "In"
+              values:
+              - "example-value"`,
 		},
 	}
 	for _, tt := range tests {

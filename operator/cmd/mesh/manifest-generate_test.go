@@ -1220,3 +1220,49 @@ func TestSidecarTemplate(t *testing.T) {
 		},
 	})
 }
+
+// TestConfigMapTemplatesContainTolerationsAndAffinity verifies that the generated istio-sidecar-injector ConfigMap
+// includes tolerations and affinity Go template blocks in the kube-gateway, agentgateway, gateway, and sidecar templates.
+func TestConfigMapTemplatesContainTolerationsAndAffinity(t *testing.T) {
+	g := NewWithT(t)
+	m := generateManifest(t, "default", "", liveCharts,
+		[]string{"templates/istiod-injector-configmap.yaml"})
+	objs := parseObjectSetFromManifest(t, m)
+
+	cm := objs.kind("ConfigMap").nameEquals("istio-sidecar-injector")
+	g.Expect(cm).Should(Not(BeNil()), "istio-sidecar-injector ConfigMap not found")
+
+	configData := cm.Unstructured.Object
+
+	// Verify kube-gateway template contains tolerations and affinity blocks
+	g.Expect(configData).Should(HavePathValueMatchRegex(PathValue{
+		"data.config", `\$kubeGateway\.affinity`,
+	}), "kube-gateway template should contain affinity block")
+	g.Expect(configData).Should(HavePathValueMatchRegex(PathValue{
+		"data.config", `\$kubeGateway\.tolerations`,
+	}), "kube-gateway template should contain tolerations block")
+
+	// Verify agentgateway template contains tolerations and affinity blocks
+	g.Expect(configData).Should(HavePathValueMatchRegex(PathValue{
+		"data.config", `\.Values\.global\.agentgateway\.affinity`,
+	}), "agentgateway template should contain affinity block")
+	g.Expect(configData).Should(HavePathValueMatchRegex(PathValue{
+		"data.config", `\.Values\.global\.agentgateway\.tolerations`,
+	}), "agentgateway template should contain tolerations block")
+
+	// Verify gateway template contains tolerations and affinity blocks
+	g.Expect(configData).Should(HavePathValueMatchRegex(PathValue{
+		"data.config", `\.Values\.global\.gateway\.affinity`,
+	}), "gateway template should contain affinity block")
+	g.Expect(configData).Should(HavePathValueMatchRegex(PathValue{
+		"data.config", `\.Values\.global\.gateway\.tolerations`,
+	}), "gateway template should contain tolerations block")
+
+	// Verify sidecar template contains tolerations and affinity blocks
+	g.Expect(configData).Should(HavePathValueMatchRegex(PathValue{
+		"data.config", `\.Values\.global\.sidecar\.affinity`,
+	}), "sidecar template should contain affinity block")
+	g.Expect(configData).Should(HavePathValueMatchRegex(PathValue{
+		"data.config", `\.Values\.global\.sidecar\.tolerations`,
+	}), "sidecar template should contain tolerations block")
+}
