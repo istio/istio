@@ -33,6 +33,9 @@ const (
 	unknownIndexType indexedDependencyType = iota
 	indexType        indexedDependencyType = iota
 	getKeyType       indexedDependencyType = iota
+	// doNotIndex signals we should not attempt to do an optimized index lookup
+	// This can happen when we fetch the same collection with an index and without an index
+	doNotIndex       indexedDependencyType = iota
 )
 
 type dependencyState[I any] struct {
@@ -78,6 +81,12 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 				}
 				i.indexedDependenciesExtractor[kk] = extractor
 			}
+		} else {
+			kk := extractorKey{
+				uid: d.id,
+				typ: doNotIndex,
+			}
+			i.indexedDependenciesExtractor[kk] = extractor
 		}
 	}
 }
@@ -104,6 +113,20 @@ func (i dependencyState[I]) delete(key Key[I]) {
 
 func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, events []Event[any]) sets.Set[Key[I]] {
 	changedInputKeys := sets.Set[Key[I]]{}
+
+	// find all the reverse indexes related to the sourceCollection
+	// N here is usually going to be small (the number of FilterKey/FilterIndex)
+	extractorKeys := []extractorKey{}
+	for k := range i.indexedDependenciesExtractor {
+		if k.typ == doNotIndex {
+			extractorKeys = nil
+			break
+		}
+		if k.typ != unknownIndexType && k.uid == sourceCollection {
+			extractorKeys = append(extractorKeys, k)
+		}
+	}
+
 	// Check old and new
 	for _, ev := range events {
 		// We have a possibly dependent object changed. For each input object, see if it depends on the object.
@@ -111,15 +134,6 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 		// inefficient, especially when the dependency changes frequently and the collection is large.
 		// Where possible, we utilize the reverse-indexing to get the precise list of potentially changed objects.
 		foundAny := false
-
-		// find all the reverse indexes related to the sourceCollection
-		// N here is usually going to be small (the number of FilterKey/FilterIndex)
-		extractorKeys := []extractorKey{}
-		for k := range i.indexedDependenciesExtractor {
-			if k.typ != unknownIndexType && k.uid == sourceCollection {
-				extractorKeys = append(extractorKeys, k)
-			}
-		}
 
 		for _, ekey := range extractorKeys {
 			if extractor, f := i.indexedDependenciesExtractor[ekey]; f {

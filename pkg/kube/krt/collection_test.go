@@ -596,6 +596,54 @@ func TestCollectionMultipleFetch(t *testing.T) {
 	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), nil}})
 }
 
+func TestCollectionMultipleFetchAllAndKey(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	pc := clienttest.Wrap(t, kpc)
+	podsCol := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	c.RunAndWait(stop)
+	SimplePods := SimplePodCollection(podsCol, opts)
+
+	pc.Create(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "name1", Namespace: "namespace"},
+		Status:     corev1.PodStatus{PodIP: "1.1.1.1"},
+	})
+	pc.Create(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "name2", Namespace: "namespace"},
+		Status:     corev1.PodStatus{PodIP: "2.2.2.2"},
+	})
+
+	Collection := krt.NewSingleton[SizedPod](func(ctx krt.HandlerContext) *SizedPod {
+		// Fetch with GetKey and without
+		_ = krt.Fetch(ctx, SimplePods, krt.FilterKey("namespace/name1"))
+		all := krt.Fetch(ctx, SimplePods)
+		cnt := 0
+		for _, v := range all {
+			if v.IP[0] == '1' {
+				cnt++
+			}
+		}
+		return ptr.Of(SizedPod{
+			Named: Named{Name: "count"},
+			Size:  fmt.Sprintf("%d", cnt),
+		})
+	}, opts.WithName("Collection")...)
+
+	Collection.AsCollection().WaitUntilSynced(stop)
+	assert.EventuallyEqual(t, func() string {
+		return ptr.OrEmpty(Collection.Get()).Size
+	}, "1")
+	pc.Update(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "name2", Namespace: "namespace"},
+		Status:     corev1.PodStatus{PodIP: "1.2.2.2"},
+	})
+	assert.EventuallyEqual(t, func() string {
+		return ptr.OrEmpty(Collection.Get()).Size
+	}, "2")
+}
+
 func TestCollectionMultipleFetchKeys(t *testing.T) {
 	stop := test.NewStop(t)
 	opts := testOptions(t)
