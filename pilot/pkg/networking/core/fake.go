@@ -42,7 +42,11 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
@@ -138,10 +142,23 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	env := model.NewEnvironment()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
 
+	stop := test.NewStop(t)
+
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
 		xdsUpdater = model.NewEndpointIndexUpdater(env.EndpointIndex)
 	}
+
+	client := kube.NewFakeClient()
+	mc := multicluster.NewController(multicluster.ControllerOptions{
+		Client:          client,
+		ClusterID:       opts.ClusterID,
+		SystemNamespace: env.Mesh().RootNamespace,
+		MeshConfig:      env.Watcher,
+		Debugger:        krt.GlobalDebugHandler,
+	})
+	assert.NoError(t, mc.Run(stop))
+	client.RunAndWait(stop)
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{
 		ConfigClusterID: opts.ClusterID,
@@ -149,8 +166,10 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	se := serviceentry.NewController(
 		configController,
 		xdsUpdater,
+		mc,
 		env.Watcher,
-		serviceentry.WithClusterID(opts.ClusterID))
+		serviceentry.WithClusterID(opts.ClusterID),
+		serviceentry.WithKRTDebugger(krt.GlobalDebugHandler))
 	// TODO allow passing in registry, for k8s, mem registry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services...)
@@ -182,7 +201,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		store:                configController,
 		env:                  env,
 		initialConfigs:       configs,
-		stop:                 test.NewStop(t),
+		stop:                 stop,
 		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
 		MemRegistry:          msd,
 		MemServiceRegistry:   memserviceRegistry,

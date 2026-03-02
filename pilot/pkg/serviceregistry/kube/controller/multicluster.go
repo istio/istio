@@ -180,11 +180,6 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
 	}
 
-	// Set namespace client for traffic distribution inheritance (config cluster only)
-	if m.serviceEntryController != nil && configCluster {
-		m.serviceEntryController.SetNamespaces(kubeRegistry.namespaces)
-	}
-
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		if m.serviceEntryController != nil && configCluster {
@@ -195,9 +190,11 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			configStore := createWleConfigStore(client, m.revision, options)
 			kubeController.workloadEntryController = serviceentry.NewWorkloadEntryController(
 				configStore, options.XDSUpdater,
+				options.MultiClusterController,
 				m.opts.MeshWatcher,
 				serviceentry.WithClusterID(cluster.ID),
-				serviceentry.WithNetworkIDCb(kubeRegistry.Network))
+				serviceentry.WithNetworkIDCb(kubeRegistry.Network),
+				serviceentry.WithKRTDebugger(m.opts.KrtDebugger))
 			// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 			kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 			// ServiceEntry selects WorkloadEntry from remote cluster
