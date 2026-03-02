@@ -73,6 +73,9 @@ type DiscoveryServer struct {
 	// Normal istio clients use the default generator - will not be impacted by this.
 	Generators map[string]model.XdsResourceGenerator
 
+	// Collections holds the KRT based collections when agentgateway is enabled
+	Collections map[string]CollectionGenerator
+
 	// ProxyNeedsPush is a function that determines whether a push can be completely skipped. Individual generators
 	// may also choose to not send any updates.
 	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) (*model.PushRequest, bool)
@@ -169,6 +172,15 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 	out.initJwksResolver()
 
 	return out
+}
+
+// TODO(jaellio): Complete implementation
+func (s *DiscoveryServer) InitCollections(reg ...Registration) {
+	if s.Collections != nil {
+		log.Debug("skipping collection initialization since Collections is already set")
+		return
+	}
+	s.Collections = make(map[string]CollectionGenerator)
 }
 
 // initJwkResolver initializes the JWT key resolver to be used.
