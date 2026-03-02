@@ -1,0 +1,14 @@
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: helloworld-dr
+  namespace: default
+spec:
+  host: helloworld.default.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+      subjectAltNames:
+      - spiffe://west.local/ns/default/sa/default
+      - spiffe://east.local/ns/default/sa/default

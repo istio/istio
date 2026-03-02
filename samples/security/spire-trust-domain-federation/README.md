@@ -160,6 +160,13 @@ export CTX_CLUSTER_WEST=$(kubectl config get-contexts -o name | grep kind-cluste
        -p '{"spec": {"template": {"metadata": {"annotations": {"inject.istio.io/templates": "sidecar,spire"}}}}}'
    ```
 
+1. Deploy DestinationRule to include Helloworld `west` service SAN in the `east` cluster:
+   
+   ```shell
+   kubectl apply --context="${CTX_CLUSTER_EAST}" \
+       -f samples/security/spire-trust-domain-federation/helloworld-dr.yaml
+   ```
+
 1. Deploy `curl` in the `east` cluster:
 
    ```shell
