@@ -68,6 +68,10 @@ metadata:
 {{- end }}
   }
 spec:
+  {{- if .Values.global.sidecar.affinity }}
+  affinity:
+    {{- toYaml .Values.global.sidecar.affinity | nindent 4 }}
+  {{- end }}
   {{- $holdProxy := and
       (or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts)
       (not $nativeSidecar) }}
@@ -181,6 +185,10 @@ spec:
     {{- end }}
   {{ end -}}
   {{ end -}}
+  {{- if .Values.global.sidecar.tolerations }}
+  tolerations:
+    {{- toYaml .Values.global.sidecar.tolerations | nindent 4 }}
+  {{- end }}
   {{ if not $nativeSidecar }}
   containers:
   {{ end }}
@@ -549,8 +557,4 @@ spec:
     {{- range .Values.global.imagePullSecrets }}
     - name: {{ . }}
     {{- end }}
-  {{- end }}
-  {{- if .Values.global.tolerations }}
-  tolerations:
-    {{- toYaml .Values.global.tolerations | nindent 4 }}
   {{- end }}

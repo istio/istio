@@ -15,6 +15,14 @@ metadata:
     {{- end }}
     {{- end }}
 spec:
+  {{- if .Values.global.gateway.affinity }}
+  affinity:
+    {{- toYaml .Values.global.gateway.affinity | nindent 4 }}
+  {{- end }}
+  {{- if .Values.global.gateway.tolerations }}
+  tolerations:
+    {{- toYaml .Values.global.gateway.tolerations | nindent 4 }}
+  {{- end }}
   securityContext:
   {{- if .Values.gateways.securityContext }}
     {{- toYaml .Values.gateways.securityContext | nindent 4 }}
@@ -274,8 +282,4 @@ spec:
     {{- range .Values.global.imagePullSecrets }}
     - name: {{ . }}
     {{- end }}
-  {{- end }}
-  {{- if .Values.global.tolerations }}
-  tolerations:
-    {{- toYaml .Values.global.tolerations | nindent 4 }}
   {{- end }}

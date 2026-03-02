@@ -13,4 +13,8 @@ issue:
 # release notes.
 releaseNotes:
 - |
-  **Added** handling of `.Values.global.tolerations` into istiod chart.
+  **Added** handling of `.Values.global.agentgateway.tolerations` and `.Values.global.agentgateway.affinity` for agent gateway.
+  **Added** handling of `.Values.global.gateway.tolerations` and `.Values.global.gateway.affinity` for gateway.
+  **Added** handling of `.Values.global.kube-gateway.tolerations` and `.Values.global.kube-gateway.affinity` for kube gateway.
+  **Added** handling of `.Values.global.sidecar.tolerations` and `.Values.global.sidecar.affinity` for sidecar.
+

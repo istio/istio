@@ -67,6 +67,14 @@ spec:
             "gateway.istio.io/managed" "istio.io-agentgateway-controller"
           ) | nindent 8 }}
     spec:
+      {{- if .Values.global.agentgateway.affinity }}
+      affinity:
+        {{- toYaml .Values.global.agentgateway.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.agentgateway.tolerations }}
+      tolerations:
+        {{- toYaml .Values.global.agentgateway.tolerations | nindent 8 }}
+      {{- end }}      
       securityContext:
       {{- if .Values.gateways.securityContext }}
         {{- toYaml .Values.gateways.securityContext | nindent 8 }}
@@ -218,10 +226,7 @@ spec:
         - name: {{ . }}
         {{- end }}
       {{- end }}
-      {{- if .Values.global.tolerations }}
-      tolerations:
-        {{- toYaml .Values.global.tolerations | nindent 8 }}
-      {{- end }}
+
 ---
 apiVersion: v1
 kind: Service

@@ -70,6 +70,14 @@ spec:
             "gateway.istio.io/managed" "istio.io-gateway-controller"
           ) | nindent 8 }}
     spec:
+      {{- if .Values.global.kube-gateway.affinity }}
+      affinity:
+        {{- toYaml .Values.global.kube-gateway.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.kube-gateway.tolerations }}
+      tolerations:
+        {{- toYaml .Values.global.kube-gateway.tolerations | nindent 8 }}
+      {{- end }}
       securityContext:
       {{- if .Values.gateways.securityContext }}
         {{- toYaml .Values.gateways.securityContext | nindent 8 }}
@@ -321,10 +329,6 @@ spec:
         {{- range .Values.global.imagePullSecrets }}
         - name: {{ . }}
         {{- end }}
-      {{- end }}
-      {{- if .Values.global.tolerations }}
-      tolerations:
-        {{- toYaml .Values.global.tolerations | nindent 8 }}
       {{- end }}
 ---
 apiVersion: v1
