@@ -1839,4 +1839,3 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 		},
 	}
 }
-
