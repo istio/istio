@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/util/istiomultierror"
 )
 
-// ClassController is a controller that creates the agentgateway GatewayClass. This will not
+// ClassController is a controller that creates the Istio GatewayClass(s). This will not
 // continually reconcile the full state of the GatewayClass object, and instead only create the class
 // if it doesn't exist. This allows users to manage it through other means or modify it as they wish.
 // If it is deleted, however, it will be added back.
@@ -42,8 +42,11 @@ type ClassController struct {
 }
 
 func NewClassController(kc kube.Client) *ClassController {
-	gc := &ClassController{}
-	gc.queue = controllers.NewQueue("agentgateway gateway class",
+	gc := &ClassController{
+		builtinClasses: BuiltinClasses,
+		classInfos:     ClassInfos,
+	}
+	gc.queue = controllers.NewQueue("gateway class",
 		controllers.WithReconciler(gc.Reconcile),
 		controllers.WithMaxAttempts(25))
 
@@ -101,11 +104,6 @@ func (c *ClassController) reconcileClass(class k8sv1.ObjectName) error {
 	}
 
 	return nil
-}
-
-// Classes returns the kclient for GatewayClasses - useful for tests
-func (c *ClassController) Classes() kclient.Client[*k8sv1.GatewayClass] {
-	return c.classes
 }
 
 // GetClassStatus returns the status for a GatewayClass
