@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
+
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
@@ -47,7 +49,6 @@ import (
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	v1 "k8s.io/api/core/v1"
 )
 
 func convertPort(port *networking.ServicePort) *model.Port {

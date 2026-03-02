@@ -17,6 +17,8 @@ package serviceentry
 import (
 	"cmp"
 
+	v1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -35,7 +37,6 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	v1 "k8s.io/api/core/v1"
 )
 
 var (
