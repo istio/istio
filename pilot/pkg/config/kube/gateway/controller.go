@@ -566,7 +566,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if features.EnableGatewayAPIGatewayClassController {
 		go func() {
 			if c.waitForCRD(gvr.GatewayClass, stop) {
-				gcc := NewClassController(c.client)
+				gcc := gatewaycommon.NewClassController(c.client)
 				c.client.RunAndWait(stop)
 				gcc.Run(stop)
 			}

@@ -55,12 +55,6 @@ var ClassInfos = GetClassInfos()
 // BuiltinClasses contains the built-in gateway classes.
 var BuiltinClasses = GetBuiltinClasses()
 
-// AgentgatewayClassInfos contains class infos specific to agentgateway.
-var AgentgatewayClassInfos = GetAgentgatewayClassInfos()
-
-// AgentgatewayBuiltinClasses contains built-in classes specific to agentgateway.
-var AgentgatewayBuiltinClasses = GetAgentgatewayBuiltinClasses()
-
 // GetBuiltinClasses returns the built-in gateway class mappings.
 func GetBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 	res := map[gateway.ObjectName]gateway.GatewayController{
@@ -129,7 +123,7 @@ func GetClassInfos() map[gateway.GatewayController]ClassInfo {
 	if features.EnableAgentgateway {
 		m[constants.ManagedAgentgatewayController] = ClassInfo{
 			Controller:          constants.ManagedAgentgatewayController,
-			Description:         "Istio with Agentgateway.",
+			Description:         "Istio with Agentgateway",
 			Templates:           "agentgateway",
 			DefaultServiceType:  corev1.ServiceTypeLoadBalancer,
 			AddressType:         gateway.HostnameAddressType,
@@ -150,30 +144,4 @@ func GetClassInfos() map[gateway.GatewayController]ClassInfo {
 		}
 	}
 	return m
-}
-
-// GetAgentgatewayClassInfos returns class infos for the agentgateway controller.
-func GetAgentgatewayClassInfos() map[gateway.GatewayController]ClassInfo {
-	m := map[gateway.GatewayController]ClassInfo{}
-	if features.EnableAgentgateway {
-		m[constants.ManagedAgentgatewayController] = ClassInfo{
-			Controller:          constants.ManagedAgentgatewayController,
-			Description:         "Istio with Agentgateway.",
-			Templates:           "agentgateway",
-			DefaultServiceType:  corev1.ServiceTypeLoadBalancer,
-			AddressType:         gateway.HostnameAddressType,
-			ControllerLabel:     constants.ManagedGatewayControllerLabel,
-			SupportsListenerSet: true,
-		}
-	}
-	return m
-}
-
-// GetAgentgatewayBuiltinClasses returns built-in class mappings for the agentgateway controller.
-func GetAgentgatewayBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
-	res := map[gateway.ObjectName]gateway.GatewayController{}
-	if features.EnableAgentgateway {
-		res[constants.AgentgatewayClassName] = constants.ManagedAgentgatewayController
-	}
-	return res
 }

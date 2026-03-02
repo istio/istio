@@ -15,11 +15,81 @@
 package gatewaycommon
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+func TestClassController(t *testing.T) {
+	client := kube.NewFakeClient()
+	cc := NewClassController(client)
+	classes := clienttest.Wrap(t, cc.classes)
+	stop := test.NewStop(t)
+	client.RunAndWait(stop)
+	go cc.Run(stop)
+	createClass := func(name, controller string) {
+		gc := &gateway.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Spec: gateway.GatewayClassSpec{
+				ControllerName: gateway.GatewayController(controller),
+			},
+		}
+		classes.CreateOrUpdate(gc)
+	}
+	deleteClass := func(name string) {
+		classes.Delete(name, "")
+	}
+	expectClass := func(name, controller string) {
+		t.Helper()
+		retry.UntilSuccessOrFail(t, func() error {
+			gc := classes.Get(name, "")
+			if controller == "" {
+				if gc == nil { // Expect none, got none
+					return nil
+				}
+				return fmt.Errorf("expected no class, got %v", gc.Spec.ControllerName)
+			}
+			if gc == nil {
+				return fmt.Errorf("expected class %v, got none", controller)
+			}
+			if gateway.GatewayController(controller) != gc.Spec.ControllerName {
+				return fmt.Errorf("expected class %v, got %v", controller, gc.Spec.ControllerName)
+			}
+			return nil
+		}, retry.Timeout(time.Second*3))
+	}
+
+	// Class should be created initially
+	expectClass(features.GatewayAPIDefaultGatewayClass, features.ManagedGatewayController)
+
+	// Once we delete it, it should be added back
+	deleteClass(features.GatewayAPIDefaultGatewayClass)
+	expectClass(features.GatewayAPIDefaultGatewayClass, features.ManagedGatewayController)
+
+	// Overwrite the class, controller should not reconcile it back
+	createClass(features.GatewayAPIDefaultGatewayClass, "different-controller")
+	expectClass(features.GatewayAPIDefaultGatewayClass, "different-controller")
+
+	// Once we delete it, it should be added back
+	deleteClass(features.GatewayAPIDefaultGatewayClass)
+	expectClass(features.GatewayAPIDefaultGatewayClass, features.ManagedGatewayController)
+
+	// Create an unrelated GatewayClass, we should not do anything to it
+	createClass("something-else", "different-controller")
+	expectClass("something-else", "different-controller")
+	deleteClass("something-else")
+	expectClass("something-else", "")
+}
 
 func TestGetClassStatus(t *testing.T) {
 	status := GetClassStatus(nil, 1)
