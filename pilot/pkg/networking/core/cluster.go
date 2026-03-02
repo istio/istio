@@ -373,9 +373,36 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	efKeys := cp.efw.KeysApplyingTo(networking.EnvoyFilter_CLUSTER)
 	hit, miss := 0, 0
 	for _, service := range services {
-		if service.Resolution == model.Alias || service.Resolution == model.DynamicDNS {
+		if service.Resolution == model.Alias {
 			continue
 		}
+
+		// DYNAMIC_DNS: Use Dynamic Forward Proxy for wildcard hostnames
+		if service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
+			for _, port := range service.Ports {
+				if port.Protocol == protocol.UDP {
+					continue
+				}
+				// DFP supports HTTP, TLS, GRPC, and HTTP2. GRPC/HTTP2 get http2_protocol_options via setUpstreamProtocol.
+				if port.Protocol != protocol.HTTP && port.Protocol != protocol.TLS &&
+					port.Protocol != protocol.GRPC && port.Protocol != protocol.HTTP2 {
+					log.Debugf("skipping DFP cluster for unsupported protocol %s for service %s", port.Protocol, service.Hostname)
+					continue
+				}
+				clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+				dfpCluster := cb.buildDFPCluster(clusterName, service, port)
+
+				// Apply DestinationRule settings
+				destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
+				cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil)
+
+				if patched := cp.patch([]host.Name{service.Hostname}, dfpCluster.build()); patched != nil {
+					resources = append(resources, patched)
+				}
+			}
+			continue
+		}
+
 		for i, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -828,6 +855,8 @@ type buildClusterOpts struct {
 	isDrWithSelector          bool
 	credentialSocketExist     bool
 	fileCredentialSocketExist bool
+	// For DFP clusters: when true, do not set auto_san_validation (ServiceEntry annotation, sidecar only).
+	disableAutoSanValidation bool
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {

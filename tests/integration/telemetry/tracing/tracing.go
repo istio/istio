@@ -131,14 +131,21 @@ func TestSetup(ctx resource.Context) (err error) {
 	return nil
 }
 
+// isNonGatewayRoot returns true if this span is a root (no parent) and is not from a gateway.
+// Used to skip egress/ingress gateway roots when finding the client's trace to compare.
+func isNonGatewayRoot(s *zipkin.Span) bool {
+	if s.ParentSpanID != "" {
+		return false
+	}
+	return !strings.Contains(s.ServiceName, "egressgateway") && !strings.Contains(s.ServiceName, "ingressgateway")
+}
+
 func VerifyEchoTraces(t framework.TestContext, namespace, clName string, traces []zipkin.Trace) bool {
 	t.Helper()
 	wtr := WantTraceRoot(namespace, clName)
 	for _, trace := range traces {
-		// compare each candidate trace with the wanted trace
 		for _, s := range trace.Spans {
-			// find the root span of candidate trace and do recursive comparison
-			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
+			if isNonGatewayRoot(&s) && CompareTrace(t, s, wtr) {
 				return true
 			}
 		}
@@ -151,10 +158,8 @@ func VerifyOtelEchoTraces(t framework.TestContext, namespace, clName string, tra
 	t.Helper()
 	wtr := WantOtelTraceRoot(namespace, clName)
 	for _, trace := range traces {
-		// compare each candidate trace with the wanted trace
 		for _, s := range trace.Spans {
-			// find the root span of candidate trace and do recursive comparison
-			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
+			if isNonGatewayRoot(&s) && CompareTrace(t, s, wtr) {
 				return true
 			}
 		}

@@ -186,9 +186,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 
 	if !useSniffing {
 		ph := util.GetProxyHeaders(node, req.Push, istionetworking.ListenerClassSidecarOutbound)
-		appendXForwardedHost := ph.XForwardedHost
-		includeRequestAttemptCount := ph.IncludeRequestAttemptCount
-		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, includeRequestAttemptCount, appendXForwardedHost))
+		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, ph.IncludeRequestAttemptCount, ph.XForwardedHost))
 	}
 
 	out := &route.RouteConfiguration{
@@ -554,6 +552,7 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		// Indicate we do not need port, as we will set IgnorePortInHostMatching
 		port = portNoAppendPortSuffix
 	}
+
 	domains := []string{}
 	allAltHosts := []string{}
 	all := []string{string(service.Hostname)}

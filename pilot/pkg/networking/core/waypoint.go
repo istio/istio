@@ -17,6 +17,7 @@ package core
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -70,6 +71,11 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 		hostName := host.Name(s.Service.Hostname)
 		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Service.Namespace]
 		if !ok {
+			continue
+		}
+		// Exclude MESH_INTERNAL services with DYNAMIC_DNS resolution from waypoint.
+		if svc.Resolution == model.DynamicDNS && !svc.MeshExternal {
+			log.Warnf("DYNAMIC_DNS is supported only for MESH_EXTERNAL services; skipping waypoint service %s/%s", svc.Attributes.Namespace, svc.Hostname)
 			continue
 		}
 		if waypointServices.services == nil {
