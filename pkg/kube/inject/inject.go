@@ -111,6 +111,7 @@ type SidecarTemplateData struct {
 	Revision                 string
 	NativeSidecars           bool
 	ProxyImage               string
+	ProxyInitImage           string
 	ProxyUID                 int64
 	ProxyGID                 int64
 	InboundTrafficPolicyMode string
@@ -341,6 +342,30 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	return imageURL(global.GetHub(), imageName, tag, imageType)
 }
 
+// ProxyInitImage constructs image url for the proxy init container.
+// values based name => {{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}
+func ProxyInitImage(values *opconfig.Values, annotations map[string]string) string {
+	imageName := "proxyv2"
+	global := values.GetGlobal()
+
+	tag := ""
+	if global.GetTag() != nil {
+		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
+	}
+
+	imageType := global.GetVariant()
+
+	if global.GetProxyInit() != nil && global.GetProxyInit().GetImage() != "" {
+		imageName = global.GetProxyInit().GetImage()
+	}
+
+	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {
+		imageType = it
+	}
+
+	return imageURL(global.GetHub(), imageName, tag, imageType)
+}
+
 // AgentgatewayImage constructs image url
 func AgentgatewayImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
 	imageName := "agentgateway"
@@ -464,6 +489,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		Values:                   params.valuesConfig.asMap,
 		Revision:                 params.revision,
 		ProxyImage:               ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		ProxyInitImage:           ProxyInitImage(params.valuesConfig.asStruct, strippedPod.Annotations),
 		NativeSidecars:           params.nativeSidecar,
 		ProxyUID:                 proxyUID,
 		ProxyGID:                 proxyGID,
