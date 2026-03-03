@@ -57,8 +57,6 @@ spec:
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: true
-            runAsUser: 1337
-            runAsGroup: 1337
             runAsNonRoot: true
           env:
           ports:
