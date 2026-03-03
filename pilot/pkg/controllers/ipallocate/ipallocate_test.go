@@ -532,6 +532,74 @@ func TestIPAllocateWithEnvCIDR(t *testing.T) {
 	)
 }
 
+func TestIPAllocateStaleAddressCleanup(t *testing.T) {
+	rig := setupIPAllocateTest(t, TestIPV4Prefix, TestIPV6Prefix)
+
+	const name = "httpbingo-static"
+	const ns = "common-infrastructure"
+
+	// Create a SE with a concrete host and DNS resolution — IPs should be allocated
+	rig.se.Create(
+		&networkingv1alpha3.ServiceEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+			},
+			Spec: v1alpha3.ServiceEntry{
+				Hosts:      []string{"httpbingo.org"},
+				Resolution: v1alpha3.ServiceEntry_DNS,
+			},
+		},
+	)
+	assert.EventuallyEqual(t, func() int {
+		return len(autoallocate.GetAddressesFromServiceEntry(rig.se.Get(name, ns)))
+	}, 2, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+
+	// Update: change host to a wildcard. Wildcard requires DYNAMIC_DNS, so no IP should be allocated.
+	se := rig.se.Get(name, ns)
+	se.Spec.Hosts = []string{"*.github.com"}
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		return len(autoallocate.GetAddressesFromServiceEntry(rig.se.Get(name, ns)))
+	}, 0, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+
+	// Update: switch to DYNAMIC_DNS — wildcard should now get IPs allocated
+	se = rig.se.Get(name, ns)
+	se.Spec.Resolution = v1alpha3.ServiceEntry_DYNAMIC_DNS
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		return len(autoallocate.GetAddressesFromServiceEntry(rig.se.Get(name, ns)))
+	}, 2, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+
+	// Restore to a concrete host with DNS resolution — IPs should be re-allocated
+	se = rig.se.Get(name, ns)
+	se.Spec.Hosts = []string{"httpbingo.org"}
+	se.Spec.Resolution = v1alpha3.ServiceEntry_DNS
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		return len(autoallocate.GetAddressesFromServiceEntry(rig.se.Get(name, ns)))
+	}, 2, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+
+	// Update: add opt-out label. Addresses should be cleared.
+	se = rig.se.Get(name, ns)
+	se.Labels = map[string]string{
+		label.NetworkingEnableAutoallocateIp.Name: "false",
+	}
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		return len(autoallocate.GetAddressesFromServiceEntry(rig.se.Get(name, ns)))
+	}, 0, retry.MaxAttempts(10), retry.Delay(time.Millisecond*5))
+
+	// Remove opt-out label and add user-specified addresses. Stale addresses should stay cleared.
+	se = rig.se.Get(name, ns)
+	se.Labels = nil
+	se.Spec.Addresses = []string{"1.2.3.4"}
+	rig.se.Update(se)
+	assert.EventuallyEqual(t, func() int {
+		return len(autoallocate.GetAddressesFromServiceEntry(rig.se.Get(name, ns)))
+	}, 0, retry.Converge(5), retry.Delay(time.Millisecond*5))
+}
+
 func toMapStringString(in map[string][]netip.Addr) map[string][]string {
 	out := map[string][]string{}
 
