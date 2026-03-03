@@ -676,13 +676,6 @@ func TestJwtPubKeyRefreshedWhenErrorsGettingOtherURLs(t *testing.T) {
 		pk, err = r.GetPublicKey("", mockCertURL, testRequestTimeout)
 		return err == nil && test.JwtPubKey2 == pk
 	}, retry.Delay(time.Millisecond*5), retry.Timeout(time.Second*5))
-	if err != nil {
-		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
-	}
-	// Mock server returns JwtPubKey2 for later calls
-	if test.JwtPubKey2 != pk {
-		t.Fatalf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey2, pk)
-	}
 }
 
 func startMockServer(t *testing.T) *test.MockOpenIDDiscoveryServer {
@@ -736,24 +729,44 @@ func verifyKeyLastRefreshedTime(t *testing.T, r *JwksResolver, ms *test.MockOpen
 	}
 	oldRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
 
-	// Poll until the refresh timestamp changes (or doesn't) instead of sleeping an arbitrary duration.
-	// Use a short poll interval to minimise test time while still being robust.
-	retry.UntilSuccessOrFail(t, func() error {
+	// Capture the current refresh-cycle counts so we can wait until at least one
+	// new cycle has completed before drawing a conclusion.
+	baseChanged := atomic.LoadUint64(&r.refreshJobKeyChangedCount)
+	baseFailed := atomic.LoadUint64(&r.refreshJobFetchFailedCount)
+
+	if wantChanged {
+		// Wait until the cached timestamp is actually updated.
+		retry.UntilSuccessOrFail(t, func() error {
+			e, found = r.keyEntries.Load(key)
+			if !found {
+				return fmt.Errorf("no cached public key for %+v", key)
+			}
+			newRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
+			if oldRefreshedTime == newRefreshedTime {
+				return fmt.Errorf("want lastRefreshedTime changed but it has not changed yet")
+			}
+			return nil
+		}, retry.Delay(time.Millisecond*5), retry.Timeout(time.Second*5))
+	} else {
+		// Wait until at least one refresh cycle has run (key-changed or fetch-failed),
+		// then assert the timestamp did not change.
+		retry.UntilSuccessOrFail(t, func() error {
+			if atomic.LoadUint64(&r.refreshJobKeyChangedCount) == baseChanged &&
+				atomic.LoadUint64(&r.refreshJobFetchFailedCount) == baseFailed {
+				return fmt.Errorf("waiting for a refresh cycle to complete")
+			}
+			return nil
+		}, retry.Delay(time.Millisecond*5), retry.Timeout(time.Second*5))
+
 		e, found = r.keyEntries.Load(key)
 		if !found {
-			return fmt.Errorf("no cached public key for %+v", key)
+			t.Fatalf("No cached public key for %+v", key)
 		}
 		newRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
-		actualChanged := oldRefreshedTime != newRefreshedTime
-		if wantChanged && !actualChanged {
-			return fmt.Errorf("want lastRefreshedTime changed but it has not changed yet")
+		if oldRefreshedTime != newRefreshedTime {
+			t.Errorf("Want changed: false but lastRefreshedTime changed")
 		}
-		if !wantChanged && actualChanged {
-			// The timestamp changed when we did not expect it to; fail immediately.
-			t.Errorf("Want changed: %t but got %t", wantChanged, actualChanged)
-		}
-		return nil
-	}, retry.Delay(time.Millisecond*5), retry.Timeout(time.Second*5))
+	}
 }
 
 func TestCompareJWKSResponse(t *testing.T) {
