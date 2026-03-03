@@ -238,7 +238,7 @@ func NewController(
 
 	httpRoutesByInferencePool := krt.NewIndex(inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
 
-	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
+	GatewayClassStatus, GatewayClasses := gatewaycommon.GatewayClassesCollection(inputs.GatewayClasses, opts)
 	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	ReferenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
@@ -573,7 +573,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if features.EnableGatewayAPIGatewayClassController {
 		go func() {
 			if c.waitForCRD(gvr.GatewayClass, stop) {
-				gcc := NewClassController(c.client)
+				gcc := gatewaycommon.NewClassController(c.client)
 				c.client.RunAndWait(stop)
 				gcc.Run(stop)
 			}

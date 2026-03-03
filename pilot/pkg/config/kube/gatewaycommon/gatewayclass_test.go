@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package gatewaycommon
 
 import (
 	"fmt"
@@ -90,4 +90,31 @@ func TestClassController(t *testing.T) {
 	expectClass("something-else", "different-controller")
 	deleteClass("something-else")
 	expectClass("something-else", "")
+}
+
+func TestGetClassStatus(t *testing.T) {
+	status := GetClassStatus(nil, 1)
+	if status == nil {
+		t.Fatal("GetClassStatus returned nil")
+	}
+	if len(status.Conditions) == 0 {
+		t.Fatal("GetClassStatus returned no conditions")
+	}
+
+	// Check that the condition is set correctly
+	found := false
+	for _, c := range status.Conditions {
+		if c.Type == string(gateway.GatewayClassConditionStatusAccepted) {
+			found = true
+			if c.Status != metav1.ConditionTrue {
+				t.Errorf("expected condition status True, got %v", c.Status)
+			}
+			if c.ObservedGeneration != 1 {
+				t.Errorf("expected observed generation 1, got %v", c.ObservedGeneration)
+			}
+		}
+	}
+	if !found {
+		t.Error("Accepted condition not found")
+	}
 }

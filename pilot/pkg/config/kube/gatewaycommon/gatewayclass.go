@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package gatewaycommon
 
 import (
 	"github.com/hashicorp/go-multierror"
@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -29,26 +28,31 @@ import (
 	"istio.io/istio/pkg/util/istiomultierror"
 )
 
-// ClassController is a controller that creates the default Istio GatewayClass(s). This will not
+// ClassController is a controller that creates the Istio GatewayClass(s). This will not
 // continually reconcile the full state of the GatewayClass object, and instead only create the class
 // if it doesn't exist. This allows users to manage it through other means or modify it as they wish.
 // If it is deleted, however, it will be added back.
 // This controller intentionally does not do leader election for simplicity. Because we only create
 // and not update there is no need; the first controller to create the GatewayClass wins.
 type ClassController struct {
-	queue   controllers.Queue
-	classes kclient.Client[*k8sv1.GatewayClass]
+	queue          controllers.Queue
+	classes        kclient.Client[*k8sv1.GatewayClass]
+	builtinClasses map[k8sv1.ObjectName]k8sv1.GatewayController
+	classInfos     map[k8sv1.GatewayController]ClassInfo
 }
 
 func NewClassController(kc kube.Client) *ClassController {
-	gc := &ClassController{}
+	gc := &ClassController{
+		builtinClasses: BuiltinClasses,
+		classInfos:     ClassInfos,
+	}
 	gc.queue = controllers.NewQueue("gateway class",
 		controllers.WithReconciler(gc.Reconcile),
 		controllers.WithMaxAttempts(25))
 
 	gc.classes = kclient.New[*k8sv1.GatewayClass](kc)
 	gc.classes.AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
-		_, f := gatewaycommon.BuiltinClasses[k8sv1.ObjectName(o.GetName())]
+		_, f := gc.builtinClasses[k8sv1.ObjectName(o.GetName())]
 		return f
 	}))
 	return gc
@@ -62,7 +66,7 @@ func (c *ClassController) Run(stop <-chan struct{}) {
 
 func (c *ClassController) Reconcile(types.NamespacedName) error {
 	err := istiomultierror.New()
-	for class := range gatewaycommon.BuiltinClasses {
+	for class := range c.builtinClasses {
 		err = multierror.Append(err, c.reconcileClass(class))
 	}
 	return err.ErrorOrNil()
@@ -73,10 +77,10 @@ func (c *ClassController) reconcileClass(class k8sv1.ObjectName) error {
 		log.Debugf("GatewayClass/%v already exists, no action", class)
 		return nil
 	}
-	controller := gatewaycommon.BuiltinClasses[class]
-	classInfo, f := gatewaycommon.ClassInfos[controller]
+	controller := c.builtinClasses[class]
+	classInfo, f := c.classInfos[controller]
 	if !f {
-		// Should only happen when ambient is disabled; otherwise BuiltinClasses and ClassInfos should be consistent
+		// Should only happen when ambient is disabled; otherwise builtinClasses and classInfos should be consistent
 		return nil
 	}
 	gc := &k8sv1.GatewayClass{
@@ -102,6 +106,7 @@ func (c *ClassController) reconcileClass(class k8sv1.ObjectName) error {
 	return nil
 }
 
+// GetClassStatus returns the status for a GatewayClass
 func GetClassStatus(existing *k8sv1.GatewayClassStatus, gen int64) *k8sv1.GatewayClassStatus {
 	if existing == nil {
 		existing = &k8sv1.GatewayClassStatus{}
