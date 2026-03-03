@@ -430,7 +430,6 @@ func detectListenerPortNumber(l gatewayv1.ListenerEntry) (gatewayv1.PortNumber, 
 	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
 }
 
-// TODO(jaellio): Port was removed from status?
 func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
 	return func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
 		return gatewayv1.ListenerEntryStatus{

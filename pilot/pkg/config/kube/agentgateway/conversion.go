@@ -457,7 +457,6 @@ func buildListener(
 		ok = false
 	}
 
-	// TODO(jaellio): Consider not using istio server type
 	server := &istio.Server{
 		Port: &istio.Port{
 			// Name is required. We only have one server per Gateway, so we can just name them all the same
