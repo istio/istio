@@ -149,10 +149,6 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
         - name: OTEL_RESOURCE_ATTRIBUTES
           value: service.namespace=default,service.version=v1.2.3,service.instance.id=default.$(POD_NAME).hello
         image: gcr.io/istio-testing/proxyv2:latest

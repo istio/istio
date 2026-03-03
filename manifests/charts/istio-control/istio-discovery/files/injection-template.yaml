@@ -347,10 +347,6 @@ spec:
     {{- end }}
     {{- $otelResAttrs := otelResourceAttributes .MeshConfig .ObjectMeta.Annotations .ObjectMeta.Labels .DeploymentMeta.Namespace .Spec.Containers }}
     {{- if $otelResAttrs }}
-    - name: POD_NAME
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.name
     - name: OTEL_RESOURCE_ATTRIBUTES
       value: "{{ $otelResAttrs }}"
     {{- end }}
