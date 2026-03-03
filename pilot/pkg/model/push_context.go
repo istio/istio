@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -2139,21 +2138,16 @@ func (ps *PushContext) initExtensionFilters(env *Environment) {
 	}
 }
 
-// prioritizable is an interface for objects that have a Priority field.
-type prioritizable interface {
-	GetPriority() *wrapperspb.Int32Value
-}
-
 // sortByPriority sorts a map of slices by priority (highest first).
-func sortByPriority[T prioritizable](items map[extensions.PluginPhase][]T) {
+func sortByPriority(items map[extensions.PluginPhase][]*ExtensionFilterWrapper) {
 	for phase, slice := range items {
 		sort.SliceStable(slice, func(i, j int) bool {
 			iPriority := int32(math.MinInt32)
-			if prio := slice[i].GetPriority(); prio != nil {
+			if prio := slice[i].Priority; prio != nil {
 				iPriority = prio.Value
 			}
 			jPriority := int32(math.MinInt32)
-			if prio := slice[j].GetPriority(); prio != nil {
+			if prio := slice[j].Priority; prio != nil {
 				jPriority = prio.Value
 			}
 			return iPriority > jPriority

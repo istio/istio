@@ -15,8 +15,6 @@
 package extensions
 
 import (
-	"maps"
-
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -55,10 +53,6 @@ func translateWasmPlugin(cfg config.Config) *config.Config {
 		},
 	}
 
-	annotations := make(map[string]string, len(cfg.Annotations)+1)
-	maps.Copy(annotations, cfg.Annotations)
-	annotations["istio.io/translated-from"] = "WasmPlugin"
-
 	return &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind:  gvk.ExtensionFilter,
@@ -66,7 +60,6 @@ func translateWasmPlugin(cfg config.Config) *config.Config {
 			Namespace:         cfg.Namespace,
 			ResourceVersion:   cfg.ResourceVersion,
 			CreationTimestamp: cfg.CreationTimestamp,
-			Annotations:       annotations,
 		},
 		Spec: ef,
 	}
