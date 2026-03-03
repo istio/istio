@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -808,5 +809,29 @@ func TestCompareJWKSResponse(t *testing.T) {
 				t.Errorf("compareJWKSResponse() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildLocalJwksFailsClosed(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
+	defer r.Close()
+
+	// test with invalid jwks uri that will fail
+	invalidJwksURI := "http://127.0.0.1:1/invalid"
+	issuer := "test-issuer"
+
+	// build local jwks with failed fetch
+	localJwks := r.BuildLocalJwks(invalidJwksURI, issuer, "", testRequestTimeout)
+
+	// should get public-only jwks (fail closed)
+	expected := PublicOnlyJwks
+	if localJwks.LocalJwks.GetInlineString() != expected {
+		t.Errorf("BuildLocalJwks() with fetch failure: expected %q, got %q", expected, localJwks.LocalJwks.GetInlineString())
+	}
+
+	// verify no private key fields in jwks
+	jwksStr := localJwks.LocalJwks.GetInlineString()
+	if strings.Contains(jwksStr, `"d":`) || strings.Contains(jwksStr, `"p":`) || strings.Contains(jwksStr, `"q":`) {
+		t.Errorf("BuildLocalJwks() contains private key fields - security vulnerability! JWKS: %s", jwksStr)
 	}
 }
