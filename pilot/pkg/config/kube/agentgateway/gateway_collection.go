@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
@@ -159,14 +160,14 @@ func ListenerSetCollection(
 				return nil, nil
 			}
 
-			class := gatewaycommon.FetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
+			class := gatewaycommon.FetchAgentgatewayClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
 			if class == nil {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
 			}
 
 			controllerName := class.Controller
-			classInfo, f := gatewaycommon.AgentgatewayClassInfos[controllerName]
+			classInfo, f := gatewaycommon.ClassInfos[controllerName]
 			if !f {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
@@ -311,13 +312,13 @@ func GatewayCollection(
 		kgw := obj.Spec
 		status := obj.Status.DeepCopy()
 
-		class := gatewaycommon.FetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
+		class := gatewaycommon.FetchAgentgatewayClass(ctx, gatewayClasses, kgw.GatewayClassName)
 		if class == nil {
 			return nil, nil
 		}
 
 		controllerName := class.Controller
-		classInfo, f := gatewaycommon.AgentgatewayClassInfos[controllerName]
+		classInfo, f := gatewaycommon.ClassInfos[controllerName]
 		if !f {
 			return nil, nil
 		}

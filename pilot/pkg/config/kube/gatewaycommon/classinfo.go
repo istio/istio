@@ -52,21 +52,23 @@ type ClassInfo struct {
 // ClassInfos contains all known gateway class infos.
 var ClassInfos = GetClassInfos()
 
-// BuiltinClasses contains the built-in gateway classes.
-var BuiltinClasses = GetBuiltinClasses()
+// BuiltinGatewayClasses contains the built-in gateway classes.
+var BuiltinGatewayClasses = GetBuiltinGatewayClasses()
 
-// GetBuiltinClasses returns the built-in gateway class mappings.
-func GetBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
+// AgentgatewayClasses contains the built-in agentgateway classes.
+var AgentgatewayClasses = GetAgentGatewayClasses()
+
+// AllClasses contains all classes, including built-in and agentgateway.
+var AllClasses = GetAllClasses()
+
+// GetBuiltinGatewayClasses returns the built-in gateway class mappings.
+func GetBuiltinGatewayClasses() map[gateway.ObjectName]gateway.GatewayController {
 	res := map[gateway.ObjectName]gateway.GatewayController{
 		gateway.ObjectName(features.GatewayAPIDefaultGatewayClass): gateway.GatewayController(features.ManagedGatewayController),
 	}
 
 	if features.MultiNetworkGatewayAPI {
 		res[constants.RemoteGatewayClassName] = constants.UnmanagedGatewayController
-	}
-
-	if features.EnableAgentgateway {
-		res[constants.AgentgatewayClassName] = constants.ManagedAgentgatewayController
 	}
 
 	if features.EnableAmbientWaypoints {
@@ -77,6 +79,24 @@ func GetBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 	// GatewayClass for better UX
 	if features.EnableAmbientMultiNetwork {
 		res[constants.EastWestGatewayClassName] = constants.ManagedGatewayEastWestController
+	}
+	return res
+}
+
+// GetAgentGatewayClasses returns the agentgateway class mapping.
+func GetAgentGatewayClasses() map[gateway.ObjectName]gateway.GatewayController {
+	res := map[gateway.ObjectName]gateway.GatewayController{}
+	if features.EnableAgentgateway {
+		res[constants.AgentgatewayClassName] = constants.ManagedAgentgatewayController
+	}
+	return res
+}
+
+// GetAllClasses returns the mapping of all classes, including built-in and agentgateway.
+func GetAllClasses() map[gateway.ObjectName]gateway.GatewayController {
+	res := GetBuiltinGatewayClasses()
+	for k, v := range GetAgentGatewayClasses() {
+		res[k] = v
 	}
 	return res
 }
