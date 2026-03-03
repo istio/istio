@@ -84,14 +84,7 @@ func (listenerInfo ListenerInfo) WithService(service *Service) ListenerInfo {
 	return listenerInfo
 }
 
-// trafficSelector is an interface for matching traffic selectors.
-// TrafficSelector in ExtensionFilter implements this.
-type trafficSelector interface {
-	GetMode() typeapi.WorkloadMode
-	GetPorts() []*typeapi.PortSelector
-}
-
-func matchTrafficSelectorCommon(ts trafficSelector, li ListenerInfo) bool {
+func matchTrafficSelectorCommon(ts *extensions.TrafficSelector, li ListenerInfo) bool {
 	return matchMode(ts.GetMode(), li.Class) && matchPorts(ts.GetPorts(), li.Port)
 }
 
@@ -186,10 +179,6 @@ type ExtensionFilterWrapper struct {
 	ResourceName    string
 	ResourceVersion string
 	FilterType      FilterType
-}
-
-func (e *ExtensionFilterWrapper) GetPriority() *wrapperspb.Int32Value {
-	return e.Priority
 }
 
 func (e *ExtensionFilterWrapper) MatchListener(matcher WorkloadPolicyMatcher, li ListenerInfo) bool {
