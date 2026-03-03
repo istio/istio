@@ -351,7 +351,15 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string, time
 // The private key (d, p, q, dp, dq, qi) does not exist anywhere, making it cryptographically impossible to sign JWTs that
 // would validate against this public key.
 // nolint: lll
-const PublicOnlyJwks = `{"keys":[{"kty":"RSA","e":"AQAB","n":"0xObjM0UvS_oaazjpEYlAbwctEJ4L8pH3OuTb7qth7gUwqet-EzQB4dgFdvSdMgrLnSncQGRjpEYz3F3viIbH-3EN3TxSlPNviHxeOdyiBVfumN8dMxbLvVJUpfNOnvmMxJcl-8NNjAwcOjk4otSALaYgYYyOPyvKtgVdrQr-FoubWX4yrjxW-MJ2-7OBeepUUNOsVwGV23YX03sVkkyvY3otRflkBcY3_HKpBxJl9wk2GyOShN4_PNUF9-vwfnvOXMbCDX-w4PTef4geeb_GiT40YCKHTKMSPVanGRn5GExIWmki-mmqh94-mPTJyBR74ShspL3BxPZitDL574T1w"}]}`
+const PublicOnlyJwks = `{
+  "keys": [
+    {
+      "kty": "RSA",
+      "e": "AQAB",
+      "n": "0xObjM0UvS_oaazjpEYlAbwctEJ4L8pH3OuTb7qth7gUwqet-EzQB4dgFdvSdMgrLnSncQGRjpEYz3F3viIbH-3EN3TxSlPNviHxeOdyiBVfumN8dMxbLvVJUpfNOnvmMxJcl-8NNjAwcOjk4otSALaYgYYyOPyvKtgVdrQr-FoubWX4yrjxW-MJ2-7OBeepUUNOsVwGV23YX03sVkkyvY3otRflkBcY3_HKpBxJl9wk2GyOShN4_PNUF9-vwfnvOXMbCDX-w4PTef4geeb_GiT40YCKHTKMSPVanGRn5GExIWmki-mmqh94-mPTJyBR74ShspL3BxPZitDL574T1w"
+    }
+  ]
+}`
 
 // Resolve jwks_uri through openID discovery.
 func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string, timeout time.Duration) (string, error) {
