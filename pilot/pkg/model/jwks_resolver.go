@@ -32,6 +32,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -611,63 +612,33 @@ func (r *JwksResolver) Close() {
 	closeChan <- true
 }
 
-// blockedCIDRDialContext is a custom DialContext that enforces the blocked CIDR policy
-// (features.BlockedCIDRsInJWKURIs) at the transport level. Every TCP connection attempt,
-// including HTTP redirect targets and OIDC discovery fetches, is checked against the
-// blocklist before the connection is established.
+// blockedCIDRDialContext is a custom dialContext that blocks connections to IP addresses
+// in CIDR ranges using the dialer's Control callback, which receives the resolved
+// IP address for each connection attempt.
 func blockedCIDRDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := &net.Dialer{}
 
-	if len(features.BlockedCIDRsInJWKURIs) == 0 {
-		return dialer.DialContext(ctx, network, addr)
-	}
-
-	host, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if host is already an IP address.
-	if ip := net.ParseIP(host); ip != nil {
-		for _, cidr := range features.BlockedCIDRsInJWKURIs {
-			if cidr.Contains(ip) {
-				return nil, fmt.Errorf("connection to %s blocked: IP is in blocked CIDR range %s", addr, cidr.String())
+	if len(features.BlockedCIDRsInJWKURIs) > 0 {
+		dialer.Control = func(network, address string, c syscall.RawConn) error {
+			host, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return err
 			}
-		}
-		return dialer.DialContext(ctx, network, addr)
-	}
-
-	// Resolve hostname to IPs and check each against blocked CIDRs.
-	ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
-	if err != nil {
-		return nil, err
-	}
-
-	var allowedIPs []net.IP
-	for _, ip := range ips {
-		for _, cidr := range features.BlockedCIDRsInJWKURIs {
-			if cidr.Contains(ip) {
-				return nil, fmt.Errorf("connection to %s (resolved IP %s) blocked: IP is in blocked CIDR range %s",
-					addr, ip.String(), cidr.String())
+			ip := net.ParseIP(host)
+			if ip == nil {
+				return fmt.Errorf("unable to parse IP from resolved address %s", address)
 			}
+			for _, cidr := range features.BlockedCIDRsInJWKURIs {
+				if cidr.Contains(ip) {
+					return fmt.Errorf("connection to %s (resolved IP %s) blocked: IP is in blocked CIDR range %s",
+						addr, ip.String(), cidr.String())
+				}
+			}
+			return nil
 		}
-		allowedIPs = append(allowedIPs, ip)
 	}
 
-	// Try each resolved IP in order, falling back to the next on connection failure.
-	// This preserves the retry-across-IPs behavior of the default dialer while
-	// avoiding a second DNS resolution (which could return different, unchecked IPs).
-	var firstErr error
-	for _, ip := range allowedIPs {
-		conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
-		if dialErr == nil {
-			return conn, nil
-		}
-		if firstErr == nil {
-			firstErr = dialErr
-		}
-	}
-	return nil, firstErr
+	return dialer.DialContext(ctx, network, addr)
 }
 
 // Compare two JWKS responses, returning true if there is a difference and false otherwise
