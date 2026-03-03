@@ -52,7 +52,7 @@ var (
 	Pod                            = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 	PodDisruptionBudget            = schema.GroupVersionResource{Group: "policy", Version: "v1", Resource: "poddisruptionbudgets"}
 	ProxyConfig                    = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "proxyconfigs"}
-	ReferenceGrant                 = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "referencegrants"}
+	ReferenceGrant                 = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "referencegrants"}
 	ReferenceGrant_v1alpha2        = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "referencegrants"}
 	RequestAuthentication          = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1", Resource: "requestauthentications"}
 	RequestAuthentication_v1beta1  = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "requestauthentications"}
@@ -67,7 +67,7 @@ var (
 	Sidecar_v1beta1                = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "sidecars"}
 	StatefulSet                    = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
 	TCPRoute                       = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "tcproutes"}
-	TLSRoute                       = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "tlsroutes"}
+	TLSRoute                       = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "tlsroutes"}
 	Telemetry                      = schema.GroupVersionResource{Group: "telemetry.istio.io", Version: "v1", Resource: "telemetries"}
 	Telemetry_v1alpha1             = schema.GroupVersionResource{Group: "telemetry.istio.io", Version: "v1alpha1", Resource: "telemetries"}
 	UDPRoute                       = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "udproutes"}

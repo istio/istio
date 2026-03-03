@@ -21,7 +21,6 @@ import (
 	sigsk8siogatewayapiinferenceextensionapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
@@ -552,13 +551,13 @@ var (
 		Group:      "gateway.networking.k8s.io",
 		Kind:       "ReferenceGrant",
 		Plural:     "referencegrants",
-		Version:    "v1beta1",
+		Version:    "v1",
 		VersionAliases: []string{
 			"v1alpha2",
 		},
 		Proto:         "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec",
-		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec{}).Elem(),
-		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1beta1",
+		ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1.ReferenceGrantSpec{}).Elem(),
+		ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -701,10 +700,10 @@ var (
 		Group:      "gateway.networking.k8s.io",
 		Kind:       "TLSRoute",
 		Plural:     "tlsroutes",
-		Version:    "v1alpha2",
+		Version:    "v1",
 		Proto:      "k8s.io.gateway_api.api.v1alpha1.TLSRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteStatus",
-		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteStatus{}).Elem(),
-		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.TLSRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.TLSRouteStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -1003,6 +1002,7 @@ var (
 				MustAdd(RequestAuthentication).
 				MustAdd(ServiceEntry).
 				MustAdd(Sidecar).
+				MustAdd(TLSRoute).
 				MustAdd(Telemetry).
 				MustAdd(VirtualService).
 				MustAdd(WasmPlugin).

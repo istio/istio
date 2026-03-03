@@ -285,10 +285,10 @@ resources:
   - kind: "TLSRoute"
     plural: "tlsroutes"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    version: "v1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteSpec"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteStatus"
 
   - kind: "UDPRoute"
@@ -303,10 +303,10 @@ resources:
   - kind: "ReferenceGrant"
     plural: "referencegrants"
     group: "gateway.networking.k8s.io"
-    version: "v1beta1"
+    version: "v1"
     versionAliases:
     - "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec"
 
   - kind: "XBackendTrafficPolicy"

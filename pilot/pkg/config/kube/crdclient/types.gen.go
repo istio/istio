@@ -28,7 +28,6 @@ import (
 	sigsk8siogatewayapiinferenceextensionapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
@@ -113,9 +112,9 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1beta1.ProxyConfig)),
 		}, metav1.CreateOptions{})
 	case gvk.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
+		return c.GatewayAPI().GatewayV1().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.ReferenceGrant{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.ReferenceGrantSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.RequestAuthentication:
 		return c.Istio().SecurityV1().RequestAuthentications(cfg.Namespace).Create(context.TODO(), &apiistioioapisecurityv1.RequestAuthentication{
@@ -138,9 +137,9 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.TLSRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.TLSRoute{
+		return c.GatewayAPI().GatewayV1().TLSRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.TLSRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.TLSRouteSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.TLSRouteSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(cfg.Namespace).Create(context.TODO(), &apiistioioapitelemetryv1.Telemetry{
@@ -250,9 +249,9 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1beta1.ProxyConfig)),
 		}, metav1.UpdateOptions{})
 	case gvk.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
+		return c.GatewayAPI().GatewayV1().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.ReferenceGrant{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.ReferenceGrantSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.RequestAuthentication:
 		return c.Istio().SecurityV1().RequestAuthentications(cfg.Namespace).Update(context.TODO(), &apiistioioapisecurityv1.RequestAuthentication{
@@ -275,9 +274,9 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.TLSRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.TLSRoute{
+		return c.GatewayAPI().GatewayV1().TLSRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.TLSRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.TLSRouteSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.TLSRouteSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(cfg.Namespace).Update(context.TODO(), &apiistioioapitelemetryv1.Telemetry{
@@ -412,9 +411,9 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1alpha2.TCPRouteStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.TLSRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.TLSRoute{
+		return c.GatewayAPI().GatewayV1().TLSRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1.TLSRoute{
 			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1alpha2.TLSRouteStatus)),
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1.TLSRouteStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapitelemetryv1.Telemetry{
@@ -657,19 +656,19 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.ReferenceGrant:
-		oldRes := &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
+		oldRes := &sigsk8siogatewayapiapisv1.ReferenceGrant{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1.ReferenceGrantSpec)),
 		}
-		modRes := &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
+		modRes := &sigsk8siogatewayapiapisv1.ReferenceGrant{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1.ReferenceGrantSpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
 			return nil, err
 		}
-		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(orig.Namespace).
+		return c.GatewayAPI().GatewayV1().ReferenceGrants(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.RequestAuthentication:
 		oldRes := &apiistioioapisecurityv1.RequestAuthentication{
@@ -732,19 +731,19 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.TLSRoute:
-		oldRes := &sigsk8siogatewayapiapisv1alpha2.TLSRoute{
+		oldRes := &sigsk8siogatewayapiapisv1.TLSRoute{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1alpha2.TLSRouteSpec)),
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1.TLSRouteSpec)),
 		}
-		modRes := &sigsk8siogatewayapiapisv1alpha2.TLSRoute{
+		modRes := &sigsk8siogatewayapiapisv1.TLSRoute{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1alpha2.TLSRouteSpec)),
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1.TLSRouteSpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
 			return nil, err
 		}
-		return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(orig.Namespace).
+		return c.GatewayAPI().GatewayV1().TLSRoutes(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.Telemetry:
 		oldRes := &apiistioioapitelemetryv1.Telemetry{
@@ -889,7 +888,7 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 	case gvk.ProxyConfig:
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(namespace).Delete(context.TODO(), name, deleteOptions)
+		return c.GatewayAPI().GatewayV1().ReferenceGrants(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.RequestAuthentication:
 		return c.Istio().SecurityV1().RequestAuthentications(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.ServiceEntry:
@@ -899,7 +898,7 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 	case gvk.TCPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.TLSRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
+		return c.GatewayAPI().GatewayV1().TLSRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.UDPRoute:
@@ -1478,7 +1477,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.ReferenceGrant: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrant)
+		obj := r.(*sigsk8siogatewayapiapisv1.ReferenceGrant)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.ReferenceGrant,
@@ -1645,7 +1644,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.TLSRoute: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisv1alpha2.TLSRoute)
+		obj := r.(*sigsk8siogatewayapiapisv1.TLSRoute)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.TLSRoute,

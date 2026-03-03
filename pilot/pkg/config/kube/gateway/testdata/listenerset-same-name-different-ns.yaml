@@ -1,11 +1,11 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: parent-gateway
@@ -58,7 +58,7 @@ spec:
     protocol: HTTP
     port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: bind-ns1
@@ -77,7 +77,7 @@ spec:
     - name: httpbin
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: bind-ns2
@@ -95,4 +95,3 @@ spec:
     backendRefs:
     - name: httpbin
       port: 80
-

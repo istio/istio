@@ -24,7 +24,6 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -145,9 +144,9 @@ type Inputs struct {
 	HTTPRoutes           krt.Collection[*gatewayv1.HTTPRoute]
 	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
 	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
-	TLSRoutes            krt.Collection[*gatewayalpha.TLSRoute]
+	TLSRoutes            krt.Collection[*gatewayv1.TLSRoute]
 	ListenerSets         krt.Collection[*gatewayv1.ListenerSet]
-	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
+	ReferenceGrants      krt.Collection[*gatewayv1.ReferenceGrant]
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
 	BackendTLSPolicies   krt.Collection[*gatewayv1.BackendTLSPolicy]
 	ServiceEntries       krt.Collection[*networkingclient.ServiceEntry]
@@ -203,21 +202,19 @@ func NewController(
 		HTTPRoutes:         buildClient[*gatewayv1.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
 		GRPCRoutes:         buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
 		BackendTLSPolicies: buildClient[*gatewayv1.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies"),
+		TLSRoutes:          buildClient[*gatewayv1.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes"),
+		ListenerSets:       buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSet"),
 
-		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
+		ReferenceGrants: buildClient[*gatewayv1.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
 		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 	}
 	if features.EnableAlphaGatewayAPI {
 		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
-		inputs.TLSRoutes = buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes")
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
-		inputs.ListenerSets = buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSet")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
-		inputs.TLSRoutes = krt.NewStaticCollection[*gatewayalpha.TLSRoute](nil, nil, opts.WithName("disable/TLSRoutes")...)
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
-		inputs.ListenerSets = krt.NewStaticCollection[*gatewayv1.ListenerSet](nil, nil, opts.WithName("disable/ListenerSet")...)
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {
