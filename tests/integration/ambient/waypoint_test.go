@@ -1049,7 +1049,7 @@ spec:
 
 func TestTLSRoute(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
+		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
   name: tlsroute
