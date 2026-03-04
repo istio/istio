@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/file"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
@@ -82,7 +83,7 @@ values:
     env:
       COMPLIANCE_POLICY: "pqc"
 `
-		}, nil)).
+		}, cert.CreateCASecretAlt)).
 		Setup(crd.DeployGatewayAPI).
 		SetupParallel(
 			namespace.Setup(&internalNs, namespace.Config{
