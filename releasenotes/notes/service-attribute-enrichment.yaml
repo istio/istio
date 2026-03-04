@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - https://github.com/istio/istio/issues/55026
+
+releaseNotes:
+  - |
+    **Added** support for OpenTelemetry semantic convention-aligned service attribute enrichment
+    for trace spans. When `serviceAttributeEnrichment: OTEL_SEMANTIC_CONVENTIONS` is set on the
+    `OpenTelemetryTracingProvider` in `MeshConfig`, `service.name` is computed following the
+    OTel K8s service attributes specification fallback chain. Additionally, `service.namespace`,
+    `service.version`, and `service.instance.id` are injected as `OTEL_RESOURCE_ATTRIBUTES` on
+    the sidecar at injection time, and the Environment resource detector is auto-enabled so
+    Envoy picks up these attributes at startup.

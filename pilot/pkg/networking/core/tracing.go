@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -221,7 +222,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		maxTagLength = provider.Opentelemetry.GetMaxTagLength()
 		providerName = envoyOpenTelemetry
 		providerConfig = func() (*anypb.Any, error) {
-			tracingCfg, hasCustomSampler, err := otelConfig(serviceCluster, provider.Opentelemetry, pushCtx)
+			tracingCfg, hasCustomSampler, err := otelConfig(serviceCluster, provider.Opentelemetry, pushCtx, proxy)
 			useCustomSampler = hasCustomSampler
 			return tracingCfg, err
 		}
@@ -336,12 +337,18 @@ func datadogConfig(serviceName, hostname, cluster string) (*anypb.Any, error) {
 }
 
 func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider,
-	pushCtx *model.PushContext,
+	pushCtx *model.PushContext, proxy *model.Proxy,
 ) (*anypb.Any, bool, error) {
 	hostname, cluster, err := clusterLookupFn(pushCtx, otelProvider.GetService(), int(otelProvider.GetPort()))
 	if err != nil {
 		model.IncLookupClusterFailures("opentelemetry")
 		return nil, false, fmt.Errorf("could not find cluster for tracing provider %q: %v", otelProvider, err)
+	}
+
+	// When OTel semantic conventions are enabled, compute service.name
+	// following the OTel K8s service attributes specification.
+	if otelProvider.GetServiceAttributeEnrichment() == meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS {
+		serviceName = otelServiceName(proxy)
 	}
 
 	hasCustomSampler := false
@@ -382,17 +389,35 @@ func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_Extensio
 	}
 
 	// Add configured resource detectors
-	if otelProvider.ResourceDetectors != nil {
+	{
 		res := []*core.TypedExtensionConfig{}
-		rd := otelProvider.ResourceDetectors
-
-		if rd.Environment != nil {
-			res = append(res, xdsfilters.EnvironmentResourceDetector)
+		if rd := otelProvider.ResourceDetectors; rd != nil {
+			if rd.Environment != nil {
+				res = append(res, xdsfilters.EnvironmentResourceDetector)
+			}
+			if rd.Dynatrace != nil {
+				res = append(res, xdsfilters.DynatraceResourceDetector)
+			}
 		}
-		if rd.Dynatrace != nil {
-			res = append(res, xdsfilters.DynatraceResourceDetector)
+		// When OTel semantic conventions are enabled, auto-enable the Environment
+		// resource detector so that OTEL_RESOURCE_ATTRIBUTES env var (if set on the
+		// proxy) can provide or override resource attributes such as service.namespace,
+		// service.version, and service.instance.id.
+		if otelProvider.GetServiceAttributeEnrichment() == meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS {
+			hasEnvDetector := false
+			for _, r := range res {
+				if r.Name == xdsfilters.EnvironmentResourceDetector.Name {
+					hasEnvDetector = true
+					break
+				}
+			}
+			if !hasEnvDetector {
+				res = append(res, xdsfilters.EnvironmentResourceDetector)
+			}
 		}
-		oc.ResourceDetectors = res
+		if len(res) > 0 {
+			oc.ResourceDetectors = res
+		}
 	}
 
 	// Add configured Sampler
@@ -870,6 +895,66 @@ func buildInitialMetadata(metadata []*meshconfig.MeshConfig_ExtensionProvider_Ht
 		target = append(target, hv)
 	}
 	return target
+}
+
+// otelServiceName computes the service.name following the OpenTelemetry semantic
+// conventions for Kubernetes service attributes:
+// https://opentelemetry.io/docs/specs/semconv/non-normative/k8s-attributes/#service-attributes
+//
+// The fallback chain is:
+//  1. resource.opentelemetry.io/service.name annotation on the pod
+//  2. app.kubernetes.io/instance label
+//  3. app.kubernetes.io/name label
+//  4. Name of the owning Kubernetes resource (Deployment, StatefulSet, etc.)
+//  5. Pod name
+//  6. Container name (if single container in the pod)
+//  7. unknown_service
+func otelServiceName(proxy *model.Proxy) string {
+	if proxy == nil || proxy.Metadata == nil {
+		return "unknown_service"
+	}
+	meta := proxy.Metadata
+
+	// 1. resource.opentelemetry.io/service.name annotation
+	if v, ok := meta.Annotations["resource.opentelemetry.io/service.name"]; ok && v != "" {
+		return v
+	}
+
+	// 2. app.kubernetes.io/instance label
+	if v, ok := proxy.Labels["app.kubernetes.io/instance"]; ok && v != "" {
+		return v
+	}
+
+	// 3. app.kubernetes.io/name label
+	if v, ok := proxy.Labels["app.kubernetes.io/name"]; ok && v != "" {
+		return v
+	}
+
+	// 4. Name of the owning Kubernetes resource (Deployment, StatefulSet, etc.)
+	if meta.WorkloadName != "" {
+		return meta.WorkloadName
+	}
+
+	// 5. Pod name (extracted from proxy ID which has format "podName.namespace")
+	if proxy.ID != "" {
+		if podName, _, ok := strings.Cut(proxy.ID, "."); ok && podName != "" {
+			return podName
+		}
+	}
+
+	// 6. Container name (if single container in the pod)
+	// AppContainers is on BootstrapNodeMetadata; access via Raw metadata.
+	if raw := meta.Raw; raw != nil {
+		if containers, ok := raw["APP_CONTAINERS"].(string); ok && containers != "" {
+			parts := strings.Split(containers, ",")
+			if len(parts) == 1 {
+				return parts[0]
+			}
+		}
+	}
+
+	// 7. unknown_service
+	return "unknown_service"
 }
 
 func getHeaderValue(header *meshconfig.MeshConfig_ExtensionProvider_HttpHeader) string {
