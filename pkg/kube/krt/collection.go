@@ -35,7 +35,7 @@ const (
 	getKeyType       indexedDependencyType = iota
 	// doNotIndex signals we should not attempt to do an optimized index lookup
 	// This can happen when we fetch the same collection with an index and without an index
-	doNotIndex       indexedDependencyType = iota
+	doNotIndex indexedDependencyType = iota
 )
 
 type dependencyState[I any] struct {
@@ -86,7 +86,7 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 				uid: d.id,
 				typ: doNotIndex,
 			}
-			i.indexedDependenciesExtractor[kk] = extractor
+			i.indexedDependenciesExtractor[kk] = nil
 		}
 	}
 }
@@ -118,7 +118,7 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 	// N here is usually going to be small (the number of FilterKey/FilterIndex)
 	extractorKeys := []extractorKey{}
 	for k := range i.indexedDependenciesExtractor {
-		if k.typ == doNotIndex {
+		if k.typ == doNotIndex && k.uid == sourceCollection {
 			extractorKeys = nil
 			break
 		}
