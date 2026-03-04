@@ -425,8 +425,8 @@ func buildListener(
 	}
 
 	ok := true
-	gwTls := resolveGatewayTLS(l.Port, gw.TLS)
-	tlsInfo, err := buildTLS(ctx, secrets, configMaps, grants, gwTls, l.TLS, obj)
+	gwTLS := resolveGatewayTLS(l.Port, gw.TLS)
+	tlsInfo, err := buildTLS(ctx, secrets, configMaps, grants, gwTLS, l.TLS, obj)
 	if err == nil && tlsInfo != nil {
 		// If there were no other errors, also check the Key/Cert are actually valid
 		err = validateTLS(tlsInfo)
@@ -531,7 +531,11 @@ func buildHostnameMatch(ctx krt.HandlerContext, localNamespace string, namespace
 }
 
 // namespacesFromSelector determines a list of allowed namespaces for a given AllowedRoutes
-func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, namespaceCol krt.Collection[*corev1.Namespace], lr *gatewayv1.AllowedRoutes) []string {
+func namespacesFromSelector(
+	ctx krt.HandlerContext,
+	localNamespace string,
+	namespaceCol krt.Collection[*corev1.Namespace],
+	lr *gatewayv1.AllowedRoutes) []string {
 	// Default is to allow only the same namespace
 	if lr == nil || lr.Namespaces == nil || lr.Namespaces.From == nil || *lr.Namespaces.From == gatewayv1.NamespacesFromSame {
 		return []string{localNamespace}
@@ -620,17 +624,17 @@ func buildTLS(
 		// Important: all failures MUST include dummyTls, as this is the signal to the dataplane to actually do TLS (but fail)
 		if len(tls.CertificateRefs) != 1 {
 			// This is required in the API, should be rejected in validation
-			return dummyTls, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
+			return dummyTLS, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
 		tlsRes, err := buildSecretReference(ctx, tls.CertificateRefs[0], gw, secrets)
 		if err != nil {
-			return dummyTls, err
+			return dummyTLS, err
 		}
 		// If we are going to send a cert, validate we can access it
 		sameNamespace := tlsRes.Source.Namespace == namespace
 		objectKind := schematypes.GvkFromObject(gw)
 		if !sameNamespace && !AgwSecretAllowed(grants, ctx, objectKind, tlsRes.Source, namespace) {
-			return dummyTls, &ConfigError{
+			return dummyTLS, &ConfigError{
 				Reason: InvalidListenerRefNotPermitted,
 				Message: fmt.Sprintf(
 					"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
@@ -642,7 +646,7 @@ func buildTLS(
 		if gatewayTLS != nil && gatewayTLS.Validation != nil && len(gatewayTLS.Validation.CACertificateRefs) > 0 {
 			// TODO: add 'Mode'
 			if len(gatewayTLS.Validation.CACertificateRefs) > 1 {
-				return dummyTls, &ConfigError{
+				return dummyTLS, &ConfigError{
 					Reason:  InvalidTLS,
 					Message: "only one caCertificateRef is supported",
 				}
@@ -650,12 +654,12 @@ func buildTLS(
 			caCertRef := gatewayTLS.Validation.CACertificateRefs[0]
 			cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
 			if err != nil {
-				return dummyTls, err
+				return dummyTLS, err
 			}
 			sameNamespace := cred.Source.Namespace == namespace
 			isSecret := cred.Kind == gvk.Secret.Kind
 			if isSecret && !sameNamespace && !AgwSecretAllowed(grants, ctx, schematypes.GvkFromObject(gw), cred.Source, namespace) {
-				return dummyTls, &ConfigError{
+				return dummyTLS, &ConfigError{
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
 						"caCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
@@ -735,8 +739,8 @@ func buildCaCertificateReference(
 	return &res, nil
 }
 
-// dummyTls is a sentinel value to send to agentgateway to signal that it should reject TLS connects due to invalid config
-var dummyTls = &TLSInfo{
+// dummyTLS is a sentinel value to send to agentgateway to signal that it should reject TLS connects due to invalid config
+var dummyTLS = &TLSInfo{
 	Cert: []byte("invalid"),
 	Key:  []byte("invalid"),
 }
@@ -754,7 +758,10 @@ func buildSecretReference(
 	secrets krt.Collection[*corev1.Secret],
 ) (*SecretReference, *ConfigError) {
 	if normalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
-		return nil, &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", secretObjectReferenceString(ref))}
+		return nil, &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", secretObjectReferenceString(ref)),
+		}
 	}
 
 	secret := types.NamespacedName{
@@ -781,7 +788,8 @@ func buildSecretReference(
 		Kind:   gvk.Secret.Kind,
 		Info: TLSInfo{
 			Cert: certInfo.Cert,
-			Key:  certInfo.Key},
+			Key:  certInfo.Key,
+		},
 	}
 	return &res, nil
 }

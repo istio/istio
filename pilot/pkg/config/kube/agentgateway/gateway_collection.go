@@ -70,7 +70,11 @@ func (g GatewayListener) Equals(other GatewayListener) bool {
 			return false
 		}
 	}
-	return g.Valid == other.Valid && g.Name == other.Name && g.ParentGateway == other.ParentGateway && g.ParentObject == other.ParentObject && g.ParentInfo.Equals(other.ParentInfo)
+	return g.Valid == other.Valid &&
+		g.Name == other.Name &&
+		g.ParentGateway == other.ParentGateway &&
+		g.ParentObject == other.ParentObject &&
+		g.ParentInfo.Equals(other.ParentInfo)
 }
 
 func (g AgwParentInfo) Equals(other AgwParentInfo) bool {
@@ -348,7 +352,8 @@ func GatewayCollection(
 		for i, l := range kgw.Listeners {
 			// Attached Routes count starts at 0 and gets updated later in the status syncer
 			// when the real count is available after route processing
-			server, tlsInfo, updatedStatus, programmed := buildListener(ctx, secrets, configMaps, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
+			server, tlsInfo, updatedStatus, programmed := buildListener(
+				ctx, secrets, configMaps, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
 			servers = append(servers, server)
@@ -432,20 +437,10 @@ func detectListenerPortNumber(l gatewayv1.ListenerEntry) (gatewayv1.PortNumber, 
 
 func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
 	return func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
-		return gatewayv1.ListenerEntryStatus{
-			Name:           e.Name,
-			SupportedKinds: e.SupportedKinds,
-			AttachedRoutes: e.AttachedRoutes,
-			Conditions:     e.Conditions,
-		}
+		return gatewayv1.ListenerEntryStatus(e)
 	}
 }
 
 func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
-	return gatewayv1.ListenerStatus{
-		Name:           e.Name,
-		SupportedKinds: e.SupportedKinds,
-		AttachedRoutes: e.AttachedRoutes,
-		Conditions:     e.Conditions,
-	}
+	return gatewayv1.ListenerStatus(e)
 }

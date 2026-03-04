@@ -24,7 +24,12 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 )
 
-func AgwSecretAllowed(refs gatewaycommon.ReferenceGrants, ctx krt.HandlerContext, kind config.GroupVersionKind, resourceName types.NamespacedName, namespace string) bool {
+func AgwSecretAllowed(
+	refs gatewaycommon.ReferenceGrants,
+	ctx krt.HandlerContext,
+	kind config.GroupVersionKind,
+	resourceName types.NamespacedName,
+	namespace string) bool {
 	from := gatewaycommon.Reference{Kind: kind, Namespace: gateway.Namespace(namespace)}
 	to := gatewaycommon.Reference{Kind: gvk.Secret, Namespace: gateway.Namespace(resourceName.Namespace)}
 	pair := gatewaycommon.ReferencePair{From: from, To: to}
