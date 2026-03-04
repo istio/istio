@@ -84,6 +84,8 @@ values:
   pilot:
     env:
       AMBIENT_ENABLE_MULTI_NETWORK: "true"
+      AMBIENT_ENABLE_BAGGAGE: "true"
+      AMBIENT_ENABLE_MULTI_NETWORK_INGRESS: "true"
       # Note: support is alpha and env var is tightly scoped
       ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
   ztunnel:
