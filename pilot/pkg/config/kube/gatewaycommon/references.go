@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	creds "istio.io/istio/pilot/pkg/model/credentials"
@@ -129,8 +130,8 @@ type ReferenceGrants struct {
 }
 
 // ReferenceGrantsCollection builds a krt collection from ReferenceGrant resources.
-func ReferenceGrantsCollection(referenceGrants krt.Collection[*gatewayv1.ReferenceGrant], opts krt.OptionsBuilder) krt.Collection[ReferenceGrant] {
-	return krt.NewManyCollection(referenceGrants, func(ctx krt.HandlerContext, obj *gatewayv1.ReferenceGrant) []ReferenceGrant {
+func ReferenceGrantsCollection(referenceGrants krt.Collection[*gatewayv1beta1.ReferenceGrant], opts krt.OptionsBuilder) krt.Collection[ReferenceGrant] {
+	return krt.NewManyCollection(referenceGrants, func(ctx krt.HandlerContext, obj *gatewayv1beta1.ReferenceGrant) []ReferenceGrant {
 		rp := obj.Spec
 		results := make([]ReferenceGrant, 0, len(rp.From)*len(rp.To))
 		for _, from := range rp.From {

@@ -56,7 +56,7 @@ var (
 	Pod                            = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 	PodDisruptionBudget            = config.GroupVersionKind{Group: "policy", Version: "v1", Kind: "PodDisruptionBudget"}
 	ProxyConfig                    = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "ProxyConfig"}
-	ReferenceGrant                 = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "ReferenceGrant"}
+	ReferenceGrant                 = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "ReferenceGrant"}
 	ReferenceGrant_v1alpha2        = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "ReferenceGrant"}
 	RequestAuthentication          = config.GroupVersionKind{Group: "security.istio.io", Version: "v1", Kind: "RequestAuthentication"}
 	RequestAuthentication_v1beta1  = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "RequestAuthentication"}
@@ -72,6 +72,7 @@ var (
 	StatefulSet                    = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
 	TCPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}
 	TLSRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "TLSRoute"}
+	TLSRoute_v1alpha2              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}
 	Telemetry                      = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1", Kind: "Telemetry"}
 	Telemetry_v1alpha1             = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1alpha1", Kind: "Telemetry"}
 	UDPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "UDPRoute"}
@@ -214,6 +215,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.TCPRoute, true
 	case TLSRoute:
 		return gvr.TLSRoute, true
+	case TLSRoute_v1alpha2:
+		return gvr.TLSRoute_v1alpha2, true
 	case Telemetry:
 		return gvr.Telemetry, true
 	case Telemetry_v1alpha1:

@@ -32,6 +32,7 @@ import (
 	sigsk8siogatewayapiinferenceextensionapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
@@ -111,8 +112,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().PolicyV1().PodDisruptionBudgets(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1().ReferenceGrants(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1beta1.ReferenceGrant:
+		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapisecurityv1.RequestAuthentication:
 		return c.Istio().SecurityV1().RequestAuthentications(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.Secret:
@@ -214,8 +215,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().PolicyV1().PodDisruptionBudgets(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1().ReferenceGrants(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1beta1.ReferenceGrant:
+		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapisecurityv1.RequestAuthentication:
 		return c.Istio().SecurityV1().RequestAuthentications(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicorev1.Secret:
@@ -318,7 +319,7 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.ProxyConfig:
 		return &apiistioioapinetworkingv1beta1.ProxyConfig{}
 	case gvr.ReferenceGrant:
-		return &sigsk8siogatewayapiapisv1.ReferenceGrant{}
+		return &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{}
 	case gvr.RequestAuthentication:
 		return &apiistioioapisecurityv1.RequestAuthentication{}
 	case gvr.Secret:
@@ -575,10 +576,10 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 	case gvr.ReferenceGrant:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1().ReferenceGrants(opts.Namespace).List(context.Background(), options)
+			return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(opts.Namespace).List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1().ReferenceGrants(opts.Namespace).Watch(context.Background(), options)
+			return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.RequestAuthentication:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

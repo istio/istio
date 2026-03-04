@@ -24,6 +24,7 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -146,7 +147,7 @@ type Inputs struct {
 	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
 	TLSRoutes            krt.Collection[*gatewayv1.TLSRoute]
 	ListenerSets         krt.Collection[*gatewayv1.ListenerSet]
-	ReferenceGrants      krt.Collection[*gatewayv1.ReferenceGrant]
+	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
 	BackendTLSPolicies   krt.Collection[*gatewayv1.BackendTLSPolicy]
 	ServiceEntries       krt.Collection[*networkingclient.ServiceEntry]
@@ -205,7 +206,7 @@ func NewController(
 		TLSRoutes:          buildClient[*gatewayv1.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes"),
 		ListenerSets:       buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSet"),
 
-		ReferenceGrants: buildClient[*gatewayv1.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
+		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
 		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 	}
 	if features.EnableAlphaGatewayAPI {

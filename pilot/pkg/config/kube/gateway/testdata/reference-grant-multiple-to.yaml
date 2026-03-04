@@ -31,7 +31,7 @@ spec:
         namespace: bookinfo
       mode: Terminate
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: k8s-gateway-secret-grant
