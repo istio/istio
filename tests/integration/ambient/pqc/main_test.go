@@ -67,6 +67,7 @@ func TestMain(m *testing.M) {
 			ctx.Settings().SkipVMs()
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.DeployEastWestGW = true
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK"] = "true"
 			} else {
 				cfg.DeployEastWestGW = false
 			}
