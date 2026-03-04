@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -1354,6 +1355,86 @@ func TestSortHTTPRoutes(t *testing.T) {
 			if !reflect.DeepEqual(tt.in, tt.out) {
 				t.Fatalf("expected %v, got %v", tt.out, tt.in)
 			}
+		})
+	}
+}
+
+func TestServerTLSModeFromFrontendValidationMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		mode     k8s.FrontendValidationModeType
+		expected istio.ServerTLSSettings_TLSmode
+	}{
+		{
+			name:     "defaults to mutual",
+			mode:     "",
+			expected: istio.ServerTLSSettings_MUTUAL,
+		},
+		{
+			name:     "allow valid only maps to mutual",
+			mode:     k8s.AllowValidOnly,
+			expected: istio.ServerTLSSettings_MUTUAL,
+		},
+		{
+			name:     "allow insecure fallback maps to optional mutual",
+			mode:     k8s.AllowInsecureFallback,
+			expected: istio.ServerTLSSettings_OPTIONAL_MUTUAL,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, serverTLSModeFromFrontendValidationMode(tt.mode), tt.expected)
+		})
+	}
+}
+
+func TestApplyTLSTerminateModeOptionOverride(t *testing.T) {
+	tests := []struct {
+		name               string
+		options            map[k8s.AnnotationKey]k8s.AnnotationValue
+		expectedMode       istio.ServerTLSSettings_TLSmode
+		expectedCredential string
+		expectedTerminal   bool
+	}{
+		{
+			name:             "mutual override",
+			options:          map[k8s.AnnotationKey]k8s.AnnotationValue{gatewaycommon.GatewayTLSTerminateModeKey: "MUTUAL"},
+			expectedMode:     istio.ServerTLSSettings_MUTUAL,
+			expectedTerminal: false,
+		},
+		{
+			name:             "optional mutual override",
+			options:          map[k8s.AnnotationKey]k8s.AnnotationValue{gatewaycommon.GatewayTLSTerminateModeKey: "OPTIONAL_MUTUAL"},
+			expectedMode:     istio.ServerTLSSettings_OPTIONAL_MUTUAL,
+			expectedTerminal: false,
+		},
+		{
+			name:               "istio simple override",
+			options:            map[k8s.AnnotationKey]k8s.AnnotationValue{gatewaycommon.GatewayTLSTerminateModeKey: "ISTIO_SIMPLE"},
+			expectedMode:       istio.ServerTLSSettings_SIMPLE,
+			expectedCredential: "builtin://",
+			expectedTerminal:   true,
+		},
+		{
+			name:             "istio mutual override",
+			options:          map[k8s.AnnotationKey]k8s.AnnotationValue{gatewaycommon.GatewayTLSTerminateModeKey: "ISTIO_MUTUAL"},
+			expectedMode:     istio.ServerTLSSettings_ISTIO_MUTUAL,
+			expectedTerminal: true,
+		},
+		{
+			name:             "no override",
+			options:          nil,
+			expectedMode:     istio.ServerTLSSettings_SIMPLE,
+			expectedTerminal: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			settings := &istio.ServerTLSSettings{Mode: istio.ServerTLSSettings_SIMPLE}
+			terminal := applyTLSTerminateModeOptionOverride(settings, tt.options)
+			assert.Equal(t, settings.Mode, tt.expectedMode)
+			assert.Equal(t, settings.CredentialName, tt.expectedCredential)
+			assert.Equal(t, terminal, tt.expectedTerminal)
 		})
 	}
 }

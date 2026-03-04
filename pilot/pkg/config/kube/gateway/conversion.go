@@ -2098,6 +2098,35 @@ func resolveGatewayTLS(port k8s.PortNumber, gw *k8s.GatewayTLSConfig) *k8s.TLSCo
 	return &f.Default
 }
 
+func applyTLSTerminateModeOptionOverride(out *istio.ServerTLSSettings, options map[k8s.AnnotationKey]k8s.AnnotationValue) bool {
+	if options == nil {
+		return false
+	}
+	switch options[gatewaycommon.GatewayTLSTerminateModeKey] {
+	case "MUTUAL":
+		out.Mode = istio.ServerTLSSettings_MUTUAL
+	case "OPTIONAL_MUTUAL":
+		out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+	case "ISTIO_SIMPLE":
+		// Simple TLS but with builtin workload certificate.
+		// equivalent to `credentialName: builtin://
+		out.Mode = istio.ServerTLSSettings_SIMPLE
+		out.CredentialName = creds.BuiltinGatewaySecretTypeURI
+		return true
+	case "ISTIO_MUTUAL":
+		out.Mode = istio.ServerTLSSettings_ISTIO_MUTUAL
+		return true
+	}
+	return false
+}
+
+func serverTLSModeFromFrontendValidationMode(mode k8s.FrontendValidationModeType) istio.ServerTLSSettings_TLSmode {
+	if mode == k8s.AllowInsecureFallback {
+		return istio.ServerTLSSettings_OPTIONAL_MUTUAL
+	}
+	return istio.ServerTLSSettings_MUTUAL
+}
+
 func buildTLS(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
@@ -2124,22 +2153,8 @@ func buildTLS(
 	switch mode {
 	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
-		if tls.Options != nil {
-			switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
-			case "MUTUAL":
-				out.Mode = istio.ServerTLSSettings_MUTUAL
-			case "OPTIONAL_MUTUAL":
-				out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
-			case "ISTIO_SIMPLE":
-				// Simple TLS but with builtin workload certificate.
-				// equivalent to `credentialName: builtin://
-				out.Mode = istio.ServerTLSSettings_SIMPLE
-				out.CredentialName = creds.BuiltinGatewaySecretTypeURI
-				return out, nil
-			case "ISTIO_MUTUAL":
-				out.Mode = istio.ServerTLSSettings_ISTIO_MUTUAL
-				return out, nil
-			}
+		if applyTLSTerminateModeOptionOverride(out, tls.Options) {
+			return out, nil
 		}
 		if len(tls.CertificateRefs) > 2 {
 			return out, &ConfigError{
@@ -2183,7 +2198,6 @@ func buildTLS(
 		}
 
 		if gatewayTLS != nil && gatewayTLS.Validation != nil && len(gatewayTLS.Validation.CACertificateRefs) > 0 {
-			// TODO: add 'Mode'
 			if len(gatewayTLS.Validation.CACertificateRefs) > 1 {
 				return out, &ConfigError{
 					Reason:  InvalidTLS,
@@ -2204,15 +2218,11 @@ func buildTLS(
 					),
 				}
 			}
-			out.Mode = istio.ServerTLSSettings_MUTUAL
+			out.Mode = serverTLSModeFromFrontendValidationMode(gatewayTLS.Validation.Mode)
 			out.CaCertCredentialName = cred.ResourceName
-			if tls.Options != nil {
-				switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
-				case "MUTUAL":
-					out.Mode = istio.ServerTLSSettings_MUTUAL
-				case "OPTIONAL_MUTUAL":
-					out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
-				}
+			// Backward-compatibility: keep honoring legacy listener option even when frontend validation is configured.
+			if applyTLSTerminateModeOptionOverride(out, tls.Options) {
+				return out, nil
 			}
 		}
 	case k8s.TLSModePassthrough:
