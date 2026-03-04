@@ -77,7 +77,6 @@ func TestSendPushesManyPushes(t *testing.T) {
 	pushesMu := &sync.Mutex{}
 
 	for _, proxy := range proxies {
-		proxy := proxy
 		// Start receive thread
 		go func() {
 			first := true
