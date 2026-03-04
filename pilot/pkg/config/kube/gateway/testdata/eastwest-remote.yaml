@@ -19,12 +19,14 @@ spec:
       mode: Passthrough
 ---
 # These routes should be ignored since this is an istio-remote gateway!
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: eastwestgateway-grpc
   namespace: istio-system
 spec:
+  hostnames:
+    - "*.local"
   parentRefs:
     - name: eastwestgateway
       kind: Gateway
@@ -34,12 +36,14 @@ spec:
         - name: istiod
           port: 15012
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: eastwestgateway-webhook
   namespace: istio-system
 spec:
+  hostnames:
+    - "*.local"
   parentRefs:
     - name: eastwestgateway
       kind: Gateway

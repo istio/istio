@@ -761,7 +761,7 @@ func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TC
 	}, backendErr
 }
 
-func convertTLSRoute(ctx RouteContext, r k8salpha.TLSRouteRule, obj *k8salpha.TLSRoute, enforceRefGrant bool) (*istio.TLSRoute, *ConfigError) {
+func convertTLSRoute(ctx RouteContext, r k8s.TLSRouteRule, obj *k8s.TLSRoute, enforceRefGrant bool) (*istio.TLSRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
 		// We don't have a great way to do it. TODO: add a fault injection API for TCP?
@@ -2461,7 +2461,7 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
-	case *k8salpha.TLSRoute:
+	case *k8s.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute
 	case *k8s.HTTPRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.HTTPRoute
@@ -2477,7 +2477,7 @@ func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
 		return t.Status.Parents
-	case *k8salpha.TLSRoute:
+	case *k8s.TLSRoute:
 		return t.Status.Parents
 	case *k8s.HTTPRoute:
 		return t.Status.Parents
@@ -2512,7 +2512,7 @@ func GetStatus[I, IS any](spec I) IS {
 	switch t := any(spec).(type) {
 	case *k8salpha.TCPRoute:
 		return any(t.Status).(IS)
-	case *k8salpha.TLSRoute:
+	case *k8s.TLSRoute:
 		return any(t.Status).(IS)
 	case *k8s.HTTPRoute:
 		return any(t.Status).(IS)

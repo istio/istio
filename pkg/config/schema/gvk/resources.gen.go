@@ -71,7 +71,8 @@ var (
 	Sidecar_v1beta1                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "Sidecar"}
 	StatefulSet                    = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
 	TCPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}
-	TLSRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}
+	TLSRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "TLSRoute"}
+	TLSRoute_v1alpha2              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}
 	Telemetry                      = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1", Kind: "Telemetry"}
 	Telemetry_v1alpha1             = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1alpha1", Kind: "Telemetry"}
 	UDPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "UDPRoute"}
@@ -214,6 +215,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.TCPRoute, true
 	case TLSRoute:
 		return gvr.TLSRoute, true
+	case TLSRoute_v1alpha2:
+		return gvr.TLSRoute_v1alpha2, true
 	case Telemetry:
 		return gvr.Telemetry, true
 	case Telemetry_v1alpha1:
