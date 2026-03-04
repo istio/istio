@@ -138,7 +138,7 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.StatefulSet, true
 	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
 		return gvk.TCPRoute, true
-	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
+	case *sigsk8siogatewayapiapisv1.TLSRoute:
 		return gvk.TLSRoute, true
 	case *istioioapitelemetryv1alpha1.Telemetry:
 		return gvk.Telemetry, true
