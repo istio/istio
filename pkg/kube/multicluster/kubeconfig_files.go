@@ -90,6 +90,7 @@ func clusterIDFromKubeconfig(cfg *clientcmdapi.Config) (string, error) {
 	for name := range cfg.Contexts {
 		contextNames = append(contextNames, name)
 	}
+	// Sort map keys so fallback selection is stable across process restarts.
 	sort.Strings(contextNames)
 	for _, name := range contextNames {
 		ctx := cfg.Contexts[name]
@@ -105,6 +106,7 @@ func clusterIDFromKubeconfig(cfg *clientcmdapi.Config) (string, error) {
 		}
 		clusterNames = append(clusterNames, name)
 	}
+	// Sort map keys so fallback selection is stable across process restarts.
 	sort.Strings(clusterNames)
 	if len(clusterNames) > 0 {
 		return clusterNames[0], nil

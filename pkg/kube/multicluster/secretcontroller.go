@@ -124,6 +124,7 @@ type Controller struct {
 func NewController(opts ControllerOptions) *Controller {
 	var source remoteConfigSource
 
+	// Local filesystem source takes precedence over secret-based discovery when configured.
 	if features.MulticlusterKubeconfigPath != "" {
 		source = newFileConfigSource(features.MulticlusterKubeconfigPath)
 	} else {

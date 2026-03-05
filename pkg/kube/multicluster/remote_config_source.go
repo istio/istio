@@ -31,6 +31,8 @@ type remoteConfig struct {
 	Data map[string][]byte
 }
 
+// remoteConfigSource abstracts how remote cluster kubeconfigs are discovered
+// (Kubernetes Secrets or local filesystem) behind a uniform event/get interface.
 type remoteConfigSource interface {
 	AddEventHandler(handler func(key types.NamespacedName, event controllers.EventType))
 	HasSynced() bool
