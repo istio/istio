@@ -56,6 +56,12 @@ type IPAllocator struct {
 	v6allocator *prefixUse
 }
 
+// HasSynced returns true when the controller has completed initial sync:
+// the informer cache is populated, warming is done, and the queue is processing events.
+func (c *IPAllocator) HasSynced() bool {
+	return c.queue.HasSynced()
+}
+
 // Unfortunately slices are not comparable which is required by kube client-go workqueue sets.
 // We want to be able to record multiple addresses as being in conflict to handle dual stack smoothly though.
 // Workaround is a conversion of []netip.Addr to a string which is comparable but requires some helper
@@ -462,8 +468,28 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 // ServiceEntry no longer qualifies for auto-allocation (e.g. resolution
 // changed to NONE, user opted out, or user supplied their own addresses).
 func (c *IPAllocator) clearStaleAddresses(se *networkingv1.ServiceEntry) error {
-	// Same TOCTOU guard as statusPatchForAddresses: test that addresses
-	// have not changed since we read them before replacing with empty.
+	nn := config.NamespacedName(se)
+	originalAddresses := autoallocate.GetAddressesFromServiceEntry(se)
+	if err := c.tryClearAddresses(se); err != nil {
+		// The TOCTOU "test" can fail if the status was modified between our
+		// informer read and the patch. Re-read and retry once before falling
+		// back to the queue's rate-limited retry.
+		se = c.serviceEntryClient.Get(nn.Name, nn.Namespace)
+		if se == nil || len(se.Status.Addresses) == 0 {
+			// Already cleared or deleted; free the original addresses.
+			c.freeAddresses(originalAddresses, nn)
+			return nil
+		}
+		if err2 := c.tryClearAddresses(se); err2 != nil {
+			log.Errorf("failed to clear stale addresses for %v: %v", nn, err2)
+			return err2
+		}
+	}
+	c.freeAddresses(originalAddresses, nn)
+	return nil
+}
+
+func (c *IPAllocator) tryClearAddresses(se *networkingv1.ServiceEntry) error {
 	replaceAddresses, err := json.Marshal([]jsonPatch{
 		{
 			Operation: "test",
@@ -479,15 +505,9 @@ func (c *IPAllocator) clearStaleAddresses(se *networkingv1.ServiceEntry) error {
 	if err != nil {
 		return err
 	}
-
 	nn := config.NamespacedName(se)
 	_, err = c.serviceEntryWriter.PatchStatus(nn.Name, nn.Namespace, types.JSONPatchType, replaceAddresses)
-	if err != nil {
-		log.Errorf("failed to clear stale addresses for %v: %v", nn, err)
-		return err
-	}
-	c.freeAddresses(autoallocate.GetAddressesFromServiceEntry(se), nn)
-	return nil
+	return err
 }
 
 func (c *IPAllocator) checkInSpecAddresses(serviceentry *networkingv1.ServiceEntry) {
