@@ -447,12 +447,23 @@ func New(options Options) Index {
 		Namespaces,
 		opts,
 	)
+	// Remote workloads are excluded so they never reach XDS;
+	// builders may skip precompute for them.
+	NetworkLocalWorkloads := krt.NewCollection(Workloads, func(ctx krt.HandlerContext, wi model.WorkloadInfo) *model.WorkloadInfo {
+		if strings.HasPrefix(wi.Workload.Uid, "NetworkGateway/") {
+			return &wi
+		}
+		if wi.Workload.Network != a.Network(ctx).String() {
+			return nil
+		}
+		return &wi
+	}, opts.WithName("NetworkLocalWorkloads")...)
 
-	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, "networkAddress", networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, "service", func(o model.WorkloadInfo) []string {
+	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](NetworkLocalWorkloads, "networkAddress", networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](NetworkLocalWorkloads, "service", func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
-	WorkloadWaypointIndexHostname := krt.NewIndex(Workloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
+	WorkloadWaypointIndexHostname := krt.NewIndex(NetworkLocalWorkloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -475,7 +486,7 @@ func New(options Options) Index {
 			Hostname:  waypointAddress.Hostname,
 		}}
 	})
-	WorkloadWaypointIndexIP := krt.NewIndex(Workloads, "waypointIp", func(w model.WorkloadInfo) []networkAddress {
+	WorkloadWaypointIndexIP := krt.NewIndex(NetworkLocalWorkloads, "waypointIp", func(w model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -501,7 +512,7 @@ func New(options Options) Index {
 
 		return []networkAddress{netaddr}
 	})
-	Workloads.RegisterBatch(krt.BatchedEventFilter(
+	NetworkLocalWorkloads.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.WorkloadInfo) *workloadapi.Workload {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
@@ -512,7 +523,7 @@ func New(options Options) Index {
 	if features.EnableIngressWaypointRouting {
 		RegisterEdsShim(
 			a.XDSUpdater,
-			Workloads,
+			NetworkLocalWorkloads,
 			NamespacesInfo,
 			WorkloadServiceIndex,
 			WorkloadServices,
@@ -523,7 +534,7 @@ func New(options Options) Index {
 
 	a.namespaces = NamespacesInfo
 	a.workloads = workloadsCollection{
-		Collection:               Workloads,
+		Collection:               NetworkLocalWorkloads,
 		ByAddress:                WorkloadAddressIndex,
 		ByServiceKey:             WorkloadServiceIndex,
 		ByOwningWaypointHostname: WorkloadWaypointIndexHostname,

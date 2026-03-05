@@ -709,9 +709,10 @@ func workloadEntryWorkloadBuilder(
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(wle.Labels, w.WorkloadName)
 
 		setTunnelProtocol(wle.Labels, wle.Annotations, w, flags)
+
 		localNetwork := localNetworkGetter(ctx)
 		if network != localNetwork.String() {
-			// This is a remote workload that we'll never send directly; don't precompute
+			// Remote workload; KRT-level filtering will exclude it. Skip precompute.
 			return &model.WorkloadInfo{
 				Workload:     w,
 				Labels:       wle.Labels,
@@ -719,7 +720,6 @@ func workloadEntryWorkloadBuilder(
 				CreationTime: wle.CreationTimestamp.Time,
 			}
 		}
-
 		return precomputeWorkloadPtr(&model.WorkloadInfo{
 			Workload:     w,
 			Labels:       wle.Labels,
@@ -879,9 +879,10 @@ func podWorkloadBuilder(
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
 		setTunnelProtocol(p.Labels, p.Annotations, w, flags)
+
 		localNetwork := localNetworkGetter(ctx)
 		if network != localNetwork.String() {
-			// This is a remote workload that we'll never send directly; don't precompute
+			// Remote workload; KRT-level filtering will exclude it. Skip precompute.
 			return &model.WorkloadInfo{
 				Workload:     w,
 				Labels:       p.Labels,

@@ -1099,9 +1099,6 @@ func (i AddressInfo) Aliases() []string {
 }
 
 func (i AddressInfo) ResourceName() string {
-	if i.Address == nil {
-		return ""
-	}
 	var name string
 	switch addr := i.Type.(type) {
 	case *workloadapi.Address_Workload:

@@ -475,3 +475,20 @@ func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *
 		})
 	}
 }
+
+// TestAmbientIndex_WorkloadEntry_DifferentNetwork_FilteredOut validates that a WorkloadEntry with a different
+// network than the cluster is not added to the NetworkLocalWorkloads collection (filtered at KRT level).
+func TestAmbientIndex_WorkloadEntry_DifferentNetwork_FilteredOut(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+	s := newAmbientTestServer(t, testC, testNW, "")
+
+	// Local WorkloadEntry (same network as cluster testNW) — should appear in the collection
+	s.addWorkloadEntries(t, "127.0.0.1", "local-we", "sa1", map[string]string{"app": "a"})
+	s.assertEvent(t, s.wleXdsName("local-we"))
+
+	// Remote WorkloadEntry (different network) — should be filtered out and NOT appear in the collection
+	s.addWorkloadEntryWithNetwork(t, "127.0.0.2", "remote-we", "sa2", map[string]string{"app": "a"}, "other-network")
+
+	// Only the local workload should be in the collection; remote-we must not appear
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "local-we")
+}

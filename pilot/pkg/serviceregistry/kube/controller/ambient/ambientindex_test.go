@@ -2573,6 +2573,18 @@ func (s *ambientTestServer) addWorkloadEntriesForClient(
 }
 
 func generateWorkloadEntry(ip, name, namespace, saName string, labels map[string]string, annotations map[string]string) *apiv1alpha3.WorkloadEntry {
+	return generateWorkloadEntryWithNetwork(ip, name, namespace, saName, labels, annotations, "")
+}
+
+func generateWorkloadEntryWithNetwork(ip, name, namespace, saName string, labels map[string]string, annotations map[string]string, network string) *apiv1alpha3.WorkloadEntry {
+	spec := v1alpha3.WorkloadEntry{
+		Address:        ip,
+		ServiceAccount: saName,
+		Labels:         labels,
+	}
+	if network != "" {
+		spec.Network = network
+	}
 	return &apiv1alpha3.WorkloadEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
@@ -2580,12 +2592,13 @@ func generateWorkloadEntry(ip, name, namespace, saName string, labels map[string
 			Annotations: annotations,
 			Namespace:   namespace,
 		},
-		Spec: v1alpha3.WorkloadEntry{
-			Address:        ip,
-			ServiceAccount: saName,
-			Labels:         labels,
-		},
+		Spec: spec,
 	}
+}
+
+func (s *ambientTestServer) addWorkloadEntryWithNetwork(t *testing.T, ip string, name, sa string, labels map[string]string, network string) {
+	t.Helper()
+	s.we.CreateOrUpdate(generateWorkloadEntryWithNetwork(ip, name, "ns1", sa, labels, nil, network))
 }
 
 func (s *ambientTestServer) deleteWorkloadEntry(t *testing.T, name string) {
