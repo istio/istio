@@ -1,0 +1,37 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[httpbin]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        regex: spiffe://cluster.local/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        regex: spiffe://another.local/.*
+        - andIds:
+            ids:
+            - notId:
+                orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          regex: spiffe://bad[^/]*/.*
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          regex: spiffe://untrusted/.*
+  shadowRulesStatPrefix: istio_dry_run_allow_

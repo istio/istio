@@ -38,6 +38,7 @@ const (
 	attrRemoteIP          = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol.
 	attrSrcNamespace      = "source.namespace"            // e.g. "default".
 	attrSrcServiceAccount = "source.serviceAccount"       // e.g. "default/productpage".
+	attrSrcTrustDomain    = "source.trustDomain"          // trust domain portion of the source SPIFFE identity.
 	attrSrcPrincipal      = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal  = "request.auth.principal"      // authenticated principal of the request.
 	attrRequestAudiences  = "request.auth.audiences"      // intended audience(s) for this authentication information.
@@ -99,6 +100,8 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 			basePrincipal.appendLast(remoteIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcNamespace:
 			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues)
+		case k == attrSrcTrustDomain:
+			basePrincipal.appendLast(srcTrustDomainGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcServiceAccount:
 			basePrincipal.appendLast(srcServiceAccountGenerator{policyName: policyName}, k, when.Values, when.NotValues)
 		case k == attrSrcPrincipal:
@@ -124,6 +127,7 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
 			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
+			merged.insertFront(srcTrustDomainGenerator{}, attrSrcTrustDomain, s.TrustDomains, s.NotTrustDomains)
 			merged.insertFront(srcServiceAccountGenerator{policyName: policyName}, attrSrcServiceAccount, s.ServiceAccounts, s.NotServiceAccounts)
 			merged.insertFrontExtended(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
@@ -161,6 +165,13 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 				}
 				if len(r.notValues) != 0 {
 					r.notValues = tdBundle.ReplaceTrustDomainAliases(r.notValues)
+				}
+			} else if r.key == attrSrcTrustDomain {
+				if len(r.values) != 0 {
+					r.values = expandTrustDomainAliases(r.values, tdBundle.TrustDomains)
+				}
+				if len(r.notValues) != 0 {
+					r.notValues = expandTrustDomainAliases(r.notValues, tdBundle.TrustDomains)
 				}
 			}
 		}
@@ -412,4 +423,33 @@ func (p *ruleList) appendLastExtended(g extendedGenerator, key string, values, n
 		extended:  g,
 	}
 	p.rules = append(p.rules, r)
+}
+
+// expandTrustDomainAliases expands a list of trust domain values to include any known aliases.
+// For each value in the list, if it matches one of the trust domains in the bundle, the full
+// set of trust domains is included (so old certs continue to match during migration).
+func expandTrustDomainAliases(values []string, trustDomains []string) []string {
+	result := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, v := range values {
+		matched := false
+		for _, td := range trustDomains {
+			if v == td {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			for _, td := range trustDomains {
+				if !seen[td] {
+					seen[td] = true
+					result = append(result, td)
+				}
+			}
+		} else if !seen[v] {
+			seen[v] = true
+			result = append(result, v)
+		}
+	}
+	return result
 }

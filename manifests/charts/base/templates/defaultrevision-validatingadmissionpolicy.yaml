@@ -31,6 +31,8 @@ spec:
       expression: "object.kind == 'ProxyConfig'"
     - name: isTelemetry
       expression: "object.kind == 'Telemetry'"
+    - name: isAuthorizationPolicy
+      expression: "object.kind == 'AuthorizationPolicy'"
   validations:
     - expression: "!variables.isEnvoyFilter"
     - expression: "!variables.isWasmPlugin"
@@ -41,6 +43,16 @@ spec:
             (has(object.spec.tracing) ? object.spec.tracing : {}).exists(t, has(t.useRequestIdForTraceSampling)) ||
             (has(object.spec.metrics) ? object.spec.metrics : {}).exists(m, has(m.reportingInterval)) ||
             (has(object.spec.accessLogging) ? object.spec.accessLogging : {}).exists(l, has(l.filter))
+          )
+        )
+    - expression: |
+        !(
+          variables.isAuthorizationPolicy &&
+          has(object.spec.rules) &&
+          object.spec.rules.exists(r,
+            has(r.from) && r.from.exists(f,
+              has(f.source) && (has(f.source.trustDomains) || has(f.source.notTrustDomains))
+            )
           )
         )
 ---
