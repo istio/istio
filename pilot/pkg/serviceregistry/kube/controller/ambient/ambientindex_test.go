@@ -2576,24 +2576,29 @@ func generateWorkloadEntry(ip, name, namespace, saName string, labels map[string
 	return generateWorkloadEntryWithNetwork(ip, name, namespace, saName, labels, annotations, "")
 }
 
-func generateWorkloadEntryWithNetwork(ip, name, namespace, saName string, labels map[string]string, annotations map[string]string, network string) *apiv1alpha3.WorkloadEntry {
-	spec := v1alpha3.WorkloadEntry{
-		Address:        ip,
-		ServiceAccount: saName,
-		Labels:         labels,
-	}
-	if network != "" {
-		spec.Network = network
-	}
-	return &apiv1alpha3.WorkloadEntry{
+func generateWorkloadEntryWithNetwork(
+	ip, name, namespace, saName string,
+	labels map[string]string,
+	annotations map[string]string,
+	network string,
+) *apiv1alpha3.WorkloadEntry {
+	obj := &apiv1alpha3.WorkloadEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Labels:      labels,
 			Annotations: annotations,
 			Namespace:   namespace,
 		},
-		Spec: spec,
+		Spec: v1alpha3.WorkloadEntry{
+			Address:        ip,
+			ServiceAccount: saName,
+			Labels:         labels,
+		},
 	}
+	if network != "" {
+		obj.Spec.Network = network
+	}
+	return obj
 }
 
 func (s *ambientTestServer) addWorkloadEntryWithNetwork(t *testing.T, ip string, name, sa string, labels map[string]string, network string) {
