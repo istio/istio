@@ -32,6 +32,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -180,6 +181,7 @@ func newJwksResolverWithCABundlePaths(
 			Transport: &http.Transport{
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
+				DialContext:       blockedCIDRDialContext,
 			},
 		},
 	}
@@ -205,6 +207,7 @@ func newJwksResolverWithCABundlePaths(
 			Transport: &http.Transport{
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
+				DialContext:       blockedCIDRDialContext,
 				TLSClientConfig: &tls.Config{
 					// nolint: gosec // user explicitly opted into insecure
 					InsecureSkipVerify: features.JwksResolverInsecureSkipVerify,
@@ -292,45 +295,10 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string, timeout time.Duration) *envoy_jwt.JwtProvider_LocalJwks {
 	var err error
 	if jwtPubKey == "" {
-		// Check if the jwksURI resolves to any blocked CIDRs before fetching the key
-		// If it does, we skip fetching and use the fake jwks instead
-		blocked := false
-		if len(features.BlockedCIDRsInJWKURIs) > 0 {
-			// Parse the URL to get the hostname
-			u, parseErr := url.Parse(jwksURI)
-			if parseErr != nil {
-				log.Errorf("Failed to parse jwksURI %q: %v", jwksURI, parseErr)
-			} else {
-				host := u.Hostname()
-				// Resolve the hostname to get IP addresses
-				ips, resolveErr := net.DefaultResolver.LookupIP(context.Background(), "ip", host)
-				if resolveErr != nil {
-					log.Warnf("Failed to resolve hostname %q from jwksURI %q: %v", host, jwksURI, resolveErr)
-				}
-
-				// Check if any resolved IP is in the blocked list
-				for _, ip := range ips {
-					ipStr := ip.String()
-					// Check CIDR ranges
-					for _, cidr := range features.BlockedCIDRsInJWKURIs {
-						if cidr.Contains(ip) {
-							log.Errorf("jwksURI %q resolved to IP %q which is in blocked CIDR range %s", jwksURI, ipStr, cidr.String())
-							blocked = true
-							break
-						}
-					}
-					if blocked {
-						break
-					}
-				}
-			}
-		}
-		if !blocked {
-			// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
-			// workflow, where the JWT key resolver should have already been initialized on server creation.
-			jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI, timeout)
-		}
-		if err != nil || blocked {
+		// jwtKeyResolver should never be nil since the function is only called in Discovery Server request processing
+		// workflow, where the JWT key resolver should have already been initialized on server creation.
+		jwtPubKey, err = r.GetPublicKey(jwtIssuer, jwksURI, timeout)
+		if err != nil {
 			log.Warnf("JWKS fetch failed for issuer %s (%s), using public-only JWKS with discarded private key - JWT requests will be rejected", jwtIssuer, jwksURI)
 			// fail closed: use a public key where the private key has been permanently discarded
 			// nobody can sign valid JWTs because the private key doesn't exist anywhere
@@ -630,6 +598,35 @@ func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 // (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
 func (r *JwksResolver) Close() {
 	closeChan <- true
+}
+
+// blockedCIDRDialContext is a custom dialContext that blocks connections to IP addresses
+// in CIDR ranges using the dialer's Control callback, which receives the resolved
+// IP address for each connection attempt.
+func blockedCIDRDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	dialer := &net.Dialer{}
+
+	if len(features.BlockedCIDRsInJWKURIs) > 0 {
+		dialer.Control = func(network, address string, c syscall.RawConn) error {
+			host, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return err
+			}
+			ip := net.ParseIP(host)
+			if ip == nil {
+				return fmt.Errorf("unable to parse IP from resolved address %s", address)
+			}
+			for _, cidr := range features.BlockedCIDRsInJWKURIs {
+				if cidr.Contains(ip) {
+					return fmt.Errorf("connection to %s (resolved IP %s) blocked: IP is in blocked CIDR range %s",
+						addr, ip.String(), cidr.String())
+				}
+			}
+			return nil
+		}
+	}
+
+	return dialer.DialContext(ctx, network, addr)
 }
 
 // Compare two JWKS responses, returning true if there is a difference and false otherwise
