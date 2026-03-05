@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/filesecrets"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -81,7 +80,7 @@ type fileConfigSource struct {
 	root string
 
 	mu         sync.RWMutex
-	collection krt.Collection[filesecrets.KubeconfigFile]
+	collection krt.Collection[KubeconfigFile]
 	started    atomic.Bool
 	pending    []func(types.NamespacedName, controllers.EventType)
 }
@@ -100,13 +99,13 @@ func (f *fileConfigSource) Start(stop <-chan struct{}) {
 	}
 
 	opts := krt.NewOptionsBuilder(stop, "remote-kubeconfig-file", nil)
-	collection, err := filesecrets.NewKubeconfigCollection(
+	collection, err := NewKubeconfigCollection(
 		f.root,
 		opts.WithName("RemoteKubeconfigs")...,
 	)
 	if err != nil {
 		log.Errorf("Failed to initialize file-based remote kubeconfigs from %q: %v", f.root, err)
-		collection = krt.NewStaticCollection[filesecrets.KubeconfigFile](nil, nil, opts.WithName("RemoteKubeconfigs")...)
+		collection = krt.NewStaticCollection[KubeconfigFile](nil, nil, opts.WithName("RemoteKubeconfigs")...)
 	}
 	f.collection = collection
 	pending := f.pending
@@ -167,7 +166,7 @@ func (f *fileConfigSource) registerHandler(handler func(key types.NamespacedName
 		return
 	}
 
-	collection.Register(func(ev krt.Event[filesecrets.KubeconfigFile]) {
+	collection.Register(func(ev krt.Event[KubeconfigFile]) {
 		item := ev.Latest()
 		handler(types.NamespacedName{Name: item.ClusterID, Namespace: ""}, ev.Event)
 	})

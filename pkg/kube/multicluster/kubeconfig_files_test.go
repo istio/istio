@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package filesecrets
+package multicluster
 
 import (
 	"fmt"
@@ -112,7 +112,7 @@ func TestParseKubeconfig(t *testing.T) {
 	}{
 		{
 			name:       "valid kubeconfig",
-			data:       kubeconfigYAML("cluster-1"),
+			data:       kubeconfigFileYAML("cluster-1"),
 			wantLength: 1,
 			wantID:     "cluster-1",
 		},
@@ -157,11 +157,11 @@ func TestNewKubeconfigCollection(t *testing.T) {
 		tracker.Record(fmt.Sprintf("%s/%s", ev.Event.String(), ev.Latest().ResourceName()))
 	})
 
-	file.WriteOrFail(t, filepath.Join(root, "remote.yaml"), kubeconfigYAML("cluster-1"))
+	file.WriteOrFail(t, filepath.Join(root, "remote.yaml"), kubeconfigFileYAML("cluster-1"))
 	tracker.WaitOrdered("add/cluster-1")
 }
 
-func kubeconfigYAML(clusterID string) []byte {
+func kubeconfigFileYAML(clusterID string) []byte {
 	return []byte(fmt.Sprintf(`apiVersion: v1
 kind: Config
 clusters:
