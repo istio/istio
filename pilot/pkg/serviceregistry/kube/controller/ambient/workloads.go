@@ -190,6 +190,7 @@ func MergedGlobalWorkloadsCollection(
 			globalNetworks.NetworkGateways,
 			globalNetworks.GatewaysByNetwork,
 			flags,
+			true, // Remote network workloads will be coalesced; safe to skip precompute
 		),
 		opts.WithName("LocalPodWorkloads")...,
 	)
@@ -214,6 +215,7 @@ func MergedGlobalWorkloadsCollection(
 			globalNetworks.NetworkGateways,
 			globalNetworks.GatewaysByNetwork,
 			flags,
+			true, // Remote network workloads will be coalesced; safe to skip precompute
 		),
 		opts.WithName("LocalWorkloadEntryWorkloads")...,
 	)
@@ -437,6 +439,7 @@ func MergedGlobalWorkloadsCollection(
 					globalNetworks.NetworkGateways,
 					globalNetworks.GatewaysByNetwork,
 					flags,
+					true, // Remote network workloads will be coalesced; safe to skip precompute
 				),
 				append(
 					opts,
@@ -484,6 +487,7 @@ func MergedGlobalWorkloadsCollection(
 					globalNetworks.NetworkGateways,
 					globalNetworks.GatewaysByNetwork,
 					flags,
+					true, // Remote network workloads will be coalesced; safe to skip precompute
 				),
 				append(
 					opts,
@@ -653,6 +657,7 @@ func workloadEntryWorkloadBuilder(
 	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
+	canSkipPrecompute bool,
 ) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, wle *networkingclient.WorkloadEntry) *model.WorkloadInfo {
 		// WLE can put labels in multiple places; normalize this
@@ -709,23 +714,17 @@ func workloadEntryWorkloadBuilder(
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(wle.Labels, w.WorkloadName)
 
 		setTunnelProtocol(wle.Labels, wle.Annotations, w, flags)
-		localNetwork := localNetworkGetter(ctx)
-		if network != localNetwork.String() {
-			// This is a remote workload that we'll never send directly; don't precompute
-			return &model.WorkloadInfo{
-				Workload:     w,
-				Labels:       wle.Labels,
-				Source:       kind.WorkloadEntry,
-				CreationTime: wle.CreationTimestamp.Time,
-			}
-		}
-
-		return precomputeWorkloadPtr(&model.WorkloadInfo{
+		wi := &model.WorkloadInfo{
 			Workload:     w,
 			Labels:       wle.Labels,
 			Source:       kind.WorkloadEntry,
 			CreationTime: wle.CreationTimestamp.Time,
-		})
+		}
+		if canSkipPrecompute && network != localNetworkGetter(ctx).String() {
+			// Remote network workload that will be coalesced into a split-horizon workload; skip precompute
+			return wi
+		}
+		return precomputeWorkloadPtr(wi)
 	}
 }
 
@@ -757,6 +756,7 @@ func (a Builder) workloadEntryWorkloadBuilder(
 		a.NetworkGateways,
 		a.GatewaysByNetwork,
 		a.Flags,
+		false, // No coalesced path; always precompute
 	)
 }
 
@@ -802,6 +802,7 @@ func podWorkloadBuilder(
 	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
+	canSkipPrecompute bool,
 ) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 		// Pod Is Pending but have a pod IP should be a valid workload, we should build it ,
@@ -879,22 +880,17 @@ func podWorkloadBuilder(
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
 		setTunnelProtocol(p.Labels, p.Annotations, w, flags)
-		localNetwork := localNetworkGetter(ctx)
-		if network != localNetwork.String() {
-			// This is a remote workload that we'll never send directly; don't precompute
-			return &model.WorkloadInfo{
-				Workload:     w,
-				Labels:       p.Labels,
-				Source:       kind.Pod,
-				CreationTime: p.CreationTimestamp.Time,
-			}
-		}
-		return precomputeWorkloadPtr(&model.WorkloadInfo{
+		wi := &model.WorkloadInfo{
 			Workload:     w,
 			Labels:       p.Labels,
 			Source:       kind.Pod,
 			CreationTime: p.CreationTimestamp.Time,
-		})
+		}
+		if canSkipPrecompute && network != localNetworkGetter(ctx).String() {
+			// Remote network workload that will be coalesced into a split-horizon workload; skip precompute
+			return wi
+		}
+		return precomputeWorkloadPtr(wi)
 	}
 }
 
@@ -933,6 +929,7 @@ func (a Builder) podWorkloadBuilder(
 		a.NetworkGateways,
 		a.GatewaysByNetwork,
 		a.Flags,
+		false, // No coalesced path; always precompute
 	)
 }
 
