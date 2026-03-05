@@ -634,6 +634,8 @@ func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) 
 			push.InitContext(env, nil, nil)
 			env.SetPushContext(push)
 
+			proxy.SetSidecarScope(push)
+
 			builder := NewCDSEndpointBuilder(
 				proxy, push,
 				"outbound|80||example.ns.svc.cluster.local",
