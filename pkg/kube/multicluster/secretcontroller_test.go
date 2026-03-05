@@ -123,7 +123,12 @@ func TestControllerFileSource(t *testing.T) {
 
 	client := kube.NewFakeClient()
 	stopCh := test.NewStop(t)
-	controller := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
+	controller := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
 	if controller == nil {
 		t.Fatal("expected controller to be created")
 	}

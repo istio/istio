@@ -54,6 +54,16 @@ func TestClusterIDFromKubeconfig(t *testing.T) {
 			want: "cluster-b",
 		},
 		{
+			name: "multiple contexts are deterministic",
+			cfg: &clientcmdapi.Config{
+				Contexts: map[string]*clientcmdapi.Context{
+					"z-context": {Cluster: "cluster-z"},
+					"a-context": {Cluster: "cluster-a"},
+				},
+			},
+			want: "cluster-a",
+		},
+		{
 			name: "single cluster",
 			cfg: &clientcmdapi.Config{
 				Clusters: map[string]*clientcmdapi.Cluster{
@@ -61,6 +71,16 @@ func TestClusterIDFromKubeconfig(t *testing.T) {
 				},
 			},
 			want: "cluster-c",
+		},
+		{
+			name: "multiple clusters are deterministic",
+			cfg: &clientcmdapi.Config{
+				Clusters: map[string]*clientcmdapi.Cluster{
+					"cluster-z": {Server: "https://cluster-z.example.com"},
+					"cluster-a": {Server: "https://cluster-a.example.com"},
+				},
+			},
+			want: "cluster-a",
 		},
 		{
 			name:    "no clusters",
