@@ -161,6 +161,30 @@ func TestIncrementalPush(t *testing.T) {
 			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
 		}
 	})
+	t.Run("Full Push with updated peer authentication", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "testns"}),
+		})
+		if _, err := ads.Wait(time.Second*5, v3.ClusterType, v3.EndpointType); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) < 4 {
+			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
+		}
+	})
+	t.Run("Full Push with updated unrelated peer authentication", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "otherns"}),
+		})
+		upd, _ := ads.Wait(time.Second*5, watchAll...)
+		if slices.Contains(upd, v3.EndpointType) {
+			t.Fatalf("Expected no EDS push, got %v", upd)
+		}
+	})
 }
 
 // Regression test for https://github.com/istio/istio/issues/38709

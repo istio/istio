@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	pkgtest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -1718,6 +1719,160 @@ func createNonTrivialRequestAuthnTestConfigs(issuer string) []*config.Config {
 	configs = append(configs, httpbinCfgV1)
 
 	return configs
+}
+
+func TestFilterPeerAuthenticationForSidecar(t *testing.T) {
+	policies := getTestAuthenticationPolicies(createTestConfigs(true /* with mesh peer authn */), t)
+
+	cases := []struct {
+		name                       string
+		namespaces                 []string
+		wantPeerAuthnNamespaces    []string
+		notWantPeerAuthnNamespaces []string
+		wantGlobalMutualTLSMode    MutualTLSMode
+		wantNamespaceMutualTLS     map[string]MutualTLSMode
+	}{
+		{
+			name:                    "only config namespace foo",
+			namespaces:              []string{"foo"},
+			wantPeerAuthnNamespaces: []string{"foo", rootNamespace},
+			// bar is not included
+			notWantPeerAuthnNamespaces: []string{"bar"},
+			wantGlobalMutualTLSMode:    MTLSPermissive,
+			wantNamespaceMutualTLS: map[string]MutualTLSMode{
+				"foo": MTLSStrict,
+			},
+		},
+		{
+			name:                       "namespace with no policies",
+			namespaces:                 []string{"bar"},
+			wantPeerAuthnNamespaces:    []string{rootNamespace},
+			notWantPeerAuthnNamespaces: []string{"foo", "bar"},
+			wantGlobalMutualTLSMode:    MTLSPermissive,
+			wantNamespaceMutualTLS:     map[string]MutualTLSMode{},
+		},
+		{
+			name:                       "multiple namespaces including foo",
+			namespaces:                 []string{"foo", "bar", "baz"},
+			wantPeerAuthnNamespaces:    []string{"foo", rootNamespace},
+			notWantPeerAuthnNamespaces: []string{"bar", "baz"},
+			wantGlobalMutualTLSMode:    MTLSPermissive,
+			wantNamespaceMutualTLS: map[string]MutualTLSMode{
+				"foo": MTLSStrict,
+			},
+		},
+		{
+			name:                       "root namespace explicitly included",
+			namespaces:                 []string{rootNamespace},
+			wantPeerAuthnNamespaces:    []string{rootNamespace},
+			notWantPeerAuthnNamespaces: []string{"foo"},
+			wantGlobalMutualTLSMode:    MTLSPermissive,
+			wantNamespaceMutualTLS:     map[string]MutualTLSMode{},
+		},
+		{
+			name:                       "empty namespaces still includes root",
+			namespaces:                 []string{},
+			wantPeerAuthnNamespaces:    []string{rootNamespace},
+			notWantPeerAuthnNamespaces: []string{"foo"},
+			wantGlobalMutualTLSMode:    MTLSPermissive,
+			wantNamespaceMutualTLS:     map[string]MutualTLSMode{},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ns := sets.New(tc.namespaces...)
+			filtered := policies.FilterPeerAuthenticationForSidecar(ns)
+
+			// Verify root namespace is always included
+			assert.Equal(t, filtered.GetRootNamespace(), rootNamespace)
+
+			// Verify globalMutualTLSMode is preserved
+			assert.Equal(t, filtered.globalMutualTLSMode, tc.wantGlobalMutualTLSMode)
+
+			// Verify expected namespaces have policies
+			for _, wantNs := range tc.wantPeerAuthnNamespaces {
+				if _, ok := filtered.peerAuthentications[wantNs]; !ok {
+					t.Errorf("expected PeerAuthentication policies in namespace %q but found none", wantNs)
+				}
+			}
+
+			// Verify excluded namespaces don't have policies
+			for _, notWantNs := range tc.notWantPeerAuthnNamespaces {
+				if configs, ok := filtered.peerAuthentications[notWantNs]; ok {
+					t.Errorf("unexpected PeerAuthentication policies in namespace %q: %v", notWantNs, configs)
+				}
+			}
+
+			// Verify namespaceMutualTLSMode
+			for ns, wantMode := range tc.wantNamespaceMutualTLS {
+				got := filtered.GetNamespaceMutualTLSMode(ns)
+				if got != wantMode {
+					t.Errorf("namespace %q: want mTLS mode %s, got %s", ns, wantMode, got)
+				}
+			}
+
+			// Verify requestAuthentications is empty (filter is PeerAuthentication-only)
+			assert.Equal(t, len(filtered.requestAuthentications), 0)
+
+			// Verify version is non-empty when there are policies
+			hasPolicies := false
+			for _, configs := range filtered.peerAuthentications {
+				if len(configs) > 0 {
+					hasPolicies = true
+					break
+				}
+			}
+			if hasPolicies && filtered.GetVersion() == "" {
+				t.Error("expected non-empty version when policies exist")
+			}
+		})
+	}
+}
+
+func TestFilterPeerAuthenticationForSidecarWithoutMeshPeerAuthn(t *testing.T) {
+	policies := getTestAuthenticationPolicies(createTestConfigs(false /* without mesh peer authn */), t)
+
+	ns := sets.New("foo")
+	filtered := policies.FilterPeerAuthenticationForSidecar(ns)
+
+	// Without mesh-level peer authn, globalMutualTLSMode should be unknown
+	assert.Equal(t, filtered.globalMutualTLSMode, MTLSUnknown)
+
+	// foo namespace policies should still be present
+	if _, ok := filtered.peerAuthentications["foo"]; !ok {
+		t.Error("expected PeerAuthentication policies in namespace foo")
+	}
+
+	// root namespace should still have the workload-selector policy (global-peer-with-selector)
+	// even without mesh-level peer authn
+	if configs, ok := filtered.peerAuthentications[rootNamespace]; !ok || len(configs) == 0 {
+		t.Error("expected PeerAuthentication policies in root namespace (global-peer-with-selector)")
+	} else {
+		assert.Equal(t, len(configs), 1)
+		assert.Equal(t, configs[0].Name, "global-peer-with-selector")
+	}
+
+	// Namespace mTLS mode for foo should still be STRICT
+	assert.Equal(t, filtered.GetNamespaceMutualTLSMode("foo"), MTLSStrict)
+}
+
+func TestFilterPeerAuthenticationForSidecarPreservesPolicies(t *testing.T) {
+	policies := getTestAuthenticationPolicies(createTestConfigs(true /* with mesh peer authn */), t)
+
+	ns := sets.New("foo")
+	filtered := policies.FilterPeerAuthenticationForSidecar(ns)
+
+	// Verify the filtered policies for "foo" match the original
+	matcher := PolicyMatcherFor("foo", nil, false)
+	originalPeerAuthn := policies.GetPeerAuthenticationsForWorkload(matcher)
+	filteredPeerAuthn := filtered.GetPeerAuthenticationsForWorkload(matcher)
+
+	assert.Equal(t, len(filteredPeerAuthn), len(originalPeerAuthn))
+	for i, got := range filteredPeerAuthn {
+		assert.Equal(t, got.Name, originalPeerAuthn[i].Name)
+		assert.Equal(t, got.Namespace, originalPeerAuthn[i].Namespace)
+	}
 }
 
 func printConfigs(configs []*config.Config) string {

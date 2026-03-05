@@ -48,6 +48,7 @@ var (
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
+		kind.PeerAuthentication,
 	)
 
 	// clusterScopedKnownConfigTypes includes configs when they are in root namespace,
@@ -56,7 +57,6 @@ var (
 		kind.EnvoyFilter,
 		kind.AuthorizationPolicy,
 		kind.RequestAuthentication,
-		kind.PeerAuthentication,
 		kind.WasmPlugin,
 		kind.Telemetry,
 	)
@@ -170,6 +170,11 @@ type SidecarScope struct {
 	// destination rule.
 	destinationRules        map[host.Name][]*ConsolidatedDestRule
 	destinationRulesByNames map[types.NamespacedName]*config.Config
+
+	// AuthnPolicies contains the PeerAuthentication policies relevant to this sidecar scope.
+	// It only includes policies from the root namespace, the config namespace, and namespaces
+	// from which services have been imported.
+	AuthnPolicies *AuthenticationPolicies
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
@@ -325,6 +330,10 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 	// this sidecar crd. This is needed to generate CDS output
 	sidecarScope.collectImportedServices(ps, configNamespace)
 
+	// Select PeerAuthentication policies from namespaces relevant to this sidecar:
+	// root namespace, config namespace, and namespaces of imported services.
+	sidecarScope.selectAuthnPolicies(ps, configNamespace)
+
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
@@ -396,6 +405,32 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 					}
 				}
 			}
+		}
+	}
+}
+
+func (sc *SidecarScope) selectAuthnPolicies(ps *PushContext, configNamespace string) {
+	if ps.AuthnPolicies == nil {
+		return
+	}
+
+	// Collect relevant namespaces: config namespace + namespaces of all imported services.
+	// Root namespace is always included by FilterPeerAuthenticationForSidecar.
+	relevantNamespaces := sets.New(configNamespace)
+	for _, svc := range sc.services {
+		relevantNamespaces.Insert(svc.Attributes.Namespace)
+	}
+
+	sc.AuthnPolicies = ps.AuthnPolicies.FilterPeerAuthenticationForSidecar(relevantNamespaces)
+
+	// Add all selected PeerAuthentication policies as config dependencies
+	for _, configs := range sc.AuthnPolicies.peerAuthentications {
+		for _, cfg := range configs {
+			sc.AddConfigDependencies(ConfigKey{
+				Kind:      kind.PeerAuthentication,
+				Name:      cfg.Name,
+				Namespace: cfg.Namespace,
+			}.HashCode())
 		}
 	}
 }

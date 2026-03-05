@@ -58,5 +58,13 @@ spec:
               name: Cookie
               ttl: 30s
             minimumRingSize: 42
-
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: testns
+spec:
+  mtls:
+    mode: STRICT
 ---

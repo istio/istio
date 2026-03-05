@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // MutualTLSMode is the mutual TLS mode specified by authentication policy.
@@ -224,6 +225,32 @@ func GetAmbientPolicyConfigName(key ConfigKey) string {
 	default:
 		return key.Name
 	}
+}
+
+// FilterPeerAuthenticationForSidecar creates a new AuthenticationPolicies containing only
+// PeerAuthentication policies from the specified namespaces. The root namespace is always included.
+func (policy *AuthenticationPolicies) FilterPeerAuthenticationForSidecar(namespaces sets.Set[string]) *AuthenticationPolicies {
+	// Always include root namespace
+	namespaces.Insert(policy.rootNamespace)
+
+	filtered := &AuthenticationPolicies{
+		peerAuthentications:    make(map[string][]config.Config, len(namespaces)),
+		namespaceMutualTLSMode: make(map[string]MutualTLSMode, len(namespaces)),
+		globalMutualTLSMode:    policy.globalMutualTLSMode,
+		rootNamespace:          policy.rootNamespace,
+		aggregateVersion:       policy.aggregateVersion,
+	}
+
+	for ns := range namespaces {
+		if configs, ok := policy.peerAuthentications[ns]; ok {
+			filtered.peerAuthentications[ns] = configs
+		}
+		if mode, ok := policy.namespaceMutualTLSMode[ns]; ok {
+			filtered.namespaceMutualTLSMode[ns] = mode
+		}
+	}
+
+	return filtered
 }
 
 func getConfigsForWorkload(rootNamespace string, configsByNamespace map[string][]config.Config, selectionOpts WorkloadPolicyMatcher) []*config.Config {
