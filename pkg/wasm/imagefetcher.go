@@ -37,7 +37,15 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/env"
 )
+
+var maxWasmBinarySizeBytes = env.Register(
+	"ISTIO_WASM_OCI_MAX_BINARY_SIZE_BYTES",
+	1024*1024*256,
+	"Maximum size of a Wasm binary in bytes when fetched from OCI images. Default is 256MB.",
+).Get()
 
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
@@ -353,8 +361,7 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 
 	// Search for the file walking through the archive.
 
-	// Limit wasm binary to 256MB; in reality it must be much smaller
-	tr := tar.NewReader(io.LimitReader(gr, 1024*1024*256))
+	tr := tar.NewReader(io.LimitReader(gr, int64(maxWasmBinarySizeBytes)))
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {
