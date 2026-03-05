@@ -21,6 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
+	"istio.io/api/networking/v1alpha3"
+	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
@@ -474,4 +476,43 @@ func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *
 			s.assertWorkloads(t, s.addrXdsName("10.0.0.1"), workloadapi.WorkloadStatus_HEALTHY, "pod1")
 		})
 	}
+}
+
+// TestAmbientIndex_CrossNetworkWorkloadEntry verifies that a WorkloadEntry with a non-local
+// network is properly precomputed when AMBIENT_ENABLE_MULTI_NETWORK is disabled.
+// This is a regression test for https://github.com/istio/istio/issues/59321 where
+// a cross-network WE would skip precomputation, causing a nil-pointer panic in XDS.
+func TestAmbientIndex_CrossNetworkWorkloadEntry(t *testing.T) {
+	// Explicitly disable multi-network ambient; this is the default but be explicit for clarity
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, false)
+	s := newAmbientTestServer(t, testC, testNW, "")
+
+	// Create a WorkloadEntry with a network different from the local cluster network
+	s.we.CreateOrUpdate(&apiv1alpha3.WorkloadEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cross-net-wle",
+			Namespace: testNS,
+			Labels:    map[string]string{"app": "cross-net"},
+		},
+		Spec: v1alpha3.WorkloadEntry{
+			Address:        "10.10.10.1",
+			ServiceAccount: "sa-cross",
+			Labels:         map[string]string{"app": "cross-net"},
+			Network:        "other-network",
+		},
+	})
+
+	// The workload should appear and be fully functional (precomputed) despite being on a different network.
+	// Before the fix, this would panic because precomputation was skipped for cross-network WEs
+	// even when there was no coalescing path to handle them.
+	s.assertEvent(t, s.wleXdsName("cross-net-wle"))
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "cross-net-wle")
+
+	// Verify the workload is properly addressable (this exercises AsAddress which requires precomputation).
+	// Use the WE's network for the lookup key, not the local network.
+	addrs := s.lookup("other-network/10.10.10.1")
+	assert.Equal(t, len(addrs), 1)
+	wl := addrs[0].GetWorkload()
+	assert.Equal(t, wl.GetName(), "cross-net-wle")
+	assert.Equal(t, wl.GetNetwork(), "other-network")
 }
