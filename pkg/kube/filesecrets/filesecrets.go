@@ -16,6 +16,7 @@ package filesecrets
 
 import (
 	"fmt"
+	"sort"
 
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -74,8 +75,8 @@ func parseKubeconfig(data []byte) ([]KubeconfigFile, error) {
 
 // clusterIDFromKubeconfig selects a cluster ID in this order:
 // 1. The cluster referenced by the current context.
-// 2. The first context encountered during context map iteration.
-// 3. The first cluster name encountered during cluster map iteration.
+// 2. The first valid context by lexicographic context name.
+// 3. The first cluster name by lexicographic order.
 func clusterIDFromKubeconfig(cfg *clientcmdapi.Config) (string, error) {
 	if cfg == nil {
 		return "", fmt.Errorf("kubeconfig is nil")
@@ -85,16 +86,28 @@ func clusterIDFromKubeconfig(cfg *clientcmdapi.Config) (string, error) {
 		return ctx.Cluster, nil
 	}
 
-	for _, ctx := range cfg.Contexts {
+	contextNames := make([]string, 0, len(cfg.Contexts))
+	for name := range cfg.Contexts {
+		contextNames = append(contextNames, name)
+	}
+	sort.Strings(contextNames)
+	for _, name := range contextNames {
+		ctx := cfg.Contexts[name]
 		if ctx != nil && ctx.Cluster != "" {
 			return ctx.Cluster, nil
 		}
 	}
 
+	clusterNames := make([]string, 0, len(cfg.Clusters))
 	for name := range cfg.Clusters {
-		if name != "" {
-			return name, nil
+		if name == "" {
+			continue
 		}
+		clusterNames = append(clusterNames, name)
+	}
+	sort.Strings(clusterNames)
+	if len(clusterNames) > 0 {
+		return clusterNames[0], nil
 	}
 
 	return "", fmt.Errorf("unable to determine cluster ID from kubeconfig")

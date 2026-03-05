@@ -214,14 +214,12 @@ func NewController(opts ControllerOptions) *Controller {
 }
 
 func (c *Controller) buildClustersCollection(optsBuilder krt.OptionsBuilder) {
-	Secrets := krt.WrapClient(c.secrets, optsBuilder.WithName("RemoteSecrets")...)
-
-	// Wait for secrets to sync and mark the cluster store as ready.
+	// Wait for the configured remote config source to sync and mark the cluster store as ready.
 	// This is also done in Run() for the queue-based path, but this goroutine
 	// ensures MarkSynced happens even when Run() hasn't been called yet.
 	go func() {
-		if !Secrets.WaitUntilSynced(c.stop) {
-			log.Errorf("Timed out waiting for remote secrets to sync")
+		if !kube.WaitForCacheSync("multicluster remote config source", c.stop, c.source.HasSynced) {
+			log.Errorf("Timed out waiting for remote config source to sync")
 		}
 		c.cs.MarkSynced()
 	}()
