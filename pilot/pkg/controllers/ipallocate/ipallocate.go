@@ -491,6 +491,8 @@ func (c *IPAllocator) clearStaleAddresses(se *networkingv1.ServiceEntry) error {
 
 func (c *IPAllocator) tryClearAddresses(se *networkingv1.ServiceEntry) error {
 	replaceAddresses, err := json.Marshal([]jsonPatch{
+		// Same TOCTOU guard as statusPatchForAddresses: test that addresses
+		// have not changed since we read them before replacing with empty.
 		{
 			Operation: "test",
 			Path:      "/status/addresses",
