@@ -270,6 +270,8 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 	}
 	out.selectDestinationRules(ps, configNamespace)
 
+	out.selectAuthnPolicies(ps, configNamespace)
+
 	// waypoint need to get vses from the egress listener
 	defaultEgressListener := &IstioEgressListenerWrapper{
 		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
