@@ -34,6 +34,18 @@ var (
 		"Enables the use of HTTP 1.0 in the outbound HTTP listeners, to support legacy applications.",
 	).Get()
 
+	InboundRetryOn = env.Register(
+		"PILOT_INBOUND_RETRY_ON",
+		"reset-before-request",
+		"The default RetryOn value used for generated inbound HTTP routes.",
+	).Get()
+
+	InboundNumRetries = env.Register(
+		"PILOT_INBOUND_NUM_RETRIES",
+		uint32(2),
+		"The default NumRetries value used for generated inbound HTTP routes.",
+	).Get()
+
 	ScopeGatewayToNamespace = env.Register(
 		"PILOT_SCOPE_GATEWAY_TO_NAMESPACE",
 		false,
