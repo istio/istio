@@ -524,6 +524,8 @@ func TestFilterIstioEndpoint(t *testing.T) {
 				t.Fatal("error: NetworkManager should not be nil!")
 			}
 
+			tt.proxy.SetSidecarScope(push)
+
 			builder := NewCDSEndpointBuilder(
 				tt.proxy, push,
 				"outbound||example.ns.svc.cluster.local",
