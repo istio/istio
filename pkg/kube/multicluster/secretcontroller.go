@@ -106,10 +106,9 @@ type Controller struct {
 
 	ClientBuilder ClientBuilder
 
-	queue             controllers.Queue
-	source            remoteConfigSource
-	enableSourceStart bool
-	configOverrides   []func(*rest.Config)
+	queue           controllers.Queue
+	source          remoteConfigSource
+	configOverrides []func(*rest.Config)
 
 	cs *ClusterStore
 
@@ -124,7 +123,6 @@ type Controller struct {
 // NewController returns a new secret controller
 func NewController(opts ControllerOptions) *Controller {
 	var source remoteConfigSource
-	enableSourceStart := (features.LocalClusterSecretWatcher && features.ExternalIstiod) || features.MulticlusterKubeconfigPath != ""
 
 	if features.MulticlusterKubeconfigPath != "" {
 		source = newFileConfigSource(features.MulticlusterKubeconfigPath)
@@ -173,13 +171,12 @@ func NewController(opts ControllerOptions) *Controller {
 			initialSyncTimeout:       atomic.NewBool(false),
 			remoteClusterCollections: atomic.NewPointer[remoteClusterCollections](nil),
 		},
-		cs:                NewClustersStore(),
-		source:            source,
-		enableSourceStart: enableSourceStart,
-		configOverrides:   opts.ConfigOverrides,
-		meshWatcher:       opts.MeshConfig,
-		debugger:          opts.Debugger,
-		stop:              make(chan struct{}),
+		cs:              NewClustersStore(),
+		source:          source,
+		configOverrides: opts.ConfigOverrides,
+		meshWatcher:     opts.MeshConfig,
+		debugger:        opts.Debugger,
+		stop:            make(chan struct{}),
 	}
 
 	if opts.ClientBuilder != nil {
@@ -283,8 +280,8 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		defer close(c.stop)
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
-		// we need to start here when local cluster secret watcher enabled
-		if c.enableSourceStart {
+
+		if (features.LocalClusterSecretWatcher && features.ExternalIstiod) || features.MulticlusterKubeconfigPath != "" {
 			c.source.Start(stopCh)
 		}
 		if !kube.WaitForCacheSync("multicluster remote secrets", stopCh, c.source.HasSynced) {
