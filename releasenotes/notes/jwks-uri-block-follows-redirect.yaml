@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** JWKS URI CIDR blocking by using a custom control function in a custom DialContext.
+    The control function filters connections after DNS resolution but before dialing, allowing 
+    the block to follow redirects and issuer discovery path. This also preserves features
+    in the default DialContext like happy eyeballs and dialSerial (trying each resolved IP in order).
