@@ -2639,3 +2639,8 @@ func (ps *PushContext) ServicesWithWaypoint(key string) []ServiceWaypointInfo {
 func (ps *PushContext) ServiceInfo(key string) *ServiceInfo {
 	return ps.ambientIndex.ServiceInfo(key)
 }
+
+// Testing Only. This allows tests to inject a config without having the mock.
+func (ps *PushContext) SetAmbientIndexForTesting(idx AmbientIndexes) {
+	ps.ambientIndex = idx
+}

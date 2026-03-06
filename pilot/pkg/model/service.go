@@ -1761,6 +1761,14 @@ func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 	return s.getAllAddressesForProxy(node)
 }
 
+// GetAllAddressesForProxyWithVIPs is like GetAllAddressesForProxy but uses the
+// provided VIP addresses instead of looking them up from ClusterVIPs. This is
+// used when the caller has already resolved VIPs from another source (e.g. the
+// ambient index's ServiceInfo with network-aware addresses).
+func (s *Service) GetAllAddressesForProxyWithVIPs(node *Proxy, addresses []string) []string {
+	return s.resolveAddresses(addresses, node)
+}
+
 // nodeUsesAutoallocatedIPs checks to see if this node is eligible to consume automatically allocated IPs
 func nodeUsesAutoallocatedIPs(node *Proxy) bool {
 	if node == nil {
@@ -1788,29 +1796,9 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	return s.resolveAddresses(addresses, node)
 }
 
-// GetAllAddressesForProxyMultiCluster is like GetAllAddressesForProxy but collects VIPs
-// from the specified set of clusters rather than only the proxy's local cluster.
-// Used by waypoint proxies in multi-cluster deployments where a waypoint may
-// receive traffic destined for a remote cluster's VIP for the same logical service.
-// See https://github.com/istio/istio/issues/58133.
-func (s *Service) GetAllAddressesForProxyMultiCluster(node *Proxy, includeClusters sets.Set[cluster.ID]) []string {
-	var addresses []string
-	for c, addrs := range s.ClusterVIPs.GetAddresses() {
-		if includeClusters != nil && !includeClusters.Contains(c) {
-			continue
-		}
-		addresses = append(addresses, addrs...)
-	}
-	result := s.resolveAddresses(addresses, node)
-	if len(result) > 1 {
-		return sets.New(result...).UnsortedList()
-	}
-	return result
-}
-
-// resolveAddresses is the shared implementation for address resolution. It takes
-// a pre-collected set of cluster VIP addresses, falls back to auto-allocated IPs
-// and the default address, and filters by the proxy's supported IP families.
+// resolveAddresses takes a pre-collected set of VIP addresses, falls back to
+// auto-allocated IPs and the default address, and filters by the proxy's
+// supported IP families.
 func (s *Service) resolveAddresses(addresses []string, node *Proxy) []string {
 	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
 		if s.AutoAllocatedIPv4Address != "" {

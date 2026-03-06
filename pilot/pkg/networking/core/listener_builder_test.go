@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"net/netip"
 	"reflect"
 	"testing"
 
@@ -39,12 +40,14 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
+	workloadapi "istio.io/istio/pkg/workloadapi"
 )
 
 func TestVirtualListenerBuilder(t *testing.T) {
@@ -1022,52 +1025,63 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 
 	testCases := []struct {
 		name           string
-		cluster1VIPs   []string
-		cluster2VIPs   []string
-		proxyIPMode    model.IPMode
+		addresses      []*workloadapi.NetworkAddress
+		localVIPs      []string
+		proxyNetwork   string
+		proxyIPs       []string
 		expectedVIPs   []string
 		unexpectedVIPs []string
 	}{
 		{
-			name:         "includes VIPs from all clusters",
-			cluster1VIPs: []string{"10.0.0.1"},
-			cluster2VIPs: []string{"10.0.0.2"},
-			proxyIPMode:  model.Dual,
+			name: "includes VIPs from same network",
+			addresses: []*workloadapi.NetworkAddress{
+				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.1").AsSlice()},
+				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.2").AsSlice()},
+			},
+			proxyNetwork: "network-a",
 			expectedVIPs: []string{"10.0.0.1", "10.0.0.2"},
 		},
 		{
-			name:         "dual-stack waypoint gets all VIPs",
-			cluster1VIPs: []string{"10.0.0.1", "fd00::1"},
-			cluster2VIPs: []string{"10.0.0.2", "fd00::2"},
-			proxyIPMode:  model.Dual,
+			name: "dual-stack same network gets all VIPs",
+			addresses: []*workloadapi.NetworkAddress{
+				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.1").AsSlice()},
+				{Network: "network-a", Address: netip.MustParseAddr("fd00::1").AsSlice()},
+				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.2").AsSlice()},
+				{Network: "network-a", Address: netip.MustParseAddr("fd00::2").AsSlice()},
+			},
+			proxyNetwork: "network-a",
+			proxyIPs:     []string{"10.244.0.1", "fd00::99"},
 			expectedVIPs: []string{"10.0.0.1", "10.0.0.2", "fd00::1", "fd00::2"},
 		},
 		{
-			name:           "ipv4-only waypoint filters out ipv6 VIPs",
-			cluster1VIPs:   []string{"10.0.0.1", "fd00::1"},
-			cluster2VIPs:   []string{"10.0.0.2", "fd00::2"},
-			proxyIPMode:    model.IPv4,
-			expectedVIPs:   []string{"10.0.0.1", "10.0.0.2"},
-			unexpectedVIPs: []string{"fd00::1", "fd00::2"},
+			name: "excludes VIPs from different network",
+			addresses: []*workloadapi.NetworkAddress{
+				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.1").AsSlice()},
+				{Network: "network-b", Address: netip.MustParseAddr("10.96.0.1").AsSlice()},
+			},
+			proxyNetwork:   "network-a",
+			expectedVIPs:   []string{"10.0.0.1"},
+			unexpectedVIPs: []string{"10.96.0.1"},
 		},
 		{
-			name:           "ipv6-only waypoint filters out ipv4 VIPs",
-			cluster1VIPs:   []string{"10.0.0.1", "fd00::1"},
-			cluster2VIPs:   []string{"10.0.0.2", "fd00::2"},
-			proxyIPMode:    model.IPv6,
-			expectedVIPs:   []string{"fd00::1", "fd00::2"},
-			unexpectedVIPs: []string{"10.0.0.1", "10.0.0.2"},
-		},
-	}
-
-	sameNetwork := &meshconfig.MeshNetworks{
-		Networks: map[string]*meshconfig.Network{
-			"network-a": {
-				Endpoints: []*meshconfig.Network_NetworkEndpoints{
-					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-1"}},
-					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-2"}},
-				},
+			name: "ipv4-only proxy filters ipv6 VIPs",
+			addresses: []*workloadapi.NetworkAddress{
+				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.1").AsSlice()},
+				{Network: "network-a", Address: netip.MustParseAddr("fd00::1").AsSlice()},
 			},
+			proxyNetwork:   "network-a",
+			expectedVIPs:   []string{"10.0.0.1"},
+			unexpectedVIPs: []string{"fd00::1"},
+		},
+		{
+			name: "falls back to local cluster VIP when no addresses match network",
+			addresses: []*workloadapi.NetworkAddress{
+				{Network: "network-b", Address: netip.MustParseAddr("10.96.0.1").AsSlice()},
+			},
+			localVIPs:      []string{"10.0.0.1"},
+			proxyNetwork:   "network-a",
+			expectedVIPs:   []string{"10.0.0.1"},
+			unexpectedVIPs: []string{"10.96.0.1"},
 		},
 	}
 
@@ -1075,10 +1089,12 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			push := cg.PushContext()
-			push.Networks = sameNetwork
 
 			svc := &model.Service{
 				Hostname: host.Name("svc.default.svc.cluster.local"),
+				Attributes: model.ServiceAttributes{
+					Namespace: "default",
+				},
 				Ports: model.PortList{
 					&model.Port{
 						Name:     "tcp",
@@ -1087,19 +1103,33 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 					},
 				},
 			}
-			svc.ClusterVIPs.SetAddressesFor("cluster-1", tc.cluster1VIPs)
-			svc.ClusterVIPs.SetAddressesFor("cluster-2", tc.cluster2VIPs)
+			if len(tc.localVIPs) > 0 {
+				svc.ClusterVIPs.SetAddressesFor("cluster-1", tc.localVIPs)
+			}
+
+			push.SetAmbientIndexForTesting(&fakeAmbientIndex{
+				serviceInfoByKey: map[string]*model.ServiceInfo{
+					"default/svc.default.svc.cluster.local": {
+						Service: &workloadapi.Service{
+							Name:      "svc",
+							Namespace: "default",
+							Hostname:  "svc.default.svc.cluster.local",
+							Addresses: tc.addresses,
+						},
+					},
+				},
+			})
 
 			proxy := &model.Proxy{
 				Type:            model.Waypoint,
 				ConfigNamespace: "default",
 				Metadata: &model.NodeMetadata{
 					ClusterID: "cluster-1",
-					Network:   "network-a",
+					Network:   network.ID(tc.proxyNetwork),
 				},
+				IPAddresses: tc.proxyIPs,
 			}
 			proxy = cg.SetupProxy(proxy)
-			proxy.SetIPMode(tc.proxyIPMode)
 
 			lb := &ListenerBuilder{
 				push: push,
@@ -1138,29 +1168,18 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 	}
 }
 
-func TestWaypointInternalExcludesCrossNetworkVIPs(t *testing.T) {
+func TestWaypointInternalServiceInfoNilFallback(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 
 	cg := NewConfigGenTest(t, TestOptions{})
 	push := cg.PushContext()
-	push.Networks = &meshconfig.MeshNetworks{
-		Networks: map[string]*meshconfig.Network{
-			"network-a": {
-				Endpoints: []*meshconfig.Network_NetworkEndpoints{
-					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-1"}},
-				},
-			},
-			"network-b": {
-				Endpoints: []*meshconfig.Network_NetworkEndpoints{
-					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-2"}},
-				},
-			},
-		},
-	}
 
 	svc := &model.Service{
 		Hostname: host.Name("svc.default.svc.cluster.local"),
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp",
@@ -1170,8 +1189,8 @@ func TestWaypointInternalExcludesCrossNetworkVIPs(t *testing.T) {
 		},
 	}
 	svc.ClusterVIPs.SetAddressesFor("cluster-1", []string{"10.0.0.1"})
-	svc.ClusterVIPs.SetAddressesFor("cluster-2", []string{"10.96.0.1"})
 
+	// No ambient index set — ServiceInfo returns nil, should fall back to local cluster VIPs
 	proxy := &model.Proxy{
 		Type:            model.Waypoint,
 		ConfigNamespace: "default",
@@ -1207,9 +1226,6 @@ func TestWaypointInternalExcludesCrossNetworkVIPs(t *testing.T) {
 	if !found["10.0.0.1"] {
 		t.Errorf("expected local cluster VIP 10.0.0.1 in IP matcher, got %v", found)
 	}
-	if found["10.96.0.1"] {
-		t.Errorf("unexpected cross-network VIP 10.96.0.1 in IP matcher, got %v", found)
-	}
 }
 
 func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
@@ -1218,18 +1234,12 @@ func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 
 	cg := NewConfigGenTest(t, TestOptions{})
 	push := cg.PushContext()
-	push.Networks = &meshconfig.MeshNetworks{
-		Networks: map[string]*meshconfig.Network{
-			"network-a": {
-				Endpoints: []*meshconfig.Network_NetworkEndpoints{
-					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-1"}},
-				},
-			},
-		},
-	}
 
 	svc := &model.Service{
-		Hostname:                 host.Name("fake-egress.example.com"),
+		Hostname: host.Name("fake-egress.example.com"),
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
 		AutoAllocatedIPv4Address: "240.240.0.1",
 		AutoAllocatedIPv6Address: "2001:2::f001",
 		Ports: model.PortList{
@@ -1240,6 +1250,22 @@ func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 			},
 		},
 	}
+
+	push.SetAmbientIndexForTesting(&fakeAmbientIndex{
+		serviceInfoByKey: map[string]*model.ServiceInfo{
+			"default/fake-egress.example.com": {
+				Service: &workloadapi.Service{
+					Name:      "fake-egress",
+					Namespace: "default",
+					Hostname:  "fake-egress.example.com",
+					Addresses: []*workloadapi.NetworkAddress{
+						{Network: "network-a", Address: netip.MustParseAddr("240.240.0.1").AsSlice()},
+						{Network: "network-a", Address: netip.MustParseAddr("2001:2::f001").AsSlice()},
+					},
+				},
+			},
+		},
+	})
 
 	proxy := &model.Proxy{
 		Type:            model.Waypoint,
@@ -1280,6 +1306,15 @@ func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 	if !found["2001:2::f001"] {
 		t.Errorf("expected auto-allocated IPv6 address in IP matcher, got %v", found)
 	}
+}
+
+type fakeAmbientIndex struct {
+	model.NoopAmbientIndexes
+	serviceInfoByKey map[string]*model.ServiceInfo
+}
+
+func (f *fakeAmbientIndex) ServiceInfo(key string) *model.ServiceInfo {
+	return f.serviceInfoByKey[key]
 }
 
 // extractIPMatcherFromListener extracts the IPMatcher from a waypoint listener's filter chain matcher.

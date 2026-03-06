@@ -53,13 +53,11 @@ import (
 	security "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -396,11 +394,6 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		}
 	}
 
-	var sameNetworkClusters sets.Set[cluster.ID]
-	if features.EnableAmbientMultiNetwork {
-		sameNetworkClusters = sameNetworkClustersForProxy(lb.node, lb.push)
-	}
-
 	for _, svc := range svcs {
 		var waypoint host.Name
 		if isAmbientEastWestGateway && features.EnableAmbientMultiNetwork {
@@ -409,7 +402,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 
 		var svcAddresses []string
 		if features.EnableAmbientMultiNetwork {
-			svcAddresses = svc.GetAllAddressesForProxyMultiCluster(lb.node, sameNetworkClusters)
+			svcAddresses = lb.serviceAddressesFromAllClusters(svc)
 		} else {
 			svcAddresses = svc.GetAllAddressesForProxy(lb.node)
 		}
@@ -1277,28 +1270,32 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 	return ctx
 }
 
-// sameNetworkClustersForProxy returns the set of cluster IDs that share the
-// same network as the proxy, based on MeshNetworks configuration. The proxy's
-// own cluster is always included. If the proxy has no network set, all clusters
-// are included.
-func sameNetworkClustersForProxy(node *model.Proxy, push *model.PushContext) sets.Set[cluster.ID] {
-	result := sets.New[cluster.ID]()
-	if node.Metadata != nil && node.Metadata.ClusterID != "" {
-		result.Insert(node.Metadata.ClusterID)
+// serviceAddressesFromAllClusters returns VIP addresses for a service filtered to
+// the proxy's network, using the ambient index's ServiceInfo which carries
+// network-tagged addresses. The resulting addresses are passed through
+// ResolveAddresses for IP family filtering and auto-allocated IP fallback.
+// Falls back to GetAllAddressesForProxy if ServiceInfo is unavailable.
+func (lb *ListenerBuilder) serviceAddressesFromAllClusters(svc *model.Service) []string {
+	key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
+	svcInfo := lb.push.ServiceInfo(key)
+	if svcInfo == nil {
+		return svc.GetAllAddressesForProxy(lb.node)
 	}
-	if push.Networks == nil {
-		return result
-	}
-	proxyNetwork := node.Metadata.Network
-	for nwName, nw := range push.Networks.Networks {
-		if proxyNetwork != "" && network.ID(nwName) != proxyNetwork {
+	proxyNetwork := lb.node.Metadata.Network.String()
+	var addresses []string
+	for _, addr := range svcInfo.Service.GetAddresses() {
+		if proxyNetwork != "" && addr.Network != proxyNetwork {
 			continue
 		}
-		for _, ep := range nw.Endpoints {
-			if reg := ep.GetFromRegistry(); reg != "" {
-				result.Insert(cluster.ID(reg))
-			}
+		ip, ok := netip.AddrFromSlice(addr.Address)
+		if !ok {
+			continue
 		}
+		addresses = append(addresses, ip.String())
 	}
-	return result
+	// If no addresses are found, fall back to the proxy's local cluster
+	if len(addresses) == 0 {
+		return svc.GetAllAddressesForProxy(lb.node)
+	}
+	return svc.GetAllAddressesForProxyWithVIPs(lb.node, addresses)
 }
