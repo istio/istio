@@ -420,7 +420,7 @@ func extractOCIArtifactImage(img v1.Image) ([]byte, error) {
 	defer r.Close()
 
 	// Just read it since the content is already a raw Wasm binary as mentioned above.
-	ret, err := io.ReadAll(r)
+	ret, err := io.ReadAll(io.LimitReader(r, int64(features.MaxWasmBinarySizeBytes)))
 	if err != nil {
 		return nil, fmt.Errorf("could not extract wasm binary: %v", err)
 	}
