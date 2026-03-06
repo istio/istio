@@ -1060,10 +1060,22 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 		},
 	}
 
+	sameNetwork := &meshconfig.MeshNetworks{
+		Networks: map[string]*meshconfig.Network{
+			"network-a": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{
+					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-1"}},
+					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-2"}},
+				},
+			},
+		},
+	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			push := cg.PushContext()
+			push.Networks = sameNetwork
 
 			svc := &model.Service{
 				Hostname: host.Name("svc.default.svc.cluster.local"),
@@ -1083,6 +1095,7 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 				ConfigNamespace: "default",
 				Metadata: &model.NodeMetadata{
 					ClusterID: "cluster-1",
+					Network:   "network-a",
 				},
 			}
 			proxy = cg.SetupProxy(proxy)
@@ -1125,15 +1138,96 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 	}
 }
 
+func TestWaypointInternalExcludesCrossNetworkVIPs(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+
+	cg := NewConfigGenTest(t, TestOptions{})
+	push := cg.PushContext()
+	push.Networks = &meshconfig.MeshNetworks{
+		Networks: map[string]*meshconfig.Network{
+			"network-a": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{
+					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-1"}},
+				},
+			},
+			"network-b": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{
+					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-2"}},
+				},
+			},
+		},
+	}
+
+	svc := &model.Service{
+		Hostname: host.Name("svc.default.svc.cluster.local"),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp",
+				Port:     80,
+				Protocol: protocol.TCP,
+			},
+		},
+	}
+	svc.ClusterVIPs.SetAddressesFor("cluster-1", []string{"10.0.0.1"})
+	svc.ClusterVIPs.SetAddressesFor("cluster-2", []string{"10.96.0.1"})
+
+	proxy := &model.Proxy{
+		Type:            model.Waypoint,
+		ConfigNamespace: "default",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster-1",
+			Network:   "network-a",
+		},
+	}
+	proxy = cg.SetupProxy(proxy)
+
+	lb := &ListenerBuilder{
+		push: push,
+		node: proxy,
+	}
+
+	l := lb.buildWaypointInternal(nil, []*model.Service{svc})
+	if l == nil {
+		t.Fatal("expected listener from buildWaypointInternal")
+	}
+
+	ipMatcher := extractIPMatcherFromListener(t, l)
+	if ipMatcher == nil {
+		t.Fatal("could not extract IP matcher from listener")
+	}
+
+	found := map[string]bool{}
+	for _, rm := range ipMatcher.RangeMatchers {
+		for _, r := range rm.Ranges {
+			found[r.AddressPrefix] = true
+		}
+	}
+
+	if !found["10.0.0.1"] {
+		t.Errorf("expected local cluster VIP 10.0.0.1 in IP matcher, got %v", found)
+	}
+	if found["10.96.0.1"] {
+		t.Errorf("unexpected cross-network VIP 10.96.0.1 in IP matcher, got %v", found)
+	}
+}
+
 func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 
 	cg := NewConfigGenTest(t, TestOptions{})
 	push := cg.PushContext()
+	push.Networks = &meshconfig.MeshNetworks{
+		Networks: map[string]*meshconfig.Network{
+			"network-a": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{
+					{Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "cluster-1"}},
+				},
+			},
+		},
+	}
 
-	// Simulates a ServiceEntry with DNS resolution and no explicit addresses.
-	// These rely on auto-allocated IPs.
 	svc := &model.Service{
 		Hostname:                 host.Name("fake-egress.example.com"),
 		AutoAllocatedIPv4Address: "240.240.0.1",
@@ -1152,6 +1246,7 @@ func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 		ConfigNamespace: "default",
 		Metadata: &model.NodeMetadata{
 			ClusterID: "cluster-1",
+			Network:   "network-a",
 		},
 		IPAddresses: []string{"10.244.0.1", "fd00::1"},
 	}

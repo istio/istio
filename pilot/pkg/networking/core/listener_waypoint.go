@@ -56,8 +56,10 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -394,6 +396,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		}
 	}
 
+	var sameNetworkClusters sets.Set[cluster.ID]
+	if features.EnableAmbientMultiNetwork {
+		sameNetworkClusters = sameNetworkClustersForProxy(lb.node, lb.push)
+	}
+
 	for _, svc := range svcs {
 		var waypoint host.Name
 		if isAmbientEastWestGateway && features.EnableAmbientMultiNetwork {
@@ -402,7 +409,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 
 		var svcAddresses []string
 		if features.EnableAmbientMultiNetwork {
-			svcAddresses = svc.GetAddressesForProxyAllClusters(lb.node)
+			svcAddresses = svc.GetAllAddressesForProxyMultiCluster(lb.node, sameNetworkClusters)
 		} else {
 			svcAddresses = svc.GetAllAddressesForProxy(lb.node)
 		}
@@ -1268,4 +1275,30 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 	// Compliance for Envoy tunnel TLS contexts.
 	security.EnforceCompliance(ctx)
 	return ctx
+}
+
+// sameNetworkClustersForProxy returns the set of cluster IDs that share the
+// same network as the proxy, based on MeshNetworks configuration. The proxy's
+// own cluster is always included. If the proxy has no network set, all clusters
+// are included.
+func sameNetworkClustersForProxy(node *model.Proxy, push *model.PushContext) sets.Set[cluster.ID] {
+	result := sets.New[cluster.ID]()
+	if node.Metadata != nil && node.Metadata.ClusterID != "" {
+		result.Insert(node.Metadata.ClusterID)
+	}
+	if push.Networks == nil {
+		return result
+	}
+	proxyNetwork := node.Metadata.Network
+	for nwName, nw := range push.Networks.Networks {
+		if proxyNetwork != "" && network.ID(nwName) != proxyNetwork {
+			continue
+		}
+		for _, ep := range nw.Endpoints {
+			if reg := ep.GetFromRegistry(); reg != "" {
+				result.Insert(cluster.ID(reg))
+			}
+		}
+	}
+	return result
 }

@@ -812,7 +812,7 @@ func TestGetAddressForProxy(t *testing.T) {
 	}
 }
 
-func TestGetAddressesForProxyAllClusters(t *testing.T) {
+func TestGetAllAddressesForProxyMultiCluster(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 
 	waypointProxy := func(clusterID cluster.ID, ipMode IPMode) *Proxy {
@@ -960,10 +960,27 @@ func TestGetAddressesForProxyAllClusters(t *testing.T) {
 				AutoAllocatedIPv6Address: tt.autoAllocatedIPv6Address,
 				DefaultAddress:           tt.defaultAddress,
 			}
-			got := svc.GetAddressesForProxyAllClusters(tt.proxy)
+			got := svc.GetAllAddressesForProxyMultiCluster(tt.proxy, nil)
 			assert.Equal(t, sets.New(got...), sets.New(tt.want...))
 		})
 	}
+
+	t.Run("filters to specified clusters only", func(t *testing.T) {
+		svc := &Service{
+			ClusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"cluster-1": {"10.0.0.1"},
+					"cluster-2": {"10.0.0.2"},
+					"cluster-3": {"10.0.0.3"},
+				},
+			},
+		}
+		got := svc.GetAllAddressesForProxyMultiCluster(
+			waypointProxy("cluster-1", Dual),
+			sets.New[cluster.ID]("cluster-1", "cluster-2"),
+		)
+		assert.Equal(t, sets.New(got...), sets.New("10.0.0.1", "10.0.0.2"))
+	})
 }
 
 func TestWaypointKeyForProxy(t *testing.T) {

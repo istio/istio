@@ -1788,14 +1788,17 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	return s.resolveAddresses(addresses, node)
 }
 
-// GetAddressesForProxyAllClusters is like GetAllAddressesForProxy but collects VIPs
-// from all clusters rather than only the proxy's local cluster.
-// Used by waypoint proxies in single-network multi-cluster deployments where a
-// waypoint may receive traffic destined for a remote cluster's VIP for the same
-// logical service. See https://github.com/istio/istio/issues/58133.
-func (s *Service) GetAddressesForProxyAllClusters(node *Proxy) []string {
+// GetAllAddressesForProxyMultiCluster is like GetAllAddressesForProxy but collects VIPs
+// from the specified set of clusters rather than only the proxy's local cluster.
+// Used by waypoint proxies in multi-cluster deployments where a waypoint may
+// receive traffic destined for a remote cluster's VIP for the same logical service.
+// See https://github.com/istio/istio/issues/58133.
+func (s *Service) GetAllAddressesForProxyMultiCluster(node *Proxy, includeClusters sets.Set[cluster.ID]) []string {
 	var addresses []string
-	for _, addrs := range s.ClusterVIPs.GetAddresses() {
+	for c, addrs := range s.ClusterVIPs.GetAddresses() {
+		if includeClusters != nil && !includeClusters.Contains(c) {
+			continue
+		}
 		addresses = append(addresses, addrs...)
 	}
 	result := s.resolveAddresses(addresses, node)
