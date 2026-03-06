@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Crediting the kgateway authors for the patterns used in this file, as well as some of the code
+
 package gateway
 
 import (
@@ -532,7 +534,8 @@ func referenceAllowed(
 	hostnames []k8s.Hostname,
 	localNamespace string,
 ) (*ParentError, *WaypointError) {
-	if parentRef.Kind == gvk.Service {
+	switch parentRef.Kind {
+	case gvk.Service:
 
 		key := parentRef.Namespace + "/" + parentRef.Name
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
@@ -561,7 +564,7 @@ func referenceAllowed(
 				}
 			}
 		}
-	} else if parentRef.Kind == gvk.ServiceEntry {
+	case gvk.ServiceEntry:
 		// check that the referenced svc entry exists
 		key := parentRef.Namespace + "/" + parentRef.Name
 		svcEntry := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(key)))
@@ -588,7 +591,7 @@ func referenceAllowed(
 				}
 			}
 		}
-	} else {
+	default:
 		// First, check section and port apply. This must come first
 		if parentRef.Port != 0 && parentRef.Port != parent.Port {
 			return &ParentError{

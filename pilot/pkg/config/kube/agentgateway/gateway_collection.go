@@ -112,11 +112,15 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 		return false
 	}
 	if g.TLSInfo != nil {
-		if !bytes.Equal(g.TLSInfo.Cert, other.TLSInfo.Cert) && !bytes.Equal(g.TLSInfo.Key, other.TLSInfo.Key) {
+		if !bytes.Equal(g.TLSInfo.Cert, other.TLSInfo.Cert) ||
+			!bytes.Equal(g.TLSInfo.Key, other.TLSInfo.Key) ||
+			!bytes.Equal(g.TLSInfo.CaCert, other.TLSInfo.CaCert) {
 			return false
 		}
 	}
 	return g.Name == other.Name &&
+		g.Parent == other.Parent &&
+		g.ParentInfo.Equals(other.ParentInfo) &&
 		g.GatewayParent == other.GatewayParent &&
 		g.Valid == other.Valid
 }
@@ -139,7 +143,7 @@ func ListenerSetCollection(
 ) {
 	statusCol, gw := krt.NewStatusManyCollection(listenerSets,
 		func(ctx krt.HandlerContext, obj *gatewayv1.ListenerSet) (*gatewayv1.ListenerSetStatus, []ListenerSet) {
-			// We currently depend on service discovery information not know to krt; mark we depend on it.
+			// We currently depend on service discovery information not known to krt; mark we depend on it.
 			context := gatewayContext.Get(ctx).Load()
 			if context == nil {
 				return nil, nil
@@ -208,6 +212,7 @@ func ListenerSetCollection(
 
 				servers = append(servers, server)
 
+				// TODO(jaellio): Figure out if this logic needs to change to support agentgateway as an E/W gateway
 				if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
 					// Waypoint doesn't actually convert the routes to VirtualServices
 					continue
@@ -327,8 +332,7 @@ func GatewayCollection(
 			return nil, nil
 		}
 		if classInfo.DisableRouteGeneration {
-			// TODO(jaellio): Applicable for agent gateway?
-			// reportUnmanagedGatewayStatus(status, obj)
+			// TODO(jaellio): Handle reporting on unmanaged agentgateways
 			// We found it, but don't want to handle this class
 			return status, nil
 		}
