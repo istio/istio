@@ -708,7 +708,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: model.FakeJwks,
+												InlineString: model.PublicOnlyJwks,
 											},
 										},
 									},
@@ -1209,7 +1209,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: model.FakeJwks,
+									InlineString: model.PublicOnlyJwks,
 								},
 							},
 						},
@@ -1267,7 +1267,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: model.FakeJwks,
+									InlineString: model.PublicOnlyJwks,
 								},
 							},
 						},
