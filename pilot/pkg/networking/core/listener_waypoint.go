@@ -1272,8 +1272,8 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 
 // serviceAddressesFromAllClusters returns VIP addresses for a service filtered to
 // the proxy's network, using the ambient index's ServiceInfo which carries
-// network-tagged addresses. The resulting addresses are passed through
-// ResolveAddresses for IP family filtering and auto-allocated IP fallback.
+// network-tagged addresses. The resulting addresses are passed through GetAllAddressesForProxyWithVIPs
+// for IP family filtering and auto-allocated IP fallback.
 // Falls back to GetAllAddressesForProxy if ServiceInfo is unavailable.
 func (lb *ListenerBuilder) serviceAddressesFromAllClusters(svc *model.Service) []string {
 	key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
@@ -1282,7 +1282,7 @@ func (lb *ListenerBuilder) serviceAddressesFromAllClusters(svc *model.Service) [
 		return svc.GetAllAddressesForProxy(lb.node)
 	}
 	proxyNetwork := lb.node.Metadata.Network.String()
-	var addresses []string
+	addresses := sets.New[string]()
 	for _, addr := range svcInfo.Service.GetAddresses() {
 		if proxyNetwork != "" && addr.Network != proxyNetwork {
 			continue
@@ -1291,11 +1291,12 @@ func (lb *ListenerBuilder) serviceAddressesFromAllClusters(svc *model.Service) [
 		if !ok {
 			continue
 		}
-		addresses = append(addresses, ip.String())
+		addresses.Insert(ip.String())
 	}
-	// If no addresses are found, fall back to the proxy's local cluster
-	if len(addresses) == 0 {
-		return svc.GetAllAddressesForProxy(lb.node)
+	// Always include the local cluster's VIPs as a safeguard in case the
+	// ambient index is incomplete (e.g. during initial sync).
+	if lb.node.Metadata != nil && lb.node.Metadata.ClusterID != "" {
+		addresses.InsertAll(svc.ClusterVIPs.GetAddressesFor(lb.node.Metadata.ClusterID)...)
 	}
-	return svc.GetAllAddressesForProxyWithVIPs(lb.node, addresses)
+	return svc.GetAllAddressesForProxyWithVIPs(lb.node, addresses.UnsortedList())
 }

@@ -1083,6 +1083,15 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 			expectedVIPs:   []string{"10.0.0.1"},
 			unexpectedVIPs: []string{"10.96.0.1"},
 		},
+		{
+			name: "always includes local cluster VIP even if missing from ServiceInfo",
+			addresses: []*workloadapi.NetworkAddress{
+				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.2").AsSlice()},
+			},
+			localVIPs:    []string{"10.0.0.1"},
+			proxyNetwork: "network-a",
+			expectedVIPs: []string{"10.0.0.1", "10.0.0.2"},
+		},
 	}
 
 	for _, tc := range testCases {
