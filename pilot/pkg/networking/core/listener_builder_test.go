@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"testing"
 
+	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/slices"
@@ -1012,6 +1014,229 @@ func TestExtProcExistForInferencePoolEnabledGateway(t *testing.T) {
 		}
 	}
 	t.Fatal("expected ext proc filter to be added")
+}
+
+func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+
+	testCases := []struct {
+		name           string
+		cluster1VIPs   []string
+		cluster2VIPs   []string
+		proxyIPMode    model.IPMode
+		expectedVIPs   []string
+		unexpectedVIPs []string
+	}{
+		{
+			name:         "includes VIPs from all clusters",
+			cluster1VIPs: []string{"10.0.0.1"},
+			cluster2VIPs: []string{"10.0.0.2"},
+			proxyIPMode:  model.Dual,
+			expectedVIPs: []string{"10.0.0.1", "10.0.0.2"},
+		},
+		{
+			name:         "dual-stack waypoint gets all VIPs",
+			cluster1VIPs: []string{"10.0.0.1", "fd00::1"},
+			cluster2VIPs: []string{"10.0.0.2", "fd00::2"},
+			proxyIPMode:  model.Dual,
+			expectedVIPs: []string{"10.0.0.1", "10.0.0.2", "fd00::1", "fd00::2"},
+		},
+		{
+			name:           "ipv4-only waypoint filters out ipv6 VIPs",
+			cluster1VIPs:   []string{"10.0.0.1", "fd00::1"},
+			cluster2VIPs:   []string{"10.0.0.2", "fd00::2"},
+			proxyIPMode:    model.IPv4,
+			expectedVIPs:   []string{"10.0.0.1", "10.0.0.2"},
+			unexpectedVIPs: []string{"fd00::1", "fd00::2"},
+		},
+		{
+			name:           "ipv6-only waypoint filters out ipv4 VIPs",
+			cluster1VIPs:   []string{"10.0.0.1", "fd00::1"},
+			cluster2VIPs:   []string{"10.0.0.2", "fd00::2"},
+			proxyIPMode:    model.IPv6,
+			expectedVIPs:   []string{"fd00::1", "fd00::2"},
+			unexpectedVIPs: []string{"10.0.0.1", "10.0.0.2"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{})
+			push := cg.PushContext()
+
+			svc := &model.Service{
+				Hostname: host.Name("svc.default.svc.cluster.local"),
+				Ports: model.PortList{
+					&model.Port{
+						Name:     "tcp",
+						Port:     80,
+						Protocol: protocol.TCP,
+					},
+				},
+			}
+			svc.ClusterVIPs.SetAddressesFor("cluster-1", tc.cluster1VIPs)
+			svc.ClusterVIPs.SetAddressesFor("cluster-2", tc.cluster2VIPs)
+
+			proxy := &model.Proxy{
+				Type:            model.Waypoint,
+				ConfigNamespace: "default",
+				Metadata: &model.NodeMetadata{
+					ClusterID: "cluster-1",
+				},
+			}
+			proxy = cg.SetupProxy(proxy)
+			proxy.SetIPMode(tc.proxyIPMode)
+
+			lb := &ListenerBuilder{
+				push: push,
+				node: proxy,
+			}
+
+			l := lb.buildWaypointInternal(nil, []*model.Service{svc})
+			if l == nil {
+				t.Fatal("expected listener from buildWaypointInternal")
+			}
+
+			ipMatcher := extractIPMatcherFromListener(t, l)
+			if ipMatcher == nil {
+				t.Fatal("could not extract IP matcher from listener")
+			}
+
+			found := map[string]bool{}
+			for _, rm := range ipMatcher.RangeMatchers {
+				for _, r := range rm.Ranges {
+					found[r.AddressPrefix] = true
+				}
+			}
+
+			for _, expected := range tc.expectedVIPs {
+				if !found[expected] {
+					t.Errorf("expected VIP %q in IP matcher, got %v", expected, found)
+				}
+			}
+
+			for _, unexpected := range tc.unexpectedVIPs {
+				if found[unexpected] {
+					t.Errorf("unexpected VIP %q in IP matcher, got %v", unexpected, found)
+				}
+			}
+		})
+	}
+}
+
+func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+
+	cg := NewConfigGenTest(t, TestOptions{})
+	push := cg.PushContext()
+
+	// Simulates a ServiceEntry with DNS resolution and no explicit addresses.
+	// These rely on auto-allocated IPs.
+	svc := &model.Service{
+		Hostname:                 host.Name("fake-egress.example.com"),
+		AutoAllocatedIPv4Address: "240.240.0.1",
+		AutoAllocatedIPv6Address: "2001:2::f001",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
+			},
+		},
+	}
+
+	proxy := &model.Proxy{
+		Type:            model.Waypoint,
+		ConfigNamespace: "default",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster-1",
+		},
+		IPAddresses: []string{"10.244.0.1", "fd00::1"},
+	}
+	proxy = cg.SetupProxy(proxy)
+
+	lb := &ListenerBuilder{
+		push: push,
+		node: proxy,
+	}
+
+	l := lb.buildWaypointInternal(nil, []*model.Service{svc})
+	if l == nil {
+		t.Fatal("expected listener from buildWaypointInternal")
+	}
+
+	ipMatcher := extractIPMatcherFromListener(t, l)
+	if ipMatcher == nil {
+		t.Fatal("could not extract IP matcher from listener")
+	}
+
+	found := map[string]bool{}
+	for _, rm := range ipMatcher.RangeMatchers {
+		for _, r := range rm.Ranges {
+			found[r.AddressPrefix] = true
+		}
+	}
+
+	if !found["240.240.0.1"] {
+		t.Errorf("expected auto-allocated IPv4 address in IP matcher, got %v", found)
+	}
+	if !found["2001:2::f001"] {
+		t.Errorf("expected auto-allocated IPv6 address in IP matcher, got %v", found)
+	}
+}
+
+// extractIPMatcherFromListener extracts the IPMatcher from a waypoint listener's filter chain matcher.
+func extractIPMatcherFromListener(t *testing.T, l *listener.Listener) *matcher.IPMatcher {
+	t.Helper()
+
+	if l.FilterChainMatcher == nil {
+		return nil
+	}
+
+	mt, ok := l.FilterChainMatcher.MatcherType.(*matcher.Matcher_MatcherTree_)
+	if !ok || mt.MatcherTree == nil {
+		return nil
+	}
+
+	// When ambient multi-network is enabled, hostnames are preferred and the IP matcher
+	// is nested under OnNoMatch; handle both layouts.
+	var ipTree *matcher.Matcher_MatcherTree
+	switch mt.MatcherTree.TreeType.(type) {
+	case *matcher.Matcher_MatcherTree_CustomMatch:
+		ipTree = mt.MatcherTree
+	case *matcher.Matcher_MatcherTree_ExactMatchMap:
+		if l.FilterChainMatcher.OnNoMatch == nil {
+			return nil
+		}
+		sub, ok := l.FilterChainMatcher.OnNoMatch.OnMatch.(*matcher.Matcher_OnMatch_Matcher)
+		if !ok || sub.Matcher == nil {
+			return nil
+		}
+		nested, ok := sub.Matcher.MatcherType.(*matcher.Matcher_MatcherTree_)
+		if !ok || nested.MatcherTree == nil {
+			return nil
+		}
+		if _, ok := nested.MatcherTree.TreeType.(*matcher.Matcher_MatcherTree_CustomMatch); !ok {
+			return nil
+		}
+		ipTree = nested.MatcherTree
+	default:
+		return nil
+	}
+
+	typedCfg, ok := ipTree.TreeType.(*matcher.Matcher_MatcherTree_CustomMatch)
+	if !ok || typedCfg.CustomMatch == nil {
+		return nil
+	}
+
+	ipMatcher := &matcher.IPMatcher{}
+	if err := typedCfg.CustomMatch.TypedConfig.UnmarshalTo(ipMatcher); err != nil {
+		return nil
+	}
+
+	return ipMatcher
 }
 
 func TestPreserveHeader(t *testing.T) {

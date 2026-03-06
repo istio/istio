@@ -400,7 +400,13 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			waypoint = lb.findServiceWaypoint(svc)
 		}
 
-		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
+		var svcAddresses []string
+		if features.EnableAmbientMultiNetwork {
+			svcAddresses = svc.GetAddressesForProxyAllClusters(lb.node)
+		} else {
+			svcAddresses = svc.GetAllAddressesForProxy(lb.node)
+		}
+
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {

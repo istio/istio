@@ -1781,12 +1781,35 @@ func nodeUsesAutoallocatedIPs(node *Proxy) bool {
 }
 
 func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
-	addresses := []string{}
+	var addresses []string
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
+	return s.resolveAddresses(addresses, node)
+}
+
+// GetAddressesForProxyAllClusters is like GetAllAddressesForProxy but collects VIPs
+// from all clusters rather than only the proxy's local cluster.
+// Used by waypoint proxies in single-network multi-cluster deployments where a
+// waypoint may receive traffic destined for a remote cluster's VIP for the same
+// logical service. See https://github.com/istio/istio/issues/58133.
+func (s *Service) GetAddressesForProxyAllClusters(node *Proxy) []string {
+	var addresses []string
+	for _, addrs := range s.ClusterVIPs.GetAddresses() {
+		addresses = append(addresses, addrs...)
+	}
+	result := s.resolveAddresses(addresses, node)
+	if len(result) > 1 {
+		return sets.New(result...).UnsortedList()
+	}
+	return result
+}
+
+// resolveAddresses is the shared implementation for address resolution. It takes
+// a pre-collected set of cluster VIP addresses, falls back to auto-allocated IPs
+// and the default address, and filters by the proxy's supported IP families.
+func (s *Service) resolveAddresses(addresses []string, node *Proxy) []string {
 	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
-		// The criteria to use AutoAllocated addresses is met so we should go ahead and use them if they are populated
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
 		}
@@ -1801,7 +1824,6 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 		return addresses
 	}
 
-	// fallback to the default address
 	if a := s.DefaultAddress; len(a) > 0 {
 		return []string{a}
 	}

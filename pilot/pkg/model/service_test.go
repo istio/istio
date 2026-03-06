@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestGetByPort(t *testing.T) {
@@ -807,6 +808,160 @@ func TestGetAddressForProxy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.service.GetAddressForProxy(tt.proxy)
 			assert.Equal(t, result, tt.expectedAddress)
+		})
+	}
+}
+
+func TestGetAddressesForProxyAllClusters(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+
+	waypointProxy := func(clusterID cluster.ID, ipMode IPMode) *Proxy {
+		p := &Proxy{
+			Type: Waypoint,
+			Metadata: &NodeMetadata{
+				ClusterID: clusterID,
+			},
+		}
+		p.SetIPMode(ipMode)
+		return p
+	}
+
+	tests := []struct {
+		name                     string
+		clusterVIPs              AddressMap
+		autoAllocatedIPv4Address string
+		autoAllocatedIPv6Address string
+		defaultAddress           string
+		proxy                    *Proxy
+		want                     []string
+	}{
+		{
+			name: "single cluster single vip",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"cluster-1": {"10.0.0.1"},
+				},
+			},
+			proxy: waypointProxy("cluster-1", Dual),
+			want:  []string{"10.0.0.1"},
+		},
+		{
+			name: "multiple clusters returns all VIPs",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"cluster-1": {"10.0.0.1"},
+					"cluster-2": {"10.0.0.2"},
+				},
+			},
+			proxy: waypointProxy("cluster-1", Dual),
+			want:  []string{"10.0.0.1", "10.0.0.2"},
+		},
+		{
+			name: "deduplicates across clusters",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"cluster-1": {"10.0.0.1", "10.0.0.2"},
+					"cluster-2": {"10.0.0.2", "10.0.0.3"},
+				},
+			},
+			proxy: waypointProxy("cluster-1", Dual),
+			want:  []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"},
+		},
+		{
+			name: "auto-allocated IPs when no cluster VIPs",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{},
+			},
+			autoAllocatedIPv4Address: "240.240.0.1",
+			autoAllocatedIPv6Address: "2001:2::1",
+			proxy:                    waypointProxy("cluster-1", Dual),
+			want:                     []string{"240.240.0.1", "2001:2::1"},
+		},
+		{
+			name: "cluster VIPs take precedence over auto-allocated",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"cluster-1": {"10.0.0.1"},
+				},
+			},
+			autoAllocatedIPv4Address: "240.240.0.1",
+			proxy:                    waypointProxy("cluster-1", Dual),
+			want:                     []string{"10.0.0.1"},
+		},
+		{
+			name: "ipv4-only proxy filters out ipv6 VIPs",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"cluster-1": {"10.0.0.1", "fd00::1"},
+					"cluster-2": {"10.0.0.2", "fd00::2"},
+				},
+			},
+			proxy: waypointProxy("cluster-1", IPv4),
+			want:  []string{"10.0.0.1", "10.0.0.2"},
+		},
+		{
+			name: "ipv6-only proxy filters out ipv4 VIPs",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"cluster-1": {"10.0.0.1", "fd00::1"},
+					"cluster-2": {"10.0.0.2", "fd00::2"},
+				},
+			},
+			proxy: waypointProxy("cluster-1", IPv6),
+			want:  []string{"fd00::1", "fd00::2"},
+		},
+		{
+			name: "dual-stack proxy gets all VIPs",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{
+					"cluster-1": {"10.0.0.1", "fd00::1"},
+					"cluster-2": {"10.0.0.2", "fd00::2"},
+				},
+			},
+			proxy: waypointProxy("cluster-1", Dual),
+			want:  []string{"10.0.0.1", "10.0.0.2", "fd00::1", "fd00::2"},
+		},
+		{
+			name: "ipv4-only proxy filters auto-allocated ipv6",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{},
+			},
+			autoAllocatedIPv4Address: "240.240.0.1",
+			autoAllocatedIPv6Address: "2001:2::1",
+			proxy:                    waypointProxy("cluster-1", IPv4),
+			want:                     []string{"240.240.0.1"},
+		},
+		{
+			name: "ipv6-only proxy filters auto-allocated ipv4",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{},
+			},
+			autoAllocatedIPv4Address: "240.240.0.1",
+			autoAllocatedIPv6Address: "2001:2::1",
+			proxy:                    waypointProxy("cluster-1", IPv6),
+			want:                     []string{"2001:2::1"},
+		},
+		{
+			name: "falls back to default address",
+			clusterVIPs: AddressMap{
+				Addresses: map[cluster.ID][]string{},
+			},
+			defaultAddress: "10.99.0.1",
+			proxy:          waypointProxy("cluster-1", Dual),
+			want:           []string{"10.99.0.1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &Service{
+				ClusterVIPs:              tt.clusterVIPs,
+				AutoAllocatedIPv4Address: tt.autoAllocatedIPv4Address,
+				AutoAllocatedIPv6Address: tt.autoAllocatedIPv6Address,
+				DefaultAddress:           tt.defaultAddress,
+			}
+			got := svc.GetAddressesForProxyAllClusters(tt.proxy)
+			assert.Equal(t, sets.New(got...), sets.New(tt.want...))
 		})
 	}
 }
