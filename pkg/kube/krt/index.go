@@ -93,7 +93,7 @@ func WithIndexCollectionFromString[K any](f func(string) K) CollectionOption {
 // AsCollection does a best-effort approximation of turning an index into a Collection. This is intended to be used as a
 // primary input with NewCollection or similar transformations.
 // This has some limitations that impact usage *outside* of NewCollection:
-// * List() is not allowed.
+// * List() is not recommended since it is slow.
 // * Building an index is not allowed
 // * Events are not 100% precise; only Add and Delete events are triggered. Updates will be `Add` events.
 // The intended use case for this is to do merging within a collection (like a SQL 'group by').
@@ -208,7 +208,16 @@ func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 }
 
 func (i indexCollection[K, O]) List() []IndexObject[K, O] {
-	panic("an index collection cannot be listed")
+	o := i.idx.c.List()
+	keys := sets.New[K]()
+	for _, oo := range o {
+		keys.InsertAll(i.idx.extractKeys(oo)...)
+	}
+	res := make([]IndexObject[K, O], 0, len(keys))
+	for k := range keys {
+		res = append(res, *i.GetKey(toString(k)))
+	}
+	return res
 }
 
 // dumpOutput dumps the current state. This has no synchronization, so it's not perfect.

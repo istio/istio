@@ -259,6 +259,24 @@ func TestIndexAsCollection(t *testing.T) {
 	tt.WaitUnordered("update/namespace/name")
 	assertion("1.2.3.4", 0)
 	assertion("1.2.3.5", 2)
+
+	indexList := slices.SortBy(IPIndex.AsCollection().List(), func(i krt.IndexObject[string, SimplePod]) string {
+		return i.Key
+	})
+	for idx := range indexList {
+		indexList[idx].Objects = slices.SortBy(indexList[idx].Objects, func(p SimplePod) string {
+			return p.ResourceName()
+		})
+	}
+	assert.Equal(t, indexList, []krt.IndexObject[string, SimplePod]{
+		{
+			Key: "1.2.3.5",
+			Objects: []SimplePod{
+				{NewNamed(pod), Labeled{}, "1.2.3.5"},
+				{NewNamed(pod2), Labeled{}, "1.2.3.5"},
+			},
+		},
+	})
 }
 
 type PodCounts struct {
