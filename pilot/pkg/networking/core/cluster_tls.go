@@ -24,6 +24,7 @@ import (
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -147,8 +148,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(sec_model.SDSRootResourceName),
 			},
 		}
-		// Set default SNI of cluster name for istio_mutual if sni is not set.
-		if len(tlsContext.Sni) == 0 {
+		// Set default SNI of cluster name for istio_mutual if sni is not set and if not a DFP cluster.
+		if len(tlsContext.Sni) == 0 && !c.isDFPCluster {
 			tlsContext.Sni = c.cluster.Name
 		}
 		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
@@ -168,6 +169,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 			}
+		}
+		// Set auto_sni, auto_san_validation and allow_insecure_cluster_options for sidecar DFP clusters.
+		if c.isDFPCluster && opts.direction == model.TrafficDirectionOutbound {
+			setAutoSniAndAutoSanValidation(c, tls)
 		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext, err = constructUpstreamTLS(opts, tls, c, false)
@@ -278,18 +283,21 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 		return
 	}
 
+	insecureSkipVerify := tls.GetInsecureSkipVerify().GetValue()
 	setAutoSni := false
 	setAutoSanValidation := false
 	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
-	// For DFP clusters, we only set auto_san_validation if insecure_skip_verify is false.
-	if (setAutoSni && len(tls.SubjectAltNames) == 0 || mc.isDFPCluster) && !tls.GetInsecureSkipVerify().GetValue() {
+
+	// If insecureSkipVerify is true, we do not set auto_san_validation in all cases.
+	// For non-DFP clusters, require auto_san_validation if auto_sni is set and there are no explicit SANs
+	if (mc.isDFPCluster || (!mc.isDFPCluster && setAutoSni && len(tls.SubjectAltNames) == 0)) && !insecureSkipVerify {
 		setAutoSanValidation = true
 	}
 
-	// For DFP clusters, we need to allow_insecure_cluster_options if insecure_skip_verify is true.
-	if mc.isDFPCluster && tls.GetInsecureSkipVerify().GetValue() {
+	// For DFP clusters, we need to allow_insecure_cluster_options if insecure_skip_verify is true or if auto_sni or auto_san_validation is not set.
+	if mc.isDFPCluster && (insecureSkipVerify || !setAutoSni || !setAutoSanValidation) {
 		clusterType, ok := mc.cluster.ClusterDiscoveryType.(*cluster.Cluster_ClusterType)
 		if !ok {
 			log.Warnf("failed to set allow_insecure_cluster_options for DFP cluster %s: invalid cluster type", mc.cluster.Name)
@@ -318,9 +326,11 @@ func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTL
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions = &core.UpstreamHttpProtocolOptions{}
 		}
 		if setAutoSni {
+			log.Debugf("set auto_sni for DFP cluster %s", mc.cluster.Name)
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni = true
 		}
 		if setAutoSanValidation {
+			log.Debugf("set auto_san_validation for DFP cluster %s", mc.cluster.Name)
 			mc.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation = true
 		}
 	}
@@ -429,7 +439,7 @@ func (cb *ClusterBuilder) buildUpstreamTLSSettings(
 			// When building Mutual TLS settings, we should always use user supplied SubjectAltNames and SNI
 			// in destination rule. The Service Accounts and auto computed SNI should only be used for
 			// ISTIO_MUTUAL.
-			return cb.buildMutualTLS(tls.SubjectAltNames, tls.Sni), userSupplied
+			return cb.buildMutualTLS(tls.SubjectAltNames, tls.Sni, tls.InsecureSkipVerify), userSupplied
 		}
 		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
 			return tls, userSupplied
@@ -446,7 +456,8 @@ func (cb *ClusterBuilder) buildUpstreamTLSSettings(
 		if subjectAltNamesToUse == nil {
 			subjectAltNamesToUse = serviceAccounts
 		}
-		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
+		// Preserve InsecureSkipVerify from configured Destination Rule (e.g. for DFP when cert has no DNS SAN).
+		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, tls.InsecureSkipVerify), userSupplied
 	}
 
 	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
@@ -455,11 +466,10 @@ func (cb *ClusterBuilder) buildUpstreamTLSSettings(
 
 	// For backward compatibility, use metadata certs if provided.
 	if cb.hasMetadataCerts() {
-		return cb.buildMutualTLS(serviceAccounts, sni), autoDetected
+		return cb.buildMutualTLS(serviceAccounts, sni, nil), autoDetected
 	}
 
-	// Build settings for auto MTLS.
-	return cb.buildIstioMutualTLS(serviceAccounts, sni), autoDetected
+	return cb.buildIstioMutualTLS(serviceAccounts, sni, nil), autoDetected
 }
 
 func (cb *ClusterBuilder) hasMetadataCerts() bool {
@@ -467,22 +477,24 @@ func (cb *ClusterBuilder) hasMetadataCerts() bool {
 }
 
 // buildMutualTLS returns a `TLSSettings` for MUTUAL mode with proxy metadata certificates.
-func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
+func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string, insecureSkipVerify *wrapperspb.BoolValue) *networking.ClientTLSSettings {
 	return &networking.ClientTLSSettings{
-		Mode:              networking.ClientTLSSettings_MUTUAL,
-		CaCertificates:    cb.metadataCerts.tlsClientRootCert,
-		ClientCertificate: cb.metadataCerts.tlsClientCertChain,
-		PrivateKey:        cb.metadataCerts.tlsClientKey,
-		SubjectAltNames:   serviceAccounts,
-		Sni:               sni,
+		Mode:               networking.ClientTLSSettings_MUTUAL,
+		CaCertificates:     cb.metadataCerts.tlsClientRootCert,
+		ClientCertificate:  cb.metadataCerts.tlsClientCertChain,
+		PrivateKey:         cb.metadataCerts.tlsClientKey,
+		SubjectAltNames:    serviceAccounts,
+		Sni:                sni,
+		InsecureSkipVerify: insecureSkipVerify,
 	}
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string) *networking.ClientTLSSettings {
+func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string, insecureSkipVerify *wrapperspb.BoolValue) *networking.ClientTLSSettings {
 	return &networking.ClientTLSSettings{
-		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-		SubjectAltNames: san,
-		Sni:             sni,
+		Mode:               networking.ClientTLSSettings_ISTIO_MUTUAL,
+		SubjectAltNames:    san,
+		Sni:                sni,
+		InsecureSkipVerify: insecureSkipVerify,
 	}
 }

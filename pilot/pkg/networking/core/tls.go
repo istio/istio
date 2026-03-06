@@ -189,7 +189,8 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		// 1) if the destination is a CIDR;
 		// 2) or if we have an empty destination VIP (i.e. which we should never get in case some platform adapter improper handlings);
 		// 3) or if the destination is a wildcard destination VIP with the listener bound to the wildcard as well.
-		// In the above cited cases, the listener will be bound to 0.0.0.0. So SNI match is the only way to distinguish different
+		// 4) or if DYNAMIC_DNS wildcard ServiceEntry with a per-VIP listener (e.g. 240.240.0.2_443 for *.google.com).
+		// In the above cited cases except (4), the listener will be bound to 0.0.0.0. So SNI match is the only way to distinguish different
 		// target services. If we have a VIP, then we know the destination. Or if we do not have an VIP, but have
 		// `PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS` enabled (by default) and applicable to all that's needed, pilot will generate
 		// an outbound listener for each pod in a headless service. There is thus no need to do a SNI match. It saves us from having to
@@ -206,7 +207,8 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			svcListenAddress = constants.UnspecifiedIPv6
 		}
 
-		if len(destinationCIDRs) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
+		if len(destinationCIDRs) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) ||
+			(service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS) {
 			sniHosts = []string{string(service.Hostname)}
 			for _, a := range service.Attributes.Aliases {
 				alt := GenerateAltVirtualHosts(a.Hostname.String(), 0, node.DNSDomain)
@@ -220,7 +222,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			sniHosts:         sniHosts,
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false),
+				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
 		})
 	}
 
@@ -326,7 +328,7 @@ TcpLoop:
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false),
+				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
 		})
 	}
 

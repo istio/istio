@@ -1357,6 +1357,60 @@ func TestOutboundTLSIPv6Only(t *testing.T) {
 	log.Printf("Listeners: %v", listeners)
 }
 
+// TestOutboundTLSDynamicDNSWildcardServerNames verifies that a DYNAMIC_DNS wildcard ServiceEntry
+// with TLS port gets filter_chain_match.server_names set (e.g. ["*.google.com"]) on the per-VIP listener.
+func TestOutboundTLSDynamicDNSWildcardServerNames(t *testing.T) {
+	const vip = "240.240.0.2"
+	const hostname = "*.google.com"
+	svc := &model.Service{
+		CreationTime:             tnow,
+		Hostname:                 host.Name(hostname),
+		DefaultAddress:           constants.UnspecifiedIP,
+		AutoAllocatedIPv4Address: vip,
+		Ports: model.PortList{
+			{
+				Name:     "https",
+				Port:     443,
+				Protocol: protocol.TLS,
+			},
+		},
+		Resolution: model.DynamicDNS,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+
+	proxy := getProxy()
+	proxy.Metadata.DNSCapture = true
+
+	listeners := buildOutboundListeners(t, proxy, nil, nil, svc)
+
+	l := xdstest.ExtractListener(vip+"_443", listeners)
+	if l == nil {
+		t.Fatalf("expected listener %s_443, not found in %d listeners", vip, len(listeners))
+	}
+	if len(l.FilterChains) == 0 {
+		t.Fatal("expected at least one filter chain")
+	}
+	fc := l.FilterChains[0]
+	if fc.FilterChainMatch == nil {
+		t.Fatal("expected filter_chain_match to be set for DYNAMIC_DNS wildcard TLS")
+	}
+	if len(fc.FilterChainMatch.ServerNames) == 0 {
+		t.Fatalf("expected filter_chain_match.server_names (e.g. [%q]), got %v", hostname, fc.FilterChainMatch.ServerNames)
+	}
+	found := false
+	for _, sn := range fc.FilterChainMatch.ServerNames {
+		if sn == hostname {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected server_names to contain %q, got %v", hostname, fc.FilterChainMatch.ServerNames)
+	}
+}
+
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
