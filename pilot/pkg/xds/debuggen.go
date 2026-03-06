@@ -16,6 +16,7 @@ package xds
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -92,7 +93,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		return nil, model.DefaultXdsLogDetails, err
 	}
 
-	buffer := processDebugRequest(dg, resourceName)
+	buffer := processDebugRequest(dg, resourceName, proxy.VerifiedIdentity.Namespace)
 
 	res := model.Resources{&discovery.Resource{
 		Name: resourceName,
@@ -119,7 +120,7 @@ func (dg *DebugGen) GenerateDeltas(
 		return nil, nil, model.DefaultXdsLogDetails, true, err
 	}
 
-	buffer := processDebugRequest(dg, resourceName)
+	buffer := processDebugRequest(dg, resourceName, proxy.VerifiedIdentity.Namespace)
 
 	res := model.Resources{&discovery.Resource{
 		Name: resourceName,
@@ -155,10 +156,11 @@ func parseAndValidateDebugRequest(proxy *model.Proxy, w *model.WatchedResource, 
 	return resourceName, nil
 }
 
-func processDebugRequest(dg *DebugGen, resourceName string) bytes.Buffer {
+func processDebugRequest(dg *DebugGen, resourceName string, callerNamespace string) bytes.Buffer {
 	var buffer bytes.Buffer
 	debugURL := "/debug/" + resourceName
-	hreq, _ := http.NewRequest(http.MethodGet, debugURL, nil)
+	ctx := context.WithValue(context.Background(), CallerNamespaceKey{}, callerNamespace)
+	hreq, _ := http.NewRequestWithContext(ctx, http.MethodGet, debugURL, nil)
 	handler, _ := dg.DebugMux.Handler(hreq)
 	response := NewResponseCapture()
 	handler.ServeHTTP(response, hreq)
