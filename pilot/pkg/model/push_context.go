@@ -1515,7 +1515,7 @@ func (ps *PushContext) updateContext(
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
-	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
+	if servicesChanged || virtualServicesChanged || destinationRulesChanged || authnChanged || sidecarsChanged {
 		ps.initSidecarScopes(env)
 	} else {
 		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace.
