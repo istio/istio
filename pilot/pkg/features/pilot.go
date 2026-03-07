@@ -374,6 +374,12 @@ var (
 		"The timeout for transport socket (e.g., TLS handshake) connections on gateway listeners. "+
 			"This helps protect against slow TLS handshake attacks. Set to 0s to disable.",
 	).Get()
+
+	MaxWasmBinarySizeBytes = env.Register[int64](
+		"ISTIO_WASM_MAX_BINARY_SIZE_BYTES",
+		1024*1024*256,
+		"Maximum size of a Wasm binary in bytes. Default is 256MB.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

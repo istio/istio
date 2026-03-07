@@ -37,6 +37,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
@@ -353,8 +355,7 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 
 	// Search for the file walking through the archive.
 
-	// Limit wasm binary to 256MB; in reality it must be much smaller
-	tr := tar.NewReader(io.LimitReader(gr, 1024*1024*256))
+	tr := tar.NewReader(io.LimitReader(gr, features.MaxWasmBinarySizeBytes))
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {
@@ -419,7 +420,7 @@ func extractOCIArtifactImage(img v1.Image) ([]byte, error) {
 	defer r.Close()
 
 	// Just read it since the content is already a raw Wasm binary as mentioned above.
-	ret, err := io.ReadAll(r)
+	ret, err := io.ReadAll(io.LimitReader(r, features.MaxWasmBinarySizeBytes))
 	if err != nil {
 		return nil, fmt.Errorf("could not extract wasm binary: %v", err)
 	}
