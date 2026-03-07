@@ -69,9 +69,9 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 		"Maximum amount of time to spend fetching logs. When timeout is reached "+
 			"only the logs captured so far are saved to the archive.")
 	// include / exclude specs
-	cmd.PersistentFlags().StringSliceVar(&included, "include", bugReportDefaultInclude,
+	cmd.PersistentFlags().StringArrayVar(&included, "include", bugReportDefaultInclude,
 		"Spec for which pod's proxy logs to include in the archive. See above for format and examples.")
-	cmd.PersistentFlags().StringSliceVar(&excluded, "exclude", bugReportDefaultExclude,
+	cmd.PersistentFlags().StringArrayVar(&excluded, "exclude", bugReportDefaultExclude,
 		"Spec for which pod's proxy logs to exclude from the archive, after the include spec "+
 			"is processed. See above for format and examples.")
 
@@ -103,6 +103,10 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// in-flight request limit
 	cmd.PersistentFlags().IntVar(&args.RequestConcurrency, "rq-concurrency", 0,
 		"Set the concurrency limit of requests to the Kubernetes API server, defaults to 32.")
+
+	// log line limit
+	cmd.PersistentFlags().Int64Var(&args.TailLines, "tail", 10000,
+		"Maximum number of log lines to fetch per container. Set to 0 for unlimited.")
 }
 
 func parseConfig() (*config2.BugReportConfig, error) {

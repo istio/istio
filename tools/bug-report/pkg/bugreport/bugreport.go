@@ -304,10 +304,11 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	clusterDir := archive.ClusterInfoPath(tempDir)
 
 	params := &content.Params{
-		Runner:      runner,
-		DryRun:      config.DryRun,
-		KubeConfig:  config.KubeConfigPath,
-		KubeContext: config.Context,
+		Runner:             runner,
+		DryRun:             config.DryRun,
+		KubeConfig:         config.KubeConfigPath,
+		KubeContext:        config.Context,
+		IncludedNamespaces: cluster2.ExtractIncludedNamespaces(config),
 	}
 	common.LogAndPrintf("\n✅ Fetching Istio control plane information from cluster.\n\n")
 	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
@@ -502,12 +503,22 @@ func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *co
 	defer logRuntime(time.Now(), "Done getting logs only for %v/%v/%v", namespace, pod, container)
 
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
-	clog, err := runner.Logs(namespace, pod, container, false, config.DryRun)
+
+	var tailLines *int64
+	if config.TailLines > 0 {
+		tailLines = &config.TailLines
+	}
+	var sinceTime *time.Time
+	if config.TimeFilterApplied && !config.StartTime.IsZero() {
+		sinceTime = &config.StartTime
+	}
+
+	clog, err := runner.LogsWithOptions(namespace, pod, container, false, config.DryRun, tailLines, sinceTime)
 	if err != nil {
 		return "", nil, 0, err
 	}
 	if resources.ContainerRestarts(namespace, pod, container, common.IsCniPod(pod)) > 0 {
-		pclog, err := runner.Logs(namespace, pod, container, true, config.DryRun)
+		pclog, err := runner.LogsWithOptions(namespace, pod, container, true, config.DryRun, tailLines, sinceTime)
 		if err != nil {
 			return "", nil, 0, err
 		}

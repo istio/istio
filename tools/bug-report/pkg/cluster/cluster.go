@@ -216,7 +216,9 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 		CniPod:      make(map[string]*corev1.Pod),
 	}
 
-	pods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	namespaces := ExtractIncludedNamespaces(config)
+
+	pods, err := listPods(ctx, clientset, namespaces)
 	if err != nil {
 		return nil, err
 	}
@@ -231,9 +233,13 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 		return nil, err
 	}
 
-	for i, p := range pods.Items {
+	// Build lookup maps for O(1) ownership resolution instead of O(n) per pod.
+	rsOwnerMap := buildReplicaSetOwnerMap(replicasets.Items)
+	dsNameMap := buildDaemonSetNameMap(daemonsets.Items)
+
+	for i, p := range pods {
 		if p.Labels["k8s-app"] == "istio-cni-node" {
-			out.CniPod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
+			out.CniPod[PodKey(p.Namespace, p.Name)] = &pods[i]
 		}
 
 		if inject.IgnoredNamespaces.Contains(p.Namespace) {
@@ -243,11 +249,11 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 			continue
 		}
 
-		deployment := getOwnerDeployment(&p, replicasets.Items)
+		deployment := getOwnerDeployment(&p, rsOwnerMap)
 		if skip := shouldSkipDeployment(deployment, config); skip {
 			continue
 		}
-		daemonset := getOwnerDaemonSet(&p, daemonsets.Items)
+		daemonset := getOwnerDaemonSet(&p, dsNameMap)
 		if skip := shouldSkipDaemonSet(daemonset, config); skip {
 			continue
 		}
@@ -267,17 +273,100 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 			}
 			for _, c := range p.Spec.InitContainers {
 				if c.Name == inject.ProxyContainerName {
-					out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
+					out.insertContainer(p.Namespace, daemonset, p.Name, c.Name)
 				}
 			}
 		}
 
 		out.Labels[PodKey(p.Namespace, p.Name)] = p.Labels
 		out.Annotations[PodKey(p.Namespace, p.Name)] = p.Annotations
-		out.Pod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
+		out.Pod[PodKey(p.Namespace, p.Name)] = &pods[i]
 	}
 
 	return out, nil
+}
+
+// listPods lists pods from the given namespaces. If namespaces is empty, lists from all namespaces.
+func listPods(ctx context.Context, clientset *kubernetes.Clientset, namespaces []string) ([]corev1.Pod, error) {
+	if len(namespaces) == 0 {
+		pods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return pods.Items, nil
+	}
+
+	var allPods []corev1.Pod
+	for _, ns := range namespaces {
+		pods, err := clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		allPods = append(allPods, pods.Items...)
+	}
+	return allPods, nil
+}
+
+// ExtractIncludedNamespaces returns concrete (non-wildcard) namespaces from include specs.
+// Returns nil if no concrete namespaces can be determined (meaning all namespaces should be queried).
+func ExtractIncludedNamespaces(config *config2.BugReportConfig) []string {
+	if len(config.Include) == 0 {
+		return nil
+	}
+
+	nsSet := make(map[string]struct{})
+	for _, spec := range config.Include {
+		if len(spec.Namespaces) == 0 {
+			// Empty namespaces means "all namespaces"
+			return nil
+		}
+		for _, ns := range spec.Namespaces {
+			if strings.Contains(ns, "*") {
+				// Wildcard namespace, can't scope the API call
+				return nil
+			}
+			nsSet[ns] = struct{}{}
+		}
+	}
+
+	// Always include the istio namespace for control plane data
+	if config.IstioNamespace != "" {
+		nsSet[config.IstioNamespace] = struct{}{}
+	}
+
+	// If too many namespaces, fall back to cluster-wide query
+	if len(nsSet) > 20 {
+		return nil
+	}
+
+	namespaces := make([]string, 0, len(nsSet))
+	for ns := range nsSet {
+		namespaces = append(namespaces, ns)
+	}
+	return namespaces
+}
+
+// buildReplicaSetOwnerMap builds a map from "namespace/rsName" to the owning Deployment name.
+func buildReplicaSetOwnerMap(replicasets []appsv1.ReplicaSet) map[string]string {
+	m := make(map[string]string, len(replicasets))
+	for _, rs := range replicasets {
+		for _, owner := range rs.OwnerReferences {
+			if owner.Kind == gvk.Deployment.Kind {
+				m[rs.Namespace+"/"+rs.Name] = owner.Name
+				break
+			}
+		}
+	}
+	return m
+}
+
+// buildDaemonSetNameMap builds a map from "namespace/dsName" to the DaemonSet name.
+func buildDaemonSetNameMap(daemonsets []appsv1.DaemonSet) map[string]string {
+	m := make(map[string]string, len(daemonsets))
+	for _, ds := range daemonsets {
+		m[ds.Namespace+"/"+ds.Name] = ds.Name
+	}
+	return m
 }
 
 // Resources defines a tree of cluster resource names.
@@ -376,30 +465,22 @@ func PodKey(namespace, pod string) string {
 	return path.Path{namespace, pod}.String()
 }
 
-func getOwnerDeployment(pod *corev1.Pod, replicasets []appsv1.ReplicaSet) string {
+func getOwnerDeployment(pod *corev1.Pod, rsOwnerMap map[string]string) string {
 	for _, o := range pod.OwnerReferences {
 		if o.Kind == "ReplicaSet" {
-			for _, rs := range replicasets {
-				if rs.Name == o.Name {
-					for _, oo := range rs.OwnerReferences {
-						if oo.Kind == gvk.Deployment.Kind {
-							return oo.Name
-						}
-					}
-				}
+			if deployName, ok := rsOwnerMap[pod.Namespace+"/"+o.Name]; ok {
+				return deployName
 			}
 		}
 	}
 	return ""
 }
 
-func getOwnerDaemonSet(pod *corev1.Pod, daemonsets []appsv1.DaemonSet) string {
+func getOwnerDaemonSet(pod *corev1.Pod, dsNameMap map[string]string) string {
 	for _, o := range pod.OwnerReferences {
 		if o.Kind == gvk.DaemonSet.Kind {
-			for _, ds := range daemonsets {
-				if ds.Name == o.Name {
-					return ds.Name
-				}
+			if dsName, ok := dsNameMap[pod.Namespace+"/"+o.Name]; ok {
+				return dsName
 			}
 		}
 	}

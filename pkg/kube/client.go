@@ -167,6 +167,14 @@ type Client interface {
 	IsWatchListSemanticsUnSupported() bool
 }
 
+// PodLogOptions provides options for PodLogsOfOptions.
+type PodLogOptions struct {
+	Container string
+	Previous  bool
+	TailLines *int64
+	SinceTime *metav1.Time
+}
+
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
 // CLIClient is not appropriate for controllers, as it does a number of highly privileged or highly risky operations
 // such as `exec`, `port-forward`, etc.
@@ -201,6 +209,9 @@ type CLIClient interface {
 
 	// PodLogs retrieves the logs for the given pod.
 	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
+
+	// PodLogsOfOptions retrieves the logs for the given pod with additional options like tail lines and since time.
+	PodLogsOfOptions(ctx context.Context, podName string, podNamespace string, opts *PodLogOptions) (string, error)
 
 	// PodLogsFollow retrieves the logs for the given pod, following until the pod log stream is interrupted
 	PodLogsFollow(ctx context.Context, podName string, podNamespace string, container string) (string, error)
@@ -987,6 +998,31 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 	opts := &v1.PodLogOptions{
 		Container: container,
 		Previous:  previousLog,
+	}
+	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer closeQuietly(res)
+
+	builder := &strings.Builder{}
+	if _, err = io.Copy(builder, res); err != nil {
+		return "", err
+	}
+
+	return builder.String(), nil
+}
+
+func (c *client) PodLogsOfOptions(ctx context.Context, podName, podNamespace string, plo *PodLogOptions) (string, error) {
+	opts := &v1.PodLogOptions{
+		Container: plo.Container,
+		Previous:  plo.Previous,
+	}
+	if plo.TailLines != nil {
+		opts.TailLines = plo.TailLines
+	}
+	if plo.SinceTime != nil {
+		opts.SinceTime = plo.SinceTime
 	}
 	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {

@@ -179,6 +179,10 @@ type BugReportConfig struct {
 
 	// RequestConcurrency controls the request concurrency limit to the API server.
 	RequestConcurrency int `json:"requestConcurrency,omitempty"`
+
+	// TailLines limits the number of log lines fetched per container.
+	// 0 means unlimited.
+	TailLines int64 `json:"tailLines,omitempty"`
 }
 
 func (b *BugReportConfig) String() string {

@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
@@ -102,14 +104,30 @@ type Options struct {
 
 // Logs returns the logs for the given namespace/pod/container.
 func (r *Runner) Logs(namespace, pod, container string, previous, dryRun bool) (string, error) {
+	return r.LogsWithOptions(namespace, pod, container, previous, dryRun, nil, nil)
+}
+
+// LogsWithOptions returns logs with optional tail line limit and since time filter.
+func (r *Runner) LogsWithOptions(namespace, pod, container string, previous, dryRun bool, tailLines *int64, sinceTime *time.Time) (string, error) {
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running client.PodLogs(%s, %s, %s)", pod, namespace, container), nil
 	}
-	// ignore cancellation errors since this is subject to global timeout.
 	task := fmt.Sprintf("PodLogs %s/%s/%s", namespace, pod, container)
 	r.addRunningTask(task)
 	defer r.removeRunningTask(task)
-	return r.Client.PodLogs(context.TODO(), pod, namespace, container, previous)
+
+	opts := kube.PodLogOptions{
+		Container: container,
+		Previous:  previous,
+	}
+	if tailLines != nil && *tailLines > 0 {
+		opts.TailLines = tailLines
+	}
+	if sinceTime != nil && !sinceTime.IsZero() {
+		metaTime := metav1.NewTime(*sinceTime)
+		opts.SinceTime = &metaTime
+	}
+	return r.Client.PodLogsOfOptions(context.TODO(), pod, namespace, &opts)
 }
 
 // EnvoyGet sends a GET request for the URL in the Envoy container in the given namespace/pod and returns the result.
