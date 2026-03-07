@@ -375,7 +375,7 @@ var (
 			"This helps protect against slow TLS handshake attacks. Set to 0s to disable.",
 	).Get()
 
-	MaxWasmBinarySizeBytes = env.Register(
+	MaxWasmBinarySizeBytes = env.Register[int64](
 		"ISTIO_WASM_OCI_MAX_BINARY_SIZE_BYTES",
 		1024*1024*256,
 		"Maximum size of a Wasm binary in bytes when fetched from OCI images. Default is 256MB.",

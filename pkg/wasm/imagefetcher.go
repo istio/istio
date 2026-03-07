@@ -355,7 +355,7 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 
 	// Search for the file walking through the archive.
 
-	tr := tar.NewReader(io.LimitReader(gr, int64(features.MaxWasmBinarySizeBytes)))
+	tr := tar.NewReader(io.LimitReader(gr, features.MaxWasmBinarySizeBytes))
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {
@@ -420,7 +420,7 @@ func extractOCIArtifactImage(img v1.Image) ([]byte, error) {
 	defer r.Close()
 
 	// Just read it since the content is already a raw Wasm binary as mentioned above.
-	ret, err := io.ReadAll(io.LimitReader(r, int64(features.MaxWasmBinarySizeBytes)))
+	ret, err := io.ReadAll(io.LimitReader(r, features.MaxWasmBinarySizeBytes))
 	if err != nil {
 		return nil, fmt.Errorf("could not extract wasm binary: %v", err)
 	}
