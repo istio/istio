@@ -208,7 +208,16 @@ func entryPatternToRegexp(pattern string) string {
 }
 
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.
-func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, config *config2.BugReportConfig) (*Resources, error) {
+// It builds a hierarchical tree of namespace/deployment(or daemonset)/pod/container that represents
+// the relevant workloads to include in the bug report.
+// 
+//  1. Retrieve pods (scoped to included namespaces when possible), replicasets, and daemonsets.
+//  2. Build O(1) lookup maps for replicaset->deployment and daemonset ownership, so we can
+//     efficiently resolve each pod's owning deployment or daemonset without repeated list scans.
+//  3. Iterate through all pods, applying include/exclude filters at the pod,
+//     deployment, and daemonset levels. Surviving pods are inserted into the resource tree grouped
+//     by their owning deployment or daemonset. CNI pods are tracked separately regardless of filters.
+func GetClusterResources(ctx context.Context, clientset kubernetes.Interface, config *config2.BugReportConfig) (*Resources, error) {
 	out := &Resources{
 		Labels:      make(map[string]map[string]string),
 		Annotations: make(map[string]map[string]string),
@@ -216,6 +225,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 		CniPod:      make(map[string]*corev1.Pod),
 	}
 
+	// fetch cluster data.
 	namespaces := ExtractIncludedNamespaces(config)
 
 	pods, err := listPods(ctx, clientset, namespaces)
@@ -223,6 +233,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 		return nil, err
 	}
 
+	// ReplicaSets and DaemonSets are fetched cluster-wide so we can resolve pod ownership.
 	replicasets, err := clientset.AppsV1().ReplicaSets("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -237,18 +248,24 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 	rsOwnerMap := buildReplicaSetOwnerMap(replicasets.Items)
 	dsNameMap := buildDaemonSetNameMap(daemonsets.Items)
 
+	// Filter pods and build the resource tree.
 	for i, p := range pods {
+		// Always collect CNI pods for diagnostics, even if they'd otherwise be filtered out.
 		if p.Labels["k8s-app"] == "istio-cni-node" {
 			out.CniPod[PodKey(p.Namespace, p.Name)] = &pods[i]
 		}
 
+		// Skip system namespaces (e.g. kube-system) that Istio injection ignores.
 		if inject.IgnoredNamespaces.Contains(p.Namespace) {
 			continue
 		}
+		// Apply pod-level include/exclude filters (namespace, pod name, container, labels, annotations).
 		if skip := shouldSkipPod(&p, config); skip {
 			continue
 		}
 
+		// Resolve the pod's owning deployment or daemonset via the pre-built lookup maps,
+		// and apply deployment/daemonset-level include/exclude filters.
 		deployment := getOwnerDeployment(&p, rsOwnerMap)
 		if skip := shouldSkipDeployment(deployment, config); skip {
 			continue
@@ -258,6 +275,9 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 			continue
 		}
 
+		// Insert surviving pods into the resource tree, grouped under their owner.
+		// For both deployments and daemonsets, we include all regular containers plus
+		// the istio-proxy init container (if present) for sidecar log collection.
 		if deployment != "" {
 			for _, c := range p.Spec.Containers {
 				out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
@@ -287,7 +307,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 }
 
 // listPods lists pods from the given namespaces. If namespaces is empty, lists from all namespaces.
-func listPods(ctx context.Context, clientset *kubernetes.Clientset, namespaces []string) ([]corev1.Pod, error) {
+func listPods(ctx context.Context, clientset kubernetes.Interface, namespaces []string) ([]corev1.Pod, error) {
 	if len(namespaces) == 0 {
 		pods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 		if err != nil {
