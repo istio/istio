@@ -15,8 +15,10 @@
 package xds_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -36,6 +38,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -522,15 +525,30 @@ spec:
 		waypointGateway, waypointSvc, waypointInstance,
 		appServiceEntry, notSelectedAppServiceEntry, requestAuthn)
 
-	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	var app, notApp *hcm.HttpConnectionManager
+	retry.UntilSuccessOrFail(t, func() error {
+		l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+		if l == nil {
+			return fmt.Errorf("listener not found")
+		}
 
-	app := xdstest.ExtractHTTPConnectionManager(t,
-		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
+		appFc := xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l)
+		if appFc == nil {
+			return fmt.Errorf("app filter chain not found")
+		}
+		app = xdstest.ExtractHTTPConnectionManager(t, appFc)
+
+		notAppFc := xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l)
+		if notAppFc == nil {
+			return fmt.Errorf("notApp filter chain not found")
+		}
+		notApp = xdstest.ExtractHTTPConnectionManager(t, notAppFc)
+		return nil
+	}, retry.Timeout(time.Second*10))
+
 	assert.Equal(t, sets.New(slices.Map(app.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), true)
 
 	// assert not-app.com has not gotten config from the req authn
-	notApp := xdstest.ExtractHTTPConnectionManager(t,
-		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
 	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), false)
 }
 
