@@ -6,5 +6,5 @@ issue:
 
 releaseNotes:
 - |
-  **Added** support for configuring the Wasm OCI image binary size limit via the
-  `ISTIO_WASM_OCI_MAX_BINARY_SIZE_BYTES` environment variable.
+  **Added** support for configuring the Wasm binary size limit via the
+  `ISTIO_WASM_MAX_BINARY_SIZE_BYTES` environment variable.

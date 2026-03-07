@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/backoff"
 )
 
@@ -97,8 +98,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
-			// Limit wasm module to 256MB; in reality it must be much smaller
-			body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024*256))
+			body, err := io.ReadAll(io.LimitReader(resp.Body, features.MaxWasmBinarySizeBytes))
 			if err != nil {
 				return nil, err
 			}
@@ -110,8 +110,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, url string, allowInsecure bool)
 		}
 		lastError = fmt.Errorf("wasm module download request failed: status code %v", resp.StatusCode)
 		if retryable(resp.StatusCode) {
-			// Limit wasm module to 256MB; in reality it must be much smaller
-			body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024*256))
+			body, err := io.ReadAll(io.LimitReader(resp.Body, features.MaxWasmBinarySizeBytes))
 			if err != nil {
 				return nil, err
 			}
@@ -147,8 +146,7 @@ func isPosixTar(b []byte) bool {
 func getFirstFileFromTar(b []byte) []byte {
 	buf := bytes.NewBuffer(b)
 
-	// Limit wasm module to 256MB; in reality it must be much smaller
-	tr := tar.NewReader(io.LimitReader(buf, 1024*1024*256))
+	tr := tar.NewReader(io.LimitReader(buf, features.MaxWasmBinarySizeBytes))
 
 	h, err := tr.Next()
 	if err != nil {

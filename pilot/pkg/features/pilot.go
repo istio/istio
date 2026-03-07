@@ -376,9 +376,9 @@ var (
 	).Get()
 
 	MaxWasmBinarySizeBytes = env.Register[int64](
-		"ISTIO_WASM_OCI_MAX_BINARY_SIZE_BYTES",
+		"ISTIO_WASM_MAX_BINARY_SIZE_BYTES",
 		1024*1024*256,
-		"Maximum size of a Wasm binary in bytes when fetched from OCI images. Default is 256MB.",
+		"Maximum size of a Wasm binary in bytes. Default is 256MB.",
 	).Get()
 )
 
