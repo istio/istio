@@ -321,25 +321,16 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	imageName := "proxyv2"
 	global := values.GetGlobal()
 
-	tag := ""
-	if global.GetTag() != nil { // Tag is an interface but we need the string form.
-		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
-	}
-
-	imageType := global.GetVariant()
-	if image != nil {
-		imageType = image.ImageType
-	}
-
 	if global.GetProxy() != nil && global.GetProxy().GetImage() != "" {
 		imageName = global.GetProxy().GetImage()
 	}
 
-	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {
-		imageType = it
+	imageType := ""
+	if image != nil {
+		imageType = image.ImageType
 	}
 
-	return imageURL(global.GetHub(), imageName, tag, imageType)
+	return proxyImageURL(values, imageName, imageType, annotations)
 }
 
 // ProxyInitImage constructs image url for the proxy init container.
@@ -348,15 +339,23 @@ func ProxyInitImage(values *opconfig.Values, annotations map[string]string) stri
 	imageName := "proxyv2"
 	global := values.GetGlobal()
 
+	if global.GetProxyInit() != nil && global.GetProxyInit().GetImage() != "" {
+		imageName = global.GetProxyInit().GetImage()
+	}
+
+	return proxyImageURL(values, imageName, "", annotations)
+}
+
+func proxyImageURL(values *opconfig.Values, imageName, imageType string, annotations map[string]string) string {
+	global := values.GetGlobal()
+
 	tag := ""
-	if global.GetTag() != nil {
+	if global.GetTag() != nil { // Tag is an interface but we need the string form.
 		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
 	}
 
-	imageType := global.GetVariant()
-
-	if global.GetProxyInit() != nil && global.GetProxyInit().GetImage() != "" {
-		imageName = global.GetProxyInit().GetImage()
+	if imageType == "" {
+		imageType = global.GetVariant()
 	}
 
 	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {
