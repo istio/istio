@@ -107,6 +107,14 @@ func TestSendPushesManyPushes(t *testing.T) {
 		}
 	}
 
+	// Wait for queue to process all requests
+	retry.UntilSuccessOrFail(t, func() error {
+		if queue.Pending() > 0 {
+			return fmt.Errorf("queue still has %d pending items", queue.Pending())
+		}
+		return nil
+	}, retry.Timeout(5*time.Second))
+
 	// Wait for every proxy to receive at least one push (or timeout).
 	if !wgDoneOrTimeout(&wg, 5*time.Second) {
 		t.Fatal("timed out waiting for proxies to receive pushes")
