@@ -183,6 +183,17 @@ type BugReportConfig struct {
 	// TailLines limits the number of log lines fetched per container.
 	// 0 means unlimited.
 	TailLines int64 `json:"tailLines,omitempty"`
+
+	// SkipClusterDump skips fetching cluster-wide resources (K8s resources, CRs, node info, secrets).
+	SkipClusterDump bool `json:"skipClusterDump,omitempty"`
+	// SkipAnalyze skips running istioctl analyze.
+	SkipAnalyze bool `json:"skipAnalyze,omitempty"`
+	// SkipProxyDebug skips fetching envoy admin debug info from proxy pods.
+	SkipProxyDebug bool `json:"skipProxyDebug,omitempty"`
+	// SkipNetstat skips running netstat in proxy containers.
+	SkipNetstat bool `json:"skipNetstat,omitempty"`
+	// SkipCoredumps skips collecting coredumps from proxy containers.
+	SkipCoredumps bool `json:"skipCoredumps,omitempty"`
 }
 
 func (b *BugReportConfig) String() string {

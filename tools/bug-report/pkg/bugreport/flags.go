@@ -107,6 +107,18 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// log line limit
 	cmd.PersistentFlags().Int64Var(&args.TailLines, "tail", 10000,
 		"Maximum number of log lines to fetch per container. Set to 0 for unlimited.")
+
+	// skip flags for expensive sections
+	cmd.PersistentFlags().BoolVar(&args.SkipClusterDump, "skip-cluster-dump", false,
+		"Skip fetching cluster-wide resources (K8s resources, CRs, node info, secrets).")
+	cmd.PersistentFlags().BoolVar(&args.SkipAnalyze, "skip-analyze", false,
+		"Skip running istioctl analyze.")
+	cmd.PersistentFlags().BoolVar(&args.SkipProxyDebug, "skip-proxy-debug", false,
+		"Skip fetching envoy admin debug info from proxy pods.")
+	cmd.PersistentFlags().BoolVar(&args.SkipNetstat, "skip-netstat", false,
+		"Skip running netstat in proxy containers.")
+	cmd.PersistentFlags().BoolVar(&args.SkipCoredumps, "skip-coredumps", false,
+		"Skip collecting coredumps from proxy containers.")
 }
 
 func parseConfig() (*config2.BugReportConfig, error) {
