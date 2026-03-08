@@ -210,7 +210,7 @@ func entryPatternToRegexp(pattern string) string {
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.
 // It builds a hierarchical tree of namespace/deployment(or daemonset)/pod/container that represents
 // the relevant workloads to include in the bug report.
-// 
+//
 //  1. Retrieve pods (scoped to included namespaces when possible), replicasets, and daemonsets.
 //  2. Build O(1) lookup maps for replicaset->deployment and daemonset ownership, so we can
 //     efficiently resolve each pod's owning deployment or daemonset without repeated list scans.
