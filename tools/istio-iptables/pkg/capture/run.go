@@ -281,9 +281,27 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if cfg.cfg.OutboundPortsExclude != "" {
-		for _, port := range config.Split(cfg.cfg.OutboundPortsExclude) {
-			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-p", "tcp", "--dport", port, "-j", "RETURN")
-			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-p", "udp", "--dport", port, "-j", "RETURN")
+		ports := config.Split(cfg.cfg.OutboundPortsExclude)
+		
+		// Use multiport optimization to reduce the number of rules
+		// This helps with gVisor compatibility by reducing the total rule count
+		const maxPortsPerRule = 15 // iptables multiport limit
+		
+		for i := 0; i < len(ports); i += maxPortsPerRule {
+			end := i + maxPortsPerRule
+			if end > len(ports) {
+				end = len(ports)
+			}
+			
+			portList := strings.Join(ports[i:end], ",")
+			
+			// TCP exclusion with multiport
+			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", 
+				"-p", "tcp", "-m", "multiport", "--dports", portList, "-j", "RETURN")
+			
+			// UDP exclusion with multiport
+			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat",
+				"-p", "udp", "-m", "multiport", "--dports", portList, "-j", "RETURN")
 		}
 	}
 
