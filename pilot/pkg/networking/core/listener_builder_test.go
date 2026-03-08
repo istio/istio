@@ -1027,6 +1027,7 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 		name           string
 		addresses      []*workloadapi.NetworkAddress
 		localVIPs      []string
+		scope          model.ServiceScope
 		proxyNetwork   string
 		proxyIPs       []string
 		expectedVIPs   []string
@@ -1038,6 +1039,7 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.1").AsSlice()},
 				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.2").AsSlice()},
 			},
+			scope:        model.Global,
 			proxyNetwork: "network-a",
 			expectedVIPs: []string{"10.0.0.1", "10.0.0.2"},
 		},
@@ -1049,6 +1051,7 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.2").AsSlice()},
 				{Network: "network-a", Address: netip.MustParseAddr("fd00::2").AsSlice()},
 			},
+			scope:        model.Global,
 			proxyNetwork: "network-a",
 			proxyIPs:     []string{"10.244.0.1", "fd00::99"},
 			expectedVIPs: []string{"10.0.0.1", "10.0.0.2", "fd00::1", "fd00::2"},
@@ -1059,6 +1062,7 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.1").AsSlice()},
 				{Network: "network-b", Address: netip.MustParseAddr("10.96.0.1").AsSlice()},
 			},
+			scope:          model.Global,
 			proxyNetwork:   "network-a",
 			expectedVIPs:   []string{"10.0.0.1"},
 			unexpectedVIPs: []string{"10.96.0.1"},
@@ -1069,6 +1073,7 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.1").AsSlice()},
 				{Network: "network-a", Address: netip.MustParseAddr("fd00::1").AsSlice()},
 			},
+			scope:          model.Global,
 			proxyNetwork:   "network-a",
 			expectedVIPs:   []string{"10.0.0.1"},
 			unexpectedVIPs: []string{"fd00::1"},
@@ -1078,6 +1083,7 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 			addresses: []*workloadapi.NetworkAddress{
 				{Network: "network-b", Address: netip.MustParseAddr("10.96.0.1").AsSlice()},
 			},
+			scope:          model.Global,
 			localVIPs:      []string{"10.0.0.1"},
 			proxyNetwork:   "network-a",
 			expectedVIPs:   []string{"10.0.0.1"},
@@ -1088,9 +1094,22 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 			addresses: []*workloadapi.NetworkAddress{
 				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.2").AsSlice()},
 			},
+			scope:        model.Global,
 			localVIPs:    []string{"10.0.0.1"},
 			proxyNetwork: "network-a",
 			expectedVIPs: []string{"10.0.0.1", "10.0.0.2"},
+		},
+		{
+			name: "local scope only uses local cluster VIPs",
+			addresses: []*workloadapi.NetworkAddress{
+				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.1").AsSlice()},
+				{Network: "network-a", Address: netip.MustParseAddr("10.0.0.2").AsSlice()},
+			},
+			scope:          model.Local,
+			localVIPs:      []string{"10.0.0.1"},
+			proxyNetwork:   "network-a",
+			expectedVIPs:   []string{"10.0.0.1"},
+			unexpectedVIPs: []string{"10.0.0.2"},
 		},
 	}
 
@@ -1119,6 +1138,7 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 			push.SetAmbientIndexForTesting(&fakeAmbientIndex{
 				serviceInfoByKey: map[string]*model.ServiceInfo{
 					"default/svc.default.svc.cluster.local": {
+						Scope: tc.scope,
 						Service: &workloadapi.Service{
 							Name:      "svc",
 							Namespace: "default",
@@ -1263,6 +1283,7 @@ func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 	push.SetAmbientIndexForTesting(&fakeAmbientIndex{
 		serviceInfoByKey: map[string]*model.ServiceInfo{
 			"default/fake-egress.example.com": {
+				Scope: model.Global,
 				Service: &workloadapi.Service{
 					Name:      "fake-egress",
 					Namespace: "default",

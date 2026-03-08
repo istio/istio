@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security "istio.io/istio/pilot/pkg/security/model"
+	netutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
@@ -400,11 +401,13 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			waypoint = lb.findServiceWaypoint(svc)
 		}
 
-		var svcAddresses []string
+		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
 		if features.EnableAmbientMultiNetwork {
-			svcAddresses = lb.serviceAddressesFromAllClusters(svc)
-		} else {
-			svcAddresses = svc.GetAllAddressesForProxy(lb.node)
+			key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
+			svcInfo := lb.push.ServiceInfo(key)
+			if svcInfo != nil && svcInfo.Scope == model.Global {
+				svcAddresses = sets.SortedList(sets.New(append(svcAddresses, lb.globalServiceVIPs(svcInfo)...)...))
+			}
 		}
 
 		portMapper := match.NewDestinationPort()
@@ -1270,19 +1273,12 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 	return ctx
 }
 
-// serviceAddressesFromAllClusters returns VIP addresses for a service filtered to
-// the proxy's network, using the ambient index's ServiceInfo which carries
-// network-tagged addresses. The resulting addresses are passed through GetAllAddressesForProxyWithVIPs
-// for IP family filtering and auto-allocated IP fallback.
-// Falls back to GetAllAddressesForProxy if ServiceInfo is unavailable.
-func (lb *ListenerBuilder) serviceAddressesFromAllClusters(svc *model.Service) []string {
-	key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
-	svcInfo := lb.push.ServiceInfo(key)
-	if svcInfo == nil {
-		return svc.GetAllAddressesForProxy(lb.node)
-	}
+// globalServiceVIPs returns network-filtered and IP-family-filtered VIP addresses
+// from a globally-scoped service's ServiceInfo. These are meant to be merged with
+// the local cluster VIPs from GetAllAddressesForProxy.
+func (lb *ListenerBuilder) globalServiceVIPs(svcInfo *model.ServiceInfo) []string {
 	proxyNetwork := lb.node.Metadata.Network.String()
-	addresses := sets.New[string]()
+	var addresses []string
 	for _, addr := range svcInfo.Service.GetAddresses() {
 		if proxyNetwork != "" && addr.Network != proxyNetwork {
 			continue
@@ -1291,12 +1287,10 @@ func (lb *ListenerBuilder) serviceAddressesFromAllClusters(svc *model.Service) [
 		if !ok {
 			continue
 		}
-		addresses.Insert(ip.String())
+		addresses = append(addresses, ip.String())
 	}
-	// Always include the local cluster's VIPs as a safeguard in case the
-	// ambient index is incomplete (e.g. during initial sync).
-	if lb.node.Metadata != nil && lb.node.Metadata.ClusterID != "" {
-		addresses.InsertAll(svc.ClusterVIPs.GetAddressesFor(lb.node.Metadata.ClusterID)...)
+	if lb.node.GetIPMode() != model.Dual {
+		addresses = netutil.FilterAddressesByIPFamily(addresses, lb.node.SupportsIPv4(), lb.node.SupportsIPv6())
 	}
-	return svc.GetAllAddressesForProxyWithVIPs(lb.node, addresses.UnsortedList())
+	return addresses
 }

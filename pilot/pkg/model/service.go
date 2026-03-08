@@ -42,6 +42,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	netutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -1703,7 +1704,7 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-			addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
+			addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 			if len(addresses) > 0 {
 				return addresses[0]
 			}
@@ -1761,14 +1762,6 @@ func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 	return s.getAllAddressesForProxy(node)
 }
 
-// GetAllAddressesForProxyWithVIPs is like GetAllAddressesForProxy but uses the
-// provided VIP addresses instead of looking them up from ClusterVIPs. This is
-// used when the caller has already resolved VIPs from another source (e.g. the
-// ambient index's ServiceInfo with network-aware addresses).
-func (s *Service) GetAllAddressesForProxyWithVIPs(node *Proxy, addresses []string) []string {
-	return s.resolveAddresses(addresses, node)
-}
-
 // nodeUsesAutoallocatedIPs checks to see if this node is eligible to consume automatically allocated IPs
 func nodeUsesAutoallocatedIPs(node *Proxy) bool {
 	if node == nil {
@@ -1793,13 +1786,6 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
-	return s.resolveAddresses(addresses, node)
-}
-
-// resolveAddresses takes a pre-collected set of VIP addresses, falls back to
-// auto-allocated IPs and the default address, and filters by the proxy's
-// supported IP families.
-func (s *Service) resolveAddresses(addresses []string, node *Proxy) []string {
 	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
@@ -1809,7 +1795,7 @@ func (s *Service) resolveAddresses(addresses []string, node *Proxy) []string {
 		}
 	}
 	if (!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual {
-		addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
+		addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 	}
 	if len(addresses) > 0 {
 		return addresses
@@ -1819,69 +1805,6 @@ func (s *Service) resolveAddresses(addresses []string, node *Proxy) []string {
 		return []string{a}
 	}
 	return nil
-}
-
-func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
-	if len(addresses) == 0 {
-		return nil
-	}
-
-	var ipv4Addresses []string
-	var ipv6Addresses []string
-	for _, addr := range addresses {
-		// check if an address is a CIDR range
-		if strings.Contains(addr, "/") {
-			if prefix, err := netip.ParsePrefix(addr); err != nil {
-				log.Warnf("failed to parse prefix address '%s': %s", addr, err)
-				continue
-			} else if supportsV4 && prefix.Addr().Is4() {
-				ipv4Addresses = append(ipv4Addresses, addr)
-			} else if supportsV6 && prefix.Addr().Is6() {
-				ipv6Addresses = append(ipv6Addresses, addr)
-			}
-		} else {
-			if ipAddr, err := netip.ParseAddr(addr); err != nil {
-				log.Warnf("failed to parse address '%s': %s", addr, err)
-				continue
-			} else if supportsV4 && ipAddr.Is4() {
-				ipv4Addresses = append(ipv4Addresses, addr)
-			} else if supportsV6 && ipAddr.Is6() {
-				ipv6Addresses = append(ipv6Addresses, addr)
-			}
-		}
-	}
-
-	if supportsV4 && supportsV6 {
-		firstAddrFamily := ""
-		if strings.Contains(addresses[0], "/") {
-			if prefix, err := netip.ParsePrefix(addresses[0]); err == nil {
-				if prefix.Addr().Is4() {
-					firstAddrFamily = "v4"
-				} else if prefix.Addr().Is6() {
-					firstAddrFamily = "v6"
-				}
-			}
-		} else {
-			if ipAddr, err := netip.ParseAddr(addresses[0]); err == nil {
-				if ipAddr.Is4() {
-					firstAddrFamily = "v4"
-				} else if ipAddr.Is6() {
-					firstAddrFamily = "v6"
-				}
-			}
-		}
-
-		if firstAddrFamily == "v4" {
-			return ipv4Addresses
-		} else if firstAddrFamily == "v6" {
-			return ipv6Addresses
-		}
-	}
-
-	if len(ipv4Addresses) > 0 {
-		return ipv4Addresses
-	}
-	return ipv6Addresses
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label
