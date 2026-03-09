@@ -43,7 +43,7 @@ func TestDNS(t *testing.T) {
 
 func TestBuildAlternateHosts(t *testing.T) {
 	// Create the server instance without starting it, as it's unnecessary for this test
-	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false)
+	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -593,7 +593,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 
 func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 	srv := makeUpstream(t, map[string]string{"www.bing.com.": "1.1.1.1"})
-	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel)
+	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -679,4 +679,170 @@ func equalsDNSrecords(got []dns.RR, want []dns.RR) bool {
 		got[i].Header().Rdlength = 0
 	}
 	return reflect.DeepEqual(got, want)
+}
+
+func TestDNSBlockedQueryTypes(t *testing.T) {
+	testCases := []struct {
+		name              string
+		blockedTypes      string
+		queryType         uint16
+		host              string
+		expectBlocked     bool
+		expectAnswers     bool
+		expectRcode       int
+		expectAuthoritive bool
+	}{
+		{
+			name:              "SRV blocked",
+			blockedTypes:      "SRV,TXT,PTR",
+			queryType:         dns.TypeSRV,
+			host:              "productpage.ns1.svc.cluster.local.",
+			expectBlocked:     true,
+			expectRcode:       dns.RcodeSuccess,
+			expectAuthoritive: true,
+		},
+		{
+			name:              "TXT blocked",
+			blockedTypes:      "SRV,TXT,PTR",
+			queryType:         dns.TypeTXT,
+			host:              "www.google.com.",
+			expectBlocked:     true,
+			expectRcode:       dns.RcodeSuccess,
+			expectAuthoritive: true,
+		},
+		{
+			name:              "PTR blocked",
+			blockedTypes:      "SRV,TXT,PTR",
+			queryType:         dns.TypePTR,
+			host:              "1.1.1.1.in-addr.arpa.",
+			expectBlocked:     true,
+			expectRcode:       dns.RcodeSuccess,
+			expectAuthoritive: true,
+		},
+		{
+			name:          "A query not blocked when SRV,TXT,PTR are blocked",
+			blockedTypes:  "SRV,TXT,PTR",
+			queryType:     dns.TypeA,
+			host:          "productpage.ns1.svc.cluster.local.",
+			expectBlocked: false,
+			expectAnswers: true,
+		},
+		{
+			name:          "AAAA query not blocked when SRV,TXT,PTR are blocked",
+			blockedTypes:  "SRV,TXT,PTR",
+			queryType:     dns.TypeAAAA,
+			host:          "ipv6.localhost.",
+			expectBlocked: false,
+			expectAnswers: true,
+		},
+		{
+			name:          "empty blocked types means no blocking",
+			blockedTypes:  "",
+			queryType:     dns.TypeSRV,
+			host:          "productpage.ns1.svc.cluster.local.",
+			expectBlocked: false,
+		},
+		{
+			name:              "single type blocked",
+			blockedTypes:      "MX",
+			queryType:         dns.TypeMX,
+			host:              "www.google.com.",
+			expectBlocked:     true,
+			expectRcode:       dns.RcodeSuccess,
+			expectAuthoritive: true,
+		},
+		{
+			name:          "SRV not blocked when only MX is blocked",
+			blockedTypes:  "MX",
+			queryType:     dns.TypeSRV,
+			host:          "productpage.ns1.svc.cluster.local.",
+			expectBlocked: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := makeUpstream(t, map[string]string{"www.bing.com.": "1.1.1.1"})
+			d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false, tc.blockedTypes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			d.resolvConfServers = []string{srv}
+			d.StartDNS()
+			fillTable(d)
+			t.Cleanup(d.Close)
+
+			c := dns.Client{Timeout: 1 * time.Second}
+			m := new(dns.Msg)
+			m.SetQuestion(tc.host, tc.queryType)
+			res, _, err := c.Exchange(m, d.dnsProxies[0].Address())
+			if err != nil {
+				t.Fatalf("DNS exchange failed: %v", err)
+			}
+
+			if tc.expectBlocked {
+				if res.Rcode != tc.expectRcode {
+					t.Errorf("expected rcode %d, got %d", tc.expectRcode, res.Rcode)
+				}
+				if len(res.Answer) != 0 {
+					t.Errorf("expected empty answer for blocked query, got %v", res.Answer)
+				}
+				if tc.expectAuthoritive && !res.Authoritative {
+					t.Error("expected authoritative response for blocked query")
+				}
+			} else if tc.expectAnswers {
+				if len(res.Answer) == 0 {
+					t.Error("expected answers for non-blocked query, got none")
+				}
+			}
+		})
+	}
+}
+
+func TestParseBlockedQueryTypes(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected sets.Set[uint16]
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: nil,
+		},
+		{
+			name:     "single type",
+			input:    "SRV",
+			expected: sets.New(dns.TypeSRV),
+		},
+		{
+			name:     "multiple types",
+			input:    "SRV,TXT,PTR",
+			expected: sets.New(dns.TypeSRV, dns.TypeTXT, dns.TypePTR),
+		},
+		{
+			name:     "with spaces and mixed case",
+			input:    " srv , Txt , PTR ",
+			expected: sets.New(dns.TypeSRV, dns.TypeTXT, dns.TypePTR),
+		},
+		{
+			name:     "unknown types ignored",
+			input:    "NOTREAL,FAKE",
+			expected: nil,
+		},
+		{
+			name:     "mix of valid and invalid",
+			input:    "SRV,NOTREAL,TXT",
+			expected: sets.New(dns.TypeSRV, dns.TypeTXT),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := parseBlockedQueryTypes(tc.input)
+			if !reflect.DeepEqual(result, tc.expected) {
+				t.Errorf("parseBlockedQueryTypes(%q) = %v, want %v", tc.input, result, tc.expected)
+			}
+		})
+	}
 }

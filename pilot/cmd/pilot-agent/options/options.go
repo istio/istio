@@ -110,6 +110,11 @@ var (
 	DNSForwardParallel = env.Register("DNS_FORWARD_PARALLEL", false,
 		"If set to true, agent will send parallel DNS queries to all upstream nameservers")
 
+	// block specific DNS query types from being forwarded upstream
+	DNSBlockedQueryTypes = env.Register("DNS_BLOCKED_QUERY_TYPES", "",
+		"Comma-separated list of DNS query types to block (e.g. SRV,TXT,PTR). "+
+			"Blocked queries return an empty authoritative NOERROR response instead of forwarding upstream.")
+
 	// Ability of istio-agent to retrieve proxyConfig via XDS for dynamic configuration updates
 	enableProxyConfigXdsEnv = env.Register("PROXY_CONFIG_XDS_AGENT", false,
 		"If set to true, agent retrieves dynamic proxy-config updates via xds channel").Get()

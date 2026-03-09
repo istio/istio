@@ -59,6 +59,10 @@ type LocalDNSServer struct {
 
 	respondBeforeSync         bool
 	forwardToUpstreamParallel bool
+
+	// blockedTypes is the set of DNS query types that should be blocked
+	// (i.e. return empty authoritative NOERROR instead of forwarding upstream)
+	blockedTypes sets.Set[uint16]
 }
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
@@ -87,10 +91,11 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool, blockedQueryTypes string) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace:            proxyNamespace,
 		forwardToUpstreamParallel: forwardToUpstreamParallel,
+		blockedTypes:              parseBlockedQueryTypes(blockedQueryTypes),
 	}
 
 	// proxyDomain could contain the namespace making it redundant.
@@ -238,6 +243,31 @@ func (h *LocalDNSServer) upstream(proxy *dnsProxy, req *dns.Msg, hostname string
 	return response
 }
 
+// parseBlockedQueryTypes parses a comma-separated list of DNS type names (e.g. "SRV,TXT,PTR")
+// into a set of dns type constants.
+func parseBlockedQueryTypes(raw string) sets.Set[uint16] {
+	if raw == "" {
+		return nil
+	}
+	blocked := sets.New[uint16]()
+	for _, name := range strings.Split(raw, ",") {
+		name = strings.TrimSpace(strings.ToUpper(name))
+		if name == "" {
+			continue
+		}
+		if qtype, ok := dns.StringToType[name]; ok {
+			blocked.Insert(qtype)
+			log.Infof("blocking DNS query type: %s", name)
+		} else {
+			log.Warnf("unknown DNS query type to block: %q, ignoring", name)
+		}
+	}
+	if blocked.IsEmpty() {
+		return nil
+	}
+	return blocked
+}
+
 // ServeDNS is the implementation of DNS interface
 func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	requests.Increment()
@@ -255,6 +285,19 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		response.Rcode = dns.RcodeServerFailure
 		_ = w.WriteMsg(response)
 		return
+	}
+
+	// block configured query types before any lookup or upstream forwarding
+	if h.blockedTypes != nil {
+		if h.blockedTypes.Contains(req.Question[0].Qtype) {
+			blockedQueries.Increment()
+			log.Debugf("blocking DNS query type %s for %s", dns.TypeToString[req.Question[0].Qtype], req.Question[0].Name)
+			response = new(dns.Msg)
+			response.SetReply(req)
+			response.Authoritative = true
+			_ = w.WriteMsg(response)
+			return
+		}
 	}
 
 	lp := h.lookupTable.Load()
