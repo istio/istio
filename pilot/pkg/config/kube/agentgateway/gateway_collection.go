@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/agentgateway/agentgateway/go/api"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,6 +26,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -447,4 +449,55 @@ func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e 
 
 func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
 	return gatewayv1.ListenerStatus(e)
+}
+
+// TODO(jaellio): Move these definitions to route collection?
+// RouteParents holds information about things routes can reference as parents.
+type RouteParents struct {
+	gateways     krt.Collection[*GatewayListener]
+	gatewayIndex krt.Index[AgwParentKey, *GatewayListener]
+}
+
+func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
+	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw *GatewayListener) *AgwParentInfo {
+		return &gw.ParentInfo
+	})
+}
+
+func BuildRouteParents(
+	gateways krt.Collection[*GatewayListener],
+) RouteParents {
+	idx := krt.NewIndex(gateways, "parent", func(o *GatewayListener) []AgwParentKey {
+		return []AgwParentKey{o.ParentObject}
+	})
+	return RouteParents{
+		gateways:     gateways,
+		gatewayIndex: idx,
+	}
+}
+
+// AgwRoute is a wrapper type that contains the route on the gateway, as well as the status for the route.
+type AgwRoute struct {
+	*api.Route
+}
+
+func (g AgwRoute) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwRoute) Equals(other AgwRoute) bool {
+	return protoconv.Equals(g, other)
+}
+
+// AgwTCPRoute is a wrapper type that contains the tcp route on the gateway, as well as the status for the tcp route.
+type AgwTCPRoute struct {
+	*api.TCPRoute
+}
+
+func (g AgwTCPRoute) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwTCPRoute) Equals(other AgwTCPRoute) bool {
+	return protoconv.Equals(g, other)
 }
