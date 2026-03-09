@@ -4,4 +4,4 @@ area: traffic-management
 
 releaseNotes:
   - |
-    **Added** a `ambient.istio.io/connect-strategy` annotation to ServiceEntries to allow different connection semantics in ambient. Users can set this to FIRST_HEALTHY_RACE when DNS servers return multiple A records and the client should test each endpoint and pick the first one that results in a successful TCP connection.
+    **Added** a `ambient.istio.io/connect-strategy` annotation to ServiceEntries to allow different connection semantics in ambient. Users can set this to FIRST_HEALTHY_RACE when DNS servers return multiple A records and the client should test each endpoint and pick the first one that results in a successful TCP connection. A waypoint is required for this feature to take effect.
