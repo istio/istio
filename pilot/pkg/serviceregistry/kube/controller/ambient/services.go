@@ -516,12 +516,13 @@ func serviceEntriesInfo(
 
 	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
-			Service:       e,
-			PortNames:     portNames,
-			LabelSelector: sel,
-			Source:        MakeSource(s),
-			Waypoint:      waypoint,
-			CreationTime:  s.CreationTimestamp.Time,
+			Service:            e,
+			PortNames:          portNames,
+			LabelSelector:      sel,
+			Source:             MakeSource(s),
+			Waypoint:           waypoint,
+			DNSConnectStrategy: model.GetDNSConnectStrategy(s.Annotations),
+			CreationTime:       s.CreationTimestamp.Time,
 		})
 	})
 }
@@ -581,16 +582,6 @@ func constructServiceEntries(
 		case model.TrafficDistributionPreferSameNode:
 			lb = preferSameNodeLoadBalancer
 		}
-	}
-
-	// Check for connect strategy annotation.
-	if cs := getDNSConnectStrategy(svc.Annotations); cs != workloadapi.LoadBalancing_DEFAULT {
-		if lb == nil {
-			lb = &workloadapi.LoadBalancing{}
-		} else {
-			lb = protomarshal.ShallowClone(lb)
-		}
-		lb.DnsConnectStrategy = cs
 	}
 
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
@@ -709,18 +700,6 @@ func constructService(
 		// to the client workload
 		Canonical: true,
 	}
-}
-
-const ambientDNSConnectStrategyAnnotation = "ambient.istio.io/connect-strategy"
-
-// getDNSConnectStrategy reads the connect strategy from ServiceEntry annotations.
-func getDNSConnectStrategy(annotations map[string]string) workloadapi.LoadBalancing_DnsConnectStrategy {
-	if v, ok := annotations[ambientDNSConnectStrategyAnnotation]; ok {
-		if strings.EqualFold(v, "FIRST_HEALTHY_RACE") {
-			return workloadapi.LoadBalancing_FIRST_HEALTHY_RACE
-		}
-	}
-	return workloadapi.LoadBalancing_DEFAULT
 }
 
 var preferSameZoneLoadBalancer = &workloadapi.LoadBalancing{

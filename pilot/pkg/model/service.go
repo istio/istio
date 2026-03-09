@@ -1170,6 +1170,9 @@ type ServiceInfo struct {
 	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
 	// the hotpath
 	AsAddress AddressInfo
+	// DNSConnectStrategy is the DNS connection strategy for this service. Used internally
+	// to generate status conditions.
+	DNSConnectStrategy DNSConnectStrategy
 	// CreationTime is the time when the service was created. Note this is used internally only
 	// for conflict resolution.
 	CreationTime time.Time
@@ -1192,8 +1195,12 @@ const (
 	// WaypointMissing is set on a ServiceEntry with a wildcard hostname and not bound to a waypoint.
 	// It is used to inform the user that the ServiceEntry will not be active until it is bound to a waypoint.
 	WaypointMissing ConditionType = "istio.io/WaypointMissing"
+	// ConnectStrategyWithoutWaypoint is set when a ServiceEntry has a non-default connect strategy
+	// but is not bound to a waypoint. A waypoint is required for connect strategies to take effect.
+	ConnectStrategyWithoutWaypoint ConditionType = "istio.io/ConnectStrategyWithoutWaypoint"
 
-	NoWaypointForWildcardService string = "NoWaypointForWildcardService"
+	NoWaypointForWildcardService          string = "NoWaypointForWildcardService"
+	NoWaypointForConnectStrategyCondition string = "ConnectStrategyRequiresWaypoint"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1221,6 +1228,10 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 	if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
 		// Only prune WaypointMissing condition if we have a wildcard service entry
 		set[WaypointMissing] = nil
+	}
+	if i.DNSConnectStrategy != DNSConnectStrategyDefault && i.Source.Kind == kind.ServiceEntry {
+		// Only prune ConnectStrategyWithoutWaypoint condition if we have a non-default connect strategy
+		set[ConnectStrategyWithoutWaypoint] = nil
 	}
 
 	if i.Waypoint.ResourceName != "" {
@@ -1254,6 +1265,13 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 				Status:  true,
 				Reason:  NoWaypointForWildcardService,
 				Message: buildMsg.String(),
+			}
+		}
+		if i.DNSConnectStrategy != DNSConnectStrategyDefault && i.Source.Kind == kind.ServiceEntry {
+			set[ConnectStrategyWithoutWaypoint] = &Condition{
+				Status:  false,
+				Reason:  NoWaypointForConnectStrategyCondition,
+				Message: "ServiceEntry has a non-default connect strategy but no waypoint bound. A waypoint is required for connect strategies to take effect.",
 			}
 		}
 	}
