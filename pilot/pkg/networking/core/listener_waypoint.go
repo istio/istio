@@ -403,11 +403,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 
 		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
 		if features.EnableAmbientMultiNetwork {
-			key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
-			svcInfo := lb.push.ServiceInfo(key)
-			if svcInfo != nil && svcInfo.Scope == model.Global {
-				svcAddresses = sets.SortedList(sets.New(append(svcAddresses, lb.globalServiceVIPs(svcInfo)...)...))
-			}
+			svcAddresses = sets.SortedList(sets.New(append(svcAddresses, lb.globalServiceVIPs(svc)...)...))
 		}
 
 		portMapper := match.NewDestinationPort()
@@ -1274,11 +1270,18 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 }
 
 // globalServiceVIPs returns network-filtered and IP-family-filtered VIP addresses
-// from a globally-scoped service's ServiceInfo. These are meant to be merged with
-// the local cluster VIPs from GetAllAddressesForProxy.
-func (lb *ListenerBuilder) globalServiceVIPs(svcInfo *model.ServiceInfo) []string {
-	proxyNetwork := lb.node.Metadata.Network.String()
+// from a globally-scoped service.
+func (lb *ListenerBuilder) globalServiceVIPs(svc *model.Service) []string {
 	var addresses []string
+
+	key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
+	svcInfo := lb.push.ServiceInfo(key)
+	// If the service is not globally-scoped, return an empty list.
+	if svcInfo == nil || svcInfo.Scope != model.Global {
+		return addresses
+	}
+
+	proxyNetwork := lb.node.Metadata.Network.String()
 	for _, addr := range svcInfo.Service.GetAddresses() {
 		if proxyNetwork != "" && addr.Network != proxyNetwork {
 			continue

@@ -35,6 +35,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/listenertest"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -1115,12 +1118,10 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{})
-			push := cg.PushContext()
-
 			svc := &model.Service{
 				Hostname: host.Name("svc.default.svc.cluster.local"),
 				Attributes: model.ServiceAttributes{
+					Name:      "svc",
 					Namespace: "default",
 				},
 				Ports: model.PortList{
@@ -1135,16 +1136,24 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 				svc.ClusterVIPs.SetAddressesFor("cluster-1", tc.localVIPs)
 			}
 
-			push.SetAmbientIndexForTesting(&fakeAmbientIndex{
-				serviceInfoByKey: map[string]*model.ServiceInfo{
-					"default/svc.default.svc.cluster.local": {
-						Scope: tc.scope,
-						Service: &workloadapi.Service{
-							Name:      "svc",
-							Namespace: "default",
-							Hostname:  "svc.default.svc.cluster.local",
-							Addresses: tc.addresses,
-						},
+			svcDiscovery := memory.NewServiceDiscovery(svc)
+			svcDiscovery.AddServiceInfo(&model.ServiceInfo{
+				Service: &workloadapi.Service{
+					Name:      svc.Attributes.Name,
+					Namespace: svc.Attributes.Namespace,
+					Hostname:  svc.Hostname.String(),
+					Addresses: tc.addresses,
+				},
+				Scope: tc.scope,
+			})
+
+			cg := NewConfigGenTest(t, TestOptions{
+				ClusterID: "cluster-1",
+				ServiceRegistries: []serviceregistry.Instance{
+					serviceregistry.Simple{
+						ProviderID:          provider.Kubernetes,
+						ClusterID:           "cluster-1",
+						DiscoveryController: svcDiscovery,
 					},
 				},
 			})
@@ -1161,7 +1170,7 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 			proxy = cg.SetupProxy(proxy)
 
 			lb := &ListenerBuilder{
-				push: push,
+				push: cg.PushContext(),
 				node: proxy,
 			}
 
@@ -1219,7 +1228,7 @@ func TestWaypointInternalServiceInfoNilFallback(t *testing.T) {
 	}
 	svc.ClusterVIPs.SetAddressesFor("cluster-1", []string{"10.0.0.1"})
 
-	// No ambient index set — ServiceInfo returns nil, should fall back to local cluster VIPs
+	// No Kubernetes registry with ServiceInfo set — ServiceInfo returns nil, should fall back to local cluster VIPs
 	proxy := &model.Proxy{
 		Type:            model.Waypoint,
 		ConfigNamespace: "default",
@@ -1261,9 +1270,6 @@ func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 
-	cg := NewConfigGenTest(t, TestOptions{})
-	push := cg.PushContext()
-
 	svc := &model.Service{
 		Hostname: host.Name("fake-egress.example.com"),
 		Attributes: model.ServiceAttributes{
@@ -1280,22 +1286,7 @@ func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 		},
 	}
 
-	push.SetAmbientIndexForTesting(&fakeAmbientIndex{
-		serviceInfoByKey: map[string]*model.ServiceInfo{
-			"default/fake-egress.example.com": {
-				Scope: model.Global,
-				Service: &workloadapi.Service{
-					Name:      "fake-egress",
-					Namespace: "default",
-					Hostname:  "fake-egress.example.com",
-					Addresses: []*workloadapi.NetworkAddress{
-						{Network: "network-a", Address: netip.MustParseAddr("240.240.0.1").AsSlice()},
-						{Network: "network-a", Address: netip.MustParseAddr("2001:2::f001").AsSlice()},
-					},
-				},
-			},
-		},
-	})
+	cg := NewConfigGenTest(t, TestOptions{})
 
 	proxy := &model.Proxy{
 		Type:            model.Waypoint,
@@ -1309,7 +1300,7 @@ func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 	proxy = cg.SetupProxy(proxy)
 
 	lb := &ListenerBuilder{
-		push: push,
+		push: cg.PushContext(),
 		node: proxy,
 	}
 
@@ -1336,15 +1327,6 @@ func TestWaypointInternalAutoAllocatedIPs(t *testing.T) {
 	if !found["2001:2::f001"] {
 		t.Errorf("expected auto-allocated IPv6 address in IP matcher, got %v", found)
 	}
-}
-
-type fakeAmbientIndex struct {
-	model.NoopAmbientIndexes
-	serviceInfoByKey map[string]*model.ServiceInfo
-}
-
-func (f *fakeAmbientIndex) ServiceInfo(key string) *model.ServiceInfo {
-	return f.serviceInfoByKey[key]
 }
 
 // extractIPMatcherFromListener extracts the IPMatcher from a waypoint listener's filter chain matcher.
