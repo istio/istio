@@ -232,6 +232,8 @@ func mustGetEndpointSlice(g *WithT, objs *ObjectSet, endpointSliceName string) *
 }
 
 // mustGetMutatingWebhookConfiguration returns the mutatingWebhookConfiguration with the given name or fails if it's not found in objs.
+//
+//nolint:unparam
 func mustGetMutatingWebhookConfiguration(g *WithT, objs *ObjectSet, mutatingWebhookConfigurationName string) *manifest.Manifest {
 	obj := objs.kind(gvk.MutatingWebhookConfiguration.Kind).nameEquals(mutatingWebhookConfigurationName)
 	g.Expect(obj).Should(Not(BeNil()))
