@@ -618,7 +618,7 @@ func init() {
 	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
 	gatewaycommon.ClassInfos = gatewaycommon.GetClassInfos()
-	gatewaycommon.BuiltinClasses = gatewaycommon.GetBuiltinClasses()
+	gatewaycommon.BuiltinGatewayClasses = gatewaycommon.GetBuiltinGatewayClasses()
 }
 
 type TestStatusQueue struct {

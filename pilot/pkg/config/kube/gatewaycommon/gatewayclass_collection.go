@@ -50,10 +50,15 @@ func GatewayClassesCollection(
 	}, opts.WithName("GatewayClasses")...)
 }
 
-func FetchClass(ctx krt.HandlerContext, gatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
+func FetchGatewayClass(ctx krt.HandlerContext, gatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
+	if _, f := AgentgatewayClasses[gc]; f {
+		// This function is only for fetching the gateway classes managed by the gateway controller, if the name matches the agentgateway
+		// class we should return nil immediately
+		return nil
+	}
 	class := krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gc)))
 	if class == nil {
-		if bc, f := BuiltinClasses[gc]; f {
+		if bc, f := BuiltinGatewayClasses[gc]; f {
 			// We allow some classes to exist without being in the cluster
 			return &GatewayClass{
 				Name:       string(gc),
@@ -62,6 +67,25 @@ func FetchClass(ctx krt.HandlerContext, gatewayClasses krt.Collection[GatewayCla
 		}
 		// No gateway class found, this may be meant for another controller; should be skipped.
 		return nil
+	}
+	return class
+}
+
+func FetchAgentgatewayClass(ctx krt.HandlerContext, gatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
+	bc, f := AgentgatewayClasses[gc]
+	if !f {
+		// This function is only for fetching the agentgateway classes managed by the agentgateway controller, if the name doesn't match
+		// we should return nil immediately
+		// No gateway class found, this may be meant for another controller; should be skipped.
+		return nil
+	}
+	class := krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gc)))
+	if class == nil {
+		// We allow some classes to exist without being in the cluster
+		return &GatewayClass{
+			Name:       string(gc),
+			Controller: bc,
+		}
 	}
 	return class
 }
