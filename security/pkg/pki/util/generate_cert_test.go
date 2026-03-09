@@ -52,6 +52,10 @@ vbw9mUuRBuYCROUaNv2/TAkauxVPCYPq7Ow=
 )
 
 func TestGenCertKeyFromOptions(t *testing.T) {
+	oldMinimumRsaKeySize := MinimumRsaKeySize
+	MinimumRsaKeySize = 1024
+	defer func() { MinimumRsaKeySize = oldMinimumRsaKeySize }()
+
 	// set "notBefore" to be one hour ago, this ensures the issued certificate to
 	// be valid as of now.
 	caCertNotBefore := now.Add(-time.Hour)
