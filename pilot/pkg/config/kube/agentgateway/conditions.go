@@ -25,50 +25,6 @@ import (
 	"istio.io/istio/pkg/slices"
 )
 
-type ConfigErrorReason = string
-
-const (
-	// InvalidDestination indicates an issue with the destination
-	InvalidDestination ConfigErrorReason = "InvalidDestination"
-	InvalidAddress     ConfigErrorReason = ConfigErrorReason(k8s.GatewayReasonUnsupportedAddress)
-	// InvalidDestinationPermit indicates a destination was not permitted
-	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
-	// InvalidDestinationKind indicates an issue with the destination kind
-	InvalidDestinationKind ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonInvalidKind)
-	// InvalidDestinationNotFound indicates a destination does not exist
-	InvalidDestinationNotFound ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonBackendNotFound)
-	// InvalidFilter indicates an issue with the filters
-	InvalidFilter ConfigErrorReason = "InvalidFilter"
-	// InvalidTLS indicates an issue with TLS settings
-	InvalidTLS ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonInvalidCertificateRef)
-	// InvalidListenerRefNotPermitted indicates a listener reference was not permitted
-	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonRefNotPermitted)
-	// InvalidConfiguration indicates a generic error for all other invalid configurations
-	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
-	DeprecateFieldUsage  ConfigErrorReason = "DeprecatedField"
-)
-
-// ConfigError represents an invalid configuration that will be reported back to the user.
-type ConfigError struct {
-	Reason  ConfigErrorReason
-	Message string
-}
-
-type condition struct {
-	// reason defines the reason to report on success. Ignored if error is set
-	reason string
-	// message defines the message to report on success. Ignored if error is set
-	message string
-	// status defines the status to report on success. The inverse will be set if error is set
-	// If not set, will default to StatusTrue
-	status metav1.ConditionStatus
-	// error defines an error state; the reason and message will be replaced with that of the error and
-	// the status inverted
-	error *ConfigError
-	// setOnce, if enabled, will only set the condition if it is not yet present or set to this reason
-	setOnce string
-}
-
 // setConditions sets the existingConditions with the new conditions
 func setConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*condition) []metav1.Condition {
 	// Sort keys for deterministic ordering
@@ -114,7 +70,7 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	return existingConditions
 }
 
-// generateSupportKinds generates the supported kinds for a listener based on its protocol and allowedRoutes.
+// generateSupportedKinds generates the supported kinds for a listener based on its protocol and allowedRoutes.
 // The boolean return indicates whether all allowed routes were supported.
 func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	supported := []k8s.RouteGroupKind{}

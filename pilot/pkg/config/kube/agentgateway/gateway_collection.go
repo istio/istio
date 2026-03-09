@@ -477,6 +477,8 @@ func BuildRouteParents(
 }
 
 // AgwRoute is a wrapper type that contains the route on the gateway, as well as the status for the route.
+// A Route is a special resource that represents a route for an HTTP listener, which has different semantics
+// than a TCP route and needs to be tracked separately.
 type AgwRoute struct {
 	*api.Route
 }
@@ -490,6 +492,8 @@ func (g AgwRoute) Equals(other AgwRoute) bool {
 }
 
 // AgwTCPRoute is a wrapper type that contains the tcp route on the gateway, as well as the status for the tcp route.
+// A TCPRoute is a special resource that represents a route for a TCP listener, which has different semantics than an
+// HTTP route and needs to be tracked separately.
 type AgwTCPRoute struct {
 	*api.TCPRoute
 }
@@ -499,5 +503,33 @@ func (g AgwTCPRoute) ResourceName() string {
 }
 
 func (g AgwTCPRoute) Equals(other AgwTCPRoute) bool {
+	return protoconv.Equals(g, other)
+}
+
+// AgwBind is a wrapper type that contains the bind on the gateway, as well as the status for the bind.
+// A Bind is a special resource that represents the binding of a route to a listener. It is used to track
+// the attached routes for a listener, which is information that is not available until route processing.
+type AgwBind struct {
+	*api.Bind
+}
+
+func (g AgwBind) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwBind) Equals(other AgwBind) bool {
+	return protoconv.Equals(g, other)
+}
+
+// AgwListener is a wrapper type that contains the listener on the gateway, as well as the status for the listener.
+type AgwListener struct {
+	*api.Listener
+}
+
+func (g AgwListener) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwListener) Equals(other AgwListener) bool {
 	return protoconv.Equals(g, other)
 }
