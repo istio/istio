@@ -168,10 +168,10 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 				}
 			} else if r.key == attrSrcTrustDomain {
 				if len(r.values) != 0 {
-					r.values = expandTrustDomainAliases(r.values, tdBundle.TrustDomains)
+					r.values = tdBundle.ExpandTrustDomainAliases(r.values)
 				}
 				if len(r.notValues) != 0 {
-					r.notValues = expandTrustDomainAliases(r.notValues, tdBundle.TrustDomains)
+					r.notValues = tdBundle.ExpandTrustDomainAliases(r.notValues)
 				}
 			}
 		}
@@ -423,33 +423,4 @@ func (p *ruleList) appendLastExtended(g extendedGenerator, key string, values, n
 		extended:  g,
 	}
 	p.rules = append(p.rules, r)
-}
-
-// expandTrustDomainAliases expands a list of trust domain values to include any known aliases.
-// For each value in the list, if it matches one of the trust domains in the bundle, the full
-// set of trust domains is included (so old certs continue to match during migration).
-func expandTrustDomainAliases(values []string, trustDomains []string) []string {
-	result := make([]string, 0, len(values))
-	seen := map[string]bool{}
-	for _, v := range values {
-		matched := false
-		for _, td := range trustDomains {
-			if v == td {
-				matched = true
-				break
-			}
-		}
-		if matched {
-			for _, td := range trustDomains {
-				if !seen[td] {
-					seen[td] = true
-					result = append(result, td)
-				}
-			}
-		} else if !seen[v] {
-			seen[v] = true
-			result = append(result, v)
-		}
-	}
-	return result
 }
