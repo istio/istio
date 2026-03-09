@@ -114,6 +114,81 @@ func TestMultiCluster(ctx framework.TestContext) {
 - Prefer `NewTest` and `NewSuite` for test and suite setup to ensure consistent lifecycle management.
 - Leverage the logging and telemetry integration for debugging and observability.
 
+## Ambient Waypoint Testing Patterns
+
+### Egress Waypoint with ServiceEntry
+
+For testing waypoint features that involve external services (egress), follow the pattern in `TestWaypointAsEgressGateway` (tests/integration/ambient/waypoint_test.go):
+
+1. **Separate egress namespace**: Claim a non-injected namespace for the waypoint Gateway:
+   ```go
+   egressNamespace, err := namespace.Claim(t, namespace.Config{
+       Prefix: "egress",
+       Inject: false,
+   })
+   ```
+
+2. **Cross-namespace waypoint**: The Gateway uses `allowedRoutes.namespaces.from: Selector` with a label matching the app namespace. ServiceEntry labels reference the waypoint across namespaces:
+   ```yaml
+   labels:
+     istio.io/use-waypoint: <gateway-name>
+     istio.io/use-waypoint-namespace: <egress-namespace>
+   ```
+
+3. **External backend**: Use `apps.ExternalNamespace` for DNS-resolved endpoints:
+   ```yaml
+   endpoints:
+   - address: external.{{.ExternalNamespace}}.svc.cluster.local
+   ```
+
+### Verifying Envoy Cluster Configuration via istioctl
+
+Use `istioctl proxy-config cluster` with JSON output to verify Envoy cluster properties:
+
+```go
+waypointLabel := label.IoK8sNetworkingGatewayGatewayName.Name + "=<gateway-name>"
+fetchFn := kubetest.NewSinglePodFetch(t.Clusters().Default(), namespace, waypointLabel)
+pods, err := kubetest.WaitUntilPodsAreReady(fetchFn)
+waypointPod := fmt.Sprintf("%s.%s", pods[0].Name, namespace)
+
+output, _ := istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t,
+    []string{"proxy-config", "cluster", waypointPod, "-o", "json"})
+
+var clusters []json.RawMessage
+json.Unmarshal([]byte(output), &clusters)
+// Parse each cluster as map[string]any and check fields
+```
+
+**Important**: Envoy JSON uses **snake_case** field names (e.g., `dns_lookup_family`, not `dnsLookupFamily`). Cluster type uses string values like `"LOGICAL_DNS"`, `"STRICT_DNS"`, `"STATIC"`.
+
+### Verifying ServiceEntry Status Conditions
+
+ServiceEntry conditions use `IstioCondition` from `istio.io/api/meta/v1alpha1` (NOT `metav1.Condition` which is for Kubernetes-native objects like Services/Gateways):
+
+```go
+se, err := t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(ns).
+    Get(context.TODO(), "name", metav1.GetOptions{})
+for _, cond := range se.Status.Conditions {
+    // cond is *v1alpha1.IstioCondition
+    // cond.Type is string, cond.Status is "True" or "False"
+}
+```
+
+For helpers: `pilot/pkg/model/status.GetCondition(conditions, type)` works with `[]*v1alpha1.IstioCondition`.
+The existing `GetCondition` helper in waypoint_test.go only works with `[]metav1.Condition` (for K8s Services).
+
+### Condition Model
+
+Status conditions are defined in `pilot/pkg/model/service.go`:
+- `ConditionType` is a string alias (e.g., `"istio.io/ConnectStrategyWithoutWaypoint"`)
+- `model.Condition` has `Status bool` which maps to `"True"`/`"False"` in the IstioCondition
+- `GetConditions()` on `ServiceInfo` returns a `ConditionSet` (map of ConditionType to *Condition)
+- The status queue in `ambient/statusqueue/conversion.go` converts these to `v1alpha1.IstioCondition` for server-side apply
+
+### Traffic Verification
+
+Use `check.And(check.OK(), IsL7())` to verify traffic flows through the waypoint (L7 processing indicates waypoint involvement). The `hboneClient()` helper filters sources that support HBONE. Skip sidecars with `src.Config().HasSidecar()` as they don't fully support cross-namespace use-waypoint yet.
+
 ## Related Components
 
 - [istioctl_commands.md](istioctl_commands.md): CLI for interacting with Istio, often used in tests.
