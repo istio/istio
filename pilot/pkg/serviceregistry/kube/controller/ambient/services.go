@@ -757,14 +757,15 @@ func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
 	wdsSvc := protomarshal.ShallowClone(se.Service)
 	wdsSvc.Canonical = true
 	return precomputeService(model.ServiceInfo{
-		Service:          wdsSvc,
-		LabelSelector:    se.LabelSelector,
-		PortNames:        se.PortNames,
-		Source:           se.Source,
-		Scope:            se.Scope,
-		Waypoint:         se.Waypoint,
-		MarshaledAddress: se.MarshaledAddress,
-		AsAddress:        se.AsAddress,
-		CreationTime:     se.CreationTime,
+		Service:            wdsSvc,
+		LabelSelector:      se.LabelSelector,
+		PortNames:          se.PortNames,
+		Source:             se.Source,
+		Scope:              se.Scope,
+		Waypoint:           se.Waypoint,
+		MarshaledAddress:   se.MarshaledAddress,
+		AsAddress:          se.AsAddress,
+		DNSConnectStrategy: se.DNSConnectStrategy,
+		CreationTime:       se.CreationTime,
 	})
 }
