@@ -38,7 +38,7 @@ import (
 //	kind: IstioOperator
 //	spec:
 //	  profile: default
-//	  hub: gcr.io/istio-testing
+//	  hub: registry.istio.io/testing
 //	  tag: latest
 //	  revision: 1-8-0
 //	  meshConfig:

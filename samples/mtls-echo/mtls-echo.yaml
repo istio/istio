@@ -51,7 +51,7 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
-          image: gcr.io/istio-testing/app:latest
+          image: registry.istio.io/testing/app:latest
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 10

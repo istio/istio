@@ -8,7 +8,7 @@ See <https://istio.io/docs/examples/bookinfo/>.
 
 ```bash
 # This defines the docker hub to use when running integration tests and building docker images
-# eg: HUB="docker.io/istio", HUB="gcr.io/istio-testing"
+# eg: HUB="docker.io/istio", HUB="registry.istio.io/testing"
 export HUB="docker.io/$USER"
 
 # This defines the docker tag to use when running integration tests and

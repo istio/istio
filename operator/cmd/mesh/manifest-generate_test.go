@@ -609,7 +609,7 @@ func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 
 	c := getContainer(dobj, "istio-proxy")
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "gcr.io/istio-testing/myproxy:latest"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "registry.istio.io/testing/myproxy:latest"}))
 
 	cm := objs.kind("ConfigMap").nameEquals("istio-sidecar-injector").Unstructured.Object
 	// TODO: change values to some nicer format rather than text block.

@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	gcrHub            = "gcr.io/istio-release"
+	gcrHub            = "registry.istio.io/release"
 	prodTag           = "prod"
 	canaryTag         = "canary"
 	latestRevisionTag = "latest"
