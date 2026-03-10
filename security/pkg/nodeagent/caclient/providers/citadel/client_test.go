@@ -235,7 +235,10 @@ func TestCitadelClient(t *testing.T) {
 	orig := security.CARetryOptions
 	security.CARetryOptions = []grpcretry.CallOption{
 		grpcretry.WithMax(1),
-		grpcretry.WithBackoff(func(_ context.Context, _ uint) time.Duration { return 0 }),
+		grpcretry.WithBackoff(func(_ context.Context, _ uint) time.Duration {
+			monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.CSR)).Increment()
+			return 0
+		}),
 		grpcretry.WithCodes(codes.Unavailable),
 	}
 	t.Cleanup(func() { security.CARetryOptions = orig })
