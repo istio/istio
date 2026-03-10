@@ -1395,9 +1395,9 @@ spec:
 							continue
 						}
 						// Verify DnsLookupFamily is ALL (enables happy eyeballs)
-						dnsFamily, _ := c["dns_lookup_family"].(string)
+						dnsFamily, _ := c["dnsLookupFamily"].(string)
 						if dnsFamily != "ALL" {
-							return fmt.Errorf("expected dns_lookup_family=ALL for cluster %s, got %q", name, dnsFamily)
+							return fmt.Errorf("expected dnsLookupFamily=ALL for cluster %s, got %q", name, dnsFamily)
 						}
 						// Verify cluster type is LOGICAL_DNS (required for happy eyeballs)
 						clusterType, _ := c["type"].(string)
