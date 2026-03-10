@@ -48,7 +48,13 @@ import (
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule.String())
+var deltaConfigTypes = sets.New(
+	kind.ServiceEntry,
+	kind.DestinationRule,
+	kind.VirtualService,
+	kind.PeerAuthentication,
+	kind.Sidecar,
+)
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
@@ -116,6 +122,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		}
 	}
 	have := sets.String{}
+	servicesDiffed := false
 	for key := range updates.ConfigsUpdated {
 		// deleted clusters for this config.
 		var deleted []string
@@ -126,6 +133,15 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 				servicePortClusters, subsetClusters)
 		case kind.DestinationRule:
 			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
+		case kind.PeerAuthentication:
+			svcs = configgen.deltaFromPeerAuthentication(key, proxy)
+		case kind.VirtualService, kind.Sidecar:
+			if servicesDiffed {
+				continue
+			}
+
+			svcs, deleted = configgen.deltaFromServiceDiff(proxy, serviceClusters, subsetClusters)
+			servicesDiffed = true
 		}
 		// Service and Destination Rule can select the same service. So we need to dedup the services.
 		for _, svc := range svcs {
@@ -214,6 +230,57 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 		}
 	}
 	return services, deletedClusters
+}
+
+// deltaFromServiceDiff computes the delta clusters by diffing the current
+// and previous SidecarScope services. Newly added services need their clusters built, and
+// services that were removed need their clusters deleted.
+func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(proxy *model.Proxy,
+	serviceClusters map[string]sets.String, subsetClusters map[string]sets.String,
+) ([]*model.Service, []string) {
+	var deletedClusters []string
+	var services []*model.Service
+
+	// this case should never really happen except in tests, this means the proxy never had sidecar scope recomputed
+	if proxy.PrevSidecarScope == nil {
+		return services, deletedClusters
+	}
+
+	currentServices := proxy.SidecarScope.ServicesByHostname()
+	prevServices := proxy.PrevSidecarScope.ServicesByHostname()
+
+	for h := range prevServices {
+		if _, f := currentServices[h]; !f {
+			deletedClusters = append(deletedClusters, serviceClusters[h.String()].UnsortedList()...)
+			deletedClusters = append(deletedClusters, subsetClusters[h.String()].UnsortedList()...)
+		}
+	}
+	for h := range currentServices {
+		if _, f := prevServices[h]; !f {
+			services = append(services, proxy.SidecarScope.ServicesForHostname(h)...)
+		}
+	}
+
+	return services, deletedClusters
+}
+
+// deltaFromPeerAuthentication computes the delta clusters when a PeerAuthentication changes.
+// A PeerAuthentication change can affect the mTLS mode for services in its namespace, so we mark all
+// services in that namespace as modified.
+// We don't need to return the deleted clusters because subsets haven't changed and the caller will rebuild all clusters.
+func (configgen *ConfigGeneratorImpl) deltaFromPeerAuthentication(
+	key model.ConfigKey,
+	proxy *model.Proxy,
+) []*model.Service {
+	var services []*model.Service
+
+	for _, svc := range proxy.SidecarScope.Services() {
+		if svc.Attributes.Namespace == key.Namespace {
+			services = append(services, svc)
+		}
+	}
+
+	return services
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
@@ -309,13 +376,17 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
-	return updates != nil && !updates.Forced && deltaAwareConfigTypes(updates.ConfigsUpdated)
+	return updates != nil && !updates.Forced && deltaAwareConfigTypes(updates.ConfigsUpdated, updates.Push.Mesh.RootNamespace)
 }
 
 // deltaAwareConfigTypes returns true if all updated configs are delta enabled.
-func deltaAwareConfigTypes(cfgs sets.Set[model.ConfigKey]) bool {
+func deltaAwareConfigTypes(cfgs sets.Set[model.ConfigKey], rootNamespace string) bool {
 	for k := range cfgs {
-		if !deltaConfigTypes.Contains(k.Kind.String()) {
+		if !deltaConfigTypes.Contains(k.Kind) {
+			return false
+		}
+		// If a global PeerAuthentication is updated, we need to rebuild all clusters.
+		if k.Kind == kind.PeerAuthentication && k.Namespace == rootNamespace {
 			return false
 		}
 	}

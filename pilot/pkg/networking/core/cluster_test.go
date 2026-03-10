@@ -3227,6 +3227,7 @@ func TestTelemetryMetadata(t *testing.T) {
 }
 
 func TestBuildDeltaClusters(t *testing.T) {
+	proxyNamespace := "foo"
 	testService1 := &model.Service{
 		Hostname: host.Name("test.com"),
 		Ports: []*model.Port{
@@ -3426,6 +3427,22 @@ func TestBuildDeltaClusters(t *testing.T) {
 				ClientCertificate: "/defaultCert.pem",
 				PrivateKey:        "/defaultPrivateKey.pem",
 				CaCertificates:    "/defaultCaCert.pem",
+			},
+		},
+	}
+
+	sidecarWithEgressHosts := &networking.Sidecar{
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"bar/test.com"},
+			},
+		},
+	}
+
+	sidecarWithEgressHostsUpdated := &networking.Sidecar{
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"bar/testnew.com"},
 			},
 		},
 	}
@@ -3667,9 +3684,91 @@ func TestBuildDeltaClusters(t *testing.T) {
 			},
 		},
 		{
+			name: "sidecar",
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Sidecar,
+					Name:             "default",
+					Namespace:        proxyNamespace,
+				},
+				Spec: sidecarWithEgressHosts,
+			}},
+			services:             []*model.Service{testService1, testService2},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.Sidecar, Name: "default", Namespace: proxyNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
+			},
+		},
+		{
+			name: "sidecar update changing service selection",
+			prevConfigs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Sidecar,
+					Name:             "default",
+					Namespace:        proxyNamespace,
+				},
+				Spec: sidecarWithEgressHosts,
+			}},
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Sidecar,
+					Name:             "default",
+					Namespace:        proxyNamespace,
+				},
+				Spec: sidecarWithEgressHostsUpdated,
+			}},
+			services:             []*model.Service{testService1, testService2},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.Sidecar, Name: "default", Namespace: proxyNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080||test.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
+				"outbound|8080||testnew.com",
+			},
+		},
+		{
+			name:                 "peer authentication config update on service namespace",
+			services:             []*model.Service{testService1, testService2},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "test.com", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|7070||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
+				"outbound|8080||test.com", "outbound|8080||testnew.com",
+			},
+		},
+		{
+			name:                 "peer authentication config update on non-service namespace",
+			services:             []*model.Service{testService1, testService2},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "test.com", Namespace: proxyNamespace}),
+			watchedResourceNames: []string{"outbound|7070||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
+			},
+		},
+		{
+			name:                 "global peer authentication config update",
+			services:             []*model.Service{testService1, testService2},
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "test.com", Namespace: "istio-system"}),
+			watchedResourceNames: []string{"outbound|7070||test.com"},
+			usedDelta:            false,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster",
+				"outbound|8080||test.com", "outbound|8080||testnew.com",
+			},
+		},
+		{
 			name:                 "config update that is not delta aware",
 			services:             []*model.Service{testService1, testService2},
-			configUpdated:        sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "test.com", Namespace: TestServiceNamespace}),
+			configUpdated:        sets.New(model.ConfigKey{Kind: kind.EnvoyFilter, Name: "test.com", Namespace: TestServiceNamespace}),
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            false,
 			removedClusters:      nil,
@@ -3682,15 +3781,30 @@ func TestBuildDeltaClusters(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			configs := tc.configs
+			if tc.prevConfigs != nil {
+				configs = tc.prevConfigs
+			}
 			cg := NewConfigGenTest(t, TestOptions{
 				Services:  tc.services,
 				Instances: tc.instances,
-				Configs:   tc.configs,
+				Configs:   configs,
 			})
-			proxy := cg.SetupProxy(&model.Proxy{IPAddresses: []string{"127.0.0.1"}})
+			proxy := cg.SetupProxy(&model.Proxy{
+				IPAddresses:     []string{"127.0.0.1"},
+				ConfigNamespace: proxyNamespace,
+			})
 			if tc.prevConfigs != nil {
-				proxy.PrevSidecarScope = &model.SidecarScope{}
-				proxy.PrevSidecarScope.SetDestinationRulesForTesting(tc.prevConfigs)
+				for _, cfg := range tc.prevConfigs {
+					cg.Store().Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace, nil)
+				}
+				for _, cfg := range tc.configs {
+					cg.Store().Create(cfg)
+				}
+				pc := model.NewPushContext()
+				pc.InitContext(cg.env, nil, nil)
+				cg.env.SetPushContext(pc)
+				proxy.SetSidecarScope(cg.env.PushContext())
 			}
 			clusters, removed, delta := cg.DeltaClusters(proxy, tc.configUpdated,
 				&model.WatchedResource{ResourceNames: sets.New(tc.watchedResourceNames...)})
