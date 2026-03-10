@@ -992,9 +992,17 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 }
 
 func assertControllerEmpty(t *testing.T, sd *Controller) {
+	t.Helper()
 	// KRT-based controller: validate via outputs
-	assert.Equal(t, len(sd.outputs.Services.List()), 0)
-	assert.Equal(t, len(sd.outputs.ServiceInstances.List()), 0)
+	retry.UntilSuccessOrFail(t, func() error {
+		if n := len(sd.outputs.Services.List()); n != 0 {
+			return fmt.Errorf("expected 0 services, got %d", n)
+		}
+		if n := len(sd.outputs.ServiceInstances.List()); n != 0 {
+			return fmt.Errorf("expected 0 service instances, got %d", n)
+		}
+		return nil
+	}, retry.Timeout(time.Second*2))
 }
 
 func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
