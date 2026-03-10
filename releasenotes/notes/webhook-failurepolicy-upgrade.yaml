@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** a field manager conflict on `ValidatingWebhookConfiguration` during `helm upgrade` with
+    server-side apply (Helm 4, ArgoCD, Flux). The `failurePolicy` field is now omitted from the
+    webhook template on upgrade, preserving the value set at runtime by the webhook controller.
