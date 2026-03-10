@@ -58,4 +58,5 @@ spec:
               name: Cookie
               ttl: 30s
             minimumRingSize: 42
+
 ---
