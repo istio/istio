@@ -1859,7 +1859,7 @@ data:
           }
         },
         "externalIstiod": false,
-        "hub": "registry.istio.io/testing",
+        "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",

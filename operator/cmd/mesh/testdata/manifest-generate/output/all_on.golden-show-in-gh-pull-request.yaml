@@ -18902,7 +18902,7 @@ data:
           }
         },
         "externalIstiod": false,
-        "hub": "registry.istio.io/testing",
+        "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
@@ -19278,7 +19278,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: registry.istio.io/testing/proxyv2:latest
+        image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
         - containerPort: 8080
@@ -19496,7 +19496,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: registry.istio.io/testing/proxyv2:latest
+        image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
         - containerPort: 15021
@@ -19691,7 +19691,7 @@ spec:
               resource: limits.cpu
         - name: PLATFORM
           value: ""
-        image: registry.istio.io/testing/pilot:latest
+        image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
         - containerPort: 8080
