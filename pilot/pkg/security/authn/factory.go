@@ -57,7 +57,7 @@ func NewPolicyApplier(push *model.PushContext, proxy *model.Proxy, svc *model.Se
 }
 
 // NewMtlsPolicy returns a checker used to detect proxy mtls mode.
-func NewMtlsPolicy(push *model.PushContext, authnPolicies *model.AuthenticationPolicies, namespace string, labels labels.Instance, isWaypoint bool) MtlsPolicy {
+func NewMtlsPolicy(push *model.PushContext, authnPolicies model.PeerAuthnPolicies, namespace string, labels labels.Instance, isWaypoint bool) MtlsPolicy {
 	return newPolicyApplier(
 		authnPolicies.GetRootNamespace(),
 		nil,

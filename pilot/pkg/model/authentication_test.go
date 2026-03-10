@@ -1721,7 +1721,7 @@ func createNonTrivialRequestAuthnTestConfigs(issuer string) []*config.Config {
 	return configs
 }
 
-func TestFilterPeerAuthenticationForSidecar(t *testing.T) {
+func TestFilterPeerAuthenticationNamespaces(t *testing.T) {
 	policies := getTestAuthenticationPolicies(createTestConfigs(true /* with mesh peer authn */), t)
 
 	cases := []struct {
@@ -1782,24 +1782,25 @@ func TestFilterPeerAuthenticationForSidecar(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			ns := sets.New(tc.namespaces...)
-			filtered := policies.FilterPeerAuthenticationForSidecar(ns)
+			ns.Insert(rootNamespace)
+			filtered := policies.FilterPeerAuthenticationNamespaces(ns)
 
 			// Verify root namespace is always included
 			assert.Equal(t, filtered.GetRootNamespace(), rootNamespace)
 
 			// Verify globalMutualTLSMode is preserved
-			assert.Equal(t, filtered.globalMutualTLSMode, tc.wantGlobalMutualTLSMode)
+			assert.Equal(t, filtered.GetGlobalMutualTLSMode(), tc.wantGlobalMutualTLSMode)
 
 			// Verify expected namespaces have policies
 			for _, wantNs := range tc.wantPeerAuthnNamespaces {
-				if _, ok := filtered.peerAuthentications[wantNs]; !ok {
+				if _, ok := filtered.GetPeerAuthentications()[wantNs]; !ok {
 					t.Errorf("expected PeerAuthentication policies in namespace %q but found none", wantNs)
 				}
 			}
 
 			// Verify excluded namespaces don't have policies
 			for _, notWantNs := range tc.notWantPeerAuthnNamespaces {
-				if configs, ok := filtered.peerAuthentications[notWantNs]; ok {
+				if configs, ok := filtered.GetPeerAuthentications()[notWantNs]; ok {
 					t.Errorf("unexpected PeerAuthentication policies in namespace %q: %v", notWantNs, configs)
 				}
 			}
@@ -1813,11 +1814,11 @@ func TestFilterPeerAuthenticationForSidecar(t *testing.T) {
 			}
 
 			// Verify requestAuthentications is empty (filter is PeerAuthentication-only)
-			assert.Equal(t, len(filtered.requestAuthentications), 0)
+			assert.Equal(t, len(filtered.(*AuthenticationPolicies).requestAuthentications), 0)
 
 			// Verify version is non-empty when there are policies
 			hasPolicies := false
-			for _, configs := range filtered.peerAuthentications {
+			for _, configs := range filtered.GetPeerAuthentications() {
 				if len(configs) > 0 {
 					hasPolicies = true
 					break
@@ -1830,23 +1831,23 @@ func TestFilterPeerAuthenticationForSidecar(t *testing.T) {
 	}
 }
 
-func TestFilterPeerAuthenticationForSidecarWithoutMeshPeerAuthn(t *testing.T) {
+func TestFilterPeerAuthenticationNamespacesWithoutMeshPeerAuthn(t *testing.T) {
 	policies := getTestAuthenticationPolicies(createTestConfigs(false /* without mesh peer authn */), t)
 
-	ns := sets.New("foo")
-	filtered := policies.FilterPeerAuthenticationForSidecar(ns)
+	ns := sets.New(rootNamespace, "foo")
+	filtered := policies.FilterPeerAuthenticationNamespaces(ns)
 
 	// Without mesh-level peer authn, globalMutualTLSMode should be unknown
-	assert.Equal(t, filtered.globalMutualTLSMode, MTLSUnknown)
+	assert.Equal(t, filtered.GetGlobalMutualTLSMode(), MTLSUnknown)
 
 	// foo namespace policies should still be present
-	if _, ok := filtered.peerAuthentications["foo"]; !ok {
+	if _, ok := filtered.GetPeerAuthentications()["foo"]; !ok {
 		t.Error("expected PeerAuthentication policies in namespace foo")
 	}
 
 	// root namespace should still have the workload-selector policy (global-peer-with-selector)
 	// even without mesh-level peer authn
-	if configs, ok := filtered.peerAuthentications[rootNamespace]; !ok || len(configs) == 0 {
+	if configs, ok := filtered.GetPeerAuthentications()[rootNamespace]; !ok || len(configs) == 0 {
 		t.Error("expected PeerAuthentication policies in root namespace (global-peer-with-selector)")
 	} else {
 		assert.Equal(t, len(configs), 1)
@@ -1857,11 +1858,11 @@ func TestFilterPeerAuthenticationForSidecarWithoutMeshPeerAuthn(t *testing.T) {
 	assert.Equal(t, filtered.GetNamespaceMutualTLSMode("foo"), MTLSStrict)
 }
 
-func TestFilterPeerAuthenticationForSidecarPreservesPolicies(t *testing.T) {
+func TestFilterPeerAuthenticationNamespacesPreservesPolicies(t *testing.T) {
 	policies := getTestAuthenticationPolicies(createTestConfigs(true /* with mesh peer authn */), t)
 
-	ns := sets.New("foo")
-	filtered := policies.FilterPeerAuthenticationForSidecar(ns)
+	ns := sets.New(rootNamespace, "foo")
+	filtered := policies.FilterPeerAuthenticationNamespaces(ns)
 
 	// Verify the filtered policies for "foo" match the original
 	matcher := PolicyMatcherFor("foo", nil, false)

@@ -3229,13 +3229,13 @@ func TestSidecarScopeAuthnPolicies(t *testing.T) {
 
 	// Should have policies from configNs, svcNs, and rootNs
 	for _, ns := range []string{configNs, svcNs, rootNs} {
-		if _, ok := sidecarScope.AuthnPolicies.peerAuthentications[ns]; !ok {
+		if _, ok := sidecarScope.AuthnPolicies.GetPeerAuthentications()[ns]; !ok {
 			t.Errorf("expected PeerAuthentication policies in namespace %q", ns)
 		}
 	}
 
 	// Should NOT have policies from unrelatedNs
-	if _, ok := sidecarScope.AuthnPolicies.peerAuthentications[unrelatedNs]; ok {
+	if _, ok := sidecarScope.AuthnPolicies.GetPeerAuthentications()[unrelatedNs]; ok {
 		t.Errorf("unexpected PeerAuthentication policies in namespace %q", unrelatedNs)
 	}
 

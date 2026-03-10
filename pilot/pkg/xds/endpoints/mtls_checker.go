@@ -27,12 +27,12 @@ import (
 // TODO this logic is probably done elsewhere in XDS, possible code-reuse + perf improvements
 type mtlsChecker struct {
 	push            *model.PushContext
-	authnPolicies   *model.AuthenticationPolicies
+	authnPolicies   model.PeerAuthnPolicies
 	svcPort         int
 	destinationRule *networkingapi.ClientTLSSettings_TLSmode
 }
 
-func newMtlsChecker(push *model.PushContext, authnPolicies *model.AuthenticationPolicies, svcPort int, dr *config.Config, subset string) *mtlsChecker {
+func newMtlsChecker(push *model.PushContext, authnPolicies model.PeerAuthnPolicies, svcPort int, dr *config.Config, subset string) *mtlsChecker {
 	return &mtlsChecker{
 		push:            push,
 		authnPolicies:   authnPolicies,

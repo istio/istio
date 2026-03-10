@@ -174,7 +174,7 @@ type SidecarScope struct {
 	// AuthnPolicies contains the PeerAuthentication policies relevant to this sidecar scope.
 	// It only includes policies from the root namespace, the config namespace, and namespaces
 	// from which services have been imported.
-	AuthnPolicies *AuthenticationPolicies
+	AuthnPolicies PeerAuthnPolicies
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
@@ -416,17 +416,16 @@ func (sc *SidecarScope) selectAuthnPolicies(ps *PushContext, configNamespace str
 		return
 	}
 
-	// Collect relevant namespaces: config namespace + namespaces of all imported services.
-	// Root namespace is always included by FilterPeerAuthenticationForSidecar.
-	relevantNamespaces := sets.New(configNamespace)
+	// Collect relevant namespaces: root namespace + config namespace + namespaces of all imported services.
+	relevantNamespaces := sets.New(configNamespace, ps.AuthnPolicies.GetRootNamespace())
 	for _, svc := range sc.services {
 		relevantNamespaces.Insert(svc.Attributes.Namespace)
 	}
 
-	sc.AuthnPolicies = ps.AuthnPolicies.FilterPeerAuthenticationForSidecar(relevantNamespaces)
+	sc.AuthnPolicies = ps.AuthnPolicies.FilterPeerAuthenticationNamespaces(relevantNamespaces)
 
 	// Add all selected PeerAuthentication policies as config dependencies
-	for _, configs := range sc.AuthnPolicies.peerAuthentications {
+	for _, configs := range sc.AuthnPolicies.GetPeerAuthentications() {
 		for _, cfg := range configs {
 			sc.AddConfigDependencies(ConfigKey{
 				Kind:      kind.PeerAuthentication,
