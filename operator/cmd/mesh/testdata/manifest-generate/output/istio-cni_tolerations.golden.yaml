@@ -63,7 +63,7 @@ spec:
         envFrom:
         - configMapRef:
             name: istio-cni-config
-        image: gcr.io/istio-testing/install-cni:latest
+        image: registry.istio.io/testing/install-cni:latest
         name: install-cni
         ports:
         - containerPort: 15014
