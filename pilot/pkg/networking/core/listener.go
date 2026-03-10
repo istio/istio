@@ -602,6 +602,13 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		if len(chain.sniHosts) > 0 || needsALPN {
 			needTLSInspector = true
 		}
+		// SNI DFP filter needs TLS inspector to get requested server name from ClientHello for DNS resolution.
+		for _, f := range chain.networkFilters {
+			if f.Name == wellknown.SNIDynamicForwardProxy {
+				needTLSInspector = true
+				break
+			}
+		}
 		needHTTP := len(chain.applicationProtocols) > 0
 		if needHTTP {
 			needHTTPInspector = true
@@ -767,6 +774,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 		skipIstioMXHeaders:        ph.SkipIstioMXHeaders,
 		protocol:                  opts.port.Protocol,
 		class:                     istionetworking.ListenerClassSidecarOutbound,
+		policySvc:                 opts.service,
 	}
 
 	if features.HTTP10 || enableHTTP10(opts.proxy.Metadata.HTTP10) {
