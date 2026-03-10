@@ -537,12 +537,18 @@ spec:
 			return fmt.Errorf("app filter chain not found")
 		}
 		app = xdstest.ExtractHTTPConnectionManager(t, appFc)
+		if app == nil {
+			return fmt.Errorf("app hcm not found")
+		}
 
 		notAppFc := xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l)
 		if notAppFc == nil {
 			return fmt.Errorf("notApp filter chain not found")
 		}
 		notApp = xdstest.ExtractHTTPConnectionManager(t, notAppFc)
+		if notApp == nil {
+			return fmt.Errorf("notApp hcm not found")
+		}
 		return nil
 	}, retry.Timeout(time.Second*10))
 
