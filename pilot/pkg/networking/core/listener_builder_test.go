@@ -1342,8 +1342,8 @@ func extractIPMatcherFromListener(t *testing.T, l *listener.Listener) *matcher.I
 		return nil
 	}
 
-	// When ambient multi-network is enabled, hostnames are preferred and the IP matcher
-	// is nested under OnNoMatch; handle both layouts.
+	// When ambient multi-network is enabled, hostnames are checked first (ExactMapMatch) and the IP matcher
+	// is nested under OnNoMatch.
 	var ipTree *matcher.Matcher_MatcherTree
 	switch mt.MatcherTree.TreeType.(type) {
 	case *matcher.Matcher_MatcherTree_CustomMatch:

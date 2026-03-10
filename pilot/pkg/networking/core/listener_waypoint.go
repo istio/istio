@@ -401,10 +401,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			waypoint = lb.findServiceWaypoint(svc)
 		}
 
-		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
-		if features.EnableAmbientMultiNetwork {
-			svcAddresses = sets.SortedList(sets.New(append(svcAddresses, lb.globalServiceVIPs(svc)...)...))
-		}
+		svcAddresses := sets.SortedList(sets.New(append(
+			svc.GetAllAddressesForProxy(lb.node),
+			lb.globalServiceVIPs(svc)...,
+		)...))
 
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
@@ -1273,6 +1273,10 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 // from a globally-scoped service.
 func (lb *ListenerBuilder) globalServiceVIPs(svc *model.Service) []string {
 	var addresses []string
+
+	if !features.EnableAmbientMultiNetwork {
+		return addresses
+	}
 
 	key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
 	svcInfo := lb.push.ServiceInfo(key)
