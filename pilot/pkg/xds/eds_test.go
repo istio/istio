@@ -68,7 +68,8 @@ const (
 func TestIncrementalPush(t *testing.T) {
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml") +
-			mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml"),
+			mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml") +
+			mustReadFile(t, "tests/testdata/config/peer-authn-strict.yaml"),
 	})
 	ads := s.Connect(nil, nil, watchAll)
 	t.Run("Full Push", func(t *testing.T) {
