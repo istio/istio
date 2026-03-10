@@ -27,18 +27,23 @@ type RdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &RdsGenerator{}
 
-// Map of all configs that do not impact RDS
-var skippedRdsConfigs = sets.New[kind.Kind](
-	kind.WorkloadEntry,
-	kind.WorkloadGroup,
-	kind.AuthorizationPolicy,
-	kind.RequestAuthentication,
-	kind.PeerAuthentication,
-	kind.Secret,
-	kind.WasmPlugin,
-	kind.Telemetry,
-	kind.ProxyConfig,
-	kind.DNSName,
+// Map of all configs that impact RDS
+// RDS is also affected by other global resources, but these always trigger a Forced push.
+var rdsAffectingConfigs = sets.New(
+	kind.VirtualService,
+	kind.ServiceEntry,
+	kind.DestinationRule,
+	kind.EnvoyFilter,
+	kind.Sidecar,
+)
+
+var routerRdsAffectingConfigs = sets.New(
+	kind.VirtualService,
+	kind.ServiceEntry,
+	kind.DestinationRule,
+	kind.EnvoyFilter,
+	kind.Sidecar,
+	kind.Gateway,
 )
 
 func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
@@ -49,8 +54,15 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return false
 	}
 	for config := range req.ConfigsUpdated {
-		if !skippedRdsConfigs.Contains(config.Kind) {
-			return true
+		switch proxy.Type {
+		case model.Router:
+			if routerRdsAffectingConfigs.Contains(config.Kind) {
+				return true
+			}
+		default:
+			if rdsAffectingConfigs.Contains(config.Kind) {
+				return true
+			}
 		}
 	}
 	return false
