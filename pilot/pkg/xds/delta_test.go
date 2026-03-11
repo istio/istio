@@ -408,9 +408,10 @@ func (s *testAmbientStore) RemoveServiceInfo(info *model.ServiceInfo) {
 }
 
 func TestDeltaWDS(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	store := newTestAmbientStore()
-	s.Discovery.Env.AmbientIndexes = store
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		AmbientIndex: store,
+	})
 
 	wlA := &model.WorkloadInfo{
 		Workload: &workloadapi.Workload{
