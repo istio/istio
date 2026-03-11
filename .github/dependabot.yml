@@ -1,14 +1,57 @@
-# Configures Depdendabot to PR go security updates only
-
 version: 2
 updates:
-  # Go configuration for master branch
   - package-ecosystem: "gomod"
-    directory: "/"
+    directories:
+      - "/"
+      - "!/samples"
     schedule:
       interval: "daily"
-    # Limit number of open PRs to 0 so that we only get security updates
-    # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates
-    open-pull-requests-limit: 0
     labels:
       - "release-notes-none"
+    target-branch: "master"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "gomod"
+    directories:
+      - "/"
+      - "!/samples"
+    schedule:
+      interval: "daily"
+    labels:
+      - "release-notes-none"
+    target-branch: "release-1.29"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "gomod"
+    directories:
+      - "/"
+      - "!/samples"
+    schedule:
+      interval: "daily"
+    labels:
+      - "release-notes-none"
+    target-branch: "release-1.28"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "gomod"
+    directories:
+      - "/"
+      - "!/samples"
+    schedule:
+      interval: "daily"
+    labels:
+      - "release-notes-none"
+    target-branch: "release-1.27"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
