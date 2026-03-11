@@ -330,8 +330,7 @@ func (s *staticList[T]) WaitUntilSynced(stop <-chan struct{}) bool {
 }
 
 func (s *staticList[T]) Synced() Syncer {
-	// We are always synced in the static collection since the initial state must be provided upfront
-	return alwaysSynced{}
+	return s.syncer
 }
 
 func (s *staticList[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
