@@ -175,7 +175,7 @@ func getFileFromGZ(b []byte) []byte {
 		return nil
 	}
 
-	ret, err := io.ReadAll(zr)
+	ret, err := io.ReadAll(io.LimitReader(zr, features.MaxWasmBinarySizeBytes))
 	if err != nil {
 		return nil
 	}
