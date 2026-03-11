@@ -31,7 +31,7 @@ var caLog = log.RegisterScope("ca", "ca client")
 // CARetryOptions returns the default retry options recommended for CA calls
 // This includes 5 retries, with backoff from 100ms -> 1.6s with jitter.
 var CARetryOptions = []retry.CallOption{
-	retry.WithMax(5),
+	retry.WithMax(6), // 6 attempts = 5 retries
 	retry.WithBackoff(WrapBackoffWithMetrics(retry.BackoffExponentialWithJitter(100*time.Millisecond, 0.1))),
 	retry.WithCodes(codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable),
 }

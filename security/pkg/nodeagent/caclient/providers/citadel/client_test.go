@@ -234,7 +234,7 @@ func TestCitadelClient(t *testing.T) {
 	// needs to verify that *a* retry happens; it does not need production timing.
 	orig := security.CARetryOptions
 	security.CARetryOptions = []grpcretry.CallOption{
-		grpcretry.WithMax(1),
+		grpcretry.WithMax(2), // 2 attempts = 1 initial + 1 retry
 		grpcretry.WithBackoff(security.WrapBackoffWithMetrics(func(_ context.Context, _ uint) time.Duration {
 			return 1 * time.Millisecond
 		})),
