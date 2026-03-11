@@ -890,6 +890,9 @@ func (s *Server) cachesSynced() bool {
 	if s.multiclusterController != nil && !s.multiclusterController.HasSynced() {
 		return false
 	}
+	if s.ambientIndex != nil && !s.ambientIndex.HasSynced() {
+		return false
+	}
 	if !s.ServiceController().HasSynced() {
 		return false
 	}
