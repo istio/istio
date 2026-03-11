@@ -109,16 +109,14 @@ func (s *XdsStatusWriter) printMachineReadable(statuses map[string]*discovery.Di
 				return fmt.Errorf("could not parse node metadata: %w", err)
 			}
 
-			// Skip if namespace filter is set and doesn't match
-			if s.Namespace != "" && meta.Namespace != s.Namespace {
-				continue
+			if s.Namespace == "" || meta.Namespace == s.Namespace {
+				validResources = append(validResources, resource)
 			}
-
-			validResources = append(validResources, resource)
 		}
 
-		status.Resources = validResources
-		out, err := protomarshal.ToJSONWithIndent(status, "    ")
+		outStatus := status
+		outStatus.Resources = validResources
+		out, err := protomarshal.ToJSONWithIndent(outStatus, "    ")
 		if err != nil {
 			return err
 		}
