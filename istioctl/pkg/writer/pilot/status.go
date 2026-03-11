@@ -24,6 +24,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
+	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"sigs.k8s.io/yaml"
 
@@ -95,6 +96,28 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 
 func (s *XdsStatusWriter) printMachineReadable(statuses map[string]*discovery.DiscoveryResponse) error {
 	for _, status := range statuses {
+		validResources := []*anypb.Any{}
+		for _, resource := range status.Resources {
+
+			clientConfig := xdsstatus.ClientConfig{}
+			if err := resource.UnmarshalTo(&clientConfig); err != nil {
+				return fmt.Errorf("could not unmarshal ClientConfig: %w", err)
+			}
+
+			meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
+			if err != nil {
+				return fmt.Errorf("could not parse node metadata: %w", err)
+			}
+
+			// Skip if namespace filter is set and doesn't match
+			if s.Namespace != "" && meta.Namespace != s.Namespace {
+				continue
+			}
+
+			validResources = append(validResources, resource)
+		}
+
+		status.Resources = validResources
 		out, err := protomarshal.ToJSONWithIndent(status, "    ")
 		if err != nil {
 			return err
