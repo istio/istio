@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security "istio.io/istio/pilot/pkg/security/model"
+	netutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
@@ -400,7 +401,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			waypoint = lb.findServiceWaypoint(svc)
 		}
 
-		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
+		svcAddresses := sets.SortedList(sets.New(append(
+			svc.GetAllAddressesForProxy(lb.node),
+			lb.globalServiceVIPs(svc)...,
+		)...))
+
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
@@ -1262,4 +1267,37 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 	// Compliance for Envoy tunnel TLS contexts.
 	security.EnforceCompliance(ctx)
 	return ctx
+}
+
+// globalServiceVIPs returns network-filtered and IP-family-filtered VIP addresses
+// from a globally-scoped service.
+func (lb *ListenerBuilder) globalServiceVIPs(svc *model.Service) []string {
+	var addresses []string
+
+	if !features.EnableAmbientMultiNetwork {
+		return addresses
+	}
+
+	key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
+	svcInfo := lb.push.ServiceInfo(key)
+	// If the service is not globally-scoped, return an empty list.
+	if svcInfo == nil || svcInfo.Scope != model.Global {
+		return addresses
+	}
+
+	proxyNetwork := lb.node.Metadata.Network.String()
+	for _, addr := range svcInfo.Service.GetAddresses() {
+		if proxyNetwork != "" && addr.Network != proxyNetwork {
+			continue
+		}
+		ip, ok := netip.AddrFromSlice(addr.Address)
+		if !ok {
+			continue
+		}
+		addresses = append(addresses, ip.String())
+	}
+	if lb.node.GetIPMode() != model.Dual {
+		addresses = netutil.FilterAddressesByIPFamily(addresses, lb.node.SupportsIPv4(), lb.node.SupportsIPv6())
+	}
+	return addresses
 }
