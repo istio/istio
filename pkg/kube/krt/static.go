@@ -90,7 +90,7 @@ func (s *staticList[T]) DeleteObject(k string) {
 		s.eventHandlers.Distribute([]Event[T]{{
 			Old:   &old,
 			Event: controllers.EventDelete,
-		}}, false)
+		}}, !s.HasSynced())
 	}
 }
 
@@ -112,7 +112,7 @@ func (s StaticCollection[T]) DeleteObjects(filter func(obj T) bool) {
 		}
 	}
 	if len(removed) > 0 {
-		s.eventHandlers.Distribute(removed, false)
+		s.eventHandlers.Distribute(removed, !s.HasSynced())
 	}
 }
 
@@ -159,7 +159,7 @@ func (s StaticCollection[T]) Reset(newState []T) {
 	}
 	s.vals = nv
 	if len(updates) > 0 {
-		s.eventHandlers.Distribute(updates, false)
+		s.eventHandlers.Distribute(updates, !s.HasSynced())
 	}
 }
 
@@ -192,7 +192,7 @@ func (s *staticList[T]) updateObject(obj T, conditional bool) {
 		for _, index := range s.indexes {
 			index.update(ev, k)
 		}
-		s.eventHandlers.Distribute([]Event[T]{ev}, false)
+		s.eventHandlers.Distribute([]Event[T]{ev}, !s.HasSynced())
 	} else {
 		ev := Event[T]{
 			New:   &obj,
@@ -201,7 +201,7 @@ func (s *staticList[T]) updateObject(obj T, conditional bool) {
 		for _, index := range s.indexes {
 			index.update(ev, k)
 		}
-		s.eventHandlers.Distribute([]Event[T]{ev}, false)
+		s.eventHandlers.Distribute([]Event[T]{ev}, !s.HasSynced())
 	}
 }
 
