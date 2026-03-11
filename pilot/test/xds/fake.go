@@ -114,6 +114,10 @@ type FakeOptions struct {
 	DisableSecretAuthorization bool
 	Services                   []*model.Service
 	Gateways                   []model.NetworkGateway
+
+	// If provided, this ambient index will be used instead of creating a new one.
+	// Useful for tests that need a custom in-memory ambient store.
+	AmbientIndex model.AmbientIndexes
 }
 
 type FakeDiscoveryServer struct {
@@ -279,7 +283,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Create the ambient index at the server level (matching the production path in bootstrap/servicecontroller.go).
 	var ambientIdx ambient.Index
-	if features.EnableAmbient {
+	if opts.AmbientIndex != nil {
+		s.Env.AmbientIndexes = opts.AmbientIndex
+	} else if features.EnableAmbient {
 		meshWatcher := meshwatcher.NewTestWatcher(m)
 		mcController := multicluster.NewController(multicluster.ControllerOptions{
 			Client:          defaultKubeClient,
