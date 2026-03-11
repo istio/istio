@@ -19,6 +19,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -501,6 +502,21 @@ func (s *Controller) HasSynced() bool {
 			!s.outputs.ServiceInstances.HasSynced() ||
 			!s.outputs.ServiceInstancesByNamespaceHost.HasSynced() {
 			return false
+		}
+		// KRT can report output synced after a first run with empty input (event ordering).
+		// Don't report synced until every ServiceEntry host has a corresponding service in the output.
+		if s.inputs.ServiceEntries.HasSynced() {
+			for _, cfg := range s.inputs.ServiceEntries.List() {
+				se, ok := cfg.Spec.(*networking.ServiceEntry)
+				if !ok {
+					continue
+				}
+				for _, h := range se.Hosts {
+					if len(s.outputs.ServicesByHost.Lookup(h)) == 0 {
+						return false
+					}
+				}
+			}
 		}
 	}
 

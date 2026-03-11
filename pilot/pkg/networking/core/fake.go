@@ -226,12 +226,14 @@ func (f *ConfigGenTest) Run() {
 		}
 	}
 
-	go f.Registry.Run(f.stop)
+	// Start store first and wait for it to sync at least once before registry starts
 	go f.store.Run(f.stop)
 
 	// TODO allow passing event handlers for controller
 
 	retry.UntilOrFail(f.t, f.store.HasSynced, retry.Delay(time.Millisecond))
+
+	go f.Registry.Run(f.stop)
 	retry.UntilOrFail(f.t, f.Registry.HasSynced, retry.Delay(time.Millisecond))
 
 	f.ServiceEntryRegistry.ResyncEDS()
