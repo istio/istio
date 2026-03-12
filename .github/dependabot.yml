@@ -9,6 +9,13 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "master"
+    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
+    # and/or are updated through automation.
+    ignore:
+      - dependency-name: "istio.io/*"
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
     groups:
       all-dependencies:
         patterns:
@@ -23,6 +30,17 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.29"
+    # Only allow security updates on release branches
+    allow:
+      - dependency-type: "all"
+        update-type: "security"
+    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
+    # and/or are updated through automation.
+    ignore:
+      - dependency-name: "istio.io/*"
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
     groups:
       all-dependencies:
         patterns:
@@ -37,6 +55,17 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.28"
+    # Only allow security updates on release branches
+    allow:
+      - dependency-type: "all"
+        update-type: "security"
+    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
+    # and/or are updated through automation.
+    ignore:
+      - dependency-name: "istio.io/*"
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
     groups:
       all-dependencies:
         patterns:
@@ -51,7 +80,54 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.27"
+    # Only allow security updates on release branches
+    allow:
+      - dependency-type: "all"
+        update-type: "security"
+    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
+    # and/or are updated through automation.
+    ignore:
+      - dependency-name: "istio.io/*"
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
     groups:
       all-dependencies:
         patterns:
           - "*"
+
+  # Ignore all dependency updates in samples/
+  # We do not care about the dependencies in the samples/ directory as they are not meant
+  # to be part of production systems. They require manual testing and validation, as well as
+  # deployment.
+  - package-ecosystem: "pip"
+    directories:
+      - "/samples/**"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "npm"
+    directories:
+      - "/samples/**"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "bundler"
+    directories:
+      - "/samples/**"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "gomod"
+    directories:
+      - "/samples/**"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "*"
