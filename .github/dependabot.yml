@@ -30,6 +30,10 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.29"
+    # Only allow security updates on release branches
+    allow:
+      - dependency-type: "all"
+        update-type: "security"
     # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
     # and/or are updated through automation.
     ignore:
@@ -51,6 +55,10 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.28"
+    # Only allow security updates on release branches
+    allow:
+      - dependency-type: "all"
+        update-type: "security"
     # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
     # and/or are updated through automation.
     ignore:
@@ -72,6 +80,10 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.27"
+    # Only allow security updates on release branches
+    allow:
+      - dependency-type: "all"
+        update-type: "security"
     # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
     # and/or are updated through automation.
     ignore:
