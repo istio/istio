@@ -1907,7 +1907,8 @@ type GlobalConfig struct {
 	ResourceScope ResourceScope `protobuf:"varint,76,opt,name=resourceScope,proto3,enum=istio.operator.v1alpha1.ResourceScope" json:"resourceScope,omitempty"`
 	// Specifies how proxies are configured within Istio.
 	Agentgateway *Agentgateway `protobuf:"bytes,77,opt,name=agentgateway,proto3" json:"agentgateway,omitempty"`
-	// If true, do not install istio-reader service account and associated cluster role/binding.
+	// If true, do not install istio-reader service account and associated cluster role/binding,
+	// which are used for multicluster remote-secret workflows.
 	DisableReaderSA *wrapperspb.BoolValue `protobuf:"bytes,78,opt,name=disableReaderSA,proto3" json:"disableReaderSA,omitempty"` // The next available key is 79
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
