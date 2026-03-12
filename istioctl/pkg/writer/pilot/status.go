@@ -24,6 +24,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"sigs.k8s.io/yaml"
@@ -115,9 +116,13 @@ func (s *XdsStatusWriter) printMachineReadable(statuses map[string]*discovery.Di
 					validResources = append(validResources, resource)
 				}
 			}
-			filtered := *status
+			clonedStatus := proto.Clone(status)
+			filtered, ok := clonedStatus.(*discovery.DiscoveryResponse)
+			if !ok {
+				return fmt.Errorf("failed to cast cloned message to DiscoveryResponse")
+			}
 			filtered.Resources = validResources
-			outStatus = &filtered
+			outStatus = filtered
 		}
 		out, err := protomarshal.ToJSONWithIndent(outStatus, "    ")
 		if err != nil {
