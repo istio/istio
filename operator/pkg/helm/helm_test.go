@@ -221,6 +221,13 @@ func TestRender(t *testing.T) {
 			diffSelect:  "ValidatingWebhookConfiguration:*:istio-validator-istio-system",
 			isUpgrade:   true,
 		},
+		{
+			desc:        "istiod-webhook-failure-policy",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istio-validator-istio-system",
+		},
 	}
 
 	for _, tc := range cases {

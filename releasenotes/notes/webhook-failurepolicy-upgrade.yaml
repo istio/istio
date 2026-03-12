@@ -6,4 +6,5 @@ releaseNotes:
     **Fixed** a field manager conflict on `ValidatingWebhookConfiguration` during `helm upgrade` with
     server-side apply in tools that respect `.Release.IsUpgrade` (Helm 4, Flux). The `failurePolicy`
     field is now omitted from the webhook template on upgrade, preserving the value set at runtime
-    by the webhook controller.
+    by the webhook controller. For tools that use `helm template` with SSA, set
+    `base.validationFailurePolicy: Fail` to avoid the conflict.
