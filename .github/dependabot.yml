@@ -55,3 +55,39 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+
+  # Ignore all dependency updates in samples/
+  # We do not care about the dependencies in the samples/ directory as they are not meant
+  # to be part of production systems. They require manual testing and validation, as well as
+  # deployment.
+  - package-ecosystem: "pip"
+    directories:
+      - "/samples/**"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "npm"
+    directories:
+      - "/samples/**"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "bundler"
+    directories:
+      - "/samples/**"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "gomod"
+    directories:
+      - "/samples/**"
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "*"
