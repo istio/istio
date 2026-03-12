@@ -536,6 +536,22 @@ func TestManifestGenerateIstiodRemoteLocalInjection(t *testing.T) {
 	}
 }
 
+func TestManifestGenerateReaderRBACMulticlusterGating(t *testing.T) {
+	g := NewWithT(t)
+
+	t.Run("without clusterName", func(t *testing.T) {
+		manifest := generateManifest(t, "minimal", "--set values.global.resourceScope=all", liveCharts, nil)
+		objs := parseObjectSetFromManifest(t, manifest)
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(BeNil())
+	})
+
+	t.Run("with clusterName", func(t *testing.T) {
+		manifest := generateManifest(t, "minimal", "--set values.global.resourceScope=all --set values.global.multiCluster.clusterName=cluster-0", liveCharts, nil)
+		objs := parseObjectSetFromManifest(t, manifest)
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+	})
+}
+
 func TestPrune(t *testing.T) {
 	recreateSimpleTestEnv()
 	tmpDir := t.TempDir()
