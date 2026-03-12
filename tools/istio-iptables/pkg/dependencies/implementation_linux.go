@@ -170,8 +170,16 @@ func runInSandbox(lockFile string, f func() error) error {
 		}
 		// Remount / as a private mount so that our mounts do not impact outside the namespace
 		// (see https://unix.stackexchange.com/questions/246312/why-is-my-bind-mount-visible-outside-its-mount-namespace).
+		// MS_PRIVATE is preferred because it completely stops mount event propagation in both directions.
+		// However, on some systems (for example Bottlerocket on EKS), seccomp or LSM policies may block
+		// mount() calls that use MS_PRIVATE, even when running inside a new mount namespace. If that
+		// happens, we fall back to MS_SLAVE. For our use case this still achieves the main goal as it
+		// prevents our bind mounts from propagating back to the parent namespace, while being less likely
+		// to be blocked by stricter security policies.
 		if err := unix.Mount("", "/", "", unix.MS_PRIVATE|unix.MS_REC, ""); err != nil {
-			return fmt.Errorf("failed to remount /: %v", err)
+			if slaveErr := unix.Mount("", "/", "", unix.MS_SLAVE|unix.MS_REC, ""); slaveErr != nil {
+				return fmt.Errorf("failed to remount /: (MS_PRIVATE returned: %v; MS_SLAVE returned: %v)", err, slaveErr)
+			}
 		}
 		// In CNI, we are running the pod network namespace, but the host filesystem. Locking the host is both useless and harmful,
 		// as it opens the risk of lock contention with other node actors (such as kube-proxy), and isn't actually needed at all.
